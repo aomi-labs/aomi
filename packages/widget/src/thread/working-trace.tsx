@@ -42,11 +42,17 @@ import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import { agentStepCount, WorkingAgent } from "./working-agent";
 import { ContextStepRow } from "./context-step";
 import {
+  isReadOutputTool,
+  ReadOutputRow,
+  readOutputId,
+} from "./read-output-step";
+import {
   prefersReducedMotion,
   toDetailString,
   ToolStepRow,
   WorkingNote,
 } from "./working-trace-rows";
+import { isWorkLimitPause } from "./notice-codes";
 
 /** Interstitial prose and tool progress share one chronological trace. */
 
@@ -164,6 +170,15 @@ type TraceItem =
   | { kind: "note"; text: string; key: string }
   | { kind: "context"; step: ContextStep; key: string }
   | {
+      kind: "read";
+      /** Saved-output id every read in this run pages through. */
+      id?: string;
+      parts: ToolCallMessagePart[];
+      /** The tool whose output was shortened, when its trim is in this turn. */
+      sourceTool?: string;
+      key: string;
+    }
+  | {
       kind: "agent";
       agentId: string;
       /** Present once the mother's `task` part has landed in the transcript. */
@@ -245,6 +260,8 @@ export const WorkingTrace: FC<{
   startedAtMs?: number;
   phaseEvents?: readonly Event[];
   phaseTurnIds?: readonly string[];
+  /** The turn stopped at its work limit and can be continued. */
+  paused?: boolean;
 }> = ({
   viewKey = "trace",
   running,
@@ -255,6 +272,7 @@ export const WorkingTrace: FC<{
   startedAtMs,
   phaseEvents,
   phaseTurnIds,
+  paused = false,
 }) => {
   const [open, setOpen] = useChatViewFlag(`${viewKey}:open`, running);
   const [expanded, setExpanded] = useChatViewFlag(`${viewKey}:expanded`, false);
@@ -329,8 +347,9 @@ export const WorkingTrace: FC<{
   // Cap the open trace to a scrolling window — live and after completion alike:
   // the newest steps stay pinned at the bottom and older ones remain wheel/touch/
   // keyboard-scrollable under edge fades instead of marching down the page.
-  // Expanding ("Show all") still lifts the cap. The fades only engage once
-  // content actually overflows, so a short trace is never faded.
+  // Expanding ("Show all") still lifts the cap. The cap, fades and Show all
+  // only engage once content actually overflows, so a short trace is never
+  // faded, and one within the tolerance is never scrolled off its top padding.
   const windowed = !expanded;
   useEffect(() => {
     if (windowed && typeof ResizeObserver !== "undefined") return;
@@ -444,6 +463,17 @@ export const WorkingTrace: FC<{
     return () => observer.disconnect();
   }, [open, windowed, running, animating]);
 
+  // The cap lands a render after the body outgrows it, when the follow above
+  // had nothing to scroll yet; pin the newly capped window to its newest step.
+  useIsomorphicLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || !open || !windowed || !overflowing || animating) return;
+    if (running || followLatestRef.current) {
+      viewport.scrollTop = viewport.scrollHeight;
+      setHasContentBelow(false);
+    }
+  }, [overflowing, open, windowed, animating, running]);
+
   useEffect(() => () => animRef.current?.cancel(), []);
 
   useEffect(() => {
@@ -494,7 +524,7 @@ export const WorkingTrace: FC<{
         ? completedSeconds != null
           ? `Worked for ${formatDuration(completedSeconds)}`
           : "Worked it out"
-        : `${outcome === "failed" ? "Failed" : "Stopped"}${elapsedLabel}`;
+        : `${outcome === "failed" ? "Failed" : paused ? "Paused" : "Stopped"}${elapsedLabel}`;
 
   // Keep the status treatment continuous from Thinking into Working. The newest
   // revealed step retains its contextual shimmer while the header consistently
@@ -622,7 +652,10 @@ export const WorkingTrace: FC<{
                   !animating &&
                   "aui-working-trace-scroll",
               )}
-              style={{ maxHeight: windowed ? WORKING_WINDOW_PX : undefined }}
+              style={{
+                maxHeight:
+                  windowed && overflowing ? WORKING_WINDOW_PX : undefined,
+              }}
             >
               <div
                 ref={bodyRef}
@@ -642,6 +675,19 @@ export const WorkingTrace: FC<{
                               ? [previous.tool.result]
                               : [],
                           )}
+                        active={i === activeIndex}
+                        animate={animate}
+                        live={running}
+                      />
+                    );
+                  }
+                  if (item.kind === "read") {
+                    return (
+                      <ReadOutputRow
+                        key={item.key}
+                        parts={item.parts}
+                        sourceTool={item.sourceTool}
+                        stepKey={`${viewKey ?? ""}:${item.key}`}
                         active={i === activeIndex}
                         animate={animate}
                         live={running}
@@ -777,13 +823,22 @@ export const buildTraceItems = (
   const invocationKey = (callId: string, agentId: string) =>
     `agent-${JSON.stringify([callId, agentId])}`;
   let agentOrder = 0;
+  // Saved-output id -> the tool that produced it, from this turn's trims.
+  const trimmedSources = new Map<string, string>();
 
   content.forEach((part, i) => {
     if (part.type === "tool-call") {
       if (part.toolName === CONTEXT_STEP_TOOL) {
+        const step = part.args as unknown as ContextStep;
+        // Shortening a large output is bookkeeping, not a step: the reads
+        // that page it back in carry the source tool's name instead.
+        if (step.kind === "trimmed") {
+          if (step.id) trimmedSources.set(step.id, step.tool);
+          return;
+        }
         items.push({
           kind: "context",
-          step: part.args as unknown as ContextStep,
+          step,
           key: part.toolCallId ?? `context-${i}`,
         });
         return;
@@ -826,6 +881,29 @@ export const buildTraceItems = (
         return;
       }
 
+      if (isReadOutputTool(part.toolName)) {
+        const id = readOutputId(part);
+        const prev = items[items.length - 1];
+        // Paging one output is one step. A read still streaming its args most
+        // likely continues the run before it; a finished one without an id
+        // stands alone.
+        const streaming = id === undefined && part.result === undefined;
+        if (prev?.kind === "read" && (streaming || (id && id === prev.id))) {
+          prev.parts.push(part);
+          prev.id ??= id;
+          prev.sourceTool ??= id ? trimmedSources.get(id) : undefined;
+        } else {
+          items.push({
+            kind: "read",
+            id,
+            parts: [part],
+            sourceTool: id ? trimmedSources.get(id) : undefined,
+            key: part.toolCallId ?? `read-${i}`,
+          });
+        }
+        return;
+      }
+
       items.push({
         kind: "tool",
         tool: part,
@@ -857,6 +935,12 @@ export const buildTraceItems = (
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
   const messageId = useMessage((s) => s.id);
+  const pausedAtWorkLimit = useMessage((s) =>
+    isWorkLimitPause(
+      (s.metadata?.custom as { aomiNoticeCode?: string } | undefined)
+        ?.aomiNoticeCode,
+    ),
+  );
   const content = useMessage((s) => s.content);
   const finalAnswerStartIndex = useMessage(
     (s) =>
@@ -1041,7 +1125,10 @@ export const AssistantTurnParts: FC = () => {
           key="turn-trace"
           viewKey={messageId}
           running={live}
-          outcome={outcome}
+          outcome={
+            pausedAtWorkLimit && outcome === "failed" ? "interrupted" : outcome
+          }
+          paused={pausedAtWorkLimit}
           items={traceItems}
           revealed={traceItems.length}
           collapseReady={!live}
@@ -1060,7 +1147,8 @@ export const AssistantTurnParts: FC = () => {
       {live && parts.length === 0 && pending.length === 0 && (
         <MinimalWorkingTrace />
       )}
-      {outcome === "failed" && <TurnFailureFallback />}
+      {/* A work-limit pause has its own notice with Continue. */}
+      {outcome === "failed" && !pausedAtWorkLimit && <TurnFailureFallback />}
     </>
   );
 };

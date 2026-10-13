@@ -121,11 +121,9 @@ function ActivitySidebarContent() {
         ? `action:${tx.action.id}`
         : undefined;
   const batchSequence = new Map<string, number>();
-  const batchSizes = new Map<string, number>();
   for (const tx of transactionRows) {
     const key = batchKey(tx);
     if (!key) continue;
-    batchSizes.set(key, (batchSizes.get(key) ?? 0) + 1);
     batchSequence.set(
       key,
       Math.max(
@@ -152,7 +150,6 @@ function ActivitySidebarContent() {
     <TransactionCard
       key={tx.id}
       transaction={tx}
-      batchSize={batchSizes.get(batchKey(tx) ?? "") ?? 1}
       reviewing={Boolean(
         pending
           ? tx.action?.id === pending.id
@@ -576,7 +573,7 @@ function Group({
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="relative min-h-0 overflow-hidden">
           <div className="pt-3">{children}</div>
         </div>
       </div>

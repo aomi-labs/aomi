@@ -72,11 +72,15 @@ function PortalComposer({
   lockedTarget,
   appTag,
   sendDisabled,
+  opening,
 }: {
   lockedTarget?: DirectRoutingApp;
   appTag?: { app: string; applicationId?: number };
   sendDisabled: boolean;
+  opening: boolean;
 }) {
+  // A list that failed never confirms the link; the new chat is usable then.
+  const { threadListError } = useAomiRuntime();
   const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
   const routing = useMemo<AomiRoutingConfig>(
     () =>
@@ -91,7 +95,8 @@ function PortalComposer({
   return (
     <AomiFrame.Composer
       withControl
-      sendDisabled={sendDisabled}
+      sendDisabled={sendDisabled && !threadListError}
+      opening={opening && !threadListError}
       controlBarProps={{
         hideApiKey: true,
         routing,
@@ -159,6 +164,7 @@ export function ThreadUrlBootstrap({
     showNotification,
     events = [],
     isRemoteThread,
+    prefetchThread,
   } = useAomiRuntime();
   const urlNavigation = usePortalUrlNavigation();
   const threadListLoading = threadListRevalidating ?? listLoading;
@@ -190,6 +196,12 @@ export function ThreadUrlBootstrap({
       locationState.navigate(locationThread);
   }, [locationState, urlNavigation.href, urlNavigation.search]);
 
+  // The linked chat's history loads while the list that validates it does.
+  useEffect(() => {
+    if (ready && navigating && requestedThread)
+      prefetchThread?.(requestedThread);
+  }, [ready, navigating, requestedThread, prefetchThread]);
+
   useEffect(() => {
     if (locationState.getSnapshot() !== navigationSnapshot) return;
     if (
@@ -197,19 +209,22 @@ export function ThreadUrlBootstrap({
       !navigating ||
       navigationSnapshot.pendingUrl ||
       requestedThread === undefined ||
-      threadListLoading ||
       threadListError
     )
       return;
     if (requestedThread) {
       // A list can publish its store before this effect's rendered map catches
       // up. Validate the current owned store, including real archive/removal.
+      // An owned chat is opened as soon as any list page lists it; only the
+      // "unavailable" verdict needs every page.
       const metadata = getThreadMetadata(requestedThread);
       if (metadata && metadata.status !== "archived") {
         if (requestedThread !== currentThreadId) {
           selectThread(requestedThread);
           return;
         }
+      } else if (threadListLoading) {
+        return;
       } else {
         const url = new URL(urlNavigation.href, "http://portal.local");
         url.searchParams.delete("thread");
@@ -227,10 +242,13 @@ export function ThreadUrlBootstrap({
         void createThread();
         return;
       }
+    } else if (threadListLoading) {
+      return;
     } else if (isRemoteThread?.(currentThreadId) ?? events.length > 0) {
       void createThread();
       return;
     }
+    if (threadListLoading) return;
     locationState.settle();
   }, [
     ready,
@@ -502,6 +520,11 @@ export function PortalAomiFrame() {
             // waits for its target so admission cannot create a different chat.
             sendDisabled={
               urlNavigation.navigating && Boolean(urlNavigation.requestedThread)
+            }
+            // Until the URL is read, or while its chat is confirmed, a reload
+            // shows nothing instead of flashing the new-chat screen.
+            opening={
+              urlNavigation.navigating && urlNavigation.requestedThread !== null
             }
           />
           <SvmWalletBindingGate />

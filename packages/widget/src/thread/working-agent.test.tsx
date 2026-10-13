@@ -86,6 +86,59 @@ describe("WorkingAgent", () => {
     expect(rowOf(container)).toHaveTextContent("staged 1 swap");
   });
 
+  it("keeps a folded staging run's absolute content inside its clip", () => {
+    // Trimmed from a real "send 1 wei to self" delegation: the child's report
+    // links an address, and the explorer link's sr-only label is absolute.
+    // Unless the fold's clip is its containing block, that label escapes the
+    // folded rail, stretches the trace's scroll height, and the live trace
+    // follows it to the bottom: header "Working · 9 steps" over a blank body.
+    const report =
+      "1. Pending ID `1` — Base: send exactly 1 wei to self. Sender: " +
+      "[0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0](https://basescan.org/address/0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0).";
+    const { container } = render(
+      <WorkingAgent
+        agentId="task-agent:f08bbd5e16868fff16151584fb78e450"
+        run={makeRun({
+          label: "Prepare self-transfer",
+          steps: [
+            {
+              kind: "tool_call",
+              toolName: "evm_stage_tx",
+              args: { kind: "native_transfer", value: "1", chain_id: 8453 },
+              resultPreview: '{"chain_id":8453,"value":"1"}',
+              childSeq: 1,
+            },
+            {
+              kind: "tool_call",
+              toolName: "simulate_batch",
+              args: { transactions: [{ id: 1 }] },
+              resultPreview: '{"status":"passed"}',
+              childSeq: 2,
+            },
+            { kind: "note", text: report, childSeq: 3 },
+          ],
+          status: "completed",
+          message: report,
+          stagedCount: 1,
+          stepCount: 2,
+          durationMs: 18591,
+        })}
+        order={0}
+        active={false}
+        animate={false}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(rowOf(container).dataset.open).toBe("false");
+    const clip = container.querySelector(".aui-working-agent-rail")
+      ?.parentElement as HTMLElement;
+    expect(clip).toHaveClass("overflow-hidden");
+    expect(clip).toHaveClass("relative");
+  });
+
   it("renders a structured child return as a readable preview", () => {
     const { container } = render(
       <WorkingAgent

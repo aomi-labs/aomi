@@ -1289,6 +1289,60 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
+  it("carries Submit all across batches on other chains, in order", async () => {
+    const otherChain: CommitView = {
+      ...commit(0),
+      commit_id: "commit-arb",
+      stage_id: "evm:arb",
+      chain_ref: "42161",
+      batch: {
+        ...commit(0).batch!,
+        batch_id: "batch-2",
+        ordered_stage_ids: ["evm:arb"],
+        ordered_commit_ids: ["commit-arb"],
+        review_digest: "digest-2",
+      },
+      review: { ...commit(0).review!, digest: "digest-2" },
+    };
+    runtime.commits = [commit(0), commit(1), otherChain];
+    const execute = vi.fn((id: string) =>
+      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
+    );
+    controller(execute);
+    const { rerender } = render(<WalletReview />);
+    expect(screen.getByRole("button", { name: "Submit 1 of 3" })).toBeEnabled();
+    expect(
+      screen.getByText(/3 signatures across 2 networks, in order/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
+
+    // The other chain's batch must not cut in while leg 2 waits.
+    runtime.commits = [
+      { ...commit(0), state: "submitted" },
+      { ...commit(1), action: null },
+      otherChain,
+    ];
+    rerender(<WalletReview />);
+    expect(screen.getByRole("button", { name: /Waiting…/ })).toBeDisabled();
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    runtime.commits = [commit(0, "confirmed"), commit(1), otherChain];
+    rerender(<WalletReview />);
+    await waitFor(() => expect(execute).toHaveBeenNthCalledWith(2, "commit-2"));
+
+    runtime.commits = [
+      commit(0, "confirmed"),
+      commit(1, "confirmed"),
+      otherChain,
+    ];
+    rerender(<WalletReview />);
+    await waitFor(() =>
+      expect(execute).toHaveBeenNthCalledWith(3, "commit-arb"),
+    );
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
   it("says why Submit waits in the button, not a status line", () => {
     controller(vi.fn());
     runtime.commits = [
@@ -1465,7 +1519,7 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it("cancels when another batch becomes the visible review", async () => {
+  it("cancels when a batch outside the consent becomes the visible review", async () => {
     const execute = vi.fn((id: string) =>
       Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
     );
@@ -1490,7 +1544,9 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled(),
+      expect(
+        screen.getByRole("button", { name: "Submit 1 of 3" }),
+      ).toBeEnabled(),
     );
 
     runtime.commits = [

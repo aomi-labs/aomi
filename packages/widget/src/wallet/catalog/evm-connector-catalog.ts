@@ -37,6 +37,30 @@ export type ResolvedEvmWalletsConfig = {
   persistConnections?: boolean;
 };
 
+/**
+ * Point each chain's default RPC at the host's own endpoint. Chains without
+ * an entry keep viem's public default (e.g. eth.merkle.io for mainnet), which
+ * is rate-limited and shared. Config caches key on the resulting URLs.
+ */
+export function withRpcUrls<T extends readonly [Chain, ...Chain[]]>(
+  chains: T,
+  rpcUrls?: Readonly<Record<number, string>>,
+  keep?: ReadonlySet<number>,
+): T {
+  if (!rpcUrls || Object.keys(rpcUrls).length === 0) return chains;
+  return chains.map((chain) => {
+    const url = rpcUrls[chain.id]?.trim();
+    if (!url || keep?.has(chain.id)) return chain;
+    return {
+      ...chain,
+      rpcUrls: {
+        ...chain.rpcUrls,
+        default: { ...chain.rpcUrls.default, http: [url] },
+      },
+    };
+  }) as unknown as T;
+}
+
 function defaultHttpTransports(
   chains: readonly Chain[],
 ): Record<number, Transport> {

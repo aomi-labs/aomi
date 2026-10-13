@@ -103,6 +103,49 @@ describe("loading the chat list once access arrives", () => {
     ).toBe(true);
   });
 
+  it("shows the first page while older pages load, and aborts a replaced list", async () => {
+    const signals: AbortSignal[] = [];
+    const all = vi.fn(
+      ({
+        signal,
+        onPage,
+      }: {
+        signal: AbortSignal;
+        onPage: (rows: AgentSession[], more: boolean) => void;
+      }) => {
+        signals.push(signal);
+        onPage(
+          [{ id: "newest", title: "Newest", archived: false, updatedAt: 3 }],
+          true,
+        );
+        return new Promise<AgentSession[]>(() => {});
+      },
+    );
+    const options = fixture(all);
+    const view = renderHook(
+      ({ owner }) => {
+        const state = useThreadListSync({
+          ...options,
+          owner,
+          accountSessionAvailable: true,
+        });
+        return { ...state, threads: useThreadContext() };
+      },
+      { initialProps: { owner: GUEST }, wrapper },
+    );
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("newest")?.title,
+      ).toBe("Newest"),
+    );
+    expect(view.result.current.isThreadListLoading).toBe(false);
+    expect(view.result.current.isThreadListRevalidating).toBe(true);
+    expect(options.remoteThreadIdsRef.current.has("newest")).toBe(true);
+    view.rerender({ owner: SIGNED });
+    expect(signals[0]?.aborted).toBe(true);
+    expect(all).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps confirmed thread access during account restoration and clears it on sign-out", async () => {
     const all = vi.fn(async () => [
       { id: "saved-chat", title: "Saved", archived: false },

@@ -137,12 +137,9 @@ export function TransactionCard({
   reviewing = false,
   executing,
   current,
-  batchSize = 1,
 }: {
   transaction: ActivityTransaction;
   reviewing?: boolean;
-  /** Transactions in this card's wallet request; order shows only above one. */
-  batchSize?: number;
   executing: boolean;
   /** Staged in the current turn, including its callback turns. */
   current: boolean;
@@ -204,11 +201,6 @@ export function TransactionCard({
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
   const pendingStyle = active && !signed && !rejected && !terminal;
-  // Signing order inside the wallet request, shown only while it matters.
-  const signingOrder =
-    reviewing && pendingStyle && batchSize > 1
-      ? (tx.commit?.batch?.index ?? tx.actionIndex)
-      : undefined;
   const phases = ["Stage", "Simulate", "Commit", "Signed"]
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);
@@ -237,14 +229,6 @@ export function TransactionCard({
     >
       <div>
         <div className="flex items-center gap-2">
-          {signingOrder !== undefined ? (
-            <span
-              aria-label={`Signs ${signingOrder + 1}${signingOrder === 0 ? "st" : signingOrder === 1 ? "nd" : "th"}`}
-              className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums"
-            >
-              {signingOrder + 1}
-            </span>
-          ) : null}
           <Icon className="text-aomi-muted size-4 shrink-0" />
           <span
             className="type-control min-w-0 flex-1 truncate font-medium"

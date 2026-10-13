@@ -75,6 +75,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const desktop = useDesktopLayout();
+  // Leaving the detail discards its unsaved drafts; selecting never remounts.
+  const [detailVisit, setDetailVisit] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const mutationInFlight = useRef(false);
@@ -363,7 +366,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       >
         <button
           type="button"
-          onClick={() => setMobileDetailOpen(false)}
+          onClick={() => {
+            setMobileDetailOpen(false);
+            setDetailVisit((visit) => visit + 1);
+          }}
           className="border-aomi-border type-control flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 md:hidden"
         >
           <ArrowLeft className="size-4" />
@@ -377,23 +383,48 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             {actionError}
           </p>
         ) : null}
-        <LibraryDetailPanel
-          key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${mobileDetailOpen}`}
-          selection={loading ? null : activeSelection}
-          loading={loading}
-          installed={selectedInstalled}
-          installedReady={installedReady}
-          busy={
-            activeSelection?.kind === "app" &&
-            busyId === packageIdentityKey(activeSelection.item)
-          }
-          hostChainIds={hostChainIds}
-          accountUserId={accountUserId}
-          onInstall={install}
-          onUninstall={uninstall}
-          onTrySkill={trySkill}
-        />
+        {/* Below md the panel is a hidden overlay: mount it only once opened,
+            so it reads nothing for an app the user never looked at. */}
+        {desktop || mobileDetailOpen ? (
+          <LibraryDetailPanel
+            key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${detailVisit}`}
+            selection={loading ? null : activeSelection}
+            loading={loading}
+            installed={selectedInstalled}
+            installedReady={installedReady}
+            busy={
+              activeSelection?.kind === "app" &&
+              busyId === packageIdentityKey(activeSelection.item)
+            }
+            hostChainIds={hostChainIds}
+            accountUserId={accountUserId}
+            onInstall={install}
+            onUninstall={uninstall}
+            onTrySkill={trySkill}
+          />
+        ) : null}
       </div>
     </ModalShell>
   );
+}
+
+const DESKTOP_QUERY = "(min-width: 768px)";
+
+/** Whether the md layout shows the detail panel beside the list. */
+function useDesktopLayout(): boolean {
+  const [desktop, setDesktop] = useState(
+    () =>
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia(DESKTOP_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(DESKTOP_QUERY);
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return desktop;
 }

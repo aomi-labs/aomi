@@ -231,13 +231,6 @@ async function runScenario(
       await page.goto(PORTAL_URL, { waitUntil: "domcontentloaded" });
     }
 
-    // Thread hydration; the composer exists before it is usable.
-    await page
-      .locator(sel.loading)
-      .waitFor({ state: "detached", timeout: 60_000 })
-      .catch(() => {
-        // Already hydrated — the spinner may never have rendered.
-      });
     // The consent banner overlaps the composer and would sit in every frame.
     // Decline rather than accept — no reason a recording studio opts into
     // tracking. It mounts lazily (it appeared AFTER this point and intercepted

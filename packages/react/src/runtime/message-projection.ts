@@ -49,6 +49,9 @@ function toInboundMessage(
         custom: {
           aomiNoticeKind: "error",
           aomiNoticeTitle: "Error",
+          // Why the turn stopped, e.g. `execution_active_timeout`; the UI
+          // decides whether that reads as a failure or a pause.
+          ...(msg.code ? { aomiNoticeCode: msg.code } : {}),
         },
       },
     };
@@ -118,6 +121,8 @@ type AssistantProjection = {
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
   finalAnswerStartIndex?: number;
+  /** Terminal sequence of the callback turn that owns the answer. */
+  finalAnswerSequence?: number;
   responseMessageKey?: string;
 };
 
@@ -158,7 +163,14 @@ export type ContextStep =
       tokensAfter: number;
       durationMs: number;
     }
-  | { kind: "trimmed"; tool: string; bytes: number; tokens: number };
+  | {
+      kind: "trimmed";
+      tool: string;
+      /** Saved-output id that `read_tool_output` pages by. */
+      id: string;
+      bytes: number;
+      tokens: number;
+    };
 
 type ContextEvent =
   | ContextCompactingEvent
@@ -187,6 +199,7 @@ const contextStep = (event: ContextEvent): ContextStep => {
       return {
         kind: "trimmed",
         tool: event.tool,
+        id: event.id,
         bytes: event.bytes,
         tokens: event.tokens,
       };
@@ -416,6 +429,9 @@ export function projectAssistantMessages(
     }
   }
   const standaloneMessages = new Map<string, number>();
+  // The notice code that ended each turn, so its trace can drop the generic
+  // failure line when the notice already explains what happened.
+  const noticeCodes = new Map<string, string>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
   const continuationOwners = commitContinuationOwners(events);
@@ -475,15 +491,26 @@ export function projectAssistantMessages(
             inlineToolPart(toolResult, key, event.tool_call_id),
           );
         } else {
+          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             continuationOwners.has(event.turn_id ?? "") &&
             !parentsWithCallbacks.has(event.turn_id ?? "") &&
             turnKeys[index] !== event.turn_id &&
             key === `${event.turn_id}:response`
           ) {
-            projection.finalAnswerStartIndex ??= projection.parts.length;
+            // Sibling callbacks (one per chain's commit) each answer. The one
+            // that finished last saw every earlier result, so it is the
+            // answer; the earlier ones stay in the trace.
+            const finished =
+              terminal?.state === "complete"
+                ? terminal.sequence
+                : event.sequence;
+            if (finished >= (projection.finalAnswerSequence ?? -Infinity)) {
+              projection.finalAnswerSequence = finished;
+              projection.finalAnswerStartIndex =
+                projection.textParts.get(key) ?? projection.parts.length;
+            }
           }
-          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             event.message_key &&
             event.content.trim() &&
@@ -499,6 +526,8 @@ export function projectAssistantMessages(
         continue;
       }
 
+      if (event.sender === "notice" && event.code && event.turn_id)
+        noticeCodes.set(turnKeys[index]!, event.code);
       let projected = toInboundMessage(event, output.length);
       if (!projected) continue;
       const key = event.message_key ?? event.event_id;
@@ -567,6 +596,7 @@ export function projectAssistantMessages(
         ...(entry.finalAnswerStartIndex !== undefined ||
         callbackTurns ||
         entry.responseMessageKey ||
+        noticeCodes.has(root) ||
         terminalTurns.has(root)
           ? {
               metadata: {
@@ -585,6 +615,9 @@ export function projectAssistantMessages(
                     : {}),
                   ...(Object.keys(callbackTerminalStates).length
                     ? { aomiContinuationTurnStates: callbackTerminalStates }
+                    : {}),
+                  ...(noticeCodes.has(root)
+                    ? { aomiNoticeCode: noticeCodes.get(root) }
                     : {}),
                 },
               },

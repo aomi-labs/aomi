@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.3
+
+- Read simulation step evidence under `result` as well as `execution`, so passed batches no longer render as failed with zero gas.
+
 ## 0.10.1
 
 - Expose typed context budget and compaction events.

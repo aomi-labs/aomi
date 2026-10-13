@@ -1,4 +1,10 @@
-import { act, render, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -145,6 +151,8 @@ const api = (patch: Partial<AomiRuntimeApi> = {}) =>
     events: [],
     pendingActions: [],
     isStopping: false,
+    // The dot covers the send until the backend accepts it.
+    isSubmitting: true,
     turnState: "complete",
     cancelGeneration: () => {},
     ...patch,
@@ -180,7 +188,8 @@ describe("thread rendering under live runtime updates", () => {
     // Reader restoration legitimately updates ThreadBody on its first frame.
     // Measure unrelated runtime updates only after that initialization settles.
     await act(
-      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
     );
     const before = work.catalog.mock.calls.length;
     const rowsBefore = work.row.mock.calls.length;
@@ -216,13 +225,21 @@ describe("thread rendering under live runtime updates", () => {
   });
   it("publishes task presence, native terminal text, and notices while skipping unchanged message rows", async () => {
     const empty: ThreadMessageLike[] = [
-      { id: "live", role: "assistant", content: [], status: { type: "running" } },
+      {
+        id: "live",
+        role: "assistant",
+        content: [],
+        status: { type: "running" },
+      },
     ];
     const view = render(<Fixture api={api()} messages={empty} />);
     await act(
-      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
     );
-    expect(view.getByRole("status", { name: "Waiting for response" })).toBeVisible();
+    expect(
+      view.getByRole("status", { name: "Waiting for response" }),
+    ).toBeVisible();
     const started = {
       type: "task_started",
       agent_id: "child",
@@ -230,8 +247,12 @@ describe("thread rendering under live runtime updates", () => {
       app: "market",
       occurred_at: 1,
     } as AomiRuntimeApi["events"][number];
-    view.rerender(<Fixture api={api({ events: [started] })} messages={empty} />);
-    expect(view.queryByRole("status", { name: "Waiting for response" })).toBeNull();
+    view.rerender(
+      <Fixture api={api({ events: [started] })} messages={empty} />,
+    );
+    expect(
+      view.queryByRole("status", { name: "Waiting for response" }),
+    ).toBeNull();
     const running = work.row.mock.calls.length;
     const phase = {
       ...started,
@@ -251,7 +272,9 @@ describe("thread rendering under live runtime updates", () => {
     view.rerender(
       <Fixture api={api({ events: [started, completed] })} messages={empty} />,
     );
-    expect(view.getByRole("status", { name: "Waiting for response" })).toBeVisible();
+    expect(
+      view.getByRole("status", { name: "Waiting for response" }),
+    ).toBeVisible();
     expect(work.row.mock.calls.length).toBeGreaterThan(running);
     view.rerender(
       <Fixture
@@ -261,7 +284,9 @@ describe("thread rendering under live runtime updates", () => {
         ]}
       />,
     );
-    expect(view.queryByRole("status", { name: "Waiting for response" })).toBeNull();
+    expect(
+      view.queryByRole("status", { name: "Waiting for response" }),
+    ).toBeNull();
     expect(view.getByTestId(testIds.assistantMessage)).toHaveClass("py-0");
     const terminal: ThreadMessageLike[] = [
       {
@@ -272,7 +297,9 @@ describe("thread rendering under live runtime updates", () => {
     ];
     view.rerender(<Fixture api={api()} messages={terminal} />);
     expect(view.getByText("The terminal answer")).toBeVisible();
-    expect(view.queryByRole("status", { name: "Waiting for response" })).toBeNull();
+    expect(
+      view.queryByRole("status", { name: "Waiting for response" }),
+    ).toBeNull();
     view.rerender(
       <Fixture
         api={api()}
@@ -291,12 +318,91 @@ describe("thread rendering under live runtime updates", () => {
     );
     expect(view.getByText("Admission failed")).toBeVisible();
   });
-  it("updates a native message when it is no longer the last message", async () => {
+  it("hands the dot to the working trace once the send is accepted", () => {
     const empty: ThreadMessageLike[] = [
-      { id: "live", role: "assistant", content: [], status: { type: "running" } },
+      {
+        id: "live",
+        role: "assistant",
+        content: [],
+        status: { type: "running" },
+      },
     ];
     const view = render(<Fixture api={api()} messages={empty} />);
-    expect(view.getByRole("status", { name: "Waiting for response" })).toBeVisible();
+    expect(
+      view.getByRole("status", { name: "Waiting for response" }),
+    ).toBeVisible();
+    view.rerender(
+      <Fixture
+        api={api({ isSubmitting: false, turnState: "processing" })}
+        messages={empty}
+      />,
+    );
+    expect(
+      view.queryByRole("status", { name: "Waiting for response" }),
+    ).toBeNull();
+    view.rerender(
+      <Fixture
+        api={api({ isSubmitting: false, isStartUncertain: true })}
+        messages={empty}
+      />,
+    );
+    expect(
+      view.getByRole("status", { name: "Waiting for response" }),
+    ).toBeVisible();
+  });
+  it("shows a work-limit notice as paused with Continue", async () => {
+    const view = render(
+      <Fixture
+        api={api({ isSubmitting: false })}
+        messages={[
+          {
+            id: "aomi-notice-1",
+            role: "assistant",
+            content: [{ type: "text", text: "Execution timed out" }],
+            metadata: {
+              custom: {
+                aomiNoticeKind: "error",
+                aomiNoticeTitle: "Error",
+                aomiNoticeCode: "execution_active_timeout",
+              },
+            },
+          },
+        ]}
+      />,
+    );
+    expect(view.getByText("Paused at the work time limit")).toBeVisible();
+    expect(view.getByText("Finished steps are saved.")).toBeVisible();
+    expect(view.getByTestId(testIds.notice)).not.toHaveClass(
+      "border-destructive/40",
+    );
+    expect(view.getByTestId(testIds.continueAfterPause)).toBeEnabled();
+  });
+  it("shows a failed saved chat as an error with Retry, not the welcome", () => {
+    const retryThreadLoad = vi.fn();
+    const view = render(
+      <Fixture
+        api={api({ threadLoadError: true, retryThreadLoad })}
+        messages={[]}
+      />,
+    );
+    expect(view.getByText("Couldn't load this conversation")).toBeVisible();
+    expect(view.queryByTestId(testIds.composer)).toBeNull();
+    fireEvent.click(view.getByTestId(testIds.threadLoadRetry));
+    expect(retryThreadLoad).toHaveBeenCalledOnce();
+  });
+  it("updates a native message when it is no longer the last message", async () => {
+    const empty: ThreadMessageLike[] = [
+      {
+        id: "live",
+        role: "assistant",
+        content: [],
+        status: { type: "running" },
+      },
+    ];
+    const view = render(<Fixture api={api()} messages={empty} />);
+    expect(
+      view.getByRole("status", { name: "Waiting for response" }),
+    ).toBeVisible();
     view.rerender(
       <Fixture
         api={api()}

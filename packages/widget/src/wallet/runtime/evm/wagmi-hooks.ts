@@ -71,7 +71,19 @@ export function useWalletCapabilities(args: {
   const { data } = useCapabilities({
     account: args.account,
     connector: args.connector,
-    query: { enabled: shouldProbeWalletCapabilities(args), retry: false },
+    // wagmi keys this query by account only; two wallets on one seed (MetaMask
+    // and Rabby) must not share an answer. One probe covers every chain and
+    // stays fixed for the connection: never again on focus or remount.
+    scopeKey: args.connector
+      ? `${args.connector.uid}:${args.stableId ?? args.connector.id}`
+      : undefined,
+    query: {
+      enabled: shouldProbeWalletCapabilities(args),
+      retry: false,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    },
   } as never);
   return normalizeAtomicCapabilities(data as WalletCapabilities);
 }

@@ -460,14 +460,17 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
       </button>
 
       {/* The subtree animates its height open/closed and stays mounted, so a
-          fold never remounts (and never restarts) the child rows. */}
+          fold never remounts (and never restarts) the child rows. `relative`
+          makes the clip the containing block for absolute descendants (an
+          explorer link's sr-only label); otherwise they escape the fold and
+          stretch the trace's scroll height, which then follows into blank. */}
       <div
         className={cn(
           "grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="relative min-h-0 overflow-hidden">
           {/* The rail: the only thing marking whose steps these are. */}
           <div className="aui-working-agent-rail border-aomi-border mb-1.5 ml-[7px] mt-0.5 flex flex-col gap-0.5 border-l pl-[17px]">
             {steps.map((step, i) => {

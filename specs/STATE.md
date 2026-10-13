@@ -2,7 +2,50 @@
 
 ## Last Updated
 
-2026-10-08 — LINKING FOLLOW-UPS 2 (branch `fix/linking-followups-2`, #722).
+2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
+  Reloading `?thread=` no longer flashes the welcome screen while the account
+  and chat list confirm the link: the portal passes `opening` to
+  `AomiFrame.Composer` and the thread stays empty. The loading-chat skeleton
+  (`thread-loading.ts`, `testIds.skeleton`) is removed; a loading chat shows
+  nothing until it arrives.
+
+2026-10-12 — TRACE: SHORTENED TOOL OUTPUTS (branch `fix/trace-trimmed-tools`).
+  "Trimmed X output" rows are no longer shown; consecutive `read_tool_output`
+  calls on one saved output fold into a single row named after the source tool
+  ("Read commit transactions output") with coverage and read-count
+  chips, and open to the stitched, re-indented content instead of paging
+  envelopes (`packages/widget/src/thread/read-output-step.tsx`). The projected
+  `trimmed` context step now carries the saved-output `id`.
+
+2026-10-10 — PORTAL PERFORMANCE (branch `feat/portal-performance`, with
+  product-mono `feat/portal-performance`). Waiting states: the pulsing dot is
+  shown only while the start request is in flight again, then the existing
+  Thinking chip (restores the pre-865e5d91a gating; no visual change). A saved
+  chat whose history fails shows "Couldn't load this conversation" + Retry
+  (one quiet auto-retry) instead of the welcome hero, and Send is refused until
+  it loads. Reload: the linked chat loads beside the session list (abortable,
+  first page renders first, no duplicate list chain, prefetch ≤2 after the
+  open chat settles; portal `ThreadUrlBootstrap` opens an owned chat as soon
+  as any page lists it). Send no longer fetches `/api/account` first (the
+  backend applies the hosted default). Notices carry `code`;
+  `execution_active_timeout` renders as "Paused at the work time limit"
+  with Continue. The backend active-work limit is now off by default
+  (`AOMI_ACTIVE_WORK_TIMEOUT_SECS` re-enables it). "New Chat" is a display fallback, never a stored title.
+  Usage/Swig/General read the shared display cache and render sections as
+  they arrive; library secret status is cached per account+app and the
+  mobile detail panel mounts only when opened; wallet capabilities are cached
+  per wallet; network menu hover+click stays open; transaction ordinal badge
+  removed.
+
+Pending:
+- Backend must deploy before this frontend (server-side hosted default,
+  notice `code`). Regenerate agent-v1 types against the new backend.
+- Portal has no browser RPC map yet (`wallets.evm.rpcUrls`), so mainnet still
+  defaults to viem's public RPC.
+- With ~260 chats a Send still blocks the main thread ~1 s in dev mode
+  (pre-existing, not JS-heavy in the profile); measure in a production build.
+
+Previous: 2026-10-08 — LINKING FOLLOW-UPS 2 (branch `fix/linking-followups-2`, #722).
   One merge offer per Privy/Para login (exchange attempts keyed by login,
   not token); the provider modal closing stops the pending spinner. The
   account chip says "Sign in"/"Signing in…" until a connected wallet signs

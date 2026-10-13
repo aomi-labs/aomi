@@ -21,7 +21,10 @@ import {
 } from "wagmi/chains";
 import { ExtUserProvider } from "@aomi-labs/react";
 import { arc, arcTestnet, megaeth, robinhood } from "@aomi-labs/client";
-import { createAomiEvmConfig } from "@/wallet/catalog/evm-connector-catalog";
+import {
+  createAomiEvmConfig,
+  withRpcUrls,
+} from "@/wallet/catalog/evm-connector-catalog";
 import {
   AomiWalletNetworkPreferencesProvider,
   useAomiWalletNetworkPreferences,
@@ -85,7 +88,7 @@ function AomiPrivyProviderInner({
   const wagmiConfig = useMemo(
     () =>
       createAomiEvmConfig({
-        chains: networks,
+        chains: withRpcUrls(networks, wallets?.rpcUrls),
         preset: wallets?.preset,
         wallets: wallets?.wallets,
         connectors: wallets?.connectors,

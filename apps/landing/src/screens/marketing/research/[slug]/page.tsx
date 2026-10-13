@@ -10,6 +10,7 @@ import {
 } from "@/lib/research";
 import styles from "../../longform.module.css";
 import { ExecutionHarnessesResearch } from "./execution-harnesses-research";
+import { TaskApiResearchBody } from "./task-api-research";
 import { ThreeGatesResearch } from "./three-gates-research";
 
 function textFromChildren(children: ReactNode): string {
@@ -169,6 +170,12 @@ export default function ResearchPostPage({post}: {post: ResearchPost & {body: st
         }
       : markdownComponents;
 
+  const articleClassName = `${styles.prose} ${styles.proseWide} ${
+    post.slug === "introducing-the-aomi-task-api"
+      ? styles.borderlessFigures
+      : ""
+  }`;
+
   return (
     <main className={`${styles.page} ${styles.centered}`}>
       <header className={styles.hero}>
@@ -199,10 +206,14 @@ export default function ResearchPostPage({post}: {post: ResearchPost & {body: st
       </figure>
 
       <div className={styles.body}>
-        <article className={`${styles.prose} ${styles.proseWide}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-            {post.body}
-          </ReactMarkdown>
+        <article className={articleClassName}>
+          {post.slug === "introducing-the-aomi-task-api" ? (
+            <TaskApiResearchBody body={post.body} components={components} />
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              {post.body}
+            </ReactMarkdown>
+          )}
         </article>
       </div>
     </main>

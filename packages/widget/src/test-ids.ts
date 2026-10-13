@@ -16,7 +16,6 @@ export const testIds = {
   rerun: "aomi-rerun",
   trace: "aomi-trace",
   traceStep: "aomi-trace-step",
-  skeleton: "aomi-skeleton",
   sidebar: "aomi-sidebar",
   sidebarToggle: "aomi-sidebar-toggle",
   threadList: "aomi-thread-list",
@@ -38,6 +37,9 @@ export const testIds = {
   txApprove: "aomi-tx-approve",
   txReject: "aomi-tx-reject",
   notice: "aomi-notice",
+  continueAfterPause: "aomi-continue-after-pause",
+  threadLoadError: "aomi-thread-load-error",
+  threadLoadRetry: "aomi-thread-load-retry",
   paygate: "aomi-paygate",
 } as const;
 export type TestId = (typeof testIds)[keyof typeof testIds];

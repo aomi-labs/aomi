@@ -28,6 +28,7 @@ export type AomiFrameComposerProps = {
     controlBarProps?: Omit<ControlBarProps, "children">;
     welcomeTitle?: string;
     sendDisabled?: boolean;
+    opening?: boolean;
     className?: string;
 };
 

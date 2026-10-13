@@ -68,7 +68,10 @@ export async function simulateCommand(
     );
   }
   for (const step of result.steps) {
-    const execution = step.execution;
+    // Some backend builds named this key `result`.
+    const execution =
+      step.execution ??
+      (step as unknown as { result?: typeof step.execution }).result;
     const passed = execution?.status.kind === "succeeded";
     const icon = !execution
       ? `${DIM}–${RESET}`

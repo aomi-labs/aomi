@@ -61,6 +61,9 @@ import {
   isTurnStopped,
 } from "./turn-state";
 
+// A failed history read gets one quiet retry after this delay.
+const THREAD_LOAD_RETRY_DELAY_MS = 1500;
+
 // Native conversion caches are scoped to the chat runtime. A new converter
 // identity clears them, including when only shell metadata has changed.
 const identityMessage = (message: ThreadMessageLike) => message;
@@ -157,6 +160,9 @@ export function AomiRuntimeCore({
     getSession,
     ensureInitialState,
     isLoading,
+    isLoaded,
+    hasLoadFailed,
+    retryLoad,
     sendMessage: orchestratorSendMessage,
     cancelGeneration: orchestratorCancel,
     closeSession,
@@ -190,6 +196,7 @@ export function AomiRuntimeCore({
       if (!wasRemote && threadContextRef.current.currentThreadId === threadId)
         markControlSynced();
     },
+    isSavedThread: (threadId) => remoteThreadIdsRef.current.has(threadId),
     onSendError: (threadId, error) => {
       const failure = describeSendFailure(
         error,
@@ -256,14 +263,37 @@ export function AomiRuntimeCore({
   const userId = listAccount?.kind === "user" ? listAccount.id : null;
   // Bumped when the account's data changed under the same id (a merge).
   const [accountRevision, setAccountRevision] = useState(0);
+  // The list belongs to the identity its requests carry. An account that was
+  // still unknown when the list was requested is the one it resolves to (the
+  // chats are kept for that change too), so only a change between known
+  // identities, including a saved preview's, starts another list.
+  const previewAccount = displayCache?.restoredAccount;
+  const knownUser =
+    listAccount !== undefined
+      ? userId
+      : previewAccount?.kind === "user"
+        ? previewAccount.id
+        : undefined;
+  const listIdentity = useRef<{ user?: string | null; epoch: number }>({
+    epoch: 0,
+  });
+  if (knownUser !== undefined && listIdentity.current.user !== knownUser) {
+    listIdentity.current = {
+      user: knownUser,
+      epoch:
+        listIdentity.current.epoch +
+        (listIdentity.current.user === undefined ? 0 : 1),
+    };
+  }
+  const listEpoch = listIdentity.current.epoch;
   const listOwner = useMemo(
     () => ({
       backendUrl: owner.backendUrl,
       appId: owner.appId,
-      userId,
+      listEpoch,
       accountRevision,
     }),
-    [owner.backendUrl, owner.appId, userId, accountRevision],
+    [owner.backendUrl, owner.appId, listEpoch, accountRevision],
   );
   const refreshAccountData = useCallback(() => {
     const cache = displayCacheRef.current;
@@ -278,30 +308,78 @@ export function AomiRuntimeCore({
     }
     setAccountRevision((revision) => revision + 1);
   }, []);
-  const { isThreadListLoading, isThreadListRevalidating, threadListError } =
-    useThreadListSync({
-      restoringAccount,
-      aomiClientRef,
-      sessionManager,
-      ensureInitialState,
-      resetConversation,
-      remoteThreadIdsRef,
-      accountSessionAvailable,
-      owner: listOwner,
-      restoredThreadId,
-      onInvalidRestoredThread: forgetPersistedThread,
-    });
+  const {
+    isThreadListLoading,
+    isThreadListRevalidating,
+    threadListError,
+    canLoadThreads,
+  } = useThreadListSync({
+    restoringAccount,
+    aomiClientRef,
+    sessionManager,
+    ensureInitialState,
+    resetConversation,
+    remoteThreadIdsRef,
+    accountSessionAvailable,
+    owner: listOwner,
+    restoredThreadId,
+    onInvalidRestoredThread: forgetPersistedThread,
+  });
 
   const currentThreadId = threadContext.currentThreadId;
-  const isThreadLoading =
-    remoteThreadIdsRef.current.has(currentThreadId) &&
-    isLoading(currentThreadId);
+  const isSavedThread = remoteThreadIdsRef.current.has(currentThreadId);
+  // One quiet automatic retry per failure before the chat shows the error.
+  const autoRetry = useRef(new Map<string, "scheduled" | "used">());
+  const loadFailed = isSavedThread && hasLoadFailed(currentThreadId);
+  const threadLoadError =
+    loadFailed && autoRetry.current.get(currentThreadId) === "used";
+  const isThreadLoading = isSavedThread
+    ? isLoading(currentThreadId) || (loadFailed && !threadLoadError)
+    : // The restored chat loads beside the list; until the list confirms it,
+      // a failed attempt still reads as loading rather than a new chat.
+      currentThreadId === restoredThreadId &&
+      isThreadListRevalidating &&
+      !isLoaded(currentThreadId);
   useEffect(() => {
     if (!remoteThreadIdsRef.current.has(currentThreadId)) return;
     ensureInitialState(currentThreadId).catch((error) =>
       console.debug("Failed to load chat:", currentThreadId, error),
     );
   }, [ensureInitialState, currentThreadId]);
+  useEffect(() => {
+    const threadId = currentThreadId;
+    if (!loadFailed || autoRetry.current.has(threadId)) return;
+    autoRetry.current.set(threadId, "scheduled");
+    const timer = setTimeout(() => {
+      autoRetry.current.set(threadId, "used");
+      retryLoad(threadId).then(
+        () => autoRetry.current.delete(threadId),
+        (error) => console.debug("Failed to load chat:", threadId, error),
+      );
+    }, THREAD_LOAD_RETRY_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      if (autoRetry.current.get(threadId) === "scheduled")
+        autoRetry.current.delete(threadId);
+    };
+  }, [loadFailed, currentThreadId, retryLoad]);
+  const retryThreadLoad = useCallback(() => {
+    const threadId = threadContextRef.current.currentThreadId;
+    retryLoad(threadId).then(
+      () => autoRetry.current.delete(threadId),
+      (error) => console.debug("Failed to load chat:", threadId, error),
+    );
+  }, [retryLoad]);
+  /** Start reading a chat's history before it is selected. */
+  const prefetchThread = useCallback(
+    (threadId: string) => {
+      if (!canLoadThreads) return;
+      ensureInitialState(threadId).catch((error) =>
+        console.debug("Failed to prefetch chat:", threadId, error),
+      );
+    },
+    [canLoadThreads, ensureInitialState],
+  );
 
   // The server's user event can trail the start response by a poll or two.
   // Echo it immediately with the same ordinal id the server's own event will
@@ -503,6 +581,9 @@ export function AomiRuntimeCore({
       threadListError,
       threadListLoading: isThreadListLoading,
       threadListRevalidating: isThreadListRevalidating,
+      threadLoadError,
+      retryThreadLoad,
+      prefetchThread,
       isRemoteThread: (threadId) =>
         remoteThreadIdsRef.current.has(threadId) ||
         Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
@@ -517,6 +598,7 @@ export function AomiRuntimeCore({
       // Chat API
       isRunning,
       isSubmitting: snapshot.isSubmitting,
+      isStartUncertain: Boolean(snapshot.isStartUncertain),
       isStopping: snapshot.isStopping ?? false,
       getMessages,
       sendMessage,
@@ -552,6 +634,9 @@ export function AomiRuntimeCore({
       threadContext.allThreadsMetadata,
       threadContext.getThreadMetadata,
       threadListError,
+      threadLoadError,
+      retryThreadLoad,
+      prefetchThread,
       createThread,
       isThreadListLoading,
       isThreadListRevalidating,
@@ -561,6 +646,7 @@ export function AomiRuntimeCore({
       selectThread,
       isRunning,
       snapshot.isSubmitting,
+      snapshot.isStartUncertain,
       snapshot.isStopping,
       getMessages,
       sendMessage,

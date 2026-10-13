@@ -4,6 +4,7 @@
 
 ```ts
 
+import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiOnchainAddress } from '@aomi-labs/client';
@@ -533,7 +534,6 @@ export const testIds: {
     readonly rerun: "aomi-rerun";
     readonly trace: "aomi-trace";
     readonly traceStep: "aomi-trace-step";
-    readonly skeleton: "aomi-skeleton";
     readonly sidebar: "aomi-sidebar";
     readonly sidebarToggle: "aomi-sidebar-toggle";
     readonly threadList: "aomi-thread-list";
@@ -555,6 +555,9 @@ export const testIds: {
     readonly txApprove: "aomi-tx-approve";
     readonly txReject: "aomi-tx-reject";
     readonly notice: "aomi-notice";
+    readonly continueAfterPause: "aomi-continue-after-pause";
+    readonly threadLoadError: "aomi-thread-load-error";
+    readonly threadLoadRetry: "aomi-thread-load-retry";
     readonly paygate: "aomi-paygate";
 };
 

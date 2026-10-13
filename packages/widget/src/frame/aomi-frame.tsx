@@ -51,6 +51,7 @@ type ComposerControlContextValue = {
   controlBarProps?: Omit<ControlBarProps, "children">;
   welcomeTitle?: string;
   sendDisabled?: boolean;
+  opening?: boolean;
 };
 
 const ComposerControlContext = createContext<ComposerControlContextValue>({
@@ -135,6 +136,9 @@ type ComposerProps = {
   /** Hold sending (e.g. while the host restores the account session); the
    * rest of the composer stays usable. */
   sendDisabled?: boolean;
+  /** The host is still opening a saved chat; show neither the new-chat screen
+   * nor its composer until it arrives. */
+  opening?: boolean;
   className?: string;
 };
 
@@ -308,6 +312,7 @@ const Composer: FC<ComposerProps> = ({
   controlBarProps,
   welcomeTitle,
   sendDisabled = false,
+  opening = false,
   className,
 }) => {
   return (
@@ -317,6 +322,7 @@ const Composer: FC<ComposerProps> = ({
         controlBarProps,
         welcomeTitle,
         sendDisabled,
+        opening,
       }}
     >
       <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>

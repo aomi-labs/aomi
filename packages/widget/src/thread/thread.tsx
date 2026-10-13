@@ -36,10 +36,12 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
 
 import { Button } from "@/ui/button";
+import { AomiButton } from "@/ui/aomi/button";
 import { Skeleton } from "@/ui/skeleton";
 import { MarkdownText } from "./markdown-text";
 import { ToolFallback } from "./tool-fallback";
 import { AssistantTurnParts } from "./working-trace";
+import { isWorkLimitPause } from "./notice-codes";
 import { TooltipIconButton } from "./tooltip-icon-button";
 
 import {
@@ -64,9 +66,13 @@ import { ApiKeyInput } from "@/controls/api-key-input";
 import { NetworkSelect } from "@/controls/network-select";
 import { ConnectButton } from "@/wallet/connect-button";
 import { PaymentRequiredGate } from "@/controls/payment-required-gate";
-import { shouldShowThreadLoadingSkeleton } from "./thread-loading";
 import { CapabilityMessageText } from "./capability-message-text";
-import { useThread, useComposerRuntime, useMessage } from "@assistant-ui/react";
+import {
+  useThread,
+  useComposerRuntime,
+  useMessage,
+  useThreadRuntime,
+} from "@assistant-ui/react";
 import {
   CapabilityComposerProvider,
   useCapabilityComposer,
@@ -133,8 +139,6 @@ const ThreadBody = memo(function ThreadBody({
                         <ThreadWelcome />
                       </ThreadPrimitive.If>
 
-                      <ThreadLoadingSkeleton />
-
                       <ThreadPrimitive.Messages
                         components={{
                           UserMessage,
@@ -181,10 +185,15 @@ const ThreadScrollToBottom: FC = () => {
 
 const ThreadWelcome: FC = () => {
   const isLoading = useThread((t) => t.isLoading);
-  const { welcomeTitle = "What should happen on-chain?" } =
+  const runtime = useOptionalAomiRuntime();
+  const { welcomeTitle = "What should happen on-chain?", opening } =
     useComposerControl();
 
-  if (isLoading) return null;
+  // A saved chat on its way in shows nothing rather than a new chat.
+  if (isLoading || opening) return null;
+  // A saved chat whose history failed is not a new chat: no hero, no composer.
+  if (runtime?.threadLoadError)
+    return <ThreadLoadError onRetry={runtime.retryThreadLoad} />;
 
   return (
     <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-center gap-6 px-4">
@@ -212,6 +221,33 @@ const ThreadWelcome: FC = () => {
     </div>
   );
 };
+
+const ThreadLoadError: FC<{ onRetry?: () => void }> = ({ onRetry }) => (
+  <div className="aui-thread-load-error-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] flex-col items-center px-4">
+    <div
+      role="alert"
+      data-testid={testIds.threadLoadError}
+      className="aui-assistant-notice aui-thread-load-error bg-aomi-surface text-aomi-fg border-aomi-border w-full max-w-sm rounded-2xl border px-4 py-3 text-sm"
+    >
+      <div className="aui-assistant-notice-title mb-1 font-medium">
+        Couldn&apos;t load this conversation
+      </div>
+      <div className="aui-assistant-notice-message text-aomi-muted leading-5">
+        Check your connection and try again.
+      </div>
+      {onRetry && (
+        <AomiButton
+          size="sm"
+          className="mt-3"
+          data-testid={testIds.threadLoadRetry}
+          onClick={onRetry}
+        >
+          Retry
+        </AomiButton>
+      )}
+    </div>
+  </div>
+);
 
 const ThreadSuggestions: FC = () => {
   const composerRuntime = useComposerRuntime();
@@ -543,49 +579,6 @@ const MessageError: FC = () => {
   );
 };
 
-const ThreadLoadingSkeleton: FC = () => {
-  const showSkeleton = useThread((t) =>
-    shouldShowThreadLoadingSkeleton({
-      isLoading: t.isLoading,
-      messageCount: t.messages.length,
-    }),
-  );
-
-  if (!showSkeleton) return null;
-
-  return (
-    <div
-      role="status"
-      aria-label="Loading conversation"
-      aria-live="polite"
-      data-testid={testIds.skeleton}
-      className="aui-thread-loading-skeleton mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-3 px-4 py-6"
-    >
-      <AssistantMessageSkeleton widths={["42%", "68%", "56%"]} />
-      <div className="aui-thread-loading-skeleton-status flex items-center gap-2 px-2 pt-1">
-        <span className="bg-muted-foreground/30 size-2 animate-pulse rounded-full" />
-        <Skeleton className="h-2.5 w-24 rounded-full opacity-60" />
-      </div>
-    </div>
-  );
-};
-
-const AssistantMessageSkeleton: FC<{ widths?: string[] }> = ({
-  widths = ["72%", "56%", "64%"],
-}) => {
-  return (
-    <div className="aui-assistant-message-skeleton flex flex-col gap-2 px-2">
-      {widths.map((width, index) => (
-        <Skeleton
-          key={`${width}-${index}`}
-          className="aui-assistant-message-skeleton-line h-3 rounded-full"
-          style={{ width }}
-        />
-      ))}
-    </div>
-  );
-};
-
 const AssistantLoadingDot: FC = () => {
   return (
     <div
@@ -603,27 +596,45 @@ const AssistantMessage: FC = () => {
   const hasLiveTaskRun = Object.values(taskRuns).some(
     (run) => run.status === "running",
   );
-  return <AssistantMessageBody hasLiveTaskRun={hasLiveTaskRun} />;
+  // The dot covers only the send itself, until the backend accepts the turn;
+  // the working trace's Thinking takes over from there.
+  const runtime = useOptionalAomiRuntime();
+  const isSending = Boolean(runtime?.isSubmitting || runtime?.isStartUncertain);
+  return (
+    <AssistantMessageBody
+      hasLiveTaskRun={hasLiveTaskRun}
+      isSending={isSending}
+    />
+  );
 };
 
 const AssistantMessageBody = memo(function AssistantMessageBody({
   hasLiveTaskRun,
+  isSending,
 }: {
   hasLiveTaskRun: boolean;
+  isSending: boolean;
 }) {
   const isEmpty = useMessage((state) => state.content.length === 0);
   const isRunning = useMessage((state) => state.status?.type === "running");
   const isLast = useMessage((state) => state.isLast);
   const notice = useMessage((state) => state.metadata?.custom) as
-    | { aomiNoticeKind?: string; aomiNoticeTitle?: string }
+    | {
+        aomiNoticeKind?: string;
+        aomiNoticeTitle?: string;
+        aomiNoticeCode?: string;
+      }
     | undefined;
   // Notices are runtime records, not model turns: a payment gate, or a turn
   // the app failed to answer. They share one card treatment; only the accent
   // and the default title differ.
   const noticeKind = notice?.aomiNoticeKind;
   const isNotice = noticeKind === "payment_required" || noticeKind === "error";
-  const isErrorNotice = noticeKind === "error";
-  const showLoadingDot = isEmpty && isRunning && isLast && !hasLiveTaskRun;
+  // The work limit pauses a turn; it did not fail.
+  const isPausedNotice = isNotice && isWorkLimitPause(notice?.aomiNoticeCode);
+  const isErrorNotice = noticeKind === "error" && !isPausedNotice;
+  const showLoadingDot =
+    isEmpty && isRunning && isLast && isSending && !hasLiveTaskRun;
   const showFinishedEmptyMessage = isEmpty && !isRunning;
 
   return (
@@ -645,21 +656,30 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
                   "aui-assistant-notice bg-aomi-surface text-aomi-fg rounded-2xl border px-4 py-3 text-sm",
                   isErrorNotice
                     ? "aui-assistant-notice-error border-destructive/40"
-                    : "aui-assistant-payment-required border-aomi-border",
+                    : isPausedNotice
+                      ? "aui-assistant-notice-paused border-aomi-border"
+                      : "aui-assistant-payment-required border-aomi-border",
                 )}
               >
                 <div className="aui-assistant-notice-title mb-1 font-medium">
-                  {notice?.aomiNoticeTitle ??
-                    (isErrorNotice ? "Error" : "Credits needed")}
+                  {isPausedNotice
+                    ? "Paused at the work time limit"
+                    : (notice?.aomiNoticeTitle ??
+                      (isErrorNotice ? "Error" : "Credits needed"))}
                 </div>
                 <div className="aui-assistant-notice-message text-aomi-muted leading-5">
-                  <MessagePrimitive.Parts
-                    components={{
-                      Text: MarkdownText,
-                      tools: { Fallback: ToolFallback },
-                    }}
-                  />
+                  {isPausedNotice ? (
+                    "Finished steps are saved."
+                  ) : (
+                    <MessagePrimitive.Parts
+                      components={{
+                        Text: MarkdownText,
+                        tools: { Fallback: ToolFallback },
+                      }}
+                    />
+                  )}
                 </div>
+                {isPausedNotice && isLast && <ContinueAfterPause />}
               </div>
             )}
 
@@ -690,6 +710,29 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
     </MessagePrimitive.Root>
   );
 });
+
+/** Sends the follow-up that picks a paused turn back up. */
+const ContinueAfterPause: FC = () => {
+  const thread = useThreadRuntime();
+  const running = useThread((state) => state.isRunning);
+  const { sendDisabled } = useComposerControl();
+  return (
+    <AomiButton
+      size="sm"
+      className="mt-3"
+      disabled={running || sendDisabled}
+      data-testid={testIds.continueAfterPause}
+      onClick={() =>
+        thread.append({
+          role: "user",
+          content: [{ type: "text", text: "Continue" }],
+        })
+      }
+    >
+      Continue
+    </AomiButton>
+  );
+};
 
 function useTouchActions() {
   const [touchActions, setTouchActions] = useState(false);

@@ -109,6 +109,9 @@ export type AomiRuntimeApi = {
     threadListError: boolean;
     threadListLoading?: boolean;
     threadListRevalidating?: boolean;
+    threadLoadError?: boolean;
+    retryThreadLoad?: () => void;
+    prefetchThread?: (threadId: string) => void;
     isRemoteThread?: (threadId: string) => boolean;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
     createThread: () => Promise<string>;
@@ -118,6 +121,7 @@ export type AomiRuntimeApi = {
     selectThread: (threadId: string) => void;
     isRunning: boolean;
     isSubmitting: boolean;
+    isStartUncertain?: boolean;
     isStopping?: boolean;
     getMessages: (threadId?: string) => ThreadMessageLike[];
     sendMessage: (text: string) => Promise<void>;
@@ -205,6 +209,7 @@ export type ContextStep = {
 } | {
     kind: "trimmed";
     tool: string;
+    id: string;
     bytes: number;
     tokens: number;
 };

@@ -858,6 +858,121 @@ describe("projectAssistantMessages", () => {
     });
   });
 
+  it("answers with the sibling callback that finished last, not the first", () => {
+    // One commit per chain: Base's callback runs first and only knows about
+    // Base; Arbitrum's runs later and reports everything.
+    const base = "broadcast-terminal:batch-base";
+    const arb = "broadcast-terminal:batch-arb";
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "user",
+        content: "Withdraw on both chains",
+      },
+      {
+        ...meta(2, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "commit-arb",
+        tool_name: "evm_commit_txs",
+        tool_result: [
+          "Commit",
+          JSON.stringify({
+            commits: [{ commit_id: "arb", batch: { batch_id: "batch-arb" } }],
+          }),
+        ],
+      },
+      {
+        ...meta(3, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "commit-base",
+        tool_name: "evm_commit_txs",
+        tool_result: [
+          "Commit",
+          JSON.stringify({
+            commits: [{ commit_id: "base", batch: { batch_id: "batch-base" } }],
+          }),
+        ],
+      },
+      {
+        ...meta(4, "turn_state_changed", "turn-1"),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+      {
+        ...meta(5, "turn_state_changed", base),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(6, "message", base),
+        type: "message",
+        sender: "agent",
+        content: "Base is done; Arbitrum is still pending.",
+        message_key: `${base}:response`,
+      },
+      {
+        ...meta(7, "turn_state_changed", base),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+      {
+        ...meta(8, "turn_state_changed", arb),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(9, "message", arb),
+        type: "message",
+        sender: "agent",
+        content: "Arbitrum confirmed; checking the bridge.",
+        message_key: `${arb}:trace:note`,
+      },
+      {
+        ...meta(10, "message", arb),
+        type: "message",
+        sender: "agent",
+        content: "Everything completed.",
+        message_key: `${arb}:response`,
+      },
+      {
+        ...meta(11, "turn_state_changed", arb),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+    ];
+    const afterBase = projectAssistantMessages(events.slice(0, 8));
+    expect(afterBase[1]?.metadata?.custom).toMatchObject({
+      aomiFinalAnswerStartIndex: 2,
+    });
+    const projected = projectAssistantMessages(events);
+    expect(projected).toHaveLength(2);
+    expect(projected[1]).toMatchObject({
+      id: "turn:turn-1",
+      content: [
+        { type: "tool-call", toolName: "evm_commit_txs" },
+        { type: "tool-call", toolName: "evm_commit_txs" },
+        { type: "text", text: "Base is done; Arbitrum is still pending." },
+        { type: "text", text: "Arbitrum confirmed; checking the bridge." },
+        { type: "text", text: "Everything completed." },
+      ],
+      metadata: { custom: { aomiFinalAnswerStartIndex: 4 } },
+    });
+    const withoutBaseState = projectAssistantMessages(
+      events.filter(
+        (event) =>
+          event.turn_id !== base || event.type !== "turn_state_changed",
+      ),
+    );
+    expect(withoutBaseState[1]?.metadata?.custom).toMatchObject({
+      aomiFinalAnswerStartIndex: 4,
+    });
+  });
+
   it("keeps malformed cyclic callback ancestry in separate rows", () => {
     const projected = projectAssistantMessages([
       {
@@ -1218,6 +1333,7 @@ it("places context steps in the turn's trace in event order", () => {
   expect(content[0]?.args).toEqual({
     kind: "trimmed",
     tool: "hoodit_scan",
+    id: "t_142a",
     bytes: 2_200_000,
     tokens: 14_000,
   });

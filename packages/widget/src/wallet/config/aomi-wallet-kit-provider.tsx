@@ -72,6 +72,7 @@ import {
 import { FullTestnetConfigContext } from "@/wallet/full-testnet-config";
 import {
   createAomiEvmConfig,
+  withRpcUrls,
   type ResolvedEvmWalletsConfig,
 } from "@/wallet/catalog/evm-connector-catalog";
 import { resolveAomiSvmConfig } from "@/wallet/catalog/svm-wallet-catalog";
@@ -469,7 +470,12 @@ function AomiEvmExternalWalletProvider({
   const persistExternalWallet = resolveEvmConnectionPersistence(evmWallets);
   const evmConfig = useMemo(
     () => ({
-      chains: routing.routedChains,
+      // A full-testnet fork route wins over the host's production RPCs.
+      chains: withRpcUrls(
+        routing.routedChains,
+        evmWallets?.rpcUrls,
+        routing.routedChainIds,
+      ),
       preset: evmWallets?.preset,
       wallets: evmWallets?.wallets,
       connectors: evmWallets?.connectors,

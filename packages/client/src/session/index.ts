@@ -552,10 +552,9 @@ export class ClientSession {
     let requested = false;
     try {
       if (!operation.intent) {
-        const selected = this.getUserState?.();
-        const state = selected
-          ? await this.client.prepareUserState(this.sessionId, selected)
-          : undefined;
+        // Sent as selected. The backend applies the account's signing route
+        // (`UserState.route`) itself, so a Send needs no profile read first.
+        const state = this.getUserState?.();
         const target = startTargetFields({
           target: this.target,
           app: this.app,

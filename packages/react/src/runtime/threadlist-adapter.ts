@@ -6,7 +6,7 @@ import type { AomiClient } from "@aomi-labs/client";
 import type { ThreadContext } from "../contexts/thread-context";
 import { initThreadControl, type ThreadMetadata } from "../state/thread-store";
 import type { ThreadControlState } from "../state/thread-store";
-import { isPlaceholderTitle } from "./thread-title";
+import { DEFAULT_THREAD_TITLE, isPlaceholderTitle } from "./thread-title";
 import { parseTimestamp } from "./timestamp";
 
 // =============================================================================
@@ -38,7 +38,7 @@ function buildThreadLists(
     .map(
       ([id, meta]): ExternalStoreThreadData<"regular"> => ({
         id,
-        title: meta.title || "New Chat",
+        title: meta.title || DEFAULT_THREAD_TITLE,
         status: "regular",
       }),
     );
@@ -49,7 +49,7 @@ function buildThreadLists(
     .map(
       ([id, meta]): ExternalStoreThreadData<"archived"> => ({
         id,
-        title: meta.title || "New Chat",
+        title: meta.title || DEFAULT_THREAD_TITLE,
         status: "archived",
       }),
     );
@@ -109,7 +109,7 @@ export function buildThreadListAdapter({
       const threadId = generateUUID();
       threadContext.setThreadMetadata((prev) =>
         new Map(prev).set(threadId, {
-          title: "New Chat",
+          title: "",
           status: "regular",
           lastActiveAt: new Date().toISOString(),
           control: getInitialControl(),
@@ -192,7 +192,7 @@ export function buildThreadListAdapter({
             const defaultId = "default-session";
             threadContext.setThreadMetadata((prev) =>
               new Map(prev).set(defaultId, {
-                title: "New Chat",
+                title: "",
                 status: "regular",
                 lastActiveAt: new Date().toISOString(),
                 control: getInitialControl(),

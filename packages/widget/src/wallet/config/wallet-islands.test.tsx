@@ -38,6 +38,7 @@ vi.mock("@/wallet/runtime/svm/wallet-runtime", () => ({
 }));
 vi.mock("@/wallet/catalog/evm-connector-catalog", () => ({
   createAomiEvmConfig: () => ({}),
+  withRpcUrls: <T,>(chains: T) => chains,
 }));
 vi.mock("@/wallet/runtime/evm/provider", () => ({
   AomiEvmRuntimeProvider: ({ children }: { children: ReactNode }) => children,
