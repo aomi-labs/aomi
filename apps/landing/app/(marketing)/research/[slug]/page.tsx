@@ -189,6 +189,12 @@ export default async function ResearchPostPage({
         }
       : markdownComponents;
 
+  const articleClassName = `${styles.prose} ${styles.proseWide} ${
+    post.slug === "introducing-the-aomi-task-api"
+      ? styles.borderlessFigures
+      : ""
+  }`;
+
   return (
     <main className={`${styles.page} ${styles.centered}`}>
       <header className={styles.hero}>
@@ -218,7 +224,7 @@ export default async function ResearchPostPage({
       </figure>
 
       <div className={styles.body}>
-        <article className={`${styles.prose} ${styles.proseWide}`}>
+        <article className={articleClassName}>
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
             {post.body}
           </ReactMarkdown>

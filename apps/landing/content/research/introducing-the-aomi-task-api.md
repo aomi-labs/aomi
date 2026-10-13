@@ -3,64 +3,130 @@ Aomi Blog post — introducing-the-aomi-task-api
 slug: introducing-the-aomi-task-api
 tag: launch
 Figures live in public/research/introducing-the-aomi-task-api/figures/.
-Source of truth for copy: Notion "Introducing the Aomi Task API" (launch brief).
 -->
 
 # Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc
 
-Since launch, Arc has been building an agentic economy with real participants. Trading venues are opening their markets to agents. Protocols are exposing their contracts to them. Builders are shipping agents that pay invoices, rebalance treasuries and route liquidity. The agents are arriving, and USDC is already here.
+## The agentic economy needs reliable execution and two-sided services
 
-For that economy to be robust rather than merely busy, two things have to be true.
+Since launch, [Arc](https://www.arc.io/blog/arc-economic-os-internet) has been building an agentic economy with real participants. Trading venues are opening their markets to agents. Protocols are exposing their contracts to them. Builders are shipping agents that pay invoices, rebalance treasuries and route liquidity. The agents are arriving, and the [onchain settlement rail](https://www.circle.com/usdc) is already here.
 
-**First, agents have to be reliable at onchain work.** Not reliable on average. Reliable on every task, with an outcome the user can verify before the money moves. An economy where every participant has to trust that the agent probably did the right thing is not an economy. It's a bet.
+For that economy to thrive beyond the noise, two conditions must hold.
 
-**Second, agents have to be on both sides of the market.** Every builder on Arc is creating something unique: a pricing model, a risk engine, a routing strategy, a vendor workflow. In a working economy those become services that other agents buy, priced by the result they deliver. Today's agents are mostly spenders. They need to be sellers too.
+### #1 Agents deliver reliable onchain execution
 
-The Aomi Task API solves the first problem, and it delivers the second paradigm.
+Reliability on every task means yielding an outcome the buyer can inspect before money moves. Agentic services with probabilistic outcomes are not sustainable: buyers would be taking risks and making bets.
+
+### #2 Agents participate on both sides of the service market
+
+Take Arc as an example: builders are creating new protocols, workflows and data products. In an agentic economy, these become callable services. Today’s agents are mostly buyers. They need to become sellers too.
+
+The Task API itself participates as a service-selling agent, packaging simulation-verified execution as a priced service that other agents can inspect and buy.
+
+## Industry Insights: Why now?
+
+Arc is one settlement rail for this emerging economy, but the shift extends well beyond crypto. AI, cloud, payments and commerce companies are building the same missing machinery: verifiable intent, bounded authority, deterministic guardrails and payment tied to observable outcomes.
+
+| Industry signal | What is changing |
+|---|---|
+| **Google · AP2** | [Signed mandates](https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol) preserve what a buyer requested, approved and ultimately purchased—even when an agent finishes the job later. |
+| **Visa · Cloudflare** | [Trusted Agent Protocol](https://corporate.visa.com/en/sites/visa-perspectives/newsroom/visa-unveils-trusted-agent-protocol-for-ai-commerce.html) and [secure agentic commerce](https://blog.cloudflare.com/secure-agentic-commerce/) give merchants signals for distinguishing authorized agents from hostile bots. |
+| **AWS · AgentCore** | [Payment guardrails](https://aws.amazon.com/blogs/machine-learning/enable-safe-agentic-payments-with-built-in-guardrails-using-amazon-bedrock-agentcore-payments/) evaluate identity, tool and parameters before an agent action is allowed. |
+| **Mysten · Google Cloud** | [Verifiable Agent Arbiter](https://www.prnewswire.com/news-releases/mysten-labs-announces-verifiable-agent-arbiter-in-collaboration-with-google-cloud-302899202.html) is designed to prove what an agent was allowed to do, what it did and what resulted. |
+| **Intercom · Salesforce** | [Fin prices resolved outcomes](https://www.intercom.com/blog/building-outcome-based-pricing-for-fin-for-sales); [Agentforce meters agent work](https://help.salesforce.com/s/articleView?id=004811240&language=en_US&type=1). Software economics are moving closer to completed work. |
+| **Arc · Circle** | [Arc](https://www.arc.io/blog/arc-economic-os-internet), [USDC](https://www.circle.com/usdc) and [Gateway with x402](https://www.circle.com/blog/enabling-machine-to-machine-micropayments-with-gateway-and-usdc) provide dollar-denominated settlement that software can use directly. |
 
 ## How it works
 
-![Builder, Aomi and Circle as three boxes. The agent sends a task with constraints to the Task API and gets a verified outcome and quote back. The app pays for the outcome through Circle Gateway, the artifact is released, the exact transaction goes to the Circle wallet for review and signing, Arc settles it, and the receipt returns to the app.](/research/introducing-the-aomi-task-api/figures/architecture.png)
+An agent sends a task describing what it wants to do, together with constraints such as target addresses, spending limits, slippage and other dos and don’ts. In headless mode, the Task API resolves the intent, constructs the transaction and rehearses it against live Arc state. It returns a simulation-verified outcome: which balances move, which approvals are granted and whether every limit holds.
 
-An agent sends a task with its constraints: what it wants to do, the targets it may touch, the most it may spend. Aomi rehearses that task against live Arc state and returns the verified outcome: which balances move, which approvals get granted, and whether the limits hold.
+If the buyer accepts the outcome, it pays in USDC and receives the exact transaction. The deliverable is not an ambiguous plan or suggestion, but signable bytes that produce the inspected result.
 
-If that's the outcome the agent wants, it pays in USDC and receives the exact transaction. Not a plan, not a suggestion. The bytes that produced the outcome it just saw.
+The buyer’s [Circle wallet](https://www.circle.com/wallets) signs and submits the transaction. The Task API never holds a key; it is aware only of public wallet addresses. If the buyer does not sign, the transaction expires and is discarded. Nothing happens.
 
-The builder's Circle wallet decides whether to sign. Aomi never holds a key. Ever. No account, no API key, no custody. The wallet signs, or nothing happens.
-
-![Sequence diagram in eleven steps across three authorities. Task authority: the agent signs a task with EIP-712, Aomi rehearses it on live Arc state and returns a verified outcome with a 402 quote. Payment authority: the agent pays in USDC through Circle Gateway and receives the exact transaction as an immutable artifact. Execution authority: the Circle wallet reviews and signs, Arc settles, and the app verifies the receipt before marking the job complete.](/research/introducing-the-aomi-task-api/figures/sequence.png)
-
-None of this asks anyone to trust the agent. The agent sees the outcome, then pays. The wallet sees the transaction, then signs. Every step is checked by the party that would bear its cost.
+![Task, payment and execution authorities remain separate. The buyer’s agent signs the task, the Task API rehearses it and returns a quote, the buyer separately pays for the artifact, and its Circle wallet separately signs the exact transaction before Arc settlement.](/research/introducing-the-aomi-task-api/figures/sequence.png)
 
 ## Pay for outcomes, not tokens
 
-The price is $1 plus 3% of what moves. No subscription. No token meter.
+The Task API charges $1 plus 3% of the sender’s gross outgoing USDC, measured from the rehearsed transaction before purchase.
 
-![Two panels. Left, token metering: tokens consumed, calls made and compute minutes are billed whether or not there is an outcome. Right, outcome pricing: a verified outcome of 1,000 USDC to a vendor, approval of exactly 1,000 USDC, limits held, no reverts, priced at $1 plus 3% of 1,000 USDC, $31.00. Not the outcome you want? Don't buy it.](/research/introducing-the-aomi-task-api/figures/pricing.png)
+Because every task is simulated before purchase, the rehearsed outcome is both the deliverable and the audit trail against which the charge is calculated. Arc executes the resulting onchain service and settles its payment.
 
-Most agent infrastructure bills by effort: tokens consumed, calls made, minutes of compute. You pay whether the agent got anything done or not. The Task API charges for a result you have already seen. If the rehearsed outcome isn't the one you want, you don't buy it.
+This is the most practical benefit of using a blockchain as the platform for agentic activity: when software actions carry real-world consequences, execution, verification and payment share the same observable foundation.
 
-This is what makes agents reliable enough to run an economy on. Reliability isn't a promise about the model. It's a property of the transaction: verified before it's bought, bought before it's signed, signed only by the wallet that owns the funds.
+Most agent vendors bill the buyer for tokens, regardless of whether the agent completes the task. Most outcome-based products are not agent-friendly either. A service may charge for a generated slide deck, for example, but the workflow still assumes a person will create an account, iterate on the slides, enter a credit card and approve payment before downloading the result.
+
+![Token metering compared with outcome pricing. Conventional systems bill for effort whether or not there is a result; the Task API prices a rehearsed outcome that the buyer can inspect before purchase.](/research/introducing-the-aomi-task-api/figures/pricing.png)
+
+The Task API is headless and purchased one task at a time, making it native to machine workflows. Together, x402 settlement and pre-purchase simulation address the [fair-exchange problem](https://arxiv.org/abs/0910.4342): the seller can rely on settlement while the buyer can inspect the outcome before paying for it. Simulation is preserved within the agent’s tool trace, confining the decisive computation to an auditable part of the exchange.
+
+## The remaining trust boundary
+
+In V1, the Task API furnishes verification through its simulation infrastructure: the buyer receives a deterministic rehearsal, bounded transaction bytes and an audit trail before purchase. The direction for V2 is to make that computation independently verifiable. Candidate approaches include trusted execution environments, zero-knowledge proofs and durable audit attestations; the protocol design remains open while we evaluate which combination best supports trust-minimized exchange.
+
+## Example: Alice’s agent finds a dislocation
+
+Alice runs a trading agent across an order-book venue and Arc liquidity. The agent sees a firm bid for EURC on the order book while an Arc pool offers cheaper EURC inventory. It can reason about the opportunity, but it should not improvise transaction bytes with Alice’s money.
+
+Alice already holds EURC. Her agent sells 900 EURC into the firm bid for 990 USDC, then asks the Task API to replenish that inventory from the Arc pool—but only if it can buy at least 900 EURC for no more than 940.50 USDC through contracts Alice has approved.
+
+> **Illustrative future swap integration**
+>
+> “Buy at least 900 EURC. Spend at most 940.50 USDC. Refuse if the route changes.”
+
+The signed task binds the chain, wallet, exact pool and approval targets, maximum outgoing USDC, minimum EURC received, gas ceiling, call order, idempotency key and a five-minute expiry.
+
+1. The Task API reconstructs the request and verifies Alice’s wallet.
+2. The calls are simulated against pinned Arc state.
+3. Changed targets, excess spend, insufficient output or failed calls are rejected.
+4. The agent receives a signed 402 preview and checks whether the rehearsed edge still clears its threshold.
+5. Payment and execution require separate wallet signatures.
+
+| Known before purchase | Amount |
+|---|---:|
+| Order-book proceeds | 990.000 USDC |
+| Maximum Arc repurchase | −940.500 USDC |
+| Gross trading edge | 49.500 USDC |
+| Task price: $1 + 3% | −29.215 USDC |
+| **Edge before gas** | **20.285 USDC** |
+
+These prices are illustrative, not a claim about an available spread. The point is that simulation-verified execution and its price enter the agent’s decision before it commits.
+
+| Available at launch | Next protocol frontier |
+|---|---|
+| Signature-only Task authorization | Pool-aware swap preparation |
+| Arc Mainnet simulation | Approval and multicall validation |
+| Signed 402 quote and artifact hash | Minimum-received verification |
+| Separate USDC service payment | Live route and receipt proof |
+| Bounded native-USDC execution | Independently verifiable simulation |
 
 ## Agents buying from agents
 
-The Task API is itself an agent-to-agent service. It's discovered and bought over x402, settled in USDC, priced per result. An agent on Arc can call it with no human in the loop and no relationship with Aomi beyond the signature on the request.
+The Task API is listed on [NoHumans](https://nohumans.directory/), [Open402](https://github.com/ArcedeDev/open-402), [Agent402](https://agent402.tools/marketplace) and [Superstables](https://www.superstables.com/). Builders can also inspect its contract and examples through [Postman](https://www.postman.com/) and the Arc Showcase. Every surface resolves to the same headless service: a wallet-signed request, a simulation-verified result and USDC settlement over [x402](https://www.x402.org).
 
-That's the pattern for every builder on Arc. Wrap what you know, your pricing model, your risk engine, your vendor workflow, into a task. Put a price on the outcome. Sell it to the agents that need it. The same rails that let an agent buy verified execution from Aomi let it sell its own expertise to the next agent.
+That distribution model is also the larger thesis. A builder’s pricing model, risk engine, routing strategy or operational workflow can become a callable service with a price attached to its outcome. The rails that let one agent buy simulation-verified execution from the Task API can let another sell its own expertise. Agents cease to be only spenders and become sellers; that is the half of an agentic economy that compounds.
 
-Agents stop being only spenders and become sellers. That is the second half of the economy, and it's the half that compounds.
+## Try it out
 
-## What's live
+The fastest way to understand the protocol is to send one bounded task. The production Task API exposes the complete signature-first exchange, from wallet authorization to a simulation-verified 402 outcome.
 
-The Aomi Task API is in preview on Arc Testnet, proven end to end with a paid run and real Arc receipts: a builder's existing agent, a verified outcome, a Circle wallet signing, and the transactions landing exactly as rehearsed.
+1. **Define one bounded task.** State the intent, allowed targets, value limits, slippage and expiry.
+2. **Authorize the exact request.** The buyer’s wallet signs the EIP-712 Task authorization.
+3. **Inspect the rehearsed outcome.** Review the calls, state changes, constraints, price and artifact hash returned with the 402.
+4. **Pay, then execute.** Approve the service payment and sign the exact transaction as separate wallet actions.
 
-Two ways in:
+Task authorization, service payment and final execution remain three independent approvals. The [Task client](https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client) and [Execution Kit guide](https://arc-canteen.aomi.dev/execution-kit) contain the integration surface and complete request flow.
 
-- **Already have intelligence?** Call the Task API through the Execution Kit. Keep your policy, your product and your users.
-- **Need the agent too?** Agent-in-a-Box gives you one, with your own tools plugged in.
+**From hackathon infrastructure to Task API.** The Task API grew out of the [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/), hosted by the [Canteen](https://thecanteenapp.com/) team and sponsored by Aomi Labs. It began as an [Execution Kit](https://arc-canteen.aomi.dev/execution-kit) for builders bringing financial agents to Arc. Working alongside those builders revealed a broader need: inspectable execution, machine-native fair exchange and agents selling services to other agents are not hackathon-specific problems. The Task API turns that builder infrastructure into a service for the wider agent economy.
 
-Either way the venue stays yours, the wallet stays yours, and the outcome is verified before it lands.
+## References
 
-Mainnet follows, and we'll say when.
-
-**Read the Execution Kit →** [arc-canteen.aomi.dev/execution-kit](https://arc-canteen.aomi.dev/execution-kit)
+- [Arc economic operating system](https://www.arc.io/blog/arc-economic-os-internet)
+- [USDC by Circle](https://www.circle.com/usdc)
+- [Circle Wallets](https://www.circle.com/wallets)
+- [The fair-exchange problem](https://arxiv.org/abs/0910.4342)
+- [Circle Gateway and x402](https://www.circle.com/blog/enabling-machine-to-machine-micropayments-with-gateway-and-usdc)
+- [x402](https://www.x402.org)
+- [Canteen](https://thecanteenapp.com/)
+- [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/)
+- [Arc × Canteen Execution Kit](https://arc-canteen.aomi.dev/execution-kit)

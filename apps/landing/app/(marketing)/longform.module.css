@@ -278,6 +278,13 @@
   background: #fff;
 }
 
+/* The Task API diagrams already include their own white canvas and spacing. */
+.borderlessFigures img {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
 .prose figcaption,
 .prose .caption {
   margin-top: 10px;
