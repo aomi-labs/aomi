@@ -8,8 +8,8 @@ sources_of_truth:
   - repowiki.toml
   - docs/topics
   - scripts/repowiki
-  - specs/DOMAIN.md
-  - specs/METADATA.md
+  - docs/specs/DOMAIN.md
+  - docs/specs/METADATA.md
 ---
 
 # Repo Wiki Index
@@ -25,8 +25,8 @@ sources_of_truth:
 - [generated/repo-inventory.md](generated/repo-inventory.md): generated workspace inventory
 - [generated/markdown-inventory.md](generated/markdown-inventory.md): generated markdown inventory
 - [local-dev-stack.md](local-dev-stack.md): local BFF/BetterAuth stack setup
-- [../specs/DOMAIN.md](../specs/DOMAIN.md): architecture and runtime invariants
-- [../specs/METADATA.md](../specs/METADATA.md): environment and package reference
+- [specs/DOMAIN.md](specs/DOMAIN.md): architecture and runtime invariants
+- [specs/METADATA.md](specs/METADATA.md): environment and package reference
 
 ## Topic Set
 

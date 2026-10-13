@@ -35,25 +35,25 @@ review_after_days: 7
 - `docs/topics/client-runtime/facts/transport-client.md` via `topics`
 - `docs/topics/development/facts/workspace.md` via `topics`
 - `docs/topics/index.md` via `topics-index`
-- `specs/AA-ARCH.md` via `specs`
-- `specs/AUTH-STACK-REVIEW.md` via `specs`
-- `specs/DOMAIN.md` via `specs`
-- `specs/MERGE-BFF-BETTERAUTH-FIXES.md` via `specs`
-- `specs/METADATA.md` via `specs`
-- `specs/PROGRESS.md` via `specs`
-- `specs/RUNTIME-ARCH.md` via `specs`
-- `specs/SHADCN-RELEASE.md` via `specs`
-- `specs/SSE-CONNECTION-EXHAUSTION.md` via `specs`
-- `specs/STATE.md` via `specs`
-- `specs/WALLET-ADAPTERS-ARCH.md` via `specs`
-- `specs/WALLET-KIT-CLEANUP.md` via `specs`
-- `specs/WALLET-KIT-PR-WALKTHROUGH.md` via `specs`
-- `specs/WALLET-PROVIDER-PLUGIN-REFACTOR.md` via `specs`
-- `specs/WIDGET-AUTH-PLAN.md` via `specs`
-- `specs/mcp-be-handoff.md` via `specs`
-- `specs/mcp-be-integration.md` via `specs`
-- `specs/mcp-design.md` via `specs`
-- `specs/portal-widget-lib-unification.md` via `specs`
+- `docs/specs/AA-ARCH.md` via `specs`
+- `docs/specs/AUTH-STACK-REVIEW.md` via `specs`
+- `docs/specs/DOMAIN.md` via `specs`
+- `docs/specs/MERGE-BFF-BETTERAUTH-FIXES.md` via `specs`
+- `docs/specs/METADATA.md` via `specs`
+- `docs/specs/PROGRESS.md` via `specs`
+- `docs/specs/RUNTIME-ARCH.md` via `specs`
+- `docs/specs/SHADCN-RELEASE.md` via `specs`
+- `docs/specs/SSE-CONNECTION-EXHAUSTION.md` via `specs`
+- `docs/specs/STATE.md` via `specs`
+- `docs/specs/WALLET-ADAPTERS-ARCH.md` via `specs`
+- `docs/specs/WALLET-KIT-CLEANUP.md` via `specs`
+- `docs/specs/WALLET-KIT-PR-WALKTHROUGH.md` via `specs`
+- `docs/specs/WALLET-PROVIDER-PLUGIN-REFACTOR.md` via `specs`
+- `docs/specs/WIDGET-AUTH-PLAN.md` via `specs`
+- `docs/specs/mcp-be-handoff.md` via `specs`
+- `docs/specs/mcp-be-integration.md` via `specs`
+- `docs/specs/mcp-design.md` via `specs`
+- `docs/specs/portal-widget-lib-unification.md` via `specs`
 
 ## Excluded Files
 

@@ -28,8 +28,10 @@ test("portal changes select portal and its browser surfaces", () => {
   assert.equal(selected.portal, true);
   assert.equal(selected.journeys, true);
   assert.equal(selected.browser_contracts, true);
-  assert.equal(selected.preview, true);
   assert.equal(selected.consumer_compat, false);
+  assert.equal(selected.journeys_scope, "full");
+  assert.deepEqual(selected.app_matrix, ["portal"]);
+  assert.equal(selected.package_build, true);
 });
 
 test("renames and deletions select from both reported paths", () => {
@@ -39,7 +41,6 @@ test("renames and deletions select from both reported paths", () => {
   ]);
   assert.equal(selected.portal, true);
   assert.equal(selected.journeys, true);
-  assert.equal(selected.preview, true);
 });
 
 test("shared package changes fan out to every dependent surface", () => {
@@ -118,4 +119,70 @@ test("journey harness changes run the journeys and the packed browser jobs only"
     assert.equal(selected.browser_contracts, true, path);
     assert.equal(selected.packages, false, path);
   }
+});
+
+test("pull requests run journey smoke and skip release gates for app-only changes", () => {
+  const selected = classifyPaths(["apps/portal/src/routes/index.tsx"], {
+    pullRequest: true,
+  });
+  assert.equal(selected.portal, true);
+  assert.equal(selected.journeys, true);
+  assert.equal(selected.journeys_scope, "smoke");
+  assert.equal(selected.browser_contracts, false);
+  assert.equal(selected.consumer_compat, false);
+  assert.deepEqual(selected.app_matrix, ["portal"]);
+});
+
+test("pull requests touching packages or changesets run the release gates", () => {
+  const widget = classifyPaths(["packages/widget/src/frame/aomi-frame.tsx"], {
+    pullRequest: true,
+  });
+  assert.equal(widget.journeys, true);
+  assert.equal(widget.browser_contracts, true);
+  assert.equal(widget.consumer_compat, true);
+
+  const react = classifyPaths(["packages/react/src/runtime.ts"], {
+    pullRequest: true,
+  });
+  assert.equal(react.consumer_compat, true);
+  assert.equal(react.browser_contracts, true);
+  assert.equal(react.journeys, false, "journey smoke is Portal/widget only");
+  assert.equal(react.package_build, true);
+
+  const changeset = classifyPaths([".changeset/quiet-owls.md"], {
+    pullRequest: true,
+  });
+  assert.equal(changeset.consumer_compat, true);
+  assert.equal(changeset.apps, false);
+  assert.equal(changeset.package_build, false);
+});
+
+test("non-Portal app pull requests skip journeys and release gates", () => {
+  const selected = classifyPaths(["apps/build/src/router.tsx"], {
+    pullRequest: true,
+  });
+  assert.equal(selected.build, true);
+  assert.equal(selected.journeys, false);
+  assert.equal(selected.browser_contracts, false);
+  assert.deepEqual(selected.app_matrix, ["build"]);
+});
+
+test("release-gate harness changes still run their own gate on pull requests", () => {
+  for (const [path, key] of [
+    ["scripts/ci/test-browser-contracts.mjs", "browser_contracts"],
+    ["scripts/ci/check-consumer-compatibility.mjs", "consumer_compat"],
+    ["tests/contracts/consumer-lockfile.test.mjs", "consumer_compat"],
+    [".github/workflows/widget-package-contracts.yml", "consumer_compat"],
+  ]) {
+    assert.equal(classifyPaths([path], { pullRequest: true })[key], true, path);
+  }
+});
+
+test("forced production runs keep the full journey suite", () => {
+  const selected = classifyPaths(["docs/readme.md"], {
+    forceFull: true,
+    pullRequest: true,
+  });
+  assert.equal(selected.journeys_scope, "full");
+  assert.equal(selected.browser_contracts, true);
 });

@@ -27,6 +27,7 @@
 .DS_Store
 *.pem
 .claude/
+/memory/
 .playwright-mcp/
 .repowiki/
 .fastembed_cache/

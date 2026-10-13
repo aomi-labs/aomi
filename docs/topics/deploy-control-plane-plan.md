@@ -43,7 +43,7 @@ Layering (see session diagrams):
   session UI. Structurally "the first partner" of the package.
 - **Package (`@aomi-labs/deploy`)** — the deployment feature, GitHub-free.
   Ships the BFF route factory (each consumer mounts their own BFF in their
-  Next.js server), typed client, hooks/UI. Partner config surface:
+  TanStack Start or other server), typed client, hooks/UI. Partner config surface:
   `platform`, backend base URL, session/auth adapter, Aomi-issued service
   credential. **Not** configurable: any GitHub token (option gets deleted).
 - **Build control plane (new Rust bin)** — everything that bridges to

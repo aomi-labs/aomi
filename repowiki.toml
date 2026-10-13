@@ -15,7 +15,7 @@ include = [
     "docs/topics/index.md",
     "docs/topics/**/facts/**/*.md",
     "docs/generated/**/*.md",
-    "specs/*.md",
+    "docs/specs/*.md",
 ]
 exclude = [
     ".claude/**",
@@ -98,7 +98,7 @@ require_metadata = false
 
 [[source_rule]]
 name = "specs"
-glob = "specs/*.md"
+glob = "docs/specs/*.md"
 kind = "reference"
 default_status = "reference"
 default_area = "development"
@@ -125,7 +125,6 @@ owners = ["platform", "frontend"]
 [[area]]
 name = "apps"
 code = [
-    "apps/base/**",
     "apps/landing/**",
     "apps/portal/**",
     "apps/telegram/**",

@@ -2,8 +2,6 @@ name: Hosted Wallet E2E
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "41 3 * * 1-5"
 
 permissions:
   contents: read
@@ -14,7 +12,7 @@ concurrency:
 
 jobs:
   wallet:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.AOMI_HOSTED_WALLET_E2E_NIGHTLY == '1')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging-e2e
     timeout-minutes: 16

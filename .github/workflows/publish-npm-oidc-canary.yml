@@ -72,4 +72,4 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: "true"
           NPM_DIST_TAG: oidc-canary
-        run: node scripts/publish-package-if-needed.mjs '${{ inputs.package_directory }}'
+        run: node scripts/release/publish-package-if-needed.mjs '${{ inputs.package_directory }}'

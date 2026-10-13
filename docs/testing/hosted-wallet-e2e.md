@@ -20,8 +20,7 @@ could broadcast or approve a transaction are aborted and counted as failures.
 The prompt explicitly forbids Privy delegation because this case verifies the
 attended wallet-review path, not autonomous custody.
 
-The trusted `Hosted Wallet E2E` workflow runs only by manual dispatch or an
-opt-in weekday nightly schedule. It checks out main, uses one Chromium worker,
+The trusted `Hosted Wallet E2E` workflow runs only by manual dispatch. It checks out main, uses one Chromium worker,
 has a 16-minute job cap, and stores no Playwright trace, screenshot, or video.
 Pull-request jobs and previews do not receive signing keys. The workflow's
 `staging-e2e` environment is restricted to the `main` branch in GitHub's
@@ -38,8 +37,7 @@ run:
 The staging workflow pins `AOMI_HOSTED_E2E_CHAIN_ID=84532` and the public HTTPS
 Base Sepolia RPC directly in its environment. Its preflight validates both
 wallet inputs and confirms the RPC reports chain 84532 before installing
-dependencies or Chromium. Set the repository variable
-`AOMI_HOSTED_WALLET_E2E_NIGHTLY=1` only when the nightly run is wanted. The
+dependencies or Chromium. The
 default workflow target is the canonical staging Portal. No production wallet,
 personal wallet, funding action, local chain, local backend, or browser
 extension is part of this test.

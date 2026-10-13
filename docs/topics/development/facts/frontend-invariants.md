@@ -5,12 +5,12 @@ status: authoritative
 area: development
 review_after_days: 30
 sources_of_truth:
-  - scripts/check-consumer-compatibility.mjs
-  - scripts/check-consumer-compatibility-baseline.mjs
-  - scripts/check-frontend-boundaries.mjs
-  - scripts/test-browser-contracts.mjs
-  - scripts/test-packed-consumers.mjs
-  - scripts/browser-hosts.mjs
+  - scripts/ci/check-consumer-compatibility.mjs
+  - scripts/ci/check-consumer-compatibility-baseline.mjs
+  - scripts/ci/check-frontend-boundaries.mjs
+  - scripts/ci/test-browser-contracts.mjs
+  - scripts/ci/test-packed-consumers.mjs
+  - scripts/ci/browser-hosts.mjs
   - .github/scripts/select-ci-paths.mjs
   - .github/workflows/ci.yml
   - .github/CODEOWNERS
@@ -41,7 +41,7 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 | VISUAL-01    | Chat, account, settings, usage, and wallet-review surfaces keep their reviewed production layout.                         | Deterministic production-build Playwright image contracts.                 |
 | ACTION-01    | Wallet Actions require an explicit choice and remain durable, idempotent, and fail closed across errors and reloads.      | Controlled-upstream browser Action lifecycle contract.                     |
 | TEST-01      | Compatibility failures, omitted browser scenarios, or missing prerequisites block merging.                                | Required `Frontend CI Passed` aggregate checks all dependency jobs.        |
-| OWNER-01     | Consumer, boundary, harness, and CI protection changes require frontend-owner review.                                     | CODEOWNERS plus GitHub required code-owner approval.                       |
+| OWNER-01     | Publishing and production-rollback workflow changes require frontend-owner review.                                        | CODEOWNERS plus GitHub required code-owner approval.                       |
 
 ## Shared UI and host policy
 
@@ -95,12 +95,17 @@ invalid baseline fails rather than falling back to candidate consumers.
 ## Conditional CI selection
 
 The required `Frontend CI Passed` check always runs, but expensive dependency
-jobs run only when their owned paths or a shared dependency changed. Portal and
-Build changes select their preview smoke; Portal and widget/auth changes select
-the relevant browser contracts; publishable package changes select packed
-consumer compatibility. Plain documentation and historical work-log changes do
-not run product builds. Landing content under `apps/landing/content` is product
-input and still selects Landing.
+jobs run only when their owned paths or a shared dependency changed. Packages
+build once per run and downstream jobs reuse that artifact; each affected app
+checks in its own matrix job. On pull requests, Portal and widget changes run
+the journey smoke subset (guest send/stream, thread switch, tx review/sign),
+and the release-gating jobs (consumer compatibility, widget package contracts,
+production browser contracts, packed consumers) run only when `packages/**`,
+`.changeset/**`, examples, or their own harness change. Push to `main`, the
+nightly schedule, and manual dispatch run every selected job with the full
+journeys. Plain documentation and historical work-log changes do not run
+product builds. Landing content under `apps/landing/content` is product input
+and still selects Landing.
 
 Lockfiles, root build configuration, shared source, selector changes, unknown
 paths, unavailable comparisons, and every production candidate default to the
@@ -141,7 +146,7 @@ not weaken this check to pass an ordinary refactor.
 
 CODEOWNERS alone does not enforce review: `main` must require code-owner approval
 and `Frontend CI Passed` in GitHub branch protection. Keep stale approval
-dismissal enabled. The baseline and enforcement files are themselves owned.
+dismissal enabled.
 
 These checks establish package and consumer compatibility for the exercised
 examples and prove the listed cross-origin browser-to-BFF journeys. Browser
