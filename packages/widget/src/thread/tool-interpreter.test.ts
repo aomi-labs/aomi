@@ -1121,6 +1121,25 @@ describe("tool interpreter", () => {
     ]);
   });
 
+  it("does not show a sent amount for a reverted EVM receipt", () => {
+    const hash = `0x${"b".repeat(64)}`;
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash }),
+      result: {
+        chain: "base",
+        chain_id: 8453,
+        transaction_hash: hash,
+        status: "failed",
+        value: "1",
+        fee: "0.000021",
+        effects: { account: "0xsender" },
+      },
+    });
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual(["Base", "0xbbbbb…bbbbb", "Reverted"]);
+  });
+
   it("flags a reverted transaction without failing the read", () => {
     const step = interpretToolStep({
       toolName: "get_transaction",
