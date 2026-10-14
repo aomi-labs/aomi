@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.6
+
+- Show transactions staged by protocol staging tools (`stage_*`, which return `staged: [records]`) in the working trace and the activity sidebar, with "Stage …" titles. Retired `*_prepare_*` tool names still render in saved threads.
+
 ## 3.1.2
 
 - Consume the React runtime that prefers GPT-6.1 Sol for new and Auto threads while preserving manual model selections.
