@@ -1,4 +1,4 @@
-import { HomeRedirect } from "@build/features/overview/home-redirect";
+import { HomeRedirect } from "@/features/overview/home-redirect";
 
 export default function HomePage() {
   return <HomeRedirect />;

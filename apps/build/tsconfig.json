@@ -23,24 +23,6 @@
       }
     ],
     "paths": {
-      "@build/*": [
-        "./src/*"
-      ],
-      "@aomi-labs/widget-lib": [
-        "../shadcn-registry/src/index.ts"
-      ],
-      "@aomi-labs/widget-lib/*": [
-        "../shadcn-registry/src/*"
-      ],
-      "@/components/*": [
-        "../shadcn-registry/src/components/*"
-      ],
-      "@/hooks/*": [
-        "../shadcn-registry/src/hooks/*"
-      ],
-      "@/lib/*": [
-        "../shadcn-registry/src/lib/*"
-      ],
       "@aomi-labs/account": [
         "../../packages/account/src/index.ts"
       ],
@@ -65,12 +47,6 @@
       "@aomi-labs/react/*": [
         "../../packages/react/src/*"
       ],
-      "@aomi-labs/service": [
-        "../../packages/service/src/index.ts"
-      ],
-      "@aomi-labs/service/*": [
-        "../../packages/service/src/*"
-      ],
       "@tanstack/react-query": [
         "./node_modules/@tanstack/react-query"
       ],
@@ -91,6 +67,9 @@
       ],
       "viem/*": [
         "./node_modules/viem/*"
+      ],
+      "@/*": [
+        "./src/*"
       ]
     }
   },

@@ -74,8 +74,8 @@ pnpm --filter telegram check   # typecheck → lint → test → build
 ## Design
 
 The UI is built from the Aomi design system exactly as the portal is:
-`@aomi-labs/widget-lib/themes/default.css` for tokens and
-`@aomi-labs/widget-lib/components/ui/*` for primitives, so the two surfaces
+`@aomi-labs/widget/themes/default.css` for tokens and
+`@aomi-labs/widget/components/ui/*` for primitives, so the two surfaces
 cannot drift. Only the light/dark _choice_ is taken from Telegram.
 
 **widget-lib pins Privy v2 while this app runs v3.** Its UI primitives are

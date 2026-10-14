@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { ProjectPage } from "@build/features/launch/components/deployments/project-page";
+import { ProjectPage } from "@/features/deploy/components/deployments/project-page";
 
 export default async function ProjectDetailPage({
   params,

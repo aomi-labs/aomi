@@ -8,11 +8,12 @@
 //   - The auto-effect that fills in a missing model from stored preference
 //     OR re-aligns "auto" threads to the latest available default.
 //   - The two user-facing setters (onModelSelect, onAppSelect).
-//   - The pending-control state carried by the next canonical Agent start.
+//   - The pending-control state carried by the next Agent start.
 //
 // State that isn't per-thread (apiKey, available models, authorized apps)
 // is read via refs — this hook depends on but doesn't own them.
 
+import { createScopedStorage, type ScopedStorage } from "@aomi-labs/client";
 import { useCallback, useEffect } from "react";
 import type { MutableRefObject } from "react";
 import type {
@@ -29,6 +30,8 @@ import {
 } from "../state/thread-store";
 import { resolveAutoModel } from "./model-selection";
 
+const defaultStorage = createScopedStorage({ backendUrl: "" });
+
 const MODEL_SELECTION_STORAGE_KEY = "aomi_model_selection";
 const AGENT_MODE_STORAGE_KEY = "aomi_agent_mode";
 
@@ -44,9 +47,9 @@ type AppSelectionOptions = {
 type DirectAgentTarget = Extract<AgentTarget, { mode: "direct" }>;
 type AgentModeSelectionOptions = { persist?: boolean };
 
-function readStoredAgentMode(): AgentMode {
+function readStoredAgentMode(storage: ScopedStorage): AgentMode {
   try {
-    return globalThis.localStorage?.getItem(AGENT_MODE_STORAGE_KEY) === "direct"
+    return storage.migrate("agentMode", AGENT_MODE_STORAGE_KEY) === "direct"
       ? "direct"
       : "auto";
   } catch {
@@ -54,17 +57,19 @@ function readStoredAgentMode(): AgentMode {
   }
 }
 
-function writeStoredAgentMode(mode: AgentMode): void {
+function writeStoredAgentMode(storage: ScopedStorage, mode: AgentMode): void {
   try {
-    globalThis.localStorage?.setItem(AGENT_MODE_STORAGE_KEY, mode);
+    storage.set("agentMode", mode);
   } catch {
     // localStorage not available
   }
 }
 
-function readStoredModelPreference(): StoredModelPreference {
+function readStoredModelPreference(
+  storage: ScopedStorage,
+): StoredModelPreference {
   try {
-    const raw = globalThis.localStorage?.getItem(MODEL_SELECTION_STORAGE_KEY);
+    const raw = storage.migrate("modelSelection", MODEL_SELECTION_STORAGE_KEY);
     if (!raw) return { mode: "auto", model: null };
     const parsed = JSON.parse(raw) as Partial<StoredModelPreference>;
     return {
@@ -76,12 +81,12 @@ function readStoredModelPreference(): StoredModelPreference {
   }
 }
 
-function writeStoredModelPreference(preference: StoredModelPreference): void {
+function writeStoredModelPreference(
+  storage: ScopedStorage,
+  preference: StoredModelPreference,
+): void {
   try {
-    globalThis.localStorage?.setItem(
-      MODEL_SELECTION_STORAGE_KEY,
-      JSON.stringify(preference),
-    );
+    storage.set("modelSelection", JSON.stringify(preference));
   } catch {
     // localStorage not available
   }
@@ -215,6 +220,7 @@ export type PerThreadControlActions = {
 };
 
 type UsePerThreadControlOptions = {
+  storage?: ScopedStorage;
   sessionIdRef: MutableRefObject<string>;
   getThreadMetadataRef: MutableRefObject<
     (threadId: string) => ThreadMetadata | undefined
@@ -238,6 +244,7 @@ type UsePerThreadControlOptions = {
 /** Provider-internal: owns per-thread control wiring. Consumers should use
  *  the `usePerThreadControl` slice reader from contexts/control-context.tsx. */
 export function usePerThreadControlImpl({
+  storage = defaultStorage,
   sessionIdRef,
   getThreadMetadataRef,
   updateThreadMetadataRef,
@@ -253,10 +260,10 @@ export function usePerThreadControlImpl({
   const getCurrentThreadControl = useCallback((): ThreadControlState => {
     const metadata = getThreadMetadataRef.current(sessionIdRef.current);
     return metadata?.control ?? initThreadControl();
-  }, []);
+  }, [storage]);
 
   const getPreferredThreadControl = useCallback((): ThreadControlState => {
-    const preference = readStoredModelPreference();
+    const preference = readStoredModelPreference(storage);
     const selection = resolvePreferredModelSelection(
       preference,
       availableModelsRef.current,
@@ -264,12 +271,12 @@ export function usePerThreadControlImpl({
     );
     return {
       ...initThreadControl(),
-      agentMode: readStoredAgentMode(),
+      agentMode: readStoredAgentMode(storage),
       model: selection.model,
       modelMode: selection.mode,
       controlDirty: selection.model !== null,
     };
-  }, []);
+  }, [storage]);
 
   const getCurrentThreadApp = useCallback((): string => {
     const currentControl =
@@ -284,7 +291,7 @@ export function usePerThreadControlImpl({
         defaultAppRef.current,
       )?.name ?? "default"
     );
-  }, []);
+  }, [storage]);
 
   const getCurrentThreadAgentMode = useCallback((): AgentMode => {
     const control = getCurrentThreadControl();
@@ -307,7 +314,7 @@ export function usePerThreadControlImpl({
         defaultAppRef.current,
       )?.applicationId ?? null
     );
-  }, []);
+  }, [storage]);
 
   const getCurrentThreadTarget = useCallback((): AgentTarget => {
     if (getCurrentThreadAgentMode() === "auto") return { mode: "auto" };
@@ -340,9 +347,9 @@ export function usePerThreadControlImpl({
           controlDirty: true,
         },
       });
-      if (options?.persist !== false) writeStoredAgentMode("direct");
+      if (options?.persist !== false) writeStoredAgentMode(storage, "direct");
     },
-    [],
+    [storage],
   );
 
   const onModelSelect = useCallback(
@@ -364,12 +371,12 @@ export function usePerThreadControlImpl({
       // Agent start is the single session/turn mutation. Keep selection local
       // until the next send; the runtime passes it into ClientSession and
       // clears controlDirty only after that start succeeds.
-      writeStoredModelPreference({
+      writeStoredModelPreference(storage, {
         mode: modelMode,
         model: modelMode === "manual" ? model : null,
       });
     },
-    [],
+    [storage],
   );
 
   const onAppSelect = useCallback(
@@ -404,9 +411,9 @@ export function usePerThreadControlImpl({
           controlDirty: true,
         },
       });
-      writeStoredAgentMode("direct");
+      writeStoredAgentMode(storage, "direct");
     },
-    [],
+    [storage],
   );
 
   const onAgentModeSelect = useCallback(
@@ -421,9 +428,9 @@ export function usePerThreadControlImpl({
           controlDirty: true,
         },
       });
-      if (options?.persist !== false) writeStoredAgentMode(agentMode);
+      if (options?.persist !== false) writeStoredAgentMode(storage, agentMode);
     },
-    [],
+    [storage],
   );
 
   const markControlSynced = useCallback(() => {
@@ -435,7 +442,7 @@ export function usePerThreadControlImpl({
         control: { ...currentControl, controlDirty: false },
       });
     }
-  }, []);
+  }, [storage]);
 
   // Auto-effect: fill in a missing model from stored preference, or
   // re-align an "auto" thread to the latest available default after the
@@ -446,7 +453,7 @@ export function usePerThreadControlImpl({
     if (!metadata) return;
 
     const currentControl = metadata.control;
-    const storedAgentMode = readStoredAgentMode();
+    const storedAgentMode = readStoredAgentMode(storage);
     let nextControl: ThreadControlState | null =
       !currentControl.agentMode && storedAgentMode === "direct"
         ? {
@@ -495,7 +502,13 @@ export function usePerThreadControlImpl({
 
     if (!nextControl) return;
     updateThreadMetadataRef.current(threadId, { control: nextControl });
-  }, [getPreferredThreadControl, sessionId, availableModels, defaultModel]);
+  }, [
+    getPreferredThreadControl,
+    sessionId,
+    availableModels,
+    defaultModel,
+    storage,
+  ]);
 
   return {
     getCurrentThreadControl,

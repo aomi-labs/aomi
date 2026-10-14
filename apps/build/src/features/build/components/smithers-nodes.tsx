@@ -2,8 +2,8 @@
 
 import { Check, Circle, Loader2 } from "lucide-react";
 
-import type { SmithersNode } from "@build/features/build/contracts";
-import { cn } from "@build/lib/utils";
+import type { SmithersNode } from "@/features/build/contracts";
+import { cn } from "@/lib/class-names";
 
 type PlanNodesProps = {
   nodes: SmithersNode[];

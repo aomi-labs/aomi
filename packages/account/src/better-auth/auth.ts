@@ -6,6 +6,7 @@ import { mcp } from "@better-auth/mcp";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
+import { accountRateLimitStorage } from "../rate-limit";
 import { getPool } from "../db/pool";
 import {
   getOrCreateAomiUserForBetterAuthSession,
@@ -21,8 +22,11 @@ import {
   aomiOAuthResources,
 } from "./oauth-policy";
 import { verifySiweMessage } from "./siwe";
+import { canonicalSiwe } from "./canonical-siwe";
 import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
+import { aomiAccountMergePlugin } from "./account-merge-plugin";
+import { aomiSiweWalletAppPlugin, withSiweWalletApp } from "./siwe-wallet-app";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
 import {
@@ -145,7 +149,13 @@ export const auth = betterAuth({
   baseURL: env.betterAuthUrl,
   basePath: "/api/auth",
   disabledPaths: ["/token"],
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: env.clientIpHeader ? [env.clientIpHeader] : [],
+    },
+  },
   rateLimit: {
+    customStorage: accountRateLimitStorage,
     // Local browsers and integration suites all share the loopback IP, so the
     // production anonymous-account limit otherwise locks out every local
     // browser after ten total attempts. Hosted environments remain limited.
@@ -234,7 +244,7 @@ export const auth = betterAuth({
       },
     }),
     snakeCasedSiwe(
-      siwe({
+      canonicalSiwe({
         get domain() {
           return previewWalletAuthOrigin()
             ? new URL(previewWalletAuthOrigin()!).host
@@ -355,6 +365,8 @@ export const auth = betterAuth({
       }),
     ),
     aomiProviderAuthPlugin(),
+    aomiAccountMergePlugin(),
+    aomiSiweWalletAppPlugin(),
     aomiWidgetOAuthBootstrapPlugin(),
     nextCookies(),
   ],
@@ -365,7 +377,7 @@ export function handleWalletAuthRequest(request: Request): Promise<Response> {
     request,
     process.env,
     env.betterAuthUrl,
-    () => auth.handler(request),
+    () => withSiweWalletApp(request, (stripped) => auth.handler(stripped)),
   );
   return Promise.resolve(result);
 }

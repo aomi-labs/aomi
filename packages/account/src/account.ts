@@ -34,6 +34,14 @@ export {
 } from "./service/account-service";
 
 export {
+  mergeAccountWithTicket,
+  offerAccountMerge,
+  takeMergeSwitchTicket,
+  type AccountMergeOffer,
+  type AccountMergeResult,
+} from "./service/account-merge";
+
+export {
   exchangeProviderForExistingSession,
   createDefaultProviderCredentialVerifiers,
   isVerifiedProviderTokenCredential,
@@ -64,12 +72,12 @@ export type {
 } from "./providers/account-credentials";
 
 export {
-  DEFAULT_WALLET_LINK_NONCE_MAX_AGE_MS,
-  createWalletLinkNonce,
-  verifyWalletLinkNonce,
+  WALLET_LINK_NONCE_MAX_AGE_MS,
+  consumeWalletLinkNonce,
+  issueWalletLinkNonce,
   verifyWalletLinkSignature,
   walletLinkMessageMatches,
-  type WalletLinkNoncePayload,
+  type WalletLinkTarget,
 } from "./service/wallet-linking";
 
 export type {

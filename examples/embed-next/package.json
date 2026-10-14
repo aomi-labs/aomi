@@ -1,0 +1,24 @@
+{
+  "name": "@aomi-labs/example-embed-next",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3003",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "start": "next start --port 3003"
+  },
+  "dependencies": {
+    "@aomi-labs/widget": "workspace:*",
+    "next": "16.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

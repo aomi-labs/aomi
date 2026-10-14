@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-import { getGitHubSession } from "@build/server/cookies/github";
+import { getGitHubSession } from "@/server/cookies/github";
 
 // GET /api/bff/auth/github/status — what the client needs to gate the UI: whether
 // a GitHub session exists and its login. The github_user_id stays server-side.

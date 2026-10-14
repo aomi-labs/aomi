@@ -125,10 +125,13 @@ export async function createAomiDeviceGrantManager(input: {
 }): Promise<
   AomiOAuthGrantManager & { metadata: AomiAuthorizationServerMetadata }
 > {
-  if (!input.clientId.trim()) {
+  if (!input.clientId?.trim()) {
     throw new AomiOAuthError(
       "invalid_client",
-      "A static OAuth client ID is required",
+      "An OAuth client ID is required. Register a public device client once " +
+        "with POST /api/auth/oauth2/register on the Aomi Portal (see " +
+        '"Register an OAuth client" in the @aomi-labs/client README) and pass ' +
+        "its client_id.",
     );
   }
   const fetchImpl = input.fetch ?? fetch;

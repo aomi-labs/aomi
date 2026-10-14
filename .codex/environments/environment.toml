@@ -68,9 +68,9 @@ icon = "run"
 command = "pnpm run dev:telegram:webpack"
 
 [[actions]]
-name = "Build Lib"
+name = "Build Packages"
 icon = "run"
-command = "pnpm run build:lib"
+command = "pnpm run build:packages"
 
 [[actions]]
 name = "Build Client"

@@ -13,24 +13,23 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ControlPlaneLink } from "@build/components/control-plane/control-plane-link";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
+} from "@/features/deploy/query-keys";
 import { operateFetch, operatePaymentsFetch, type OperateKind } from "./client";
 import {
   bytesLabel,
   countLabel,
   numberLabel,
   percentLabel,
-  truncateAddress,
   unitLabel,
   usdLabel,
 } from "./format";
@@ -41,8 +40,6 @@ import {
   type LogsPageFilter,
 } from "./log-rows";
 import { UsageRows } from "./usage-rows";
-
-export { truncateAddress };
 
 // OperateView renders every operate surface except Bots, which has its own
 // dedicated BotsView (register form + table) instead of the generic

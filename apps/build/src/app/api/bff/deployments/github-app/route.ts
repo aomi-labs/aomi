@@ -1,4 +1,4 @@
-import { githubAppInstallationsRoute } from "@build/server/bff/launch/github-app";
+import { githubAppInstallationsRoute } from "@/server/bff/deploy/github-app";
 
 export const runtime = "nodejs";
 

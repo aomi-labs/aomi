@@ -9,12 +9,14 @@ sources_of_truth:
   - scripts/check-consumer-compatibility-baseline.mjs
   - scripts/check-frontend-boundaries.mjs
   - scripts/test-browser-contracts.mjs
+  - scripts/test-packed-consumers.mjs
+  - scripts/browser-hosts.mjs
   - .github/scripts/select-ci-paths.mjs
   - .github/workflows/ci.yml
   - .github/CODEOWNERS
-  - apps/widget-consumer/package.json
-  - apps/examples/headless-client/package.json
-  - apps/shadcn-registry/src/host-composition.ts
+  - examples/embed-vite/package.json
+  - examples/headless/package.json
+  - packages/widget/src/host-composition.ts
   - apps/portal/src/components/shell/portal-aomi-frame.tsx
 ---
 
@@ -28,7 +30,7 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 | ------------ | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | SDK-01       | Existing headless consumer imports and calls still compile against the shipped client package.                            | Packed-package consumer check.                                             |
 | WIDGET-01    | Existing `<AomiWidget>` integrations work without new mandatory host providers or setup calls.                            | Trusted-base packed widget consumer build.                                 |
-| SHARED-UI-01 | Reusable chat, account, settings, usage, and Library UI has one implementation in `apps/shadcn-registry`.                 | Portal imports the explicit `host-composition` package entrypoint.         |
+| SHARED-UI-01 | Reusable chat, account, settings, usage, and Library UI has one implementation in `packages/widget`.                      | Portal imports the explicit `host-composition` package entrypoint.         |
 | HOST-01      | Portal may compose `AomiFrame`; it need not render public `AomiWidget` or copy its host policy.                           | Portal frame tests plus dependency-boundary check.                         |
 | DIRECTION-01 | Portal cannot import private widget source; widget cannot import Portal; packages cannot depend on app UI.                | `check:frontend-boundaries` in the required packages job.                  |
 | AUTH-01      | Public credentials terminate at the BFF; internal backend assertions are server-minted and fail closed.                   | Production Portal browser contracts verify signed assertions and headers.  |
@@ -43,7 +45,7 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 
 ## Shared UI and host policy
 
-`@aomi-labs/widget-lib/host-composition` is the intentional contract for
+`@aomi-labs/widget/host-composition` is the intentional contract for
 first-party hosts that assemble `AomiFrame`. Keep the entrypoint curated: add a
 shared export because a host needs the shared implementation, not as a shortcut
 around package ownership. Portal-local routes, BFF handlers, URL handoffs,
@@ -56,7 +58,7 @@ cookie-aware guest policy. Both consume the same reusable UI without forcing
 these legitimate host differences into one component.
 
 Do not add Portal forwarding files, relative imports into
-`apps/shadcn-registry/src`, or Portal imports through the widget's internal
+`packages/widget/src`, or Portal imports through the widget's internal
 `@/components`, `@/hooks`, and `@/lib` aliases. Those aliases exist only so the
 widget source graph can compile inside the Portal workspace.
 
@@ -109,14 +111,17 @@ produce a green required check. Keep path-selection cases in
 
 ## Production browser contracts
 
-Run `CONSUMER_BASE_SHA=<trusted-base-sha> pnpm run test:browser:contracts` to
-exercise a production Portal build and an immutable trusted-base Vite consumer
-installed against candidate package tarballs. The harness creates a disposable
-Postgres container, applies the canonical account-schema fixture and current
-Better Auth migrations, generates ephemeral EVM/SVM keys, and starts a
-controlled upstream that cryptographically verifies the Portal's internal BFF
-JWT. It fails if any mandatory Playwright case is missing, skipped, flaky, or
-unexpected.
+Run `CONSUMER_BASE_SHA=<trusted-base-sha> pnpm run test:browser:contracts` with
+`AOMI_TEST_DATABASE_URL` pointing at a disposable Postgres database and
+`AOMI_TEST_DATABASE_DISPOSABLE=1` to exercise a production Portal build and an
+immutable trusted-base Vite consumer installed against candidate package
+tarballs. The harness applies the canonical account-schema fixture and current
+Better Auth migrations, uses deterministic throwaway EVM/SVM keys, and starts
+the fake upstream in `tests/e2e/fake-backend/upstream.ts`, which verifies the
+Portal's internal BFF JWT. It fails if any mandatory Playwright case is
+missing, skipped, flaky, or unexpected. `pnpm run test:browser:consumers` uses
+the same hosts plus a packed Next.js consumer to run the journeys and the
+ordinary-turn performance gate on all four hosts.
 
 The Portal cases cover EVM and SIWS sign-in, reload persistence, explicit wallet
 linking, signature rejection, sign-out/account switching, canonical identity,

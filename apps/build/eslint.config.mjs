@@ -19,7 +19,7 @@ const eslintConfig = [
     // poison pill already fails the build at runtime; this catches it at lint
     // time with a clearer message. Server code (app/api/**, app/**/{page,layout},
     // src/server/**) is intentionally out of scope. `allowTypeImports` lets
-    // features/launch use `import type { UserProject } from "@aomi-labs/deploy"`.
+    // features/deploy use `import type { UserProject } from "@aomi-labs/deploy"`.
     files: [
       "src/components/**/*.{ts,tsx}",
       "src/hooks/**/*.{ts,tsx}",
@@ -41,8 +41,6 @@ const eslintConfig = [
               group: [
                 "@aomi-labs/account",
                 "@aomi-labs/account/*",
-                "@aomi-labs/service",
-                "@aomi-labs/service/*",
               ],
               message:
                 "Node-only packages must not be imported from client/shared code.",

@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   readGitHubCliExchange,
   readGitHubOAuthRequest,
-} from "@build/server/cookies/github";
-import { GITHUB_OAUTH_REQUEST_COOKIE } from "@build/server/github-auth";
+} from "@/server/cookies/github";
+import { GITHUB_OAUTH_REQUEST_COOKIE } from "@/server/github-auth";
 import { GET } from "./route";
 
 const { getGitHubSession } = vi.hoisted(() => ({
   getGitHubSession: vi.fn(),
 }));
-vi.mock("@build/server/cookies/github", async (importOriginal) => {
+vi.mock("@/server/cookies/github", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@build/server/cookies/github")>();
+    await importOriginal<typeof import("@/server/cookies/github")>();
   return {
     ...actual,
     getGitHubSession: () => getGitHubSession(),

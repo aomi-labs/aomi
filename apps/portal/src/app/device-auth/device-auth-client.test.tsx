@@ -18,16 +18,16 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("@aomi-labs/widget/host-composition", () => ({
   useAomiWalletKit: () => ({
     ...mocks.wallet,
     getAccountCredential: mocks.getAccountCredential,
   }),
 }));
 
-vi.mock("@portal/lib/device-auth-provider", async (importOriginal) => {
+vi.mock("@/lib/device-auth-provider", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@portal/lib/device-auth-provider")>();
+    await importOriginal<typeof import("@/lib/device-auth-provider")>();
   // CI has no public Para/Privy configuration, and the page reads it at
   // module load, so classify against a fixed configured deployment instead of
   // whatever NEXT_PUBLIC_* happens to be in the environment.
@@ -43,8 +43,8 @@ vi.mock("@portal/lib/device-auth-provider", async (importOriginal) => {
   };
 });
 
-vi.mock("@aomi-labs/widget-lib/providers/para", () => ({}));
-vi.mock("@aomi-labs/widget-lib/providers/privy", () => ({}));
+vi.mock("@aomi-labs/widget/providers/para", () => ({}));
+vi.mock("@aomi-labs/widget/providers/privy", () => ({}));
 
 import { DeviceAuthClient } from "./device-auth-client";
 

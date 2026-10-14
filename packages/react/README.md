@@ -16,7 +16,7 @@ Optional dependencies when wiring wallet UI through Para + wagmi:
 pnpm add wagmi viem
 ```
 
-If you use the registry-installed `AomiFrame` from `@aomi-labs/widget-lib`,
+If you use the registry-installed `AomiFrame` from `@aomi-labs/widget`,
 wallet behavior comes from the surrounding Para + wagmi provider tree.
 `@aomi-labs/react` does not ship built-in wallet providers.
 

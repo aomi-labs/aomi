@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@aomi-labs/bff-observability/smoke", () => ({
+vi.mock("@aomi-labs/observability/smoke", () => ({
   BFF_SENTRY_SMOKE_HEADER: "x-aomi-sentry-smoke",
   runBffSentrySmoke: vi.fn(),
 }));
 
-import { runBffSentrySmoke } from "@aomi-labs/bff-observability/smoke";
+import { runBffSentrySmoke } from "@aomi-labs/observability/smoke";
 import { GET, OPTIONS, POST } from "./route";
 
 const runSmokeMock = vi.mocked(runBffSentrySmoke);

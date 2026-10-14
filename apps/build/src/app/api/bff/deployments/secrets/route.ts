@@ -2,7 +2,7 @@ import {
   deploymentSecretsRoute,
   deploymentSecretsWriteRoute,
   deploymentSecretsDeleteRoute,
-} from "@build/server/bff/launch/routes";
+} from "@/server/bff/deploy/routes";
 
 export const GET = deploymentSecretsRoute;
 export const POST = deploymentSecretsWriteRoute;

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AppDetailPage } from "@build/features/operate/app-detail-page";
+import { AppDetailPage } from "@/features/operate/app-detail-page";
 
 type PageProps = {
   params: Promise<{ application: string }>;

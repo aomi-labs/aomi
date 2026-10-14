@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { LayoutTemplate, X } from "lucide-react";
 
-import type { BuildTemplate } from "@build/features/build/contracts";
-import { FEATURED_TEMPLATE_IDS } from "@build/features/build/templates";
-import { cn } from "@build/lib/utils";
+import type { BuildTemplate } from "@/features/build/contracts";
+import { FEATURED_TEMPLATE_IDS } from "@/features/build/templates";
+import { cn } from "@/lib/class-names";
 
 type TemplateGalleryProps = {
   templates: BuildTemplate[];

@@ -2,7 +2,211 @@
 
 ## Last Updated
 
-2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
+2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
+  Reloading `?thread=` no longer flashes the welcome screen while the account
+  and chat list confirm the link: the portal passes `opening` to
+  `AomiFrame.Composer` and the thread stays empty. The loading-chat skeleton
+  (`thread-loading.ts`, `testIds.skeleton`) is removed; a loading chat shows
+  nothing until it arrives.
+
+2026-10-12 — TRACE: SHORTENED TOOL OUTPUTS (branch `fix/trace-trimmed-tools`).
+  "Trimmed X output" rows are no longer shown; consecutive `read_tool_output`
+  calls on one saved output fold into a single row named after the source tool
+  ("Read commit transactions output") with coverage and read-count
+  chips, and open to the stitched, re-indented content instead of paging
+  envelopes (`packages/widget/src/thread/read-output-step.tsx`). The projected
+  `trimmed` context step now carries the saved-output `id`.
+
+2026-10-10 — PORTAL PERFORMANCE (branch `feat/portal-performance`, with
+  product-mono `feat/portal-performance`). Waiting states: the pulsing dot is
+  shown only while the start request is in flight again, then the existing
+  Thinking chip (restores the pre-865e5d91a gating; no visual change). A saved
+  chat whose history fails shows "Couldn't load this conversation" + Retry
+  (one quiet auto-retry) instead of the welcome hero, and Send is refused until
+  it loads. Reload: the linked chat loads beside the session list (abortable,
+  first page renders first, no duplicate list chain, prefetch ≤2 after the
+  open chat settles; portal `ThreadUrlBootstrap` opens an owned chat as soon
+  as any page lists it). Send no longer fetches `/api/account` first (the
+  backend applies the hosted default). Notices carry `code`;
+  `execution_active_timeout` renders as "Paused at the work time limit"
+  with Continue. The backend active-work limit is now off by default
+  (`AOMI_ACTIVE_WORK_TIMEOUT_SECS` re-enables it). "New Chat" is a display fallback, never a stored title.
+  Usage/Swig/General read the shared display cache and render sections as
+  they arrive; library secret status is cached per account+app and the
+  mobile detail panel mounts only when opened; wallet capabilities are cached
+  per wallet; network menu hover+click stays open; transaction ordinal badge
+  removed.
+
+Pending:
+- Backend must deploy before this frontend (server-side hosted default,
+  notice `code`). Regenerate agent-v1 types against the new backend.
+- Portal has no browser RPC map yet (`wallets.evm.rpcUrls`), so mainnet still
+  defaults to viem's public RPC.
+- With ~260 chats a Send still blocks the main thread ~1 s in dev mode
+  (pre-existing, not JS-heavy in the profile); measure in a production build.
+
+Previous: 2026-10-08 — LINKING FOLLOW-UPS 2 (branch `fix/linking-followups-2`, #722).
+  One merge offer per Privy/Para login (exchange attempts keyed by login,
+  not token); the provider modal closing stops the pending spinner. The
+  account chip says "Sign in"/"Signing in…" until a connected wallet signs
+  in. Mention tags and explorer links sit on the text baseline; titles drop
+  the ✦ ▦ ◇ markers. The trace's commit hand-off card was removed again
+  (with its `aui-phase-sweep`/`animate-in-rise` CSS): the activity panel
+  alone shows signing.
+
+Previous: 2026-10-08 — WALLET SWITCH FIX (aomi#720, branch `fix/wallet-activation-720`).
+  Picking an address that another connected wallet app also lists (one seed in
+  MetaMask and Rabby) snapped back to that app's first address, so MetaMask
+  stayed Active. The registry now matches the active ref by connector and
+  exact address before connector alone (one `findActiveConnection` in
+  `registry/policy.ts` replaces four copies), and an address belongs to the
+  app that has it selected, not to whichever connector is active. A pick the
+  registry cannot honour now throws a visible error instead of a no-op. The
+  row being switched to shows a thin spinner (`PendingMark`) where Active
+  goes until it takes over (60 s cap).
+
+  Same PR: linking a login whose parts sit in two other accounts (Para wallets
+  in one, the email in another) now offers a merge with the strongest owner
+  (login, then wallet, then email) instead of a plain conflict, and the link
+  is retried after the merge. Choosing Privy/Para no longer blanks Settings
+  while the SDK loads (the auth store holds the last kit through the
+  handover). Privy/Para wallet rows read "Privy" with the email after the
+  address.
+
+Pending:
+- Not reproduced with real extensions; confirm with MetaMask + Rabby sharing
+  a seed on the preview.
+- The two-owner Para merge is unit-tested only; confirm on staging.
+
+Previous: 2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-frontend`).
+  Account chip: plain "Free · N credits" line and a square tile avatar
+  (curated 7–9 tile patterns, same shape on every surface). Outlined buttons
+  (`AomiButton` secondary/danger, New chat, the chip) share one recipe: raised
+  fill, hairline border, faint lift, border darkens on hover; corners scale
+  with height. Composer: grey fill with a soft lift that deepens on focus.
+  Header: network pill in the same recipe with readable 18px logos and a
+  chevron, a divider, one 32px icon set with tooltips; hover-close no longer
+  returns focus to the trigger. Sidebar groups chats by last activity (the
+  sessions API sends Unix seconds) and the open chat's dot blinks while
+  running or turns amber while a wallet request waits. Panel cards show
+  signing order. Settings: square secondary
+  buttons, allowance meter, wallet names and three aligned signing slots on
+  Safety, sans figures and sentence-case headers on Usage. Motion utilities
+  (`animate-in-pop/fade`) in `themes/default.css`.
+
+Pending:
+- Other threads' running/awaiting state is unknown to the client, so only the
+  open chat shows a status dot.
+
+Previous: 2026-10-05 — VERIFY BEFORE YOU SIGN (branch `cecilia/client-verify-calls`).
+  `@aomi-labs/client` exports `ExpectedCalls`, which checks a prepared EVM
+  request against the calls an app approved before a local key signs:
+  chain, contract, function, ABI-encoded arguments, value, and passed
+  simulation (`"unavailable"` only with `allowUnavailableSimulation`). It
+  accepts an Action, a Commit review, an EVM `sign` request's `calls`, or the
+  `SignableCommit` given to `evm.signTransaction`. `verify()` lists every
+  mismatch; `assert()` throws `CallVerificationError`. The client README's
+  Pipeline stage example now encodes real calldata, a new "Verify before you
+  sign" section shows the Commit loop, and the headless example
+  `custom-contract/anchor-root` runs it against a user-deployed registry.
+
+Pending:
+- Not run against a live backend; whether the agent builds arbitrary
+  custom-contract calls depends on the deployment's tools.
+- `@aomi-labs/client` is bumped to 0.9.14 for this new public API. A later PR
+  that also changes the package must take the next patch after rebasing.
+- The headless example's `tsc --noEmit` fails on main: its `lib` is ES2022
+  but client source uses `Array.prototype.findLast`.
+
+Previous: 2026-10-05 — SDK CREDENTIALS AND APP ACCESS ERRORS (aomi#705). `AgentApiError`
+  gains `appAccessCode` for `app_not_found`, `app_inactive`,
+  `app_key_required` and `app_key_not_scoped` and now carries the server's
+  `error.message`. The widget runtime shows a specific notice for each and
+  keeps the persisted thread; the public-API fetch wrapper no longer refreshes
+  guest/OAuth credentials for these errors. CLI deploy/status/activate share
+  `DeployCliError.fromHttpFailure`, and chat/REPL print an App-specific fix.
+  Client README gains credential selection and dynamic client registration;
+  SDK `oauth()` still requires a registered client ID.
+
+Previous: 2026-10-04 — EXPLORER LINKS IN REPLIES (aomi#703, paired with product-mono#1236;
+  branch `codex/1230-explorer-links`). Assistant Markdown links bare on-chain
+  identifiers that this message's tool results type by field (`address`,
+  `token_address`, `mint`, ...) and place on a chain (`chain_id`, `cluster`,
+  or a commit's `chain_family`/`chain_ref`). Transactions link only next to
+  the host's matching `transaction_url`, since forks reuse public chain IDs;
+  pool IDs and conflicting values never link. Authored links and code are
+  left alone. Solscan, Solana Explorer and the backend's explorer-only
+  networks (Robinscan, Monadscan, ...) render as explorer links; Solscan has
+  its logo. The explorer table mirrors product-mono `PUBLIC_EXPLORERS`.
+
+Previous: 2026-10-03 — EDIT AND RERUN AS LINEAR REPLACEMENT (follow-up to #699; worktree
+  `chat-edit-rerun`, branch `fix/chat-edit-rerun-clean`). Edit and Rerun now
+  work like ChatGPT: they replace the conversation from the selected user
+  message and continue it as a normal turn with the app's usual tools (paired
+  backend change in product-mono). The SDK echoes the new request at once and
+  publishes `pendingReplacesMessageKey`, so the thread drops the replaced
+  messages on click. Rerun resends the request before the answer as an
+  `edit`, which also works on failed or stopped answers. The widget no longer
+  renders assistant-ui's branch picker, because threads are linear.
+  Verified on a local stack with a real model: Edit and Rerun fetch fresh
+  DefiLlama prices, and a follow-up and a reload show only the replacement.
+
+Pending:
+- On a local guest session, reloading the page opens a new empty chat; the
+  replaced thread is intact in Recent. Not caused by this change.
+
+Previous: 2026-10-02 — MOBILE TRANSACTION SHEET (aomi#691; worktree `mobile-tx-panel`,
+  branch `work/mobile-tx-panel`, uncommitted). On phone viewports
+  (`max-width: 639px`) the activity panel is a bottom sheet over the chat and
+  composer instead of the 352px floating rail. It has a scrim, a drag handle
+  and a close button, and it closes on Escape. Unlike desktop, it doesn't
+  open with the first activity. It waits for the header button, or for a
+  wallet request, which opens it. The header activity button shows an accent
+  dot while a wallet request is hidden (all widths). The sheet pads its
+  content above any part of the thread that iOS Safari's toolbar hides
+  (`100vh` layouts run under it). The transaction list now sizes its bottom
+  fade from layout height, so a card's slide-in no longer leaves the fade
+  stuck on. While signing, it shows only the desktop `TransactionList` cards and
+  `WalletReview`. Otherwise it shows the same groups as the rail. Wider
+  viewports are unchanged. The sheet loads its own `LazyMotion` features so
+  standalone consumers still see it. The review details gained "Simulation
+  passed" / "Simulation unavailable" at every width. Visual harness: added a
+  `layout=phone` fixture with light and dark phone captures. The `client.ts`
+  stub now re-exports the real client, and three stale assertions are fixed.
+
+Pending:
+- `scripts/test-transaction-review-visuals.mjs` still fails after the phone
+  captures, in its recovery and trace-chip steps. Those expectations drifted
+  on main (for example "Transaction: 0xdeadbeef").
+
+Previous: 2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
+  (prices, yields, protocols), web search/fetch domain chips, short
+  transaction titles, and a lucide fallback icon for chains without a mark.
+  Activity sidebar: the transient review lines and raw JSON detail dropdowns
+  are gone, and the review collapses smoothly on sign or reject. The network
+  pill is now read-only. Wallets: Para no longer white-screens on first
+  select, and an injected wallet reconnects on reload under Para because the
+  wallet runtime mounts once. The sidebar account chip keeps one shape and
+  drops "Switch network". UI unification: shared `components/ui/aomi/`
+  primitives and radius, shadow and type tokens. Library and Settings share a
+  modal shell. The composer mode picker is removed, and `routing` is a
+  host-only prop. A "Guard policy" selector (Strict / Balanced / Yolo =
+  `guarded_only` / `balanced` / `unrestricted`) takes its place, and the
+  Settings "Safety" tab holds the default for new chats (never Yolo) plus
+  per-wallet signing. SDK: EVM Pipeline `commit()` returns durable Commit
+  Service identities to continue with `pipeline.evm.commits(preparation)`;
+  EVM holdings use paginated indexed discovery; manual EVM message-signing
+  execution Actions fail closed.
+
+Pending:
+- Two Para logins on one account nest all Para addresses under the first
+  card, because the data has no login-to-address link.
+- Widget with `features.settings === false`: the Guard policy "Change"
+  action is a no-op.
+- UI unification phases 4–6: picker restyle, the add flow, and conflict
+  move/merge on the backend.
+
+Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
   branch `codex/bot-webhook-reassert` off origin/main, uncommitted). The
   webhook was only ever asserted at registration; an external `deleteWebhook`
@@ -109,7 +313,7 @@
   provider-managed key involved, `require_managed_authority`'s same-provider
   requirement never applies.
   UI is rebuilt on the Aomi design system exactly as the portal is
-  (`@aomi-labs/widget-lib` `themes/default.css` + `components/ui/*`, mirroring
+  (`@aomi-labs/widget` `themes/default.css` + `components/ui/*`, mirroring
   `apps/portal/src/app/device-auth/device-auth-client.tsx`): a four-stage
   checklist, recoverable errors everywhere (`retry` added to the auth and
   account hooks), explained failure codes with the raw code behind a disclosure,
@@ -696,8 +900,7 @@ plugin-sdk hero. Trading, wallets, and NFT heroes still carry the 54px grid.
 (4) rest-apis "One Action" showcase: the confirm sheet had picked up
 `aspect-ratio: 1.24 / 1` plus `margin-top: auto` on its buttons, which
 stretched the card and left a dead band. Both removed so the sheet hugs its
-content, matching the Aomi x Para artifact
-(claude.ai/code/artifact/41e1aa60-292f-439b-94a4-6a931bb65ecb). (5) Same
+content, matching the Aomi x Para mock. (5) Same
 showcase: the type panel no longer sits inert while the tabs slide. The
 interface text is deliberately identical across tabs, since "one contract,
 three sources" is the section's claim, but each example now lights only the
@@ -706,8 +909,7 @@ Agent lights warnings, Pipeline dims both warnings and expiresAt, Safe lights
 expiresAt. (6) Same showcase: added a full-width raw HTTP request panel above
 the type-and-sheet pair, which is the part that genuinely differs per source.
 Agent shows one POST /v1/agent/chat with headers and body. Pipeline shows the
-stage, stage, commit sequence from the Developer API artifact
-(claude.ai/code/artifact/ef3ef8f4-31a6-47aa-a6ed-30345a60932b), since a
+stage, stage, commit sequence from the Developer API mock, since a
 two-leg batch is not a single build call. Safe shows the cursor GET plus a
 deferred result POST. Highlighting uses a small local tokenizer, not the
 ClientExample one. eslint clean; all three tabs screenshot-verified.
@@ -855,7 +1057,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   cases cover switch ordering, exactly-once selection, same-chain behavior,
   unsupported/missing adapters, rejected prompts, and unknown/current AA execution
   state. The joint backend work merged first in product-mono #973. Publishable
-  versions are `@aomi-labs/client@0.4.7` and `@aomi-labs/widget-lib@1.4.30`.
+  versions are `@aomi-labs/client@0.4.7` and `@aomi-labs/widget@1.4.30`.
 
 2026-08-08 — DEPLOY-SURFACE BUGS, BE SIDE (product-mono worktree
   `~/Code/product-mono-worktrees/deploy-feed-platform-scope`, branch
@@ -1023,7 +1225,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
     which is why the resume state is derived instead.
 
 2026-08-04 — **Sidebar wordmark is now a product switcher.** The chat sidebar
-  header (`apps/shadcn-registry/src/components/assistant-ui/threadlist-sidebar.tsx`)
+  header (`packages/widget/src/sidebar/thread-list-sidebar.tsx`)
   no longer links out to `aomi.dev`; the logo · "Aomi" · chevron row is a Popover
   trigger that also carries a `CHAT` badge (same treatment as Build's wordmark
   badge in `apps/build/src/components/brand/aomi-logo.tsx`). The menu lists Aomi
@@ -1039,7 +1241,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
 2026-08-03 — **Para EVM signing fix hardened before commit.** Review of the
   working diff found the registry build broken: `para-evm-runtime-provider.tsx`
   was imported by the registered `para-plugin.tsx` but missing from the
-  `aomi-para-provider` file list in `apps/shadcn-registry/src/registry.ts`, and
+  `aomi-para-provider` file list in `packages/widget/src/registry.ts`, and
   `@getpara/wagmi-v2-connector` was missing from its `dependencies` — a
   `shadcn add` would have installed a broken component. Both added; build green.
   Correctness fix in `execution/wallet-execution.ts`: the new sequential
@@ -1217,7 +1419,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   `app/api/*/route.*`, so ~40 portal test files under `components/`,
   `features/`, and most of `lib/` never run in CI — including this PR's
   `use-portal-wallet-account-menu.test.tsx`. Registry tests do run, via
-  `pnpm --dir apps/shadcn-registry exec vitest run`. Widening the include is
+  `pnpm --dir packages/widget exec vitest run`. Widening the include is
   its own PR; expect pre-existing failures to surface.
 
 2026-08-02 (~17:45) — **ds13 RECORDED — catalog COMPLETE.** Post-fixer-session
@@ -1765,7 +1967,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   thread spawned, label "1 wei self-transfer"). Remaining perceived slowness is the
   known local GPT-5.5 pipeline latency (12-16s/call through cliproxy, serial).
 
-2026-08-03 — Orchestrator UI §5 (+§1) landed in apps/shadcn-registry — the trace UI.
+2026-08-03 — Orchestrator UI §5 (+§1) landed in packages/widget — the trace UI.
   New `WorkingAgent` (components/assistant-ui/working-agent.tsx): one delegation as a
   row — pulsing identity dot (accent → pink by order of appearance) that becomes a
   check/X on terminal status, mono label, summary slot (hidden while live+expanded,
@@ -1808,12 +2010,11 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   completed `task` tool-call parts (survives mergeAssistantTurns re-keying and
   fromThreadMessageLike). Tests: reducer/store unit tests, runtime wiring test,
   projection + merge metadata tests, client SSE routing + CLI line tests.
-  Pending: apps/shadcn-registry WorkingAgent UI + task interpreter family + app
+  Pending: packages/widget WorkingAgent UI + task interpreter family + app
   selector entry (§1/§5), and the product-mono event emission (§2).
 
 2026-08-03 — Orchestrator UI: plan written (specs/ORCHESTRATOR-UI-PLAN.md), no code
-  yet. Decided UX (animated mocks:
-  https://claude.ai/code/artifact/96148a25-4320-4138-928e-ed4a395c3e35): agent row
+  yet. Decided UX (animated mocks): agent row
   per delegation inside aui-working-trace, auto-expands while live / auto-folds to a
   one-line summary on completion unless user-toggled; vertical rail under each agent
   row is a MUST-KEEP; header shows "Orchestrating" + orchestrator badge. Entry =
@@ -1922,8 +2123,8 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   the module-level cache). Verified: aomi-build type-check, eslint, prettier,
   full suite 353/353. NOTE for worktree sessions: vitest excludes
   `**/.claude/**` so running tests INSIDE a .claude worktree needs a throwaway
-  config that drops that exclude + cwd at worktree root; `@aomi-labs/widget-lib`
-  = apps/shadcn-registry and needs `pnpm run build:package` THERE (root
+  config that drops that exclude + cwd at worktree root; `@aomi-labs/widget`
+  = packages/widget and needs `pnpm run build:package` THERE (root
   build:lib builds packages/react, not it); root build:lib also dirties
   committed packages/client/dist maps — revert those.
   Related: PR #423 (unmerged) bounds the operate settleBySource fan-out
@@ -2070,7 +2271,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   component inventory review (branch `worktree-settings-redesign`). The
   aomi-* set is now the single vocabulary AND has explicit rules behind it:
 
-  New tokens (all in the shared widget theme, apps/shadcn-registry/src/themes/default.css):
+  New tokens (all in the shared widget theme, packages/widget/src/themes/default.css):
   - `--aomi-ring` + a `:where(...):focus-visible` rule so no surface falls
     back to the browser's default outline. Zero specificity, so components
     can still override.
@@ -2126,7 +2327,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   portal glue cleanup (branch `worktree-settings-redesign`). The whole
   chat column now matches the mock, not just settings:
   (1) `--aomi-*` tokens PROMOTED into the shared widget theme
-  (apps/shadcn-registry/src/themes/default.css — light + .dark + @theme
+  (packages/widget/src/themes/default.css — light + .dark + @theme
   utilities); the portal globals.css duplicate block deleted (portal keeps
   only its --font-display mapping). Every widget consumer now resolves
   the tokens; the shimmer + trace edge-fade CSS prefers aomi vars with
@@ -2279,7 +2480,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   the readiness signal; 4 new component tests) and JWT cooldown scoped
   per-instance; dead `WidgetAuthAdapter.kind` removed; `safeEnv` collapsed
   to client export; root vitest now includes the portal widget-auth suites;
-  `/dev/para-cross-project` spike deleted; `apps/shadcn-registry/dist`
+  `/dev/para-cross-project` spike deleted; `packages/widget/dist`
   untracked (staged only); `prepublishOnly` guard on widget-lib. Verified:
   root vitest 816 pass, registry 277 pass, lint + all typechecks clean;
   client/react dists rebuilt, 4 registry JSONs regenerated in
@@ -2383,7 +2584,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   - FIX BEFORE RELEASE: shadcn registry `aomi-para-provider` file list is
     missing `providers/para/para-message-signing.ts` (imported by
     ParaPluginProvider.tsx) → CLI installs of that component break
-    (apps/shadcn-registry/src/registry.ts:298-325; dist/registry.json).
+    (packages/widget/src/registry.ts:298-325; dist/registry.json).
   - Sign-out race: `signOut()`/`revoke()` don't cancel the in-flight
     `pending` exchange; a refresh completing after sign-out re-caches a
     fresh WST (packages/client/src/widget-session.ts:258-287).
@@ -3316,7 +3517,7 @@ dismissed and /settings sat on "Connecting your account…".
   the misleading "Para JWKS verification is not configured". Re-added the
   "prefers explicit Para JWT audience" test (lost in the packages/auth →
   packages/account fold) plus a blank-values regression test in
-  `packages/account/test/env.test.ts`. 51/51 account tests green, tsc + eslint
+  `packages/account/src/better-auth/env.test.ts`. 51/51 account tests green, tsc + eslint
   clean.
 ## Follow-ups from the same debugging session (2026-07-11, afternoon)
 
@@ -3346,7 +3547,7 @@ or handed off, per Cecilia's direction (no direct backend/DB mutation):
   better-auth tables). Staged `scripts/drop-legacy-aomi-account-tables.sql`
   (pre-flight checks + RESTRICT drops, no CASCADE) for review; also fixed the
   last stale `aomi_wallets` comment in
-  `apps/shadcn-registry/src/lib/wallet-kit/account/aomi-backend-runtime.ts`.
+  `packages/widget/src/wallet/account/aomi-backend-runtime.ts`.
 ## Aomi Build owned operate + pre-prod fixes (2026-07-08)
 
 - Hardened launch/operate-adjacent BFF reads and writes around the signed-in
@@ -3549,7 +3750,7 @@ did NOT strip it; it is present + mounted at `/deployments`). Rather than the
 earlier plan of gutting the portal launch feature into packages (which would have
 collided head-on with Han's now-live console), this ships the partner-facing
 primitives **purely additively** — 24 files, all under `packages/deploy/`, zero
-changes to `apps/portal` or `apps/shadcn-registry`:
+changes to `apps/portal` or `packages/widget`:
 
 - **`@aomi-labs/deploy/bff`** (server-only) — framework-agnostic `(Request) =>
   Response` route factories: `createLaunchRoutes`, `createGitHubAuthRoutes`,
@@ -3598,14 +3799,14 @@ ease-out), which — unlike a CSS transition — animates cleanly to/from the un
 runtime/merge/interpreter changes. The pill uses a horizontal-ellipsis marker (not
 a chevron) so its glyph doesn't point at the header's open-chevron above it.
 
-- `apps/shadcn-registry/src/components/assistant-ui/working-trace.tsx`
+- `packages/widget/src/thread/working-trace.tsx`
   (`WorkingTrace`): `expanded`/`overflowing`/`animating` state + `viewportRef`/
   `bodyRef`; a `windowed = !expanded` viewport with `maxHeight`/`overflow-hidden`
   and flex-end pinning; an effect measuring overflow (`bodyRef` natural height vs
   the cap); a layout effect that runs a WAAP `max-height` tween when `expanded`
   flips (skipped under reduced motion); the "Show all N steps" /
   "Collapse to recent steps" pill.
-- `apps/shadcn-registry/src/themes/default.css`: new `.aui-working-trace-windowed`
+- `packages/widget/src/themes/default.css`: new `.aui-working-trace-windowed`
   rule — a `mask-image` gradient fading the top 60px (applied only while content
   overflows and not mid-tween, so short traces are never faded).
 - Verified: file typecheck (only pre-existing unrelated wallet-kit test errors)
@@ -3619,7 +3820,7 @@ Branch `feat/working-trace-a`. The Working trace looked "aggressive" — a burst
 2-4 tool calls flashed in together and chips popped all at once, because tool
 steps arrive already-complete and a burst lands in one `messages` event, so React
 committed every `WorkingStep` in a single frame. Fix is entirely in
-`apps/shadcn-registry/src/components/assistant-ui/working-trace.tsx` +
+`packages/widget/src/thread/working-trace.tsx` +
 a shimmer tweak in `src/themes/default.css` (no backend/runtime change):
 
 - New `useStaggeredReveal(target, running)` hook reveals trace items one at a
@@ -4059,8 +4260,8 @@ Verification run:
 
 - `pnpm run typecheck`
 - `pnpm typecheck:landing`
-- `pnpm --filter @aomi-labs/widget-lib exec vitest run src/lib/wallet-kit src/components/control-bar/wallet-picker.test.tsx`
-- `pnpm exec vitest run packages/client/test/registry-chain-artifacts.unit.test.ts`
+- `pnpm --filter @aomi-labs/widget exec vitest run src/lib/wallet-kit src/components/control-bar/wallet-picker.test.tsx`
+- `pnpm exec vitest run packages/client/src/registry-chain-artifacts.unit.test.ts`
 - `pnpm exec vitest run packages/`
 - `pnpm run lint`
 - `pnpm run build:lib`
@@ -4149,7 +4350,7 @@ Pending: await go/no-go to execute P1–P8. No production code touched yet.
 Branch `polish-multi-wallet`. Three committed, independently-green tiers from the
 architecture review. Each verified with `typecheck:landing`, the packages vitest
 suite (363) + the apps/registry wallet-kit suite (128, via
-`pnpm --filter @aomi-labs/widget-lib exec vitest run`), lint, and the pinned
+`pnpm --filter @aomi-labs/widget exec vitest run`), lint, and the pinned
 registry-artifact test; artifacts rebuilt + synced to `apps/landing/public/r`.
 
 - **Tier 1 (`62cfff62`):** new `execution/execution-runtime.ts`
@@ -4331,7 +4532,7 @@ Branch `polish-multi-wallet`. Continued `WALLET-REFACTOR-PLAN.md` from Phase 5.
   incomplete item from the written execution plan.
 - **Automated verification run:** registry focused tests (27 registry tests), picker
   tests, `pnpm --dir apps/registry exec tsc --noEmit`, `pnpm run build:registry`, and
-  `pnpm exec vitest run packages/client/test/registry-chain-artifacts.unit.test.ts`.
+  `pnpm exec vitest run packages/client/src/registry-chain-artifacts.unit.test.ts`.
   Manual matrix rows still require browser wallet extensions and are not claimed here.
 
 Follow-up from manual browser testing: opening the Para login modal with external wallets
@@ -4443,7 +4644,7 @@ Branch `polish-multi-wallet`. Follow-up to the round-1 fixes after live testing:
 
 - **Active EVM wallet enforcement** (`providers/para/para.tsx`): replaced the attempt-once persisted-active-address restore with a watching _enforcement_ effect. Para's connector re-asserts itself as wagmi's current connection on reconnect/session syncs — stomping the chosen wallet after a refresh (the one-shot restore lost the race) and right after the first switch away from Para (the "flips back, second click sticks" bug). The effect re-switches to the persisted choice whenever its connection is live and the current connection is Para _or vacant_ (never fights a different external connector — that's a deliberate wallet-side switch), bounded at 3 attempts per theft (counter re-arms when satisfied). Covers both reported bugs via one mechanism since `selectAccount` updates the persisted address.
 - **Phantom SVM connect race — root cause found in wallet-adapter + Para provider source**: Para's `ParaSolanaProvider` mounts `WalletProvider` with `autoConnect: true` (hard-coded), and wallet-adapter marks `select()` as user-initiated → the provider fires `adapter.connect()` ITSELF when the adapter lands. Our manual `connect()` raced it, and the losing attempt's error path (`onConnectError` → `changeWallet(null)`) **unselects + disconnects the wallet** — click silently dies; localStorage often kept the wallet name so a refresh re-ran a clean auto-connect → "works after refresh". Fix: the pending effect now defers to the provider's auto-connect (watches `connecting`), and only calls `connect()` after a 400 ms grace if _no_ attempt was observed (covers providers without autoConnect). A per-target `solanaConnectAttemptObservedRef` prevents re-popping the wallet after a failed/dismissed attempt and settles the pending state if wallet-adapter unselected the wallet.
-- **Provider subfolders**: `providers/para/` (para.tsx, para-sol.tsx, para-aa.ts, evm-identity-grace.ts + test, index.ts), `providers/privy/` (privy.tsx, index.ts), `providers/base-account/` (base-account.tsx, index.ts). Folder names match the old module names, so every existing import path (`providers/para`, `providers/privy`, `providers/base-account`) resolves to the new folder indexes — zero changes at import sites (`providers/index.tsx`, `src/index.ts`). registry.ts file lists updated to the new paths (+ index files, + para-sol.tsx which was previously missing); dist rebuilt; the affected artifacts copied to `apps/landing/public/r/` (committed snapshot read by `packages/client/test/registry-chain-artifacts.unit.test.ts`, whose pinned path was updated to `providers/para/para.tsx`).
+- **Provider subfolders**: `providers/para/` (para.tsx, para-sol.tsx, para-aa.ts, evm-identity-grace.ts + test, index.ts), `providers/privy/` (privy.tsx, index.ts), `providers/base-account/` (base-account.tsx, index.ts). Folder names match the old module names, so every existing import path (`providers/para`, `providers/privy`, `providers/base-account`) resolves to the new folder indexes — zero changes at import sites (`providers/index.tsx`, `src/index.ts`). registry.ts file lists updated to the new paths (+ index files, + para-sol.tsx which was previously missing); dist rebuilt; the affected artifacts copied to `apps/landing/public/r/` (committed snapshot read by `packages/client/src/registry-chain-artifacts.unit.test.ts`, whose pinned path was updated to `providers/para/para.tsx`).
 - **Still needs live verification**: (1) Para + MetaMask → set MetaMask active → refresh → stays MetaMask; (2) first switch away from Para sticks without a second click; (3) Phantom connects on first click (and doesn't re-pop after a dismissed popup). Watch for: enforcement tug-of-war if Para re-asserts repeatedly (bounded per theft, but verify no visible flapping).
 
 ### Wallet stack debloat + six reliability fixes (2026-06-10)
@@ -4578,7 +4779,7 @@ Branch `codex/para-solana-support-wip` (PR #150). Merged `fix/pr150-runtime-wiri
 
 - **Reviewed & verified adaptation** of the FE↔backend contracts: `createAccountAccessTokenProvider` → `POST /api/account/sessions/exchange` (`{ provider, provider_token }` ↔ backend `ExchangeAccountSessionRequest`), and `app` on `sendSystemMessage` → `/api/system` (backend merges query + JSON body via `select_system_params`). Both correct.
 - **Removed dead `ThreadContextTest.tsx`** debug component (referenced removed `threads`/`threadMetadata`; failed `tsc --noEmit`, not caught by CI). Registry typecheck now clean.
-- **FE unit coverage**: `packages/client/test/account-session.unit.test.ts` — caching, forceRefresh, single in-flight coalescing, proactive timer refresh + subscriber notify, dispose teardown, snake_case mapping (7 tests).
+- **FE unit coverage**: `packages/client/src/account-session.unit.test.ts` — caching, forceRefresh, single in-flight coalescing, proactive timer refresh + subscriber notify, dispose teardown, snake_case mapping (7 tests).
 - **Live e2e**: `client.integration.test.ts` gained an LLM-free app-scoped system-message test (green vs local backend :8080 + local supabase).
 - **Backend DB e2e** (product-mono, branch `test/account-exchange-db-e2e`): `entities.rs` test mirroring the exchange's Privy identity resolution + provider scoping (green vs local supabase :54322).
 - **Known gap (flagged, no code)**: backend `ScheduledIntentDueEvent` (`scheduled_intent_due`, declared System→UI) from product-mono #564 has no FE handler — falls through as a raw system message. Product decision needed.
@@ -4608,7 +4809,7 @@ Branch `codex/para-solana-support-wip`. Design/plan in `docs/superpowers/specs/2
 - **Bumped package versions** for the three publish targets:
   - `@aomi-labs/client`: `0.1.28` -> `0.1.29`
   - `@aomi-labs/react`: `0.3.12` -> `0.3.13`
-  - `@aomi-labs/widget-lib`: `1.2.8` -> `1.2.9`
+  - `@aomi-labs/widget`: `1.2.8` -> `1.2.9`
 - **Updated files:** `packages/client/package.json`, `packages/react/package.json`, `apps/registry/package.json`
 
 ### CLI root-shape alignment with Rust CLI (2026-04-19)

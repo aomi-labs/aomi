@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@aomi-labs/widget-lib";
-import { useCookieConsent } from "@portal/hooks/use-cookie-consent";
+import { Button } from "@aomi-labs/widget/host-composition";
+import { useCookieConsent } from "@/hooks/use-cookie-consent";
 
 export function CookieConsent() {
   const { showBanner, acceptCookies, declineCookies } = useCookieConsent();

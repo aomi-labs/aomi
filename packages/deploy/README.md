@@ -6,7 +6,7 @@ separated layers:
 | Entry                         | Runs in     | What it is                                                                                                                     |
 | ----------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `@aomi-labs/deploy`           | server only | `BackendClient` — typed HTTP client holding the activation/service bearer                                                      |
-| `@aomi-labs/deploy/bff`       | server only | Drop-in BFF route factories: the one-shot launch flow + "Sign in with GitHub"                                                  |
+| `@aomi-labs/deploy/bff`       | server only | Helpers for a deploy BFF: error identification, release-manifest secret checks, project ownership, app status mapping           |
 | `@aomi-labs/deploy/launch`    | browser     | Typed client for the BFF routes (launch + deployments console), wizard state machine, contracts, OAuth-callback result mapping |
 | `@aomi-labs/deploy/lifecycle` | browser     | Pure helpers projecting deploy records into dashboard state                                                                    |
 
@@ -20,71 +20,35 @@ as a worked example, don't copy it in.
 **Integrating from a coding agent?** This package ships an agent-oriented
 integration skill at [`skills/aomi-deploy/SKILL.md`](skills/aomi-deploy/SKILL.md).
 Point Claude Code / Cursor at it (after `npm install`, it's in
-`node_modules/@aomi-labs/deploy/skills/`) to wire the BFF routes, browser
-client, and a bespoke deploy UI without reading the whole README.
+`node_modules/@aomi-labs/deploy/skills/`) to serve the BFF routes, wire the
+browser client, and build a bespoke deploy UI without reading the whole README.
 
 ## Drop-in one-shot launch (the partner path)
 
 Give your users "deploy an agent" without building any of the flow yourself.
 Three steps:
 
-### 1. Mount the BFF routes (server)
+### 1. Serve the BFF routes (server)
+
+The package ships no route handlers. Your server exposes the same-origin routes
+the browser client calls (`/api/bff/launch/*`, `/api/bff/auth/github/*`) over a
+`BackendClient`, so the activation token never reaches the browser. Aomi's Build
+app does this in `apps/build/src/server/bff/deploy/routes.ts`; `./bff` carries
+the pieces it shares (`identifyLaunchError`, release-manifest secret checks,
+`ownedProject`, `launchAppStatusesResult`).
 
 ```ts
 // lib/launch.ts (server-only module)
-import {
-  createLaunchRoutes,
-  createGitHubAuthRoutes,
-  createGitHubSessionCodec,
-} from "@aomi-labs/deploy/bff";
 import { BackendClient } from "@aomi-labs/deploy";
 
-const client = () =>
+export const client = () =>
   new BackendClient({
     aomi: {
       backendUrl: process.env.AOMI_BACKEND_URL!,
       activationToken: process.env.AOMI_ACTIVATION_TOKEN!, // stays server-side
     },
   });
-
-const session = createGitHubSessionCodec({
-  secret: process.env.LAUNCH_SESSION_SECRET!, // any >= 16-char secret you hold
-});
-
-export const launch = createLaunchRoutes({
-  client,
-  session: (req) => session.fromRequest(req),
-});
-
-export const githubAuth = createGitHubAuthRoutes({
-  client,
-  session,
-  callbackPath: "/api/bff/auth/github/callback",
-  returnTo: "/deploy", // your page
-});
 ```
-
-Every handler is a plain `(Request) => Promise<Response>`, so Next.js App
-Router mounts are one-liners (any fetch-style server works the same):
-
-```ts
-// app/api/bff/launch/deploy/route.ts
-import { launch } from "@/lib/launch";
-export const POST = launch.deploy;
-
-// app/api/bff/auth/github/login/route.ts
-import { githubAuth } from "@/lib/launch";
-export const GET = githubAuth.login;
-```
-
-Mount the full set: `launch.{preflight,deploy,create,activate,redeploy}` as
-`POST`, `launch.{status,apps,projects}` as `GET`, and
-`githubAuth.{login,callback,status}` as `GET` + `githubAuth.signout` as `POST`
-under `/api/bff/auth/github/*`.
-
-Defaults you can override: rate limiting + same-origin CSRF guards
-(`guards`), `APP_DEPLOY_*` env config (`config`), CI enrichment/rerun token
-(`githubToken`, default `process.env.GITHUB_TOKEN`).
 
 ### 2. Build the UI (browser, your stack)
 
@@ -118,8 +82,7 @@ example to read — not vendor.
 - **Backend URL + activation token** for your platform (ask Aomi, or mint via
   the Bootstrap API below).
 - **The Aomi GitHub App** does the repo scaffolding and deploy PRs; the OAuth
-  client-id defaults built into the auth routes are Aomi's one-shot App, and
-  the client secret stays in the Aomi backend. You don't register anything on
+  client secret stays in the Aomi backend. You don't register anything on
   GitHub.
 
 The flow your users get: Sign in with GitHub → install the Aomi GitHub App →
@@ -343,11 +306,10 @@ commands. Each maps 1:1 onto a `/api/platforms/*` route.
 admin/service AomiBearer, since no activation token exists yet. Configure it as
 `aomi.adminBearer` (or pass `bearer` per call). All other calls use
 `aomi.activationToken`. This package stays signing-free — mint the bearer with
-`@aomi-labs/service` (workspace package; not yet published to npm — ask Aomi
-for a token if you are integrating externally) and hand it in.
+`AomiService` from `@aomi-labs/account/service-topology` and hand it in.
 
 ```ts
-import { AomiService } from "@aomi-labs/service";
+import { AomiService } from "@aomi-labs/account/service-topology";
 import { BackendClient } from "@aomi-labs/deploy";
 
 // 1. Sign a short-lived admin bearer (holds the EdDSA private key).
@@ -421,8 +383,8 @@ if (!result.ok) {
 }
 ```
 
-In BFF handlers, `launchErrorResponse(err)` (from `@aomi-labs/deploy/bff`)
-maps any of these onto `{ error }` JSON with a faithful HTTP status.
+In BFF handlers, `identifyLaunchError(err)` (from `@aomi-labs/deploy/bff`)
+maps any of these onto an HTTP status and `{ error }` body.
 
 ## Types
 
@@ -505,19 +467,12 @@ await dc.activate({
 ## Tests
 
 ```
-packages/deploy/test/
-  client.test.ts               — deploy, activate, status, errors
-  bootstrap.test.ts            — tokens, sources, scaffold, apps
+packages/deploy/src/
   activation-request.test.ts   — request construction
-  watch-deployment.pbt.test.ts — property-based backoff/timeout
-  launch-routes.test.ts        — BFF factory: deploy/preflight/status/redeploy/projects
-  launch-config.test.ts        — APP_DEPLOY_* env resolution
-  github-auth.test.ts          — session codec + sign-in routes
-  launch-state.test.ts         — wizard state machine
-  launch-url-context.test.ts   — install-redirect matching
-  launch-client-platform.test.ts — bound platform, forPlatform, mount routing
-  launch-connection-result.test.ts — OAuth-callback outcome mapping
-  dashboard-lifecycle.test.ts  — lifecycle projections
+  secrets.test.ts              — secret normalization
+  backend/*.test.ts            — deploy, activate, sources, bots, secrets, status
+  bff/*.test.ts                — error identification and release-manifest secrets
+  launch/*.test.ts             — wizard state, redirects, client and progress
 ```
 
 Run: `npx vitest run packages/deploy/`

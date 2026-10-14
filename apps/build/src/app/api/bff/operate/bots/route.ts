@@ -3,7 +3,7 @@ import {
   operateBotsDeleteRoute,
   operateBotsRoute,
   operateBotsUpdateRoute,
-} from "@build/server/bff/operate/routes";
+} from "@/server/bff/operate/routes";
 
 export const GET = operateBotsRoute;
 export const POST = operateBotsCreateRoute;

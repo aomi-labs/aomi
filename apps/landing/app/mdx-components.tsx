@@ -12,9 +12,9 @@ import {
 import * as Twoslash from "fumadocs-twoslash/ui";
 
 import { WidgetDemo } from "@/content/components/samples/widget-demo";
-import { PlaygroundConfigurator } from "@/content/components/playground/PlaygroundConfigurator";
-import { SessionsConsole } from "@/components/examples/SessionsConsole";
-import { SystemConsole } from "@/components/examples/SystemConsole";
+import { PlaygroundConfigurator } from "@/content/components/playground/playground-configurator";
+import { SessionsConsole } from "@/components/examples/sessions-console";
+import { SystemConsole } from "@/components/examples/system-console";
 
 import "fumadocs-twoslash/twoslash.css";
 

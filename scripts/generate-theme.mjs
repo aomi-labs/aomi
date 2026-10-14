@@ -59,7 +59,7 @@ const stampedBanner = [
   "/* Duplicate of default.css — update tokens, colors, and AppKit overrides as needed. */",
 ].join("\n");
 const normalized = defaultCss.replace(
-  "/* @aomi-labs/widget-lib - Theme Styles */",
+  "/* @aomi-labs/widget - Theme Styles */",
   stampedBanner,
 );
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PrivyProvider } from "@privy-io/react-auth";
-import { Card, CardContent } from "@aomi-labs/widget-lib/components/ui/card";
+import { Card, CardContent } from "@aomi-labs/widget/components/ui/card";
 
 import { privyAppId } from "./config";
 import { webApp } from "@/lib/telegram-ui";

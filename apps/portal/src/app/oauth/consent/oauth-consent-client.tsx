@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { authClient } from "@aomi-labs/account/better-auth/client";
+import { authClient } from "@aomi-labs/widget/browser-auth";
 import { oauthConsentRedirect } from "./consent-response";
 
 const DESCRIPTIONS: Record<string, string> = {

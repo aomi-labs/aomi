@@ -25,6 +25,25 @@ export class HttpRequestError extends Error {
   }
 }
 
+/**
+ * Read a BFF JSON response. A failed status throws HttpRequestError with the
+ * server's `error` text, or `${failure} (${status})` when the body has none.
+ */
+export async function readJsonResponse<T>(
+  res: Response,
+  failure: string,
+): Promise<T> {
+  const json = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    throw new HttpRequestError(json.error || `${failure} (${res.status})`, {
+      status: res.status,
+      body: json,
+      retryAfterMs: parseRetryAfter(res.headers.get("retry-after")),
+    });
+  }
+  return json;
+}
+
 /** Parse either Retry-After seconds or an HTTP date into a delay. */
 export function parseRetryAfter(
   value: string | null,

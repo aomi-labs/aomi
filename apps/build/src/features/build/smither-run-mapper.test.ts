@@ -149,6 +149,13 @@ describe("streamEventsFromSnapshot times", () => {
 });
 
 describe("completionMessage", () => {
+  it("includes the failure detail and run id", () => {
+    const message = completionMessage(
+      snapshot([], "failed", { error: "Quota unavailable", runId: "run-123" }),
+    );
+    expect(message).toContain("Quota unavailable");
+    expect(message).toContain("run-123");
+  });
   it("prefers the curate agent's structured report", () => {
     const message = completionMessage(
       snapshot([], "completed", {

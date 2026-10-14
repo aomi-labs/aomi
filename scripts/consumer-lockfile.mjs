@@ -62,6 +62,38 @@ export function importerResolution(lockfile, importer, dependency) {
   return resolution;
 }
 
+export function snapshotDependencyVersion(
+  lockfile,
+  packageName,
+  resolution,
+  dependency,
+) {
+  const lines = lockfile.split(/\r?\n/);
+  const snapshot = `${packageName}@${resolution}`;
+  const start = lines.findIndex((line) => {
+    const key = line.match(/^  (.+):$/)?.[1];
+    return key?.replace(/^['"]|['"]$/g, "") === snapshot;
+  });
+  if (start < 0) throw new Error(`Trusted lockfile lacks snapshot ${snapshot}`);
+  let inDependencies = false;
+  for (const line of lines.slice(start + 1)) {
+    if (/^  \S/.test(line)) break;
+    if (/^    \S/.test(line)) {
+      inDependencies = line === "    dependencies:";
+      continue;
+    }
+    if (!inDependencies) continue;
+    const entry = line.match(/^      (.+): (.+)$/);
+    if (entry?.[1].replace(/^['"]|['"]$/g, "") !== dependency) continue;
+    const version = exactLockedVersion(entry[2].replace(/^['"]|['"]$/g, ""));
+    if (version) return version;
+    break;
+  }
+  throw new Error(
+    `Trusted snapshot ${snapshot} lacks dependency ${dependency}`,
+  );
+}
+
 export function packageVersion(lockfile, packageName, preferredResolution) {
   const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const matches = [

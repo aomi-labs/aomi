@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@aomi-labs/widget-lib/themes/default.css";
-@source "../../../../apps/shadcn-registry/src/**/*.{ts,tsx}";
+@import "@aomi-labs/widget/themes/default.css";
+@source "../../../../packages/widget/src/**/*.{ts,tsx}";
 
 @font-face {
   font-family: "Bauhaus_Chez_Display_2.0";
@@ -144,7 +144,7 @@
 }
 
 /* Aomi design-system `aomi-*` tokens + utilities now live in the shared
-   widget theme (@aomi-labs/widget-lib themes/default.css), imported above,
+   widget theme (@aomi-labs/widget themes/default.css), imported above,
    so every widget consumer resolves them identically. */
 @theme inline {
   /* PT Serif display face (loaded in app/layout) — portal-only. */

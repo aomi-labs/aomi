@@ -1,7 +1,5 @@
-// =============================================================================
-// Client
-// =============================================================================
-
+// ======================================================================// Client
+// ======================================================================
 export { AomiClient, secretNamesFrom } from "./client";
 export {
   AccountCreditsTransport,
@@ -18,8 +16,12 @@ export type {
   AomiCreditTopUpOptions,
   AomiCreditTopUpResult,
 } from "./account/credits";
+export { AomiApiError, apiErrorFields } from "./api-error";
+export type { ApiErrorFields } from "./api-error";
 export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
+export type { AgentAppAccessErrorCode } from "./agent/transport";
+export { projectConversationEvents } from "./session/conversation";
 export {
   EvmPipelineTransport,
   PipelineApiError,
@@ -91,6 +93,8 @@ export type {
   AgentTarget,
   ActionRequest,
   ActionResult,
+  ContextCompactedEvent,
+  ContextCompactingEvent,
   ErrorEvent,
   Event,
   EventPage,
@@ -107,11 +111,16 @@ export type {
   TaskStartedEvent,
   TitleEvent,
   ToolCompleteEvent,
+  ToolOutputTrimmedEvent,
   ToolUpdateEvent,
   TurnState,
   TurnStateChangedEvent,
 } from "./agent/types";
-export { ActionHandler } from "./actions";
+export {
+  ActionHandler,
+  requiresSignatureAdmission,
+  MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
+} from "./actions";
 export type {
   ActionAttempt,
   ActionAttemptState,
@@ -172,10 +181,8 @@ export {
   createAccountBearerProvider,
 } from "./account-session";
 
-// =============================================================================
-// High-level product SDK
-// =============================================================================
-
+// ======================================================================// High-level product SDK
+// ======================================================================
 export { Aomi } from "./sdk/aomi";
 export type { AomiOptions } from "./sdk/aomi";
 export { oauth } from "./sdk/auth";
@@ -221,10 +228,8 @@ export type {
   BetterAuthTokenResponse,
 } from "./account-session";
 
-// =============================================================================
-// Types
-// =============================================================================
-
+// ======================================================================// Types
+// ======================================================================
 export type {
   AomiAppDescriptor,
   AomiFeatureCategory,
@@ -300,38 +305,31 @@ export {
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 
-// =============================================================================
-// Type Guards
-// =============================================================================
-
+// ======================================================================// Type Guards
+// ======================================================================
 export {
   UserState,
   CLIENT_TYPE_TS_CLI,
   CLIENT_TYPE_WEB_UI,
 } from "./user-state";
-// =============================================================================
-// Session (high-level orchestrated client)
-// =============================================================================
-
+// ======================================================================// Session (high-level orchestrated client)
+// ======================================================================
 export { ClientSession as Session, aaModeFromExecutionKind } from "./session";
 
 export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SendOptions,
   SendResult,
 } from "./session";
 
-// =============================================================================
-// Event Utilities
-// =============================================================================
-
+// ======================================================================// Event Utilities
+// ======================================================================
 export { TypedEventEmitter } from "./event";
 
-// =============================================================================
-// Wallet Utilities
-// =============================================================================
-
+// ======================================================================// Wallet Utilities
+// ======================================================================
 export {
   normalizeSolanaCluster,
   toViemSignMessageArgs,
@@ -340,7 +338,9 @@ export {
   toAAWalletCall,
   parseChainId,
 } from "./wallet-utils";
+export { shortAddress } from "./short-address";
 export { walletCapabilities } from "./wallet/capabilities";
+export { normalizeEvmWalletTarget } from "./wallet/target";
 export { walletUserState } from "./wallet/user-state";
 export type {
   EvmWallet,
@@ -361,10 +361,8 @@ export type {
   ViemSignTypedDataArgs,
 } from "./wallet-utils";
 
-// =============================================================================
-// Chains
-// =============================================================================
-
+// ======================================================================// Chains
+// ======================================================================
 export {
   ALCHEMY_CHAIN_SLUGS,
   CHAIN_NAMES,
@@ -380,10 +378,8 @@ export {
 } from "./chains";
 export type { ChainInfo } from "./chains";
 
-// =============================================================================
-// Wallet Execution (native wallet only — AA executes server-side)
-// =============================================================================
-
+// ======================================================================// Wallet Execution (native wallet only — AA executes server-side)
+// ======================================================================
 export {
   executeWalletCalls,
   partialWalletExecution,
@@ -412,3 +408,51 @@ export type {
 } from "./aa";
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
+export * from "./commit-lifecycle";
+
+export {
+  TransactionSafetyTransport,
+  transactionSafetyPolicy,
+} from "./transaction-safety";
+export type {
+  TransactionSafetyMode,
+  TransactionSafetyPolicy,
+  TransactionSafetyAssessment,
+  TransactionSafetyDecision,
+  TransactionSafetyProjection,
+} from "./transaction-safety";
+
+export { CallVerificationError, ExpectedCalls } from "./expected-calls";
+export type {
+  CallMismatch,
+  CallVerification,
+  CallVerificationField,
+  CallVerificationSubject,
+  ExpectedCall,
+  ExpectedCallsOptions,
+  VerifiedCall,
+} from "./expected-calls";
+
+export { AccountGraphTransport, AccountGraphApiError } from "./account/graph";
+export type {
+  AccountGraphUser,
+  AccountGraphLinkedAccount,
+  AccountGraphWallet,
+  AccountGraphResponse,
+  AccountGraphLinkWalletResponse,
+  AccountGraphProviderExchangeResponse,
+  AccountGraphDeleteResponse,
+} from "./account/graph";
+export {
+  createScopedStorage,
+  type ScopedStorage,
+  type StorageScope,
+} from "./storage";
+
+export { wrapFetchWithPublicApiAuthorization } from "./client";
+export { commitCapabilities, isTerminalCommit } from "./commits";
+export type { CommitView } from "./commits";
+export type { ResolvedAccountLink } from "./account/graph";
+
+export { buildSiweMessage, buildWalletLinkMessage } from "./siwe";
+export type { SiweMessageInput } from "./siwe";

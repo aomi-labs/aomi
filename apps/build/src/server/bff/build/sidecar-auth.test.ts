@@ -13,7 +13,7 @@ vi.mock("@aomi-labs/account", () => ({
   portalService: mocks.portalService,
 }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: {
     handle: (input: { error: unknown; context: Record<string, unknown> }) =>
       mocks.capture(input.error, { ...input.context, status: 500 }),

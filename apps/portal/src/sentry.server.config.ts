@@ -1,10 +1,10 @@
-import { initBffSentry } from "@aomi-labs/bff-observability";
+import { initBffSentry } from "@aomi-labs/observability";
 import {
   setAccountDiagnosticObserver,
   setAccountInternalFailureObserver,
   setBetterAuthFailureObserver,
 } from "@aomi-labs/account/observability";
-import { portalFailures } from "@portal/server/bff/failures";
+import { portalFailures } from "@/server/bff/failures";
 
 initBffSentry({ service: "portal-bff" });
 setAccountInternalFailureObserver(({ kind, error }) => {

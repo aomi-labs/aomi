@@ -28,11 +28,11 @@ export type Logger = {
 // =============================================================================
 
 export type AomiClientOptions = {
-  /** Base URL of the Aomi backend (e.g. "https://api.aomi.dev" or "/" for same-origin proxying) */
+  /** Base URL of the public Aomi API (e.g. "https://chat.aomi.dev" or "/" for same-origin proxying) */
   baseUrl: string;
   /** Optional fetch implementation for payment-aware browser transports and tests. */
   fetch?: typeof fetch;
-  /** Default API key for non-default apps */
+  /** App key sent as `Aomi-App-Key`. Only private Apps need one; the App owner issues it. */
   apiKey?: string;
   /** Optional x402 signer used by the bounded payment retry transport. */
   x402?: x402Client | x402HTTPClient;
@@ -272,6 +272,17 @@ export type AomiOnchainPolicyRule =
       type: "recurring_native_asset_limit";
       amount: string;
       window: AomiPolicyWindow;
+    }
+  | {
+      type: "lifetime_token_asset_limit";
+      mint: AomiOnchainAddress;
+      amount: string;
+    }
+  | {
+      type: "recurring_token_asset_limit";
+      mint: AomiOnchainAddress;
+      amount: string;
+      window: AomiPolicyWindow;
     };
 
 export interface AomiOnchainPolicy {
@@ -302,10 +313,14 @@ export interface AomiOnchainPolicyProviderCtx {
   provider: string;
   chain_ref: string;
   targets: Record<string, AomiOnchainAddress>;
+  /** Curated fungible tokens a policy may cap, by display symbol. */
+  mints: Record<string, AomiOnchainAddress>;
   slot_windows: number[];
   binding: AomiOnchainPolicyBinding | null;
   chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
   remaining_native_amount: string | null;
+  /** Remaining token allowance by mint address, read from the chain. */
+  remaining_token_amounts: Record<string, string>;
 }
 
 export interface AomiBindOnchainPolicy {

@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-import { useProjects } from "@build/features/launch/hooks/use-projects";
-import { platformHref } from "@build/features/launch/platform";
-import { usePlatform } from "@build/features/launch/use-platform";
+import { useProjects } from "@/features/deploy/hooks/use-projects";
+import { platformHref } from "@/features/deploy/platform";
+import { usePlatform } from "@/features/deploy/use-platform";
 import {
   ErrorPanel,
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 
 function environmentHref(projectId: number, platform: string) {
   return platformHref(`/projects/${projectId}?tab=environment`, platform);

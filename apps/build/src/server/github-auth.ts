@@ -3,25 +3,26 @@ import "server-only";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
-import { API_PATHS } from "@build/lib/api-paths";
-import { backendClient } from "@build/server/bff/backend";
+import { API_PATHS } from "@/lib/api-paths";
+import { backendClient } from "@/server/bff/backend";
+import { secureCookies } from "@/server/env";
 import {
   type GitHubCliLoginRequest,
   type GitHubOAuthContinuation,
   type GitHubSession,
   issueGitHubCliExchange,
   issueGitHubOAuthRequest,
-} from "@build/server/cookies/github";
+} from "@/server/cookies/github";
 import {
   GITHUB_LOGIN_APP_INDEX,
   githubOAuthClientId,
-} from "@build/server/github-oauth-config";
+} from "@/server/github-oauth-config";
 
 export const GITHUB_OAUTH_REQUEST_COOKIE = "aomi_github_oauth_request";
 
 const OAUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: secureCookies(),
   sameSite: "lax" as const,
   path: "/",
   maxAge: 10 * 60,

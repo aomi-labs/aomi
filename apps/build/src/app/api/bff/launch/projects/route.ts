@@ -1,4 +1,4 @@
-import { userProjectsRoute } from "@build/server/bff/launch/routes";
+import { userProjectsRoute } from "@/server/bff/deploy/routes";
 
 export const runtime = "nodejs";
 export const GET = userProjectsRoute;

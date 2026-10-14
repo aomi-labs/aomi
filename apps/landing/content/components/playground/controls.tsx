@@ -14,7 +14,7 @@ export const Segmented: FC<{
   value: string;
   onChange: (v: string) => void;
 }> = ({ options, value, onChange }) => (
-  <div className="inline-flex rounded-full border border-fd-border bg-[var(--surface-2)] p-[3px]">
+  <div className="border-fd-border inline-flex rounded-full border bg-[var(--surface-2)] p-[3px]">
     {options.map((o) => (
       <button
         key={o.value}
@@ -46,7 +46,7 @@ export const ToggleChip: FC<{
     className={`rounded-full border px-3.5 py-[5px] text-xs transition-colors ${
       checked
         ? "border-transparent bg-[var(--accent-strong)] font-medium text-[var(--on-accent)]"
-        : "border-fd-border bg-[var(--surface-2)] text-fd-muted-foreground hover:text-fd-foreground"
+        : "border-fd-border text-fd-muted-foreground hover:text-fd-foreground bg-[var(--surface-2)]"
     }`}
   >
     {label}

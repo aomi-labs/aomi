@@ -11,7 +11,7 @@
 // Delete the BFF fallback branches (and nothing else) once the manager ships
 // `/user/projects/:id/statement` and the 24h trend fields on observability.
 
-import { FIXTURES } from ".";
+import { FIXTURES } from "./";
 
 /** Placeholder project for accounts that have no app projects yet. */
 export const EXAMPLE_PROJECT = { id: 0, repositoryLink: "example/apps" };

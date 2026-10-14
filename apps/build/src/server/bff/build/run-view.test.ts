@@ -9,7 +9,7 @@ import {
 
 const telemetry = vi.hoisted(() => ({ capture: vi.fn() }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: {
     handle: (input: { error: unknown; context: Record<string, unknown> }) =>
       telemetry.capture(input.error, { ...input.context, status: 500 }),

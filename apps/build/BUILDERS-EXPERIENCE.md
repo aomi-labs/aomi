@@ -91,10 +91,10 @@ UI may show masked `••••` as a *status affordance*, never as a real reve
 
 | Change | File | Action |
 |---|---|---|
-| Projects title | `src/features/launch/components/deployments/project-index.tsx` | h1 `Deployments` → **Projects**; project-first subtitle |
-| Tab rename | `src/features/launch/components/deployments/project-page.tsx` | Label `Settings` → **Details**; keep `id: "settings"` |
-| Global copy | `src/features/launch/components/deployments/global-deployments-list.tsx` | "Deployment history across all projects." |
-| Project copy | `src/features/launch/components/deployments/tabs/deployments-tab.tsx` | "Deployment history for this project." |
+| Projects title | `src/features/deploy/components/deployments/project-index.tsx` | h1 `Deployments` → **Projects**; project-first subtitle |
+| Tab rename | `src/features/deploy/components/deployments/project-page.tsx` | Label `Settings` → **Details**; keep `id: "settings"` |
+| Global copy | `src/features/deploy/components/deployments/global-deployments-list.tsx` | "Deployment history across all projects." |
+| Project copy | `src/features/deploy/components/deployments/tabs/deployments-tab.tsx` | "Deployment history for this project." |
 | Empty states (**thin**) | Projects, global Deployments, project Deployments, Environment, Transactions only | Why empty + one next action |
 
 **Do not** empty-state every panel in the app in this phase.
@@ -146,7 +146,7 @@ Stay on Account Settings until the builder clicks through. No auto-redirect.
 
 **Goal:** Honest builder vault — **not** a Vercel clone.
 
-Primary: `src/features/launch/components/deployments/tabs/environment-tab.tsx`  
+Primary: `src/features/deploy/components/deployments/tabs/environment-tab.tsx`  
 APIs unchanged: `loadSecrets` / `setEnvVars` / `deleteEnvVar`
 
 ```mermaid

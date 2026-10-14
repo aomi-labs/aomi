@@ -8,7 +8,11 @@ const workspaceRoot = path.resolve(appRoot, "../..");
 const appNodeModules = path.join(appRoot, "node_modules");
 const portalSrc = path.join(appRoot, "src");
 const accountSrc = path.join(workspaceRoot, "packages/account/src");
-const widgetSrc = path.join(workspaceRoot, "apps/shadcn-registry/src");
+const managedBuildJobs = Number(process.env.AOMI_DEV_BUILD_JOBS);
+const managedBuildCpus =
+  Number.isInteger(managedBuildJobs) && managedBuildJobs > 0
+    ? managedBuildJobs
+    : undefined;
 
 const emptyModulePath = path.join(appRoot, "empty-module.js");
 const nobleHashesAssertCompatPath = path.join(
@@ -16,45 +20,31 @@ const nobleHashesAssertCompatPath = path.join(
   "noble-hashes-assert-compat.js",
 );
 
-// Portal-local code should import from `@portal/*`.
-// These `@/components|hooks|lib` aliases exist only so registry source imported
-// through an explicit widget package entrypoint can resolve its own internal
-// paths. `check:frontend-boundaries` rejects using them from Portal source.
-const widgetTurbopackAliases = {
-  "@/components": "../../apps/shadcn-registry/src/components",
-  "@/hooks": "../../apps/shadcn-registry/src/hooks",
-  "@/lib": "../../apps/shadcn-registry/src/lib",
-  "@aomi-labs/widget-lib/providers/para":
-    "../../apps/shadcn-registry/src/lib/wallet-kit/providers/para/index.ts",
-  "@aomi-labs/widget-lib/providers/privy":
-    "../../apps/shadcn-registry/src/lib/wallet-kit/providers/privy/index.ts",
-  "@aomi-labs/widget-lib/host-composition":
-    "../../apps/shadcn-registry/src/host-composition.ts",
-  "@aomi-labs/widget-lib": "../../apps/shadcn-registry/src/index.ts",
-} as const;
-
-// Keep these in sync with the corresponding `paths` entries in
-// `apps/portal/tsconfig.json`.
-const widgetWebpackAliases = {
-  "@/components": path.join(widgetSrc, "components"),
-  "@/hooks": path.join(widgetSrc, "hooks"),
-  "@/lib": path.join(widgetSrc, "lib"),
-  "@aomi-labs/widget-lib/providers/para": path.join(
-    widgetSrc,
-    "lib/wallet-kit/providers/para/index.ts",
-  ),
-  "@aomi-labs/widget-lib/providers/privy": path.join(
-    widgetSrc,
-    "lib/wallet-kit/providers/privy/index.ts",
-  ),
-  "@aomi-labs/widget-lib/host-composition": path.join(
-    widgetSrc,
-    "host-composition.ts",
-  ),
-  "@aomi-labs/widget-lib": path.join(widgetSrc, "index.ts"),
-} as const;
+const buildOrigin = new URL(
+  process.env.AOMI_BUILD_URL || "https://build.aomi.dev",
+).origin;
 
 const nextConfig: NextConfig = {
+  distDir: process.env.AOMI_PORTAL_DIST_DIR || ".next",
+  async redirects() {
+    return [
+      {
+        source: "/deployments/new",
+        destination: `${buildOrigin}/operate/deployments/new`,
+        permanent: false,
+      },
+      {
+        source: "/deployments/:projectId",
+        destination: `${buildOrigin}/projects/:projectId`,
+        permanent: false,
+      },
+      {
+        source: "/deployments",
+        destination: `${buildOrigin}/projects`,
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -92,6 +82,7 @@ const nextConfig: NextConfig = {
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   outputFileTracingRoot: workspaceRoot,
   experimental: {
+    ...(managedBuildCpus ? { cpus: managedBuildCpus } : {}),
     externalDir: true,
     webpackMemoryOptimizations: true,
   },
@@ -103,16 +94,16 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: [
     "@aomi-labs/account",
-    "@aomi-labs/bff-observability",
+    "@aomi-labs/observability",
     "@aomi-labs/client",
     "@aomi-labs/react",
-    "@aomi-labs/widget-lib",
+    "@aomi-labs/widget",
     "@getpara/react-sdk",
   ],
   turbopack: {
     resolveAlias: {
-      "@portal": "./src",
-      ...widgetTurbopackAliases,
+      "@": "./src",
+
       "@aomi-labs/account/account": "../../packages/account/src/account.ts",
       "@aomi-labs/account/better-auth":
         "../../packages/account/src/better-auth/index.ts",
@@ -140,8 +131,8 @@ const nextConfig: NextConfig = {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      "@portal": portalSrc,
-      ...widgetWebpackAliases,
+      "@": portalSrc,
+
       "@aomi-labs/account/account": path.join(accountSrc, "account.ts"),
       "@aomi-labs/account/better-auth": path.join(
         accountSrc,

@@ -6,18 +6,13 @@ import { GET } from "./route";
 
 const telemetry = vi.hoisted(() => ({ observe: vi.fn() }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: { handle: telemetry.observe },
 }));
 
-vi.mock("@build/server/backend-url", () => ({
-  configuredBackendUrl: () => "https://api-staging.aomi.dev",
-}));
-
-vi.mock("@build/server/bff/launch/config", () => ({
-  launchConfig: () => ({
-    platform: "somm.finance",
-  }),
+vi.mock("@/server/env", () => ({
+  backendUrl: () => "https://api-staging.aomi.dev",
+  deployConfig: () => ({ platform: "somm.finance" }),
 }));
 
 describe("Aomi Build API proxy", () => {

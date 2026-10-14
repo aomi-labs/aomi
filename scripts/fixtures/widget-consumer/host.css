@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  font:
+    18px Georgia,
+    serif;
+  color: purple;
+}
+button {
+  border: 7px solid orange;
+  padding: 11px;
+  background: yellow;
+}
+h1 {
+  font-size: 31px;
+  margin: 12px;
+}
+p {
+  margin: 9px;
+  color: navy;
+}
+ul {
+  padding-left: 29px;
+  list-style: square;
+}
+a {
+  color: green;
+  text-decoration: underline;
+}
+.host {
+  height: 240px;
+}
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}

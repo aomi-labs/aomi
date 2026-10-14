@@ -2,7 +2,7 @@
 // Launch source identification.
 //
 // This module owns only facts that require deploy-domain types. Telemetry
-// classification and delivery belong to @aomi-labs/bff-observability.
+// classification and delivery belong to @aomi-labs/observability.
 // =============================================================================
 
 import { BackendError, DeployError } from "../errors";
@@ -106,29 +106,8 @@ export function identifyLaunchError(error: unknown): LaunchFailureSource {
   return {
     origin: "local",
     error,
-    response: {
-      status: 502,
-      error: error instanceof Error ? error.message : String(error),
-    },
+    response: { status: 500, error: "internal_error" },
   };
-}
-
-/** Default response adapter for the deploy package's framework-neutral routes. */
-export function launchErrorResponse(error: unknown): Response {
-  const failure = identifyLaunchError(error);
-  return Response.json(
-    {
-      error: failure.response.error,
-      ...(failure.response.code ? { code: failure.response.code } : {}),
-      ...(failure.response.retryable !== undefined
-        ? { retryable: failure.response.retryable }
-        : {}),
-      ...(failure.response.deployError
-        ? { deployError: failure.response.deployError }
-        : {}),
-    },
-    { status: failure.response.status },
-  );
 }
 
 type BackendErrorLike = {

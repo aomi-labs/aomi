@@ -7,21 +7,50 @@ import react from "@vitejs/plugin-react";
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: "workspace-source-alias",
+      enforce: "pre",
+      resolveId(source, importer) {
+        if (!source.startsWith("@/") || !importer) return;
+        for (const directory of [
+          "apps/portal",
+          "apps/build",
+          "apps/telegram",
+          "packages/widget",
+        ]) {
+          if (importer.startsWith(resolve(currentDir, directory) + "/")) {
+            return this.resolve(
+              resolve(currentDir, directory, "src", source.slice(2)),
+              importer,
+              { skipSelf: true },
+            );
+          }
+        }
+      },
+    },
+  ],
   resolve: {
     alias: {
       "@build": resolve(currentDir, "apps/build/src"),
       "@portal": resolve(currentDir, "apps/portal/src"),
-      "@": resolve(currentDir, "apps/telegram/src"),
       "@aomi-labs/account/better-auth/client": resolve(
         currentDir,
-        "packages/account/src/better-auth/auth-client.ts",
+        "packages/client/src/browser-auth.ts",
       ),
       "@aomi-labs/account": resolve(currentDir, "packages/account/src"),
+      "@aomi-labs/client/browser-auth": resolve(
+        currentDir,
+        "packages/client/src/browser-auth.ts",
+      ),
+      "@aomi-labs/widget/browser-auth": resolve(
+        currentDir,
+        "packages/client/src/browser-auth.ts",
+      ),
       "@aomi-labs/client": resolve(currentDir, "packages/client/src"),
       "@aomi-labs/deploy": resolve(currentDir, "packages/deploy/src"),
       "@aomi-labs/react": resolve(currentDir, "packages/react/src"),
-      "@aomi-labs/service": resolve(currentDir, "packages/service/src"),
       "@aomi-labs/smither": resolve(currentDir, "packages/smither/src"),
       "server-only": resolve(
         currentDir,
@@ -37,7 +66,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: [
-      "scripts/**/*.{test,spec}.{mjs,cjs,js}",
+      "scripts/**/*.{test,spec}.{ts,tsx,mjs,cjs,js}",
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
@@ -49,7 +78,13 @@ export default defineConfig({
       "apps/portal/src/app/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
       "apps/portal/src/app/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
     ],
-    exclude: [".claude/**", "**/.claude/**", "**/node_modules/**", "dist/**"],
+    exclude: [
+      ".claude/**",
+      "**/.claude/**",
+      "**/node_modules/**",
+      "dist/**",
+      "packages/widget/**",
+    ],
     restoreMocks: true,
   },
 });

@@ -18,30 +18,34 @@ function fixture() {
   fixtures.push(root);
   for (const directory of [
     "apps/portal/src",
-    "apps/shadcn-registry/src",
+    "packages/widget/src",
     "packages/client/src",
     "packages/react/src",
   ]) {
     mkdirSync(join(root, directory), { recursive: true });
   }
   writeFileSync(
+    join(root, "apps/portal/package.json"),
+    JSON.stringify({ dependencies: { "@aomi-labs/widget": "workspace:*" } }),
+  );
+  writeFileSync(
     join(root, "apps/portal/tsconfig.json"),
     JSON.stringify({
       compilerOptions: {
         paths: {
-          "@aomi-labs/widget-lib/host-composition": [
-            "../shadcn-registry/src/host-composition.ts",
+          "@aomi-labs/widget/host-composition": [
+            "../../packages/widget/src/host-composition.ts",
           ],
         },
       },
     }),
   );
   writeFileSync(
-    join(root, "apps/shadcn-registry/package.json"),
+    join(root, "packages/widget/package.json"),
     JSON.stringify({ exports: { "./host-composition": "./dist/index.js" } }),
   );
   writeFileSync(
-    join(root, "apps/shadcn-registry/tsconfig.json"),
+    join(root, "packages/widget/tsconfig.json"),
     JSON.stringify({
       compilerOptions: {
         baseUrl: ".",
@@ -63,7 +67,7 @@ describe("frontend dependency boundaries", () => {
     const root = fixture();
     writeFileSync(
       join(root, "apps/portal/src/shell.ts"),
-      'import { HeaderControls } from "@aomi-labs/widget-lib/host-composition";\n',
+      'import { HeaderControls } from "@aomi-labs/widget/host-composition";\n',
     );
 
     expect(checkFrontendBoundaries(root)).toEqual([]);
@@ -74,17 +78,17 @@ describe("frontend dependency boundaries", () => {
     writeFileSync(
       join(root, "apps/portal/src/private.ts"),
       [
-        'import "../../shadcn-registry/src/private";',
-        'import "@aomi-labs/widget-lib/components/private";',
+        'import "../../../packages/widget/src/private";',
+        'import "@aomi-labs/widget/components/private";',
       ].join("\n"),
     );
     writeFileSync(
-      join(root, "apps/shadcn-registry/src/reverse.ts"),
+      join(root, "packages/widget/src/reverse.ts"),
       'import "@portal/components/private";\n',
     );
     writeFileSync(
       join(root, "packages/react/src/app-ui.ts"),
-      'export { AomiWidget } from "@aomi-labs/widget-lib";\n',
+      'export { AomiWidget } from "@aomi-labs/widget";\n',
     );
     writeFileSync(
       join(root, "packages/client/src/react.ts"),
@@ -107,7 +111,7 @@ describe("frontend dependency boundaries", () => {
     const configPath = join(root, "apps/portal/tsconfig.json");
     const config = JSON.parse(readFileSync(configPath, "utf8"));
     config.compilerOptions.paths["@private-widget/*"] = [
-      "../shadcn-registry/src/*",
+      "../../packages/widget/src/*",
     ];
     writeFileSync(configPath, JSON.stringify(config));
     writeFileSync(
@@ -134,14 +138,14 @@ describe("frontend dependency boundaries", () => {
 
   it("rejects reverse aliases from the widget and workspace packages", () => {
     const root = fixture();
-    const widgetConfigPath = join(root, "apps/shadcn-registry/tsconfig.json");
+    const widgetConfigPath = join(root, "packages/widget/tsconfig.json");
     const widgetConfig = JSON.parse(readFileSync(widgetConfigPath, "utf8"));
     widgetConfig.compilerOptions.paths["@portal-private/*"] = [
-      "../portal/src/*",
+      "../../apps/portal/src/*",
     ];
     writeFileSync(widgetConfigPath, JSON.stringify(widgetConfig));
     writeFileSync(
-      join(root, "apps/shadcn-registry/src/portal-alias.ts"),
+      join(root, "packages/widget/src/portal-alias.ts"),
       'import "@portal-private/components/private";\n',
     );
 
@@ -151,7 +155,7 @@ describe("frontend dependency boundaries", () => {
         compilerOptions: {
           paths: {
             "@*": ["./src/*"],
-            "@widget-private/*": ["../../apps/shadcn-registry/src/*"],
+            "@widget-private/*": ["../../packages/widget/src/*"],
           },
         },
       }),
@@ -172,7 +176,7 @@ describe("frontend dependency boundaries", () => {
   it("accepts the widget's internal source alias inside the widget", () => {
     const root = fixture();
     writeFileSync(
-      join(root, "apps/shadcn-registry/src/internal.ts"),
+      join(root, "packages/widget/src/internal.ts"),
       'import "@/components/account-shell/lib/use-settings";\n',
     );
 

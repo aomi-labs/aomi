@@ -1,6 +1,6 @@
 "use client";
 
-import { AomiFrame } from "@aomi-labs/widget-lib";
+import { AomiFrame } from "@aomi-labs/widget/frame";
 import { useEffect, useState } from "react";
 import {
   widgetFixtureCatalog,

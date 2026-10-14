@@ -111,8 +111,8 @@ Set `AOMI_AGENT_API_URL` to the local api-server and use the canonical
 new surfaces default on outside production. Production-like local runs can
 exercise independent rollback with `AOMI_OAUTH_ISSUANCE_ENABLED`,
 `AOMI_REST_OAUTH_ENABLED`, `AOMI_AGENT_MCP_OAUTH_ENABLED`,
-`AOMI_PIPELINE_MCP_OAUTH_ENABLED`, `AOMI_LEGACY_SESSION_AUTH_ENABLED`,
-`AOMI_GUEST_AGENT_REST_ENABLED`, and `AOMI_GUEST_PIPELINE_REST_ENABLED`.
+`AOMI_PIPELINE_MCP_OAUTH_ENABLED`, and `AOMI_LEGACY_SESSION_AUTH_ENABLED`.
+Guest REST is available in every environment with the same resource scope ceiling.
 Guest Agent and Pipeline sessions can complete self-custodial work, while
 payment submission and delegated custody remain outside the guest scope ceiling.
 
@@ -160,3 +160,9 @@ The smoke checks the BFF bearer endpoint, direct backend bearer acceptance,
 thread create/list, state, account app discovery, app-key creation, chat, and
 the portal proxy thread list. It only prints redacted token claims and app-key
 prefixes.
+
+### Shared auth rate limits
+
+Better Auth and the widget proof and guest endpoints share one PostgreSQL `rate_limits` table. Its schema is the product-mono migration `supabase/migrations/20261006000000_bff_rate_limits.sql`; hosted databases get it only through that migration, applied before the frontend that uses it. `packages/account/src/db/rate-limits.sql` is the same file, used to set up disposable local and test databases (the browser contract schema script applies it). Each key gets a fixed window that starts with its first request and resets when it expires. If the table is missing, requests are allowed and the error is reported once per server instance, so sign-in keeps working; any other store error rejects the request.
+
+Both limiters trust only the client-IP header named by `AOMI_CLIENT_IP_HEADER` (see `apps/portal/LOCAL_ENV.example`). On Vercel it defaults to `x-vercel-forwarded-for`, which Vercel overwrites at ingress; a self-hosted portal must set it to the header its own proxy overwrites, or every caller shares one conservative bucket. Loopback development uses a larger widget guest budget because every test browser shares one address.

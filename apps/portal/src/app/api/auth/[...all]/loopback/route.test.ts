@@ -1,5 +1,7 @@
 // @vitest-environment node
 
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import type { Pool } from "pg";
 import { getMigrations } from "better-auth/db/migration";
 import {
@@ -67,6 +69,14 @@ describeWithDatabase("production OAuth route loopback callbacks", () => {
       database: pool,
     });
     await runMigrations();
+    await pool.query(
+      readFileSync(
+        createRequire(import.meta.url).resolve(
+          "@aomi-labs/account/rate-limits.sql",
+        ),
+        "utf8",
+      ),
+    );
     await assertOAuthSchema(pool);
     const existingResource = await pool.query(
       `select 1 from ba_oauth_resources where identifier = $1`,

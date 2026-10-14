@@ -247,22 +247,22 @@ const walletSnippets = {
   "Browser wallet": {
     description:
       "Authenticate an existing EOA. No embedded-provider import required.",
-    auth: 'auth={{ kind: "browser_wallet" }}',
-    providerImport: "",
+    auth: "",
+    helper: "",
     login: "aomi account login --wallet",
   },
   Para: {
     description:
       "Resolve a Para wallet with the host's public project credential.",
-    auth: 'auth={{ kind: "embedded_wallet", provider: "para", environment: "PROD", apiKey: process.env.NEXT_PUBLIC_PARA_API_KEY! }}',
-    providerImport: 'import "@aomi-labs/widget-lib/providers/para";\n',
+    auth: "\n      auth={paraAuth({ apiKey: process.env.NEXT_PUBLIC_PARA_API_KEY! })}",
+    helper: ", paraAuth",
     login: "aomi account login --provider para",
   },
   Privy: {
     description:
       "Use the signed-in Privy wallet with the host's public app ID.",
-    auth: 'auth={{ kind: "embedded_wallet", provider: "privy", appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID! }}',
-    providerImport: 'import "@aomi-labs/widget-lib/providers/privy";\n',
+    auth: "\n      auth={privyAuth({ appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID! })}",
+    helper: ", privyAuth",
     login: "aomi account login --provider privy",
   },
 } as const;
@@ -273,7 +273,7 @@ export function WalletCodeDemo() {
   const [surface, setSurface] = useState<"UI" | "Terminal">("UI");
   const snippet =
     surface === "UI"
-      ? `"use client";\n\nimport { AomiWidget } from "@aomi-labs/widget-lib";\n${walletSnippets[wallet].providerImport}import "@aomi-labs/widget-lib/styles.css";\n\nexport default function Assistant() {\n  return (\n    <AomiWidget\n      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}\n      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}\n      ${walletSnippets[wallet].auth}\n    />\n  );\n}`
+      ? `"use client";\n\nimport { AomiWidget${walletSnippets[wallet].helper} } from "@aomi-labs/widget";\nimport "@aomi-labs/widget/styles.css";\n\nexport default function Assistant() {\n  return (\n    <AomiWidget\n      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}\n      baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}${walletSnippets[wallet].auth}\n    />\n  );\n}`
       : `${walletSnippets[wallet].login}\naomi chat "rebalance approved liquidity"\naomi tx list\naomi tx sign <action-id>`;
 
   return (

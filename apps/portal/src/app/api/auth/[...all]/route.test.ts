@@ -19,14 +19,14 @@ vi.mock("@aomi-labs/account/better-auth", () => ({
   hashOAuthClientId: () => "hashed-client",
   oauthRedirectFailureDiagnostics: mocks.oauthRedirectFailureDiagnostics,
 }));
-vi.mock("@portal/server/oauth/cors", () => ({
+vi.mock("@/server/oauth/cors", () => ({
   applyManagedWidgetCors: vi.fn(),
   isManagedWidgetClientOrigin: vi.fn(),
   managedWidgetPreflight: vi.fn(),
   oauthBodyClientId: vi.fn(),
   publicDiscoveryResponse: vi.fn(),
 }));
-vi.mock("@portal/server/oauth/request-policy", () => ({
+vi.mock("@/server/oauth/request-policy", () => ({
   // The policy hands the (possibly scope-narrowed) request back to the route,
   // so the mock has to return one rather than a bare pass signal. A plain
   // function, not vi.fn(), so the global mock reset cannot strip it.

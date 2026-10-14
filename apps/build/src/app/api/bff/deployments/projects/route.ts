@@ -1,3 +1,3 @@
-import { deploymentProjectsRoute } from "@build/server/bff/launch/routes";
+import { userProjectsRoute } from "@/server/bff/deploy/routes";
 
-export const GET = deploymentProjectsRoute;
+export const GET = userProjectsRoute;

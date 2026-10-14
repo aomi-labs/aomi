@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.28.0",
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm --filter \"@aomi-labs/smither...\" build && next build",
+    "build": "pnpm --filter \"aomi-build^...\" build && next build",
     "start": "next start",
     "lint": "eslint .",
     "type-check": "next typegen && tsc --noEmit --incremental false",
@@ -15,12 +15,12 @@
   },
   "dependencies": {
     "@aomi-labs/account": "workspace:*",
-    "@aomi-labs/bff-observability": "workspace:*",
+    "@aomi-labs/observability": "workspace:*",
     "@aomi-labs/client": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/react": "workspace:*",
     "@aomi-labs/smither": "workspace:*",
-    "@aomi-labs/widget-lib": "workspace:*",
+    "@aomi-labs/widget": "workspace:*",
     "@assistant-ui/react": "^0.14.0",
     "@assistant-ui/react-markdown": "^0.14.0",
     "@sentry/nextjs": "10.69.0",

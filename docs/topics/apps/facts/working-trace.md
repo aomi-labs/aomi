@@ -5,12 +5,12 @@ status: authoritative
 area: apps
 review_after_days: 30
 sources_of_truth:
-  - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/pipeline.ts
-  - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/protocols/index.ts
-  - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/identity.ts
-  - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/present/descriptors.ts
-  - apps/shadcn-registry/src/components/assistant-ui/working-trace-rows.tsx
-  - apps/shadcn-registry/src/components/assistant-ui/working-trace-contract.test.tsx
+  - packages/widget/src/thread/tool-interpreter/pipeline.ts
+  - packages/widget/src/thread/tool-interpreter/protocols/index.ts
+  - packages/widget/src/thread/tool-interpreter/identity.ts
+  - packages/widget/src/thread/tool-interpreter/present/descriptors.ts
+  - packages/widget/src/thread/working-trace-rows.tsx
+  - packages/widget/src/thread/working-trace-contract.test.tsx
 ---
 
 # Working Trace Presentation Contract
@@ -93,7 +93,6 @@ adapter must return neutral fallback when its result is invalid.
 `working-trace-contract.test.tsx` covers names, unknown tools, EVM and Solana
 count units, incomplete simulations, commit progress, pending row markers,
 and overflow. `tool-interpreter.test.ts` covers supported tool payloads.
-`scripts/test-transaction-review-visuals.mjs` renders the shared trace in a
-browser alongside the durable Aave review fixture and captures the image above.
+`tests/e2e/journeys/tx-review-sign.spec.ts` verifies review, rejection and replay on the Portal and embedded widget using the shared agent ledger. Real wallet authorization and signing remain in `visual-signing-contracts.spec.ts`. The image above is a historical illustration.
 The widget registry manifest must include every interpreter source dependency
 before generating or packing the registry.

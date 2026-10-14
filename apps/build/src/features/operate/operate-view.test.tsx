@@ -7,7 +7,8 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { OperateView, truncateAddress } from "./operate-view";
+import { truncateAddress } from "./format";
+import { OperateView } from "./operate-view";
 
 const operateFetch = vi.fn();
 const operatePaymentsFetch = vi.fn();
@@ -18,7 +19,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ prefetch: vi.fn() }),
 }));
 
-vi.mock("@build/components/control-plane/github-session-context", () => ({
+vi.mock("@/components/control-plane/github-session-context", () => ({
   useGitHubSession: () => ({
     account: {
       loading: false,

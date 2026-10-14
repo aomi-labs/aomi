@@ -10,8 +10,6 @@ Status: PLANNED (2026-08-03). Decided UX is locked (see mock artifact and auto-m
 `orchestrator-trace-ui-decisions`): agent rows auto-expand while live, auto-fold to a
 one-line summary when done (unless the user toggled them), "Orchestrating" header +
 `orchestrator` badge, and the vertical rail under each agent row is load-bearing.
-Mock reference: https://claude.ai/code/artifact/96148a25-4320-4138-928e-ed4a395c3e35
-
 Two repos are involved:
 
 - `product-mono/aomi` (Rust backend) — owns the orchestrator (`task` tool, child
@@ -34,12 +32,12 @@ per-thread source of truth.
 
 Work items (frontend only):
 
-1. `apps/shadcn-registry/src/components/control-bar/app-metadata.ts`
+1. `packages/widget/src/controls/app-metadata.ts`
    - Add an `orchestrator` entry to `APP_DISPLAY_NAMES`. Display name
      "Orchestrator", abbr "Or".
    - New category `{ id: "modes", label: "Modes", order: 5 }` so it sorts directly
      under the pinned "Basic Apps" row rather than being buried in DEX/CEX groups.
-2. `apps/shadcn-registry/src/components/control-bar/app-select.tsx`
+2. `packages/widget/src/components/control-bar/app-select.tsx`
    - Give the orchestrator row the same two-line pinned treatment as "Basic Apps"
      (title + one-line description "Coordinate multiple agents on one task"),
      rendered above the category groups, separated by a `CommandSeparator`.
@@ -168,7 +166,7 @@ export type TaskRunState = {
 2. `src/runtime/orchestrator.ts` — subscribe to the three session events next to the
    existing `forwardEvent("tool_update")` calls; reduce into `taskRuns`. Dedupe on
    `(agentId, childSeq)` so SSE replay after reconnect is idempotent.
-3. `src/runtime/utils.ts` (`toInboundMessage`) — when `msg.tool_name === "task"`,
+3. `src/runtime/message-projection.ts` (`toInboundMessage`) — when `msg.tool_name === "task"`,
    attach `metadata.custom.aomiTask = { agentId }` (parsed from the result JSON) to
    the tool-call part so the UI can join transcript ↔ sidecar.
 4. `src/runtime/merge-turns.ts` — no structural change; `task` tool calls are
@@ -183,7 +181,7 @@ export type TaskRunState = {
 
 ---
 
-## 5. Working trace UI (`apps/shadcn-registry/.../assistant-ui/`)
+## 5. Working trace UI (`packages/widget/.../assistant-ui/`)
 
 All in `working-trace.tsx` (+ one new sibling file), reusing existing vocabulary:
 `aui-*` class convention, `aomi-*` tokens only, mono type, chips via the existing

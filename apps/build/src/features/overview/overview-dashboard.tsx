@@ -4,25 +4,25 @@ import { Activity, Gauge, Home, Rocket, WalletCards } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { ControlPlaneLink } from "@build/components/control-plane/control-plane-link";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
-import { EmptyState } from "@build/components/control-plane/empty-state";
+import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
+import { EmptyState } from "@/components/control-plane/empty-state";
 import {
   ErrorPanel,
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
-import { useGlobalDeploymentRecords } from "@build/features/launch/components/deployments/use-global-deployment-records";
+} from "@/features/deploy/components/deployments/ui/state-panels";
+import { useGlobalDeploymentRecords } from "@/features/deploy/components/deployments/use-global-deployment-records";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
-import { operateFetch } from "@build/features/operate/client";
-import { BUILD_GLOSSARY } from "@build/lib/glossary";
-import { lastUsageHref, projectHref } from "@build/lib/deep-links";
-import { getLastProjectId } from "@build/lib/last-project";
-import { platformHref } from "@build/features/launch/platform";
+} from "@/features/deploy/query-keys";
+import { operateFetch } from "@/features/operate/client";
+import { BUILD_GLOSSARY } from "@/lib/glossary";
+import { lastUsageHref, projectHref } from "@/lib/deep-links";
+import { getLastProjectId } from "@/lib/last-project";
+import { platformHref } from "@/features/deploy/platform";
 
 type UsagePayload = {
   daily?: Array<Record<string, any>>;

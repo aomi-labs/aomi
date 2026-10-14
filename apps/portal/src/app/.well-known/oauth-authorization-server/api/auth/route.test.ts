@@ -8,7 +8,7 @@ vi.mock("@aomi-labs/account/better-auth", () => ({ auth: {} }));
 vi.mock("@better-auth/oauth-provider", () => ({
   oauthProviderAuthServerMetadata: () => mocks.metadata,
 }));
-vi.mock("@portal/server/oauth/cors", () => ({
+vi.mock("@/server/oauth/cors", () => ({
   publicDiscoveryResponse: (response: Response) => response,
 }));
 

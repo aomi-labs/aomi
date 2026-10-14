@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 import {
   settingsSections,

@@ -1,3 +1,3 @@
-import { deploymentDeployRoute } from "@build/server/bff/launch/routes";
+import { deployRoute } from "@/server/bff/deploy/routes";
 
-export const POST = deploymentDeployRoute(false);
+export const POST = deployRoute(false);

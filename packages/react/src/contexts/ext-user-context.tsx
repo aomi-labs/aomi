@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -11,6 +12,15 @@ import {
 import { UserState } from "@aomi-labs/client";
 
 export { UserState } from "@aomi-labs/client";
+
+/**
+ * User configuration props for footer components.
+ * Provides user state and setter from UserContext.
+ */
+export type UserConfig = {
+  user: UserState;
+  setUser: (data: Partial<UserState>) => void;
+};
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -85,14 +95,7 @@ export function useUser() {
   if (!context) {
     throw new Error("useUser must be used within ExtUserProvider");
   }
-  // Return only the public API
-  return {
-    user: context.user,
-    setUser: context.setUser,
-    addExtValue: context.addExtValue,
-    removeExtValue: context.removeExtValue,
-    getUserState: context.getUserState,
-  };
+  return context;
 }
 
 // ==================== Provider ====================
@@ -215,17 +218,9 @@ function ExtUserProviderImpl({ children }: { children: ReactNode }) {
   // Stable getters that runtime classes can call
   const getUserState = useCallback(() => userRef.current, []);
 
-  return (
-    <UserContext.Provider
-      value={{
-        user,
-        setUser,
-        addExtValue,
-        removeExtValue,
-        getUserState,
-      }}
-    >
-      {children}
-    </UserContext.Provider>
+  const value = useMemo(
+    () => ({ user, setUser, addExtValue, removeExtValue, getUserState }),
+    [user, setUser, addExtValue, removeExtValue, getUserState],
   );
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

@@ -23,7 +23,7 @@ flowchart LR
 
 ## Conversation and deterministic execution
 
-Agent owns sessions and ordered events. Start a turn with a typed intent, follow its cursor, and show tool progress, Actions, and any durable Commit reviews. Pipeline carries a portable Build through stage, simulate, and explicit commit without a conversation. A Pipeline commit result can contain wallet requests; it is not itself proof of on-chain confirmation.
+Agent owns sessions and ordered events. Start a turn with a typed intent, follow its cursor, and show tool progress, Actions, and any durable Commit reviews. Pipeline carries a portable Build through stage, simulate, and explicit commit without a conversation. A Pipeline commit result prepares execution; it is not proof of submission or on-chain confirmation. An EVM commit returns durable Commit Service identities to continue with `pipeline.evm.commits(preparation)`, while an SVM commit returns wallet requests for the caller to submit.
 
 ## Identity and authority
 

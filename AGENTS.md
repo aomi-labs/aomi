@@ -5,11 +5,10 @@
 Read [frontend invariants](docs/topics/development/facts/frontend-invariants.md)
 before changing public packages, examples, or CI. See
 [development workspace](docs/topics/development/facts/workspace.md) for the layout.
-`packages/client` owns the SDK and CLI; `packages/react` owns React runtime
-integration; `apps/shadcn-registry` owns the published widget and registry.
+`packages/client` owns the SDK; `packages/cli` owns the CLI; `packages/react` owns React runtime
+integration; `packages/widget` owns the published widget.
 `packages/account` owns shared authentication and BFF support. Deployed apps
-live under `apps/`, including Portal, Build, Base, Landing, and Telegram.
-`GOAL.md` is a historical work log, not current routing or normative policy.
+live under `apps/`, including Portal, Build, Landing, and Telegram.
 
 ## Build, Test, and Development Commands
 
@@ -17,7 +16,7 @@ Use the repository-pinned pnpm version through Corepack. For Aomi local work,
 run heavyweight checks through the managed `aomi-dev exec --repo frontend`
 workflow for the selected workspace.
 
-- `pnpm run build:packages` — build/check shared packages and registry.
+- `pnpm run build:packages` — build/check shared packages.
 - `pnpm run lint` and `pnpm run typecheck` — workspace lint and library types.
 - `pnpm exec vitest run` — workspace automated tests.
 - `pnpm run test:portal` and `pnpm run test:telegram` — app tests.
@@ -30,7 +29,7 @@ workflow for the selected workspace.
 
 ## Coding Style & Naming Conventions
 
-The codebase is TypeScript + React 19 on Next 16. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. Components use PascalCase file names (e.g., `AomiFrame.tsx`), hooks start with `use` (e.g., `hooks/useWallet.ts`), and shared contexts sit in `lib/`. Tailwind utility strings should group layout → color → motion classes to minimize churn.
+The codebase is TypeScript + React 19 on Next 16. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. File names use kebab-case (e.g., `aomi-frame.tsx`), component exports use PascalCase, and hooks use `use-*.ts`. Tests sit next to the code. Widget modules live in their frame, thread, composer, sidebar, controls, account, wallet, or UI feature. Tailwind utility strings should group layout → color → motion classes to minimize churn.
 
 ## Testing Guidelines
 
@@ -40,8 +39,8 @@ changes, run the consumer compatibility check against the trusted base before
 finishing. Never edit an existing consumer to conceal a compatibility failure;
 intentional migrations require frontend-owner review. Browser checks remain a
 separate layer and are not implied by a successful consumer build.
-Portal host composition must use `@aomi-labs/widget-lib/host-composition`;
-do not add relative imports into `apps/shadcn-registry/src` or use its internal
+Portal host composition must use `@aomi-labs/widget/host-composition`;
+do not add relative imports into `packages/widget/src` or use its internal
 `@/` aliases from Portal source.
 
 ## Commit & Pull Request Guidelines

@@ -42,23 +42,23 @@ Choose from Anthropic (Claude), OpenAI (GPT-4), or models via OpenRouter. Switch
 
 ## Integration Paths
 
-|                    | Widget (shadcn)                                               | Headless Library                                            | Telegram Bot                                           |
+|                    | Widget                                               | Headless Library                                            | Telegram Bot                                           |
 | ------------------ | ------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
 | **Setup time**     | Minutes                                                       | Hours                                                       | Managed by Aomi                                        |
-| **Install method** | `npx shadcn add`                                              | `npm install`                                               | No frontend code                                       |
+| **Install method** | `npm install @aomi-labs/widget`                                              | `npm install`                                               | No frontend code                                       |
 | **UI included**    | Full chat interface, sidebar, controls                        | None — build your own                                       | Telegram-native                                        |
-| **Customization**  | Edit copied source files                                      | Build from scratch                                          | Bot commands and panels                                |
-| **Dependencies**   | `@aomi-labs/react`, `@assistant-ui/react`, shadcn primitives  | `@aomi-labs/react`, `@assistant-ui/react`                   | None                                                   |
+| **Customization**  | Configure props or compose the frame                                      | Build from scratch                                          | Bot commands and panels                                |
+| **Dependencies**   | `@aomi-labs/widget`  | `@aomi-labs/react`, `@assistant-ui/react`                   | None                                                   |
 | **Framework**      | Next.js (React)                                               | Any React app (API client works anywhere)                   | N/A                                                    |
-| **Code ownership** | Components copied to your project                             | Library imported from npm                                   | Hosted by Aomi                                         |
-| **Best for**       | Quick integration, standard chat UI, projects using shadcn/ui | Fully custom designs, non-standard layouts, maximum control | Reaching users on Telegram without frontend deployment |
+| **Code ownership** | Compiled library imported from npm                             | Library imported from npm                                   | Hosted by Aomi                                         |
+| **Best for**       | Quick integration, standard chat UI, React products | Fully custom designs, non-standard layouts, maximum control | Reaching users on Telegram without frontend deployment |
 
-### Widget (shadcn)
+### Widget
 
-Pre-built UI components installed via the shadcn CLI. Complete chat interface out of the box, with every line of source code editable.
+A complete widget installed from npm, with compiled styles and configurable layout.
 
 ```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npm install @aomi-labs/widget
 ```
 
 ### Headless Library

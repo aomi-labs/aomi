@@ -59,14 +59,17 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
   when this value is absent. Portal authenticates and delegates these routes;
   the Rust api-server is their only protocol presenter.
 
+- Set the server-only `AOMI_BUILD_URL` to the Build origin before building
+  Portal so legacy `/deployments*` routes redirect to the same environment.
+  Use `https://build-staging.aomi.dev` for the staging Vercel environment and
+  your local Build origin (for example, `http://localhost:3001`) for local work.
+  It defaults to `https://build.aomi.dev` in production when unset.
+
 ## Local E2E
 
-The repository includes both protocol and rendered browser coverage:
+Browser journeys live in `tests/e2e/` and run through Playwright against the
+local stack.
 
-- `scripts/agent-cutover-e2e.mts` exercises the ordered Agent Event/Action
-  protocol against a local backend.
-- `tests/e2e/local-agent-cutover.spec.ts` exercises Portal → BFF → Agent API →
-  wallet capability → Action response → terminal lifecycle with Playwright.
 - Use `scripts/dev.sh` from the paired backend checkout to launch the exact
   frontend/backend worktrees together.
 

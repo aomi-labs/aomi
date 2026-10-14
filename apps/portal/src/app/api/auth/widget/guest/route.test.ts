@@ -15,18 +15,11 @@ vi.mock("@aomi-labs/account/better-auth", () => ({
 vi.mock("@aomi-labs/account/widget-auth", () => ({
   issueWidgetSession: mocks.issueWidgetSession,
   requireWidgetOrigin: (request: Request) => request.headers.get("origin"),
+  observedWidgetOrigin: (request: Request) => request.headers.get("origin"),
 }));
-vi.mock("@portal/server/widget-auth/rate-limit", () => ({
-  widgetAuthRateLimit: () => null,
-}));
-vi.mock("@portal/server/widget-auth/response", () => ({
-  widgetRoute: (handler: (request: Request) => Promise<Response>) => handler,
-  widgetPreflight: () => () => new Response(null, { status: 204 }),
-  widgetSessionResponse: (session: { token: string; userId: string }) =>
-    Response.json({
-      access_token: session.token,
-      user: { id: session.userId },
-    }),
+vi.mock("@/server/widget-auth/rate-limit", () => ({
+  WIDGET_BUDGETS: { proof: {}, guest: {} },
+  consumeWidgetBudget: async () => null,
 }));
 
 import { POST } from "./route";

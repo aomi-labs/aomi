@@ -9,17 +9,16 @@ const OUTPUT_KEYS = [
   "apps",
   "portal",
   "build",
-  "base",
   "landing",
   "telegram",
-  "guest_browser",
+  "journeys",
   "browser_contracts",
   "consumer_compat",
   "workflow_policy",
   "preview",
 ];
 
-const APP_KEYS = ["portal", "build", "base", "landing", "telegram"];
+const APP_KEYS = ["portal", "build", "landing", "telegram"];
 
 function emptySelection(reason = "paths") {
   return Object.fromEntries([
@@ -49,7 +48,7 @@ function selectSharedFrontend(selection) {
     selection,
     "packages",
     "consumer_compat",
-    "guest_browser",
+    "journeys",
     "browser_contracts",
     "preview",
   );
@@ -71,6 +70,14 @@ function classifyPath(selection, path) {
     path === "tests/contracts/ci-path-selection.test.mjs"
   ) {
     return selectAll("selector_changed");
+  }
+
+  if (
+    path === ".github/workflows/ci.yml" ||
+    path === ".github/workflows/widget-package-contracts.yml"
+  ) {
+    select(selection, "workflow_policy", "consumer_compat");
+    return selection;
   }
 
   if (
@@ -108,18 +115,13 @@ function classifyPath(selection, path) {
 
   if (path.startsWith("apps/portal/")) {
     selectApps(selection, "portal");
-    select(selection, "guest_browser", "browser_contracts", "preview");
+    select(selection, "journeys", "browser_contracts", "preview");
     return selection;
   }
 
   if (path.startsWith("apps/build/")) {
     selectApps(selection, "build");
     select(selection, "preview");
-    return selection;
-  }
-
-  if (path.startsWith("apps/base/")) {
-    selectApps(selection, "base");
     return selection;
   }
 
@@ -133,17 +135,22 @@ function classifyPath(selection, path) {
     return selection;
   }
 
-  if (path.startsWith("apps/shadcn-registry/")) {
+  if (path.startsWith("packages/widget/")) {
     selectSharedFrontend(selection);
     return selection;
   }
 
-  if (path.startsWith("apps/widget-consumer/")) {
+  if (path.startsWith("examples/embed-vite/")) {
+    select(selection, "consumer_compat", "journeys", "browser_contracts");
+    return selection;
+  }
+
+  if (path.startsWith("examples/embed-next/")) {
     select(selection, "consumer_compat", "browser_contracts");
     return selection;
   }
 
-  if (path.startsWith("apps/examples/")) {
+  if (path.startsWith("examples/")) {
     select(selection, "consumer_compat");
     return selection;
   }
@@ -164,17 +171,22 @@ function classifyPath(selection, path) {
   }
 
   if (
-    path === "scripts/test-portal-guest-browser.mjs" ||
-    path.startsWith("tests/e2e/guest-")
+    path === "playwright.journeys.config.ts" ||
+    path === "tests/e2e/journey-fixture.ts" ||
+    path === "tests/e2e/portal-env.ts" ||
+    /^tests\/e2e\/(journeys|performance|pom|fake-backend)\//.test(path)
   ) {
-    select(selection, "guest_browser");
+    select(selection, "journeys", "browser_contracts");
     return selection;
   }
 
   if (
-    path === "scripts/test-browser-contracts.mjs" ||
+    /^scripts\/(test-browser-contracts|test-packed-consumers|browser-hosts)\.mjs$/.test(
+      path,
+    ) ||
+    path.startsWith("scripts/performance/") ||
     path.startsWith("tests/e2e/browser-") ||
-    path.startsWith("tests/e2e/fixtures/")
+    path.startsWith("tests/e2e/fixture")
   ) {
     select(selection, "browser_contracts");
     return selection;

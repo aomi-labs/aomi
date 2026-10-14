@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { testIds } from "../../packages/widget/src/test-ids";
 import {
   BURN_ADDRESS,
   ONE_WEI_DISPLAY,
@@ -253,7 +254,7 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
     page,
     `This is an attended human_sync wallet request. Do not request, require, or use Privy or delegated signing. Prepare a native-token transfer of exactly 1 wei on chain ${chainId} from my connected wallet to the burn address ${BURN_ADDRESS}. Construct and simulate it, then call commit_txs so I can review the pending wallet approval. Do not sign or broadcast.`,
   );
-  const review = page.getByTestId("transaction-review");
+  const review = page.getByTestId(testIds.txReview);
   await expect(review).toBeVisible({ timeout: 150_000 });
   await review.getByText("Transaction details").click();
   const request = JSON.parse(

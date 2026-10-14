@@ -1,4 +1,4 @@
-import { createLaunchRepoRoute } from "@build/server/bff/launch/routes";
+import { createRepoRoute } from "@/server/bff/deploy/routes";
 
 export const runtime = "nodejs";
-export const POST = createLaunchRepoRoute;
+export const POST = createRepoRoute;

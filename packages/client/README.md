@@ -2,6 +2,27 @@
 
 TypeScript client for the Aomi on-chain agent backend. Works in Node.js and browsers.
 
+The production API is `https://chat.aomi.dev`; pass it as `baseUrl` (the CLI
+uses it by default).
+
+## Which credential do I need?
+
+Most integrations need nothing: start as a guest and add a credential only when
+a call asks for one.
+
+| Credential      | When you need it                                                | How to get it                                                                                                                      | How to pass it                                                |
+| --------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
+| OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
+| App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
+| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi account login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
+
+If a call fails because of the App rather than your credentials, the error
+`code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
+activated it yet), `app_key_required` (401, private App, no key sent), or
+`app_key_not_scoped` (403, the key belongs to a different App). These surface
+as `AgentApiError` with `appAccessCode` set.
+
 ## Public authorization
 
 With no auth option, `Aomi` creates and reuses an anonymous session for the
@@ -14,7 +35,7 @@ import { Aomi, oauth } from "@aomi-labs/client";
 const aomi = new Aomi({
   baseUrl: "https://chat.aomi.dev",
   auth: oauth({
-    clientId: process.env.AOMI_CLIENT_ID!,
+    clientId: process.env.AOMI_OAUTH_CLIENT_ID!,
     store: myDurableGrantStore,
     onVerification({ verificationUriComplete, verificationUri, userCode }) {
       console.log(
@@ -24,14 +45,41 @@ const aomi = new Aomi({
   }),
 });
 
-// Optional: Agent and Pipeline calls also acquire grants lazily.
-await aomi.auth.login({ for: ["agent", "pipeline"] });
+// This client registration is bound to the Agent REST resource.
+// Agent calls can also acquire its grant lazily.
+await aomi.auth.login({ for: "agent" });
 console.log(await aomi.auth.status());
 await aomi.auth.logout();
 ```
 
+### Register an OAuth client
+
+`oauth()` needs a public client ID. The `aomi` CLI registers one for itself;
+for your own integration, register a device client once and keep its
+`client_id` (it is not a secret, and there is no client secret):
+
+```bash
+curl -sX POST https://chat.aomi.dev/api/auth/oauth2/register \
+  -H 'content-type: application/json' \
+  -d '{
+    "client_name": "My Aomi bot",
+    "token_endpoint_auth_method": "none",
+    "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
+    "resources": ["https://chat.aomi.dev/v1/agent"],
+    "scope": "agent:read agent:write agent:actions:resolve offline_access"
+  }'
+# => { "client_id": "...", ... }  → export AOMI_OAUTH_CLIENT_ID=<client_id>
+```
+
+Registration only accepts public clients (`token_endpoint_auth_method: "none"`)
+with exactly the device-code and refresh-token grants, and exactly one REST
+resource. For Pipeline, register a second client with resource
+`https://chat.aomi.dev/v1/pipeline` and scope
+`pipeline:catalog pipeline:execute offline_access`.
+
 Agent REST uses the exact OAuth resource `https://<portal>/v1/agent`; Pipeline
-REST uses `https://<portal>/v1/pipeline`. A host that already owns token
+REST uses `https://<portal>/v1/pipeline`. Use a separately registered client
+for each resource; one device client cannot request both audiences. A host that already owns token
 acquisition can still supply a low-level `oauth` token provider to
 `AomiClient`. Headless grant stores contain rotating refresh tokens and must
 be treated as secrets.
@@ -64,28 +112,32 @@ Direct typed access to the Agent and Pipeline transports.
 ```ts
 import { AomiClient } from "@aomi-labs/client";
 
-const client = new AomiClient({ baseUrl: "https://api.aomi.dev" });
+const client = new AomiClient({ baseUrl: "https://chat.aomi.dev" });
 const sessions = await client.agent.sessions.list();
 console.log(sessions.sessions);
 ```
 
 ### High-level SDK
 
-`Aomi` is the product-oriented facade. Pipeline is a stateless Build flow;
-Agent owns its session and turn lifecycle. Supplying `wallet` once exposes
-`aomi.wallet`, derives canonical `UserState`, and configures the Agent
-`ActionHandler` from primitive wallet capabilities.
+`Aomi` is the product-oriented facade. Pipeline carries a portable Build
+without a conversation; Agent owns its session and turn lifecycle. Supplying
+`wallet` once exposes `aomi.wallet`, derives canonical `UserState`, and
+configures durable Commit execution and legacy Action handling from primitive
+wallet capabilities.
 
 ```ts
 import { Aomi } from "@aomi-labs/client";
 
 const aomi = new Aomi({
-  baseUrl: "https://api.aomi.dev",
+  baseUrl: "https://chat.aomi.dev",
   wallet: {
     evm: {
       address,
       chainId: 1,
       sendCalls: ({ chainId, calls }) => wallet.sendCalls({ chainId, calls }),
+      signTransaction: (payload) => wallet.signTransaction(payload),
+      broadcastTransaction: (bytes, chainId) =>
+        wallet.broadcastTransaction(bytes, chainId),
       signMessage: ({ message }) => wallet.signMessage({ message }),
       signTypedData: ({ typedData }) => wallet.signTypedData(typedData),
       switchChain: (chainId) => wallet.switchChain({ chainId }),
@@ -98,10 +150,20 @@ const build = await aomi.pipeline
   .build("supply", { asset: "USDC", amount: "100" });
 
 renderPreview(build.summary, build.actions, build.simulation);
-await build.commit(); // commit is always explicit
+// Commit is always explicit. On EVM it prepares a durable execution group
+// (status "committed", provider_invoked: false); nothing is sent yet.
+const preparation = await build.commit();
+if ("commits" in preparation) {
+  const commits = aomi.pipeline.evm.commits(preparation);
+  for (const view of commits.all()) {
+    if (commits.canExecute(view)) await commits.execute(view.commit_id);
+  }
+  commits.close();
+}
 
 const agentResult = await aomi.agent.run("Supply 100 USDC to Aave");
 console.log(agentResult.messages);
+console.log(agentResult.commits); // durable CommitView snapshots
 
 // The wire-close client is always available without a second instance.
 await aomi.raw.pipeline.root();
@@ -161,7 +223,12 @@ For event-driven Agent integrations, retain the run object:
 
 ```ts
 const run = aomi.agent.run("Swap half my USDC and supply the rest");
+run.on("commit", (commit) => {
+  // Review the prepared intent before invoking the connected wallet.
+  renderCommit(commit);
+});
 run.on("action", async (action) => {
+  // Historical and off-chain requests still use Actions.
   renderAction(action);
   if (await showApprovalUI(action)) {
     await run.session.actions.execute(action.id);
@@ -171,7 +238,52 @@ run.on("action", async (action) => {
 });
 run.on("completed", console.log);
 const result = await run.result();
+const session = await aomi.agent.openSession(result.sessionId);
+try {
+  for (const commit of session.commits.all()) {
+    if (commit.action && session.commits.canExecute(commit)) {
+      const review = session.commits.review(commit.commit_id);
+      if (await showCommitApprovalUI(commit, review)) {
+        await session.commits.execute(commit.commit_id);
+      } else {
+        await session.commits.reject(commit.commit_id);
+      }
+    }
+  }
+} finally {
+  session.close();
+}
 ```
+
+`AgentRun` emits each increasing commit version once; `result.commits` is its
+last snapshot. `openSession` fetches the authoritative session state after a
+reconnect. The caller owns and closes that hydrated session. Pass explicit
+`commits` capabilities to `new Aomi({ commits })` or per run when a host owns
+signing or broadcast separately from `wallet`.
+
+Wallet operations are capability based. The SDK only invokes a method the
+adapter supplies, and the Commit service verifies signatures and transitions:
+
+| Prepared work              | Wallet capability                                                                                                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EVM transaction Commit     | `evm.signTransaction` signs the prepared nonce, gas, fees, value, and call; `evm.broadcastTransaction` submits signed bytes when the broadcaster is Wallet.                                     |
+| EVM browser send           | `evm.preparePreparedTransaction` and `evm.sendPreparedTransaction`, with a durable `CommitRecoveryStore`, record a wallet attempt before submission.                                            |
+| EVM user operation         | `evm.signMessage` signs the owner request; Commit Service submits the operation.                                                                                                                |
+| SVM transaction Commit     | `svm.signTransaction` signs the prepared base64 transaction; `svm.broadcastTransaction` submits when the broadcaster is Wallet. Venue submission needs an explicit `venueBroadcast` capability. |
+| Off-chain signature Action | `evm.signMessage`, `evm.signTypedData`, or `svm.signMessage`, according to the request.                                                                                                         |
+
+SIWE/SIWS login proves account ownership; it does not provide the SDK with a
+transaction signing callback. Supply the matching wallet adapter separately.
+An unattended run without a reachable signer can retain a pending Commit for a
+later connected client.
+
+For a signed-in EVM process, the public `createSiweAccountAuthAdapter` and
+`createAccountSessionProvider` provide a required account session to `Aomi`.
+The adapter signs the Portal's textual SIWE challenge; the wallet separately
+signs reviewed Commit or Action payloads. The runnable
+[`wallet-terminal`](../../examples/headless/src/wallet-terminal.ts)
+shows both paths with `AOMI_WALLET_AUTH=siwe` and keeps its session token in
+memory.
 
 ### Low-level Pipeline API
 
@@ -181,9 +293,18 @@ commit of a merely staged Build.
 
 Build V2 values retain the server's native action records, `origin`, `expiresAt`,
 `digest`, and `attestation`. Pass the complete value through simulate/commit;
-do not reconstruct it from displayed calls. Commit returns `result` (EVM) or
-`results` (SVM), plus `requests`; it does not manufacture a session Action or
-execute a wallet request. An expired Build requires fresh preparation.
+do not reconstruct it from displayed calls. Commit never executes a wallet
+request itself, and an expired Build requires fresh preparation.
+
+- **EVM** commit prepares or recovers a durable execution group. It returns
+  `status: "committed"` with `provider_invoked: false`, the owned `thread_id`,
+  the original `actions` and the Commit Service `commits`. Pass the result to
+  `aomi.pipeline.evm.commits(preparation)` to get a `CommitController`, then
+  `execute`, `reject` or `refresh` each returned `commit_id` through
+  `/v1/pipeline/evm/commits/{id}`. Do not send the returned `requests` to a
+  wallet directly.
+- **SVM** commit is stateless. It returns `results` plus `requests` with no
+  durable Agent Action IDs; the caller submits them and tracks receipts.
 
 The direct staging helpers translate calls into Catalog staging parameters.
 Pipeline chooses the authorizing account from account policy: a caller `from`
@@ -191,13 +312,28 @@ override is rejected. SVM cluster/payer overrides and non-base64 instruction
 data are currently unsupported and rejected rather than ignored.
 
 ```ts
+import { encodeFunctionData, parseAbi, type Address, type Hex } from "viem";
+
+// Any contract you own; here an anchor registry storing Merkle roots.
+const anchorAbi = parseAbi(["function registerRoot(bytes32 root)"]);
+const registry: Address = "0xYourAnchorRegistry";
+const root: Hex = "0xYour32ByteMerkleRoot";
+
 const staged = await client.pipeline.evm.stage({
   actions: [
     {
-      to: "0x...",
-      chain_id: 1,
-      description: "Transfer",
-      data: { signature: "", args: [], raw: "0x" },
+      to: registry,
+      chain_id: 84532,
+      description: "Register Merkle root",
+      data: {
+        signature: "registerRoot(bytes32)",
+        args: [root],
+        raw: encodeFunctionData({
+          abi: anchorAbi,
+          functionName: "registerRoot",
+          args: [root],
+        }),
+      },
       value: 0n,
     },
   ],
@@ -217,9 +353,10 @@ const svmStaged = await client.pipeline.svm.stage({
 ```
 
 Portable builds preserve backend transaction records and operation provenance.
-Commit returns `requests` containing wallet intents (`ActionRequest[]`), plus
-operation output in `result` (EVM) or `results` (SVM). Stateless requests have
-no durable Agent Action IDs and are not automatically signed by the SDK.
+Commit returns `requests` (`ActionRequest[]`), plus operation output in
+`result` (EVM) or `results` (SVM). The SDK never signs them automatically.
+Continue EVM results through `commits()` as above; SVM requests have no
+durable Agent Action IDs.
 
 The Catalog is filesystem-like and arbitrary live operations deliberately stay
 runtime-schema-driven:
@@ -242,16 +379,131 @@ Integrations use filesystem discovery, scoped operations, and chain-specific Bui
 The base package does not claim compile-time knowledge of live app or skill
 operations; Catalog-specific generation remains a separate later capability.
 
-### Session (high-level)
+### Verify before you sign
 
-Owns authenticated streaming, ordered Event reduction, lifecycle, and Action execution.
+When Aomi is the execution layer for your own contract, decide what you
+approve first, then check that every prepared request matches it before a
+local key signs. `ExpectedCalls` decodes each transaction's calldata with your
+ABI and compares chain, contract, function, arguments (by ABI encoding, so
+`bigint` and address or bytes casing compare exactly as the contract sees
+them) and value. It also requires simulation to have passed.
 
 ```ts
-import { Session } from "@aomi-labs/client";
+import {
+  Aomi,
+  CallVerificationError,
+  ExpectedCalls,
+  type Wallets,
+} from "@aomi-labs/client";
+import { createPublicClient, http, parseAbi, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
+
+// `registry` and `root` as in the Pipeline example above.
+const baseUrl = process.env.AOMI_BASE_URL ?? "https://api.aomi.dev";
+const expected = new ExpectedCalls({
+  chainId: baseSepolia.id,
+  to: registry,
+  abi: parseAbi(["function registerRoot(bytes32 root)"]),
+  functionName: "registerRoot",
+  args: [root],
+  // value omitted: the call must send zero ETH
+});
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
+const rpc = createPublicClient({ chain: baseSepolia, transport: http() });
+const wallet: Wallets = {
+  evm: {
+    address: account.address,
+    chainId: baseSepolia.id,
+    // Commit Service hands the wallet its prepared transaction. Check the
+    // exact payload once more before the key touches it.
+    signTransaction: async (payload) => {
+      expected.assert(payload);
+      return account.signTransaction({
+        chainId: payload.chain_id,
+        type: "eip1559",
+        to: payload.transaction.to as Hex,
+        data: payload.transaction.data as Hex,
+        value: BigInt(payload.transaction.value),
+        nonce: payload.nonce,
+        gas: BigInt(payload.transaction.gas_limit),
+        maxFeePerGas: BigInt(payload.transaction.max_fee_per_gas),
+        maxPriorityFeePerGas: BigInt(
+          payload.transaction.max_priority_fee_per_gas,
+        ),
+      });
+    },
+    broadcastTransaction: (signed) =>
+      rpc.sendRawTransaction({ serializedTransaction: signed as Hex }),
+  },
+};
+const aomi = new Aomi({ baseUrl, wallet });
+
+// 1. Intent: name the contract, function, and arguments exactly.
+const result = await aomi.agent.run(
+  `On Base Sepolia call registerRoot(bytes32) on ${registry} with root ${root}.`,
+);
+
+// 2. Aomi built and simulated it; prepared work is a durable Commit whose
+//    review is the execute_evm request with its simulation.
+const session = await aomi.agent.openSession(result.sessionId);
+try {
+  for (const commit of session.commits.all()) {
+    if (!commit.action || !session.commits.canExecute(commit)) continue;
+    try {
+      // 3. Verify: throws CallVerificationError listing every mismatch.
+      expected.assert(session.commits.review(commit.commit_id));
+    } catch (error) {
+      if (!(error instanceof CallVerificationError)) throw error;
+      await session.commits.reject(commit.commit_id);
+      throw error;
+    }
+    // 4. Sign locally and submit; Commit Service records the outcome and the
+    //    agent continues the thread with it.
+    const done = await session.commits.execute(commit.commit_id, {
+      expectedVersion: commit.version,
+      expectedReviewDigest: commit.review?.digest,
+    });
+    console.log(done.state, done.transaction_url ?? done.transaction_id);
+  }
+} finally {
+  session.close();
+}
+```
+
+`verify(subject)` returns `{ ok, simulation, calls, mismatches }` instead of
+throwing; each mismatch names its `call` index, `field` (`to`, `function`,
+`args`, `value`, `chainId`, `simulation`, `count`, `data`, or `request`) and,
+for arguments, the `argIndex`. Pass a list to `new ExpectedCalls([...])` for
+multi-transaction requests; calls match in order. Omitted `args` and `value`
+mean none and zero.
+
+Accepted subjects are an `Action` or its `request` (from `run.on("action")`),
+a Commit review (`session.commits.review(id)`), an EVM `sign` request with
+declared `calls`, and the single-transaction `SignableCommit` passed to
+`evm.signTransaction`. A `SignableCommit` carries no simulation, so check it
+against an expectation for that one call after verifying the review. A
+simulation of `"unavailable"` is rejected unless you pass
+`new ExpectedCalls(calls, { allowUnavailableSimulation: true })`; `"failed"`
+is always rejected. The runnable
+[`custom-contract/anchor-root`](../../examples/headless/src/custom-contract/anchor-root.ts)
+example shows this loop end to end.
+
+### Session (high-level)
+
+Owns authenticated streaming, ordered Event reduction, durable Commit execution,
+and legacy Action execution.
+
+```ts
+import { Session, commitCapabilities } from "@aomi-labs/client";
 
 const session = new Session(
-  { baseUrl: "https://api.aomi.dev" },
-  { actions: walletCapabilities }, // Auto routing
+  { baseUrl: "https://chat.aomi.dev" },
+  {
+    actions: walletCapabilities,
+    commits: commitCapabilities(wallets),
+  },
 );
 
 // Blocking send — receives streamed updates until the agent finishes responding
@@ -259,10 +511,11 @@ const result = await session.send("Swap 1 ETH for USDC on Uniswap");
 console.log(result.messages);
 
 const unsubscribe = session.subscribe(() => {
-  const { actions, turnState } = session.getSnapshot();
-  console.log(turnState, actions);
+  const { actions, commits, turnState } = session.getSnapshot();
+  console.log(turnState, actions, commits);
 });
 
+await session.commits.execute(commitId);
 await session.actions.execute(actionId);
 unsubscribe();
 session.close();
@@ -292,7 +545,8 @@ new Session(client: AomiClient, sessionOptions?: SessionOptions)
 | `target`       | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
 | `model`        | —                     | Optional model preference                               |
 | `getUserState` | —                     | Reads canonical UserState when a turn starts            |
-| `actions`      | `{}`                  | Canonical wallet/action capabilities                    |
+| `actions`      | `{}`                  | Legacy wallet Action capabilities                       |
+| `commits`      | `{}`                  | Durable signing, broadcast, and recovery capabilities   |
 | `logger`       | —                     | Pass `console` for debug output                         |
 
 Legacy `app` and `applicationId` options still imply Direct for compatibility;
@@ -313,14 +567,19 @@ new integrations should use `target` so routing intent is unambiguous.
 | `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
 | `close()`             | Stop streaming and release listeners                              |
 
+To edit a request, send the revised text with `{ edit: userMessageKey }`. To rerun an answer, send the original request text with `{ regenerate: assistantMessageKey }`. These options are mutually exclusive. Both replace the conversation from that user message onward and continue it as a normal turn, as in a linear chat. The snapshot echoes the new request immediately and sets `pendingReplacesMessageKey` to the replaced user message until the server's own events arrive. `SessionSnapshot.messages` contains the active conversation; `SessionSnapshot.events` retains the durable ledger. `projectConversationEvents(events)` derives active turns and traces from that ledger.
+
+`interrupt()` immediately publishes `isStopping`, deduplicates pending requests, and keeps receiving partial text until the server acknowledges the actual terminal outcome. Only an interrupted outcome freezes partial text and sets `stoppedTurnId`. If completion or failure wins the race, its answer and status are preserved while final result pages drain. Optional `terminalTurns` retain scoped outcomes across bounded history without changing the audit ledger or cursor. A failed cancellation leaves streaming active and allows retry; a late response for an older turn cannot stop a newer active turn.
+
 #### Snapshot
 
 ```ts
 const unsubscribe = session.subscribe(() => {
   const snapshot = session.getSnapshot();
-  console.log(snapshot.cursor, snapshot.turnState, snapshot.events);
+  console.log(snapshot.cursor, snapshot.turnState, snapshot.commits);
 });
 
+await session.commits.execute(commitId);
 await session.actions.execute(actionId);
 unsubscribe();
 ```
@@ -336,6 +595,19 @@ and Pipeline resources, stores resource-bound rotating grants, and opens the
 shared portal login/consent page. `aomi account logout` revokes the saved
 refresh/access grants before clearing local state. Native SIWE/SIWS login
 remains available through the wallet-specific options.
+
+For a key held by the CLI, native SIWE and SIWS sign-in use the Portal's
+nonce/verify endpoints and associate the signed address with the account:
+
+```bash
+aomi account login --wallet --private-key "$PRIVATE_KEY"     # EVM SIWE
+aomi account login --solana --solana-private-key "$SOLANA_PRIVATE_KEY" # SVM SIWS
+aomi account whoami
+```
+
+The EVM flow is implemented in `signInWithCliSiwe` in the package's CLI auth
+module. It signs the server-provided challenge with Viem, then verifies it
+with the Portal. Neither login option grants delegated server signing.
 
 Claude Code / Codex skills that drive this CLI live in the separate
 [`aomi-labs/skills`](https://github.com/aomi-labs/skills) repository — that
@@ -365,12 +637,15 @@ npx @aomi-labs/client session new                        # create a fresh active
 npx @aomi-labs/client secret list                        # list configured secret handles
 npx @aomi-labs/client secret add ALCHEMY_API_KEY=...     # ingest a secret for the active session
 npx @aomi-labs/client session log                        # show full conversation history
-npx @aomi-labs/client tx list                            # list session Actions
-npx @aomi-labs/client tx simulate action-1               # simulate an EVM Action
+npx @aomi-labs/client tx list                            # list commits and legacy Actions
+npx @aomi-labs/client tx simulate action-1               # simulate a legacy EVM Action
 npx @aomi-labs/client tx export action-1 > execution.json # canonical EIP-5792
 npx @aomi-labs/client tx export action-1 --format moss   # MOSS call array
 npx @aomi-labs/client tx export action-1 --format metamask # MetaMask handoff
-npx @aomi-labs/client tx sign action-1                   # execute a pending Action
+npx @aomi-labs/client tx sign <commit-id>                # execute a reviewed commit
+npx @aomi-labs/client tx export <commit-id> --format commit > commit.json
+npx @aomi-labs/client tx submit <commit-id> --signed-file signed.json
+npx @aomi-labs/client tx reject <commit-id>              # reject a commit
 npx @aomi-labs/client session status                     # session info
 npx @aomi-labs/client session events                     # system events
 npx @aomi-labs/client session close                      # clear session
@@ -535,29 +810,64 @@ Cleared all secrets for the active session.
 
 ### Transaction flow
 
-The backend exposes durable Actions containing the simulated transactions or
-signing payloads that need a wallet response:
+Current transaction tools create durable Commits. A CommitView identifies the
+prepared signer, chain, broadcaster, state, review, and next action. The CLI
+refreshes that view before signing, so a successful `commit_id` is a handle for
+review and completion, not a transaction hash:
 
+```bash
+aomi chat "swap 1 ETH for USDC on Uniswap" --public-key 0xYourAddr --chain 1
+aomi tx list
+aomi tx sign <commit-id> --private-key "$PRIVATE_KEY"
+aomi tx list
 ```
-$ npx @aomi-labs/client chat "swap 1 ETH for USDC on Uniswap" --public-key 0xYourAddr --chain 1
-⚡ Action awaiting response: action-1
-   EVM transactions: 1
 
-$ npx @aomi-labs/client tx list
-⏳ action-1  1 EVM transaction  (pending, revision 1)
+`tx sign` accepts a pending Commit or a historical Action ID. For a Commit it
+executes the backend's current `sign` or `broadcast` step through the matching
+wallet capability and reports the returned Commit state. `tx reject` records
+the user's refusal on a pending Commit. `tx simulate` is a legacy Action
+utility. `tx export <commit-id> --format commit` emits an exact
+`aomi.commit.v1` CommitView for an external signer; the signer adds a
+`payloads` array of signed bytes without changing that CommitView, then runs
+`tx submit <commit-id> --signed-file signed.json`. The CLI checks that the
+review, version, and exported view still match before it submits the signed
+payload. An already broadcast prepared transaction can instead be reported
+with `tx submit <commit-id> --tx-hash <prepared-hash>`; this command does not
+broadcast. Legacy EIP-5792/MOSS/MetaMask exports still accept only Actions.
 
-$ npx @aomi-labs/client tx simulate action-1
-All steps passed.
+#### Fresh SIWE wallet on Arc Testnet
 
-$ npx @aomi-labs/client tx export action-1 > execution.json
+A freshly linked SIWE wallet defaults to `manual` signing. This flow needs no
+Settings change or Rust `keys set-mode` command: log in with the wallet, review
+the pending Commit, then explicitly sign it with the same wallet.
 
-$ npx @aomi-labs/client tx sign action-1 --private-key 0xac0974...
-⏳ action-1  1 EVM transaction  (pending, revision 1)
-✅ action-1 submitted
-
-$ npx @aomi-labs/client tx list
-✅ action-1  1 EVM transaction  (submitted, revision 2)
+```bash
+aomi account login --wallet --chain 5042002 --private-key "$PRIVATE_KEY"
+aomi chat "Prepare a 0.1 USDC transfer on Arc Testnet to <recipient>" --chain 5042002
+aomi tx list
+aomi tx sign <commit-id> --rpc-url https://rpc.testnet.arc.io
+aomi tx list
 ```
+
+Wallet login saves the local signing key and SIWE session in CLI state. Use
+the external signing handoff above when the CLI should not hold that key.
+Logging in does not override an existing `denied` signing policy.
+
+Current Commit Service transactions need not emit a legacy Action. The CLI
+prints `Commit awaiting sign: <commit-id>` and lists the Commit even when
+`actions` is empty; the historical `Action awaiting response` message is only
+for legacy Actions. Signing reports the backend's current state; `submitted`
+does not mean that a receipt has confirmed yet.
+
+Arc's native USDC uses 18 decimals; its USDC ERC-20 interface uses 6 decimals.
+See the official [network reference](https://docs.arc.io/arc/references/connect-to-arc)
+and [contract addresses](https://docs.arc.io/arc/references/contract-addresses).
+These commands describe this candidate CLI. Version 0.7.6 does not acquire the
+fix by changing signing mode; install a release containing these changes or
+build this checkout's `packages/cli` and use `node packages/cli/dist/bin.js` in
+place of `aomi`.
+
+#### Historical Action export
 
 `aomi tx export <id>...` refreshes the backend's authoritative pending state
 and writes a wallet handoff artifact to stdout. It requires no private key,
@@ -623,9 +933,9 @@ unrelated sequential transactions. Use the default `eip5792` format for native
 MetaMask batch execution when the connected account advertises that
 capability.
 
-**EIP-712 signing** is also supported. When an Action requests a typed-data
-signature, `aomi tx sign` routes it through the configured local EVM wallet and
-submits the signed result to the backend:
+**EIP-712 signing** remains supported for historical and off-chain Actions.
+When such an Action requests typed data, `aomi tx sign` routes it through the
+configured local EVM wallet and submits the result to the backend:
 
 ```
 $ npx @aomi-labs/client tx list
@@ -636,11 +946,11 @@ $ npx @aomi-labs/client tx sign action-2 --private-key 0xac0974...
 ✅ action-2 completed
 ```
 
-`aomi tx sign` executes whatever Action the backend prepared. Account
-abstraction is decided by backend application policy, never by the CLI: an AA
-operation arrives as a `sign` Action whose owner authorization the local key
-signs once, and the backend submits it. `--aa` and `--eoa` only assert which
-kind of Action you expect; see "Signing modes" below.
+Account abstraction is decided by backend application policy, never by the
+CLI. A current AA Commit carries an owner signature request in its `sign`
+action; the local key signs the exact request and Commit Service submits the
+operation. Historical AA Actions still use their original route. `--aa` and
+`--eoa` are assertions about the prepared work; see "Signing modes" below.
 
 ### Verbose mode & conversation log
 
@@ -676,7 +986,7 @@ All config can be passed as flags (which take priority over env vars):
 | Flag                   | Env Variable          | Default                 | Description                                   |
 | ---------------------- | --------------------- | ----------------------- | --------------------------------------------- |
 | `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                              |
-| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                  |
+| `--api-key`            | `AOMI_API_KEY`        | —                       | App key — only for private Apps (from owner)  |
 | `--mode`               | `AOMI_AGENT_MODE`     | `auto`                  | Agent routing mode (`auto` or `direct`)       |
 | `--app`                | `AOMI_APP`            | —                       | Direct app (also implies Direct when omitted) |
 | `--application-id`     | `AOMI_APPLICATION_ID` | —                       | Direct hosted application identity            |
@@ -698,30 +1008,30 @@ All config can be passed as flags (which take priority over env vars):
 # Use a custom backend
 npx @aomi-labs/client chat "hello" --backend-url https://my-backend.example.com
 
-# Full signing flow with all flags
+# Full signing flow with all flags.
+# --api-key is only for private Apps; the App owner gives you the key.
 npx @aomi-labs/client chat "send 0.1 ETH to vitalik.eth" \
   --public-key 0xYourAddress \
-  --api-key sk-abc123 \
+  --api-key aomi-your-private-app-key \
   --app my-agent \
   --model claude-sonnet-4
-npx @aomi-labs/client tx sign action-1 \
+npx @aomi-labs/client tx sign <commit-id> \
   --private-key 0xYourPrivateKey \
   --rpc-url https://eth.llamarpc.com
 ```
 
 ### Signing modes
 
-The flags are assertions about an already-prepared Action, not routing
+The flags are assertions about already-prepared work, not routing
 overrides. The backend chose the route (Wallet, Hosted, or Venue submission;
 ordinary transaction or AA) from the account's signing policy and the
-application's execution policy before the Action reached you.
+application's execution policy before the Commit or Action reached you.
 
-- Default: execute the prepared Action as-is.
-- `--aa`: require a backend-prepared AA owner authorization (an EVM `sign`
-  Action with `executionKind: "erc4337"` and an `operationId`); anything else
-  is rejected and nothing is signed.
-- `--eoa`: reject such an AA Action; ordinary EVM executions, permits, and
-  Solana Actions pass through unchanged.
+- Default: execute the prepared Commit or historical Action as-is.
+- `--aa`: require a backend-prepared AA owner authorization; anything else is
+  rejected before signing.
+- `--eoa`: reject AA owner authorization; ordinary EVM executions, permits,
+  and Solana work pass through unchanged.
 - `--aa-provider` / `--aa-mode` are rejected: the AA provider and account
   implementation belong to backend application policy.
 
@@ -751,11 +1061,23 @@ persists local state under `AOMI_STATE_DIR` or `~/.aomi` by default:
 
 ```
 $ npx @aomi-labs/client chat "hello"           # creates session, saves sessionId
-$ npx @aomi-labs/client chat "swap 1 ETH"      # reuses the Agent session and receives an Action
-$ npx @aomi-labs/client tx list                 # refreshes Actions from the backend
-$ npx @aomi-labs/client tx sign action-1        # executes and submits the Action result
+$ npx @aomi-labs/client chat "swap 1 ETH"      # reuses the Agent session and may create a Commit
+$ npx @aomi-labs/client tx list                 # refreshes Commits and legacy Actions
+$ npx @aomi-labs/client tx sign <commit-id>     # executes the next reviewed Commit step
 $ npx @aomi-labs/client session close           # clears the active local session pointer
 ```
 
 Session files live under `~/.aomi/sessions/` by default, with an active session
 pointer stored in the state root.
+
+A start transport failure may occur after admission. `isStartUncertain` remains
+true while active work may need reconciliation; Stop recovers its original intent
+and idempotency key and never substitutes an unrelated active turn. A different
+message is blocked during this uncertainty. Retrying the same message retains
+the original operation; failed Stop remains retryable without losing its scope.
+
+When fully drained history has no active work (or the session does not exist),
+Stop releases the optimistic running state and restores Send. The original
+intent/key remains available for a deliberate same-message retry. Canonical
+terminal answers are preserved; matching text does not prove ownership or cause
+a new start. Failed or stalled history reads remain retryable.

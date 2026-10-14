@@ -1,7 +1,7 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import type { FailureInput } from "@aomi-labs/bff-observability";
+import type { FailureInput } from "@aomi-labs/observability";
 import type {
   BotRegistration,
   OperateLogCursor,
@@ -23,20 +23,18 @@ import type {
 import {
   EXAMPLE_PROJECT,
   exampleStatement,
-} from "@build/features/operate/fixtures/wire";
+} from "@/features/operate/fixtures/wire";
 import {
   caipChainId,
   caipChainLabel,
   creditsToUsd,
-} from "@build/features/operate/format";
-import { backendClient } from "@build/server/bff/backend";
-import { authorize } from "@build/server/bff/auth";
-import {
-  launchConfig,
-  resolveLaunchPlatform,
-} from "@build/server/bff/launch/config";
-import { buildFailures } from "@build/server/bff/failures";
-import { TimedPromiseCache } from "@build/server/bff/timed-promise-cache";
+} from "@/features/operate/format";
+import { backendClient } from "@/server/bff/backend";
+import { authorize } from "@/server/bff/auth";
+import { resolveDeployPlatform } from "@/server/bff/deploy/config";
+import { deployConfig } from "@/server/env";
+import { buildFailures } from "@/server/bff/failures";
+import { TimedPromiseCache } from "@/server/bff/timed-promise-cache";
 
 type BackendClientInstance = Awaited<ReturnType<typeof backendClient>>;
 
@@ -471,10 +469,10 @@ async function operateSession(
     const auth = await authorize(req);
     if ("response" in auth) return auth;
     const { session, visibilityGrant } = auth;
-    const config = launchConfig();
+    const config = deployConfig();
     const params = new URL(req.url).searchParams;
     const requestedPlatform = params.get("platform") ?? undefined;
-    const platform = resolveLaunchPlatform(requestedPlatform, config);
+    const platform = resolveDeployPlatform(requestedPlatform, config);
     if (!platform) {
       return {
         response: NextResponse.json(

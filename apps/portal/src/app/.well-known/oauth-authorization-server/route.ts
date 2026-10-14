@@ -1,7 +1,7 @@
 import { auth } from "@aomi-labs/account/better-auth";
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 
-import { publicDiscoveryResponse } from "@portal/server/oauth/cors";
+import { publicRead } from "@/server/bff/cors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ const metadata = oauthProviderAuthServerMetadata(
 );
 
 export async function GET(request: Request) {
-  return publicDiscoveryResponse(
+  return publicRead.apply(
     await codexCompatibleMetadata(await metadata(request)),
   );
 }
@@ -25,7 +25,7 @@ export async function HEAD(request: Request) {
 }
 
 export function OPTIONS() {
-  return publicDiscoveryResponse(new Response(null, { status: 204 }));
+  return publicRead.apply(new Response(null, { status: 204 }));
 }
 
 async function codexCompatibleMetadata(response: Response): Promise<Response> {

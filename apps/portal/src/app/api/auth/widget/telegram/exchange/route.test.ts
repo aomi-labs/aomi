@@ -47,19 +47,18 @@ vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => {
 // The route runs the real `requireAttestedProviderWallets`, so the mapping from
 // a provider-API answer to a route failure code is under test; only the
 // credential verification and the provider lookup underneath it are mocked.
-vi.mock("@portal/server/widget-auth/exchange", async (importOriginal) => {
+vi.mock("@/server/widget-auth/exchange", async (importOriginal) => {
   const actual =
-    await importOriginal<
-      typeof import("@portal/server/widget-auth/exchange")
-    >();
+    await importOriginal<typeof import("@/server/widget-auth/exchange")>();
   return { ...actual, verifyWidgetProviderCredential: mocks.verifyCredential };
 });
 
-vi.mock("@portal/server/widget-auth/rate-limit", () => ({
-  widgetAuthRateLimit: () => null,
+vi.mock("@/server/widget-auth/rate-limit", () => ({
+  WIDGET_BUDGETS: { proof: {}, guest: {} },
+  consumeWidgetBudget: async () => null,
 }));
 
-vi.mock("@portal/server/widget-auth/telegram-custom-auth", () => ({
+vi.mock("@/server/widget-auth/telegram-custom-auth", () => ({
   customAuthEnvironment: () => "staging",
   requirePrivyCustomAuthOwner: mocks.verifyCustomAuthOwner,
   statusForTrustedTelegramFailure: (reason: string) =>
@@ -69,7 +68,7 @@ vi.mock("@portal/server/widget-auth/telegram-custom-auth", () => ({
   verifyTrustedTelegramLaunch: mocks.verifyTrustedTelegram,
 }));
 
-vi.mock("@portal/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   portalFailures: {
     handle: (input: { response: { error: string; status: number } }) => ({
       response: Response.json(

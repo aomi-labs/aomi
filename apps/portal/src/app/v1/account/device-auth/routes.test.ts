@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  createCliSession: vi.fn(),
+  revokeSession: vi.fn(),
   issueGrant: vi.fn(),
   issueLinkIntent: vi.fn(),
   issueLinkGrant: vi.fn(),
@@ -11,13 +13,18 @@ const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
 }));
 
-vi.mock("@portal/server/account/session", async (importOriginal) => {
+vi.mock("@/server/account/session", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@portal/server/account/session")>();
+    await importOriginal<typeof import("@/server/account/session")>();
   return { ...actual, getBetterAuthSession: mocks.getSession };
 });
 
-vi.mock("@portal/server/device-auth/grants", () => ({
+vi.mock("@/server/account/cli-session", () => ({
+  createCliSession: mocks.createCliSession,
+  revokeSession: mocks.revokeSession,
+}));
+
+vi.mock("@/server/device-auth/grants", () => ({
   issueDeviceAuthGrant: mocks.issueGrant,
   issueDeviceAuthLinkIntent: mocks.issueLinkIntent,
   issueDeviceAuthLinkGrant: mocks.issueLinkGrant,
@@ -26,9 +33,11 @@ vi.mock("@portal/server/device-auth/grants", () => ({
 
 vi.mock("@aomi-labs/account/account", () => ({
   exchangeProviderForExistingSession: mocks.exchangeProvider,
+  getOrCreateAomiUserForBetterAuthSession: async () => ({ id: "account" }),
+  IdentityConflictError: class IdentityConflictError extends Error {},
 }));
 
-vi.mock("@portal/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   portalFailures: {
     handle: (input: {
       source: "expected" | "local";
@@ -64,7 +73,10 @@ const REDIRECT_URI = "http://127.0.0.1:4173/callback";
 function post(path: string, body: unknown): Request {
   return new Request(`https://portal.aomi.dev${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://portal.aomi.dev",
+    },
     body: JSON.stringify(body),
   });
 }
@@ -72,6 +84,10 @@ function post(path: string, body: unknown): Request {
 describe("device-auth route error ownership", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
+    mocks.createCliSession.mockResolvedValue({
+      sessionToken: "cli-session-token",
+      expiresAt: new Date(Date.now() + 86400000),
+    });
     mocks.getSession.mockResolvedValue({
       user: { id: "better-auth-user" },
       session: {
@@ -141,20 +157,41 @@ describe("device-auth route error ownership", () => {
     expect(mocks.issueGrant).not.toHaveBeenCalled();
   });
 
-  it("leaves session failures to the framework error boundary", async () => {
+  it("reports a session lookup failure without its message", async () => {
     const failure = new Error("private database detail");
     mocks.getSession.mockRejectedValue(failure);
 
-    await expect(
-      grant(
-        post("/v1/account/device-auth/grant", {
-          state: VALID_STATE,
-          codeChallenge: VALID_CHALLENGE,
-          redirectUri: REDIRECT_URI,
-        }),
-      ),
-    ).rejects.toBe(failure);
-    expect(mocks.capture).not.toHaveBeenCalled();
+    const response = await grant(
+      post("/v1/account/device-auth/grant", {
+        state: VALID_STATE,
+        codeChallenge: VALID_CHALLENGE,
+        redirectUri: REDIRECT_URI,
+      }),
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "device_auth_failed",
+    });
+    expect(mocks.capture).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({ status: 500 }),
+    );
+  });
+
+  it("revokes the CLI session it minted when the grant cannot be issued", async () => {
+    mocks.issueGrant.mockImplementation(() => {
+      throw new Error("private storage detail");
+    });
+    const response = await grant(
+      post("/v1/account/device-auth/grant", {
+        state: VALID_STATE,
+        codeChallenge: VALID_CHALLENGE,
+        redirectUri: REDIRECT_URI,
+        provider: "para",
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(mocks.revokeSession).toHaveBeenCalledWith("cli-session-token");
   });
 
   it("keeps link-intent validation errors public and storage failures private", async () => {
@@ -246,7 +283,7 @@ describe("device-auth route error ownership", () => {
     const expected = await exchange(
       post("/v1/account/device-auth/exchange", requestBody),
     );
-    expect(expected.status).toBe(400);
+    expect(expected.status).toBe(401);
     await expect(expected.json()).resolves.toEqual({
       error: "provider_token_expired",
     });
@@ -259,7 +296,7 @@ describe("device-auth route error ownership", () => {
     );
     expect(unexpected.status).toBe(500);
     await expect(unexpected.json()).resolves.toEqual({
-      error: "provider_exchange_failed",
+      error: "device_auth_failed",
     });
     expect(mocks.capture).toHaveBeenCalledWith(
       failure,
@@ -287,7 +324,7 @@ describe("device-auth route error ownership", () => {
     expect(mocks.capture).toHaveBeenCalledWith(
       failure,
       expect.objectContaining({
-        operation: "device_auth_grant_consume",
+        operation: "device_auth.exchange",
         status: 500,
       }),
     );

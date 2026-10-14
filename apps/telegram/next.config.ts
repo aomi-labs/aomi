@@ -10,14 +10,14 @@ const nextConfig: NextConfig = {
   agentRules: false,
   reactStrictMode: true,
   outputFileTracingRoot: workspaceRoot,
-  // `@aomi-labs/widget-lib` is consumed for its Privy-free UI primitives and
+  // `@aomi-labs/widget` is consumed for its Privy-free UI primitives and
   // design tokens only. Its wallet providers pin Privy v2 while this app runs
   // v3, so nothing under `providers/*` or `lib/wallet-kit` may ever be imported
   // here — see the bundle check in the package's `check` script.
   transpilePackages: [
     "@aomi-labs/client",
     "@aomi-labs/react",
-    "@aomi-labs/widget-lib",
+    "@aomi-labs/widget",
   ],
   turbopack: {
     resolveAlias: {

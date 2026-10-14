@@ -1,4 +1,4 @@
-import { launchSdkStatusRoute } from "@build/server/bff/launch/routes";
+import { sdkStatusRoute } from "@/server/bff/deploy/routes";
 
 export const runtime = "nodejs";
-export const GET = launchSdkStatusRoute;
+export const GET = sdkStatusRoute;

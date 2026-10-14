@@ -242,8 +242,6 @@ function paraTokenWalletFamily(
   }
 }
 
-
-
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
@@ -252,16 +250,20 @@ function stringValue(value: unknown): string | undefined {
 
 export function providerSessionUserSeed(
   verified: VerifiedProviderTokenCredential,
-): { email: string; emailVerified: boolean; name: string } {
+): { email: string; emailVerified: boolean; name: string; label?: string } {
   const providerEmail = verified.token.email?.trim();
   const verifiedEmail =
     providerEmail && verified.token.emailVerified ? providerEmail : undefined;
   const displayLabel = verified.token.displayLabel?.trim() || undefined;
   const email = verifiedEmail ?? providerSubjectEmail(verified);
+  const label = verifiedEmail ?? displayLabel;
+  // `name` only has to be non-empty for the session user; `label` is the
+  // real identifier, left unset when the provider gave none.
   return {
     email,
     emailVerified: Boolean(verifiedEmail),
-    name: verifiedEmail ?? displayLabel ?? `${verified.provider} user`,
+    name: label ?? "Aomi user",
+    ...(label ? { label } : {}),
   };
 }
 

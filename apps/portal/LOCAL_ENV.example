@@ -1,10 +1,25 @@
-# Copy these values into apps/portal/.env.local when running the portal against
-# a local product-mono backend.
+# Portal server settings, read only by src/server/env.ts. Copy into
+# apps/portal/.env.local to run the portal against a local product-mono backend.
+
+# The Rust backend behind /api. Hosted portals set NEXT_PUBLIC_BACKEND_URL;
+# without either, Vercel previews use staging, production uses api.aomi.dev.
 BACKEND_URL=http://127.0.0.1:8080
+# The public agent API behind /v1 (required on Vercel).
 AOMI_AGENT_API_URL=http://127.0.0.1:8082
+
+# The one header your edge overwrites with the client IP, used for sign-in
+# rate limits. Vercel deployments need nothing here (x-vercel-forwarded-for).
+# A self-hosted portal must name its proxy's header, e.g. x-real-ip; without
+# it every caller shares one rate-limit bucket.
+# AOMI_CLIENT_IP_HEADER=x-real-ip
+
+# Platforms /api/thread/apps is filtered to when the caller names none.
+# APP_CATALOG_PLATFORMS=community
+
+# Telegram Mini App sign-in.
+# TELEGRAM_WIDGET_BOT_IDS=123456789
+# PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY=
+
 # Dev-only BFF signer for the committed `aomi-bff-dev-1` public key.
 # Do not use this key for staging or production.
 PORTAL_SERVICE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n-----END PRIVATE KEY-----"
-
-# Local-only symmetric secret for the standalone GitHub session cookie.
-PORTAL_ONLY_SESSION_SECRET=local-github-session-secret-change-me

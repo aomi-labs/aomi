@@ -1,6 +1,6 @@
-import { NewProject } from "@build/features/launch/components/deployments/new-project";
-import { newProjectMode } from "@build/features/launch/new-project-mode";
-import { platformHref, platformParam } from "@build/features/launch/platform";
+import { NewProject } from "@/features/deploy/components/deployments/new-project";
+import { newProjectMode } from "@/features/deploy/new-project-mode";
+import { platformHref, platformParam } from "@/features/deploy/platform";
 
 export default async function NewOperateDeploymentPage({
   searchParams,

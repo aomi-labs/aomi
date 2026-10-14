@@ -4,7 +4,7 @@ description: >
   Use when integrating Aomi one-shot agent deploy into a host app or site —
   a partner platform (launchpad, portal, marketplace) that wants users to spin
   up a live Aomi agent and chat with it. Covers the `@aomi-labs/deploy`
-  toolkit: mount the server-side BFF route factories (`/bff`), wire the
+  toolkit: serve the server-side BFF routes (helpers in `/bff`), wire the
   browser client (`/launch`), supply credentials, and build a deploy UI in
   your own stack against the typed client. The stable product is the client
   contract, not a UI component — build the UI your product needs.
@@ -20,7 +20,7 @@ metadata:
 
 You are wiring **Aomi one-shot agent deploy** into a host app. Outcome: a user
 clicks through a short flow and ends with a **live Aomi agent they can chat
-with**. This is a thin, self-contained integration — you mount a few server
+with**. This is a thin, self-contained integration — you serve a few server
 routes, point a browser client at them, and render a UI.
 
 `@aomi-labs/deploy` is a typed relay to the Aomi platform. It does **not** run
@@ -35,7 +35,7 @@ entry points are **server-only**:
 | Import                        | Runs            | Holds                                                  |
 | ----------------------------- | --------------- | ------------------------------------------------------ |
 | `@aomi-labs/deploy`           | **server only** | `BackendClient` + the activation bearer                |
-| `@aomi-labs/deploy/bff`       | **server only** | route factories that mint/inject the bearer            |
+| `@aomi-labs/deploy/bff`       | **server only** | helpers for your BFF routes, which hold the bearer     |
 | `@aomi-labs/deploy/launch`    | browser         | typed fetch client to your own BFF routes — no secrets |
 | `@aomi-labs/deploy/lifecycle` | browser         | pure helpers projecting deploy records into UI state   |
 
@@ -49,8 +49,7 @@ or `/bff` from a client component.
 - **Activation token** for your platform (server-side secret). Aomi issues it;
   you never ship it to the browser.
 - The **Aomi GitHub App** performs the repo scaffolding and deploy PRs. The
-  OAuth client-id is baked into the auth routes; the client secret lives in the
-  Aomi backend. You register nothing on GitHub.
+  OAuth client secret lives in the Aomi backend. You register nothing on GitHub.
 
 ## Install
 
@@ -58,76 +57,42 @@ or `/bff` from a client component.
 npm install @aomi-labs/deploy      # or pnpm add / yarn add
 ```
 
-## Step 1 — Mount the BFF routes (server)
+## Step 1 — Serve the BFF routes (server)
 
-Every handler is a plain `(Request) => Promise<Response>`. Build them once in a
-server-only module and export the handlers:
+`@aomi-labs/deploy` ships no route handlers. Write the same-origin routes the
+browser client calls (`/api/bff/launch/*` and `/api/bff/auth/github/*`) in your
+server, each a plain `(Request) => Promise<Response>` over a `BackendClient`.
+Aomi's Build app is the worked example: `apps/build/src/server/bff/deploy/routes.ts`.
 
 ```ts
 // server/aomi-deploy.ts  (server-only)
-import {
-  createLaunchRoutes,
-  createGitHubAuthRoutes,
-  createGitHubSessionCodec,
-} from "@aomi-labs/deploy/bff";
 import { BackendClient } from "@aomi-labs/deploy";
 
-const client = () =>
+export const client = () =>
   new BackendClient({
     aomi: {
       backendUrl: process.env.AOMI_BACKEND_URL!,
       activationToken: process.env.AOMI_ACTIVATION_TOKEN!, // stays here
     },
   });
-
-// Signs an HTTP-only session cookie for the signed-in GitHub user.
-// `secret` is any >= 16-char string you hold; rotate like any app secret.
-const session = createGitHubSessionCodec({
-  secret: process.env.AOMI_SESSION_SECRET!,
-});
-
-export const launch = createLaunchRoutes({
-  client,
-  session: (req) => session.fromRequest(req),
-  // config: { platform: "your-platform", templateRepo: "you/agent-template" },
-  // ^ or set APP_DEPLOY_PLATFORM / APP_DEPLOY_TEMPLATE_REPO env vars.
-});
-
-export const githubAuth = createGitHubAuthRoutes({
-  client,
-  session,
-  callbackPath: "/api/bff/auth/github/callback",
-  returnTo: "/deploy", // where the browser lands after sign-in
-});
 ```
 
-Mount them (Next.js App Router shown; any fetch server maps the same):
+Routes the browser client expects (Next.js App Router paths shown):
 
-```ts
-// app/api/bff/launch/deploy/route.ts      → export const POST = launch.deploy;
-// app/api/bff/launch/preflight/route.ts   → export const POST = launch.preflight;
-// app/api/bff/launch/create/route.ts      → export const POST = launch.create;
-// app/api/bff/launch/activate/route.ts    → export const POST = launch.activate;
-// app/api/bff/launch/redeploy/route.ts    → export const POST = launch.redeploy;
-// app/api/bff/launch/status/route.ts      → export const GET  = launch.status;
-// app/api/bff/launch/apps/route.ts        → export const GET  = launch.apps;
-// app/api/bff/launch/projects/route.ts    → export const GET  = launch.projects;
-// app/api/bff/auth/github/login/route.ts    → export const GET  = githubAuth.login;
-// app/api/bff/auth/github/callback/route.ts → export const GET  = githubAuth.callback;
-// app/api/bff/auth/github/status/route.ts   → export const GET  = githubAuth.status;
-// app/api/bff/auth/github/signout/route.ts  → export const POST = githubAuth.signout;
+```
+app/api/bff/launch/{preflight,create,deploy,activate,redeploy}/route.ts   POST
+app/api/bff/launch/{status,apps,projects}/route.ts                        GET
+app/api/bff/auth/github/{login,callback,status}/route.ts                  GET
+app/api/bff/auth/github/signout/route.ts                                  POST
 ```
 
-**Swappable seams** (this is the flexibility — don't fork, inject):
-
-- `session` — any `(req) => GitHubSession | null`. If you already have the
-  signed-in GitHub user from your own auth, pass a function that returns it and
-  skip `createGitHubAuthRoutes` entirely.
-- `guards` — `{ read, write }` request guards. Defaults: per-IP rate limit +
-  same-origin CSRF. Override for your infra (e.g. shared-store rate limiting).
-- `config` — platform/template/target-tags. Defaults read `APP_DEPLOY_*` env.
-- `githubToken` — optional; enables CI status enrichment + rerun
-  (`process.env.GITHUB_TOKEN` by default).
+`@aomi-labs/deploy/bff` has the shared pieces: `identifyLaunchError` maps a
+`DeployError`/`BackendError` to an HTTP status and `{ error }` body,
+`fetchReleaseSecretSlots`/`missingSecretsForActivation` check required secrets
+before activation, `ownedProject` checks the signed-in user owns a project, and
+`launchAppStatusesResult` maps app statuses for the browser. Guard the routes
+with per-IP rate limiting and same-origin CSRF checks of your own, and read the
+signed-in GitHub user from your own session.
 
 ## Step 2 — Wire the browser client
 
@@ -216,7 +181,7 @@ page you'll have to hand-reconcile on every upstream change.
 - **Secrets are write-only.** App env-vars/secrets, where supported, return
   key _names_ only — values are never read back.
 - **Errors.** BFF routes answer `{ error }` with a faithful HTTP status
-  (`launchErrorResponse` maps `DeployError`/`BackendError`). Surface
+  (`identifyLaunchError` maps `DeployError`/`BackendError`). Surface
   `json.error` to the user.
 - **Not yet in the browser client:** operator lifecycle (deactivate/"stop",
   promote/rollback, deploy history) exists at the SDK layer but is not exposed

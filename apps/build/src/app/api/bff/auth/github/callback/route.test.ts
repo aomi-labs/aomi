@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   observeFailure: vi.fn(),
 }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: { handle: mocks.observeFailure },
 }));
 
@@ -27,13 +27,13 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-vi.mock("@build/server/bff/backend", () => ({
+vi.mock("@/server/bff/backend", () => ({
   backendClient: vi.fn(async () => ({
     exchangeGitHubCode: mocks.exchangeGitHubCode,
   })),
 }));
 
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   readGitHubOAuthRequest: vi.fn(async () =>
     mocks.oauthState
       ? {

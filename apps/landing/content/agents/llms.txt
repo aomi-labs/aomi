@@ -29,7 +29,7 @@ Use these when the user wants to read prices/balances or build/sign transactions
 
 Use these when the user wants to add an Aomi chat widget to their own app.
 
-- [Quickstart](https://aomi.dev/docs/guides/frontend-setup.md): Install the widget into a Next.js app via one shadcn command. Start here.
+- [Quickstart](https://aomi.dev/docs/guides/frontend-setup.md): Install the widget into a Next.js app from npm. Start here.
 - [Integration guide](https://aomi.dev/docs/guides/integration.md): Decide between the bundled widget and the headless React library.
 - [Headless library](https://aomi.dev/docs/guides/headless-library.md): Install `@aomi-labs/react`, wire up the runtime provider, and use the AomiClient.
 - [Headless: hooks](https://aomi.dev/docs/guides/headless/hooks.md): React hooks for chat, tools, sessions, control state.

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getGitHubCliSessionFromRequest } from "@build/server/cookies/github";
+import { getGitHubCliSessionFromRequest } from "@/server/cookies/github";
 
 export const runtime = "nodejs";
 

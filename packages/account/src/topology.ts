@@ -1,4 +1,5 @@
-import { AomiService } from "@aomi-labs/service";
+import { backendUrlFromEnv } from "./backend-url";
+import { AomiService } from "./service-topology";
 import { PORTAL_TOPOLOGIES, type PortalTopologyName } from "./topology-data";
 
 // The issuer's runtime view of the AOMI service topology. It selects the
@@ -34,12 +35,7 @@ function hostOf(value: string): string {
 }
 
 export function portalTopologyName(): PortalTopologyName {
-  const host = hostOf(
-    process.env.BACKEND_URL ??
-      process.env.NEXT_PUBLIC_BACKEND_URL ??
-      process.env.AOMI_PROXY_BACKEND_URL ??
-      "",
-  );
+  const host = hostOf(backendUrlFromEnv(process.env));
 
   if (host === STAGING_HOST) return "staging";
   if (host === PRODUCTION_HOST) return "production";

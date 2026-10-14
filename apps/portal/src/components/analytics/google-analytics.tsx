@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { useCookieConsent } from "@portal/hooks/use-cookie-consent";
+import { useCookieConsent } from "@/hooks/use-cookie-consent";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 

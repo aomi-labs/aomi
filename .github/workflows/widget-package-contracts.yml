@@ -1,0 +1,69 @@
+name: Widget package contracts
+
+on:
+  workflow_call:
+    secrets:
+      AOMI_DOCS_READ_TOKEN:
+        required: false
+  push:
+    branches: [main]
+    paths:
+      [
+        "packages/**",
+        "scripts/check-*widget*",
+        "scripts/check-package-api.mjs",
+        "scripts/fixtures/widget-consumer/**",
+        "api-reports/**",
+        ".changeset/**",
+        ".github/workflows/widget-package-contracts.yml",
+        "pnpm-lock.yaml",
+      ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: npm install --global npm@11
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:packages
+      - name: Require release notes for changed public packages
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: pnpm run check:package-changesets
+      - run: pnpm run check:package-api
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: aomi-labs/docs
+          # Reviewed companion docs (aomi-labs/docs#59); main targets the previous contract.
+          # Update this pin alongside future coordinated docs/package contract changes.
+          ref: ${{ vars.AOMI_WIDGET_DOCS_REF || 'd3c91595fc267566bcfb73339854101cae12831d' }}
+          path: output/canonical-widget-docs
+          persist-credentials: false
+          token: ${{ secrets.AOMI_DOCS_READ_TOKEN || github.token }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Fresh Vite, Next.js and optional wallet consumers
+        env:
+          AOMI_DOCS_DIRECTORY: ${{ github.workspace }}/output/canonical-widget-docs
+          NEXT_PUBLIC_PRIVY_APP_ID: ${{ vars.AOMI_WIDGET_TEST_PRIVY_APP_ID }}
+          NEXT_PUBLIC_PARA_API_KEY: ${{ vars.AOMI_WIDGET_TEST_PARA_API_KEY }}
+          NEXT_PUBLIC_PARA_ENVIRONMENT: PROD
+        run: pnpm run check:fresh-widget
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fresh-widget-contract-results
+          path: output/fresh-widget/results.json
+          if-no-files-found: error

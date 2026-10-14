@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 export type ToastTone = "success" | "error" | "info";
 

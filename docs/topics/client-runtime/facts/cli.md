@@ -6,21 +6,21 @@ area: client-runtime
 review_after_days: 30
 sources_of_truth:
   - packages/client/package.json
-  - packages/client/src/cli/main.ts
-  - packages/client/src/cli/root.ts
-  - packages/client/src/cli/repl.ts
-  - packages/client/src/cli/commands/chat.ts
+  - packages/cli/src/main.ts
+  - packages/cli/src/root.ts
+  - packages/cli/src/repl.ts
+  - packages/cli/src/commands/chat.ts
 ---
 
 # CLI
 
-The `aomi` terminal client is published from `@aomi-labs/client` and shares its transport layer with the widget runtime.
+The `aomi` terminal client is published from `@aomi-labs/cli` and shares its transport layer with the widget runtime.
 
 ## Entrypoint
 
-- `packages/client/package.json` exposes the `aomi` bin as `./dist/cli.js`.
-- `packages/client/src/cli/main.ts` decides whether to run root help, one-shot commands, or the interactive REPL.
-- Root command handling is defined under `packages/client/src/cli/root.ts`.
+- `packages/cli/package.json` exposes the `aomi` bin as `./dist/bin.js`. The old client bin remains a compatibility bundle.
+- `packages/cli/src/main.ts` decides whether to run root help, one-shot commands, or the interactive REPL.
+- Root command handling is defined under `packages/cli/src/root.ts`.
 
 ## Command Surface
 
@@ -50,7 +50,7 @@ The `aomi` terminal client is published from `@aomi-labs/client` and shares its 
 ## Role In The Repo
 
 - The CLI is the terminal-facing consumer of the same backend contracts used by the runtime and widget.
-- Packaging it inside `@aomi-labs/client` keeps the command surface and transport layer versioned together.
+- The CLI depends on the public SDK; its browser-safe entry does not import terminal code.
 
 ## Related Topics
 

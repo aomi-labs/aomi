@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
 }));
 
-vi.mock("@build/server/bff/build/supervisor", () => ({
+vi.mock("@/server/bff/build/supervisor", () => ({
   superviseOnce: mocks.superviseOnce,
 }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: {
     handle: (input: {
       error: unknown;
@@ -41,7 +41,7 @@ describe("build supervisor route", () => {
     mocks.capture.mockReset();
   });
 
-  it("captures once and preserves the existing failure response", async () => {
+  it("captures once without returning private store details", async () => {
     const error = new Error("private store detail");
     mocks.superviseOnce.mockRejectedValue(error);
 
@@ -51,7 +51,7 @@ describe("build supervisor route", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: "private store detail",
+      error: "build_supervision_failed",
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
@@ -60,5 +60,28 @@ describe("build supervisor route", () => {
       method: "GET",
       status: 500,
     });
+  });
+  it("requires the exact hosted cron credential", async () => {
+    vi.stubEnv("AOMI_BUILD_ALLOW_ANON", "0");
+    vi.stubEnv("BUILD_RUN_CHECKER_CRON_SECRET", "cron-test-secret");
+    mocks.superviseOnce.mockResolvedValue([]);
+    const url = "https://build.example/api/bff/build/supervise";
+    expect(
+      (
+        await GET(
+          new Request(url, { headers: { authorization: "Bearer wrong" } }),
+        )
+      ).status,
+    ).toBe(403);
+    expect(mocks.superviseOnce).not.toHaveBeenCalled();
+    expect(
+      (
+        await GET(
+          new Request(url, {
+            headers: { authorization: "Bearer cron-test-secret" },
+          }),
+        )
+      ).status,
+    ).toBe(200);
   });
 });

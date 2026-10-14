@@ -5,12 +5,12 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
-import type { FailureInput } from "@aomi-labs/bff-observability";
-import { authorize } from "@build/server/bff/auth";
+import type { FailureInput } from "@aomi-labs/observability";
+import { authorize } from "@/server/bff/auth";
 import type {
   BuildRunDecisionRequest,
   CreateBuildRunRequest,
-} from "@build/features/build/run-contracts";
+} from "@/features/build/run-contracts";
 import {
   BuildEngineError,
   cancelBuildRun,
@@ -22,7 +22,7 @@ import {
   startBuildRun,
   storedCrateTarball,
 } from "./engine";
-import { buildFailures } from "@build/server/bff/failures";
+import { buildFailures } from "@/server/bff/failures";
 
 function identifyBuildRouteFailure(
   error: unknown,

@@ -5,19 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layers3, LoaderCircle } from "lucide-react";
 
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
-import { HelpBadge } from "@build/components/help-badge";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
+import { HelpBadge } from "@/components/help-badge";
 import {
   deploymentProjects,
   LaunchRequestError,
-} from "@build/features/launch/client";
+} from "@/features/deploy/client";
 import {
   buildQueryKeys,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
-import { writePlatform } from "@build/features/launch/platform";
-import { usePlatform } from "@build/features/launch/use-platform";
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+} from "@/features/deploy/query-keys";
+import { writePlatform } from "@/features/deploy/platform";
+import { usePlatform } from "@/features/deploy/use-platform";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 
 export function PlatformSwitcher({
   currentPlatform,

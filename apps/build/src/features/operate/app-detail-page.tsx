@@ -2,16 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
+} from "@/features/deploy/query-keys";
 import {
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 import { AppDetailView } from "./app-detail-view";
 import { operateAppDetailFetch } from "./client";
 import {

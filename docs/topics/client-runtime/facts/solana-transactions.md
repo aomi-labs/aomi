@@ -7,7 +7,7 @@ review_after_days: 30
 sources_of_truth:
   - packages/client/src/authorization.ts
   - packages/client/src/session/wallet.ts
-  - packages/client/src/cli/commands/wallet.ts
+  - packages/cli/src/commands/wallet.ts
   - apps/portal/src/features/general/use-svm-wallet-binding.ts
 ---
 

@@ -51,7 +51,10 @@ writeFileSync(
   `// Rust Agent contract SHA256: ${sourceHash}\n${types}`,
 );
 const schemas = JSON.parse(document).components.schemas;
-const runtimeSchemaNames = new Set(["ActionRequest"]);
+const runtimeSchemaNames = new Set([
+  "ActionRequest",
+  "TransactionSafetyPolicy",
+]);
 for (const name of runtimeSchemaNames) {
   collectSchemaReferences(schemas[name], runtimeSchemaNames);
 }
@@ -92,7 +95,14 @@ function printRustOpenApi() {
   const rust = spawnSync(
     "cargo",
     ["run", "--quiet", "-p", "api-server", "--", "--print-openapi"],
-    { cwd: rustRepo, encoding: "utf8" },
+    // The published contract describes Aomi Cloud: the OAuth issuer and API
+    // resources live on its public origin, which api-server reads from
+    // deployment config rather than hard-coding.
+    {
+      cwd: rustRepo,
+      encoding: "utf8",
+      env: { ...process.env, AOMI_PORTAL_URL: "https://chat.aomi.dev" },
+    },
   );
   if (rust.status !== 0) {
     if (rust.stdout) process.stderr.write(rust.stdout);

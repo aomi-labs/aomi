@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   getGitHubSession: vi.fn(),
 }));
 
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   getGitHubSession: mocks.getGitHubSession,
 }));
 

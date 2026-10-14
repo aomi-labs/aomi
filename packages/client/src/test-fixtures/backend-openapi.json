@@ -1,0 +1,3905 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aomi API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/availability": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/metrics": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/exec/simulate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/exec/tool-call": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/exec/run": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/evm/build": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/evm/stage": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/evm/simulate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/evm/commit": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/svm/build": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/svm/stage": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/svm/simulate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/svm/commit": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/apps/{app}/operations/{operation}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/pipeline/skills/{skill}/operations/{operation}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "appKey": [],
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "app_gate",
+          "delegated"
+        ]
+      }
+    },
+    "/api/widget/v1/execution-profile": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/batch": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/manual": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/wallet-attempts": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/wallet-attempts/{attempt_id}/report": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/widget/v1/aa-accounts/{chain_id}": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/widget/v1/signing-requests/{request_id}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/_internal/secrets": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/auth/privy/begin": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/auth/privy/callback": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/auth/para/begin": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/auth/para/callback": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/secrets": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/secrets/{name}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/threads": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/threads/{thread_id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/threads/{thread_id}/archive": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/threads/{thread_id}/unarchive": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/account/transaction-safety": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "AccountProfile",
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "apps": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "application_ids": {
+                          "description": "Exact hosted applications installed by this account. `apps` remains\nthe legacy runtime-name projection for compatibility.",
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "default": []
+                        },
+                        "tier": {
+                          "oneOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "free",
+                                "pro"
+                              ]
+                            },
+                            {
+                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
+                              "type": "string",
+                              "enum": [
+                                "anon"
+                              ]
+                            }
+                          ]
+                        },
+                        "verified_email": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "last_seen_at": {
+                          "type": "integer",
+                          "format": "int64",
+                          "nullable": true
+                        },
+                        "created_at": {
+                          "type": "integer",
+                          "format": "int64"
+                        },
+                        "updated_at": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      },
+                      "required": [
+                        "user_id",
+                        "apps",
+                        "tier",
+                        "status",
+                        "created_at",
+                        "updated_at"
+                      ]
+                    },
+                    "auth_providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "type": "string"
+                          },
+                          "verified_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "is_primary": {
+                            "type": "boolean"
+                          },
+                          "created_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "provider",
+                          "method",
+                          "is_primary",
+                          "created_at"
+                        ]
+                      }
+                    },
+                    "user_accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "auth_provider": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "is_primary": {
+                            "type": "boolean"
+                          },
+                          "provider_managed": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "address",
+                          "is_primary",
+                          "provider_managed"
+                        ]
+                      }
+                    },
+                    "signing_policies": {
+                      "type": "array",
+                      "items": {
+                        "description": "Durable user-permitted signing behavior for one exact on-chain address.\nProvider capability is represented separately by [`DelegatedAccount`].",
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "mode": {
+                            "description": "Durable signing authority. Client automation never grants server custody.",
+                            "type": "string",
+                            "enum": [
+                              "denied",
+                              "manual",
+                              "client_auto",
+                              "auto"
+                            ]
+                          },
+                          "authorization_version": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "last_authorized_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "last_authorized_by": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ],
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "address",
+                          "mode",
+                          "authorization_version"
+                        ]
+                      }
+                    },
+                    "delegated_accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "address": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "delegation_provider": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "description": "Lifecycle state shared by account-side records. Collections retain historical\nrecords instead of hiding why an address stopped being operable.",
+                            "type": "string",
+                            "enum": [
+                              "provisioning",
+                              "active",
+                              "expired",
+                              "revoked",
+                              "unavailable"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "updated_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "expires_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "revoked_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "revocation_reason": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "address",
+                          "delegation_provider",
+                          "kind",
+                          "status",
+                          "created_at",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "operating_accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "owner": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "operating": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "chain_ref": {
+                            "description": "EVM chain id or SVM cluster. This is intentionally not part of the address DTO.",
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "description": "Lifecycle state shared by account-side records. Collections retain historical\nrecords instead of hiding why an address stopped being operable.",
+                            "type": "string",
+                            "enum": [
+                              "provisioning",
+                              "active",
+                              "expired",
+                              "revoked",
+                              "unavailable"
+                            ]
+                          },
+                          "version": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "created_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "updated_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "owner",
+                          "operating",
+                          "chain_ref",
+                          "provider",
+                          "kind",
+                          "status",
+                          "version",
+                          "created_at",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "onchain_policy_bindings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "owner": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "delegate": {
+                            "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                            "type": "object",
+                            "properties": {
+                              "chain": {
+                                "description": "A chain family, independent of any execution protocol or persistence model.",
+                                "type": "string",
+                                "enum": [
+                                  "evm",
+                                  "svm"
+                                ]
+                              },
+                              "address": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "chain",
+                              "address"
+                            ]
+                          },
+                          "operating_account_id": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "policy": {
+                            "type": "object",
+                            "properties": {
+                              "version": {
+                                "type": "integer",
+                                "format": "uint16",
+                                "minimum": 0,
+                                "maximum": 65535
+                              },
+                              "rules": {
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "target": {
+                                          "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                          "type": "object",
+                                          "properties": {
+                                            "chain": {
+                                              "description": "A chain family, independent of any execution protocol or persistence model.",
+                                              "type": "string",
+                                              "enum": [
+                                                "evm",
+                                                "svm"
+                                              ]
+                                            },
+                                            "address": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "chain",
+                                            "address"
+                                          ]
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "allowed_call_target"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "target"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "lifetime_native_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "amount"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "window": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "slots"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "blocks"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "seconds"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "recurring_native_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "amount",
+                                        "window"
+                                      ]
+                                    },
+                                    {
+                                      "description": "Cap on one fungible token (SPL mint on SVM) the delegate may move out\nof the operating account over its lifetime.",
+                                      "type": "object",
+                                      "properties": {
+                                        "mint": {
+                                          "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                          "type": "object",
+                                          "properties": {
+                                            "chain": {
+                                              "description": "A chain family, independent of any execution protocol or persistence model.",
+                                              "type": "string",
+                                              "enum": [
+                                                "evm",
+                                                "svm"
+                                              ]
+                                            },
+                                            "address": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "chain",
+                                            "address"
+                                          ]
+                                        },
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "lifetime_token_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "mint",
+                                        "amount"
+                                      ]
+                                    },
+                                    {
+                                      "description": "Cap on one fungible token that resets every `window`.",
+                                      "type": "object",
+                                      "properties": {
+                                        "mint": {
+                                          "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                          "type": "object",
+                                          "properties": {
+                                            "chain": {
+                                              "description": "A chain family, independent of any execution protocol or persistence model.",
+                                              "type": "string",
+                                              "enum": [
+                                                "evm",
+                                                "svm"
+                                              ]
+                                            },
+                                            "address": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "chain",
+                                            "address"
+                                          ]
+                                        },
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "window": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "slots"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "blocks"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "seconds"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "recurring_token_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "mint",
+                                        "amount",
+                                        "window"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "version",
+                              "rules"
+                            ]
+                          },
+                          "provider_binding": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "provider": {
+                                    "type": "string",
+                                    "enum": [
+                                      "swig"
+                                    ]
+                                  },
+                                  "binding": {
+                                    "type": "object",
+                                    "properties": {
+                                      "swig_account": {
+                                        "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                        "type": "object",
+                                        "properties": {
+                                          "chain": {
+                                            "description": "A chain family, independent of any execution protocol or persistence model.",
+                                            "type": "string",
+                                            "enum": [
+                                              "evm",
+                                              "svm"
+                                            ]
+                                          },
+                                          "address": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "chain",
+                                          "address"
+                                        ]
+                                      },
+                                      "role_id": {
+                                        "type": "integer",
+                                        "format": "uint32",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "swig_account",
+                                      "role_id"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "provider",
+                                  "binding"
+                                ]
+                              }
+                            ]
+                          },
+                          "status": {
+                            "description": "Lifecycle state shared by account-side records. Collections retain historical\nrecords instead of hiding why an address stopped being operable.",
+                            "type": "string",
+                            "enum": [
+                              "provisioning",
+                              "active",
+                              "expired",
+                              "revoked",
+                              "unavailable"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "updated_at": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "confirmed_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          },
+                          "revoked_at": {
+                            "type": "integer",
+                            "format": "int64",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "owner",
+                          "delegate",
+                          "operating_account_id",
+                          "policy",
+                          "provider_binding",
+                          "status",
+                          "created_at",
+                          "updated_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "auth_providers",
+                    "user_accounts",
+                    "signing_policies",
+                    "delegated_accounts",
+                    "operating_accounts",
+                    "onchain_policy_bindings"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps/{application_id}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps/{application_id}/secrets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps/{application_id}/secrets/{name}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/authorization/challenge": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/authorization/commit": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/providers/{provider}/agent-wallet": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/providers/{provider}/delegation": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}/prepare": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}/confirm": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}/{binding_id}/revoke/prepare": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}/{binding_id}/revoke/confirm": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/scheduled-intents": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/scheduled-intents/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/app-keys": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/app-keys/{key_hash}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/model-keys": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/model-keys/{provider}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/apps/{app}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/tools": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/tools/{tool_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/skills": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/resource/skills/*skill_id": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/resource/search/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/resource/search/tools": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/thread/transaction-safety": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/sim/world": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/runtime/models": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/runtime/model": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/models": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/model": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "thread"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps/{app}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/_internal/agent/turns": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": [],
+            "appKey": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated",
+          "app_gate"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}/delta": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}/stream": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}/interrupt": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}/actions/{action_id}/result": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/bots/telegram/{webhook_secret}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/bots/telegram/{webhook_secret}/binding": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/admin/app-store": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/release": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/release/sentry-smoke": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/apps/{app}/reload": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/apps/public": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/skills": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/skills/batch": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/skills/rollback": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/skills/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "admin"
+        ]
+      }
+    },
+    "/api/skills": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/system": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/integrations/github-app/oauth/start": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/integrations/github-app/oauth/callback": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/integrations/github-app/oauth/result": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/platforms": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/platforms/server-tags": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/integrations/github-app/webhook": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/integrations/github-app/oauth/exchange": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/oauth/claim": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/installations": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/builder/applications/{application_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/deployments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/latest-deployment": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/required-secrets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/sdk-upgrade": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/sdk-upgrade-status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/deployments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}/cancel": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/promote": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/refresh": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/releases/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/deployments/import": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/transactions": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/usage": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/logs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/observability": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/observability": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/payments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/transactions": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/statement": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/usage": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/logs": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/statement": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/builder/applications/{application_id}/detail": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/builder/applications/{application_id}/tools/{tool}/trace": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/bots/{bot_id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/model-keys": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/model-keys/{key_id}": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/model-keys/{key_id}/grants": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/account/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bots/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/integrations/github-app/platforms/{name}/projects/create-from-template": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/deactivate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/deploy": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/applications/{application_id}/deactivate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/deployments/{deployment}/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/deployments/{deployment}/rerun": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps/{app}/records": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/projects": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/tokens": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/tokens/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/venue": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/bot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/nonce": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/status": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "wallet-session"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "threadId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Thread-Id"
+      },
+      "accountBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "appKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Aomi-App-Key"
+      },
+      "serviceBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "delegatedBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "platformBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

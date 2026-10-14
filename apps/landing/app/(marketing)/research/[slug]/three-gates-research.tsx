@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Children, isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -125,6 +126,17 @@ export function ThreeGatesResearch({ post }: Props) {
             <span>Security architecture</span>
           </div>
         </header>
+
+        <figure className={styles.cover}>
+          <Image
+            src={post.cover}
+            alt=""
+            width={1600}
+            height={900}
+            priority
+            sizes="(max-width: 800px) 100vw, 960px"
+          />
+        </figure>
 
         <div className={styles.summary}>
           <span>Abstract</span>

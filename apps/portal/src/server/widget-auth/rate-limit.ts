@@ -1,19 +1,39 @@
-import { checkRateLimit, getClientIp } from "@portal/lib/rate-limit";
+import {
+  accountRateLimitStorage,
+  clientIp,
+} from "@aomi-labs/account/rate-limit";
 
-/**
- * Per-IP rate limit for the *unauthenticated* widget-auth endpoints
- * (`exchange`, `siwe|siws nonce/verify`). These run before any bearer exists,
- * yet each one writes a `ba_verifications` row and does signature crypto / JWKS
- * fetches — and `exchange` can create a canonical user — so an unthrottled
- * caller can spam rows and burn CPU. The small in-process limiter is scoped to
- * this public pre-authentication boundary and keyed per client IP.
- *
- * Returned as a plain 429 `Response`; callers return it from inside the
- * `widgetRoute` handler so the wrapper still applies the cross-origin CORS
- * headers. A rate-limited response carries no `Access-Control-Allow-Credentials`
- * and preserves `Vary: Origin`, exactly like every other widget response.
- */
-export function widgetAuthRateLimit(request: Request): Response | null {
-  if (checkRateLimit(getClientIp(request)).allowed) return null;
-  return Response.json({ error: "rate_limited" }, { status: 429 });
+import { clientIpHeader } from "@/server/env";
+
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** Widget sign-in budgets per client IP, shared with Better Auth's store. */
+export const WIDGET_BUDGETS = {
+  proof: { name: "proof", window: 60, max: 60 },
+  // Each guest writes four rows, so creating them gets a tighter budget.
+  guest: { name: "guest", window: 3600, max: 10 },
+} as const;
+
+export type WidgetBudget = (typeof WIDGET_BUDGETS)[keyof typeof WIDGET_BUDGETS];
+
+export async function consumeWidgetBudget(
+  request: Request,
+  budget: WidgetBudget,
+): Promise<Response | null> {
+  const header = clientIpHeader();
+  // Every local test browser shares the loopback address.
+  const rule =
+    !header && LOOPBACK.has(new URL(request.url).hostname)
+      ? WIDGET_BUDGETS.proof
+      : budget;
+  const result = await accountRateLimitStorage.consume(
+    `widget:${budget.name}:${clientIp(request, header)}`,
+    { window: rule.window, max: rule.max },
+  );
+  return result.allowed
+    ? null
+    : Response.json(
+        { error: "rate_limited" },
+        { status: 429, headers: { "retry-after": String(result.retryAfter) } },
+      );
 }

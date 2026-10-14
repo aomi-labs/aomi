@@ -3,13 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const failures = vi.hoisted(() => ({ handle: vi.fn() }));
 
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: { handle: failures.handle },
 }));
 
 import { GET } from "./route";
 
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   setGitHubSessionCookie: vi.fn(),
 }));
 
@@ -55,7 +55,7 @@ describe("GitHub dev session route", () => {
 
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toEqual({
-      error: "GitHub user lookup failed (503)",
+      error: "github_user_lookup_failed",
     });
     expect(failures.handle).toHaveBeenCalledWith({
       source: "local",
@@ -64,7 +64,7 @@ describe("GitHub dev session route", () => {
       }),
       response: {
         status: 502,
-        error: "GitHub user lookup failed (503)",
+        error: "github_user_lookup_failed",
       },
       context: {
         routeFamily: "/api/bff/auth/github/dev-session",

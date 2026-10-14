@@ -1,6 +1,6 @@
 // @aomi-labs/deploy/launch — browser-safe client for the one-shot launch flow.
 //
-// Talks only to the host's same-origin BFF (`@aomi-labs/deploy/bff` mounts);
+// Talks only to the host's same-origin BFF (the launch and GitHub auth routes);
 // no secrets, no backend URL, no framework dependency. Pairs with the launch
 // UI components distributed via the Aomi shadcn registry.
 

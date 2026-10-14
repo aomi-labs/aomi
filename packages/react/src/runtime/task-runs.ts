@@ -10,7 +10,7 @@ import type {
 } from "@aomi-labs/client";
 
 import { useAomiRuntime } from "../interface";
-import { parseTimestamp } from "./utils";
+import { parseTimestamp } from "./timestamp";
 
 export type TaskRunStep =
   | {

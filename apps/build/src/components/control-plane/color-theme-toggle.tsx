@@ -7,7 +7,7 @@ import {
   readColorTheme,
   saveColorTheme,
   type ColorTheme,
-} from "@build/lib/color-theme";
+} from "@/lib/color-theme";
 
 export function ColorThemeToggle() {
   const [theme, setTheme] = useState<ColorTheme | null>(null);

@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock("@build/components/control-plane/github-session-context", () => ({
+vi.mock("@/components/control-plane/github-session-context", () => ({
   useGitHubSession: () => ({
     account: {
       loading: false,

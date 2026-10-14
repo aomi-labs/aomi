@@ -1,7 +1,7 @@
 "use client";
 
 import { Plug } from "lucide-react";
-import { BotsView } from "@build/features/operate/bots-view";
+import { BotsView } from "@/features/operate/bots-view";
 
 export function IntegrationsView() {
   return (

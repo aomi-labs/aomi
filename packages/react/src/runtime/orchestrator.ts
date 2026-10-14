@@ -1,8 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import {
+  AgentApiError,
   CLIENT_TYPE_WEB_UI,
   Session as ClientSession,
   UserState as UserStateValue,
@@ -10,11 +17,16 @@ import {
   type CommitCapabilities,
   type AgentTarget,
   type AomiClient,
+  type SendOptions,
+  type SessionSnapshot,
   type UserState,
 } from "@aomi-labs/client";
 import type { AomiInferenceFundingSource } from "../interface";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
+import { isGenericTitle, reconcileGeneratedThreadTitle } from "./thread-title";
+import { stripCapabilityHints } from "./capability-hints";
+import { isSending, isTurnActive, isTurnOver } from "./turn-state";
 
 type OrchestratorOptions = {
   getUserState: () => UserState;
@@ -24,10 +36,39 @@ type OrchestratorOptions = {
   inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
   getCommits?: () => CommitCapabilities | undefined;
-  prepareThreadForSend?: (threadId: string) => Promise<void> | void;
   onSendSuccess?: (threadId: string) => void;
+  /** A turn this runtime watched has finished, failed or been stopped. */
+  onTurnEnded?: (threadId: string) => void;
+  /** All chats were closed because the guest behind them expired. */
+  onGuestExpired?: () => void;
   onSendError?: (threadId: string, error: unknown) => Promise<void> | void;
+  /** A chat the server already has; its history must load before a Send. */
+  isSavedThread?: (threadId: string) => boolean;
 };
+
+/**
+ * Calls `onEnded` once each time a turn this session started or saw running
+ * reaches its end. The turn shown before a send is not the one being waited
+ * for, so a send that never starts reports nothing.
+ */
+function watchTurnEnds(onEnded: (snapshot: SessionSnapshot) => void) {
+  let waiting: { previousTurn?: string } | null = null;
+  return (snapshot: SessionSnapshot) => {
+    if (!waiting && isSending(snapshot))
+      waiting = { previousTurn: snapshot.turnId };
+    else if (!waiting && isTurnActive(snapshot)) waiting = {};
+    if (
+      waiting &&
+      snapshot.turnId &&
+      snapshot.turnId !== waiting.previousTurn &&
+      !isSending(snapshot) &&
+      isTurnOver(snapshot)
+    ) {
+      waiting = null;
+      onEnded(snapshot);
+    }
+  };
+}
 
 export function useRuntimeOrchestrator(
   aomiClient: AomiClient,
@@ -41,14 +82,40 @@ export function useRuntimeOrchestrator(
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const managerRef = useRef<SessionManager | null>(null);
-  const hydrated = useRef(new Set<string>());
-  const hydration = useRef(new Map<string, Promise<void>>());
+  const loaded = useRef(new Set<string>());
+  const failedLoads = useRef(new Set<string>());
+  const loading = useRef(new Map<string, Promise<void>>());
+  const [, loadSettled] = useReducer((count: number) => count + 1, 0);
   const sessionSubscriptions = useRef(new Map<string, () => void>());
 
   if (!managerRef.current) {
     managerRef.current = new SessionManager(() => clientRef.current);
   }
   const sessionManager = managerRef.current;
+  // Bumped whenever every chat is closed; work started before it is dropped.
+  const generation = useRef(0);
+
+  const refreshTitle = useCallback(
+    (threadId: string, session: ClientSession) => {
+      const titleAtRefresh =
+        threadsRef.current.getThreadMetadata(threadId)?.title;
+      void clientRef.current.agent.sessions
+        .get(threadId)
+        .then((saved) => {
+          if (sessionManager.get(threadId) !== session) return;
+          if (
+            saved.title &&
+            threadsRef.current.getThreadMetadata(threadId)?.title ===
+              titleAtRefresh
+          )
+            threadsRef.current.updateThreadMetadata(threadId, {
+              title: reconcileGeneratedThreadTitle(titleAtRefresh, saved.title),
+            });
+        })
+        .catch((error) => console.debug("Unable to refresh chat title", error));
+    },
+    [sessionManager],
+  );
 
   const getSession = useCallback(
     (threadId: string): ClientSession => {
@@ -75,77 +142,203 @@ export function useRuntimeOrchestrator(
       }
 
       const session = sessionManager.getOrCreate(threadId, sessionOptions);
+      let lastSeenTitle: string | undefined;
+      const onSnapshot = watchTurnEnds((snapshot) => {
+        optionsRef.current.onTurnEnded?.(threadId);
+        if (!snapshot.title) refreshTitle(threadId, session);
+      });
       sessionSubscriptions.current.set(
         threadId,
         session.subscribe(() => {
           const snapshot = session.getSnapshot();
           const metadata = threadsRef.current.getThreadMetadata(threadId);
-          if (snapshot.title && metadata?.title !== snapshot.title) {
+          if (
+            snapshot.pendingUserMessage &&
+            metadata &&
+            isGenericTitle(metadata.title)
+          ) {
+            // A local fallback until the server's title arrives; "New Chat"
+            // stays a display label, never a stored title.
             threadsRef.current.updateThreadMetadata(threadId, {
-              title: snapshot.title,
+              title: stripCapabilityHints(snapshot.pendingUserMessage)
+                .trim()
+                .slice(0, 80),
             });
           }
+          if (snapshot.title && snapshot.title !== lastSeenTitle) {
+            lastSeenTitle = snapshot.title;
+            threadsRef.current.updateThreadMetadata(threadId, {
+              title: reconcileGeneratedThreadTitle(
+                threadsRef.current.getThreadMetadata(threadId)?.title,
+                snapshot.title,
+              ),
+            });
+          }
+          onSnapshot(snapshot);
+          threadsRef.current.updateThreadMetadata(threadId, {
+            pending: isSending(snapshot),
+          });
         }),
       );
       return session;
     },
-    [sessionManager],
+    [refreshTitle, sessionManager],
   );
 
   const closeSession = useCallback(
     (threadId: string) => {
       sessionSubscriptions.current.get(threadId)?.();
       sessionSubscriptions.current.delete(threadId);
-      hydrated.current.delete(threadId);
-      hydration.current.delete(threadId);
+      loaded.current.delete(threadId);
+      failedLoads.current.delete(threadId);
+      loading.current.delete(threadId);
       sessionManager.close(threadId);
     },
     [sessionManager],
   );
 
   const closeAllSessions = useCallback(() => {
+    generation.current++;
     for (const unsubscribe of sessionSubscriptions.current.values()) {
       unsubscribe();
     }
     sessionSubscriptions.current.clear();
-    hydrated.current.clear();
-    hydration.current.clear();
+    loaded.current.clear();
+    failedLoads.current.clear();
+    loading.current.clear();
     sessionManager.closeAll();
   }, [sessionManager]);
 
   const ensureInitialState = useCallback(
     (threadId: string): Promise<void> => {
-      if (hydrated.current.has(threadId)) return Promise.resolve();
-      const pending = hydration.current.get(threadId);
+      if (loaded.current.has(threadId)) return Promise.resolve();
+      const pending = loading.current.get(threadId);
       if (pending) return pending;
-      const request = getSession(threadId)
+      const session = getSession(threadId);
+      failedLoads.current.delete(threadId);
+      const request = session
         .fetchCurrentState()
-        .then(() => {
-          hydrated.current.add(threadId);
-        })
-        .finally(() => hydration.current.delete(threadId));
-      hydration.current.set(threadId, request);
+        .then(
+          () => {
+            if (sessionManager.get(threadId) === session)
+              loaded.current.add(threadId);
+          },
+          (error: unknown) => {
+            if (sessionManager.get(threadId) === session)
+              failedLoads.current.add(threadId);
+            throw error;
+          },
+        )
+        .finally(() => {
+          if (loading.current.get(threadId) === request) {
+            loading.current.delete(threadId);
+            loadSettled();
+          }
+        });
+      loading.current.set(threadId, request);
       return request;
     },
-    [getSession],
+    [getSession, sessionManager],
+  );
+
+  /** A remote chat whose history has not arrived (or failed) yet. */
+  const isLoading = useCallback(
+    (threadId: string) =>
+      !loaded.current.has(threadId) && !failedLoads.current.has(threadId),
+    [],
+  );
+  const isLoaded = useCallback(
+    (threadId: string) => loaded.current.has(threadId),
+    [],
+  );
+  /** The last history request for this chat failed and none is in flight. */
+  const hasLoadFailed = useCallback(
+    (threadId: string) =>
+      failedLoads.current.has(threadId) && !loading.current.has(threadId),
+    [],
+  );
+  /** Ask for the history again and show it loading meanwhile. */
+  const retryLoad = useCallback(
+    (threadId: string) => {
+      const request = ensureInitialState(threadId);
+      loadSettled();
+      return request;
+    },
+    [ensureInitialState],
+  );
+
+  const sendOnce = useCallback(
+    async (text: string, threadId: string, sendOptions?: SendOptions) => {
+      // A history read already in flight (a restored chat loads before the
+      // list confirms it) finishes first, so a send never lands before it.
+      await loading.current.get(threadId)?.catch(() => undefined);
+      // A reply into history that never arrived would read as a new chat
+      // and hide the failure; the history has to load first.
+      if (
+        !loaded.current.has(threadId) &&
+        optionsRef.current.isSavedThread?.(threadId)
+      )
+        throw new Error(
+          "This conversation hasn't loaded yet. Load it again, then send your message.",
+        );
+      const session = getSession(threadId);
+      const firstTurn = !session.getSnapshot().turnId;
+      await session.sendAsync(text, sendOptions);
+      if (sessionManager.get(threadId) !== session) return;
+      loaded.current.add(threadId);
+      optionsRef.current.onSendSuccess?.(threadId);
+      threadsRef.current.updateThreadMetadata(threadId, {
+        lastActiveAt: new Date().toISOString(),
+      });
+      // The saved title can exist as soon as the start is accepted; read it
+      // now rather than only when the first turn ends.
+      if (firstTurn && !session.getSnapshot().title)
+        refreshTitle(threadId, session);
+    },
+    [getSession, refreshTitle, sessionManager],
+  );
+
+  const reportFailure = useCallback(
+    async (threadId: string, error: unknown, startedIn: number) => {
+      if (startedIn === generation.current)
+        await optionsRef.current.onSendError?.(threadId, error);
+      throw error;
+    },
+    [],
   );
 
   const sendMessage = useCallback(
-    async (text: string, threadId: string) => {
+    async (text: string, threadId: string, sendOptions?: SendOptions) => {
+      const startedIn = generation.current;
       try {
-        await optionsRef.current.prepareThreadForSend?.(threadId);
-        const session = getSession(threadId);
-        await session.sendAsync(text);
-        threadsRef.current.updateThreadMetadata(threadId, {
-          lastActiveAt: new Date().toISOString(),
-        });
-        optionsRef.current.onSendSuccess?.(threadId);
+        await sendOnce(text, threadId, sendOptions);
+        return;
       } catch (error) {
-        await optionsRef.current.onSendError?.(threadId, error);
-        throw error;
+        const guestExpired =
+          error instanceof AgentApiError &&
+          error.isGuestIdentityChanged &&
+          !sendOptions?.edit &&
+          !sendOptions?.regenerate &&
+          startedIn === generation.current &&
+          threadsRef.current.currentThreadId === threadId;
+        if (!guestExpired) return reportFailure(threadId, error, startedIn);
+      }
+      // The new guest cannot read the old guest's chat. Send the same text
+      // once more in a fresh chat; no history or actions carry over.
+      const control = threadsRef.current.getThreadMetadata(threadId)?.control;
+      closeAllSessions();
+      optionsRef.current.onGuestExpired?.();
+      const freshThreadId = threadsRef.current.resetToDefault();
+      if (control)
+        threadsRef.current.updateThreadMetadata(freshThreadId, { control });
+      const retriedIn = generation.current;
+      try {
+        await sendOnce(text, freshThreadId);
+      } catch (error) {
+        await reportFailure(freshThreadId, error, retriedIn);
       }
     },
-    [getSession],
+    [closeAllSessions, reportFailure, sendOnce],
   );
 
   const cancelGeneration = useCallback(
@@ -170,6 +363,10 @@ export function useRuntimeOrchestrator(
     snapshot,
     getSession,
     ensureInitialState,
+    isLoading,
+    isLoaded,
+    hasLoadFailed,
+    retryLoad,
     sendMessage,
     cancelGeneration,
     closeSession,

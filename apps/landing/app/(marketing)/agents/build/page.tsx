@@ -71,7 +71,7 @@ export default function AgentsBuildPage() {
 
           <p className={styles.commandLabel}>Frontend widget</p>
           <div className={styles.commandBlock}>
-            <code>npm install @aomi-labs/widget-lib</code>
+            <code>npm install @aomi-labs/widget</code>
           </div>
 
           <p className={styles.commandLabel}>

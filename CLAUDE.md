@@ -16,17 +16,9 @@ Update `specs/STATE.md` with:
 
 ## Quick Reference
 
-**Build & Test:**
-
 ```bash
-pnpm run build:lib        # Build library to dist/
-pnpm --filter landing dev # Run demo at localhost:3000
-pnpm lint                 # Lint check
+pnpm run build:packages   # Build every workspace package
+pnpm --filter portal dev  # Run the Portal
+pnpm run lint             # Lint
+pnpm run test:journeys    # Browser journeys (see tests/e2e/README.md)
 ```
-
-**Key Files:**
-
-- `src/components/aomi-frame.tsx` - Main widget component
-- `src/components/assistant-ui/runtime.tsx` - Backend integration
-- `src/lib/backend-api.ts` - All network calls
-- `src/lib/thread-context.tsx` - Thread state management

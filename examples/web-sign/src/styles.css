@@ -1,0 +1,114 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+button {
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+code {
+  word-break: break-all;
+}
+
+.muted {
+  opacity: 0.7;
+}
+
+.error {
+  color: #c62828;
+}
+
+.warning {
+  color: #b26a00;
+}
+
+.wallet button {
+  margin-left: 12px;
+}
+
+.transcript {
+  list-style: none;
+  padding: 0;
+}
+
+.transcript li {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.transcript .user {
+  background: rgba(59, 130, 246, 0.15);
+  margin-left: 20%;
+}
+
+.transcript .agent {
+  background: rgba(127, 127, 127, 0.12);
+  margin-right: 20%;
+}
+
+.review {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 8px;
+}
+
+.review.resolved {
+  opacity: 0.8;
+}
+
+.review dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 4px 0 12px;
+}
+
+.review dd {
+  margin: 0;
+}
+
+.checks {
+  list-style: none;
+  padding: 0;
+}
+
+.checks .ok {
+  color: #2e7d32;
+}
+
+.checks .fail {
+  color: #c62828;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+form input {
+  flex: 1;
+  padding: 8px;
+}

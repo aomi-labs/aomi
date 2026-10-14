@@ -21,6 +21,7 @@ import {
   sepolia,
 } from "viem/chains";
 import { observeAccountDiagnostic } from "../observability";
+import { shortAddress } from "@aomi-labs/client";
 
 export async function verifySiweMessage(input: {
   message: string;
@@ -255,10 +256,6 @@ async function recoverSigner(
   } catch {
     return null;
   }
-}
-
-function shortAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function errorKind(error: unknown): string | null {

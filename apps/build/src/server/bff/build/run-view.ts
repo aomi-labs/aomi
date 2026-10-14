@@ -8,8 +8,8 @@ import type {
   BuildRunFileNode,
   BuildRunStageStatus,
   BuildRunStatus,
-} from "@build/features/build/run-contracts";
-import { buildFailures } from "@build/server/bff/failures";
+} from "@/features/build/run-contracts";
+import { buildFailures } from "@/server/bff/failures";
 
 export type RunViewLike = {
   status: string | null;

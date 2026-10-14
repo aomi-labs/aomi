@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { OperateView } from "@build/features/operate/operate-view";
+import { OperateView } from "@/features/operate/operate-view";
 
 export default function OperateLogsPage() {
   return (

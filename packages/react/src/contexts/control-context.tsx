@@ -1,34 +1,17 @@
 "use client";
 
-// =============================================================================
-// ControlContextProvider — thin composition root
-// =============================================================================
-//
-// This file used to be 978 lines and seven concerns wedged into one component.
-// It's now a wiring layer: the four domain hooks in `../control/` each own
-// their slice of state + effects + actions, and this file assembles them into
-// the public ControlContextApi.
-//
-// If you need to change behavior, you almost certainly want one of:
-//   ../control/api-key.ts          — apiKey + persistence
-//   ../control/byok.ts             — BYOK keys + secret vault API
-//   ../control/app-secrets.ts      — per-user keys for account-bound apps
-//   ../control/auth-endpoints.ts   — apps + models fetch
-//   ../control/per-thread-control.ts — model/app selection + sync
-//
-// useControl() is preserved as the public hook for now. The new focused
-// hooks (useApiKey, useByok, useAuthEndpoints, usePerThreadControl) are
-// available as direct imports for consumers that only need one slice.
-//
-// Deleted in this pass:
-//   - onControlStateChange callbacks pub/sub (no external consumers)
-//   - setState legacy shim (deprecated since the May 2026 refactor)
+import { createScopedStorage } from "@aomi-labs/client";
+
+// Assembles the focused control hooks in ../control/ into useControl().
+// Change behaviour in the hook that owns it (api-key, byok, app-secrets,
+// auth-endpoints, per-thread-control).
 
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -39,8 +22,8 @@ import type {
   ApplicationId,
 } from "@aomi-labs/client";
 import type { ThreadControlState, ThreadMetadata } from "../state/thread-store";
+import type { RuntimeAccount } from "../query/display-cache";
 import {
-  CLIENT_ID_STORAGE_KEY,
   getControlSessionId,
   getOrCreateClientId,
 } from "../utils/client-session";
@@ -70,19 +53,13 @@ import {
   type PerThreadControlActions,
 } from "../control/per-thread-control";
 
-// Re-export domain types so existing consumers that pull them from this file
-// keep compiling.
 export type { StoredByokKey } from "../control/byok";
 
 // =============================================================================
 // Public types
 // =============================================================================
 
-/**
- * Aggregated control state. Mirrors the historical shape so callers reading
- * `useControl().state` keep working. New code should prefer the focused
- * hooks and read their narrower slices directly.
- */
+/** All control state. Prefer the focused hooks below for one slice. */
 export type ControlState = ApiKeyState &
   ByokState &
   AuthEndpointsState & {
@@ -114,14 +91,7 @@ export function useControl(): ControlContextApi {
   return ctx;
 }
 
-// ---------------------------------------------------------------------------
-// Focused slice readers
-//
-// Each returns just the slice it's named for. Composes with useControl() —
-// the underlying state is the same; these just narrow the surface area so
-// callers don't have access to (and don't trigger re-renders for) data they
-// don't read.
-// ---------------------------------------------------------------------------
+// Focused slice readers over the same state as useControl().
 
 export function useApiKey(): {
   state: ApiKeyState & { clientId: string | null };
@@ -179,6 +149,7 @@ export function useAuthEndpoints(): {
       authorizedApps: ctx.state.authorizedApps,
       appDescriptors: ctx.state.appDescriptors,
       defaultApp: ctx.state.defaultApp,
+      modelsLoading: ctx.state.modelsLoading,
     },
     actions: {
       getAvailableModels: ctx.getAvailableModels,
@@ -223,8 +194,12 @@ export type ControlContextProviderProps = {
   ) => void;
   appPlatforms?: AomiPlatformFilter;
   applicationId?: ApplicationId;
+  apiKeyPersistence?: "memory" | "session";
+  backendUrl?: string;
   inferenceFunding?: AomiInferenceFundingSource;
   accountSessionAvailable?: boolean;
+  /** Who the session belongs to; a guest has no account data to load. */
+  account?: RuntimeAccount | null;
 };
 
 export function ControlContextProvider({
@@ -235,8 +210,11 @@ export function ControlContextProvider({
   updateThreadMetadata,
   appPlatforms,
   applicationId,
+  apiKeyPersistence,
+  backendUrl = "",
   inferenceFunding,
   accountSessionAvailable = false,
+  account,
 }: ControlContextProviderProps) {
   // ---------------------------------------------------------------------------
   // Stable refs into the central plumbing (aomiClient, the props that change
@@ -254,29 +232,24 @@ export function ControlContextProvider({
   const updateThreadMetadataRef = useRef(updateThreadMetadata);
   updateThreadMetadataRef.current = updateThreadMetadata;
 
-  // clientId is initialized once from localStorage and persisted on change.
-  // Treating it as a ref + persist effect keeps it stable across renders.
+  const storageScope = useMemo(
+    () => ({ backendUrl: backendUrl, appId: applicationId }),
+    [backendUrl, applicationId],
+  );
+  const storage = useMemo(
+    () => createScopedStorage(storageScope),
+    [storageScope],
+  );
   const clientIdRef = useRef<string | null>(null);
-  if (clientIdRef.current === null) {
-    clientIdRef.current = getOrCreateClientId();
+  const clientIdScopeRef = useRef(storage.key("clientId"));
+  if (
+    clientIdRef.current === null ||
+    clientIdScopeRef.current !== storage.key("clientId")
+  ) {
+    clientIdRef.current = getOrCreateClientId(storage);
+    clientIdScopeRef.current = storage.key("clientId");
   }
-  useEffect(() => {
-    try {
-      if (clientIdRef.current) {
-        globalThis.localStorage?.setItem(
-          CLIENT_ID_STORAGE_KEY,
-          clientIdRef.current,
-        );
-      }
-    } catch {
-      // localStorage not available
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Domain hooks
-  // ---------------------------------------------------------------------------
-  const apiKey = useApiKeyImpl();
+  const apiKey = useApiKeyImpl(storageScope, apiKeyPersistence);
   const apiKeyRef = useRef(apiKey.state.apiKey);
   apiKeyRef.current = apiKey.state.apiKey;
 
@@ -289,7 +262,9 @@ export function ControlContextProvider({
 
   const byok = useByokImpl({
     aomiClientRef,
-    accountClient: accountSessionAvailable ? aomiClient : null,
+    accountClient:
+      accountSessionAvailable && account?.kind !== "guest" ? aomiClient : null,
+    accountId: account?.id,
     clientIdRef,
     getControlSessionId: getCurrentControlSessionId,
     initialInferenceFunding: inferenceFunding,
@@ -305,6 +280,8 @@ export function ControlContextProvider({
     apiKeyRef,
     getControlSessionId: getCurrentControlSessionId,
     apiKey: apiKey.state.apiKey,
+    credentialRevision: apiKey.revision,
+    accountSessionAvailable,
     appPlatforms,
     applicationId,
   });
@@ -323,6 +300,7 @@ export function ControlContextProvider({
   defaultAppRef.current = authEndpoints.state.defaultApp;
 
   const perThread = usePerThreadControlImpl({
+    storage,
     sessionIdRef,
     getThreadMetadataRef,
     updateThreadMetadataRef,
@@ -349,6 +327,7 @@ export function ControlContextProvider({
     authorizedApps: authEndpoints.state.authorizedApps,
     appDescriptors: authEndpoints.state.appDescriptors,
     defaultApp: authEndpoints.state.defaultApp,
+    modelsLoading: authEndpoints.state.modelsLoading,
   };
 
   const aggregateStateRef = useRef(aggregateState);

@@ -9,13 +9,14 @@ import {
 } from "@aomi-labs/account/better-auth";
 
 import {
-  applyManagedWidgetCors,
   isManagedWidgetClientOrigin,
-  managedWidgetPreflight,
-  oauthBodyClientId,
-  publicDiscoveryResponse,
-} from "@portal/server/oauth/cors";
-import { enforceAomiOAuthRequestPolicy } from "@portal/server/oauth/request-policy";
+  managedClient,
+  publicRead,
+} from "@/server/bff/cors";
+import {
+  enforceAomiOAuthRequestPolicy,
+  oauthClientId,
+} from "@/server/oauth/request-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ async function handleAuth(request: Request) {
     origin !== null && origin !== aomiOAuthResources().portalOrigin;
   const browserClientId =
     isBrowserGrantEndpoint && crossOrigin
-      ? await oauthBodyClientId(request)
+      ? await oauthClientId(request)
       : undefined;
   if (
     isBrowserGrantEndpoint &&
@@ -114,14 +115,10 @@ async function handleAuth(request: Request) {
       ? await handleWalletAuthRequest(request)
       : await auth.handler(request);
   if (request.method === "GET" && path.endsWith("/jwks")) {
-    response = publicDiscoveryResponse(response);
+    response = publicRead.apply(response);
   }
   if (isBrowserGrantEndpoint && crossOrigin) {
-    response = await applyManagedWidgetCors({
-      request,
-      response,
-      clientId: browserClientId,
-    });
+    response = await managedClient.apply(request, response, browserClientId);
   }
   if (
     request.method === "GET" &&
@@ -211,10 +208,10 @@ export async function OPTIONS(request: Request) {
   if (
     ["/oauth2/token", "/oauth2/revoke"].some((suffix) => path.endsWith(suffix))
   ) {
-    return managedWidgetPreflight(request, ["POST", "OPTIONS"]);
+    return managedClient.preflight(request, ["POST", "OPTIONS"]);
   }
   if (path.endsWith("/jwks")) {
-    return publicDiscoveryResponse(new Response(null, { status: 204 }));
+    return publicRead.apply(new Response(null, { status: 204 }));
   }
   return new Response(null, { status: 204 });
 }

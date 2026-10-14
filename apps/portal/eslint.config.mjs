@@ -1,6 +1,7 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = [
+  { ignores: [".next*/**"] },
   ...nextVitals,
   {
     ignores: [".next/**", ".vercel/**", "out/**", "build/**", "next-env.d.ts"],
@@ -35,8 +36,6 @@ const eslintConfig = [
               group: [
                 "@aomi-labs/account",
                 "@aomi-labs/account/*",
-                "@aomi-labs/service",
-                "@aomi-labs/service/*",
               ],
               message:
                 "Node-only packages must not be imported from client/shared code.",

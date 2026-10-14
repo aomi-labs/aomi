@@ -1,6 +1,6 @@
 import type { captureRequestError } from "@sentry/nextjs";
 
-import { portalFailures } from "@portal/server/bff/failures";
+import { portalFailures } from "@/server/bff/failures";
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {

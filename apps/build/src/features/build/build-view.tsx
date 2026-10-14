@@ -12,38 +12,38 @@ import {
   Square,
 } from "lucide-react";
 
-import { useToast } from "@build/components/control-plane/toast";
-import { BuildStreamTimeline } from "@build/features/build/components/build-stream-timeline";
+import { useToast } from "@/components/control-plane/toast";
+import { BuildStreamTimeline } from "@/features/build/components/build-stream-timeline";
 import {
   ChatMessage,
   TypingIndicator,
-} from "@build/features/build/components/chat-message";
-import { CompileTestPanel } from "@build/features/build/components/compile-test-panel";
-import { FileTreePreview } from "@build/features/build/components/file-tree-preview";
+} from "@/features/build/components/chat-message";
+import { CompileTestPanel } from "@/features/build/components/compile-test-panel";
+import { FileTreePreview } from "@/features/build/components/file-tree-preview";
 import {
   IntentComposer,
   type IntentComposerHandle,
-} from "@build/features/build/components/intent-composer";
-import { SessionHistory } from "@build/features/build/components/session-history";
-import { ShipHandoffBanner } from "@build/features/build/components/ship-handoff-banner";
-import { SmithersNodes } from "@build/features/build/components/smithers-nodes";
-import { TemplateGallery } from "@build/features/build/components/template-gallery";
+} from "@/features/build/components/intent-composer";
+import { SessionHistory } from "@/features/build/components/session-history";
+import { ShipHandoffBanner } from "@/features/build/components/ship-handoff-banner";
+import { SmithersNodes } from "@/features/build/components/smithers-nodes";
+import { TemplateGallery } from "@/features/build/components/template-gallery";
 import {
   JOURNEY_STAGES,
   resolveDisplayJourneyStage,
   type BuildFileNode,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 import {
   BUILD_ENGINE_ACTIVE,
   useBuildSession,
-} from "@build/features/build/hooks/use-build-session";
-import { useStreamingText } from "@build/features/build/hooks/use-streaming-text";
+} from "@/features/build/hooks/use-build-session";
+import { useStreamingText } from "@/features/build/hooks/use-streaming-text";
 import {
   getInitialRecentRailOpen,
   writeRecentRailPreference,
-} from "@build/features/build/storage/recent-rail-preference";
-import { BUILD_TEMPLATES } from "@build/features/build/templates";
-import { cn } from "@build/lib/utils";
+} from "@/features/build/storage/recent-rail-preference";
+import { BUILD_TEMPLATES } from "@/features/build/templates";
+import { cn } from "@/lib/class-names";
 
 const actionPills = [
   { label: "Arb bot", action: "tpl_arbitrage_bot" },

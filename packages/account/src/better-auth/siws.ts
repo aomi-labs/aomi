@@ -1,20 +1,13 @@
-import {
-  APIError,
-  createAuthEndpoint,
-  getSessionFromCtx,
-} from "better-auth/api";
+import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
-import { createLocalAccountIssuer } from "better-auth/db";
 import type { BetterAuthPlugin, User } from "better-auth";
 import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { z } from "zod";
 
-import {
-  getOrCreateAomiUserForBetterAuthSession,
-  resolveSignal,
-  syncSiwsWalletsForUser,
-} from "../service/account-service";
+import { syncSiwsWalletsForUser } from "../service/account-service";
+
+import { resolveWalletLogin } from "../service/wallet-login";
 
 export const SIWS_PROVIDER_ID = "siws";
 export const SIWS_DEFAULT_CLUSTER = "solana:mainnet";
@@ -33,8 +26,10 @@ const SIWS_ADDRESS = z.string().refine(validSolanaAddress, {
   message: "Invalid Solana wallet address",
 });
 const SIWS_CLUSTER = z.enum(SIWS_CLUSTERS);
-const SIWS_INTENT = z.enum(["sign-in", "link"]);
-const SIWS_LABEL = z
+// Linking moved to /v1/account/wallets/link; a link request here must not
+// quietly become a sign-in.
+const SIWS_SIGN_IN_ONLY = z.literal("sign-in").optional();
+const SIWS_WALLET_APP = z
   .string()
   .transform((value) =>
     value
@@ -42,12 +37,12 @@ const SIWS_LABEL = z
       .trim()
       .slice(0, 80),
   )
-  .refine(Boolean, { message: "Wallet label cannot be empty" });
+  .refine(Boolean, { message: "Wallet app cannot be empty" });
 
 const nonceBody = z.object({
   walletAddress: SIWS_ADDRESS,
   chainId: SIWS_CLUSTER.optional().default(SIWS_DEFAULT_CLUSTER),
-  intent: SIWS_INTENT.optional().default("sign-in"),
+  intent: SIWS_SIGN_IN_ONLY,
 });
 
 const verifyBody = z.object({
@@ -55,8 +50,8 @@ const verifyBody = z.object({
   signature: z.string().min(1),
   walletAddress: SIWS_ADDRESS,
   chainId: SIWS_CLUSTER.optional().default(SIWS_DEFAULT_CLUSTER),
-  intent: SIWS_INTENT.optional().default("sign-in"),
-  label: SIWS_LABEL.optional(),
+  intent: SIWS_SIGN_IN_ONLY,
+  walletApp: SIWS_WALLET_APP.optional(),
 });
 
 export type ParsedSiwsMessage = {
@@ -90,25 +85,11 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
           requireRequest: true,
         },
         async (ctx) => {
-          const { walletAddress, chainId, intent } = ctx.body;
-          const session =
-            intent === "link" ? await getSessionFromCtx(ctx) : null;
-          if (intent === "link" && !session) {
-            throw new APIError("UNAUTHORIZED", {
-              message:
-                "An active Better Auth session is required to link a wallet",
-            });
-          }
-
+          const { walletAddress, chainId } = ctx.body;
           const nonce = await options.getNonce();
           await ctx.context.internalAdapter.createVerificationValue({
-            identifier: siwsVerificationIdentifier({
-              walletAddress,
-              chainId,
-              intent,
-              betterAuthUserId: session?.user.id,
-            }),
-            value: nonce,
+            identifier: siwsVerificationIdentifier(nonce),
+            value: JSON.stringify([walletAddress, chainId]),
             expiresAt: new Date(now() + SIWS_NONCE_TTL_MS),
           });
           return ctx.json({
@@ -126,27 +107,18 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
           requireRequest: true,
         },
         async (ctx) => {
-          const { message, signature, walletAddress, chainId, intent, label } =
+          const { message, signature, walletAddress, chainId, walletApp } =
             ctx.body;
-          const currentSession =
-            intent === "link" ? await getSessionFromCtx(ctx) : null;
-          if (intent === "link" && !currentSession) {
-            throw new APIError("UNAUTHORIZED", {
-              message:
-                "An active Better Auth session is required to link a wallet",
-            });
-          }
-
-          const verification =
-            await ctx.context.internalAdapter.consumeVerificationValue(
-              siwsVerificationIdentifier({
-                walletAddress,
-                chainId,
-                intent,
-                betterAuthUserId: currentSession?.user.id,
-              }),
-            );
-          if (!verification) {
+          const parsed = parseSiwsMessage(message);
+          const verification = parsed
+            ? await ctx.context.internalAdapter.consumeVerificationValue(
+                siwsVerificationIdentifier(parsed.nonce),
+              )
+            : null;
+          if (
+            !verification ||
+            verification.value !== JSON.stringify([walletAddress, chainId])
+          ) {
             throw new APIError("UNAUTHORIZED", {
               message: "Invalid or expired SIWS nonce",
             });
@@ -158,8 +130,8 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
               signature,
               walletAddress,
               chainId,
-              intent,
-              nonce: verification.value,
+              intent: "sign-in",
+              nonce: parsed!.nonce,
               domain: options.domain,
               uri: options.baseUrl,
               now: now(),
@@ -170,119 +142,22 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
             });
           }
 
-          const accountId = siwsAccountId(walletAddress);
-          const existingAccount = await ctx.context.adapter.findOne<{
-            userId: string;
-          }>({
-            model: "account",
-            where: [
-              { field: "providerId", operator: "eq", value: SIWS_PROVIDER_ID },
-              { field: "accountId", operator: "eq", value: accountId },
-            ],
+          const login = await resolveWalletLogin({
+            family: "svm",
+            address: walletAddress,
+            chainId,
+            email: siwsSyntheticEmail(walletAddress),
           });
-
-          if (intent === "link") {
-            const betterAuthUserId = currentSession!.user.id;
-            if (
-              existingAccount &&
-              existingAccount.userId !== betterAuthUserId
-            ) {
-              throw new APIError("CONFLICT", {
-                message: "already_linked_to_another_account",
-              });
-            }
-
-            const aomiUser = await getOrCreateAomiUserForBetterAuthSession({
-              betterAuthUserId,
-              email: currentSession!.user.email,
-              name: currentSession!.user.name,
-              avatarUrl: currentSession!.user.image,
-            });
-            const ownership = await resolveSignal({
-              currentUserId: aomiUser.id,
-              signal: {
-                type: "wallet",
-                family: "svm",
-                normalizedAddress: walletAddress,
-                chainScope: null,
-              },
-            });
-            if (ownership.status === "conflict") {
-              throw new APIError("CONFLICT", {
-                message: "already_linked_to_another_account",
-              });
-            }
-
-            if (!existingAccount) {
-              await ctx.context.internalAdapter.createAccount({
-                userId: betterAuthUserId,
-                providerId: SIWS_PROVIDER_ID,
-                issuer: createLocalAccountIssuer(SIWS_PROVIDER_ID),
-                accountId,
-                createdAt: new Date(now()),
-                updatedAt: new Date(now()),
-              });
-            }
-            await syncSiwsWalletsForUser({
-              aomiUserId: aomiUser.id,
-              betterAuthUserId,
-              label,
-              labelAddress: walletAddress,
-            });
-            return ctx.json({
-              success: true,
-              status: existingAccount ? "noop" : "linked",
-              user: {
-                id: betterAuthUserId,
-                walletAddress,
-                chainId,
-              },
-            });
-          }
-
-          let user = existingAccount
-            ? await ctx.context.adapter.findOne<User>({
-                model: "user",
-                where: [
-                  {
-                    field: "id",
-                    operator: "eq",
-                    value: existingAccount.userId,
-                  },
-                ],
-              })
-            : null;
-
-          if (!user) {
-            user = await ctx.context.internalAdapter.createUser(
-              {
-                name: walletAddress,
-                email: siwsSyntheticEmail(walletAddress),
-                image: "",
-              },
-              { method: "siws" },
-            );
-            await ctx.context.internalAdapter.createAccount({
-              userId: user.id,
-              providerId: SIWS_PROVIDER_ID,
-              issuer: createLocalAccountIssuer(SIWS_PROVIDER_ID),
-              accountId,
-              createdAt: new Date(now()),
-              updatedAt: new Date(now()),
-            });
-          }
-
-          const aomiUser = await getOrCreateAomiUserForBetterAuthSession({
-            betterAuthUserId: user.id,
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.image,
+          const user = await ctx.context.adapter.findOne<User>({
+            model: "user",
+            where: [{ field: "id", value: login.betterAuthUserId }],
           });
+          if (!user) throw new APIError("INTERNAL_SERVER_ERROR");
           await syncSiwsWalletsForUser({
-            aomiUserId: aomiUser.id,
+            aomiUserId: login.userId,
             betterAuthUserId: user.id,
-            label,
-            labelAddress: walletAddress,
+            walletApp,
+            walletAppAddress: walletAddress,
           });
 
           const session = await ctx.context.internalAdapter.createSession(
@@ -297,7 +172,7 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
           return ctx.json({
             token: session.token,
             success: true,
-            user_id: aomiUser.id,
+            user_id: login.userId,
             user: {
               id: user.id,
               walletAddress,
@@ -406,27 +281,12 @@ export function siwsIdentitySubject(address: string): string {
   return `solana:*:${address}`;
 }
 
-function siwsAccountId(address: string): string {
-  return address;
-}
-
 function siwsSyntheticEmail(address: string): string {
   return `svm-${Buffer.from(bs58.decode(address)).toString("hex")}@wallet.aomi.invalid`;
 }
 
-function siwsVerificationIdentifier(input: {
-  walletAddress: string;
-  chainId: SiwsCluster;
-  intent: SiwsIntent;
-  betterAuthUserId?: string;
-}): string {
-  return [
-    SIWS_PROVIDER_ID,
-    input.intent,
-    input.walletAddress,
-    input.chainId,
-    input.betterAuthUserId ?? "anonymous",
-  ].join(":");
+function siwsVerificationIdentifier(nonce: string): string {
+  return `${SIWS_PROVIDER_ID}:sign-in:${nonce}`;
 }
 
 function readField(lines: readonly string[], field: string): string | null {

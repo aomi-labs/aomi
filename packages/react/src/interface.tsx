@@ -15,7 +15,10 @@ import type {
   TurnState,
   UserState,
 } from "@aomi-labs/client";
-import type { AccountTransport } from "@aomi-labs/client";
+import type {
+  TransactionSafetyTransport,
+  AccountTransport,
+} from "@aomi-labs/client";
 export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import type { ThreadMetadata } from "./state/thread-store";
 import type {
@@ -32,6 +35,10 @@ export type AomiRuntimeApi = {
   commitController?: CommitController;
   /** Shared authenticated account transport configured by the runtime. */
   account: AccountTransport;
+  /** Authenticated transaction safety user controls. Optional for older custom runtimes. */
+  transactionSafety?: TransactionSafetyTransport;
+  /** Reload the chat list, credits, usage and profile after the account changed in place. */
+  refreshAccountData?: () => void;
   // -------------------------------------------------------------------------
   // USER API
   // -------------------------------------------------------------------------
@@ -57,6 +64,18 @@ export type AomiRuntimeApi = {
   threadMetadata: Map<string, ThreadMetadata>;
   /** True when the authenticated thread list failed to load. */
   threadListError: boolean;
+  /** True while the account's chat history loads. Optional for custom runtimes. */
+  threadListLoading?: boolean;
+  /** True until live history confirms cached rows and URL restoration. */
+  threadListRevalidating?: boolean;
+  /** The open saved chat's history failed to load, even after one retry. */
+  threadLoadError?: boolean;
+  /** Load the open chat's history again after `threadLoadError`. */
+  retryThreadLoad?: () => void;
+  /** Start loading a saved chat's history before it is selected. */
+  prefetchThread?: (threadId: string) => void;
+  /** Whether the server has acknowledged this conversation. */
+  isRemoteThread?: (threadId: string) => boolean;
   /** Get metadata for a specific thread */
   getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
   /** Create a new thread and return its ID */
@@ -77,6 +96,10 @@ export type AomiRuntimeApi = {
   isRunning: boolean;
   /** True only before the first backend event for a submitted turn. */
   isSubmitting: boolean;
+  /** The start request failed in a way that may still have been accepted. */
+  isStartUncertain?: boolean;
+  /** True while Stop awaits the server's acknowledgment. */
+  isStopping?: boolean;
   /** Get messages for a thread (defaults to currentThreadId) */
   getMessages: (threadId?: string) => ThreadMessageLike[];
   /** Send a message to the current thread */
@@ -99,7 +122,7 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // ACTION API
   // -------------------------------------------------------------------------
-  /** Canonical runtime Actions awaiting a client response. */
+  /** Runtime actions waiting for a client response. */
   pendingActions: Action[];
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** True while an Action is visible or awaiting backend acknowledgement. */
@@ -123,9 +146,9 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // EVENT STATE
   // -------------------------------------------------------------------------
-  /** Canonical ordered events for the active session. */
+  /** Ordered events of the open chat, as the server sent them. */
   events: readonly Event[];
-  /** Backend-owned lifecycle for the active turn. */
+  /** State of the current turn, as the backend reports it. */
   turnState?: TurnState;
 };
 

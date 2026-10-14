@@ -3,7 +3,7 @@ import {
   operateModelKeysGrantsRoute,
   operateModelKeysRoute,
   operateModelKeysSaveRoute,
-} from "@build/server/bff/operate/routes";
+} from "@/server/bff/operate/routes";
 
 export const GET = operateModelKeysRoute;
 export const POST = operateModelKeysSaveRoute;

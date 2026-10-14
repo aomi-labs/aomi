@@ -1,11 +1,11 @@
 import {
   seedBuildSessions,
   type BuildSession,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 import {
   sanitizeBuildSession,
   sessionsNeedSanitize,
-} from "@build/features/build/storage/sanitize-session-copy";
+} from "@/features/build/storage/sanitize-session-copy";
 
 // v2: artifacts became Rust-crate shaped (P0) — v1 sessions carry the old
 // TypeScript-mock trees/copy and would resurface stale fiction on load.

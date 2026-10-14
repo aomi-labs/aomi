@@ -1,3 +1,3 @@
-import { deploymentRedeployRoute } from "@build/server/bff/launch/routes";
+import { redeployRoute } from "@/server/bff/deploy/routes";
 
-export const POST = deploymentRedeployRoute;
+export const POST = redeployRoute;

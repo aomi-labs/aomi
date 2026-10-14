@@ -1,9 +1,9 @@
 // =============================================================================
 // createLaunchClient — the browser seam of the launch flow.
 //
-// Talks only to the host's same-origin BFF (`createLaunchRoutes` +
-// `createGitHubAuthRoutes` mounts); the GitHub session cookie and the
-// activation/service bearer stay server-side.
+// Talks only to the host's same-origin BFF (the launch and GitHub auth
+// routes); the GitHub session cookie and the activation/service bearer stay
+// server-side.
 //
 // Two mounts, two shapes: the launch flow (`/api/bff/launch/*`) sits on the
 // client itself, the project console (`/api/bff/deployments/*`) under
@@ -104,11 +104,11 @@ export type GithubAppOAuthStartResponse = {
 };
 
 export type LaunchClientOptions = {
-  /** Where `createLaunchRoutes` is mounted. Default `/api/bff/launch`. */
+  /** Where the launch routes are mounted. Default `/api/bff/launch`. */
   basePath?: string;
   /** Where the deployments console routes are mounted. Default `/api/bff/deployments`. */
   deploymentsBasePath?: string;
-  /** Where `createGitHubAuthRoutes` is mounted. Default `/api/bff/auth/github`. */
+  /** Where the GitHub auth routes are mounted. Default `/api/bff/auth/github`. */
   authBasePath?: string;
   /**
    * The platform for calls made BEFORE a project exists — project creation,

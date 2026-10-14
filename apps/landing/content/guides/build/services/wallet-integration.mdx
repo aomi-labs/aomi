@@ -1,251 +1,29 @@
 ---
-title: Wallet Integration
-description: Connect wallets, sign transactions, and switch networks.
+title: "Wallet integration"
+description: "Install and configure the compiled Aomi widget."
 ---
 
-# Wallet Integration
-
-Aomi widgets use the Para + wagmi provider tree directly. The registry install
-gives you the wallet UI plus the activity sidebar review; you provide the Para and wagmi
-providers in your host app.
-
-## Setup
-
-### Install Dependencies
-
-If you installed the widget through `npx shadcn add https://aomi.dev/r/aomi-frame.json`,
-the wallet UI is already included. Use the setup below when you want to wire
-Para-based auth and external wallets in your host app.
+Install the compiled widget from npm:
 
 ```bash
-npm install @getpara/react-sdk @getpara/evm-wallet-connectors wagmi viem @tanstack/react-query
+npm install @aomi-labs/widget
 ```
-
-### Configure Para
 
 ```tsx
 "use client";
-
-import "@getpara/react-sdk/styles.css";
-import { ParaProvider, Environment } from "@getpara/react-sdk";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { defineChain, http } from "viem";
-import { mainnet, polygon, arbitrum, base } from "wagmi/chains";
-
-const queryClient = new QueryClient();
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ??
-  process.env.NEXT_PUBLIC_PROJECT_ID;
-
-const localhost = defineChain({
-  id: 31337,
-  name: "Localhost",
-  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: ["http://127.0.0.1:8545"],
-    },
-  },
-});
-
-const useAnvilForWallet = process.env.NEXT_PUBLIC_ANVIL_FOR_WALLET === "true";
-const networks = useAnvilForWallet
-  ? [localhost, mainnet, polygon, arbitrum, base]
-  : [mainnet, polygon, arbitrum, base];
-
-const transports = Object.fromEntries(
-  networks.map((chain) => [chain.id, http(chain.rpcUrls.default.http[0])]),
-);
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ParaProvider
-        paraClientConfig={{
-          apiKey: process.env.NEXT_PUBLIC_PARA_API_KEY!,
-          env:
-            (process.env.NEXT_PUBLIC_PARA_ENVIRONMENT as
-              | Environment
-              | undefined) ?? Environment.BETA,
-        }}
-        config={{ appName: "Your App" }}
-        paraModalConfig={{
-          disableEmailLogin: true,
-          oAuthMethods: ["GOOGLE"],
-        }}
-        externalWalletConfig={{
-          appDescription: "Your app description",
-          appUrl: "https://your-app.com",
-          wallets: [
-            "WALLETCONNECT",
-            "METAMASK",
-            "COINBASE",
-            "RAINBOW",
-            "RABBY",
-          ],
-          walletConnect: {
-            projectId: walletConnectProjectId!,
-          },
-          evmConnector: {
-            config: {
-              chains: networks,
-              transports,
-              ssr: true,
-            },
-          },
-        }}
-      >
-        {children}
-      </ParaProvider>
-    </QueryClientProvider>
-  );
-}
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
+export default function Assistant() { return <AomiWidget applicationId="123" />; }
 ```
 
-## Supported Chains
+The widget includes its styles and browser-wallet integration. Set only your
+hosted Application ID for the default configuration. Add an explicit lazy Para
+or Privy entry only when your product uses that provider.
 
-Configure which chains are available by passing them to Para's EVM connector:
+The canonical [widget quickstart](https://aomi.dev/docs/guides/widget/quickstart),
+[wallet installation](https://aomi.dev/docs/guides/widget/installation) and
+[customization guide](https://aomi.dev/docs/guides/widget/customization) cover
+origin registration, optional wallets, layout and routing.
 
-```tsx
-import { mainnet, polygon, arbitrum, base, optimism } from "wagmi/chains";
-
-externalWalletConfig={{
-  evmConnector: {
-    config: {
-      chains: [mainnet, polygon, arbitrum, base, optimism],
-      transports: {
-        [mainnet.id]: http(),
-        [polygon.id]: http(),
-        [arbitrum.id]: http(),
-        [base.id]: http(),
-        [optimism.id]: http(),
-      },
-    },
-  },
-}}
-```
-
-The `NetworkSelect` component in the widget (or `getChainInfo` / `SUPPORTED_CHAINS` in the headless library) will reflect the configured chains.
-
-## Transaction Signing Flow
-
-When the AI assistant determines a transaction is needed, the following flow occurs:
-
-```
-1. A runtime tool emits `Change::RequestAction(ActionRequest)`
-2. The backend atomically appends the durable Action and `AwaitingAction`
-3. `ClientSession` reduces both in the ordered Event snapshot
-4. The UI presents the complete nested request
-5. `ActionHandler` executes through the canonical wallet capabilities
-6. The client submits `Intent::RespondToAction` with ID and revision
-7. The backend appends the next Action revision and resumes the turn
-8. A terminal `TurnStateChangedEvent` completes the flow
-```
-
-### In the Widget
-
-The widget presents pending wallet requests in its activity sidebar. When a transaction
-Action arrives, it executes through the configured wallet capability and
-prompts the user to sign.
-
-### In the Headless Library
-
-Provide wallet capabilities once; `ActionHandler` owns execution attempts and
-submits the typed result. UI code only selects Actions and attempts:
-
-```tsx
-import { useAomiRuntime } from "@aomi-labs/react";
-
-function ActionReview() {
-  const { pendingActions, actionAttempts, executeAction, rejectAction } =
-    useAomiRuntime();
-
-  return (
-    <div>
-      {pendingActions.map((action) => (
-        <div key={`${action.id}:${action.revision}`}>
-          <pre>{JSON.stringify(action.request, null, 2)}</pre>
-          <p>{actionAttempts.get(action.id)?.status}</p>
-          <button onClick={() => executeAction(action.id)}>Continue</button>
-          <button onClick={() => rejectAction(action.id, "User rejected")}>
-            Reject
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-## EIP-712 Typed Data Signing
-
-The AI can also request EIP-712 typed data signatures (used for gasless transactions, permit approvals, etc.). The flow is identical to transaction signing but uses `signTypedData` instead of `sendTransaction`.
-
-## Network Switching
-
-### In the Widget
-
-The `NetworkSelect` component provides a dropdown for switching chains. When the user selects a network, it calls `useSwitchChain` from wagmi and updates the Aomi runtime.
-
-### Programmatically
-
-```tsx
-import { useSwitchChain } from "wagmi";
-import { useUser } from "@aomi-labs/react";
-
-function NetworkSwitcher() {
-  const { switchChain } = useSwitchChain();
-  const { setUser } = useUser();
-
-  const handleSwitch = async (chainId: number) => {
-    await switchChain({ chainId });
-    // The widget auth bridge auto-syncs, but you can also set manually:
-    setUser({ evm: { chain_id: chainId } });
-  };
-}
-```
-
-## ConnectButton Component (Widget)
-
-The widget's `ConnectButton` component handles the full lifecycle:
-
-1. Renders a connect/manage account button
-2. On connect: opens the Para auth modal
-3. On successful connection: syncs address, chainId, and connection status to `useUser`
-4. When already connected: opens the Para account modal
-
-```tsx
-import { ConnectButton } from "@/components/control-bar";
-
-<ConnectButton
-  connectLabel="Connect Wallet"
-  onConnectionChange={(isConnected) => {
-    console.log("Wallet connected:", isConnected);
-  }}
-/>;
-```
-
-## Utilities
-
-The headless library provides wallet-related utilities:
-
-```tsx
-import {
-  formatAddress,
-  getNetworkName,
-  getChainInfo,
-  SUPPORTED_CHAINS,
-} from "@aomi-labs/react";
-
-formatAddress("0x1234567890abcdef1234567890abcdef12345678");
-// "0x1234...5678"
-
-getNetworkName(1);
-// "Ethereum"
-
-getChainInfo(137);
-// { name: "Polygon", ticker: "POL", ... }
-
-SUPPORTED_CHAINS;
-// [{ chainId: 1, name: "Ethereum", ... }, ...]
-```
+Existing registry JSON remains frozen during the announced retention window.
+New integrations use npm rather than copied component source.

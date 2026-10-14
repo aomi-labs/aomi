@@ -2,7 +2,7 @@ import "server-only";
 
 import { portalService } from "@aomi-labs/account";
 import { BackendClient } from "@aomi-labs/deploy";
-import { configuredBackendUrl } from "@build/server/backend-url";
+import { backendUrl } from "@/server/env";
 
 async function mintServiceBearer(): Promise<string> {
   const { accessToken } = await portalService().mint({
@@ -16,6 +16,6 @@ async function mintServiceBearer(): Promise<string> {
 export async function backendClient(): Promise<BackendClient> {
   const activationToken = await mintServiceBearer();
   return new BackendClient({
-    aomi: { backendUrl: configuredBackendUrl(), activationToken },
+    aomi: { backendUrl: backendUrl(), activationToken },
   });
 }

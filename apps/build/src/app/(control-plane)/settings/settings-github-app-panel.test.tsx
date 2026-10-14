@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { GitHubAppInstallationsResult } from "@aomi-labs/deploy";
 
-vi.mock("@build/features/launch/hooks/use-github-app", () => ({
+vi.mock("@/features/deploy/hooks/use-github-app", () => ({
   useGitHubAppInstallations: vi.fn(),
 }));
-vi.mock("@build/features/launch/client", () => ({
+vi.mock("@/features/deploy/client", () => ({
   githubAppInstallUrl: vi.fn(),
   githubSigninUrl: "/api/auth/github",
 }));
 
-import { useGitHubAppInstallations } from "@build/features/launch/hooks/use-github-app";
+import { useGitHubAppInstallations } from "@/features/deploy/hooks/use-github-app";
 import { SettingsGitHubAppPanel } from "./settings-github-app-panel";
 
 const useGitHubAppMock = vi.mocked(useGitHubAppInstallations);

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-import { setGitHubSessionCookie } from "@build/server/cookies/github";
-import { buildFailures } from "@build/server/bff/failures";
+import { setGitHubSessionCookie } from "@/server/cookies/github";
+import { buildFailures } from "@/server/bff/failures";
+import { devToolsAllowed } from "@/server/env";
 
 type GitHubUserResponse = {
   id?: unknown;
@@ -48,7 +49,7 @@ async function resolveGitHubUserId(login: string): Promise<string> {
 // mismatch flows can be exercised when GitHub redirects are configured for a
 // deployed frontend.
 export async function GET(req: Request) {
-  if (process.env.NODE_ENV === "production" || !isLocalhost(req)) {
+  if (!devToolsAllowed() || !isLocalhost(req)) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
@@ -76,7 +77,7 @@ export async function GET(req: Request) {
       error,
       response: {
         status: 502,
-        error: error instanceof Error ? error.message : String(error),
+        error: "github_user_lookup_failed",
       },
       context: {
         routeFamily: "/api/bff/auth/github/dev-session",

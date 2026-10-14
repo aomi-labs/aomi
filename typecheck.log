@@ -1,1 +1,0 @@
-src/core/AomiChatWidget.ts(69,11): error TS6133: 'chatHeaderElement' is declared but its value is never read.

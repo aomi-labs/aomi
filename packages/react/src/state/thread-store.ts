@@ -3,6 +3,7 @@ import { safeEnv, type AgentMode } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { generateUUID } from "../utils/client-session";
+import { DEFAULT_THREAD_TITLE } from "../runtime/thread-title";
 
 const threadLogEnv = safeEnv(() => process.env.NODE_ENV);
 const shouldLogThreadUpdates =
@@ -26,6 +27,8 @@ export type ThreadMetadata = {
   status: ThreadStatus;
   lastActiveAt?: string | number;
   control: ThreadControlState;
+  /** Local first submission, before the server acknowledges the conversation. */
+  pending?: boolean;
 };
 
 export function initThreadControl(): ThreadControlState {
@@ -49,8 +52,9 @@ type ThreadStoreOptions = {
   initialThreadId?: string;
 };
 
+// Untitled: the list shows "New Chat" for it without storing that label.
 const initialMetadata = (): ThreadMetadata => ({
-  title: "New Chat",
+  title: "",
   status: "regular",
   lastActiveAt: new Date().toISOString(),
   control: initThreadControl(),
@@ -79,10 +83,18 @@ const logThreadMetadataChange = (
 };
 
 export class ThreadStore {
-  /** Old server titles may contain a flattened, truncated model-only envelope. */
+  /**
+   * Titles read as plain text. Old server titles may contain a flattened,
+   * truncated model-only envelope, and a title taken from the first message
+   * keeps its @-mention markers ("✦ Aave", "◇ Base"); both go.
+   */
   private static cleanTitle(title: string): string {
     const start = title.indexOf("<AOMI_UI_CAPABILITY_HINTS>");
-    return start < 0 ? title : title.slice(0, start).trimEnd() || "New Chat";
+    const text = (start < 0 ? title : title.slice(0, start).trimEnd())
+      .replace(/[✦▦◇]\s*/gu, "")
+      .trim();
+    // A title that was only the envelope keeps a visible label.
+    return text || (title ? DEFAULT_THREAD_TITLE : title);
   }
 
   private state: ThreadStoreState;
@@ -196,6 +208,12 @@ export class ThreadStore {
     if (!previous) return;
     const next = { ...previous, ...updates };
     next.title = ThreadStore.cleanTitle(next.title);
+    if (
+      (Object.keys(next) as (keyof ThreadMetadata)[]).every(
+        (key) => next[key] === previous[key],
+      )
+    )
+      return;
     const threadMetadata = new Map(this.state.threadMetadata);
     threadMetadata.set(threadId, next);
     logThreadMetadataChange("updateThreadMetadata", threadId, previous, next);

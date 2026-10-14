@@ -9,8 +9,8 @@ import {
   useRef,
 } from "react";
 
-import { ComposerModelPicker } from "@build/features/build/components/composer-model-picker";
-import { cn } from "@build/lib/utils";
+import { ComposerModelPicker } from "@/features/build/components/composer-model-picker";
+import { cn } from "@/lib/class-names";
 
 type ActionPill = {
   label: string;

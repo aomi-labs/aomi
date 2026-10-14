@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("@build/features/launch/hooks/use-projects", () => ({
+vi.mock("@/features/deploy/hooks/use-projects", () => ({
   useProjects: vi.fn(),
 }));
-vi.mock("@build/features/launch/use-platform", () => ({
+vi.mock("@/features/deploy/use-platform", () => ({
   usePlatform: vi.fn(),
 }));
 
-import { useProjects } from "@build/features/launch/hooks/use-projects";
-import { usePlatform } from "@build/features/launch/use-platform";
+import { useProjects } from "@/features/deploy/hooks/use-projects";
+import { usePlatform } from "@/features/deploy/use-platform";
 import { SettingsSecretsPanel } from "./settings-secrets-panel";
 
 const useProjectsMock = vi.mocked(useProjects);

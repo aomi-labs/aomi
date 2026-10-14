@@ -1,7 +1,7 @@
 import { CheckCircle2, CircleAlert, Terminal } from "lucide-react";
 
-import { AomiLogo } from "@build/components/brand/aomi-logo";
-import { cn } from "@build/lib/utils";
+import { AomiLogo } from "@/components/brand/aomi-logo";
+import { cn } from "@/lib/class-names";
 
 export const metadata = {
   title: "CLI authorization · Aomi Build",

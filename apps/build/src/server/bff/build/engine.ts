@@ -2,7 +2,7 @@ import "server-only";
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { FailureInput } from "@aomi-labs/bff-observability";
+import type { FailureInput } from "@aomi-labs/observability";
 import {
   crateFileTree,
   createAomiSmither,
@@ -53,8 +53,8 @@ import type {
   BuildRunStage,
   BuildRunStageStatus,
   BuildRunStatus,
-} from "@build/features/build/run-contracts";
-import { buildFailures } from "@build/server/bff/failures";
+} from "@/features/build/run-contracts";
+import { buildFailures } from "@/server/bff/failures";
 
 function identifyEngineFailure(
   error: unknown,

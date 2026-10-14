@@ -98,8 +98,8 @@ Ownership is intentionally narrow:
 | Layer    | Owner                                  | Responsibility                                                                                                                        |
 | -------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Identify | The package where the error originates | Preserve the original error and emit only bounded facts; deploy owns launch-domain identification and Account owns proxy observations |
-| Classify | `@aomi-labs/bff-observability`         | Make the single Issue/Log/Ignore decision and choose the safe public result                                                           |
-| Route    | `@aomi-labs/bff-observability`         | Deliver the decision to Sentry, the local console, the HTTP caller, or nowhere                                                        |
+| Classify | `@aomi-labs/observability`         | Make the single Issue/Log/Ignore decision and choose the safe public result                                                           |
+| Route    | `@aomi-labs/observability`         | Deliver the decision to Sentry, the local console, the HTTP caller, or nowhere                                                        |
 
 The only app-specific error objects are:
 
@@ -157,7 +157,7 @@ everything except tracing. Rust's ignored live smoke test is in
 An implementation session should begin here:
 
 1. Read this document, the repository `AGENTS.md`, and the maintained topic
-   docs relevant to the change. `GOAL.md` is historical context only.
+   docs relevant to the change.
 2. Confirm `/Users/kevin/aomi/pg2/aomi` is clean and synchronized with
    `origin/main`; do not discard unrelated user changes.
 3. Create a `codex/bff-sentry-observability` branch unless the task specifies
@@ -201,7 +201,7 @@ Required external access for full completion:
 | Console cleanup       | Audit the complete server graph reachable by both BFF apps                     |
 | Swallowed errors      | Preserve original `Error` through an internal observer callback                |
 | Client responses      | Preserve established status/body contracts; response hardening is separate     |
-| Shared implementation | Private `@aomi-labs/bff-observability` workspace package                       |
+| Shared implementation | Private `@aomi-labs/observability` workspace package                       |
 | Live verification     | Durable, disabled-by-default, secret-protected staging smoke route in each app |
 | Dashboard             | Existing Backend Overview includes `rust` and `aomi-bff`                       |
 | Notifications         | No new notification rules initially                                            |
@@ -222,7 +222,7 @@ when implementation begins.
 Add a private workspace package:
 
 ```text
-packages/bff-observability/
+packages/observability/
   package.json
   src/
     index.ts
@@ -236,7 +236,7 @@ packages/bff-observability/
   test/
 ```
 
-`@aomi-labs/bff-observability` owns:
+`@aomi-labs/observability` owns:
 
 - the Issue/Log/Ignore classification;
 - the allowlisted event attribute schema;
@@ -365,7 +365,7 @@ Sentry call to every one of the 95 route entrypoints.
 
 | Target                          | Expected change                                                                                        |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `packages/bff-observability/**` | New private package, reporter, classifier, privacy scrubbers, smoke helper, and tests                  |
+| `packages/observability/**` | New private package, reporter, classifier, privacy scrubbers, smoke helper, and tests                  |
 | `apps/portal/package.json`      | Add `@sentry/nextjs` and the new workspace package                                                     |
 | `apps/build/package.json`       | Add `@sentry/nextjs` and the new workspace package                                                     |
 | `pnpm-lock.yaml`                | Lock the SDK and workspace dependency graph                                                            |
@@ -528,14 +528,11 @@ Changing this public workspace package requires its normal patch-version bump.
 
 Instrument these ownership boundaries:
 
-- `apps/portal/src/lib/widget-auth/response.ts`
+- `apps/portal/src/server/widget-auth/handlers.ts`
 - `apps/portal/src/server/bff/failures.ts`
-- `apps/portal/src/server/bff/launch/routes.ts`
 - `apps/portal/src/app/api/[...slug]/route.ts`
 - `apps/portal/src/app/v1/account/bearer/route.ts`
-- `apps/portal/src/app/api/bff/auth/github/callback/route.ts`
 - `apps/portal/src/app/api/auth/[...all]/route.ts`
-- `apps/portal/src/server/mcp/oauth-redirect.ts`
 - the four `apps/portal/src/app/v1/account/device-auth/*` routes
 - canonical `/v1/agent/mcp` and `/v1/pipeline/mcp` route boundaries
 
@@ -551,7 +548,7 @@ Instrument these ownership boundaries:
 - `apps/build/src/server/bff/build/supervisor.ts`
 - `apps/build/src/server/bff/operate/routes.ts`
 - `apps/build/src/server/bff/failures.ts`
-- `apps/build/src/server/bff/launch/routes.ts`
+- `apps/build/src/server/bff/deploy/routes.ts`
 - `apps/build/src/app/api/[...slug]/route.ts`
 - `apps/build/src/app/api/bff/auth/github/callback/route.ts`
 - `apps/build/src/app/api/bff/build/supervise/route.ts`
@@ -754,7 +751,7 @@ delete the durable test path.
 
 Deliver one coherent PR:
 
-1. Add `@aomi-labs/bff-observability` and its privacy/classification tests.
+1. Add `@aomi-labs/observability` and its privacy/classification tests.
 2. Add `@sentry/nextjs` and app-local initialization to both apps.
 3. Wrap both Next.js configs for releases and source maps.
 4. Add Sentry-neutral account proxy/token observers and bump the account
@@ -791,8 +788,8 @@ At minimum, add or extend tests at these seams:
 | Privacy scrubbers           | Every forbidden field class is removed from both events and logs                                     |
 | Account proxy/token         | Original exception reaches the observer; existing response contract is unchanged                     |
 | Portal widget wrapper       | Unknown exception captured once; typed 4xx captured zero times                                       |
-| Portal launch source        | Local 5xx is an Issue; Rust 5xx is log-only; 4xx is ignored                                          |
-| Portal GitHub callback      | Internal exchange failure is captured without OAuth values                                           |
+| Build launch source         | Local 5xx is an Issue; Rust 5xx is log-only; 4xx is ignored                                          |
+| Build GitHub callback       | Internal exchange failure is captured without OAuth values                                           |
 | Portal device auth          | Existing catch boundaries remain 400; uncaught framework failures use request capture                |
 | Portal Better Auth/MCP      | Uncaught failures use request capture; handled downstream 5xx is log-only                            |
 | Build route mapper          | Unknown/5xx build errors are Issues; 4xx `BuildEngineError` is ignored                               |
@@ -821,8 +818,8 @@ package should define `test` and `type-check` scripts so it can be checked
 independently.
 
 ```bash
-pnpm --filter @aomi-labs/bff-observability test
-pnpm --filter @aomi-labs/bff-observability type-check
+pnpm --filter @aomi-labs/observability test
+pnpm --filter @aomi-labs/observability type-check
 
 pnpm exec vitest run \
   packages/account/src/proxy.test.ts \
@@ -840,7 +837,7 @@ pnpm --filter aomi-build lint
 pnpm --filter aomi-build build
 
 pnpm exec prettier --check \
-  packages/bff-observability \
+  packages/observability \
   packages/account/src \
   apps/portal \
   apps/build

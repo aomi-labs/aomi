@@ -83,7 +83,7 @@
     "Aomi Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --landing-serif: "Aomi PT Serif", Georgia, serif;
   --landing-display: "Aomi PT Serif", Georgia, serif;
-  /* --- type scale (canonical; see GOAL.md) ---
+  /* --- type scale (canonical) ---
    * Editorial copy and card content intentionally share readable floors.
    * Dense product-demo UI may opt into smaller local values, but page copy
    * should only consume these semantic roles. */
@@ -4761,4 +4761,397 @@
 .newsSignal > a,
 .contactDirect > a {
   font-size: var(--landing-btn);
+}
+
+/* ---------- blog + research index (compact hero, cover-led lists) ---------- */
+
+.editorialHeroCompact {
+  min-height: 0;
+  padding: 150px var(--landing-page-inset) 56px;
+}
+
+.editorialHeroCompact h1 {
+  margin-top: 16px;
+}
+
+.editorialHeroCompact > p:not(.eyebrow) {
+  margin-top: 18px;
+}
+
+.blogFeatured,
+.blogList,
+.researchGroups {
+  width: var(--landing-page-width);
+  margin-inline: auto;
+}
+
+.blogFeatured {
+  padding-top: 48px;
+}
+
+.blogFeatured > a {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
+  gap: 40px;
+  align-items: end;
+  color: var(--landing-ink);
+}
+
+.blogFeatured img,
+.blogList img,
+.researchRow img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--landing-wash);
+}
+
+.blogFeatured > a > div {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 6px;
+}
+
+.blogFeatured small,
+.blogList small,
+.researchRow small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--landing-faint);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.blogFeatured small > span:first-child {
+  color: var(--landing-blue-dark);
+}
+
+.blogFeatured h2 {
+  margin: 0;
+  font-family: var(--landing-serif);
+  font-size: clamp(30px, 3.2vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.blogFeatured p,
+.blogList p,
+.researchRow p {
+  margin: 0;
+  color: var(--landing-muted);
+  font-size: var(--landing-card-copy);
+  line-height: var(--landing-card-copy-lh);
+}
+
+.blogFeatured strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--landing-blue-dark);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-btn);
+  font-weight: 500;
+}
+
+.blogFeatured strong svg {
+  width: 13px;
+}
+
+.blogList {
+  margin-top: 64px;
+  margin-bottom: 96px;
+  border-top: 1px solid var(--landing-border);
+}
+
+.blogList > a,
+.researchRow {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 24px;
+  gap: 32px;
+  align-items: center;
+  border-bottom: 1px solid var(--landing-border);
+  padding: 28px 0;
+  color: var(--landing-ink);
+  transition: background 180ms ease, padding 180ms ease;
+}
+
+.blogList > a:hover,
+.researchRow:hover {
+  padding-inline: 14px;
+  background: var(--landing-wash);
+}
+
+.blogList > a > span,
+.researchRow > span {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.blogList strong,
+.researchRow strong {
+  font-family: var(--landing-serif);
+  font-size: var(--landing-card-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.blogList > a > svg,
+.researchRow > svg {
+  width: 18px;
+  color: var(--landing-faint);
+}
+
+.editorialCta > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.editorialCta > div a:last-child {
+  color: var(--landing-ink);
+  background: transparent;
+  border: 1px solid var(--landing-border-strong);
+}
+
+.newsletter {
+  display: grid;
+  width: var(--landing-page-width);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px 48px;
+  align-items: center;
+  margin-inline: auto;
+  padding: 72px 0 96px;
+}
+
+.newsletter h2 {
+  margin: 12px 0 0;
+  font-family: var(--landing-serif);
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.newsletter > div > p:last-child {
+  max-width: 520px;
+  margin: 12px 0 0;
+  color: var(--landing-muted);
+  font-size: var(--landing-card-copy);
+  line-height: var(--landing-card-copy-lh);
+}
+
+.newsletter > a {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--landing-border-strong);
+  border-radius: 999px;
+  padding: 0 20px;
+  color: var(--landing-ink);
+  font-size: var(--landing-btn);
+}
+
+.newsletter > a svg {
+  width: 14px;
+}
+
+.newsletter > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--landing-faint);
+  font-size: var(--landing-meta);
+}
+
+.newsletter > p a {
+  color: var(--landing-blue-dark);
+  text-decoration: underline;
+}
+
+.researchGroups {
+  padding: 40px 0 24px;
+}
+
+.researchGroup + .researchGroup {
+  margin-top: 56px;
+}
+
+.researchGroup > p {
+  margin: 0 0 8px;
+}
+
+.researchGroup > div {
+  border-top: 1px solid var(--landing-border);
+}
+
+.editorialPage .researchFocus {
+  margin-top: 24px;
+  margin-bottom: 106px;
+  padding-top: 0;
+  gap: 40px;
+  border: 0;
+  background: transparent;
+}
+
+.editorialPage .researchFocus article {
+  min-height: 0;
+  padding-inline: 0;
+}
+
+@media (max-width: 1024px) {
+  .blogList > a,
+  .researchRow {
+    grid-template-columns: 240px minmax(0, 1fr) 20px;
+    gap: 22px;
+  }
+}
+
+@media (max-width: 800px) {
+  .editorialHeroCompact {
+    padding: 130px var(--landing-page-inset) 40px;
+  }
+  .blogFeatured > a {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .blogList > a,
+  .researchRow {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding-block: 24px;
+  }
+  .blogList > a:hover,
+  .researchRow:hover {
+    padding-inline: 0;
+  }
+  .blogList > a > svg,
+  .researchRow > svg {
+    display: none;
+  }
+  .newsletter {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ---------- blog card grid ---------- */
+
+.blogGrid {
+  display: grid;
+  width: var(--landing-page-width);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 48px 28px;
+  margin: 72px auto 96px;
+  padding-top: 48px;
+  border-top: 1px solid var(--landing-border);
+}
+
+.blogGrid > a {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--landing-ink);
+}
+
+.blogGrid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--landing-wash);
+  transition: transform 220ms ease;
+}
+
+.blogGrid > a:hover img {
+  transform: translateY(-4px);
+}
+
+.blogGrid small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--landing-faint);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.blogGrid strong {
+  font-family: var(--landing-serif);
+  font-size: var(--landing-card-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.blogGrid p {
+  margin: 0;
+  color: var(--landing-muted);
+  font-size: var(--landing-card-copy);
+  line-height: var(--landing-card-copy-lh);
+}
+
+.blogGrid em {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 6px;
+  color: var(--landing-blue-dark);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-btn);
+  font-style: normal;
+}
+
+.blogGrid em svg {
+  width: 13px;
+}
+
+/* Tag colour by category, shared by the featured card and the grid. */
+.blogFeatured small > span:first-child,
+.blogGrid small > span:first-child {
+  color: var(--landing-blue-dark);
+}
+
+.blogFeatured > a[data-tag="engineering"] small > span:first-child,
+.blogGrid > a[data-tag="engineering"] small > span:first-child {
+  color: var(--landing-green);
+}
+
+.blogFeatured > a[data-tag="benchmark"] small > span:first-child,
+.blogGrid > a[data-tag="benchmark"] small > span:first-child {
+  color: var(--landing-pink);
+}
+
+.blogFeatured > a[data-tag="launch"] small > span:first-child,
+.blogGrid > a[data-tag="launch"] small > span:first-child {
+  color: var(--landing-ink);
+}
+
+@media (max-width: 1100px) {
+  .blogGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .blogGrid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    margin-top: 56px;
+  }
 }

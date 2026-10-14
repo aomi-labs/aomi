@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Geist:wght@300;400;500;600;700&family=PT+Serif:wght@400;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "../../shadcn-registry/src/themes/default.css";
+@import "../../../packages/widget/src/themes/default.css";
 
 @font-face {
   font-family: "Aomi Source Serif";
@@ -17,7 +17,7 @@
 }
 
 /* Scan the npm package dist so Tailwind picks up component classes */
-@source "../../shadcn-registry/src";
+@source "../../../packages/widget/src";
 
 /* ============================================
    Custom Font Faces - Bauhaus

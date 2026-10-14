@@ -11,6 +11,7 @@
 
 import { type Hex } from "viem";
 import type { AAWalletCall } from "./aa/types";
+import { asRecord } from "./internal/record";
 
 export type WalletTxAaPreference = "auto" | "eip4337" | "eip7702" | "none";
 
@@ -119,14 +120,6 @@ export type ViemSignMessageArgs = {
 // =============================================================================
 // Helpers
 // =============================================================================
-
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    return undefined;
-  return value as UnknownRecord;
-}
 
 /**
  * Normalize Solana's legacy cluster labels to the CAIP-style identifiers used

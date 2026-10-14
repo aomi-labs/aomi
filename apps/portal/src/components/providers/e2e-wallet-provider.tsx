@@ -4,19 +4,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   AomiWalletKitContextProvider,
-  ExtUserProvider,
   type AomiWalletKit,
   type AomiSessionIdentity,
-} from "@aomi-labs/widget-lib";
-import type {
-  WalletEip712Payload,
-  WalletSolanaSignMessagePayload,
-  WalletSolanaSignPayload,
-  WalletTxPayload,
+} from "@aomi-labs/widget/host-composition";
+import {
+  ExtUserProvider,
+  type WalletEip712Payload,
+  type WalletSolanaSignMessagePayload,
+  type WalletSolanaSignPayload,
+  type WalletTxPayload,
 } from "@aomi-labs/react";
 import { http, type Chain } from "viem";
 import { createConfig, WagmiProvider } from "wagmi";
-import { API_PATHS } from "@portal/lib/api-paths";
+import { API_PATHS } from "@/lib/api-paths";
 
 export type E2EWalletSeedClient = {
   address?: `0x${string}`;

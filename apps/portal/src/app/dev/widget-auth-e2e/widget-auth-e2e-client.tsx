@@ -1,9 +1,10 @@
 "use client";
 
-import "@aomi-labs/widget-lib/providers/para";
+import "@aomi-labs/widget/providers/para";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { buildSiweMessage, buildWalletLinkMessage } from "@aomi-labs/client";
+import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "wagmi/chains";
 
@@ -101,6 +102,8 @@ function WidgetAuthE2EPanel() {
       address: testWalletOne.address,
       chainId: testChainId,
       nonce,
+      domain: window.location.host,
+      uri: window.location.origin,
     });
     const signature = await testWalletOne.signMessage({ message });
     const verifyResponse = await fetch("/api/auth/siwe/verify", {
@@ -158,6 +161,8 @@ function WidgetAuthE2EPanel() {
       address: testWalletTwo.address,
       chainId: testChainId,
       nonce,
+      domain: window.location.host,
+      uri: window.location.origin,
     });
     const signature = await testWalletTwo.signMessage({ message });
     const response = await fetch("/v1/account/wallets/link", {
@@ -327,42 +332,6 @@ function WidgetAuthE2EPanel() {
       </section>
     </main>
   );
-}
-
-function buildSiweMessage(input: {
-  address: string;
-  chainId: number;
-  nonce: string;
-}) {
-  const origin = window.location.origin;
-  const domain = window.location.host;
-  return `${domain} wants you to sign in with your Ethereum account:
-${input.address}
-
-Sign in to Aomi.
-
-URI: ${origin}
-Version: 1
-Chain ID: ${input.chainId}
-Nonce: ${input.nonce}
-Issued At: ${new Date().toISOString()}`;
-}
-
-function buildWalletLinkMessage(input: {
-  address: string;
-  chainId: number;
-  nonce: string;
-}) {
-  return `${window.location.host} wants to link this wallet to your Aomi account:
-${input.address}
-
-Only sign this message if you want this wallet attached to the current Aomi account.
-
-URI: ${window.location.origin}
-Version: 1
-Chain ID: ${input.chainId}
-Nonce: ${input.nonce}
-Issued At: ${new Date().toISOString()}`;
 }
 
 async function readJsonOrThrow<T = unknown>(

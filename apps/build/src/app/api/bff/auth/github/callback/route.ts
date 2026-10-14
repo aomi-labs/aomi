@@ -7,15 +7,15 @@ import {
   getGitHubSession,
   setGitHubVisibilityGrantCookie,
   setGitHubSessionCookie,
-} from "@build/server/cookies/github";
+} from "@/server/cookies/github";
 import {
   GITHUB_OAUTH_REQUEST_COOKIE,
   clearGitHubOAuthRequest,
   exchangeGitHubSession,
   finishCliAuthorization,
-} from "@build/server/github-auth";
-import { buildFailures } from "@build/server/bff/failures";
-import { API_PATHS } from "@build/lib/api-paths";
+} from "@/server/github-auth";
+import { buildFailures } from "@/server/bff/failures";
+import { API_PATHS } from "@/lib/api-paths";
 
 export const runtime = "nodejs";
 
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       if (!existingSession) {
         return oauthError(req, continuation, "not_signed_in");
       }
-      const claimed = await (await import("@build/server/bff/backend"))
+      const claimed = await (await import("@/server/bff/backend"))
         .backendClient()
         .then((client) =>
           client.claimGitHubProject({

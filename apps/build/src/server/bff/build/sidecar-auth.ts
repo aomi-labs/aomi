@@ -1,7 +1,7 @@
 import "server-only";
 
 import { portalService } from "@aomi-labs/account";
-import { buildFailures } from "@build/server/bff/failures";
+import { buildFailures } from "@/server/bff/failures";
 
 /**
  * Sidecar auth rides the official service-bearer path (the same

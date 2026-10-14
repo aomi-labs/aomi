@@ -9,21 +9,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
 import { useCallback, useId, useMemo, useState } from "react";
 import type React from "react";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
-import { TelegramHowItWorks } from "@build/features/integrations/how-it-works";
-import { ThreadModeControl } from "@build/features/integrations/thread-mode-control";
-import { API_PATHS } from "@build/lib/api-paths";
-import { cn } from "@build/lib/utils";
+} from "@/features/deploy/query-keys";
+import { TelegramHowItWorks } from "@/features/integrations/how-it-works";
+import { ThreadModeControl } from "@/features/integrations/thread-mode-control";
+import { API_PATHS } from "@/lib/api-paths";
+import { cn } from "@/lib/class-names";
 import { operateFetch } from "./client";
+import { readJsonResponse } from "@/lib/request-retry";
 
 type BotProjectApp = {
   id: number;
@@ -728,15 +729,11 @@ function BotCard({
                     setError(null);
                     fetch(API_PATHS.bff.operate.botCommandSecret(bot.id))
                       .then(async (res) => {
-                        const json = (await res.json().catch(() => ({}))) as {
+                        const json = await readJsonResponse<{
                           commandSecret?: string;
-                          error?: string;
-                        };
-                        if (!res.ok || !json.commandSecret) {
-                          throw new Error(
-                            json.error ||
-                              `Failed to reveal secret (${res.status})`,
-                          );
+                        }>(res, "Failed to reveal secret");
+                        if (!json.commandSecret) {
+                          throw new Error("Failed to reveal secret");
                         }
                         setSecret(json.commandSecret);
                       })
@@ -866,15 +863,11 @@ function BotCard({
                     method: "POST",
                   })
                     .then(async (res) => {
-                      const json = (await res.json().catch(() => ({}))) as {
+                      const json = await readJsonResponse<{
                         webhook?: WebhookCheck;
-                        error?: string;
-                      };
-                      if (!res.ok || !json.webhook) {
-                        throw new Error(
-                          json.error ||
-                            `Failed to check webhook (${res.status})`,
-                        );
+                      }>(res, "Failed to check webhook");
+                      if (!json.webhook) {
+                        throw new Error("Failed to check webhook");
                       }
                       setWebhook(json.webhook);
                       onWebhookChecked();
@@ -1129,13 +1122,11 @@ export function BotsView() {
           ...input.commandConfig,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as {
-        bot?: Bot;
-        error?: string;
-      };
-      if (!res.ok || !json.bot) {
-        throw new Error(json.error || `Failed to register bot (${res.status})`);
-      }
+      const json = await readJsonResponse<{ bot?: Bot }>(
+        res,
+        "Failed to register bot",
+      );
+      if (!json.bot) throw new Error("Failed to register bot");
       const created = json.bot;
       queryClient.setQueryData<BotsPayload>(queryKey, (current) => ({
         projects: current?.projects ?? projects,
@@ -1164,14 +1155,11 @@ export function BotsView() {
           ...commandConfig,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as {
+      const json = await readJsonResponse<{
         bot?: Bot;
         webhookWarning?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.bot) {
-        throw new Error(json.error || `Failed to save apps (${res.status})`);
-      }
+      }>(res, "Failed to save apps");
+      if (!json.bot) throw new Error("Failed to save apps");
       const updated = json.bot;
       const webhookWarning = json.webhookWarning;
       setWebhookWarnings((current) => {
@@ -1199,13 +1187,7 @@ export function BotsView() {
         const res = await fetch(botsUrl({ botId: bot.id }), {
           method: "DELETE",
         });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-        };
-        if (!res.ok) {
-          throw new Error(json.error || `Failed to remove bot (${res.status})`);
-        }
+        await readJsonResponse(res, "Failed to remove bot");
         queryClient.setQueryData<BotsPayload>(queryKey, (current) =>
           current
             ? {

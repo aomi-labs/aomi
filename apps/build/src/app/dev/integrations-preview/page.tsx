@@ -10,14 +10,14 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
-import { IntegrationsView } from "@build/features/integrations/integrations-view";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
+import { IntegrationsView } from "@/features/integrations/integrations-view";
 import {
   readColorTheme,
   saveColorTheme,
   type ColorTheme,
-} from "@build/lib/color-theme";
-import { cn } from "@build/lib/utils";
+} from "@/lib/color-theme";
+import { cn } from "@/lib/class-names";
 
 const SESSION = {
   signedIn: true,

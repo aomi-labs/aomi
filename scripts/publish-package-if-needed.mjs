@@ -82,12 +82,12 @@ async function checkPublishedVersion({ fetchImpl, packageSpec, versionUrl }) {
  *
  * This is not hypothetical. Publishing moved to `npm publish` in the release
  * hardening (fdbea398), and the first release after it shipped broken:
- *   @aomi-labs/widget-lib@1.4.29 (pnpm) -> react 0.5.13, client 0.4.5   ✅
- *   @aomi-labs/widget-lib@2.0.0  (npm)  -> react workspace:*, client workspace:*  ❌
+ *   @aomi-labs/widget@1.4.29 (pnpm) -> react 0.5.13, client 0.4.5   ✅
+ *   @aomi-labs/widget@2.0.0  (npm)  -> react workspace:*, client workspace:*  ❌
  *   @aomi-labs/react@0.6.0       (npm)  -> client workspace:*                     ❌
  * The publish job went green both times; only the registry metadata differs,
  * so nothing caught it until a consumer tried to install. See the guard test
- * in packages/client/test/publish-package-if-needed.test.mjs.
+ * in scripts/publish-package-if-needed.test.mjs.
  *
  * `--no-git-checks` is required because the release workflow publishes from a
  * detached checkout of the candidate SHA. `--tag` is kept so NPM_DIST_TAG

@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeployment } from "@/server/env";
 
 // One-shot App OAuth client ids (app index 2). Both the browser UI and CLI
 // login use this app so the backend exchange can resolve the Builder identity.
@@ -9,7 +10,7 @@ export const GITHUB_LOGIN_APP_INDEX = 2;
 
 export function githubOAuthClientId(req: Request): string {
   const host = new URL(req.url).hostname;
-  if (process.env.VERCEL_ENV === "production" || host === "build.aomi.dev") {
+  if (productionDeployment() || host === "build.aomi.dev") {
     return PRODUCTION_CLIENT_ID;
   }
   return STAGING_CLIENT_ID;

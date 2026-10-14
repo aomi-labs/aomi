@@ -1,3 +1,3 @@
-import { initBffSentry } from "@aomi-labs/bff-observability";
+import { initBffSentry } from "@aomi-labs/observability";
 
 initBffSentry({ service: "build-bff" });

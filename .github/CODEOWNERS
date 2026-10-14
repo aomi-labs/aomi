@@ -1,7 +1,10 @@
 # Existing consumers and the checks protecting them require frontend-owner review.
 # Keep GitHub main protection's require_code_owner_reviews enabled.
-/apps/widget-consumer/ @CeciliaZ030 @arixoneth
-/apps/examples/headless-client/ @CeciliaZ030 @arixoneth
+/examples/embed-vite/ @CeciliaZ030 @arixoneth
+/examples/headless/ @CeciliaZ030 @arixoneth
+/examples/embed-next/ @CeciliaZ030 @arixoneth
+/examples/web-sign/ @CeciliaZ030 @arixoneth
+/packages/widget-lib/ @CeciliaZ030 @arixoneth
 /scripts/check-consumer-compatibility* @CeciliaZ030 @arixoneth
 /scripts/check-frontend-boundaries* @CeciliaZ030 @arixoneth
 /tests/contracts/ @CeciliaZ030 @arixoneth
@@ -12,6 +15,7 @@
 /tests/e2e/visual-signing-contracts.spec.ts-snapshots/ @CeciliaZ030 @arixoneth
 /playwright.config.ts @CeciliaZ030 @arixoneth
 /.github/ @CeciliaZ030 @arixoneth
+/.github/workflows/publish-npm-token.yml @CeciliaZ030 @arixoneth @h4n0
 /package.json @CeciliaZ030 @arixoneth
 /pnpm-workspace.yaml @CeciliaZ030 @arixoneth
 /AGENTS.md @CeciliaZ030 @arixoneth

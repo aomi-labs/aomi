@@ -1,4 +1,5 @@
 // Shared formatting helpers for the Operate pages.
+import { shortAddress } from "@aomi-labs/client";
 
 export function secondsLabel(value: unknown) {
   const n = Number(value ?? 0);
@@ -22,12 +23,9 @@ export function dayLabel(value: unknown) {
     : "";
 }
 
-/** Truncate 0x addresses / base58 signatures for dense table cells. */
-export function truncateAddress(value: unknown, chars = 4): string {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-  if (raw.length <= chars * 2 + 2) return raw;
-  return `${raw.slice(0, chars + 2)}…${raw.slice(-chars)}`;
+/** Shortens a loosely typed row value (address, hash, receipt id) for a table cell. */
+export function truncateAddress(value: unknown): string {
+  return shortAddress(String(value ?? "").trim());
 }
 
 export function valueLabel(value: unknown): string {

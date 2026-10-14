@@ -1,3 +1,3 @@
-import { deploymentStatusRoute } from "@build/server/bff/launch/routes";
+import { deploymentStatusRoute } from "@/server/bff/deploy/routes";
 
 export const GET = deploymentStatusRoute;

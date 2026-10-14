@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@aomi-labs/account/widget-auth", () => ({
   issueWidgetOAuthBootstrapTicket: mocks.issue,
   requireWidgetOrigin: (request: Request) => request.headers.get("origin"),
+  observedWidgetOrigin: (request: Request) => request.headers.get("origin"),
   sha256Hex: (value: string) => `sha256:${value}`,
   widgetSessionIdentifierForRequest: () => "widget-session-identifier",
   WidgetAuthError: class WidgetAuthError extends Error {
@@ -34,15 +35,13 @@ vi.mock("@aomi-labs/account/better-auth", () => ({
     ok: scopes.every((scope) => ["agent:read", "agent:write"].includes(scope)),
   }),
 }));
-vi.mock("@portal/server/widget-auth/principal", () => ({
-  requirePortalPrincipal: mocks.requirePrincipal,
+vi.mock("@/server/bff/principal", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/bff/principal")>()),
+  resolvePrincipal: mocks.requirePrincipal,
 }));
-vi.mock("@portal/server/widget-auth/rate-limit", () => ({
-  widgetAuthRateLimit: () => null,
-}));
-vi.mock("@portal/server/widget-auth/response", () => ({
-  widgetRoute: (handler: (request: Request) => Promise<Response>) => handler,
-  widgetPreflight: () => () => new Response(null, { status: 204 }),
+vi.mock("@/server/widget-auth/rate-limit", () => ({
+  WIDGET_BUDGETS: { proof: {}, guest: {} },
+  consumeWidgetBudget: async () => null,
 }));
 
 import { POST } from "./route";
@@ -67,7 +66,8 @@ beforeEach(() => {
   mocks.requirePrincipal.mockReset().mockResolvedValue({
     kind: "widget",
     origin,
-    userId: "user-1",
+    accountId: "user-1",
+    guest: false,
     authMethod: "siwe",
   });
 });
@@ -95,13 +95,12 @@ describe("widget OAuth bootstrap issuance", () => {
       ...validClient,
       origins: ["https://different.example"],
     });
-    await expect(POST(request({ scope: "agent:read" }))).rejects.toMatchObject({
-      code: "invalid_oauth_client",
-      status: 403,
-    });
-    await expect(
-      POST(request({ scope: "pipeline:execute" })),
-    ).rejects.toMatchObject({ code: "invalid_oauth_scope", status: 400 });
+    const mismatch = await POST(request({ scope: "agent:read" }));
+    expect(mismatch.status).toBe(403);
+    expect(await mismatch.json()).toEqual({ error: "invalid_oauth_client" });
+    const escalation = await POST(request({ scope: "pipeline:execute" }));
+    expect(escalation.status).toBe(400);
+    expect(await escalation.json()).toEqual({ error: "invalid_oauth_scope" });
   });
 });
 

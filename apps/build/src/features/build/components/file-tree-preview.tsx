@@ -3,8 +3,8 @@
 import { ChevronDown, ChevronRight, File, Folder } from "lucide-react";
 import { useState } from "react";
 
-import type { BuildFileNode } from "@build/features/build/contracts";
-import { cn } from "@build/lib/utils";
+import type { BuildFileNode } from "@/features/build/contracts";
+import { cn } from "@/lib/class-names";
 
 function FileTreeNode({
   node,

@@ -51,26 +51,16 @@ Drop a working AI chat widget into a Next.js app, with simulation and wallet sig
 
 **Install:**
 ```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npm install @aomi-labs/widget
 ```
 
 **Minimum code:**
 ```tsx
-import { AomiFrame } from "@/components/aomi-frame";
-
-export default function ChatPage() {
-  return (
-    <div style={{ height: "100vh" }}>
-      <AomiFrame
-        backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL!}
-        height="100%"
-      />
-    </div>
-  );
-}
+"use client";
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
+export default function ChatPage() { return <AomiWidget applicationId="123" />; }
 ```
-
-Set `NEXT_PUBLIC_BACKEND_URL=https://api.aomi.dev` in `.env.local`.
 
 **Read this for the full quickstart:** https://aomi.dev/docs/guides/widget-installation.md
 

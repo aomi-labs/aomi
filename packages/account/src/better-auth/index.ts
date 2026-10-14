@@ -50,5 +50,5 @@ export {
   type SiwsCluster,
   type SiwsIntent,
 } from "./siws";
-export { aomiSiwsClient } from "./siws-client";
+export { aomiSiwsClient } from "../../../client/src/siws-client";
 export { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";

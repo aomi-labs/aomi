@@ -7,7 +7,7 @@ import styles from "./widget-product.module.css";
 const wallets = {
   "Browser wallet": {
     description:
-      "Browser mode authenticates an existing EOA. No Para or Privy provider import required.",
+      "Browser mode authenticates an existing EOA. No Para or Privy SDK is loaded.",
     provider: null,
     environment: null,
     credential: null,
@@ -15,7 +15,7 @@ const wallets = {
   },
   Para: {
     description:
-      "Import the Para entry point and pass the host's public Para API key.",
+      "Pass the host's public Para API key; the widget loads Para on demand.",
     provider: "para",
     environment: "PROD",
     credential: "apiKey",
@@ -23,7 +23,7 @@ const wallets = {
   },
   Privy: {
     description:
-      "Import the Privy entry point and pass the host's public Privy app ID.",
+      "Pass the host's public Privy app ID; the widget loads Privy on demand.",
     provider: "privy",
     environment: null,
     credential: "appId",
@@ -37,24 +37,22 @@ type TerminalTab = "CLI" | "MCP";
 
 function uiSnippet(wallet: Wallet) {
   const config = wallets[wallet];
-  const providerImport = config.provider
-    ? `\nimport "@aomi-labs/widget-lib/providers/${config.provider}";`
+  const helper = config.provider ? `${config.provider}Auth` : null;
+  const imports = helper ? `{ AomiWidget, ${helper} }` : "{ AomiWidget }";
+  const auth = helper
+    ? `\n      auth={${helper}({ ${config.credential}: process.env.${config.credentialEnv}!${config.environment ? `, environment: "${config.environment}"` : ""} })}`
     : "";
-  const auth = config.provider
-    ? `auth={{\n        kind: "embedded_wallet",\n        provider: "${config.provider}",\n${config.environment ? `        environment: "${config.environment}",\n` : ""}        ${config.credential}: process.env.${config.credentialEnv}!,\n      }}`
-    : 'auth={{ kind: "browser_wallet" }}';
 
   return `"use client";
 
-import { AomiWidget } from "@aomi-labs/widget-lib";${providerImport}
-import "@aomi-labs/widget-lib/styles.css";
+import ${imports} from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
 
 export default function AssistantPage() {
   return (
     <AomiWidget
       applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
-      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
-      ${auth}
+      baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}${auth}
       height="calc(100dvh - 32px)"
     />
   );
@@ -195,17 +193,14 @@ function UiCode({ wallet }: { wallet: Wallet }) {
         </span>
         <span>&nbsp;</span>
         <span>
-          <i>import</i> {"{ AomiWidget }"} <i>from</i>{" "}
-          <em>{'"@aomi-labs/widget-lib"'}</em>;
+          <i>import</i>{" "}
+          {config.provider
+            ? `{ AomiWidget, ${config.provider}Auth }`
+            : "{ AomiWidget }"}{" "}
+          <i>from</i> <em>{'"@aomi-labs/widget"'}</em>;
         </span>
-        {config.provider ? (
-          <span className={styles.installSyntaxFocus}>
-            <i>import</i>{" "}
-            <em>{`"@aomi-labs/widget-lib/providers/${config.provider}"`}</em>;
-          </span>
-        ) : null}
         <span>
-          <i>import</i> <em>{'"@aomi-labs/widget-lib/styles.css"'}</em>;
+          <i>import</i> <em>{'"@aomi-labs/widget/styles.css"'}</em>;
         </span>
         <span>&nbsp;</span>
         <span>
@@ -222,43 +217,15 @@ function UiCode({ wallet }: { wallet: Wallet }) {
           {"{process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}"}
         </span>
         <span>
-          <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;apiUrl</u>=
+          <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;baseUrl</u>=
           {"{process.env.NEXT_PUBLIC_AOMI_API_URL!}"}
         </span>
         {config.provider ? (
-          <>
-            <span className={styles.installSyntaxFocus}>
-              <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auth</u>={"{{"}
-            </span>
-            <span className={styles.installSyntaxFocus}>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;kind:{" "}
-              <em>{'"embedded_wallet"'}</em>,
-            </span>
-            <span className={styles.installSyntaxFocus}>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;provider:{" "}
-              <em>{`"${config.provider}"`}</em>,
-            </span>
-            {config.environment ? (
-              <span className={styles.installSyntaxFocus}>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;environment:{" "}
-                <em>{`"${config.environment}"`}</em>,
-              </span>
-            ) : null}
-            <span className={styles.installSyntaxFocus}>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              {config.credential}: process.env.{config.credentialEnv}!,
-            </span>
-            <span className={styles.installSyntaxFocus}>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{"}}"}
-            </span>
-          </>
-        ) : (
           <span className={styles.installSyntaxFocus}>
-            <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auth</u>={"{{ kind: "}
-            <em>{'"browser_wallet"'}</em>
-            {" }}"}
+            <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;auth</u>=
+            {`{${config.provider}Auth({ ${config.credential}: process.env.${config.credentialEnv}!${config.environment ? `, environment: "${config.environment}"` : ""} })}`}
           </span>
-        )}
+        ) : null}
         <span>
           <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;height</u>=
           <em>{'"calc(100dvh - 32px)"'}</em>

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { PlatformSwitcher } from "@build/components/control-plane/platform-switcher";
+import { PlatformSwitcher } from "@/components/control-plane/platform-switcher";
 
 import { SettingsGitHubAppPanel } from "./settings-github-app-panel";
 

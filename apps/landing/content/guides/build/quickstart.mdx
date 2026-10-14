@@ -1,43 +1,18 @@
 ---
 title: Widget quickstart
-description: Embed AomiWidget with explicit browser authentication and a deployed App.
+description: Install the widget with one required prop.
 ---
 
-Install the packaged widget in a React application:
-
 ```bash
-npm install @aomi-labs/widget-lib
+npm install @aomi-labs/widget
 ```
-
-Mount it in a client component. Set your API origin and canonical Application ID from the environment where the App is activated.
 
 ```tsx
 "use client";
-
-import { AomiWidget } from "@aomi-labs/widget-lib";
-import "@aomi-labs/widget-lib/styles.css";
-
-export default function AssistantPage() {
-  return (
-    <AomiWidget
-      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
-      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
-      auth={{ kind: "browser_wallet" }}
-      height="100dvh"
-    />
-  );
-}
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
+export default function Assistant() { return <AomiWidget applicationId="123" />; }
 ```
 
-```bash
-NEXT_PUBLIC_AOMI_API_URL=https://chat.aomi.dev
-NEXT_PUBLIC_AOMI_APPLICATION_ID=123
-```
-
-Replace `123` with the deployed App's ID. It selects the App; it does not authenticate a user. Browser-wallet mode establishes an origin-bound session from SIWE or SIWS. Users still approve wallet actions explicitly.
-
-For Para or Privy, import the matching provider entry point and use `auth: { kind: "embedded_wallet", provider: ... }`. Current source accepts Para's public `apiKey` and Privy's public `appId` in that object. Keep provider secrets out of browser code and add the embedding origin to the provider allowlist.
-
-The install command resolves the published package. The newest source examples may require an environment-provided build until its package and API deployment ship. Check the [compatibility guide](https://aomi.dev/docs/integrate/client-sdk#check-compatibility).
-
-See the complete [widget installation guide](https://aomi.dev/docs/guides/widget/installation) for provider examples and [headless library guide](https://aomi.dev/docs/integrate/ui/headless-library) for a custom UI.
+See the [canonical quickstart](https://aomi.dev/docs/guides/widget/quickstart)
+for origin registration and optional wallet providers.

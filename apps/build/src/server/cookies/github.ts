@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
+import { githubSessionSecret, secureCookies } from "@/server/env";
 import {
   CompactEncrypt,
   SignJWT,
@@ -20,6 +21,8 @@ export const GITHUB_SESSION_COOKIE = "aomi_github";
 /** Opaque Manager-signed grant, intentionally separate from the session. */
 export const GITHUB_VISIBILITY_GRANT_COOKIE = "aomi_github_visibility";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+// A CLI token cannot be revoked yet, so it lives one day, not a browser week.
+export const CLI_SESSION_TTL_SECONDS = 24 * 60 * 60;
 const CLI_SESSION_AUDIENCE = "aomi-build-cli";
 const CLI_EXCHANGE_TYPE = "aomi-build-cli-exchange";
 const OAUTH_REQUEST_AUDIENCE = "aomi-build-github-oauth-request";
@@ -27,7 +30,7 @@ const CLI_EXCHANGE_TTL_SECONDS = 2 * 60;
 const OAUTH_REQUEST_TTL_SECONDS = 10 * 60;
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: secureCookies(),
   sameSite: "lax" as const,
   path: "/",
 };
@@ -65,7 +68,7 @@ export interface GitHubCliExchange {
 }
 
 function secret(): Uint8Array {
-  const value = process.env.PORTAL_ONLY_SESSION_SECRET?.trim();
+  const value = githubSessionSecret();
   if (!value || value.length < 16) {
     throw new Error(
       "PORTAL_ONLY_SESSION_SECRET is not set (or too short) — the GitHub session cookie needs a signing secret",
@@ -190,7 +193,9 @@ export function setGitHubVisibilityGrantCookie(
 }
 
 export async function getGitHubVisibilityGrant(): Promise<string | null> {
-  return (await cookies()).get(GITHUB_VISIBILITY_GRANT_COOKIE)?.value?.trim() || null;
+  return (
+    (await cookies()).get(GITHUB_VISIBILITY_GRANT_COOKIE)?.value?.trim() || null
+  );
 }
 
 export async function issueGitHubCliSession(
@@ -202,7 +207,7 @@ export async function issueGitHubCliSession(
       kind: "cli_session",
       scopes: CLI_SCOPES,
     },
-    SESSION_TTL_SECONDS,
+    CLI_SESSION_TTL_SECONDS,
     { subject: session.githubUserId, audience: CLI_SESSION_AUDIENCE },
   );
 }

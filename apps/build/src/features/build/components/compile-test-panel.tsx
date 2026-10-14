@@ -2,7 +2,7 @@
 
 import { Check, Play, Terminal } from "lucide-react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 type CompileTestPanelProps = {
   compileDone: boolean;

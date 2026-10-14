@@ -6,7 +6,7 @@
 
 import { BadgeCheck, Bot, Copy, ExternalLink } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 /** The /setcommands list we tell builders to paste into BotFather: exactly
  *  the commands the bot handles itself (the Telegram crate's panels, and the

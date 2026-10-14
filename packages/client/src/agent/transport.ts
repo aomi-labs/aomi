@@ -1,3 +1,4 @@
+import { AomiApiError, apiErrorFields, isRetryableStatus } from "../api-error";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import type {
   Action,
@@ -16,17 +17,47 @@ type RequestResponse = (
   options?: AomiRequestOptions,
 ) => Promise<Response>;
 
-export class AgentApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    readonly retryable: boolean,
-    readonly requestId?: string,
-    readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "AgentApiError";
+/**
+ * Stable `code`s the public API returns when the request names an App the
+ * caller cannot use. None of them is fixed by retrying with the same
+ * credentials, and none of them means the conversation itself is gone.
+ */
+export type AgentAppAccessErrorCode =
+  | "app_not_found"
+  | "app_inactive"
+  | "app_key_required"
+  | "app_key_not_scoped";
+
+export class AgentApiError extends AomiApiError {
+  override name = "AgentApiError";
+  private guestRotation = false;
+
+  /** Raised locally when the guest identity changes; never read from an upstream error code. */
+  static guestIdentityChanged(): AgentApiError {
+    const error = new AgentApiError(
+      401,
+      "guest_identity_changed",
+      "The anonymous session expired. Start a fresh conversation.",
+      false,
+    );
+    error.guestRotation = true;
+    return error;
+  }
+
+  get isGuestIdentityChanged(): boolean {
+    return this.guestRotation;
+  }
+
+  static readonly APP_ACCESS_CODES: readonly AgentAppAccessErrorCode[] = [
+    "app_not_found",
+    "app_inactive",
+    "app_key_required",
+    "app_key_not_scoped",
+  ];
+
+  /** The App access failure this error reports, if it is one. */
+  get appAccessCode(): AgentAppAccessErrorCode | undefined {
+    return AgentApiError.APP_ACCESS_CODES.find((code) => code === this.code);
   }
 }
 
@@ -100,7 +131,9 @@ export class AgentTransport {
       throw new TypeError("Expected an Agent event stream");
     }
     const reader = response.body.getReader();
-    const cancel = () => { void reader.cancel().catch(() => {}); };
+    const cancel = () => {
+      void reader.cancel().catch(() => {});
+    };
     options.signal.addEventListener("abort", cancel, { once: true });
     const decoder = new TextDecoder();
     let buffer = "";
@@ -188,20 +221,36 @@ export class AgentSessionsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
   list(
-    options: { cursor?: string; limit?: number } = {},
+    options: { cursor?: string; limit?: number; signal?: AbortSignal } = {},
   ): Promise<SessionPage> {
     return this.json("GET", "/v1/agent/sessions", {
       query: { cursor: options.cursor, limit: options.limit },
+      signal: options.signal,
     });
   }
 
-  async all(): Promise<Session[]> {
+  /**
+   * Every page in order. `onPage` sees each page as it arrives, with `more`
+   * set while later pages are still to come.
+   */
+  async all(
+    options: {
+      signal?: AbortSignal;
+      onPage?: (sessions: Session[], more: boolean) => void;
+    } = {},
+  ): Promise<Session[]> {
     const sessions: Session[] = [];
     let cursor: string | undefined;
     do {
-      const page = await this.list({ cursor, limit: 100 });
+      options.signal?.throwIfAborted();
+      const page = await this.list({
+        cursor,
+        limit: 100,
+        signal: options.signal,
+      });
       sessions.push(...page.sessions);
       cursor = page.nextCursor ?? undefined;
+      options.onPage?.(page.sessions, Boolean(cursor));
     } while (cursor);
     return sessions;
   }
@@ -286,27 +335,18 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
-  let body: ErrorBody | undefined;
-  try {
-    body = (await response.json()) as ErrorBody;
-  } catch {
-    // The status remains authoritative when an intermediary returned HTML.
-  }
-  const raw = body?.error;
-  const code =
-    typeof raw === "string"
-      ? raw
-      : typeof raw === "object" && raw !== null && "code" in raw
-        ? String((raw as { code: unknown }).code)
-        : "agent_request_failed";
+  const body = (await response.json().catch(() => undefined)) as
+    | ErrorBody
+    | undefined;
+  const error = apiErrorFields(body);
+  const code = error.code ?? "agent_request_failed";
+  // Prefer the server's human-readable message; fall back to the code.
   throw new AgentApiError(
     response.status,
     code,
-    code.replaceAll("_", " "),
-    response.status === 408 ||
-      response.status === 429 ||
-      response.status >= 500,
+    error.message?.trim() ? error.message : code.replaceAll("_", " "),
+    isRetryableStatus(response.status),
     response.headers.get("x-request-id") ?? undefined,
-    raw,
+    body?.error,
   );
 }

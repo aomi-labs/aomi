@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 function renderInline(text: string): ReactNode[] {
   const parts: ReactNode[] = [];

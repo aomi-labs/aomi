@@ -21,10 +21,27 @@ export function useActions(session: ClientSession | undefined) {
     [session],
   );
   const actions = useSyncExternalStore(subscribe, getActions, getActions);
-  const getAttempts = useCallback(
-    () => session?.getSnapshot().actionAttempts ?? NO_ATTEMPTS,
-    [session],
-  );
+  const getAttempts = useMemo(() => {
+    let cached: ReadonlyMap<string, ActionAttempt> = NO_ATTEMPTS;
+    return () => {
+      const next = session?.getSnapshot().actionAttempts ?? NO_ATTEMPTS;
+      if (
+        cached.size === next.size &&
+        [...next].every(([id, attempt]) => {
+          const previous = cached.get(id);
+          return (
+            previous?.actionId === attempt.actionId &&
+            previous.revision === attempt.revision &&
+            previous.state === attempt.state &&
+            previous.error === attempt.error
+          );
+        })
+      )
+        return cached;
+      cached = next;
+      return cached;
+    };
+  }, [session]);
   const actionAttempts = useSyncExternalStore(
     subscribe,
     getAttempts,
@@ -35,27 +52,28 @@ export function useActions(session: ClientSession | undefined) {
     [actions],
   );
 
-  return {
-    pendingActions,
-    actionAttempts,
-    hasBlockingActions:
-      pendingActions.length > 0 || Boolean(session?.actions.isBlocking()),
-    executeAction: (id: string) =>
-      requireSession(session)
-        .actions
-        .execute(id)
-        .then(() => undefined),
-    respondToAction: (id: string, result: ActionResult) =>
-      requireSession(session)
-        .actions
-        .submitResult(id, result)
-        .then(() => undefined),
-    rejectAction: (id: string, reason?: string) =>
-      requireSession(session)
-        .actions
-        .reject(id, reason)
-        .then(() => undefined),
-  };
+  const hasBlockingActions =
+    pendingActions.length > 0 || Boolean(session?.actions.isBlocking());
+  return useMemo(
+    () => ({
+      pendingActions,
+      actionAttempts,
+      hasBlockingActions,
+      executeAction: (id: string) =>
+        requireSession(session)
+          .actions.execute(id)
+          .then(() => undefined),
+      respondToAction: (id: string, result: ActionResult) =>
+        requireSession(session)
+          .actions.submitResult(id, result)
+          .then(() => undefined),
+      rejectAction: (id: string, reason?: string) =>
+        requireSession(session)
+          .actions.reject(id, reason)
+          .then(() => undefined),
+    }),
+    [session, pendingActions, actionAttempts, hasBlockingActions],
+  );
 }
 
 function requireSession(session: ClientSession | undefined): ClientSession {

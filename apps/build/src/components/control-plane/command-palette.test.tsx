@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { setLastProjectId } from "@build/lib/last-project";
+import { setLastProjectId } from "@/lib/last-project";
 
 const push = vi.fn();
 

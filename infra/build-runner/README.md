@@ -1,7 +1,6 @@
 # /build sandbox runner image
 
-The golden image `/build` sandbox runs boot from (ship plan Phase 3 —
-`specs/BUILD-SHIP-E2E-PLAN.md`). One Vercel Sandbox per build run; the BFF
+The golden image `/build` sandbox runs boot from. One Vercel Sandbox per build run; the BFF
 dispatches `aomi-smither run-plan` inside it; all run state lands in the
 shared Postgres the web tier reads.
 

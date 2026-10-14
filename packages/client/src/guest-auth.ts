@@ -1,12 +1,20 @@
 export type GuestSessionProvider = ((options?: {
   forceRefresh?: boolean;
-}) => Promise<string | null>) & { clear(): void };
+}) => Promise<string | null>) & {
+  clear(): void;
+  /** Prepare on user interaction; background reads do not create a guest. */
+  prepare?: () => Promise<void>;
+  /** The anonymous user the server confirmed; chats remember which guest started them. */
+  getIdentity?: () => string | null;
+};
+
+const FAILED_ATTEMPT_HOLD_MS = 2_000;
 
 let browserSessionTransition = Promise.resolve();
 
 /**
  * Serialize browser operations that replace the same-origin Better Auth
- * cookie. Without this fence, a guest bootstrap that started just before a
+ * cookie. Without this queue, a guest bootstrap that started just before a
  * wallet sign-in can finish last and overwrite the newly authenticated
  * session with an anonymous one.
  */
@@ -29,6 +37,8 @@ export async function withBrowserSessionTransition<T>(
 export function createGuestSessionProvider(input: {
   baseUrl: string;
   fetch?: typeof fetch;
+  /** Whether the host already confirmed a cookie session; the backend still checks every request. */
+  getCookieSessionAvailable?: () => boolean;
 }): GuestSessionProvider {
   const fetchImpl = input.fetch ?? globalThis.fetch.bind(globalThis);
   const browser = typeof location !== "undefined";
@@ -39,8 +49,25 @@ export function createGuestSessionProvider(input: {
       ? "same-origin-browser"
       : "server";
   let credential: string | null | undefined;
+  let identity: string | null = null;
   let pending: Promise<string | null> | null = null;
+  // A failed attempt stays the answer for a moment, so typing in the composer
+  // while the session check fails does not send a request per keystroke.
+  const acquire = (request: () => Promise<string | null>) => {
+    if (pending) return pending;
+    const attempt = request().then((next) => {
+      credential = next;
+      return next;
+    });
+    pending = attempt;
+    const settle = () => {
+      if (pending === attempt) pending = null;
+    };
+    attempt.then(settle, () => setTimeout(settle, FAILED_ATTEMPT_HOLD_MS));
+    return attempt;
+  };
   const provider = async (options?: { forceRefresh?: boolean }) => {
+    if (pending) return pending;
     if (options?.forceRefresh) credential = undefined;
     if (credential !== undefined) return credential;
     // Same-origin requests already carry the Better Auth cookie. Try it before
@@ -49,18 +76,74 @@ export function createGuestSessionProvider(input: {
     if (runtime === "same-origin-browser" && !options?.forceRefresh) {
       return null;
     }
-    pending ??= signInAnonymous(fetchImpl, input.baseUrl, runtime).finally(
-      () => {
-        pending = null;
-      },
+    return acquire(() =>
+      signInAnonymous(fetchImpl, input.baseUrl, runtime, (next) => {
+        identity = next;
+      }),
     );
-    credential = await pending;
-    return credential;
   };
   return Object.assign(provider, {
+    async prepare() {
+      if (pending) {
+        await pending;
+        return;
+      }
+      if (credential !== undefined) return;
+      if (runtime !== "same-origin-browser") {
+        await provider();
+        return;
+      }
+      await acquire(() =>
+        withBrowserSessionTransition(async () => {
+          if (input.getCookieSessionAvailable?.()) return null;
+          const response = await fetchImpl(
+            `${input.baseUrl.replace(/\/+$/, "")}/api/auth/get-session`,
+            {
+              credentials: "include",
+              cache: "no-store",
+              headers: { accept: "application/json" },
+            },
+          );
+          if (!response.ok)
+            throw new Error(
+              `Aomi session check failed with HTTP ${response.status}`,
+            );
+          const session: unknown = await response.json();
+          if (session !== null) {
+            if (
+              typeof session !== "object" ||
+              !("user" in session) ||
+              !("session" in session) ||
+              !session.session ||
+              !stringProperty(session.user, "id")
+            )
+              throw new Error("Aomi session check returned an invalid session");
+            const user = session.user;
+            identity =
+              user &&
+              typeof user === "object" &&
+              "isAnonymous" in user &&
+              user.isAnonymous === true
+                ? stringProperty(user, "id")
+                : null;
+            return null;
+          }
+          return requestAnonymousSession(
+            fetchImpl,
+            input.baseUrl,
+            runtime,
+            (next) => {
+              identity = next;
+            },
+          );
+        }),
+      );
+    },
     clear() {
       credential = undefined;
+      identity = null;
     },
+    getIdentity: () => identity,
   });
 }
 
@@ -73,19 +156,21 @@ async function signInAnonymous(
   fetchImpl: typeof fetch,
   baseUrl: string,
   runtime: "cross-origin-browser" | "same-origin-browser" | "server",
+  onIdentity?: (identity: string | null) => void,
 ) {
   if (runtime === "same-origin-browser") {
     return withBrowserSessionTransition(() =>
-      requestAnonymousSession(fetchImpl, baseUrl, runtime),
+      requestAnonymousSession(fetchImpl, baseUrl, runtime, onIdentity),
     );
   }
-  return requestAnonymousSession(fetchImpl, baseUrl, runtime);
+  return requestAnonymousSession(fetchImpl, baseUrl, runtime, onIdentity);
 }
 
 async function requestAnonymousSession(
   fetchImpl: typeof fetch,
   baseUrl: string,
   runtime: "cross-origin-browser" | "same-origin-browser" | "server",
+  onIdentity?: (identity: string | null) => void,
 ) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const authEndpoint = `${normalizedBase}/api/auth/sign-in/anonymous`;
@@ -122,8 +207,9 @@ async function requestAnonymousSession(
   if (!response.ok) {
     throw new Error(`Aomi guest sign-in failed with HTTP ${response.status}`);
   }
-  if (runtime === "same-origin-browser") return null;
   const body = await response.json().catch(() => null);
+  if (runtime !== "server") onIdentity?.(stringProperty(body?.user, "id"));
+  if (runtime === "same-origin-browser") return null;
   const token =
     runtime === "cross-origin-browser"
       ? stringProperty(body, "access_token")

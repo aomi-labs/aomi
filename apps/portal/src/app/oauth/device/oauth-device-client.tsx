@@ -2,19 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "@aomi-labs/account/better-auth/client";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { authClient } from "@aomi-labs/widget/browser-auth";
+import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
 import {
   classifyProviderInitializationFailure,
   normalizeDeviceAuthProvider,
   providerConfigurationFailure,
   providerFailureText,
   type DeviceAuthProvider,
-} from "@portal/lib/device-auth-provider";
+} from "@/lib/device-auth-provider";
 import {
   providerExchangeFailure,
   waitForProviderCredential,
-} from "@portal/lib/device-auth-handoff";
+} from "@/lib/device-auth-handoff";
 
 type DeviceVerification = {
   user_code: string;

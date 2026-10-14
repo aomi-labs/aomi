@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, PT_Serif, Source_Serif_4 } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
-import { CookieConsent } from "@portal/components/analytics/cookie-consent";
-import { GoogleAnalytics } from "@portal/components/analytics/google-analytics";
-import { SettingsInitializer } from "@portal/components/providers/settings-initializer";
-import { WalletProviders } from "@portal/components/providers/wallet-providers";
-import {
-  E2E_WALLET_COOKIE,
-  verifyE2EWalletCookie,
-} from "@portal/server/e2e-wallet";
+import { CookieConsent } from "@/components/analytics/cookie-consent";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { SettingsInitializer } from "@/components/providers/settings-initializer";
+import { WalletProviders } from "@/components/providers/wallet-providers";
+import { devToolsAllowed } from "@/server/env";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -51,9 +48,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const e2eWallet = verifyE2EWalletCookie(
-    cookieStore.get(E2E_WALLET_COOKIE)?.value,
-  );
+  const e2eWallet = devToolsAllowed()
+    ? await import("@/server/bff/dev/e2e-wallet").then(
+        ({ E2E_WALLET_COOKIE, verifyE2EWalletCookie }) =>
+          verifyE2EWalletCookie(cookieStore.get(E2E_WALLET_COOKIE)?.value),
+      )
+    : null;
 
   return (
     <html lang="en">

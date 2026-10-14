@@ -322,6 +322,7 @@ export type AomiAuthorizationPermit = {
   mode: string;
   version: number;
   expiry: number;
+  transaction_safety_generic?: boolean;
 };
 
 export type AomiAuthorizationChallenge = {
@@ -347,7 +348,12 @@ export function posterFromClient(client: AomiClient): AuthorizationPoster {
 
 export function authorizationChallenge(
   post: AuthorizationPoster,
-  request: { chain_type: string; wallet: string; mode: string },
+  request: {
+    chain_type: string;
+    wallet: string;
+    mode: string;
+    transaction_safety_generic?: boolean;
+  },
 ): Promise<AomiAuthorizationChallenge> {
   return post("/api/account/authorization/challenge", request);
 }
