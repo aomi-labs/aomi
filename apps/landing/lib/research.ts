@@ -24,13 +24,13 @@ export const posts: ResearchPost[] = [
     slug: "introducing-the-aomi-task-api",
     title:
       "Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc",
-    date: "October 11, 2026",
-    isoDate: "2026-10-11",
+    date: "October 13, 2026",
+    isoDate: "2026-10-13",
     tag: "launch",
     subtitle:
-      "Agents send a task, see the verified outcome before anything moves, and pay for the result in USDC. The builder's own Circle wallet signs. Aomi never holds a key.",
+      "A wallet-signed task becomes a simulation-verified outcome that another agent can inspect, purchase in USDC, and execute with its own Circle wallet.",
     cover: "/research/introducing-the-aomi-task-api/figures/architecture.png",
-    readMinutes: 3,
+    readMinutes: 9,
     research: false,
     fileName: "introducing-the-aomi-task-api.md",
     format: "markdown",
