@@ -55,23 +55,6 @@
         ]
       }
     },
-    "/api/task/build": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "delegatedBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
-      }
-    },
     "/api/exec/simulate": {
       "post": {
         "responses": {
@@ -2321,6 +2304,25 @@
         ]
       },
       "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/thread/sim/world": {
+      "post": {
         "responses": {
           "200": {
             "description": "OK"
