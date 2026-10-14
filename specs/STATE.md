@@ -5,7 +5,7 @@
 2026-10-14 — TRACE: TRANSACTION HISTORY TOOLS (branch `feat/tx-history`, with
   product-mono `feat/tx-history`). The backend's new `list_transactions` and
   `get_transaction` (EVM and Solana) get trace rows: "List transactions" with
-  chain/Solana, Sent/Received, token, counterparty and "N txs" chips, and
+  chain/Solana, token, counterparty and "N txs" chips, and
   "Get transaction" with network, hash, the wallet's first signed balance
   change and a "Reverted"/"Pending" warning that leaves the read itself
   successful (`tool-interpreter/families/general/activity.ts`). History

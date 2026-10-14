@@ -37,8 +37,8 @@ const chainArgFact = (chains: unknown): ToolFact | null => {
     : chainFact(undefined, chain, "args");
 };
 
-/** Chips mirror the question asked (chain, sent or received, token, other
- * side) and then how many transactions answered it. */
+/** Chips mirror the question asked (chain, token, other side) and then how
+ * many transactions answered it. */
 export const matchListTransactions: ToolMatcher = ({
   rawLabel,
   parsedArgs,
@@ -51,14 +51,6 @@ export const matchListTransactions: ToolMatcher = ({
   const rows = resultRecord?.transactions;
   return operation("activity.transactions", rawLabel, [
     chainArgFact(args.chains),
-    direction === "out" || direction === "in"
-      ? {
-          kind: "category",
-          value: direction,
-          label: direction === "out" ? "Sent" : "Received",
-          source: "args",
-        }
-      : null,
     token
       ? { kind: "token", value: token, label: token, source: "args" }
       : null,

@@ -1075,7 +1075,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("List transactions");
     expect(step.outcome).toBe("success");
-    expect(labelsFor(step.chips)).toEqual(["Base", "Sent", "USDC", "1 tx"]);
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "1 tx"]);
   });
 
   it("reads Solana history and all-chain history without a chain chip", () => {
@@ -1084,7 +1084,7 @@ describe("tool interpreter", () => {
       argsText: JSON.stringify({ chains: "solana", direction: "in" }),
       result: { transactions: [], checked_chains: ["solana"] },
     });
-    expect(labelsFor(solana.chips)).toEqual(["Solana", "Received", "0 txs"]);
+    expect(labelsFor(solana.chips)).toEqual(["Solana", "0 txs"]);
 
     const all = interpretToolStep({
       toolName: "list_transactions",

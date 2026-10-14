@@ -110,7 +110,6 @@ const descriptorById: Record<string, Descriptor> = {
     chipPlan: [
       { kind: "chain" },
       { kind: "cluster" },
-      { kind: "category" },
       { kind: "token" },
       { kind: "address" },
       { kind: "count", role: "tx" },
