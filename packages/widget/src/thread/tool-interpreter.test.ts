@@ -1137,7 +1137,11 @@ describe("tool interpreter", () => {
       },
     });
     expect(step.outcome).toBe("success");
-    expect(labelsFor(step.chips)).toEqual(["Base", "0xbbbbb…bbbbb", "Reverted"]);
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xbbbbb…bbbbb",
+      "Reverted",
+    ]);
   });
 
   it("flags a reverted transaction without failing the read", () => {
@@ -1160,6 +1164,48 @@ describe("tool interpreter", () => {
       "+0.0045 SOL",
       "Reverted",
     ]);
+  });
+
+  it.each([
+    [
+      "execution_error",
+      { execution_error: { InstructionError: [0, { Custom: 1 }] } },
+    ],
+    // Saved threads from before the key was renamed.
+    ["a top-level error", { error: { InstructionError: [0, { Custom: 1 }] } }],
+  ])(
+    "reads a reverted Solana transaction with %s as Reverted, not failed",
+    (_, executionError) => {
+      const signature = "5r51fcxVcZVowYmjjSGDZqMTbBUt";
+      const step = interpretToolStep({
+        toolName: "get_transaction",
+        argsText: JSON.stringify({ hash: signature }),
+        result: {
+          chain: "solana",
+          cluster: "mainnet-beta",
+          signature,
+          status: "failed",
+          ...executionError,
+        },
+      });
+
+      expect(step.outcome).toBe("success");
+      expect(labelsFor(step.chips)).toEqual([
+        "Solana",
+        "5r51fcx…TbBUt",
+        "Reverted",
+      ]);
+    },
+  );
+
+  it("still fails a get_transaction call that errored", () => {
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash: "5r51fcxVcZVowYmjjSGDZqMTbBUt" }),
+      result: { error: "transaction not found on Solana mainnet-beta" },
+    });
+
+    expect(step.outcome).toBe("failed");
   });
 
   it("does not attribute a prior tool's chain to a native balance", () => {

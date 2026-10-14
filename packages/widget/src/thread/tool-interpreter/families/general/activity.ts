@@ -87,6 +87,14 @@ const firstMove = (result: Record<string, unknown>): ToolFact | null => {
   };
 };
 
+/** A read that returned the transaction. Earlier Solana reads put a failed
+ * transaction's runtime error at the top level as `error`, beside its status;
+ * that is the transaction failing, not the read. */
+const isTransactionRead = (result: Record<string, unknown>): boolean =>
+  result.is_error !== true &&
+  typeof result.status === "string" &&
+  Boolean(asString(result.transaction_hash) ?? asString(result.signature));
+
 /** Network, hash, what moved for the wallet, and a warning when the
  * transaction itself reverted or is not yet mined. The read succeeded either
  * way, so the step keeps a successful outcome. */
@@ -95,7 +103,12 @@ export const matchGetTransaction: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (resultRecord && isErrorResult(resultRecord)) return null;
+  if (
+    resultRecord &&
+    isErrorResult(resultRecord) &&
+    !isTransactionRead(resultRecord)
+  )
+    return null;
   const args = asRecord(parsedArgs) ?? {};
   const result = resultRecord ?? {};
   const hash =

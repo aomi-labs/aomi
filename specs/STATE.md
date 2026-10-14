@@ -10,6 +10,9 @@
   change and a "Reverted"/"Pending" warning that leaves the read itself
   successful (`tool-interpreter/families/general/activity.ts`). History
   counterparties auto-link like other addresses (`explorer-links.ts`).
+  A Solana read of a failed transaction carries its runtime error as
+  `execution_error`; older saved results with a top-level `error` beside a
+  status and signature still read as Reverted, not as a failed tool call.
 
 2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
   Reloading `?thread=` no longer flashes the welcome screen while the account
