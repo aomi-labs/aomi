@@ -905,11 +905,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/task/build",
-    auth: ["delegated"],
-  },
-  {
-    method: "POST",
     path: "/api/thread/model",
     auth: ["thread"],
   },
@@ -917,6 +912,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/thread/runtime/model",
     auth: ["thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/thread/sim/world",
+    auth: ["account","thread"],
   },
   {
     method: "POST",
