@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { WidgetAuthError } from "@aomi-labs/account/widget-auth";
 

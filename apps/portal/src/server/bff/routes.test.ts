@@ -111,7 +111,7 @@ vi.mock("@aomi-labs/account/account", () => ({
   updateAccountProfile: vi.fn(),
   IdentityConflictError: class IdentityConflictError extends Error {},
 }));
-vi.mock("@aomi-labs/account/better-auth", async () => ({
+vi.mock("@/server/auth", async () => ({
   ...(await import("@aomi-labs/account/better-auth/oauth-policy")),
   ...(await import("@aomi-labs/account/better-auth/env")),
   auth: {
@@ -205,7 +205,6 @@ vi.mock("@/server/bff/failures", () => ({
   },
 }));
 
-import { NextRequest } from "next/server";
 import { routes } from "./routes";
 
 type Family = {
@@ -394,6 +393,8 @@ beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
   vi.stubEnv("DATABASE_URL", "postgres://unused");
   vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://backend.example");
+  vi.stubEnv("BACKEND_URL", "https://backend.example");
+  vi.stubEnv("AOMI_PROXY_BACKEND_URL", "https://backend.example");
   vi.stubEnv("AOMI_AGENT_API_URL", "https://agent.example");
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("VERCEL_ENV", "");
@@ -974,11 +975,27 @@ describe("dev tools", () => {
   ])("the E2E wallet routes do not exist with %s=%s", async (name, value) => {
     vi.stubEnv(name, value);
     const seed = await routes.e2eWallet.GET(
-      new NextRequest(`${PORTAL}/api/bff/e2e/wallet?token=x`),
+      new Request(`${PORTAL}/api/bff/e2e/wallet?token=x`),
     );
     const execute = await routes.e2eExecute.POST(
-      new NextRequest(`${PORTAL}/api/bff/e2e/execute`, { method: "POST" }),
+      new Request(`${PORTAL}/api/bff/e2e/execute`, { method: "POST" }),
     );
     expect([seed.status, execute.status]).toEqual([404, 404]);
   });
 });
+
+vi.mock("@aomi-labs/account/better-auth/core", async () => ({
+  ...(await import("@aomi-labs/account/better-auth/oauth-policy")),
+  ...(await import("@aomi-labs/account/better-auth/env")),
+  auth: {
+    $context: Promise.resolve({
+      internalAdapter: {
+        createSession: mocks.createSession,
+        deleteSession: mocks.deleteSession,
+      },
+    }),
+  },
+  readManagedOAuthClient: async (clientId: string) =>
+    mocks.managedClient(clientId),
+  listManagedWidgetOrigins: async () => ["https://managed.example"],
+}));

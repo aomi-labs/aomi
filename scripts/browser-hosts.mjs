@@ -165,19 +165,11 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
   hosts.onStop(() => new Promise((done) => consumerServer.close(done)));
 
   await hosts.run("corepack", ["pnpm", "--filter", "portal", "build"], env);
-  await hosts.serve(
-    "portal",
-    process.execPath,
-    [
-      "node_modules/next/dist/bin/next",
-      "start",
-      "-H",
-      "127.0.0.1",
-      "-p",
-      String(portalPort),
-    ],
-    { cwd: join(root, "apps/portal"), env, origin: origins.portal },
-  );
+  await hosts.serve("portal", process.execPath, [".output/server/index.mjs"], {
+    cwd: join(root, "apps/portal"),
+    env: { ...env, HOST: "127.0.0.1", PORT: String(portalPort) },
+    origin: origins.portal,
+  });
   return {
     origins,
     upstream: upstream.origin,

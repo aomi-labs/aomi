@@ -1,16 +1,17 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { mockStartRouteTree } from "../../scripts/mock-start-route-tree";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const srcDir = resolve(currentDir, "src");
 const widgetSrcDir = resolve(currentDir, "../../packages/widget/src");
 
 export default defineConfig({
+  esbuild: { jsx: "automatic", jsxImportSource: "react" },
   plugins: [
-    react(),
+    mockStartRouteTree,
     {
       name: "workspace-source-alias",
       enforce: "pre",
@@ -46,6 +47,10 @@ export default defineConfig({
       "@aomi-labs/deploy": resolve(currentDir, "../../packages/deploy/src"),
       "@aomi-labs/react": resolve(currentDir, "../../packages/react/src"),
       "server-only": resolve(currentDir, "__mocks__/server-only.ts"),
+      "@tanstack/react-start/server-only": resolve(
+        currentDir,
+        "__mocks__/server-only.ts",
+      ),
       "client-only": resolve(currentDir, "__mocks__/client-only.ts"),
     },
   },

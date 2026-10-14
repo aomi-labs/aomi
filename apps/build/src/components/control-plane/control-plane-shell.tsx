@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { UrlLink as Link } from "@/components/url-link";
+import { useLocation } from "@tanstack/react-router";
 import {
   Activity,
   BookOpen,
@@ -44,12 +44,8 @@ import {
   type GitHubAccountState,
 } from "@/components/control-plane/github-session-context";
 import { ToastProvider } from "@/components/control-plane/toast";
-import {
-  GITHUB_SIGNIN_URL,
-  signOutGitHub,
-} from "@/features/deploy/dashboard";
+import { GITHUB_SIGNIN_URL, signOutGitHub } from "@/features/deploy/dashboard";
 import { cn } from "@/lib/class-names";
-import { ControlPlaneQueryProvider } from "./control-plane-query-provider";
 
 type NavItem = {
   label: string;
@@ -515,7 +511,7 @@ function AccountMenu({
         )}
         <Link
           href="/settings"
-          prefetch={false}
+          preload={false}
           className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
         >
           <Settings className="size-3.5" />
@@ -557,18 +553,16 @@ function AccountMenu({
 
 export function ControlPlaneShell({ children }: { children: React.ReactNode }) {
   return (
-    <ControlPlaneQueryProvider>
-      <GitHubSessionProvider>
-        <ToastProvider>
-          <ControlPlaneShellContent>{children}</ControlPlaneShellContent>
-        </ToastProvider>
-      </GitHubSessionProvider>
-    </ControlPlaneQueryProvider>
+    <GitHubSessionProvider>
+      <ToastProvider>
+        <ControlPlaneShellContent>{children}</ControlPlaneShellContent>
+      </ToastProvider>
+    </GitHubSessionProvider>
   );
 }
 
 function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const [expanded, setExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { account, setAccount } = useGitHubSession();

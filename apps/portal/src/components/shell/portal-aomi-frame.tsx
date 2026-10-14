@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -14,8 +16,6 @@ import {
   DEFAULT_SIDEBAR_PRODUCTS,
   getBackendUrl,
   HeaderControls,
-  PackagesModal,
-  SettingsModal,
   useAccountOverview,
   useAccountSnapshot,
   useAomiWalletKit,
@@ -27,11 +27,27 @@ import {
 } from "@aomi-labs/widget/host-composition";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { OverlayPortal } from "@/components/shell/overlay-portal";
+import { usePortalUrlNavigation } from "@/lib/navigation";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
 } from "@/lib/portal-client-options";
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
+
+const SettingsModal = lazy(() =>
+  import("@aomi-labs/widget/host-composition/overlays").then(
+    ({ SettingsModal }) => ({
+      default: SettingsModal,
+    }),
+  ),
+);
+const PackagesModal = lazy(() =>
+  import("@aomi-labs/widget/host-composition/overlays").then(
+    ({ PackagesModal }) => ({
+      default: PackagesModal,
+    }),
+  ),
+);
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
 
@@ -93,9 +109,12 @@ function PortalComposer({
 }
 
 /** Open the account's thread linked by MCP wallet-approval handoff. */
+type PendingThreadUrl = { previousHref: string; targetHref: string };
+
 type ThreadUrlSnapshot = {
   navigating: boolean;
   requestedThread: string | null | undefined;
+  pendingUrl?: PendingThreadUrl;
 };
 
 export function createThreadUrlNavigation() {
@@ -116,11 +135,12 @@ export function createThreadUrlNavigation() {
         listeners.delete(listener);
       };
     },
-    navigate: (requestedThread: string | null) =>
-      update({ navigating: true, requestedThread }),
+    navigate: (requestedThread: string | null, pendingUrl?: PendingThreadUrl) =>
+      update({ navigating: true, requestedThread, pendingUrl }),
     settle: () => update({ ...snapshot, navigating: false }),
-    sync: (requestedThread: string | null) =>
-      update({ navigating: false, requestedThread }),
+    sync: (requestedThread: string | null, pendingUrl?: PendingThreadUrl) =>
+      update({ navigating: false, requestedThread, pendingUrl }),
+    completeUrl: () => update({ ...snapshot, pendingUrl: undefined }),
   };
 }
 export type ThreadUrlNavigation = ReturnType<typeof createThreadUrlNavigation>;
@@ -146,6 +166,7 @@ export function ThreadUrlBootstrap({
     isRemoteThread,
     prefetchThread,
   } = useAomiRuntime();
+  const urlNavigation = usePortalUrlNavigation();
   const threadListLoading = threadListRevalidating ?? listLoading;
   const [localNavigation] = useState(createThreadUrlNavigation);
   const locationState = navigation ?? localNavigation;
@@ -156,19 +177,24 @@ export function ThreadUrlBootstrap({
   );
   const { navigating, requestedThread } = navigationSnapshot;
   useEffect(() => {
-    const readLocation = () => {
-      locationState.navigate(
-        new URLSearchParams(window.location.search).get("thread")?.trim() ||
-          null,
-      );
-    };
-    // Assistant-ui's per-chat boundary remounts this subtree. Only initial
-    // host restoration or browser navigation should reopen the current URL.
-    if (locationState.getSnapshot().requestedThread === undefined)
-      readLocation();
-    window.addEventListener("popstate", readLocation);
-    return () => window.removeEventListener("popstate", readLocation);
-  }, [locationState]);
+    const latest = locationState.getSnapshot();
+    if (latest.pendingUrl) {
+      if (urlNavigation.href === latest.pendingUrl.targetHref) {
+        locationState.completeUrl();
+        return;
+      }
+      if (urlNavigation.href === latest.pendingUrl.previousHref) return;
+    }
+    const locationThread =
+      new URLSearchParams(urlNavigation.search).get("thread")?.trim() || null;
+    // The per-chat boundary remounts this subtree. Reopen a URL only on host
+    // restoration or a Router location change, including browser back/forward.
+    if (
+      latest.requestedThread === undefined ||
+      locationThread !== latest.requestedThread
+    )
+      locationState.navigate(locationThread);
+  }, [locationState, urlNavigation.href, urlNavigation.search]);
 
   // The linked chat's history loads while the list that validates it does.
   useEffect(() => {
@@ -181,6 +207,7 @@ export function ThreadUrlBootstrap({
     if (
       !ready ||
       !navigating ||
+      navigationSnapshot.pendingUrl ||
       requestedThread === undefined ||
       threadListError
     )
@@ -199,16 +226,19 @@ export function ThreadUrlBootstrap({
       } else if (threadListLoading) {
         return;
       } else {
-        const url = new URL(window.location.href);
+        const url = new URL(urlNavigation.href, "http://portal.local");
         url.searchParams.delete("thread");
-        window.history.replaceState(null, "", url);
+        locationState.navigate(null, {
+          previousHref: urlNavigation.href,
+          targetHref: url.pathname + url.search + url.hash,
+        });
+        void urlNavigation.replace(url);
         showNotification({
           type: "error",
           title: "Conversation unavailable",
           message:
             "This chat may have been archived or belongs to another account. Start a new chat or choose one from Recent.",
         });
-        locationState.navigate(null);
         void createThread();
         return;
       }
@@ -236,6 +266,7 @@ export function ThreadUrlBootstrap({
     locationState,
     navigating,
     navigationSnapshot,
+    urlNavigation,
   ]);
 
   useEffect(() => {
@@ -245,13 +276,13 @@ export function ThreadUrlBootstrap({
       !ready ||
       threadListLoading ||
       latest.navigating ||
+      latest.pendingUrl ||
       latest.requestedThread === undefined
     )
       return;
-    const url = new URL(window.location.href);
+    const url = new URL(urlNavigation.href, "http://portal.local");
     const locationThread = url.searchParams.get("thread")?.trim() || null;
-    // Next can render its changed search params before our popstate listener
-    // runs. A changed browser location wins over this render's old chat.
+    // A Router location change wins over this render's old chat.
     if (locationThread !== latest.requestedThread) {
       locationState.navigate(locationThread);
       return;
@@ -266,8 +297,11 @@ export function ThreadUrlBootstrap({
     if (url.searchParams.get("thread") === threadId) return;
     if (threadId) url.searchParams.set("thread", threadId);
     else url.searchParams.delete("thread");
-    window.history.pushState(null, "", url);
-    locationState.sync(threadId);
+    locationState.sync(threadId, {
+      previousHref: urlNavigation.href,
+      targetHref: url.pathname + url.search + url.hash,
+    });
+    void urlNavigation.push(url);
   }, [
     ready,
     currentThreadId,
@@ -279,6 +313,7 @@ export function ThreadUrlBootstrap({
     locationState,
     navigating,
     navigationSnapshot,
+    urlNavigation,
   ]);
 
   return null;
@@ -335,6 +370,7 @@ function PortalFrameContents({
 }
 
 export function PortalAomiFrame() {
+  const portalUrl = usePortalUrlNavigation();
   const { accountStatus, isReady } = useAomiWalletKit();
   const account = useRuntimeAccount();
   const [accountFrameScope, setAccountFrameScope] = useState(() => ({
@@ -413,11 +449,21 @@ export function PortalAomiFrame() {
     if (!threadUrlState.clearThreadUrl) return;
     // Account teardown already closed these chats. Do not restore their URL
     // under the new guest or account and report an intentional reset as an error.
-    const url = new URL(window.location.href);
+    const url = new URL(portalUrl.href, "http://portal.local");
     url.searchParams.delete("thread");
-    window.history.replaceState(null, "", url);
-    threadUrlState.navigation.navigate(null);
-  }, [threadUrlState]);
+    const targetHref = url.pathname + url.search + url.hash;
+    threadUrlState.navigation.navigate(
+      null,
+      targetHref === portalUrl.href
+        ? undefined
+        : {
+            previousHref: portalUrl.href,
+            targetHref,
+          },
+    );
+    if (targetHref !== portalUrl.href) void portalUrl.replace(url);
+    setThreadUrlState((current) => ({ ...current, clearThreadUrl: false }));
+  }, [threadUrlState, portalUrl]);
   const urlNavigation = useSyncExternalStore(
     threadUrlState.navigation.subscribe,
     threadUrlState.navigation.getSnapshot,
@@ -487,16 +533,20 @@ export function PortalAomiFrame() {
             backdrop still covers the sidebar and chat as one surface. */}
           {overlay === "settings" && (
             <OverlayPortal>
-              <SettingsModal
-                key={settingsTab}
-                initialTab={settingsTab}
-                onClose={() => setOverlay("none")}
-              />
+              <Suspense fallback={null}>
+                <SettingsModal
+                  key={settingsTab}
+                  initialTab={settingsTab}
+                  onClose={() => setOverlay("none")}
+                />
+              </Suspense>
             </OverlayPortal>
           )}
           {overlay === "packages" && (
             <OverlayPortal>
-              <PackagesModal onClose={() => setOverlay("none")} />
+              <Suspense fallback={null}>
+                <PackagesModal onClose={() => setOverlay("none")} />
+              </Suspense>
             </OverlayPortal>
           )}
         </AomiFrame.Root>

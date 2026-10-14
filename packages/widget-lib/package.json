@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget-lib",
-  "version": "3.0.23",
+  "version": "3.0.24",
   "description": "Deprecated Aomi widget package name. Use @aomi-labs/widget; legacy imports remain supported through 4.x and are removed in 5.0.",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,6 +33,10 @@
     "./providers/privy": {
       "types": "./dist/providers/privy.d.ts",
       "import": "./dist/providers/privy.js"
+    },
+    "./host-composition/overlays": {
+      "types": "./dist/host-composition/overlays.d.ts",
+      "import": "./dist/host-composition/overlays.js"
     },
     "./aomi-widget": {
       "types": "./dist/aomi-widget.d.ts",

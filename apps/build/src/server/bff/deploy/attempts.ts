@@ -1,5 +1,4 @@
-import "server-only";
-import { NextResponse } from "next/server";
+import "@tanstack/react-start/server-only";
 import { authorize } from "@/server/bff/auth";
 import { backendClient } from "@/server/bff/backend";
 import { buildFailures } from "@/server/bff/failures";
@@ -26,7 +25,7 @@ export async function deploymentAttemptsRoute(req: Request) {
     (input?.branch !== undefined &&
       (typeof input.branch !== "string" || input.branch.length > 120))
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "Invalid deployment request" },
       { status: 400 },
     );
@@ -45,11 +44,11 @@ export async function deploymentAttemptsRoute(req: Request) {
             })
           : null;
     if (!result)
-      return NextResponse.json(
+      return Response.json(
         { error: "Invalid deployment action" },
         { status: 400 },
       );
-    return NextResponse.json(result, {
+    return Response.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

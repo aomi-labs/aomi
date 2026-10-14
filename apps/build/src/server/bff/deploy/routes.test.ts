@@ -58,7 +58,7 @@ vi.mock("@/server/bff/failures", async () => {
   };
 });
 
-vi.mock("@aomi-labs/account", () => ({
+vi.mock("@aomi-labs/account/server", () => ({
   portalService: () => ({
     mint: vi.fn(async () => ({
       accessToken: "service-token",
@@ -68,6 +68,9 @@ vi.mock("@aomi-labs/account", () => ({
 }));
 
 beforeEach(() => {
+  vi.stubEnv("AOMI_PROXY_BACKEND_URL", "");
+  vi.stubEnv("BACKEND_URL", "");
+  vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "");
   clearDeployReadCache();
   telemetry.capture.mockReset();
   telemetry.log.mockReset();

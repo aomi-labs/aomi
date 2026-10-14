@@ -7,8 +7,10 @@ import { AppDetailPage } from "./app-detail-page";
 const push = vi.fn();
 const operateAppDetailFetch = vi.fn();
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({ navigate: ({ href }: { href: string }) => push(href) }),
 }));
 
 vi.mock("@/components/control-plane/github-session-context", () => ({

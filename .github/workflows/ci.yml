@@ -176,6 +176,8 @@ jobs:
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
@@ -209,17 +211,20 @@ jobs:
           if [ "$CHECK_BUILD" = true ]; then
             pnpm run lint:aomi-build
             pnpm run typecheck:aomi-build
-            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=output/ci/build-tests.json
+            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=../../output/ci/build-tests.json
             node scripts/check-test-results.mjs output/ci/build-tests.json
           fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run lint:landing
             pnpm run typecheck:landing
+            pnpm exec vitest run --config apps/landing/vitest.config.ts --reporter=default --reporter=json --outputFile=output/ci/landing-tests.json
+            node scripts/check-test-results.mjs output/ci/landing-tests.json
           fi
           if [ "$CHECK_TELEGRAM" = true ]; then
             pnpm run lint:telegram
             pnpm run typecheck:telegram
-            pnpm run test:telegram
+            pnpm --filter telegram test:unit --reporter=default --reporter=json --outputFile=../../output/ci/telegram-tests.json
+            node scripts/check-test-results.mjs output/ci/telegram-tests.json
           fi
 
       - name: Build affected apps

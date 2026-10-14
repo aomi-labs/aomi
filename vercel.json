@@ -226,5 +226,9 @@
       "source": "/mintlify-assets/:path+",
       "destination": "https://aomilabs.mintlify.dev/mintlify-assets/:path+"
     }
-  ]
+  ],
+  "framework": null,
+  "outputDirectory": null,
+  "buildCommand": "pnpm run vercel-build",
+  "installCommand": "pnpm install --frozen-lockfile"
 }

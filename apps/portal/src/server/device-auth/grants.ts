@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 // Durable, one-time device-login records. This module is server-only because
 // it derives an encryption key from Better Auth's deployment secret.

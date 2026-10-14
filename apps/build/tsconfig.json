@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -17,78 +13,31 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
-      "@aomi-labs/account": [
-        "../../packages/account/src/index.ts"
-      ],
-      "@aomi-labs/account/*": [
-        "../../packages/account/src/*"
-      ],
-      "@aomi-labs/client": [
-        "../../packages/client/src/index.ts"
-      ],
-      "@aomi-labs/client/*": [
-        "../../packages/client/src/*"
-      ],
-      "@aomi-labs/deploy": [
-        "../../packages/deploy/src/index.ts"
-      ],
-      "@aomi-labs/deploy/*": [
-        "../../packages/deploy/src/*"
-      ],
-      "@aomi-labs/react": [
-        "../../packages/react/src/index.ts"
-      ],
-      "@aomi-labs/react/*": [
-        "../../packages/react/src/*"
-      ],
-      "@tanstack/react-query": [
-        "./node_modules/@tanstack/react-query"
-      ],
-      "react": [
-        "./node_modules/@types/react/index.d.ts"
-      ],
-      "react/*": [
-        "./node_modules/@types/react/*"
-      ],
-      "react-dom": [
-        "./node_modules/@types/react-dom/index.d.ts"
-      ],
-      "react-dom/*": [
-        "./node_modules/@types/react-dom/*"
-      ],
-      "viem": [
-        "./node_modules/viem"
-      ],
-      "viem/*": [
-        "./node_modules/viem/*"
-      ],
-      "@/*": [
-        "./src/*"
-      ]
-    }
+      "@aomi-labs/account": ["../../packages/account/src/index.ts"],
+      "@aomi-labs/account/*": ["../../packages/account/src/*"],
+      "@aomi-labs/client": ["../../packages/client/src/index.ts"],
+      "@aomi-labs/client/*": ["../../packages/client/src/*"],
+      "@aomi-labs/deploy": ["../../packages/deploy/src/index.ts"],
+      "@aomi-labs/deploy/*": ["../../packages/deploy/src/*"],
+      "@aomi-labs/react": ["../../packages/react/src/index.ts"],
+      "@aomi-labs/react/*": ["../../packages/react/src/*"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"],
+      "viem": ["./node_modules/viem"],
+      "viem/*": ["./node_modules/viem/*"],
+      "@/*": ["./src/*"]
+    },
+    "types": ["vite/client"]
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    ".next-b/types/**/*.ts",
-    ".next-b/dev/types/**/*.ts",
-    ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts",
-    ".next-mock-integration/types/**/*.ts",
-    ".next-mock-integration/dev/types/**/*.ts"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
   "exclude": [
     "node_modules",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "src/test-navigation-link.tsx"
   ]
 }

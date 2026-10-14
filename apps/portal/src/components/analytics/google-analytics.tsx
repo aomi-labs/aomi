@@ -1,34 +1,21 @@
 "use client";
-
-import Script from "next/script";
+import { useEffect } from "react";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
-
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-
 export function GoogleAnalytics() {
   const { consent } = useCookieConsent();
-
-  if (!GA_MEASUREMENT_ID) {
-    return null;
-  }
-
-  if (consent !== "accepted") {
-    return null;
-  }
-  return (
-    <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        strategy="afterInteractive"
-      />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_MEASUREMENT_ID}');
-        `}
-      </Script>
-    </>
-  );
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID || consent !== "accepted") return;
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_MEASUREMENT_ID)}`;
+    document.head.appendChild(script);
+    const analytics = window as typeof window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void };
+    analytics.dataLayer ??= [];
+    analytics.gtag = function () { analytics.dataLayer!.push(arguments); };
+    analytics.gtag("js", new Date());
+    analytics.gtag("config", GA_MEASUREMENT_ID);
+    return () => script.remove();
+  }, [consent]);
+  return null;
 }

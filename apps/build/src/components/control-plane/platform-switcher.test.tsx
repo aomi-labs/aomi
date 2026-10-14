@@ -7,10 +7,17 @@ const { push, deploymentProjects } = vi.hoisted(() => ({
   deploymentProjects: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams(),
-  usePathname: () => "/settings/general",
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({ navigate: ({ href }: { href: string }) => push(href) }),
+  useLocation: (options: {
+    select: (location: { pathname: string; searchStr: string }) => unknown;
+  }) =>
+    options.select({
+      pathname: "/settings/general",
+      searchStr: new URLSearchParams().toString(),
+    }),
 }));
 vi.mock("@/features/deploy/client", async (importOriginal) => {
   const original =

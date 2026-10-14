@@ -5,7 +5,7 @@
 // grants for this project's apps; key management (add/rotate/remove) lives
 // on the global Providers page.
 
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { API_PATHS } from "@/lib/api-paths";
@@ -118,7 +118,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
         <p className="text-dim mt-1 text-sm">
           Providers funding this project&apos;s users — their model cost is
           waived when your key covers their selected model. Manage keys on the{" "}
-          <Link href="/providers" className="text-link hover:underline">
+          <Link to="/providers" className="text-link hover:underline">
             Providers page
           </Link>
           . App tool secrets live in Environment, not here.
@@ -190,7 +190,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
                         </button>
                       ) : (
                         <Link
-                          href="/providers"
+                          to="/providers"
                           className="text-link text-xs hover:underline"
                         >
                           Add a key

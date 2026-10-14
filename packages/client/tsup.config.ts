@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/browser-auth.ts"],
+  entry: ["src/index.ts", "src/browser-auth.ts", "src/siws-client.ts"],
   outDir: "dist",
   format: ["esm", "cjs"],
   dts: { compilerOptions: { incremental: false } },

@@ -27,7 +27,13 @@ export async function withSiweWalletApp(
     .catch(() => null)) as Record<string, unknown> | null;
   if (!body || !("walletApp" in body)) return handler(request);
   const { walletApp: app, ...rest } = body;
-  const stripped = new Request(request, { body: JSON.stringify(rest) });
+  // Node server adapters can inherit Request.prototype without its native state.
+  const stripped = new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: JSON.stringify(rest),
+    signal: request.signal,
+  });
   const name =
     typeof app === "string"
       ? app

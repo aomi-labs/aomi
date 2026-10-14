@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@aomi-labs/widget/host-composition";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
 
@@ -19,7 +19,7 @@ export function CookieConsent() {
             <p className="text-sm text-muted-foreground">
               We use cookies to understand how you use our site and improve your experience.{" "}
               <Link
-                href="/privacy"
+                to="/privacy"
                 className="text-foreground underline underline-offset-2 hover:no-underline"
               >
                 Privacy Policy

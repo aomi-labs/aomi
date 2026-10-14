@@ -5,7 +5,8 @@
  */
 export function defaultChatUrl(): string {
   const vercelEnv =
-    process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV;
+    process.env.NEXT_PUBLIC_VERCEL_ENV ??
+    (typeof process !== "undefined" ? process.env.VERCEL_ENV : undefined);
   if (vercelEnv === "production") {
     return "https://chat.aomi.dev";
   }

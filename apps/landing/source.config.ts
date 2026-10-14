@@ -14,6 +14,7 @@ import { createFileSystemTypesCache } from "fumadocs-twoslash/cache-fs";
 export const guides = defineDocs({
   dir: "content/guides",
   docs: {
+    async: true,
     schema: frontmatterSchema,
     postprocess: {
       includeProcessedMarkdown: true,
@@ -29,6 +30,7 @@ export const guides = defineDocs({
 export const examples = defineDocs({
   dir: "content/examples",
   docs: {
+    async: true,
     schema: frontmatterSchema,
   },
   meta: {
@@ -39,6 +41,7 @@ export const examples = defineDocs({
 export const playground = defineDocs({
   dir: "content/playground",
   docs: {
+    async: true,
     schema: frontmatterSchema,
   },
   meta: {

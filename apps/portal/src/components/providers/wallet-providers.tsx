@@ -20,7 +20,7 @@ import {
   robinhood,
 } from "@aomi-labs/client";
 import { ExtUserProvider } from "@aomi-labs/react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "@/lib/navigation";
 import {
   mainnet,
   arbitrum,

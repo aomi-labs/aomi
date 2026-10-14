@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@aomi-labs/widget/themes/default.css";
+@source "../../../../packages/widget/src/ui/**/*.{ts,tsx}";
+
+@font-face {
+  font-family: "geistSans";
+  src: url("/assets/fonts/geist-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "geistSans Fallback";
+  src: local("Arial");
+  ascent-override: 94.56%;
+  descent-override: 27.76%;
+  line-gap-override: 0%;
+  size-adjust: 106.28%;
+}
+
+.geist-sans {
+  --font-geist-sans: "geistSans", "geistSans Fallback";
+}
+
+/* The Mini App is styled from the Aomi design system, exactly as the portal is,
+   so the two surfaces cannot drift. Telegram's own palette is deliberately NOT
+   bridged into the tokens — only the light/dark *choice* is taken from it (see
+   `useTelegramTheme`), which keeps the app in step with the surrounding chat
+   without making it look like a different product. */
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--aomi-bg);
+  color: var(--aomi-fg);
+  font-family:
+    var(--font-geist-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  /* Telegram renders the Mini App edge to edge under the home indicator and its
+     own bottom chrome; paired with `viewport-fit=cover` this keeps the primary
+     action off both. */
+  padding:
+    env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}

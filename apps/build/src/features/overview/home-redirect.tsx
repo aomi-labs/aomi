@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 
 import { LoadingPanel } from "@/features/deploy/components/deployments/ui/state-panels";
 import { platformHref, readPlatform } from "@/features/deploy/platform";
@@ -18,9 +18,10 @@ export function HomeRedirect() {
   useEffect(() => {
     const last = getLastProjectId();
     const href = last ? `/projects/${last}` : "/projects";
-    router.replace(
-      platformHref(href, readPlatform() ?? DEFAULT_DEPLOY_PLATFORM),
-    );
+    router.navigate({
+      href: platformHref(href, readPlatform() ?? DEFAULT_DEPLOY_PLATFORM),
+      replace: true,
+    });
   }, [router]);
 
   return <LoadingPanel label="Opening projects…" />;

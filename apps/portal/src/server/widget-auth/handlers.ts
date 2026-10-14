@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import {
   claimTelegramSessionOwner,
   findAomiUserForTelegram,
@@ -7,12 +7,8 @@ import {
   signInWithTelegramProviderIdentity,
   signInWithVerifiedProviderIdentity,
 } from "@aomi-labs/account/account";
-import {
-  aomiOAuthResourcePolicy,
-  auth,
-  readManagedOAuthClient,
-  validateAomiResourceScopes,
-} from "@aomi-labs/account/better-auth";
+import { aomiOAuthResourcePolicy, readManagedOAuthClient, validateAomiResourceScopes } from "@aomi-labs/account/better-auth/core";
+import { auth } from "@/server/auth";
 import {
   createWidgetSiweChallenge,
   createWidgetSiwsChallenge,

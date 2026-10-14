@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
+import { useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Github, Sparkles } from "lucide-react";
 import { Onboarding } from "@/features/deploy/components/onboarding";
@@ -56,6 +57,7 @@ export function NewProject({
   /** `?mode=` — set once the user picks a card, so a reload stays put. */
   mode?: NewProjectMode;
 }) {
+  const { history } = useRouter();
   const [session, setSession] = useState<GitHubSessionInfo | null>(null);
   const [mode, setMode] = useState<NewProjectMode | null>(modeParam ?? null);
 
@@ -73,11 +75,10 @@ export function NewProject({
     if (resumingTemplate(platform)) setMode("template");
   }, [modeParam, platform]);
 
-  // `?mode=` can change under a mounted component: the App Router reuses this
-  // instance across a soft navigation to the same route, so a "New app" link
+  // `?mode=` can change under a mounted component: the router reuses this
+  // instance across navigation to the same route, so a "New app" link
   // that carries no mode has to return the user to the picker rather than
-  // leaving them in the flow they last chose. Only an actual change counts —
-  // our own `replaceState` below never re-renders the server component, and
+  // leaving them in the flow they last chose. Only an actual change counts;
   // reacting on mount would race the resume effect above.
   const lastModeParam = useRef(modeParam);
   useEffect(() => {
@@ -94,8 +95,12 @@ export function NewProject({
     if (url.searchParams.get("mode") === (mode ?? null)) return;
     if (mode) url.searchParams.set("mode", mode);
     else url.searchParams.delete("mode");
-    window.history.replaceState({}, "", url.toString());
-  }, [mode]);
+    history.replace(
+      url.pathname + url.search + url.hash,
+      history.location.state,
+    );
+    history.flush();
+  }, [history, mode]);
 
   return (
     <main className="bg-background text-foreground min-h-screen">

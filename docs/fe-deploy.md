@@ -37,7 +37,7 @@ the browser never holds GitHub tokens or service credentials.
 | Layer                   | What runs                                               | Holds                                                        |
 | ----------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
 | **Browser (FE client)** | React onboarding wizard                                 | nothing secret                                               |
-| **Portal BFF**          | Next.js route handlers `app/api/launch/*` (server-side) | the `aomi-bff` service signing key; resolves `app_source.id` |
+| **Portal BFF**          | TanStack Start `/api/bff/launch/*` routes (server-side) | the `aomi-bff` service signing key; resolves `app_source.id` |
 | **Backend (BE)**        | Rust service `/api/platforms/*`, `/api/integrations/*`  | GitHub App keys, DB                                          |
 
 Two distinct call patterns:
@@ -107,7 +107,7 @@ stateDiagram-v2
 sequenceDiagram
     autonumber
     actor U as User · browser (FE client)
-    participant BFF as Portal BFF (Next /api/launch/*)
+    participant BFF as Portal BFF (/api/bff/launch/*)
     participant BE as Backend (/api/platforms, /api/integrations)
     participant GH as GitHub (aomi-build App)
     participant CA as Platform CI
@@ -184,7 +184,7 @@ never touches "Use this template".
 sequenceDiagram
     autonumber
     actor U as User · browser (FE client)
-    participant BFF as Portal BFF (Next /api/launch/*)
+    participant BFF as Portal BFF (/api/bff/launch/*)
     participant BE as Backend (/api/platforms, /api/integrations)
     participant GH as GitHub (aomi-build-oneshot App)
     participant CA as Platform CI

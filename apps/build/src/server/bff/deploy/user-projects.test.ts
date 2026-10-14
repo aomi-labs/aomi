@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearDeployReadCache, userProjectsRoute } from "./routes";
 
-vi.mock("@aomi-labs/account", () => ({
+vi.mock("@aomi-labs/account/server", () => ({
   portalService: () => ({
     mint: vi.fn(async () => ({
       accessToken: "service-token",

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePrivy, useSessionSigners } from "@privy-io/react-auth";
 import type { AccountSessionProvider } from "@aomi-labs/client";
 
-import { aomiBffUrl } from "@/app/config";
+import { aomiBffUrl } from "@/lib/config";
 import { embeddedWallet, type EmbeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 

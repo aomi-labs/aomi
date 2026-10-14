@@ -1,6 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { NextResponse } from "next/server";
 import { backendClient } from "@/server/bff/backend";
 import { authorize } from "@/server/bff/auth";
 import { buildFailures } from "@/server/bff/failures";
@@ -18,7 +17,7 @@ export async function githubAppInstallationsRoute(req: Request) {
     });
     // Permission state changes out of band (an org owner accepting a
     // request on GitHub); a cached answer here would keep saying "missing".
-    return NextResponse.json(result, {
+    return Response.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
@@ -31,7 +30,7 @@ export async function githubAppInstallationsRoute(req: Request) {
         method: req.method,
       },
     }).response;
-    return NextResponse.json(
+    return Response.json(
       { error: "Couldn’t check GitHub repository access. Try again." },
       { status: failure.status },
     );

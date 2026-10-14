@@ -17,6 +17,7 @@ const SOURCE_EXTENSIONS = new Set([
 const ALLOWED_PORTAL_WIDGET_IMPORTS = new Map([
   ["@aomi-labs/widget", "index.ts"],
   ["@aomi-labs/widget/host-composition", "host-composition.ts"],
+  ["@aomi-labs/widget/host-composition/overlays", "host-overlays.ts"],
   ["@aomi-labs/widget/browser-auth", "account/browser-auth.ts"],
   ["@aomi-labs/widget/frame", "frame/aomi-frame.tsx"],
   ["@aomi-labs/widget/providers/para", "wallet/providers/para/index.ts"],

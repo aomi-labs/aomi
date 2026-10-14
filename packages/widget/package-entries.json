@@ -6,7 +6,8 @@
     "control-bar": "src/controls/index.tsx",
     "browser-auth": "src/account/browser-auth.ts",
     "providers/para": "src/wallet/providers/para/index.ts",
-    "providers/privy": "src/wallet/providers/privy/index.ts"
+    "providers/privy": "src/wallet/providers/privy/index.ts",
+    "host-composition/overlays": "src/host-overlays.ts"
   },
   "deprecated": {
     "aomi-widget": "src/frame/aomi-widget.tsx",

@@ -38,7 +38,7 @@ tail -f /tmp/aomi-backend.log
 - Uses sibling `../product-mono/run-local-backend.sh` for the Rust backend on
   `127.0.0.1:8080`.
 - Runs this repo's `apps/portal` on `127.0.0.1:3000` using
-  `apps/portal/node_modules/.bin/next`, which is the portal's Next 16 install.
+  `apps/portal/node_modules/.bin/vite`, the portal's TanStack Start (Vite + Nitro) dev server.
 - Uses the local Supabase Postgres exposed on `127.0.0.1:54322`.
 - Ensures `aomi_local` exists.
 - Applies product-mono migrations only if the backend `users` table is missing.

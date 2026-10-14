@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import {
   consumeWalletLinkNonce,
   deactivateAomiAccount,
@@ -25,14 +25,8 @@ import {
   type SignalResolution,
   type WalletFamily,
 } from "@aomi-labs/account";
-import {
-  SIWS_CLUSTERS,
-  auth,
-  readAccountAuthEnv,
-  validSolanaAddress,
-  verifySiwsMessage,
-  type SiwsCluster,
-} from "@aomi-labs/account/better-auth";
+import { SIWS_CLUSTERS, readAccountAuthEnv, validSolanaAddress, verifySiwsMessage, type SiwsCluster } from "@aomi-labs/account/better-auth/core";
+import { auth } from "@/server/auth";
 import { revokeWidgetSession } from "@aomi-labs/account/widget-auth";
 import { BACKEND_API_HEADERS, forward } from "@aomi-labs/account/forward";
 import { recoverMessageAddress } from "viem";

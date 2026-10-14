@@ -1,7 +1,8 @@
-import "server-only";
+import { appendCookie } from "@/server/http-response";
+import { redirectResponse } from "@/server/http-response";
+import "@tanstack/react-start/server-only";
 
 import { randomBytes } from "crypto";
-import { NextResponse } from "next/server";
 
 import { API_PATHS } from "@/lib/api-paths";
 import { backendClient } from "@/server/bff/backend";
@@ -77,7 +78,7 @@ export function parseCliLoginRequest(url: URL): GitHubCliLoginRequest | null {
 export async function startGitHubOAuth(
   req: Request,
   continuation: GitHubOAuthContinuation,
-): Promise<NextResponse> {
+): Promise<Response> {
   const requestUrl = new URL(req.url);
   const oauthState = randomBytes(32).toString("hex");
   const callback = new URL(
@@ -89,8 +90,9 @@ export async function startGitHubOAuth(
   authorize.searchParams.set("redirect_uri", callback.toString());
   authorize.searchParams.set("state", oauthState);
 
-  const response = NextResponse.redirect(authorize);
-  response.cookies.set(
+  const response = redirectResponse(authorize);
+  appendCookie(
+    response,
     GITHUB_OAUTH_REQUEST_COOKIE,
     await issueGitHubOAuthRequest({ oauthState, continuation }),
     OAUTH_COOKIE_OPTIONS,
@@ -126,18 +128,18 @@ export async function exchangeGitHubSession(
 export async function finishCliAuthorization(
   session: GitHubSession,
   request: GitHubCliLoginRequest,
-): Promise<NextResponse> {
+): Promise<Response> {
   const redirect = new URL(request.redirectUri);
   redirect.searchParams.set(
     "code",
     await issueGitHubCliExchange(session, request.codeChallenge),
   );
   redirect.searchParams.set("state", request.state);
-  return NextResponse.redirect(redirect);
+  return redirectResponse(redirect);
 }
 
-export function clearGitHubOAuthRequest(response: NextResponse): void {
-  response.cookies.set(GITHUB_OAUTH_REQUEST_COOKIE, "", {
+export function clearGitHubOAuthRequest(response: Response): void {
+  appendCookie(response, GITHUB_OAUTH_REQUEST_COOKIE, "", {
     ...OAUTH_COOKIE_OPTIONS,
     maxAge: 0,
   });

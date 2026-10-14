@@ -7,6 +7,8 @@
 /packages/widget-lib/ @CeciliaZ030 @arixoneth
 /scripts/check-consumer-compatibility* @CeciliaZ030 @arixoneth
 /scripts/check-frontend-boundaries* @CeciliaZ030 @arixoneth
+/scripts/build-vercel-app.mjs @CeciliaZ030 @arixoneth
+/scripts/vercel-projects.json @CeciliaZ030 @arixoneth
 /tests/contracts/ @CeciliaZ030 @arixoneth
 /tests/e2e/portal-auth-contracts.spec.ts @CeciliaZ030 @arixoneth
 /tests/e2e/visual-signing-contracts.spec.ts @CeciliaZ030 @arixoneth

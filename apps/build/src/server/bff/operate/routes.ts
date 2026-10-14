@@ -1,6 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { NextResponse } from "next/server";
 import type { FailureInput } from "@aomi-labs/observability";
 import type {
   BotRegistration,
@@ -179,7 +178,7 @@ function nothingRead(
 }
 
 function operateUnavailableResponse() {
-  return NextResponse.json(
+  return Response.json(
     { error: "Operate reads are temporarily unavailable — retry shortly." },
     { status: 503 },
   );
@@ -204,7 +203,7 @@ function botCommandConfig(body: {
       commandEndpoint?: string | null;
       commands?: string[];
     }
-  | { response: NextResponse } {
+  | { response: Response } {
   const url = (value: unknown) =>
     value === undefined || value === null || typeof value === "string";
   if (
@@ -215,7 +214,7 @@ function botCommandConfig(body: {
         body.commands.some((command) => typeof command !== "string")))
   ) {
     return {
-      response: NextResponse.json(
+      response: Response.json(
         { error: "invalid bot command config" },
         { status: 400 },
       ),
@@ -475,7 +474,7 @@ async function operateSession(
     const platform = resolveDeployPlatform(requestedPlatform, config);
     if (!platform) {
       return {
-        response: NextResponse.json(
+        response: Response.json(
           { error: "missing or invalid `platform`" },
           { status: 400 },
         ),
@@ -539,7 +538,7 @@ async function ownedSources(
     const requestedProjectId = Number(params.get("projectId"));
     if (!isValidProjectId(requestedProjectId)) {
       return {
-        response: NextResponse.json(
+        response: Response.json(
           { error: "missing or invalid `projectId`" },
           { status: 400 },
         ),
@@ -550,7 +549,7 @@ async function ownedSources(
     );
     if (!project) {
       return {
-        response: NextResponse.json(
+        response: Response.json(
           { error: "project not found for this user" },
           { status: 404 },
         ),
@@ -628,7 +627,7 @@ export async function operateBotsRoute(req: Request) {
     const bots = await owned.client.listUserBots({
       githubUserId: owned.githubUserId,
     });
-    return NextResponse.json({
+    return Response.json({
       projects: owned.projects,
       bots,
     });
@@ -659,7 +658,7 @@ export async function operateBotsCreateRoute(req: Request) {
     body.applicationIds.some((id) => typeof id !== "number") ||
     typeof body.handoverApplicationId !== "number"
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid app mappings" },
       { status: 400 },
     );
@@ -667,10 +666,7 @@ export async function operateBotsCreateRoute(req: Request) {
   const commandConfig = botCommandConfig(body);
   if ("response" in commandConfig) return commandConfig.response;
   if (typeof body.credential !== "string" || !body.credential.trim()) {
-    return NextResponse.json(
-      { error: "missing `credential`" },
-      { status: 400 },
-    );
+    return Response.json({ error: "missing `credential`" }, { status: 400 });
   }
   const allowedApplicationIds = new Set(
     owned.projects.flatMap((source) =>
@@ -679,7 +675,7 @@ export async function operateBotsCreateRoute(req: Request) {
   );
   const applicationIds = body.applicationIds as number[];
   if (new Set(applicationIds).size !== applicationIds.length) {
-    return NextResponse.json(
+    return Response.json(
       { error: "`applicationIds` must be unique" },
       { status: 400 },
     );
@@ -688,7 +684,7 @@ export async function operateBotsCreateRoute(req: Request) {
     !applicationIds.every((id) => allowedApplicationIds.has(id)) ||
     !applicationIds.includes(body.handoverApplicationId)
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "selected apps are not owned by this user" },
       { status: 403 },
     );
@@ -706,7 +702,7 @@ export async function operateBotsCreateRoute(req: Request) {
         typeof body.threadMode === "string" ? body.threadMode : undefined,
       ...commandConfig,
     });
-    return NextResponse.json({ bot }, { status: 201 });
+    return Response.json({ bot }, { status: 201 });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.bots_create", err),
@@ -721,14 +717,14 @@ export async function operateBotsDeleteRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const botId = params.get("botId");
   if (!botId) {
-    return NextResponse.json({ error: "missing `botId`" }, { status: 400 });
+    return Response.json({ error: "missing `botId`" }, { status: 400 });
   }
   try {
     await owned.client.deleteUserBot({
       githubUserId: owned.githubUserId,
       botId,
     });
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.bots_delete", err),
@@ -755,7 +751,7 @@ export async function operateBotsUpdateRoute(req: Request) {
     body.applicationIds.some((id) => typeof id !== "number") ||
     typeof body.handoverApplicationId !== "number"
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "invalid bot mapping update" },
       { status: 400 },
     );
@@ -768,10 +764,7 @@ export async function operateBotsUpdateRoute(req: Request) {
     body.threadMode !== "single" &&
     body.threadMode !== "multi"
   ) {
-    return NextResponse.json(
-      { error: "invalid `threadMode`" },
-      { status: 400 },
-    );
+    return Response.json({ error: "invalid `threadMode`" }, { status: 400 });
   }
   const allowed = new Set(
     owned.projects.flatMap((source) =>
@@ -780,7 +773,7 @@ export async function operateBotsUpdateRoute(req: Request) {
   );
   const applicationIds = body.applicationIds as number[];
   if (new Set(applicationIds).size !== applicationIds.length) {
-    return NextResponse.json(
+    return Response.json(
       { error: "`applicationIds` must be unique" },
       { status: 400 },
     );
@@ -789,7 +782,7 @@ export async function operateBotsUpdateRoute(req: Request) {
     !applicationIds.every((id) => allowed.has(id)) ||
     !applicationIds.includes(body.handoverApplicationId)
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "selected apps are not owned by this user" },
       { status: 403 },
     );
@@ -805,7 +798,7 @@ export async function operateBotsUpdateRoute(req: Request) {
       threadMode: body.threadMode,
       ...commandConfig,
     });
-    return NextResponse.json({
+    return Response.json({
       bot,
       ...(webhookWarning ? { webhookWarning } : {}),
     });
@@ -827,14 +820,14 @@ export async function operateBotsCommandSecretRoute(req: Request) {
     segments[segments.indexOf("bots") + 1] ?? "",
   );
   if (!botId || botId === "command-secret") {
-    return NextResponse.json({ error: "missing `botId`" }, { status: 400 });
+    return Response.json({ error: "missing `botId`" }, { status: 400 });
   }
   try {
     const { commandSecret } = await owned.client.revealUserBotCommandSecret({
       githubUserId: owned.githubUserId,
       botId,
     });
-    return NextResponse.json(
+    return Response.json(
       { commandSecret },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -857,14 +850,14 @@ export async function operateBotsWebhookRoute(req: Request) {
     segments[segments.indexOf("bots") + 1] ?? "",
   );
   if (!botId || botId === "webhook") {
-    return NextResponse.json({ error: "missing `botId`" }, { status: 400 });
+    return Response.json({ error: "missing `botId`" }, { status: 400 });
   }
   try {
     const webhook = await owned.client.checkUserBotWebhook({
       githubUserId: owned.githubUserId,
       botId,
     });
-    return NextResponse.json(
+    return Response.json(
       { webhook },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -887,7 +880,7 @@ export async function operateModelKeysRoute(req: Request) {
       githubUserId: owned.githubUserId,
       platform: owned.platform,
     });
-    return NextResponse.json({ projects: owned.projects, keys });
+    return Response.json({ projects: owned.projects, keys });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.model_keys_read", err),
@@ -907,13 +900,13 @@ export async function operateModelKeysSaveRoute(req: Request) {
     label?: unknown;
   };
   if (typeof body.provider !== "string" || !body.provider.trim()) {
-    return NextResponse.json({ error: "missing `provider`" }, { status: 400 });
+    return Response.json({ error: "missing `provider`" }, { status: 400 });
   }
   if (typeof body.key !== "string" || !body.key.trim()) {
-    return NextResponse.json({ error: "missing `key`" }, { status: 400 });
+    return Response.json({ error: "missing `key`" }, { status: 400 });
   }
   if (body.keyId !== undefined && typeof body.keyId !== "number") {
-    return NextResponse.json({ error: "invalid `keyId`" }, { status: 400 });
+    return Response.json({ error: "invalid `keyId`" }, { status: 400 });
   }
 
   try {
@@ -925,7 +918,7 @@ export async function operateModelKeysSaveRoute(req: Request) {
       key: body.key.trim(),
       label: typeof body.label === "string" ? body.label : undefined,
     });
-    return NextResponse.json({ key }, { status: 201 });
+    return Response.json({ key }, { status: 201 });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.model_keys_save", err),
@@ -947,7 +940,7 @@ export async function operateModelKeysGrantsRoute(req: Request) {
     !Array.isArray(body.applicationIds) ||
     body.applicationIds.some((id) => typeof id !== "number")
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `keyId` / `applicationIds`" },
       { status: 400 },
     );
@@ -960,7 +953,7 @@ export async function operateModelKeysGrantsRoute(req: Request) {
       keyId: body.keyId,
       applicationIds: body.applicationIds as number[],
     });
-    return NextResponse.json({ key });
+    return Response.json({ key });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.model_keys_grants", err),
@@ -975,7 +968,7 @@ export async function operateModelKeysDeleteRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const keyId = Number(params.get("keyId"));
   if (!Number.isFinite(keyId) || keyId <= 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `keyId`" },
       { status: 400 },
     );
@@ -987,7 +980,7 @@ export async function operateModelKeysDeleteRoute(req: Request) {
       platform: owned.platform,
       keyId,
     });
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.model_keys_delete", err),
@@ -1228,7 +1221,7 @@ export async function operateTransactionsRoute(req: Request) {
     const transactions = [...visibleAppTransactions, ...payouts].sort(
       (a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id),
     );
-    return NextResponse.json({
+    return Response.json({
       // Every source the account owns, not just the ones this read covered:
       // the filter dropdown is how a user loads one source on its own.
       projects: owned.projects,
@@ -1348,7 +1341,7 @@ export async function operateUsageRoute(req: Request) {
     const statements = allStatements.filter((statement) => statement.available);
     const sum = (pick: (s: OperateStatementResult) => number) =>
       statements.reduce((total, statement) => total + pick(statement), 0);
-    return NextResponse.json({
+    return Response.json({
       // Every source the account owns, not just the ones this read covered:
       // the filter dropdown is how a user retries a dropped source on its own.
       projects: owned.projects,
@@ -1456,7 +1449,7 @@ export async function operateLogsRoute(req: Request) {
       const sourceById = new Map(
         batch.projects.map((ref) => [ref.project.id, ref.project]),
       );
-      return NextResponse.json({
+      return Response.json({
         projects,
         // The merged stream covers every platform the account owns; narrow it
         // to the selected one. Account-level rows (a shared partner
@@ -1541,7 +1534,7 @@ export async function operateLogsRoute(req: Request) {
     const cursorRows = visible.flatMap((log) =>
       log.cursorSources.map((project) => ({ ...log, project })),
     );
-    return NextResponse.json({
+    return Response.json({
       // Every source the account owns, not just the ones this read covered:
       // the filter dropdown is how a user retries a dropped source on its own.
       projects: owned.projects,
@@ -1597,7 +1590,7 @@ export async function operateObservabilityRoute(req: Request) {
         platform: result.platform,
       })),
     );
-    return NextResponse.json({
+    return Response.json({
       // Every source on this platform, not just the ones this read covered:
       // the filter dropdown is how a user loads one source on its own.
       projects,
@@ -1645,7 +1638,7 @@ export async function operatePaymentsRoute(req: Request) {
       ),
       scope.platformProjects(),
     ]);
-    return NextResponse.json({
+    return Response.json({
       payments: mergedPartnerPayments(
         onPlatform(results, platformProjectIds(projects)),
       ),
@@ -1661,7 +1654,7 @@ export async function operateAppDetailRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const applicationId = Number(params.get("applicationId"));
   if (!isValidProjectId(applicationId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `applicationId`" },
       { status: 400 },
     );
@@ -1708,7 +1701,7 @@ export async function operateAppDetailRoute(req: Request) {
         ),
       ]);
 
-    return NextResponse.json({
+    return Response.json({
       detail,
       health:
         observability.apps.find((app) => app.applicationId === applicationId) ??

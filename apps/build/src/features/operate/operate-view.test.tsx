@@ -1,4 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import {
+  createBrowserHistory,
+  type RouterHistory,
+} from "@tanstack/react-router";
 import {
   fireEvent,
   render as rtlRender,
@@ -13,10 +17,24 @@ import { OperateView } from "./operate-view";
 const operateFetch = vi.fn();
 const operatePaymentsFetch = vi.fn();
 const searchParams = { current: new URLSearchParams("") };
+let history: RouterHistory;
 
-vi.mock("next/navigation", () => ({
-  useSearchParams: () => searchParams.current,
-  useRouter: () => ({ prefetch: vi.fn() }),
+beforeEach(() => {
+  history = createBrowserHistory();
+});
+afterEach(() => history.destroy());
+
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useLocation: (options: {
+    select: (location: { pathname: string; searchStr: string }) => unknown;
+  }) =>
+    options.select({
+      pathname: "/projects",
+      searchStr: searchParams.current.toString(),
+    }),
+  useRouter: () => ({ preloadRoute: vi.fn(), history }),
 }));
 
 vi.mock("@/components/control-plane/github-session-context", () => ({

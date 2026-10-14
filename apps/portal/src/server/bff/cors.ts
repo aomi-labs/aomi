@@ -1,7 +1,5 @@
-import {
-  listManagedWidgetOrigins,
-  readManagedOAuthClient,
-} from "@aomi-labs/account/better-auth";
+import { listManagedWidgetOrigins, readManagedOAuthClient } from "@aomi-labs/account/better-auth/core";
+
 import { observedWidgetOrigin } from "@aomi-labs/account/widget-auth";
 
 import { portalOrigins } from "@/server/env";

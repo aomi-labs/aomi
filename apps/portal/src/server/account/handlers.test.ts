@@ -14,7 +14,7 @@ const service = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@aomi-labs/account/account", () => service);
 vi.mock("@aomi-labs/account", () => ({ mintAccountBearer: vi.fn() }));
-vi.mock("@aomi-labs/account/better-auth", () => ({
+vi.mock("@/server/auth", () => ({
   SIWS_CLUSTERS: ["solana:mainnet", "solana:devnet", "solana:testnet"],
   auth: { api: {} },
   readAccountAuthEnv: () => ({
@@ -196,3 +196,14 @@ describe("account merge handlers", () => {
     expect(await response.json()).toEqual({ error: "merge_ticket_invalid" });
   });
 });
+
+vi.mock("@aomi-labs/account/better-auth/core", () => ({
+  SIWS_CLUSTERS: ["solana:mainnet", "solana:devnet", "solana:testnet"],
+  auth: { api: {} },
+  readAccountAuthEnv: () => ({
+    siweDomain: "portal.test",
+    betterAuthUrl: "https://portal.test",
+  }),
+  validSolanaAddress: () => true,
+  verifySiwsMessage: vi.fn(),
+}));

@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { productionDeployment } from "@/server/env";
 
 // One-shot App OAuth client ids (app index 2). Both the browser UI and CLI

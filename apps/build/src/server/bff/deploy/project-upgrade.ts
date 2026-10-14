@@ -1,6 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { NextResponse } from "next/server";
 import { backendClient } from "@/server/bff/backend";
 import { clearDeployReadCache } from "./routes";
 import { authorize } from "@/server/bff/auth";
@@ -17,7 +16,7 @@ export async function projectSdkUpgradeRoute(req: Request) {
       : undefined,
   );
   if (!Number.isSafeInteger(projectId) || projectId <= 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -32,7 +31,7 @@ export async function projectSdkUpgradeRoute(req: Request) {
     // The upgrade mutates the project repo; the merged PR changes the
     // project's stamped SDK version, which the cached project list carries.
     clearDeployReadCache();
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
     return buildFailures.handle({
       source: "launch",
@@ -60,7 +59,7 @@ export async function projectSdkUpgradeStatusRoute(req: Request) {
     new URL(req.url).searchParams.get("projectId") ?? undefined,
   );
   if (!Number.isSafeInteger(projectId) || projectId <= 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -72,7 +71,7 @@ export async function projectSdkUpgradeStatusRoute(req: Request) {
       projectId,
       githubUserId: session.githubUserId,
     });
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
     return buildFailures.handle({
       source: "launch",

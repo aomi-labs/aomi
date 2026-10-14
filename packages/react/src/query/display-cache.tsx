@@ -9,7 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { QueryClient, useQuery, type QueryKey } from "@tanstack/react-query";
+import {
+  QueryClient,
+  useQuery,
+  type QueryKey,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import type { AomiClient } from "@aomi-labs/client";
 import {
   persistDisplayCache,
@@ -230,7 +235,9 @@ export function DisplayCacheProvider({
 }
 
 /** A widget passes its own client explicitly: host/wagmi Query defaults never leak in. */
-export function useDisplayQuery<T>(query: DisplayQuery<T>) {
+export function useDisplayQuery<T>(
+  query: DisplayQuery<T>,
+): UseQueryResult<T, Error> {
   const runtime = useAomiDisplayCache();
   // Standalone settings components need no host provider.
   const [standalone] = useState(createDisplayQueryClient);

@@ -48,4 +48,4 @@ export declare function DisplayCacheProvider({ backendUrl, applicationId, accoun
     children: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
 /** A widget passes its own client explicitly: host/wagmi Query defaults never leak in. */
-export declare function useDisplayQuery<T>(query: DisplayQuery<T>): import("@tanstack/react-query").UseQueryResult<import("@tanstack/react-query").NoInfer<T>, Error>;
+export declare function useDisplayQuery<T>(query: DisplayQuery<T>): import("@tanstack/react-query").UseQueryResult<T, Error>;

@@ -1,8 +1,7 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { ownedProject } from "@aomi-labs/deploy/bff";
 
 import { randomBytes } from "crypto";
-import { NextResponse } from "next/server";
 import { backendClient } from "@/server/bff/backend";
 import { TimedPromiseCache } from "@/server/bff/timed-promise-cache";
 import { buildFailures } from "@/server/bff/failures";
@@ -149,8 +148,8 @@ function requestedPlatformFromUrl(
   );
 }
 
-function invalidPlatformResponse(): NextResponse {
-  return NextResponse.json(
+function invalidPlatformResponse(): Response {
+  return Response.json(
     { error: "unknown or unavailable `platform`" },
     { status: 400 },
   );
@@ -167,13 +166,10 @@ export function deployRoute(preflight: boolean) {
       unknown
     >;
     if (body.projectId !== undefined && !isValidProjectId(body.projectId)) {
-      return NextResponse.json(
-        { error: "invalid `projectId`" },
-        { status: 400 },
-      );
+      return Response.json({ error: "invalid `projectId`" }, { status: 400 });
     }
     if (body.repo !== undefined && !isValidRepo(body.repo)) {
-      return NextResponse.json({ error: "invalid `repo`" }, { status: 400 });
+      return Response.json({ error: "invalid `repo`" }, { status: 400 });
     }
     const repo = isValidRepo(body.repo) ? body.repo : undefined;
 
@@ -192,7 +188,7 @@ export function deployRoute(preflight: boolean) {
           body.projectId,
         );
         if (!project) {
-          return NextResponse.json(
+          return Response.json(
             { error: "project not found for this user" },
             { status: 404 },
           );
@@ -208,7 +204,7 @@ export function deployRoute(preflight: boolean) {
             repo.toLowerCase(),
         );
         if (!project) {
-          return NextResponse.json(
+          return Response.json(
             {
               error:
                 "repository is not connected as a Project; run `aomi-build project create` first",
@@ -218,7 +214,7 @@ export function deployRoute(preflight: boolean) {
         }
         projectId = project.id;
       } else {
-        return NextResponse.json(
+        return Response.json(
           {
             error: preflight
               ? "missing `projectId` or `repo`"
@@ -229,7 +225,7 @@ export function deployRoute(preflight: boolean) {
       }
 
       if (!preflight && !deploySourceRef) {
-        return NextResponse.json(
+        return Response.json(
           { error: "missing source commit from preflight" },
           { status: 400 },
         );
@@ -253,7 +249,7 @@ export function deployRoute(preflight: boolean) {
       const projectUrl = new URL(`/projects/${projectId}`, req.url);
       projectUrl.searchParams.set("tab", "deployments");
       const targets = deploymentTargets(deployment);
-      return NextResponse.json(
+      return Response.json(
         {
           ok: true,
           repo: deployment.source.repositoryLink ?? repo,
@@ -294,7 +290,7 @@ export async function createRepoRoute(req: Request) {
       repoName?: string;
     };
     if (!isValidInstallationId(body.installationId)) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing or invalid `installationId`" },
         { status: 400 },
       );
@@ -314,12 +310,12 @@ export async function createRepoRoute(req: Request) {
     });
     clearDeployReadCache();
     if (!project.repositoryLink || !project.installationId) {
-      return NextResponse.json(
+      return Response.json(
         { error: "backend did not return a created project" },
         { status: 502 },
       );
     }
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       repo: project.repositoryLink,
       installationId: String(project.installationId),
@@ -342,7 +338,7 @@ export async function deploymentStatusRoute(req: Request) {
 
   const deploymentId = new URL(req.url).searchParams.get("deploymentId");
   if (!isValidDeploymentId(deploymentId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `deploymentId`" },
       { status: 400 },
     );
@@ -364,7 +360,7 @@ export async function deploymentStatusRoute(req: Request) {
       deploymentId,
       githubUserId: session.githubUserId,
     });
-    return NextResponse.json({
+    return Response.json({
       ...result,
       releaseTags: deploymentTargets(result.deployment).map(
         (target) => target.releaseTag,
@@ -392,13 +388,13 @@ export async function activateRoute(req: Request) {
       platform?: unknown;
     };
     if (!isValidReleaseTags(body.releaseTags)) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing or invalid `releaseTags`" },
         { status: 400 },
       );
     }
     if (!isValidProjectId(body.projectId)) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing or invalid `projectId`" },
         { status: 400 },
       );
@@ -407,7 +403,7 @@ export async function activateRoute(req: Request) {
       !Array.isArray(body.apps) ||
       !body.apps.every((app) => typeof app === "string")
     ) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing or invalid `apps`" },
         { status: 400 },
       );
@@ -416,7 +412,7 @@ export async function activateRoute(req: Request) {
     const releaseTags = body.releaseTags;
     const apps = body.apps.map((app) => app.trim()).filter(Boolean);
     if (apps.length === 0 || apps.length !== releaseTags.length) {
-      return NextResponse.json(
+      return Response.json(
         { error: "`apps` must match `releaseTags` length" },
         { status: 400 },
       );
@@ -430,7 +426,7 @@ export async function activateRoute(req: Request) {
       body.projectId,
     );
     if (!project) {
-      return NextResponse.json(
+      return Response.json(
         { error: "project not found for this user" },
         { status: 404 },
       );
@@ -446,7 +442,7 @@ export async function activateRoute(req: Request) {
       pairs,
     });
     if (Object.keys(missingByApp).length > 0) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing required secrets", missing: missingByApp },
         { status: 409 },
       );
@@ -459,7 +455,7 @@ export async function activateRoute(req: Request) {
       actor: session.githubLogin,
     });
     clearDeployReadCache();
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -476,7 +472,7 @@ export async function projectAppsRoute(req: Request) {
 
   const projectId = Number(new URL(req.url).searchParams.get("projectId"));
   if (!isValidProjectId(projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -490,7 +486,7 @@ export async function projectAppsRoute(req: Request) {
       projectId,
     );
     if (!owner) {
-      return NextResponse.json(
+      return Response.json(
         { error: "project not found for this user" },
         { status: 404 },
       );
@@ -499,7 +495,7 @@ export async function projectAppsRoute(req: Request) {
       githubUserId: session.githubUserId,
       projectId: owner.id,
     });
-    return NextResponse.json(launchAppStatusesResult(owner.id, result.apps));
+    return Response.json(launchAppStatusesResult(owner.id, result.apps));
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -516,7 +512,7 @@ export async function sdkStatusRoute(req: Request) {
       timedManagerRead("server_tags", () => client.serverTags()),
     );
     const requiredVersion = status.sdkVersion;
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       serverTags: status.serverTags,
       sdkStatus: {
@@ -543,7 +539,7 @@ export async function deploymentHistoryRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const projectId = Number(params.get("projectId"));
   if (!isValidProjectId(projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -557,7 +553,7 @@ export async function deploymentHistoryRoute(req: Request) {
       projectId,
       limit: Number.isSafeInteger(limit) && limit > 0 ? limit : undefined,
     });
-    return NextResponse.json({ deployments });
+    return Response.json({ deployments });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -582,7 +578,7 @@ export async function deploymentFeedRoute(req: Request) {
     limit > 100 ||
     (cursorCreatedAt === null) !== (cursorId === null)
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "invalid deployment feed pagination" },
       { status: 400 },
     );
@@ -596,7 +592,7 @@ export async function deploymentFeedRoute(req: Request) {
     (!Number.isSafeInteger(cursor.createdAt) ||
       !Number.isSafeInteger(cursor.id))
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "invalid deployment feed cursor" },
       { status: 400 },
     );
@@ -610,7 +606,7 @@ export async function deploymentFeedRoute(req: Request) {
       limit,
       cursor,
     });
-    return NextResponse.json(page);
+    return Response.json(page);
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -627,7 +623,7 @@ export async function deploymentSecretsRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const applicationId = Number(params.get("applicationId"));
   if (!isValidApplicationId(applicationId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `applicationId`" },
       { status: 400 },
     );
@@ -642,7 +638,7 @@ export async function deploymentSecretsRoute(req: Request) {
     const { byApp } = await client.listAppSecrets({
       applicationId,
     });
-    return NextResponse.json({
+    return Response.json({
       byApp: { [application.name]: byApp[application.name] ?? [] },
     });
   } catch (err) {
@@ -664,7 +660,7 @@ export async function deploymentSecretsWriteRoute(req: Request) {
     secrets?: unknown;
   };
   if (!isValidApplicationId(body.applicationId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `applicationId`" },
       { status: 400 },
     );
@@ -680,7 +676,7 @@ export async function deploymentSecretsWriteRoute(req: Request) {
     }
   }
   if (Object.keys(secrets).length === 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: "no valid secrets provided" },
       { status: 400 },
     );
@@ -697,7 +693,7 @@ export async function deploymentSecretsWriteRoute(req: Request) {
       app: application.name,
       secrets,
     });
-    return NextResponse.json(
+    return Response.json(
       { ok: true, keys: Object.keys(handles) },
       { status: 202 },
     );
@@ -721,10 +717,10 @@ export async function deploymentSecretsDeleteRoute(req: Request) {
   };
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name) {
-    return NextResponse.json({ error: "missing `name`" }, { status: 400 });
+    return Response.json({ error: "missing `name`" }, { status: 400 });
   }
   if (!isValidApplicationId(body.applicationId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `applicationId`" },
       { status: 400 },
     );
@@ -740,7 +736,7 @@ export async function deploymentSecretsDeleteRoute(req: Request) {
       applicationId: body.applicationId,
       name,
     });
-    return NextResponse.json({ ok: true, removed });
+    return Response.json({ ok: true, removed });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -757,11 +753,11 @@ export async function deploymentRecordsRoute(req: Request) {
   const params = new URL(req.url).searchParams;
   const app = params.get("app")?.trim();
   if (!app) {
-    return NextResponse.json({ error: "missing `app`" }, { status: 400 });
+    return Response.json({ error: "missing `app`" }, { status: 400 });
   }
   const projectId = Number(params.get("projectId"));
   if (!isValidProjectId(projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -775,7 +771,7 @@ export async function deploymentRecordsRoute(req: Request) {
       projectId,
     );
     if (!project || !project.apps.some((candidate) => candidate.name === app)) {
-      return NextResponse.json(
+      return Response.json(
         { error: "app not found for this user" },
         { status: 404 },
       );
@@ -785,7 +781,7 @@ export async function deploymentRecordsRoute(req: Request) {
       app,
       projectId,
     });
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -808,13 +804,13 @@ export async function deploymentPromoteRoute(req: Request) {
     platform?: unknown;
   };
   if (!isValidDeploymentId(body.deploymentId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `deploymentId`" },
       { status: 400 },
     );
   }
   if (!isValidProjectId(body.projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -838,7 +834,7 @@ export async function deploymentPromoteRoute(req: Request) {
       projectId,
     );
     if (!project) {
-      return NextResponse.json(
+      return Response.json(
         { error: "project not found for this user" },
         { status: 404 },
       );
@@ -849,7 +845,7 @@ export async function deploymentPromoteRoute(req: Request) {
       deploymentId,
     });
     if (!deployment) {
-      return NextResponse.json(
+      return Response.json(
         { error: "deployment does not belong to this project" },
         { status: 404 },
       );
@@ -865,7 +861,7 @@ export async function deploymentPromoteRoute(req: Request) {
         : [],
     );
     if (pairs.length !== selectedApps.length) {
-      return NextResponse.json(
+      return Response.json(
         { error: "deployment does not contain all requested apps" },
         { status: 404 },
       );
@@ -877,7 +873,7 @@ export async function deploymentPromoteRoute(req: Request) {
       pairs,
     });
     if (Object.keys(missingByApp).length > 0) {
-      return NextResponse.json(
+      return Response.json(
         { error: "missing required secrets", missing: missingByApp },
         { status: 409 },
       );
@@ -895,7 +891,7 @@ export async function deploymentPromoteRoute(req: Request) {
       actor,
     });
     clearDeployReadCache();
-    return NextResponse.json(result, { status: result.ok ? 202 : 409 });
+    return Response.json(result, { status: result.ok ? 202 : 409 });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -917,7 +913,7 @@ export async function deploymentDeactivateRoute(req: Request) {
     platform?: unknown;
   };
   if (!isValidProjectId(body.projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -927,7 +923,7 @@ export async function deploymentDeactivateRoute(req: Request) {
       ? body.apps.map((a) => a.trim()).filter(Boolean)
       : [];
   if (apps.length === 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `apps`" },
       { status: 400 },
     );
@@ -942,7 +938,7 @@ export async function deploymentDeactivateRoute(req: Request) {
       body.projectId,
     );
     if (!project) {
-      return NextResponse.json(
+      return Response.json(
         { error: "project not found for this user" },
         { status: 404 },
       );
@@ -956,7 +952,7 @@ export async function deploymentDeactivateRoute(req: Request) {
       return application ? [application] : [];
     });
     if (applications.length !== apps.length) {
-      return NextResponse.json(
+      return Response.json(
         { error: "application not found in project" },
         { status: 404 },
       );
@@ -970,7 +966,7 @@ export async function deploymentDeactivateRoute(req: Request) {
       });
     }
     clearDeployReadCache();
-    return NextResponse.json({ ok: true, apps }, { status: 202 });
+    return Response.json({ ok: true, apps }, { status: 202 });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
@@ -987,7 +983,7 @@ export async function redeployRoute(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (!isValidProjectId(body.projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -1002,7 +998,7 @@ export async function redeployRoute(req: Request) {
       body.projectId,
     );
     if (!project) {
-      return NextResponse.json(
+      return Response.json(
         { error: "project not found for this user" },
         { status: 404 },
       );
@@ -1013,7 +1009,7 @@ export async function redeployRoute(req: Request) {
     });
     const deploymentId = latest?.deploymentId ?? null;
     if (!deploymentId) {
-      return NextResponse.json(
+      return Response.json(
         {
           error:
             "No backend-owned deployment is available for this project yet; refusing to reuse Deploy because GitHub can skip tree-identical pushes.",
@@ -1030,7 +1026,7 @@ export async function redeployRoute(req: Request) {
       githubUserId: session.githubUserId,
     });
     clearDeployReadCache();
-    return NextResponse.json({
+    return Response.json({
       ok: rerun.ok,
       projectId: body.projectId,
       platformRepo: latest?.platformRepo ?? null,
@@ -1072,10 +1068,7 @@ export async function userProjectsRoute(req: Request) {
     const projectId =
       requestedProjectId === null ? undefined : Number(requestedProjectId);
     if (projectId !== undefined && !isValidProjectId(projectId)) {
-      return NextResponse.json(
-        { error: "invalid `projectId`" },
-        { status: 400 },
-      );
+      return Response.json({ error: "invalid `projectId`" }, { status: 400 });
     }
     // Platform is a list filter only. Once the caller supplies a canonical
     // Project ID, ownership and platform binding come from that Project.
@@ -1136,7 +1129,7 @@ export async function userProjectsRoute(req: Request) {
               },
             ),
           ];
-    return NextResponse.json({
+    return Response.json({
       projects,
       githubLogin: session.githubLogin,
     });
@@ -1159,7 +1152,7 @@ export async function requiredSecretsRoute(req: Request) {
 
   const projectId = Number(new URL(req.url).searchParams.get("projectId"));
   if (!isValidProjectId(projectId)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "missing or invalid `projectId`" },
       { status: 400 },
     );
@@ -1194,11 +1187,11 @@ export async function requiredSecretsRoute(req: Request) {
       ),
     );
 
-    return NextResponse.json({ byApp: Object.fromEntries(entries) });
+    return Response.json({ byApp: Object.fromEntries(entries) });
   } catch (err) {
     if (err instanceof BackendError) {
       if (err.status === 404) {
-        return NextResponse.json(
+        return Response.json(
           { error: "project not found for this user" },
           { status: 404 },
         );

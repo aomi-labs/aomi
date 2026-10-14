@@ -1,19 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import {
+  UrlLink as Link,
+  urlLinkOptions,
+  type UrlLinkProps,
+} from "@/components/url-link";
+import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ComponentProps } from "react";
 
 import { useGitHubSession } from "./github-session-context";
 import { prefetchControlPlaneRoute } from "./prefetch-control-plane-route";
 import { githubAccountKey } from "@/features/deploy/query-keys";
 
-type ControlPlaneLinkProps = Omit<
-  ComponentProps<typeof Link>,
-  "href" | "prefetch"
-> & {
-  href: string;
+type ControlPlaneLinkProps = Omit<UrlLinkProps, "preload"> & {
   warmOnIntent?: boolean;
 };
 
@@ -30,19 +29,19 @@ export function ControlPlaneLink({
 
   const warmRoute = () => {
     if (!warmOnIntent) return;
-    const dataPrefetched = prefetchControlPlaneRoute(
+    prefetchControlPlaneRoute(
       queryClient,
       href,
       githubAccountKey(account.githubLogin),
     );
-    if (!dataPrefetched) router.prefetch(href);
+    void router.preloadRoute(urlLinkOptions(href));
   };
 
   return (
     <Link
       {...props}
       href={href}
-      prefetch={false}
+      preload={false}
       onMouseEnter={(event) => {
         warmRoute();
         onMouseEnter?.(event);

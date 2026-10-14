@@ -8,8 +8,12 @@ const attemptMocks = vi.hoisted(() => ({
   push: vi.fn(),
   attempts: [] as Array<{ id: number; status: string; conclusion: unknown }>,
 }));
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: attemptMocks.push }),
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({
+    navigate: ({ href }: { href: string }) => attemptMocks.push(href),
+  }),
 }));
 vi.mock("./use-deployment-attempts", () => ({
   useDeploymentAttempts: () => ({

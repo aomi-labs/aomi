@@ -8,6 +8,9 @@ sources_of_truth:
   - package.json
   - pnpm-workspace.yaml
   - apps/landing/package.json
+  - apps/portal/package.json
+  - apps/build/package.json
+  - apps/telegram/package.json
   - packages/widget/package.json
   - packages/client/package.json
   - packages/react/package.json
@@ -23,14 +26,24 @@ sources_of_truth:
 - `packages/react` publishes `@aomi-labs/react`, the headless runtime and context layer.
 - `packages/client` publishes `@aomi-labs/client`, the platform-agnostic client plus the `aomi` CLI binary.
 - `packages/widget` publishes `@aomi-labs/widget`, the UI layer and shadcn-style registry surface.
-- `apps/landing`, `apps/base`, `apps/portal`, and `apps/telegram` are validation and integration apps that consume the workspace packages.
+- `apps/landing`, `apps/portal`, `apps/build`, and `apps/telegram` are the deployed app hosts. All four consume workspace packages through TanStack Start, Router, and Query, with Vite and Nitro. Other apps and examples provide validation surfaces.
+- `examples/embed-next` and the published compatibility/theme utilities keep their Next integration; they are not deployed app hosts.
 
 ## Common Build Flows
 
 - `pnpm run build:client` builds only the client package.
-- `pnpm run build:packages` builds the client, react runtime, and registry packages.
-- `pnpm run build:apps` builds the main app surfaces after the shared packages are ready.
+- `pnpm run build:packages` builds/checks the shared package prerequisites, including client, CLI, React runtime, account, deploy, widget, and compatibility packages.
+- `pnpm run build:apps` builds all four deployed hosts after shared-package prerequisites.
+- `pnpm run typecheck:apps` generates routes and checks each deployed app independently of bundling; Landing also generates Fumadocs MDX sources.
+- `pnpm run lint:apps`, `pnpm run test:landing`, `pnpm run test:portal`, and `pnpm run test:telegram` select app checks. Build tests run with `pnpm --filter aomi-build exec vitest run`.
 - `pnpm run dev:landing:live` is the quickest end-to-end loop for widget changes because it watches the library while serving the landing app.
+
+## Runtime
+
+Use the repository-pinned pnpm through Corepack and Node.js 22.15+ or 24. Each
+app's `dev` serves Vite on `PORT` (default 3000); Node production builds emit
+`.output/server/index.mjs` and `.output/public`, and `VERCEL=1` selects Nitro's
+Vercel preset. All four deployed hosts use Vite 8.3.4; the root Vitest toolchain stays on Vite 7.3.7.
 
 ## Operational Notes
 

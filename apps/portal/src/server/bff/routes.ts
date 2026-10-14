@@ -1,6 +1,7 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { mintAccountBearer, mintAgentApiBearer } from "@aomi-labs/account";
-import { aomiOAuthResources, auth } from "@aomi-labs/account/better-auth";
+import { aomiOAuthResources } from "@aomi-labs/account/better-auth/core";
+import { auth } from "@/server/auth";
 import {
   AGENT_API_HEADERS,
   BACKEND_API_HEADERS,
@@ -11,7 +12,6 @@ import { requireMcpAuth } from "@better-auth/mcp";
 
 import * as account from "@/server/account/handlers";
 import * as deviceAuth from "@/server/device-auth/handlers";
-import type { NextRequest } from "next/server";
 import {
   agentApiUrl,
   appCatalogPlatforms,
@@ -686,7 +686,7 @@ function widgetSignIn(
 
 /** A local E2E wallet route; it does not exist wherever dev tools are not allowed. */
 function devRoute(name: "seedWallet" | "executeEvm" | "executeSolana") {
-  return async (request: NextRequest): Promise<Response> =>
+  return async (request: Request): Promise<Response> =>
     devToolsAllowed()
       ? (await import("./dev/e2e-routes"))[name](request)
       : new Response(null, { status: 404 });

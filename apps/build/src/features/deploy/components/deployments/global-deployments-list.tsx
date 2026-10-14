@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useLocation } from "@tanstack/react-router";
 import { Filter, RefreshCw, Rocket } from "lucide-react";
 import { EmptyState } from "@/components/control-plane/empty-state";
 import { platformHref } from "@/features/deploy/platform";
@@ -54,7 +54,7 @@ function DeploymentsPageHeader({
         </button>
         <Link
           href={platformHref("/operate/deployments/new", platform)}
-          prefetch={false}
+          preload={false}
           className="bg-primary text-primary-foreground inline-flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium hover:opacity-90"
         >
           New app
@@ -66,7 +66,9 @@ function DeploymentsPageHeader({
 
 export function GlobalDeploymentsList({ platform }: { platform: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = new URLSearchParams(
+    useLocation({ select: (location) => location.searchStr }),
+  );
   const {
     projectsState,
     recordsState,
@@ -160,9 +162,11 @@ export function GlobalDeploymentsList({ platform }: { platform: string }) {
                 const value = event.target.value;
                 setSourceFilter(value);
                 if (value !== "all") {
-                  router.push(deploymentsHref(platform, { project: value }));
+                  router.navigate({
+                    href: deploymentsHref(platform, { project: value }),
+                  });
                 } else {
-                  router.push(deploymentsHref(platform));
+                  router.navigate({ href: deploymentsHref(platform) });
                 }
               }}
               className="border-border bg-surface-1 h-8 rounded-md border px-2 text-sm"
@@ -222,7 +226,7 @@ export function GlobalDeploymentsList({ platform }: { platform: string }) {
                       `/projects/${selectedDeployment.projectId}`,
                       platform,
                     )}
-                    prefetch={false}
+                    preload={false}
                     className="border-border bg-surface-1 hover:bg-accent-hover inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium"
                   >
                     Open project
@@ -233,7 +237,7 @@ export function GlobalDeploymentsList({ platform }: { platform: string }) {
                         ? deploymentsHref(platform, { project: projectParam })
                         : deploymentsHref(platform)
                     }
-                    prefetch={false}
+                    preload={false}
                     className="border-border bg-surface-1 hover:bg-accent-hover inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium"
                   >
                     Clear selection
@@ -271,7 +275,7 @@ export function GlobalDeploymentsList({ platform }: { platform: string }) {
                     project: String(deployment.projectId),
                     deployment: deployment.deploymentId,
                   })}
-                  prefetch={false}
+                  preload={false}
                   className="hover:bg-accent-hover grid min-h-[76px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3"
                 >
                   <div className="min-w-0">

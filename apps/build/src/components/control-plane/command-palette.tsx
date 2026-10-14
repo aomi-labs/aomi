@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import {
   FolderKanban,
   Gauge,
@@ -212,7 +212,7 @@ export function CommandPalette() {
 
   function run(href: string) {
     setOpen(false);
-    router.push(platformHref(href, platform));
+    router.navigate({ href: platformHref(href, platform) });
   }
 
   if (!open) return null;

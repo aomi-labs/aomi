@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
 import type {
   BffService,
@@ -154,19 +154,7 @@ function routeDecision(
     Sentry.withIsolationScope((scope) => {
       scope.setLevel("error");
       scope.setTags(attributes);
-      if (routedDecision.requestError) {
-        Sentry.captureRequestError(
-          error,
-          routedDecision.requestError.request as Parameters<
-            typeof Sentry.captureRequestError
-          >[1],
-          routedDecision.requestError.errorContext as Parameters<
-            typeof Sentry.captureRequestError
-          >[2],
-        );
-      } else {
-        Sentry.captureException(error);
-      }
+      Sentry.captureException(error);
     });
   } catch {
     // Telemetry delivery must never replace the owned response.
@@ -197,7 +185,7 @@ function invalidContextAttributes(
     operation: "observability.invalid_context",
     "http.status_code": decision.responseStatus,
     handled: decision.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
 }
 
@@ -237,7 +225,7 @@ export function initBffSentry(options: BffSentryOptions): boolean {
         }),
       ],
       initialScope: {
-        tags: { service: options.service, runtime: bffRuntime() },
+        tags: { service: options.service, runtime: "nodejs" },
       },
     });
     INITIALIZED_SERVICES.add(options.service);
@@ -291,7 +279,7 @@ function eventAttributes(
     operation: context.operation,
     "http.status_code": context.status,
     handled: context.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
   const environment = bffEnvironment();
   if (environment) attributes.environment = environment;
@@ -344,10 +332,6 @@ function isValidContext(context: EventContext): boolean {
   return (
     context.smokeTest === undefined || typeof context.smokeTest === "boolean"
   );
-}
-
-function bffRuntime(): "edge" | "nodejs" {
-  return process.env.NEXT_RUNTIME === "edge" ? "edge" : "nodejs";
 }
 
 function bffEnvironment(): "staging" | "production" | undefined {

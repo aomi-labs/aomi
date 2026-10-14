@@ -22,7 +22,7 @@ const navigation = vi.hoisted(() => ({
   chains: undefined as readonly [Chain, ...Chain[]] | undefined,
 }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("@/lib/navigation", () => ({
   usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(navigation.search),
   useRouter: () => ({ replace: walletKit.replace }),
@@ -357,14 +357,14 @@ describe("WalletProviders Privy configuration", () => {
       const [{ WalletProviders }, page] = await Promise.all([
         import("./wallet-providers"),
         pathname === "/device-auth"
-          ? import("@/app/device-auth/device-auth-client")
-          : import("@/app/oauth/device/oauth-device-client"),
+          ? import("@/screens/device-auth/device-auth-client")
+          : import("@/screens/oauth/device/oauth-device-client"),
       ]);
       const Page =
         pathname === "/device-auth"
-          ? (page as typeof import("@/app/device-auth/device-auth-client"))
+          ? (page as typeof import("@/screens/device-auth/device-auth-client"))
               .DeviceAuthClient
-          : (page as typeof import("@/app/oauth/device/oauth-device-client"))
+          : (page as typeof import("@/screens/oauth/device/oauth-device-client"))
               .OAuthDeviceClient;
 
       const view = render(

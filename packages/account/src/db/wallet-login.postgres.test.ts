@@ -42,6 +42,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     url.pathname = `/${databaseName}`;
     vi.stubEnv("DATABASE_URL", url.toString());
     vi.stubEnv("BETTER_AUTH_URL", origin);
+    vi.stubEnv("AOMI_AUTH_DOMAIN", new URL(origin).host);
     vi.stubEnv("AOMI_AUTH_EMAIL_DOMAIN", "aomi.dev");
     pool = new Pool({ connectionString: url.toString() });
     const fixture = new URL(

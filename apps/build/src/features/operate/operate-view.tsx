@@ -9,8 +9,12 @@ import {
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { UrlLink as Link } from "@/components/url-link";
+import {
+  useLocation,
+  useRouter,
+  type RouterHistory,
+} from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
@@ -87,15 +91,19 @@ function projectLabel(project: Projectish) {
   return project.repositoryLink || `Project ${project.id}`;
 }
 
-/** Keep shareable filters in the URL without triggering a navigation. */
-function syncQuery(patch: Record<string, string | null>) {
+/** Keep shareable filters in the current history entry. */
+function syncQuery(
+  history: RouterHistory,
+  patch: Record<string, string | null>,
+) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   for (const [key, value] of Object.entries(patch)) {
     if (value == null || value === "") url.searchParams.delete(key);
     else url.searchParams.set(key, value);
   }
-  window.history.replaceState(null, "", url);
+  history.replace(url.pathname + url.search + url.hash, history.location.state);
+  history.flush();
 }
 
 function EmptyState({
@@ -120,7 +128,7 @@ function EmptyState({
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          prefetch={false}
+          preload={false}
           className="bg-primary text-primary-foreground mt-4 inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium hover:opacity-90"
         >
           {actionLabel}
@@ -213,6 +221,7 @@ function Rows({
   view: ViewState;
   payment: PaymentState | null;
 }) {
+  const { history } = useRouter();
   if (kind === "transactions") {
     const rows = payload.transactions ?? [];
     if (!rows.length)
@@ -232,12 +241,12 @@ function Rows({
         appFilter={view.txAppFilter}
         onAppFilterChange={(app) => {
           view.setTxAppFilter(app);
-          syncQuery({ app });
+          syncQuery(history, { app });
         }}
         openId={view.txOpen}
         onToggle={(id) => {
           view.setTxOpen(id);
-          syncQuery({ tx: id });
+          syncQuery(history, { tx: id });
         }}
       />
     );
@@ -275,7 +284,7 @@ function Rows({
         filter={view.logsFilter}
         onFilterChange={(filter) => {
           view.setLogsFilter(filter);
-          syncQuery({
+          syncQuery(history, {
             app: filter.app,
             tool: filter.tool,
             errors: filter.errorsOnly ? "1" : null,
@@ -567,7 +576,9 @@ function projectIdFromSearch(raw: string | null): number | null {
 
 export function OperateView({ kind }: { kind: ViewKind }) {
   const { account } = useGitHubSession();
-  const searchParams = useSearchParams();
+  const searchParams = new URLSearchParams(
+    useLocation({ select: (location) => location.searchStr }),
+  );
   const projectFromUrl = projectIdFromSearch(searchParams.get("project"));
   const appFromUrl = searchParams.get("app");
   const toolFromUrl = searchParams.get("tool");

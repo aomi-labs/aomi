@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { classifyFailure } from "./classify";
 import type { IdentifiedFailure } from "./failure";
+import { identifyFailure } from "./identify";
 
 const context = { routeFamily: "/api/test", operation: "test.failure" };
 
@@ -17,6 +18,31 @@ function failure(
 }
 
 describe("classifyFailure", () => {
+  it("classifies native uncaught errors without framework request details", () => {
+    const error = new Error("native request failed");
+    const identified = identifyFailure({ source: "uncaught", error, context });
+
+    expect(identified).toEqual({ origin: "local", error, context, handled: false });
+    expect(classifyFailure(identified)).toMatchObject({
+      action: "issue",
+      reason: "local_exception",
+      handled: false,
+      responseStatus: 500,
+      responseError: "internal_error",
+    });
+  });
+
+  it("keeps incomplete legacy request details out of identified failures", () => {
+    const identified = identifyFailure({
+      source: "uncaught",
+      error: new Error("native request failed"),
+      context,
+      request: { path: "/api/private", method: "GET", headers: { authorization: "Bearer secret" } },
+    });
+
+    expect(identified).not.toHaveProperty("requestError");
+  });
+
   it("creates Issues for local and upstream-request failures", () => {
     expect(classifyFailure(failure({ origin: "local" }))).toMatchObject({
       action: "issue",

@@ -1,4 +1,4 @@
-import type { Event, Log } from "@sentry/nextjs";
+import type { Event, Log } from "@sentry/node";
 
 const SAFE_EVENT_TAGS = new Set([
   "duration_ms",
@@ -229,6 +229,8 @@ function scrubStackPath(value: string | undefined): string | undefined {
 function isKnownStackPath(value: string): boolean {
   if (value.startsWith("node:")) return true;
   if (value.startsWith("app:///_next/server/")) return true;
+  // Vercel functions run the Nitro bundle from /var/task (_ssr/, _chunks/, …).
+  if (value.startsWith("/var/task/")) return true;
   if (
     value.startsWith("webpack-internal:///") ||
     value.startsWith("webpack:///")
@@ -237,6 +239,7 @@ function isKnownStackPath(value: string): boolean {
   }
   return [
     "/.next/server/",
+    "/.output/server/",
     "/apps/portal/",
     "/apps/build/",
     "/packages/account/",

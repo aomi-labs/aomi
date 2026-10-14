@@ -1,4 +1,4 @@
-import { auth } from "@aomi-labs/account/better-auth";
+import { auth } from "@/server/auth";
 
 /** A separate one-day session for the CLI; the browser cookie's token is never exported or shortened. */
 export async function createCliSession(betterAuthUserId: string) {
