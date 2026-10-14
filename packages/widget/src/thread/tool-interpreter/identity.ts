@@ -46,6 +46,8 @@ const coreTitles: Record<string, string> = {
   svm_get_context: "Check network",
   get_time_and_onchain_context: "Check network",
   svm_get_token_holdings: "Get holdings",
+  list_transactions: "List transactions",
+  get_transaction: "Get transaction",
   sync_chain: "Sync network",
   read_tool_output: "Read saved tool output",
 };

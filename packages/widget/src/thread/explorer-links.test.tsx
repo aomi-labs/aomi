@@ -138,6 +138,33 @@ describe("toolExplorerLinks", () => {
     expect(links.get(MINT)).toBe(`https://solscan.io/token/${MINT}`);
   });
 
+  it("links transaction history rows and their counterparties", () => {
+    const links = toolExplorerLinks([
+      toolCall({
+        transactions: [
+          {
+            chain: "base",
+            chain_id: 8453,
+            transaction_hash: HASH,
+            transaction_url: `https://basescan.org/tx/${HASH}`,
+            moves: [{ direction: "out", amount: "10", counterparty: ADDRESS }],
+          },
+          {
+            chain: "solana",
+            cluster: "mainnet-beta",
+            signature: SIGNATURE,
+            transaction_url: `https://solscan.io/tx/${SIGNATURE}`,
+            moves: [{ direction: "in", amount: "1", counterparty: MINT }],
+          },
+        ],
+      }),
+    ]);
+    expect(links.get(HASH)).toBe(`https://basescan.org/tx/${HASH}`);
+    expect(links.get(ADDRESS)).toBe(`https://basescan.org/address/${ADDRESS}`);
+    expect(links.get(SIGNATURE)).toBe(`https://solscan.io/tx/${SIGNATURE}`);
+    expect(links.get(MINT)).toBe(`https://solscan.io/account/${MINT}`);
+  });
+
   it("never guesses a chain and fails closed on conflicts and pool IDs", () => {
     const links = toolExplorerLinks([
       toolCall({ address: ADDRESS }),
