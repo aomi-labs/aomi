@@ -1,4 +1,8 @@
-import { asRecord, chainFactFromRecord, statusFact } from "@/thread/tool-interpreter/normalize";
+import {
+  asRecord,
+  chainFactFromRecord,
+  statusFact,
+} from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { displayedAmount, protocolOperation, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
@@ -9,7 +13,7 @@ const matchAerodrome: ToolMatcher = ({ rawLabel, resultRecord }) => {
   const details = asRecord(resultRecord.summary) ?? resultRecord;
   const amount = displayedAmount(details.amount);
   if (!amount) return null;
-  return protocolOperation(rawLabel, "Prepare Aerodrome swap", "prepare", [
+  return protocolOperation(rawLabel, "Stage Aerodrome swap", "prepare", [
     chainFactFromRecord(details),
     amount,
     statusFact(resultRecord.status),
@@ -17,6 +21,7 @@ const matchAerodrome: ToolMatcher = ({ rawLabel, resultRecord }) => {
 };
 
 export const aerodrome: ProtocolAdapter = {
-  tools: ["aerodrome_arc_prepare_swap"],
+  // `aerodrome_arc_prepare_swap` is the retired name, still in saved threads.
+  tools: ["stage_aerodrome_swap", "aerodrome_arc_prepare_swap"],
   match: matchAerodrome,
 };

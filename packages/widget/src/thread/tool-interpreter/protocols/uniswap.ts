@@ -1,14 +1,32 @@
 import { declaredToolIdentity } from "@/thread/tool-interpreter/identity";
-import { asRecord, chainFactFromRecord, statusFact } from "@/thread/tool-interpreter/normalize";
+import {
+  asRecord,
+  chainFactFromRecord,
+  statusFact,
+} from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { displayedAmount, protocolOperation, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
 
 const titles: Record<string, { title: string; kind: "read" | "prepare" }> = {
   uniswap_v4_quote: { title: "Quote Uniswap V4 swap", kind: "read" },
-  uniswap_v4_swap: { title: "Prepare Uniswap V4 swap", kind: "prepare" },
+  stage_uniswap_v4_swap: { title: "Stage Uniswap V4 swap", kind: "prepare" },
+  stage_uniswap_v4_exact_out_swap: {
+    title: "Stage Uniswap V4 swap",
+    kind: "prepare",
+  },
+  stage_uniswap_v4_multihop_swap: {
+    title: "Stage Uniswap V4 swap",
+    kind: "prepare",
+  },
+  stage_uniswap_v4_multihop_exact_out_swap: {
+    title: "Stage Uniswap V4 swap",
+    kind: "prepare",
+  },
+  // Retired names, still in saved threads.
+  uniswap_v4_swap: { title: "Stage Uniswap V4 swap", kind: "prepare" },
   uniswap_v4_exact_out_swap: {
-    title: "Prepare Uniswap V4 swap",
+    title: "Stage Uniswap V4 swap",
     kind: "prepare",
   },
   uniswap_v4_pool_info: { title: "Read Uniswap V4 pool", kind: "read" },

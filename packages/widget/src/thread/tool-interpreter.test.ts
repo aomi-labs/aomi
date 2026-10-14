@@ -225,7 +225,7 @@ describe("tool interpreter", () => {
         to_token: { symbol: "USDC" },
       },
     });
-    expect(preparation.title).toBe("Prepare LI.FI bridge");
+    expect(preparation.title).toBe("Stage LI.FI bridge");
     expect(labelsFor(preparation.chips)).toContain("Base → Arbitrum");
 
     const status = interpretToolStep({
@@ -801,7 +801,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI swap");
+    expect(step.title).toBe("Stage LI.FI swap");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "USDC -> ETH",
@@ -848,7 +848,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI swap batch");
+    expect(step.title).toBe("Stage LI.FI swap");
     expect(labelsFor(step.chips)).toEqual([
       "Arc",
       "USDC -> EURC",
@@ -861,8 +861,8 @@ describe("tool interpreter", () => {
     const cases = [
       ["lifi_get_quote", "Quote LI.FI swap"],
       ["lifi_prepare_approval_tx", "Prepare LI.FI approval"],
-      ["lifi_prepare_swap_tx", "Prepare LI.FI swap"],
-      ["lifi_prepare_swap_batch", "Prepare LI.FI swap batch"],
+      ["lifi_prepare_swap_tx", "Stage LI.FI swap"],
+      ["lifi_prepare_swap_batch", "Stage LI.FI swap"],
       ["lifi_get_status", "Check LI.FI transfer"],
     ] as const;
 
@@ -900,7 +900,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI bridge");
+    expect(step.title).toBe("Stage LI.FI bridge");
     expect(labelsFor(step.chips)).toEqual([
       "Arbitrum → Base",
       "USDC -> USDC",
@@ -1039,7 +1039,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare swap");
+    expect(step.title).toBe("Stage Jupiter swap");
     expect(labelsFor(step.chips)).toEqual([
       "Solana",
       "SOL → USDC",
@@ -1324,6 +1324,34 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
+  it("shows any staging tool's staged txs without a protocol adapter", () => {
+    const step = interpretToolStep({
+      toolName: "stage_raydium_swap",
+      result: {
+        quote: { min_output_amount: "1" },
+        staged: [
+          {
+            pending_tx_id: 1,
+            current_lifecycle: "queued",
+            cluster: "mainnet-beta",
+            chain_kind: "svm",
+          },
+          {
+            pending_tx_id: 2,
+            current_lifecycle: "queued",
+            cluster: "mainnet-beta",
+            chain_kind: "svm",
+          },
+        ],
+        pending_tx_ids: [1, 2],
+      },
+    });
+    expect(step.title).toBe("Stage raydium swap");
+    expect(labelsFor(step.chips)).toContain("Solana");
+    expect(labelsFor(step.chips)).toContain("2 txs");
+    expect(step.failed).toBe(false);
+  });
+
   it("distinguishes Aave V4 market preparation from execution", () => {
     const step = interpretToolStep({
       toolName: "aave_v4_prepare",
@@ -1340,7 +1368,7 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(step.title).toBe("Prepare Aave V4 supply");
+    expect(step.title).toBe("Stage Aave V4 supply");
     expect(labelsFor(step.chips)).toContain("5 USDC");
     expect(labelsFor(step.chips)).not.toContain("Aave V4");
     expect(labelsFor(step.chips)).toContain("Approval required");
@@ -1389,7 +1417,7 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(step.title).toBe("Prepare Circle Gateway deposit");
+    expect(step.title).toBe("Stage Circle Gateway deposit");
     expect(labelsFor(step.chips)).toContain("10 USDC");
     expect(labelsFor(step.chips)).not.toContain("Success");
   });

@@ -1,4 +1,9 @@
-import { amountFact, asRecord, asString, uniqueFacts } from "@/thread/tool-interpreter/normalize";
+import {
+  amountFact,
+  asRecord,
+  asString,
+  uniqueFacts,
+} from "@/thread/tool-interpreter/normalize";
 import { SHAPE_ICONS } from "@/thread/tool-registry";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import { svmClusterFact } from "@/thread/tool-interpreter/families/svm/context";
@@ -61,16 +66,19 @@ export const jupiter: ProtocolAdapter = {
   descriptors: {
     "jupiter.swap.prepare": {
       title: "fixed",
-      fixedTitle: "Prepare swap",
+      fixedTitle: "Stage Jupiter swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
         { kind: "cluster" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
+        { kind: "count" },
+        { kind: "status" },
       ],
     },
   },
-  tools: ["jupiter_prepare_swap"],
+  // `jupiter_prepare_swap` is the retired name, still in saved threads.
+  tools: ["stage_jupiter_swap", "jupiter_prepare_swap"],
   match: matchJupiterSwapPrep,
 };

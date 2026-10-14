@@ -125,6 +125,37 @@ describe("activity projection", () => {
     ).toEqual(["commit-2", "commit-1"]);
   });
 
+  it("lists every tx a protocol staging tool staged, then marks them simulated", () => {
+    const record = (pending_tx_id: number, label: string) => ({
+      pending_tx_id,
+      current_lifecycle: "queued",
+      chain_id: 8453,
+      label,
+      kind: "contract_call",
+      chain_kind: "evm",
+    });
+    const staged = tool(1, "stage_lifi_swap", {
+      route: "across",
+      staged: [record(1, "Approve USDC"), record(2, "Swap USDC to WETH")],
+      pending_tx_ids: [1, 2],
+    });
+    const result = selectActivity([staged]);
+    expect(result.transactions.map((item) => item.label).sort()).toEqual([
+      "Approve USDC",
+      "Swap USDC to WETH",
+    ]);
+    expect(result.transactions.every((item) => item.stage === "staged")).toBe(
+      true,
+    );
+    const sim = tool(2, "simulate_batch", {
+      resolved_ids: [1, 2],
+      simulation: { batch_success: true },
+    });
+    expect(
+      selectActivity([staged, sim]).transactions.map((item) => item.stage),
+    ).toEqual(["simulated", "simulated"]);
+  });
+
   it("rejects a source binding with a different durable chain scope", () => {
     const mismatched = durableCommit(1, 0);
     mismatched.batch!.sources[0].chain_ref = "1";
