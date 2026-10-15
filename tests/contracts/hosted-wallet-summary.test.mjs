@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { summarize } from "../../.github/scripts/hosted-wallet-summary.mjs";
+
+test("hosted wallet evidence uses the exact trusted main workflow commit", () => {
+  const workflow = readFileSync(
+    new URL("../../.github/workflows/hosted-wallet-e2e.yml", import.meta.url),
+    "utf8",
+  );
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.doesNotMatch(workflow, /ref: refs\/heads\/main/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+});
 
 const input = () => ({
   sourceSha: "a".repeat(40),

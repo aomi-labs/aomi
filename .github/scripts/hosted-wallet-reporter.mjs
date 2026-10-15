@@ -16,10 +16,14 @@ export default class HostedWalletReporter {
   }
 
   onEnd(result) {
+    const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+    }).trim();
+    if (sourceSha !== process.env.GITHUB_SHA) {
+      throw new Error("Checkout SHA differs from the trusted workflow source");
+    }
     const summary = summarize({
-      sourceSha: execFileSync("git", ["rev-parse", "HEAD"], {
-        encoding: "utf8",
-      }).trim(),
+      sourceSha,
       runId: process.env.GITHUB_RUN_ID,
       startedAt: this.startedAt,
       finishedAt: new Date().toISOString(),
