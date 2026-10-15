@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { TEMPLATE_REPO, TEMPLATE_REPO_URL } from "@/features/deploy/contracts";
+import { openOwnerChat } from "@/features/deploy/owner-chat";
 
 /** Shared success state. `repo` is owner/name when known; falls back to the
  *  template so the clone story still renders during early wiring.
@@ -11,9 +12,12 @@ import { TEMPLATE_REPO, TEMPLATE_REPO_URL } from "@/features/deploy/contracts";
 export function LivePanel({
   repo,
   chatUrl,
+  applicationId,
 }: {
   repo?: string;
   chatUrl?: string;
+  /** Lets a private app's owner open chat with owner access. */
+  applicationId?: number | string | null;
 }) {
   const repoUrl = repo ? `https://github.com/${repo}` : TEMPLATE_REPO_URL;
   const dir = repo ? repo.split("/")[1] : TEMPLATE_REPO.split("/")[1];
@@ -59,6 +63,7 @@ aomi-build deploy      # redeploy your changes`}
               href={chatUrl}
               target="_blank"
               rel="noreferrer"
+              onClick={(event) => openOwnerChat(event, chatUrl, applicationId)}
               className="text-foreground inline-flex items-center gap-1 underline"
             >
               Open in chat <ExternalLink className="h-3.5 w-3.5" />

@@ -39,6 +39,7 @@ export interface AuditEvent {
     | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
+    | "issue_owner_claim"
     | "list_user_deployments"
     | "list_user_project_deployments"
     | "list_user_project_bots"
@@ -560,6 +561,22 @@ export interface GetUserProjectInput extends BearerOverride {
 export interface GetBuilderApplicationInput extends BearerOverride {
   githubUserId: string;
   applicationId: number;
+}
+
+export interface IssueOwnerClaimInput extends GetBuilderApplicationInput {
+  actor?: string;
+}
+
+/**
+ * A one-time, short-lived claim the owner redeems in Chat while signed in.
+ * It grants that account access to this exact private application. It is not
+ * an App key; treat it as a secret until it is redeemed.
+ */
+export interface OwnerClaim {
+  claim: string;
+  applicationId: number;
+  /** Unix seconds. */
+  expiresAt: number;
 }
 
 export interface BuilderApplication {

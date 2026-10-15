@@ -7,6 +7,7 @@ import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { chatAppUrl } from "@/lib/chat-url";
 import { EmptyPanel } from "../ui/state-panels";
 import { projectSdk } from "../sdk-compatibility";
+import { openOwnerChat } from "@/features/deploy/owner-chat";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 
@@ -77,6 +78,9 @@ export function ChatTab({ detail }: { detail: Detail }) {
           href={url}
           target="_blank"
           rel="noreferrer"
+          onClick={(event) =>
+            openOwnerChat(event, url, lifecycle.chatApplicationId)
+          }
           className="border-border bg-surface-1 text-foreground hover:bg-accent-hover inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium"
         >
           Open chat

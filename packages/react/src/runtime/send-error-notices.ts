@@ -32,6 +32,31 @@ const APP_ACCESS_NOTICES: Record<
   },
 };
 
+/**
+ * A private App's key failure depends on who is asking: a signed-out visitor
+ * needs to sign in, while a signed-in account that lacks access is told how an
+ * owner sets it up (from Build) instead of being sent to "ask the owner".
+ */
+const SIGNED_OUT_KEY_REQUIRED = {
+  title: "Sign in to use this App",
+  message:
+    "This App is private. Sign in with an account that has access to it, then send your message again.",
+};
+const SIGNED_IN_KEY_REQUIRED = {
+  title: "No access to this App",
+  message:
+    "This App is private and your account doesn't have access yet. If you own it, open it from Build to set up owner access. Otherwise ask its owner for access.",
+};
+
+function appAccessNotice(
+  code: AgentAppAccessErrorCode,
+  signedIn: boolean | undefined,
+): { title: string; message: string } {
+  if (code === "app_key_required" && signedIn !== undefined)
+    return signedIn ? SIGNED_IN_KEY_REQUIRED : SIGNED_OUT_KEY_REQUIRED;
+  return APP_ACCESS_NOTICES[code];
+}
+
 export type SendFailure = {
   notice: NotificationData;
   /** The chat is gone for this user; stop reopening it on load. */
@@ -42,6 +67,7 @@ export type SendFailure = {
 export function describeSendFailure(
   error: unknown,
   startUncertain: boolean,
+  signedIn?: boolean,
 ): SendFailure {
   // The payment modal has its own copy; only `kind` routes it.
   if (getHttpStatus(error) === 402)
@@ -55,7 +81,10 @@ export function describeSendFailure(
   const apiError = error instanceof AgentApiError ? error : undefined;
   if (apiError?.appAccessCode)
     return {
-      notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },
+      notice: {
+        type: "error",
+        ...appAccessNotice(apiError.appAccessCode, signedIn),
+      },
     };
   if (apiError?.code === "session_not_found")
     return {

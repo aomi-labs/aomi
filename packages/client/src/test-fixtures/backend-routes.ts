@@ -565,6 +565,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/account/app-owner-claims/redeem",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
     path: "/api/account/apps/:application_id",
     auth: ["account"],
   },
@@ -707,6 +712,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/exec/tool-call",
     auth: ["account","thread","app_gate","delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/builder/applications/:application_id/owner-claims",
+    auth: ["service"],
   },
   {
     method: "POST",

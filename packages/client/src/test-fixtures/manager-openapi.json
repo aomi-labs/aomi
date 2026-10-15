@@ -509,6 +509,19 @@
         ]
       }
     },
+    "/api/integrations/github-app/builder/applications/{application_id}/owner-claims": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/builder/applications/{application_id}/detail": {
       "get": {
         "responses": {
@@ -741,6 +754,23 @@
     },
     "/api/account/bots/{id}": {
       "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/app-owner-claims/redeem": {
+      "post": {
         "responses": {
           "200": {
             "description": "OK"

@@ -1221,3 +1221,56 @@ export async function requiredSecretsRoute(req: Request) {
     }).response;
   }
 }
+
+// POST /api/bff/deployments/owner-claim; JSON: { applicationId }.
+// Issues a one-time claim that lets the signed-in builder's own Chat account
+// use this private application. The manager proves Project ownership. A public
+// application needs no claim and answers `{ public: true }`. The claim is
+// returned to this tab only, which hands it to Chat in a URL fragment so it is
+// never sent to a server in a request line or logged.
+export async function ownerClaimRoute(req: Request) {
+  const auth = await authorize(req, { write: true });
+  if ("response" in auth) return auth.response;
+  const { session } = auth;
+
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!isValidProjectId(body.applicationId)) {
+    return NextResponse.json(
+      { error: "invalid `applicationId`" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const client = await backendClient();
+    const claim = await client.issueOwnerClaim({
+      githubUserId: session.githubUserId,
+      applicationId: body.applicationId,
+      actor: session.githubLogin,
+    });
+    return NextResponse.json(
+      { claim: claim.claim, expiresAt: claim.expiresAt },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (err) {
+    if (err instanceof BackendError && err.status === 409) {
+      // Public apps need no setup; inactive ones cannot chat yet.
+      const isPublic = /public/i.test(err.body ?? err.message);
+      return NextResponse.json(
+        isPublic ? { public: true } : { error: "application is not active" },
+        { status: isPublic ? 200 : 409 },
+      );
+    }
+    if (err instanceof BackendError && err.status === 404) {
+      return NextResponse.json(
+        { error: "application not found for this user" },
+        { status: 404 },
+      );
+    }
+    return buildFailures.handle({
+      source: "launch",
+      error: err,
+      context: deployErrorContext(req, "deployment.owner_claim"),
+    }).response;
+  }
+}

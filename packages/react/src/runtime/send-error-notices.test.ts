@@ -29,6 +29,31 @@ describe("send failure notices", () => {
     },
   );
 
+  it("tells a signed-out visitor to sign in to a private App", () => {
+    const failure = describeSendFailure(
+      apiError(401, "app_key_required"),
+      false,
+      false,
+    );
+    expect(failure.notice).toMatchObject({
+      title: "Sign in to use this App",
+      message: expect.stringMatching(/Sign in/),
+    });
+  });
+
+  it("points a signed-in account without access at owner setup", () => {
+    const failure = describeSendFailure(
+      apiError(401, "app_key_required"),
+      false,
+      true,
+    );
+    expect(failure.notice).toMatchObject({
+      title: "No access to this App",
+      message: expect.stringMatching(/open it from Build/),
+    });
+    expect(failure.notice.message).not.toMatch(/^Ask the App's owner/);
+  });
+
   it.each([
     [
       apiError(404, "session_not_found"),

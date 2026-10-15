@@ -71,6 +71,11 @@ export type AccountGraphProviderExchangeResponse =
       error?: string;
     };
 
+export type AccountOwnerClaimResponse = {
+  granted: boolean;
+  application_id: number;
+};
+
 export type AccountGraphDeleteResponse = {
   status: "deactivated";
   revokedIdentities: number;
@@ -105,6 +110,22 @@ export class AccountGraphTransport {
     return this.request<AccountGraphDeleteResponse>("/v1/account", {
       method: "DELETE",
     });
+  }
+
+  /**
+   * Redeem a one-time owner claim from Build. Grants the signed-in account
+   * access to the claim's exact private application. Fails with 404 when the
+   * claim is unknown, expired or already used.
+   */
+  redeemOwnerClaim(claim: string): Promise<AccountOwnerClaimResponse> {
+    return this.request<AccountOwnerClaimResponse>(
+      "/api/account/app-owner-claims/redeem",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ claim }),
+      },
+    );
   }
 
   signOut(): Promise<unknown> {

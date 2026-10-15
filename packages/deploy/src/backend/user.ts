@@ -14,6 +14,8 @@ import type {
   ClaimGitHubProjectResult,
   GetBuilderApplicationDetailInput,
   GetBuilderApplicationInput,
+  IssueOwnerClaimInput,
+  OwnerClaim,
   GetUserProjectInput,
   GetUserObservabilityInput,
   ActivateUserProjectReleasesInput,
@@ -268,6 +270,41 @@ export class BackendClient extends BackendPlatformClient {
       projectId: input.projectId,
     });
     return camelUserProject(raw);
+  }
+
+  /**
+   * Issue a one-time claim that lets the builder's own Chat account use this
+   * private application. The manager proves Project ownership first.
+   */
+  async issueOwnerClaim(input: IssueOwnerClaimInput): Promise<OwnerClaim> {
+    if (
+      !Number.isSafeInteger(input.applicationId) ||
+      input.applicationId <= 0
+    ) {
+      throw new Error("applicationId must be a positive integer");
+    }
+    const githubUserId = required(input.githubUserId, "githubUserId");
+    const bearer = this.resolveBearer(input.bearer);
+    const params = new URLSearchParams({ github_user_id: githubUserId });
+    const raw = await this.post<Record<string, unknown>>(
+      this.builderPath(
+        `applications/${encodeURIComponent(String(input.applicationId))}/owner-claims`,
+        params,
+      ),
+      {},
+      "issue_owner_claim",
+      bearer,
+    );
+    await this.audit("issue_owner_claim", input.actor, {
+      applicationId: input.applicationId,
+    });
+    const claim = optString(raw.claim);
+    if (!claim) throw new Error("owner claim response is missing `claim`");
+    return {
+      claim,
+      applicationId: Number(raw.application_id ?? input.applicationId),
+      expiresAt: Number(raw.expires_at ?? 0),
+    };
   }
 
   async getBuilderApplication(

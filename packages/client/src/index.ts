@@ -442,6 +442,7 @@ export type {
   AccountGraphLinkWalletResponse,
   AccountGraphProviderExchangeResponse,
   AccountGraphDeleteResponse,
+  AccountOwnerClaimResponse,
 } from "./account/graph";
 export {
   createScopedStorage,

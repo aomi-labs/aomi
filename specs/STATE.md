@@ -2,6 +2,18 @@
 
 ## Last Updated
 
+2026-10-15 — PRIVATE PROJECT APP OWNER ACCESS (branch
+  `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
+  Build's "Open chat" links ask the BFF `/api/bff/deployments/owner-claim` for a
+  one-time owner claim (`@aomi-labs/deploy` `issueOwnerClaim`) and open Chat with
+  `#owner_claim=` (`apps/build/src/features/deploy/owner-chat.ts`). The portal
+  strips the fragment and, once signed in, redeems it through
+  `account.redeemOwnerClaim` (`apps/portal/src/components/shell/owner-claim.tsx`),
+  which mints an account key bound to that exact app row. `app_key_required`
+  now says "Sign in to use this App" when signed out and points owners to Build
+  when signed in. Client route fixtures regenerated (manager routes 81 -> 83).
+  Pending: screenshots and a live private-app chat run on staging.
+
 2026-10-14 — TRACE: TRANSACTION HISTORY TOOLS (branch `feat/tx-history`, with
   product-mono `feat/tx-history`). The backend's new `list_transactions` and
   `get_transaction` (EVM and Solana) get trace rows: "List transactions" with
