@@ -15,6 +15,10 @@ import {
   matchEvmSimulation,
   matchStagedTx,
 } from "@/thread/tool-interpreter/families/evm/transactions";
+import {
+  matchGetTransaction,
+  matchListTransactions,
+} from "@/thread/tool-interpreter/families/general/activity";
 import { matchSkillActivation } from "@/thread/tool-interpreter/families/general/skills";
 import { matchSleep } from "@/thread/tool-interpreter/families/general/sleep";
 import {
@@ -55,6 +59,8 @@ const generalMatchers: Record<string, ToolMatcher> = {
   search_docs: matchWebSearch,
   activate_skills: matchSkillActivation,
   sleep: matchSleep,
+  list_transactions: matchListTransactions,
+  get_transaction: matchGetTransaction,
 };
 
 const svmMatchers: Record<string, ToolMatcher> = {

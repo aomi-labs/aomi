@@ -103,6 +103,30 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.nativeBalance,
     chipPlan: [{ kind: "chain" }, { kind: "threshold" }, { kind: "token" }],
   },
+  "activity.transactions": {
+    title: "fixed",
+    fixedTitle: "List transactions",
+    icon: SHAPE_ICONS.history,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "token" },
+      { kind: "address" },
+      { kind: "count", role: "tx" },
+    ],
+  },
+  "activity.transaction": {
+    title: "fixed",
+    fixedTitle: "Get transaction",
+    icon: SHAPE_ICONS.receipt,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "txId" },
+      { kind: "amount" },
+      { kind: "warning" },
+    ],
+  },
   "evm.call.erc20.allowance": {
     title: "fixed",
     fixedTitle: EVM_SELECTOR_REGISTRY["0xdd62ed3e"].title,
