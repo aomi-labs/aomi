@@ -16,6 +16,7 @@ import {
   listWalletsForUser,
   lockIdentityResolutionKeys,
   logAccountEvent,
+  denyAgentWalletsForUser,
   revokeAllAuthIdentitiesForUser,
   revokeAllWalletsForUser,
   revokeAuthIdentity,
@@ -1128,6 +1129,7 @@ export async function deactivateAomiAccount(input: {
     // Deleting an account is meant to revoke every remaining factor, so a
     // Para-only/SIWE-only single-factor user must still be able to delete.
 
+    await denyAgentWalletsForUser({ userId: input.userId, db });
     const revokedIdentities = await revokeAllAuthIdentitiesForUser({
       userId: input.userId,
       db,

@@ -3888,6 +3888,7 @@ export const WALLET_ERROR_CODES: {
     readonly walletSwitchUnavailable: "wallet_switch_unavailable";
     readonly labelTooLong: "label_too_long";
     readonly agentWalletNotRemovable: "agent_wallet_not_removable";
+    readonly threadBusy: "thread_busy";
 };
 
 // @public (undocumented)

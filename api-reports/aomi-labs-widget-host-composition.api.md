@@ -148,6 +148,7 @@ export type AomiWalletKit = {
     accounts: readonly AomiAccount[];
     wallets: readonly WalletRow[];
     accountStatus?: AccountRuntimeStatus;
+    refreshAccount?: () => Promise<void>;
     accountError?: string;
     accountConflict?: AccountConflict;
     accountGuest?: boolean;

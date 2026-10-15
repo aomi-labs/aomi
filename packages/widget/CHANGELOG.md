@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.8
+
+- Refresh the canonical inventory after agent wallet creation, bind withdrawals to the selected wallet, and select agent networks without local wallet prompts.
+
 ## 3.1.7
 
 - Show transactions staged by protocol staging tools (`stage_*`, which return `staged: [records]`) in the working trace and the activity sidebar, with "Stage …" titles. Retired `*_prepare_*` tool names still render in saved threads.
