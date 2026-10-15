@@ -464,6 +464,13 @@ describe("CommitHandle.approve — parked agent-wallet commits", () => {
       "commit_not_awaiting_approval",
     ],
     [
+      "stale network gas caps",
+      409,
+      { code: "commit_gas_stale", status: 409 },
+      CommitStaleError,
+      "commit_gas_stale",
+    ],
+    [
       "a stale card",
       409,
       { code: "commit_version_conflict", status: 409 },

@@ -50,6 +50,7 @@ function approvalError(error: unknown): string {
 function useApprovalStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [changed, setChanged] = useState(false);
   const run = async (
     step: () => Promise<unknown>,
     onError?: (caught: unknown) => boolean | void,
@@ -57,15 +58,21 @@ function useApprovalStep() {
     if (busy) return;
     setBusy(true);
     setError(undefined);
+    setChanged(false);
     try {
       await step();
     } catch (caught) {
+      if (
+        caught instanceof CommitStaleError &&
+        caught.code === "commit_gas_stale"
+      )
+        setChanged(true);
       if (!onError?.(caught)) setError(approvalError(caught));
     } finally {
       setBusy(false);
     }
   };
-  return { busy, error, run };
+  return { busy, error, changed, run };
 }
 
 /**
@@ -74,12 +81,12 @@ function useApprovalStep() {
  * commit's sign page on Aomi instead.
  */
 export function ParkedReview({ commit }: { commit: CommitView }) {
-  const { commitController } = useAomiRuntime();
+  const { commitController, sendMessage, isRunning } = useAomiRuntime();
   const { supportedChains } = useAomiWalletKit();
   const authority = useApprovalAuthority();
   const [forbidden, setForbidden] = useState(false);
   const [signUrl, setSignUrl] = useState<string>();
-  const { busy, error, run } = useApprovalStep();
+  const { busy, error, changed, run } = useApprovalStep();
   const id = commit.commit_id;
   const linkOnly = !authority || forbidden;
   useEffect(() => {
@@ -95,6 +102,16 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
   }, [commitController, id, linkOnly]);
   const request = commitController?.review(id);
   if (!commitController || !request) return null;
+  if (changed)
+    return (
+      <ChangedApproval
+        commit={commit}
+        disabled={isRunning}
+        onRetry={() =>
+          void sendMessage(retryText(commit.batch?.ordered_commit_ids[0] ?? id))
+        }
+      />
+    );
   return (
     <TransactionReview
       review={{
@@ -129,6 +146,41 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
       }
       onReject={() => void run(() => commitController.reject(id))}
     />
+  );
+}
+
+/** Stale network caps need a newly staged trade, with fresh consent. */
+function ChangedApproval({
+  commit,
+  disabled,
+  onRetry,
+}: {
+  commit: CommitView;
+  disabled?: boolean;
+  onRetry?: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      className="border-aomi-border bg-aomi-raised rounded-card type-meta mt-3 flex items-center justify-between gap-3 border p-3"
+    >
+      <span className="text-aomi-muted">
+        This request changed. Nothing was signed.
+      </span>
+      {onRetry ? (
+        <AomiButton size="sm" disabled={disabled} onClick={onRetry}>
+          <RotateCcw />
+          Retry
+        </AomiButton>
+      ) : (
+        <a
+          href={`/?thread=${encodeURIComponent(commit.thread_id)}`}
+          className="underline"
+        >
+          Retry
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -210,9 +262,10 @@ export function CommitApprovePanel({ handle }: { handle: CommitHandle }) {
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   const { supportedChains } = useAomiWalletKit();
-  const { busy, error, run } = useApprovalStep();
+  const { busy, error, changed, run } = useApprovalStep();
   const view = handle.view;
   const review = handle.review;
+  if (changed) return <ChangedApproval commit={view} />;
   if (!view.can_approve)
     return (
       <p role="status" className="type-meta text-aomi-muted mt-3">
