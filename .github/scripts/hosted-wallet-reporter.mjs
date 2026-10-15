@@ -16,27 +16,31 @@ export default class HostedWalletReporter {
   }
 
   onEnd(result) {
-    const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
-      encoding: "utf8",
-    }).trim();
-    if (sourceSha !== process.env.GITHUB_SHA) {
+    try {
+      const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+      }).trim();
+      if (sourceSha !== process.env.GITHUB_SHA) {
+        return { status: "failed" };
+      }
+      const summary = summarize({
+        sourceSha,
+        runId: process.env.GITHUB_RUN_ID,
+        startedAt: this.startedAt,
+        finishedAt: new Date().toISOString(),
+        total: this.total,
+        attempts: this.attempts,
+        fullStatus: result.status,
+      });
+      mkdirSync("output/hosted-wallet", { recursive: true, mode: 0o700 });
+      writeFileSync(
+        "output/hosted-wallet/summary.json",
+        JSON.stringify(summary, null, 2) + "\n",
+        { mode: 0o600 },
+      );
+      if (summary.status !== "PASS") return { status: "failed" };
+    } catch {
       return { status: "failed" };
     }
-    const summary = summarize({
-      sourceSha,
-      runId: process.env.GITHUB_RUN_ID,
-      startedAt: this.startedAt,
-      finishedAt: new Date().toISOString(),
-      total: this.total,
-      attempts: this.attempts,
-      fullStatus: result.status,
-    });
-    mkdirSync("output/hosted-wallet", { recursive: true, mode: 0o700 });
-    writeFileSync(
-      "output/hosted-wallet/summary.json",
-      JSON.stringify(summary, null, 2) + "\n",
-      { mode: 0o600 },
-    );
-    if (summary.status !== "PASS") return { status: "failed" };
   }
 }

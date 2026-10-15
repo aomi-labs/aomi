@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import HostedWalletReporter from "../../.github/scripts/hosted-wallet-reporter.mjs";
@@ -25,6 +26,26 @@ test("checkout SHA mismatch explicitly fails the Playwright run", () => {
   } finally {
     if (previousSha === undefined) delete process.env.GITHUB_SHA;
     else process.env.GITHUB_SHA = previousSha;
+  }
+});
+
+test("summary generation errors explicitly fail the Playwright run", () => {
+  const previousSha = process.env.GITHUB_SHA;
+  const previousRunId = process.env.GITHUB_RUN_ID;
+  process.env.GITHUB_SHA = execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
+  process.env.GITHUB_RUN_ID = "token=SECRET";
+  try {
+    assert.deepEqual(
+      new HostedWalletReporter().onEnd({ status: "passed" }),
+      { status: "failed" },
+    );
+  } finally {
+    if (previousSha === undefined) delete process.env.GITHUB_SHA;
+    else process.env.GITHUB_SHA = previousSha;
+    if (previousRunId === undefined) delete process.env.GITHUB_RUN_ID;
+    else process.env.GITHUB_RUN_ID = previousRunId;
   }
 });
 
