@@ -20,7 +20,6 @@ const DESCRIPTIONS: Record<string, string> = {
   "mcp:agent": "Connect to the Agent MCP server",
   "mcp:pipeline": "Connect to the Pipeline MCP server",
   "payments:submit": "Submit a client-held payment signature",
-  "custody:delegate": "Use separately approved delegated custody",
   offline_access: "Stay connected with a refresh token",
 };
 

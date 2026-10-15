@@ -2,7 +2,13 @@
 import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility, shortAddress } from "@aomi-labs/client";
-import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
+import {
+  ExternalLink,
+  Wallet,
+  Fuel,
+  ShieldCheck,
+  ShieldQuestion,
+} from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { testIds } from "@/test-ids";
@@ -34,6 +40,8 @@ export function TransactionReview({
   approving = false,
   approveDisabled = false,
   approveLabel,
+  approveHref,
+  note,
   rejectDisabled = false,
   status,
   statusIsError = false,
@@ -49,6 +57,10 @@ export function TransactionReview({
   approving?: boolean;
   approveDisabled?: boolean;
   approveLabel?: string;
+  /** Approve happens elsewhere: the primary action opens this URL. */
+  approveHref?: string;
+  /** One line above the actions, e.g. who signs after approval. */
+  note?: string;
   rejectDisabled?: boolean;
   status?: string;
   statusIsError?: boolean;
@@ -182,6 +194,9 @@ export function TransactionReview({
           {status}
         </p>
       )}
+      {note && !failed ? (
+        <p className="type-meta text-aomi-muted mt-3">{note}</p>
+      ) : null}
       {!failed && batchProgress && batchProgress.total > 1 ? (
         <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
           <Wallet className="size-3.5 shrink-0" />
@@ -243,6 +258,19 @@ export function TransactionReview({
                 {batchProgress.submitting ? "Submitting…" : "Submit all"}
               </button>
             </div>
+          ) : approveHref ? (
+            <a
+              href={approveHref}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                aomiButton({ variant: "primary" }),
+                reviewButtonClass,
+              )}
+            >
+              {approveLabel ?? "Approve on Aomi"}
+              <ExternalLink />
+            </a>
           ) : (
             <AomiButton
               variant="primary"

@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import type { AomiAuthorizationChallenge } from "@aomi-labs/client";
+import {
+  shortAddress,
+  type AomiAuthorizationChallenge,
+} from "@aomi-labs/client";
 import type { SignerChoice, WalletPolicy } from "./types";
 import {
   sortWallets,
@@ -9,12 +12,13 @@ import {
   modeLabel,
   modeHintFor,
 } from "./account-reconcile";
-import { WalletPolicyRow } from "@/wallet/wallet-policy-row";
+import { AomiButton } from "@/ui/aomi/button";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { ListGroup } from "@/ui/aomi/list-group";
+import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 
-interface AccountSigningViewProps {
+interface LockedWalletsViewProps {
+  /** Browser and embedded wallets that are Locked (`signing_mode='denied'`). */
   wallets: WalletPolicy[];
   onPrepare: (
     wallet: WalletPolicy,
@@ -31,16 +35,17 @@ interface AccountSigningViewProps {
 }
 
 /**
- * The Safety tab's signing controls: one Ask me / Locked choice per signable
- * address. Every change runs the permit ceremony — prepare, review the exact
- * payload, sign, commit.
+ * Legacy Locked browser and embedded wallets, each with Unlock. Those wallets
+ * otherwise ask in the wallet itself and have nothing to set; a Locked one is
+ * never unlocked silently. Unlock runs the permit ceremony: prepare, review
+ * the exact payload, sign, commit.
  */
-export function AccountSigningView({
+export function LockedWalletsView({
   wallets,
   onCommit,
   onPrepare,
   blockedReason,
-}: AccountSigningViewProps) {
+}: LockedWalletsViewProps) {
   const [drafts, setDrafts] = useState<Record<string, SignerChoice>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -144,34 +149,44 @@ export function AccountSigningView({
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <>
       <section
-        aria-labelledby="signing-heading"
+        aria-labelledby="locked-wallets-heading"
         className="flex flex-col gap-2"
       >
         <SectionHeader
-          id="signing-heading"
-          title="Signing"
-          detail="Per wallet"
-          help="Ask me: you approve every transaction. Locked: this wallet can't sign. Loosening asks that wallet to sign once; tightening can be signed by any wallet on your account."
+          id="locked-wallets-heading"
+          title="Locked wallets"
+          help="Locked before agent wallets: these can't sign. Unlock asks the wallet to sign once; it then asks in the wallet for every transaction."
         />
         <ListGroup>
-          {signingWallets.length ? (
-            signingWallets.map((wallet) => (
-              <WalletPolicyRow
-                key={wallet.id}
-                wallet={wallet}
-                draft={drafts[wallet.id]}
-                busy={Boolean(busy[wallet.id])}
-                error={errors[wallet.id]}
-                onSelect={(mode) => choose(wallet, mode)}
-              />
-            ))
-          ) : (
-            <p className="type-control text-aomi-muted px-3.5 py-4">
-              Link a wallet in Account to choose how it signs.
-            </p>
-          )}
+          {signingWallets.map((wallet) => (
+            <ListRow
+              key={wallet.id}
+              className="min-h-0 py-2.5"
+              title={walletDisplayName(wallet)}
+              description={
+                errors[wallet.id] ? (
+                  <span role="alert" className="text-aomi-danger">
+                    {errors[wallet.id]}
+                  </span>
+                ) : (
+                  shortAddress(wallet.address)
+                )
+              }
+              descriptionMono={!errors[wallet.id]}
+              trailing={
+                <AomiButton
+                  size="sm"
+                  aria-label={`Unlock ${walletDisplayName(wallet)} ${wallet.address}`}
+                  disabled={Boolean(busy[wallet.id] || drafts[wallet.id])}
+                  onClick={() => choose(wallet, "manual")}
+                >
+                  {busy[wallet.id] ? "Unlocking…" : "Unlock"}
+                </AomiButton>
+              }
+            />
+          ))}
         </ListGroup>
       </section>
 
@@ -233,6 +248,6 @@ export function AccountSigningView({
           </div>
         ) : null}
       </ConfirmDialog>
-    </div>
+    </>
   );
 }

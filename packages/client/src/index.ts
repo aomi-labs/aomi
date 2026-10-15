@@ -202,11 +202,17 @@ export { AomiCommits, CommitHandle } from "./sdk/commits";
 export type { CommitSigner } from "./sdk/commits";
 export {
   COMMIT_REF_ERROR_CODES,
+  CommitApprovalForbiddenError,
+  CommitExpiredError,
+  CommitNotAwaitingApprovalError,
   CommitNotFoundError,
   CommitStaleError,
   commitRefPaths,
 } from "./commit-ref";
 export type {
+  CommitApprovalState,
+  CommitApprovalView,
+  CommitRefApproveRequest,
   CommitRefBroadcastRequest,
   CommitRefRejectRequest,
   CommitRefSignRequest,
@@ -472,10 +478,23 @@ export type {
   AomiWalletErrorCode,
   AomiWalletRule,
   AomiWalletRuleClient,
+  AomiWalletRuleClientSetting,
+  AomiWalletRuleSettings,
+  AomiWalletRuleUpdate,
   AomiWalletTokenBalance,
   UserStateWalletFields,
 } from "./account/wallets";
 export { AomiWallets } from "./sdk/wallets";
+export {
+  AccountConnectionsTransport,
+  connectionPaths,
+} from "./account/connections";
+export type {
+  AomiAccountConnections,
+  AomiConnectionKind,
+  AomiOAuthConnection,
+  AomiTelegramConnection,
+} from "./account/connections";
 export type {
   AccountGraphUser,
   AccountGraphLinkedAccount,

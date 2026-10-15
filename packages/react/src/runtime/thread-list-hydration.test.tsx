@@ -103,7 +103,7 @@ describe("loading the chat list once access arrives", () => {
     ).toBe(true);
   });
 
-  it("keeps each thread's origin and never lists Telegram chats", async () => {
+  it("keeps each thread's origin and waiting approvals, and never lists Telegram chats", async () => {
     const all = vi.fn(async () => [
       {
         id: "mcp-chat",
@@ -111,6 +111,7 @@ describe("loading the chat list once access arrives", () => {
         archived: false,
         updatedAt: 3,
         origin: "mcp",
+        awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
       },
       {
         id: "app-chat",
@@ -144,7 +145,11 @@ describe("loading the chat list once access arrives", () => {
       expect(view.result.current.isThreadListLoading).toBe(false),
     );
     const metadata = view.result.current.threads.getThreadMetadata;
-    expect(metadata("mcp-chat")).toMatchObject({ origin: "mcp" });
+    expect(metadata("mcp-chat")).toMatchObject({
+      origin: "mcp",
+      awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
+    });
+    expect(metadata("app-chat")?.awaitingApproval).toBeUndefined();
     expect(metadata("app-chat")).toMatchObject({
       origin: "portal",
       originApp: 7,

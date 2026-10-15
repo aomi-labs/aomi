@@ -2,6 +2,35 @@
 
 ## Last Updated
 
+2026-10-15 — AGENT WALLETS STEP 4 (FRONTEND): APPROVALS EVERYWHERE (branch
+  `feat/agent-wallets`; backend half built against `notes/step4-contract.md`).
+  Client: `CommitView` gains state `awaiting_approval` and `approval`,
+  `CommitRefView.can_approve`; `CommitHandle.approve()` /
+  `CommitController.approve(id, review?)` always post to the thread-less
+  `/v1/commits/:ref/approve` (one call per batch) and `refView(id)` reads
+  `sign_url`; `CommitApprovalForbiddenError` / `CommitExpiredError` /
+  `CommitNotAwaitingApprovalError`; lifecycle phases `awaiting_approval` and
+  `signing`; wallet rules (`walletRule` / `setWalletRule`, `aomi.wallets.rule`
+  / `setRule`) and `client.account.connections`. Hand-written wire types stay
+  in `commit-ref.ts`, `account/wallets.ts` and `account/connections.ts`.
+  React: `ThreadMetadata.awaitingApproval` from live listings. Widget: lazy
+  `commit/approval.tsx` (sidebar Approve / "Approve all N", "Approve on Aomi"
+  link in embeds via `ApprovalAuthorityContext` = false in `AomiWidget`,
+  Retry after expiry, scheduled-run strip, sign page Approve); amber dot for
+  `awaiting_approval` and `data-awaiting-approval` rows; Safety (`PolicyPage`)
+  lazy-loads `account/safety/*`: one compact card per agent wallet (Pause, Ask
+  always on, Instant per client, 409 refetch), "Locked wallets" with Unlock
+  (legacy denied browser/embedded keys only; permit ceremony kept), Connected
+  apps with Disconnect; the per-wallet Ask me / Locked rows and
+  `wallet-policy-row.tsx` / `provider-policy-settings.tsx` are gone; agent
+  wallet menu "Signing rule" opens Safety at its card. Portal BFF: approve
+  (portal/CLI sessions only), `auth_source` on every `/v1/commits/*` mint,
+  rule GET/PUT, connections GET/DELETE (served from Better Auth tables);
+  `custody:delegate` removed. CLI: `aomi tx approve`, `aomi wallets [use]`,
+  chat approval hint. Pending: regenerate the agent API; journey
+  `tx-review-sign` has no commit model in its fake backend, so approve is
+  covered by unit tests and the sign-page browser contract.
+
 2026-10-15 — AGENT WALLETS STEP 3 (FRONTEND): AGENT WALLET PER ACCOUNT
   (branch `feat/agent-wallets`; backend half built against
   `notes/step3-contract.md`). Client: `client.account.wallets`

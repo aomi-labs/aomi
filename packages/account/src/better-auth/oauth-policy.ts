@@ -27,7 +27,6 @@ export const AOMI_SCOPES = [
   "account:apps:write",
   "account:credentials:read",
   "account:credentials:write",
-  "custody:delegate",
   "openid",
   "profile",
   "email",
@@ -40,14 +39,12 @@ export const AGENT_SCOPES = [
   "agent:actions:resolve",
   "mcp:agent",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const PIPELINE_SCOPES = [
   "pipeline:catalog",
   "pipeline:execute",
   "mcp:pipeline",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const ACCOUNT_SCOPES = [
   "account:credits:read",

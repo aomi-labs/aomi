@@ -538,6 +538,7 @@ describe("Agent wallet group", () => {
       "Deposit",
       "Withdraw to…",
       "Rename",
+      "Signing rule",
       "View on explorer",
     ]);
 
@@ -556,6 +557,22 @@ describe("Agent wallet group", () => {
     const menu = menuOf("w_31", "Hoodit wallet", HOODIT);
     fireEvent.click(within(menu).getByText("Use this wallet"));
     expect(onActivate).toHaveBeenCalledWith(hooditRow);
+  });
+
+  it("opens Safety at the wallet's rule from Signing rule", async () => {
+    const opened = vi.fn();
+    const listener = (event: Event) =>
+      opened((event as CustomEvent<string>).detail);
+    window.addEventListener("aomi:open-wallet-rule", listener);
+    try {
+      await renderGroup();
+      fireEvent.click(
+        within(menuOf("w_12", "Agent wallet", AGENT)).getByText("Signing rule"),
+      );
+      expect(opened).toHaveBeenCalledWith("w_12");
+    } finally {
+      window.removeEventListener("aomi:open-wallet-rule", listener);
+    }
   });
 
   it("starts a withdrawal and renames by the w_ id", async () => {

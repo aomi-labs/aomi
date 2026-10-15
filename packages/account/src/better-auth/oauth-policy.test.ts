@@ -70,6 +70,33 @@ describe("Aomi OAuth resource policy", () => {
     ).toEqual(["mcp:pipeline", "pipeline:execute"]);
   });
 
+  // Agent wallets v1 step 4: per-client signing rules replace delegated
+  // custody, so no resource grants it and no client registers with it. An old
+  // request that still names it is narrowed away.
+  it("grants custody:delegate nowhere", () => {
+    expect([...AOMI_SCOPES]).not.toContain("custody:delegate");
+    expect([...MCP_CLIENT_REGISTRATION_SCOPES]).not.toContain(
+      "custody:delegate",
+    );
+    for (const policy of aomiOAuthResourcePolicies(env)) {
+      expect(policy.grantableScopes).not.toContain("custody:delegate");
+      expect(
+        narrowScopesForAomiResource(
+          policy.identifier,
+          ["custody:delegate", ...policy.allowedScopes],
+          env,
+        ),
+      ).toEqual([...policy.allowedScopes]);
+      expect(
+        validateAomiResourceScopes(
+          policy.identifier,
+          ["custody:delegate"],
+          env,
+        ),
+      ).toEqual({ ok: false, error: "invalid_scope" });
+    }
+  });
+
   it("centralizes the MCP DPoP rollout switch", () => {
     expect(
       aomiOAuthResourcePolicies({

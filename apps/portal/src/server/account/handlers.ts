@@ -7,10 +7,12 @@ import {
   getAccountResponseForWidgetSession,
   issueWalletLinkNonce,
   linkVerifiedProviderIdentityForUser,
+  listAccountConnections,
   mergeAccountWithTicket,
   offerAccountMerge,
   renameAuthIdentity,
   renameWallet,
+  revokeOAuthConnection,
   takeMergeSwitchTicket,
   unlinkAuthIdentity,
   unlinkWallet,
@@ -38,7 +40,11 @@ import { recoverMessageAddress } from "viem";
 
 import { portalFailures } from "@/server/bff/failures";
 import { mintBearer } from "@/server/bff/http";
-import { PrincipalError, type Principal } from "@/server/bff/principal";
+import {
+  PrincipalError,
+  isPortalSession,
+  type Principal,
+} from "@/server/bff/principal";
 import type { Call } from "@/server/bff/routes";
 import { verifyWidgetProviderCredential } from "@/server/widget-auth/exchange";
 import { createCliSession, revokeSession } from "./cli-session";
@@ -284,6 +290,31 @@ export async function walletLinkNonce({
     domain: env.siweDomain,
     uri: env.betterAuthUrl,
   });
+}
+
+/** The OAuth clients and Telegram user connected to the account. */
+export async function listConnections({ principal }: Call): Promise<Response> {
+  return Response.json(
+    await listAccountConnections(account(principal).accountId),
+  );
+}
+
+/** Disconnect one OAuth client. Only a signed-in portal session may. */
+export async function disconnectOAuthConnection({
+  principal,
+  params,
+}: Call): Promise<Response> {
+  if (!isPortalSession(principal)) return error(403, "portal_session_required");
+  const clientId = String(params.client_id ?? "");
+  const revoked =
+    clientId.length > 0 &&
+    clientId.length <= 255 &&
+    (await revokeOAuthConnection({
+      userId: account(principal).accountId,
+      clientId,
+    }));
+  if (!revoked) return error(404, "connection_not_found");
+  return Response.json({ revoked: true });
 }
 
 /** Link a wallet to the signed-in account: SIWE for EVM, SIWS for SVM. */

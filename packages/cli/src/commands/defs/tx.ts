@@ -31,6 +31,40 @@ const txShowDef = defineCommand({
   },
 });
 
+const txApproveDef = defineCommand({
+  meta: {
+    name: "approve",
+    description:
+      "Approve a commit waiting for your approval; Aomi signs with the agent wallet",
+  },
+  args: {
+    ...globalArgs,
+    ref: {
+      type: "positional",
+      description: "Commit ref",
+      required: false,
+    },
+    yes: {
+      type: "boolean",
+      description: "Approve without asking (required outside a terminal)",
+    },
+    wait: {
+      type: "boolean",
+      default: true,
+      description: "Follow the commit until it settles (--no-wait skips)",
+    },
+  },
+  async run({ args }) {
+    const { txApproveCommand } = await import("../tx-approve");
+    const refs = getPositionals(args);
+    await txApproveCommand(
+      buildCliConfig(args),
+      refs.length === 1 ? refs[0] : "",
+      { yes: args.yes === true, noWait: args.wait === false },
+    );
+  },
+});
+
 const txSimulateDef = defineCommand({
   meta: {
     name: "simulate",
@@ -162,6 +196,7 @@ export const txDef = defineCommand({
   subCommands: {
     list: txListDef,
     show: txShowDef,
+    approve: txApproveDef,
     simulate: txSimulateDef,
     export: txExportDef,
     submit: txSubmitDef,

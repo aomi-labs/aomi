@@ -103,16 +103,33 @@ const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
   notify: "cli",
   sign_url: `https://portal.example/sign/${ref}`,
   created_at: Math.floor(Date.now() / 1000) - 5 * 60,
+  can_approve: false,
   ...overrides,
 });
 
+/** An agent-wallet commit parked for approval: no action, nothing signed. */
+const parked = (overrides: Partial<CommitRefView> = {}) =>
+  view({
+    state: "awaiting_approval",
+    action: null,
+    signing_mode: "auto",
+    can_approve: true,
+    approval: { state: "pending", client: "mcp", expires_at: 1_760_530_200 },
+    ...overrides,
+  });
+
 let handle: CommitHandle | undefined;
-async function open(initial: CommitRefView, after?: CommitRefView) {
+async function open(
+  initial: CommitRefView,
+  after?: CommitRefView | { code: string; status: number },
+) {
   const writes: { path: string; body: unknown }[] = [];
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const path = new URL(String(input)).pathname;
     if (init?.method === "POST") {
       writes.push({ path, body: JSON.parse(String(init.body)) });
+      if (after && "code" in after && !("commit_id" in after))
+        return Response.json(after, { status: after.status });
       return Response.json(after ?? initial);
     }
     return Response.json(initial);
@@ -209,6 +226,66 @@ describe("CommitSignPanel", () => {
       screen.getByRole("link", { name: /View on explorer/ }),
     ).toHaveProperty("href", "https://etherscan.io/tx/0xhash");
     expect(screen.queryByRole("button", { name: /Submit/ })).toBeNull();
+  });
+});
+
+describe("CommitSignPanel · approvals", () => {
+  it("approves a parked commit with no wallet to connect, then shows Signing…", async () => {
+    kit.identity.address = undefined;
+    const { handle, writes } = await open(
+      parked(),
+      parked({
+        version: 3,
+        state: "needs_signature",
+        can_approve: false,
+        approval: {
+          state: "approved",
+          client: "mcp",
+          expires_at: 1_760_530_200,
+          approved_at: 1_760_529_700,
+          approved_by: "portal",
+        },
+      }),
+    );
+    render(<CommitSignPanel handle={handle} />);
+
+    const approve = await screen.findByRole("button", { name: "Approve" });
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+    expect(
+      screen.getByText("Aomi signs with your agent wallet after you approve."),
+    ).toBeTruthy();
+    fireEvent.click(approve);
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toEqual({
+      path: `/v1/commits/${ref}/approve`,
+      body: { version: 2, review_digest: "digest-2" },
+    });
+    expect(await screen.findByText("Signing…")).toBeTruthy();
+    expect(signTransaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      { code: "commit_version_conflict", status: 409 },
+      "This request changed. Review it again.",
+    ],
+    [{ code: "commit_expired", status: 410 }, "Expired · nothing was signed"],
+    [
+      { code: "commit_signing_denied", status: 403 },
+      "This wallet is paused. Unpause it in Settings → Safety.",
+    ],
+  ])("explains a refused approval (%o)", async (refusal, message) => {
+    const { handle } = await open(parked(), refusal);
+    render(<CommitSignPanel handle={handle} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it("asks a session that cannot approve to sign in on Aomi", async () => {
+    const { handle } = await open(parked({ can_approve: false }));
+    render(<CommitSignPanel handle={handle} />);
+    expect(await screen.findByText("Sign in on Aomi to approve.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });
 });
 

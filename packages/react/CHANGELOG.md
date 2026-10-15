@@ -1,5 +1,9 @@
 # @aomi-labs/react
 
+## 0.8.5
+
+- `ThreadMetadata.awaitingApproval` carries the refs a chat (or its scheduled runs) has waiting for approval, from live thread listings only.
+
 ## 0.8.2
 
 - Prefer GPT-6.1 Sol for new and Auto threads when available, preserving manual selections and existing fallback models.

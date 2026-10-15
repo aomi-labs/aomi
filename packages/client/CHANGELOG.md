@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.4
+
+- Approve parked agent-wallet commits: `CommitHandle.approve()` and `CommitController.approve(id, review?)` post the reviewed version and review digest to the thread-less `/v1/commits/:ref/approve`, once for a whole batch. `CommitView` gains state `awaiting_approval` and `approval`; `CommitRefView` gains `can_approve`. New `CommitApprovalForbiddenError`, `CommitExpiredError` and `CommitNotAwaitingApprovalError`; `projectCommitLifecycle` adds the `awaiting_approval` and `signing` phases. Agent wallet rules (`walletRule`, `setWalletRule`, `aomi.wallets.rule()` / `setRule()`) and connected apps (`client.account.connections`). Hand-written wire types until the agent API is regenerated.
+
 ## 0.10.3
 
 - Read simulation step evidence under `result` as well as `execution`, so passed batches no longer render as failed with zero gas.

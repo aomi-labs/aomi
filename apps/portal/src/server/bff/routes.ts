@@ -27,7 +27,12 @@ import {
 import { authorize, policyFor, scopesOn, type Need } from "./capabilities";
 import { openWidget, publicRead } from "./cors";
 import { errorResponse, mintBearer } from "./http";
-import { oauthPrincipal, resolvePrincipal, type Principal } from "./principal";
+import {
+  isPortalSession,
+  oauthPrincipal,
+  resolvePrincipal,
+  type Principal,
+} from "./principal";
 import { publicCatalog } from "./public-catalog";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -151,22 +156,17 @@ async function toBackend(call: Call, path: string): Promise<Response> {
       url.searchParams.append("platform", platform);
   const accountId =
     "accountId" in call.principal ? call.principal.accountId : null;
-  const creatingAgent =
-    call.request.method === "POST" && path === "/v1/account/wallets/agent";
-  if (
-    creatingAgent &&
-    (call.principal.kind !== "cookie" || call.principal.guest)
-  ) {
+  const portalOnly = PORTAL_ONLY_WRITES.some(
+    (route) => route.method === call.request.method && route.path.test(path),
+  );
+  if (portalOnly && !isPortalSession(call.principal))
     return Response.json({ error: "portal_session_required" }, { status: 403 });
-  }
+  const claims = delegatedClaims(call.principal, path, portalOnly);
   const bearer = accountId
     ? (
         await mintBearer(() =>
-          creatingAgent
-            ? mintAccountBearer(accountId, "user", {
-                auth_source: "session",
-                principal_class: "user",
-              })
+          claims
+            ? mintAccountBearer(accountId, "user", claims)
             : mintAccountBearer(accountId),
         )
       ).bearer
@@ -177,6 +177,35 @@ async function toBackend(call: Call, path: string): Promise<Response> {
     policy: BACKEND_API_HEADERS,
     bearer,
   });
+}
+
+const WALLET_ID = "w_[1-9][0-9]*";
+const WALLET_RULE = new RegExp(`^/v1/account/wallets/${WALLET_ID}/rule$`);
+
+/** Writes only a signed-in portal session may make; the backend checks it too. */
+const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
+  { method: "POST", path: /^\/v1\/account\/wallets\/agent$/ },
+  { method: "PUT", path: WALLET_RULE },
+];
+
+/**
+ * What the backend learns about the caller besides the account: portal-only
+ * writes carry the verified session, and every /v1/commits call names the
+ * client it came through, which decides who may approve.
+ */
+function delegatedClaims(
+  principal: Principal,
+  path: string,
+  portalOnly: boolean,
+) {
+  if (portalOnly)
+    return { auth_source: "session", principal_class: "user" } as const;
+  if (principal.kind === "none" || !path.startsWith("/v1/commits/"))
+    return undefined;
+  return {
+    auth_source: authSource(principal),
+    principal_class: principal.guest ? "guest" : "user",
+  } as const;
 }
 
 /**
@@ -437,7 +466,7 @@ export const COMMIT_REF_ROUTES: readonly {
   { path: new RegExp(`^/v1/commits/${COMMIT_REF}$`), methods: ["GET"] },
   {
     path: new RegExp(
-      `^/v1/commits/${COMMIT_REF}/(?:sign|broadcast|attempts|reject)$`,
+      `^/v1/commits/${COMMIT_REF}/(?:sign|broadcast|attempts|reject|approve)$`,
     ),
     methods: ["POST"],
   },
@@ -448,6 +477,21 @@ export const COMMIT_REF_ROUTES: readonly {
     methods: ["POST"],
   },
 ];
+
+const APPROVE = new RegExp(`^/v1/commits/${COMMIT_REF}/approve$`);
+
+/**
+ * Approving lets Aomi sign with the agent wallet, so only a signed-in portal
+ * or CLI session may: never an embedded widget, an OAuth client or a guest.
+ */
+function mayApprove(principal: Principal): boolean {
+  return (
+    (principal.kind === "cookie" ||
+      principal.kind === "session_bearer" ||
+      principal.kind === "e2e") &&
+    !principal.guest
+  );
+}
 
 function isCommitRefRoute(request: Request): boolean {
   const { pathname } = new URL(request.url);
@@ -466,14 +510,13 @@ function backendRoute(request: Request): BackendRoute | undefined {
 }
 
 /**
- * The account's wallet list, balances and agent wallet creation. Reads take
- * the same scope api-server asks of OAuth clients; creating an agent wallet
- * is for a first-party session only.
+ * The account's wallet list, balances, agent wallet creation and signing
+ * rules. Reads take the same scope api-server asks of OAuth clients; creating
+ * an agent wallet and writing its rule are for a portal session only.
  */
-const WALLET_ID = "w_[1-9][0-9]*";
 export const ACCOUNT_WALLET_ROUTES: readonly {
   path: RegExp;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
 }[] = [
   { path: /^\/v1\/account\/wallets$/, method: "GET" },
   { path: /^\/v1\/account\/wallets\/agent$/, method: "POST" },
@@ -481,6 +524,8 @@ export const ACCOUNT_WALLET_ROUTES: readonly {
     path: new RegExp(`^/v1/account/wallets/${WALLET_ID}/balance$`),
     method: "GET",
   },
+  { path: WALLET_RULE, method: "GET" },
+  { path: WALLET_RULE, method: "PUT" },
 ];
 
 function accountWalletNeed(request: Request): Need | null {
@@ -490,8 +535,8 @@ function accountWalletNeed(request: Request): Need | null {
       candidate.path.test(pathname) && candidate.method === request.method,
   );
   if (!route) return null;
-  return route.method === "GET"
-    ? { resource: resources().agentRest, scopes: ["agent:read"] }
+  return route.method === "PUT"
+    ? { capability: "account" }
     : { resource: resources().agentRest, scopes: ["agent:read"] };
 }
 
@@ -523,12 +568,20 @@ export const routes = {
             scopes: [request.method === "GET" ? "agent:read" : "agent:write"],
           }
         : null,
-    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+    handle: async (call) => {
+      const { pathname } = new URL(call.request.url);
+      if (APPROVE.test(pathname) && !mayApprove(call.principal))
+        return Response.json(
+          { code: "commit_approval_forbidden", status: 403 },
+          { status: 403 },
+        );
+      return toBackend(call, pathname);
+    },
   }),
 
   accountWallets: bind({
     operation: "account.wallets",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT"],
     need: accountWalletNeed,
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
   }),
@@ -617,6 +670,18 @@ export const routes = {
     operation: "account.identity",
     need: { capability: "account" },
     handle: { PATCH: account.renameIdentity, DELETE: account.unlinkIdentity },
+    fallback: "widget_auth_failed",
+  }),
+  connections: bind({
+    operation: "account.connections",
+    need: { capability: "account" },
+    handle: { GET: account.listConnections },
+    fallback: "widget_auth_failed",
+  }),
+  connection: bind({
+    operation: "account.connection",
+    need: { capability: "account" },
+    handle: { DELETE: account.disconnectOAuthConnection },
     fallback: "widget_auth_failed",
   }),
   wallet: bind({

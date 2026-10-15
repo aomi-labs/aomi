@@ -11,10 +11,10 @@ const request = vi.hoisted(() => vi.fn());
 vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: request }),
 }));
-vi.mock("@/account/provider-policy-settings", async () => {
+vi.mock("@/account/safety/safety-wallets", async () => {
   const { useEffect } = await import("react");
   return {
-    SigningSettings: ({ onLoad }: { onLoad?: () => void }) => {
+    SafetyWallets: ({ onLoad }: { onLoad?: () => void }) => {
       useEffect(() => onLoad?.(), [onLoad]);
       return <div>Signing rows</div>;
     },

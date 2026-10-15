@@ -10,6 +10,8 @@
  *   - `POST /v1/account/wallets/agent`        -> `AomiAgentWalletsCreated`
  *   - `GET  /v1/account/wallets/:id/balance`  -> `AomiWalletBalance`
  *   - `PUT  /api/thread/wallet`               -> `AomiThreadWallet`
+ *   - `GET  /v1/account/wallets/:id/rule`     -> `AomiWalletRuleSettings` (step 4)
+ *   - `PUT  /v1/account/wallets/:id/rule`     <- `AomiWalletRuleUpdate` (step 4)
  *   - `UserState` fields `wallet_pick`, `wallet_presence`, `active_wallet`
  *     (`UserStateWalletFields`) and `EventPage.active_wallet`.
  * After `pnpm generate:agent-api`, alias the `UserState` fields and the
@@ -70,6 +72,37 @@ export type AomiAccountWallet = {
   rule: AomiWalletRule | null;
   /** Unix seconds. */
   created_at: number | null;
+};
+
+/** One client row of `GET /v1/account/wallets/:id/rule` (step 4). */
+export type AomiWalletRuleClientSetting = AomiWalletRuleClient & {
+  /** Signs without asking when true; otherwise the commit waits for approval. */
+  instant: boolean;
+  /** e.g. "kept on from the beta" for a legacy app wallet. */
+  detail?: string | null;
+};
+
+/**
+ * `GET /v1/account/wallets/:id/rule`: Pause and one Instant switch per client
+ * (Portal, CLI, AI clients over MCP, each Telegram bot). Ask is the default.
+ */
+export type AomiWalletRuleSettings = {
+  id: string;
+  rule_version: number;
+  paused: boolean;
+  clients: AomiWalletRuleClientSetting[];
+};
+
+/**
+ * `PUT /v1/account/wallets/:id/rule`: the full desired state at the version
+ * the caller read. Portal sessions only; a stale `rule_version` is 409
+ * `rule_version_conflict`.
+ */
+export type AomiWalletRuleUpdate = {
+  rule_version: number;
+  paused: boolean;
+  /** Client ids that sign without asking, e.g. `["mcp", "telegram:77…"]`. */
+  instant: string[];
 };
 
 export type AomiWalletAmount = { amount: string; usd: string | null };
@@ -148,6 +181,10 @@ export const WALLET_ERROR_CODES = {
   labelTooLong: "label_too_long",
   agentWalletNotRemovable: "agent_wallet_not_removable",
   threadBusy: "thread_busy",
+  invalidRule: "invalid_rule",
+  unknownClient: "unknown_client",
+  ruleVersionConflict: "rule_version_conflict",
+  portalSessionRequired: "portal_session_required",
 } as const;
 
 export type AomiWalletErrorCode =
@@ -187,6 +224,7 @@ export const walletPaths = {
   agent: "/v1/account/wallets/agent",
   balance: (id: string) =>
     `/v1/account/wallets/${encodeURIComponent(id)}/balance`,
+  rule: (id: string) => `/v1/account/wallets/${encodeURIComponent(id)}/rule`,
   threadWallet: "/api/thread/wallet",
 } as const;
 
@@ -249,6 +287,35 @@ export class AccountWalletsTransport {
     );
   }
 
+  /** An agent wallet's Pause and per-client Instant switches. */
+  async walletRule(
+    id: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiWalletRuleSettings> {
+    return parseRuleSettings(
+      await this.request("GET", walletPaths.rule(id), options),
+    );
+  }
+
+  /**
+   * Write the full rule at the version that was read. A newer rule answers
+   * 409 `rule_version_conflict`: read it again before retrying.
+   */
+  async setWalletRule(
+    id: string,
+    update: AomiWalletRuleUpdate,
+  ): Promise<AomiWalletRuleSettings> {
+    return parseRuleSettings(
+      await this.request("PUT", walletPaths.rule(id), {
+        body: {
+          rule_version: update.rule_version,
+          paused: update.paused,
+          instant: [...update.instant],
+        },
+      }),
+    );
+  }
+
   /** Make `id` the thread's active wallet for its family. */
   async setThreadWallet(
     threadId: string,
@@ -286,10 +353,12 @@ export class AccountWalletsTransport {
   }
 }
 
-/** Typed error for a failed wallet response (`{"error":"<code>"}` or api-server's nested shape). */
+/** Typed error for a failed wallet or connections response (`{"error":"<code>"}`, `{code}` or api-server's nested shape). */
 export function walletError(status: number, body: unknown): AomiWalletError {
   const fields = apiErrorFields(body);
-  const code = fields.code ?? `http_${status}`;
+  // The portal's own account routes answer `{code, status}`.
+  const code =
+    fields.code ?? stringValue(asRecord(body)?.code) ?? `http_${status}`;
   return new AomiWalletError(
     status,
     code,
@@ -371,6 +440,32 @@ function parseRule(value: unknown): AomiWalletRule | null {
           : [];
       },
     ),
+  };
+}
+
+export function parseRuleSettings(value: unknown): AomiWalletRuleSettings {
+  const record = asRecord(value);
+  if (!record) throw invalid("rule must be an object");
+  if (typeof record.rule_version !== "number")
+    throw invalid("rule.rule_version must be a number");
+  return {
+    id: requiredString(record.id, "rule.id"),
+    rule_version: record.rule_version,
+    paused: record.paused === true,
+    clients: arrayOf(record.clients, "clients").flatMap((entry) => {
+      const client = asRecord(entry);
+      const id = stringValue(client?.client);
+      if (!client || !id) return [];
+      return [
+        {
+          client: id,
+          kind: stringValue(client.kind) ?? id.split(":")[0]!,
+          label: stringValue(client.label) ?? id,
+          instant: client.instant === true,
+          detail: stringValue(client.detail) ?? null,
+        },
+      ];
+    }),
   };
 }
 

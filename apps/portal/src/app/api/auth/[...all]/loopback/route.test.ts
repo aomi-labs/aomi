@@ -20,7 +20,7 @@ const AGENT_MCP_RESOURCE = `${PORTAL_ORIGIN}/v1/agent/mcp`;
 const TEST_RESOURCE_ID = "oauth-loopback-route-test-agent-mcp";
 const CODEX_SCOPES =
   "agent:read agent:write agent:actions:resolve mcp:agent payments:submit " +
-  "custody:delegate pipeline:catalog pipeline:execute mcp:pipeline openid " +
+  "pipeline:catalog pipeline:execute mcp:pipeline openid " +
   "profile email offline_access";
 const describeWithDatabase = DATABASE_URL ? describe : describe.skip;
 if (process.env.CI && !DATABASE_URL) {
@@ -102,7 +102,6 @@ describeWithDatabase("production OAuth route loopback callbacks", () => {
           "agent:actions:resolve",
           "mcp:agent",
           "payments:submit",
-          "custody:delegate",
           "offline_access",
         ]),
       ],

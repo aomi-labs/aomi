@@ -393,12 +393,12 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   return null;
 }
 
-/** `GET /v1/account/wallets` and `GET /v1/account/wallets/:id/balance`. */
+/** `GET /v1/account/wallets`, and `…/:id/balance` and `…/:id/rule`. */
 function isAgentReadableWalletPath(pathname: string, method: string): boolean {
   return (
     method.toUpperCase() === "GET" &&
     (pathname === "/v1/account/wallets" ||
-      /^\/v1\/account\/wallets\/[^/]+\/balance$/.test(pathname))
+      /^\/v1\/account\/wallets\/[^/]+\/(?:balance|rule)$/.test(pathname))
   );
 }
 

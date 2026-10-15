@@ -317,3 +317,90 @@ test("a sign link is login-only and returns to its review after sign-in", async 
   expect(read?.principal?.sub).toBe(owner);
   expect(read?.headers["x-thread-id"]).toBeUndefined();
 });
+
+test("a portal session approves a parked agent-wallet commit on its sign page", async ({
+  page,
+}) => {
+  const ref = "5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60";
+  const agent = "0x7a3f00000000000000000000000000000000c41e";
+  await signInThroughUi(page, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+  });
+  const owner = (await portalAccount(page)).user!.id!;
+  await seedCommit(ref, owner, {
+    version: 2,
+    commit_id: ref,
+    thread_id: "mcp-thread",
+    stage_id: "direct:approval:0",
+    chain_family: "evm",
+    chain_ref: "84532",
+    signer: agent,
+    broadcaster: "hosted",
+    state: "awaiting_approval",
+    signing_mode: "auto",
+    transaction_id: null,
+    failure_code: null,
+    batch: null,
+    wallet_attempt: null,
+    action: null,
+    approval: { state: "pending", client: "mcp", expires_at: 1_900_000_000 },
+    review: {
+      version: 2,
+      revision: 1,
+      digest: "approval-digest",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 84532,
+            from: agent,
+            to: "0x2222222222222222222222222222222222222222",
+            data: "0x",
+            label: "Agent transfer",
+            kind: "transaction",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [],
+          warnings: [],
+          fees: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      },
+      legs: [],
+    },
+    origin: "mcp",
+    origin_app: null,
+    initiator: "mcp:contract",
+    notify: "mcp:contract",
+    sign_url: `${portalOrigin}/sign/${ref}`,
+    created_at: Math.floor(Date.now() / 1000) - 60,
+  });
+
+  await page.goto(`${portalOrigin}/sign/${ref}`);
+  const request = page.getByRole("region", { name: "Transaction request" });
+  await expect(request).toBeVisible({ timeout: 30_000 });
+  await expect(
+    request.getByText("Aomi signs with your agent wallet after you approve."),
+  ).toBeVisible();
+  // No wallet to connect: Aomi signs with the agent wallet after Approve.
+  await expect(
+    request.getByRole("button", { name: /Connect wallet|Switch to/ }),
+  ).toHaveCount(0);
+  await request.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(request.getByText("Signing…")).toBeVisible({ timeout: 30_000 });
+
+  const approve = (await upstreamRecords()).find(
+    (record) =>
+      record.method === "POST" && record.path === `/v1/commits/${ref}/approve`,
+  );
+  expect(approve?.principal?.sub).toBe(owner);
+  expect(approve?.principal?.auth_source).toBe("session");
+});

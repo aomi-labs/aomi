@@ -460,6 +460,7 @@ export type ThreadMetadata = {
     pending?: boolean;
     origin?: ThreadOrigin;
     originApp?: number;
+    awaitingApproval?: string[];
 };
 
 // @public (undocumented)

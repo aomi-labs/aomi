@@ -26,3 +26,24 @@ export function useSettingsOpenRequest(onOpen: (tab: SettingsTab) => void) {
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, open);
   }, []);
 }
+
+const OPEN_WALLET_RULE_EVENT = "aomi:open-wallet-rule";
+
+/** Inside open Settings: show Safety at one agent wallet's rule (`w_` id). */
+export function requestWalletRuleOpen(walletId: string) {
+  window.dispatchEvent(
+    new CustomEvent<string>(OPEN_WALLET_RULE_EVENT, { detail: walletId }),
+  );
+}
+
+/** SettingsModal side of `requestWalletRuleOpen`. */
+export function useWalletRuleOpenRequest(onOpen: (walletId: string) => void) {
+  const handler = useRef(onOpen);
+  handler.current = onOpen;
+  useEffect(() => {
+    const open = (event: Event) =>
+      handler.current((event as CustomEvent<string>).detail);
+    window.addEventListener(OPEN_WALLET_RULE_EVENT, open);
+    return () => window.removeEventListener(OPEN_WALLET_RULE_EVENT, open);
+  }, []);
+}

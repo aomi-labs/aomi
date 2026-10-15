@@ -33,6 +33,11 @@ export type ThreadMetadata = {
   origin?: ThreadOrigin;
   /** Application the thread runs inside, when the server reports it. */
   originApp?: number;
+  /**
+   * Refs waiting for the user's approval on this thread and its scheduled
+   * runs, oldest first, when the server reports any.
+   */
+  awaitingApproval?: string[];
 };
 
 export function initThreadControl(): ThreadControlState {

@@ -83,7 +83,23 @@ export class CommitHandle {
     return (await this.controller.execute(this.ref, review)) as CommitRefView;
   }
 
-  /** Reject at the current version. */
+  /**
+   * Approve a parked commit (`awaiting_approval`) at the current version and
+   * review digest; Aomi then signs with the agent wallet. Approving one member
+   * of a batch approves the whole batch. Only a portal or CLI login may
+   * approve: OAuth clients get CommitApprovalForbiddenError and should hand
+   * the human `view.sign_url`. A changed commit raises CommitStaleError, an
+   * expired one CommitExpiredError (nothing was signed).
+   */
+  async approve(): Promise<CommitRefView> {
+    const view = this.view;
+    return this.controller.approve(this.ref, {
+      expectedVersion: view.version,
+      expectedReviewDigest: view.review?.digest ?? "",
+    });
+  }
+
+  /** Reject at the current version (every parked member of a batch). */
   async reject(): Promise<CommitRefView> {
     return (await this.controller.reject(this.ref)) as CommitRefView;
   }
