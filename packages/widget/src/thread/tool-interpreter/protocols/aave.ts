@@ -14,6 +14,9 @@ import {
 } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
+// `aave_v4_prepare` is the retired name, still in saved threads.
+const stageTools = ["stage_aave_v4", "aave_v4_prepare"];
+
 const readTitles: Record<string, string> = {
   aave_v4_markets: "Read Aave V4 markets",
   aave_v4_positions: "Read Aave V4 positions",
@@ -28,7 +31,7 @@ const matchAave: ToolMatcher = ({ rawLabel, resultRecord }) => {
     chainFactFromRecord(details) ?? chainFactFromRecord(resultRecord);
   const status = statusFact(resultRecord.status);
 
-  if (name !== "aave_v4_prepare") {
+  if (!stageTools.includes(name)) {
     const title = readTitles[name];
     return title
       ? protocolOperation(rawLabel, title, "read", [chain, status])
@@ -48,8 +51,8 @@ const matchAave: ToolMatcher = ({ rawLabel, resultRecord }) => {
       "enable_collateral",
       "disable_collateral",
     ].includes(action)
-      ? `Prepare Aave V4 ${humanize(action).toLowerCase()}`
-      : "Prepare operation Aave V4";
+      ? `Stage Aave V4 ${humanize(action).toLowerCase()}`
+      : "Stage Aave V4 operation";
   const approval =
     asRecord(resultRecord.approval)?.required === true
       ? {
@@ -67,6 +70,6 @@ const matchAave: ToolMatcher = ({ rawLabel, resultRecord }) => {
 };
 
 export const aave: ProtocolAdapter = {
-  tools: ["aave_v4_prepare", ...Object.keys(readTitles)],
+  tools: [...stageTools, ...Object.keys(readTitles)],
   match: matchAave,
 };

@@ -7,7 +7,11 @@ import {
   STAGED_ACTION_ICON_REGISTRY,
 } from "@/thread/tool-registry";
 
-import type { FactKind, FactRole, ToolOperation } from "@/thread/tool-interpreter/types";
+import type {
+  FactKind,
+  FactRole,
+  ToolOperation,
+} from "@/thread/tool-interpreter/types";
 import { protocolDescriptorFor } from "@/thread/tool-interpreter/protocols/protocol-matchers";
 
 export type ChipSlot = {
@@ -74,6 +78,7 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "route" },
       { kind: "requirement" },
       { kind: "decoded" },
+      { kind: "count" },
       { kind: "status" },
     ],
   },

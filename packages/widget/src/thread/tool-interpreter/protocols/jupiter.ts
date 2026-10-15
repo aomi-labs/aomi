@@ -43,7 +43,13 @@ export const matchJupiterSwapPrep: ToolMatcher = ({
   if (!quote || !asRecord(quote.input_token) || !asRecord(quote.output_token)) {
     return null;
   }
-  if (!("ix_ids" in resultRecord || "instruction_count" in resultRecord)) {
+  if (
+    !(
+      "ix_ids" in resultRecord ||
+      "instruction_count" in resultRecord ||
+      (Array.isArray(resultRecord.staged) && resultRecord.staged.length > 0)
+    )
+  ) {
     return null;
   }
 
@@ -66,16 +72,19 @@ export const jupiter: ProtocolAdapter = {
   descriptors: {
     "jupiter.swap.prepare": {
       title: "fixed",
-      fixedTitle: "Prepare swap",
+      fixedTitle: "Stage Jupiter swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
         { kind: "cluster" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
+        { kind: "count" },
+        { kind: "status" },
       ],
     },
   },
-  tools: ["jupiter_prepare_swap"],
+  // `jupiter_prepare_swap` is the retired name, still in saved threads.
+  tools: ["stage_jupiter_swap", "jupiter_prepare_swap"],
   match: matchJupiterSwapPrep,
 };
