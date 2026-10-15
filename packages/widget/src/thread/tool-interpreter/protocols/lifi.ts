@@ -10,8 +10,11 @@ import {
 } from "@/thread/tool-interpreter/normalize";
 import { EVM_SELECTOR_REGISTRY, SHAPE_ICONS } from "@/thread/tool-registry";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
-import { routeFact, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  routeFact,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 import {
   failedFact,
   operation,

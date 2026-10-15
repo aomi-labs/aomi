@@ -1,12 +1,24 @@
 import {
+  type ToolMatcher,
+  type ToolFact,
+  type ToolOperation,
+} from "@/thread/tool-interpreter/types";
+import { type Descriptor } from "@/thread/tool-interpreter/present/descriptors";
+import {
   amountFact,
   asRecord,
   asString,
   chainFactFromRecord,
   uniqueFacts,
 } from "@/thread/tool-interpreter/normalize";
-import type { ToolFact, ToolOperation } from "@/thread/tool-interpreter/types";
 import { isErrorResult } from "@/thread/tool-interpreter/families/operation";
+
+/** Each protocol owns its declared tool names and result interpretation. */
+export type ProtocolAdapter = {
+  tools: readonly string[];
+  match: ToolMatcher;
+  descriptors?: Record<string, Descriptor>;
+};
 
 export const validResult = (
   result: Record<string, unknown> | null,

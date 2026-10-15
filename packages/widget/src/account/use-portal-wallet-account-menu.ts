@@ -15,7 +15,7 @@ import { useSettings } from "./use-settings";
 import {
   accountDisplayName,
   providerEmailDisplayHint,
-} from "@/wallet/wallet-management-model";
+} from "@/wallet/account-presentation";
 
 /**
  * Shared Portal and widget account menu config for the sidebar wallet chip.

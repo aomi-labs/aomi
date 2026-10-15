@@ -1,6 +1,6 @@
 # @aomi-labs/widget
 
-## 3.1.5
+## 3.1.6
 
 - Show transaction history and transaction detail reads in the working trace, with network, transaction, balance-change, and status chips.
 - Link transaction-history counterparties to their chain explorers.

@@ -9,7 +9,7 @@ import {
   deploymentSdkStatus,
 } from "@/features/deploy/client";
 import type { LaunchSdkStatus } from "@/features/deploy/contracts";
-import type { GitHubSessionInfo } from "@/features/deploy/dashboard";
+import type { GitHubSessionInfo } from "@aomi-labs/deploy/launch";
 import {
   buildQueryKeys,
   buildQueryStaleTime,

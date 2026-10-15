@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
-import { getLastProjectId, setLastProjectId } from "./last-project";
+import { getLastProjectId, setLastProjectId } from "@/lib/project-navigation";
 
 describe("last-project", () => {
   beforeEach(() => {

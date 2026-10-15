@@ -1,5 +1,3 @@
-import { getLastProjectId } from "./last-project";
-
 /** Project page tabs — keep in sync with `ProjectPage` TABS. */
 export type ProjectTab =
   | "home"
@@ -24,11 +22,7 @@ export function lastProjectHref(tab?: ProjectTab): string {
 
 /** Operate Usage, optionally scoped to one project. */
 export function usageHref(projectId?: number | null): string {
-  if (
-    projectId != null &&
-    Number.isSafeInteger(projectId) &&
-    projectId > 0
-  ) {
+  if (projectId != null && Number.isSafeInteger(projectId) && projectId > 0) {
     return `/operate/usage?project=${projectId}`;
   }
   return "/operate/usage";
@@ -43,4 +37,28 @@ export function lastEnvironmentHref(): string {
   const id = getLastProjectId();
   if (!id) return "/settings/secrets";
   return projectHref(id, "environment");
+}
+
+const LAST_PROJECT_KEY = "aomi-build:last-project-id";
+
+export function getLastProjectId(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_PROJECT_KEY);
+    if (!raw) return null;
+    const id = Number(raw);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastProjectId(projectId: number) {
+  if (typeof window === "undefined") return;
+  if (!Number.isSafeInteger(projectId) || projectId <= 0) return;
+  try {
+    window.localStorage.setItem(LAST_PROJECT_KEY, String(projectId));
+  } catch {
+    // ignore quota / private mode
+  }
 }

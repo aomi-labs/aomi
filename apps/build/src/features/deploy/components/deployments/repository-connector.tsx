@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock, Github } from "lucide-react";
 import { githubAppInstallUrl } from "@/features/deploy/client";
-import { normalizeRepo } from "@/features/deploy/state";
+import { normalizeRepo } from "@aomi-labs/deploy/launch";
 import type { RepositoryConnectionResult } from "@aomi-labs/deploy/launch";
 
 export type { RepositoryConnectionResult };

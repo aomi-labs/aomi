@@ -12,6 +12,7 @@ import type {
 } from "@aomi-labs/deploy";
 import {
   createLaunchClient,
+  resetLaunch,
   LaunchRequestError,
   type GithubAppOAuthStartResponse,
   type GitHubSessionInfo,
@@ -52,8 +53,13 @@ export function launchFetchGitHubSession(): Promise<GitHubSessionInfo> {
   return client.fetchGitHubSession();
 }
 
-export function launchSignOutGitHub(): Promise<void> {
-  return client.signOutGitHub();
+export async function launchSignOutGitHub(): Promise<void> {
+  try {
+    await client.signOutGitHub();
+  } finally {
+    // Clear the previous account's wizard state even when sign-out fails.
+    resetLaunch();
+  }
 }
 
 export function launchProjects(): Promise<UserProjectsResult> {
