@@ -137,6 +137,7 @@ export const COMMIT_REF_ERROR_CODES = {
   notFound: "commit_not_found",
   versionConflict: "commit_version_conflict",
   digestMismatch: "commit_review_digest_mismatch",
+  gasStale: "commit_gas_stale",
   approvalForbidden: "commit_approval_forbidden",
   notAwaitingApproval: "commit_not_awaiting_approval",
   expired: "commit_expired",
@@ -166,7 +167,8 @@ export class CommitStaleError extends AomiApiError {
   constructor(
     code:
       | typeof COMMIT_REF_ERROR_CODES.versionConflict
-      | typeof COMMIT_REF_ERROR_CODES.digestMismatch,
+      | typeof COMMIT_REF_ERROR_CODES.digestMismatch
+      | typeof COMMIT_REF_ERROR_CODES.gasStale,
     message: string,
     requestId?: string,
     details?: unknown,
@@ -248,7 +250,8 @@ export function commitRefError(
   if (
     status === 409 &&
     (code === COMMIT_REF_ERROR_CODES.versionConflict ||
-      code === COMMIT_REF_ERROR_CODES.digestMismatch)
+      code === COMMIT_REF_ERROR_CODES.digestMismatch ||
+      code === COMMIT_REF_ERROR_CODES.gasStale)
   )
     return new CommitStaleError(
       code,

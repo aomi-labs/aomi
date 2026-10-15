@@ -281,6 +281,22 @@ describe("CommitSignPanel · approvals", () => {
     expect(await screen.findByText(message)).toBeTruthy();
   });
 
+  it("offers Retry in the original chat when reviewed gas caps are stale", async () => {
+    const { handle } = await open(parked(), {
+      code: "commit_gas_stale",
+      status: 409,
+    });
+    render(<CommitSignPanel handle={handle} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(
+      await screen.findByText("This request changed. Nothing was signed."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Retry" }).getAttribute("href"),
+    ).toBe(`/?thread=${encodeURIComponent(handle.view.thread_id)}`);
+    expect(signTransaction).not.toHaveBeenCalled();
+  });
+
   it("asks a session that cannot approve to sign in on Aomi", async () => {
     const { handle } = await open(parked({ can_approve: false }));
     render(<CommitSignPanel handle={handle} />);
