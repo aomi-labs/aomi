@@ -255,6 +255,16 @@ it("stops offering Verify for an address the user removed", async () => {
 it("picks an agent wallet with no connector, signs nothing locally and tells the backend", async () => {
   const { props, address, sign } = connectedSigner("evm");
   const agent = `0x${"7a".repeat(20)}`;
+  const switchChain = vi.fn();
+  const selectNetwork = vi.fn(async () => undefined);
+  Object.assign(props.evm, {
+    activeEvmConnection: { chainId: 1 },
+    selectNetwork,
+  });
+  Object.assign(props.execution.evm, {
+    switchChainAsync: switchChain,
+    activeConnector: { id: "rabby" },
+  });
   let kit: AomiWalletKit | undefined;
   render(
     <WalletAuthPublisherContext.Provider
@@ -314,6 +324,13 @@ it("picks an agent wallet with no connector, signs nothing locally and tells the
     address: agent,
     walletSource: "agent",
   });
+  await act(async () => {
+    await kit!.switchChain!(8453);
+    await kit!.selectNetwork!({ family: "evm", chainId: 8453 });
+  });
+  expect(switchChain).not.toHaveBeenCalled();
+  expect(selectNetwork).not.toHaveBeenCalled();
+  expect(kit!.identity.chainId).toBe(8453);
   // The agent signs on the server: no local EVM signing path is offered.
   expect(kit!.signMessage).toBeUndefined();
   expect(kit!.signTypedData).toBeUndefined();

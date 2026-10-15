@@ -303,13 +303,51 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     );
     expect(renamed.rows[0].label).toBe("Trading");
 
-    // Deleting the account keeps the funded agent wallet's key and identity.
+    await pool.query(
+      `insert into signing_delegations(user_id, auth_provider_id, public_key_id, provider, kind, secret_handle)
+      values ($1,$2,$3,'para','agent_delegation',$4)`,
+      [
+        owner.userId,
+        identity.rows[0].id,
+        agentId,
+        `identity:${identity.rows[0].id}`,
+      ],
+    );
+    await pool.query(
+      `update agent_wallets set instant_clients = ARRAY['telegram:77'] where public_key_id=$1`,
+      [agentId],
+    );
+    // Deleting the account keeps funds but revokes all signing authority.
     await service.deactivateAomiAccount({ userId: owner.userId });
     const kept = await pool.query(
       `select count(*)::int as count from public_keys where id = $1`,
       [agentId],
     );
     expect(kept.rows[0].count).toBe(1);
+    const authority = await pool.query(
+      `select pk.signing_mode, pk.authorization_version, pk.authorization_metadata, aw.instant_clients, aw.rule_version
+      from public_keys pk join agent_wallets aw on aw.public_key_id=pk.id where pk.id=$1`,
+      [agentId],
+    );
+    expect(authority.rows[0]).toMatchObject({
+      signing_mode: "denied",
+      authorization_metadata: { reason: "account_deactivated" },
+      instant_clients: [],
+    });
+    expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
+    expect(Number(authority.rows[0].rule_version)).toBeGreaterThan(0);
+    const grants = await pool.query(
+      `select count(*)::int as count from signing_delegations where public_key_id=$1 and revoked_at is null`,
+      [agentId],
+    );
+    expect(grants.rows[0].count).toBe(0);
+    const revoked = await pool.query(
+      `select revocation_reason from signing_delegations where public_key_id=$1`,
+      [agentId],
+    );
+    expect(revoked.rows).toEqual([
+      { revocation_reason: "account_deactivated" },
+    ]);
   });
 
   for (const family of ["evm", "svm"] as const) {

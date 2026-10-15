@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_SVM_CLUSTER } from "@/wallet/catalog/svm-networks";
 import {
   AOMI_SESSION_BOOTING_IDENTITY,
   AOMI_SESSION_DISCONNECTED_IDENTITY,
@@ -32,9 +33,15 @@ export function buildWalletKitIdentity({
   const svmAddress = svmWallet?.address;
   const svmTransport = svmIdentity?.transport;
   const svmCapabilities = svmIdentity?.capabilities;
+  const svmCluster =
+    svmWallet?.kind === "agent"
+      ? (svm?.selectedNetwork?.cluster ??
+        svmIdentity?.cluster ??
+        DEFAULT_SVM_CLUSTER)
+      : svmIdentity?.cluster;
   const baseSvm = {
     svmAddress,
-    svmCluster: svmIdentity?.cluster,
+    svmCluster,
     svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
     svmTransport: svmAddress ? svmTransport : undefined,
     svmCapabilities: svmAddress ? svmCapabilities : undefined,
@@ -98,7 +105,7 @@ export function buildWalletKitIdentity({
       isConnected: true,
       walletKind: undefined,
       chainId,
-      svmAddress,
+      ...baseSvm,
       sessionProvider: auth.sessionProvider,
       walletSource: svmWallet ? walletSourceOf(svmWallet) : "injected",
       walletProviderSubject: auth.subject,
@@ -107,10 +114,6 @@ export function buildWalletKitIdentity({
       primaryLabel:
         formatWalletAddress(svmAddress) ?? "Connected Solana wallet",
       secondaryLabel: "Solana",
-      svmCluster: svmIdentity?.cluster,
-      svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
-      svmTransport,
-      svmCapabilities,
     };
   }
 
@@ -121,7 +124,7 @@ export function buildWalletKitIdentity({
     walletProviderSubject: auth.subject,
     authMethod: auth.authMethod,
     authValue: auth.authValue,
-    svmCluster: svmIdentity?.cluster,
+    svmCluster,
   };
 }
 

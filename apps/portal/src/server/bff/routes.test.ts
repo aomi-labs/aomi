@@ -950,9 +950,40 @@ describe("/v1/account/wallets forwarding", () => {
     const create = await routes.accountWallets.POST(
       request("/v1/account/wallets/agent", { method: "POST", headers: auth }),
     );
-    expect(create.status).toBe(401);
+    expect(create.status).toBe(403);
     expect(upstreamCalls()).toHaveLength(2);
   });
+
+  it.each([
+    "cookie guest",
+    "widget guest",
+    "widget user",
+    "session bearer",
+    "OAuth user",
+    "cookie user",
+  ])(
+    "agent creation admits only the portal session: %s",
+    async (credential) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.accountWallets.POST(
+        request("/v1/account/wallets/agent", {
+          method: "POST",
+          headers,
+          origin,
+        }),
+      );
+      expect(response.status).toBe(credential === "cookie user" ? 200 : 403);
+      if (credential === "cookie user") {
+        expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+          "acct-user",
+          "user",
+          { auth_source: "session", principal_class: "user" },
+        );
+      } else {
+        expect(mocks.fetch).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it("requires a principal", async () => {
     const response = await routes.accountWallets.GET(

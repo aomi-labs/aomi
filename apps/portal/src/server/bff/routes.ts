@@ -151,8 +151,25 @@ async function toBackend(call: Call, path: string): Promise<Response> {
       url.searchParams.append("platform", platform);
   const accountId =
     "accountId" in call.principal ? call.principal.accountId : null;
+  const creatingAgent =
+    call.request.method === "POST" && path === "/v1/account/wallets/agent";
+  if (
+    creatingAgent &&
+    (call.principal.kind !== "cookie" || call.principal.guest)
+  ) {
+    return Response.json({ error: "portal_session_required" }, { status: 403 });
+  }
   const bearer = accountId
-    ? (await mintBearer(() => mintAccountBearer(accountId))).bearer
+    ? (
+        await mintBearer(() =>
+          creatingAgent
+            ? mintAccountBearer(accountId, "user", {
+                auth_source: "session",
+                principal_class: "user",
+              })
+            : mintAccountBearer(accountId),
+        )
+      ).bearer
     : undefined;
   return forward({
     request: call.request,
@@ -480,7 +497,7 @@ function accountWalletNeed(request: Request): Need | null {
   if (!route) return null;
   return route.method === "GET"
     ? { resource: resources().agentRest, scopes: ["agent:read"] }
-    : { capability: "account" };
+    : { resource: resources().agentRest, scopes: ["agent:read"] };
 }
 
 const ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;

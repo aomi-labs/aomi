@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.8
+
+- Refresh the canonical inventory after agent wallet creation, bind withdrawals to the selected wallet, and select agent networks without local wallet prompts.
+
 ## 3.1.7
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.

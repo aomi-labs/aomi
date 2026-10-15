@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useAomiWalletKit } from "@/wallet/context";
 import { useDisplayQuery } from "@aomi-labs/react";
 import type {
   AomiAccountWallet,
@@ -15,24 +16,25 @@ import type {
  * them. `client` is the one Settings reads the account through.
  */
 export function useAgentWallets(client: AomiClient | undefined) {
+  const { refreshAccount } = useAomiWalletKit();
   const query = useDisplayQuery({
     resource: "account-wallets",
     enabled: Boolean(client),
     fetcher: (signal) => client!.account.wallets.listWallets({ signal }),
   });
-  const refetch = query.refetch;
-  const refresh = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
+  const refresh = query.refetch;
   const create = useCallback(
     async (
       families: AomiWalletFamily[] = ["evm", "svm"],
     ): Promise<AomiAgentWalletsCreated> => {
       const result = await client!.account.wallets.createAgentWallets(families);
+      if (!refreshAccount)
+        throw new Error("Wallet unavailable. Refresh and retry.");
+      await refreshAccount();
       await refresh();
       return result;
     },
-    [client, refresh],
+    [client, refresh, refreshAccount],
   );
   const agents: AomiAccountWallet[] | undefined = query.data?.filter(
     (wallet) => wallet.kind === "agent",

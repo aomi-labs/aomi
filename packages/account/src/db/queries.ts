@@ -635,6 +635,50 @@ export async function revokeWallet(input: {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function denyAgentWalletsForUser(input: {
+  userId: AomiUserId;
+  db: Db;
+}): Promise<void> {
+  await input.db.query(`select id from users where id = $1 for update`, [
+    input.userId,
+  ]);
+  // Match DbPublicKey::authorization_lock_key and advisory_xact_lock exactly.
+  // Stable ordering also keeps simultaneous revocations from deadlocking.
+  const keys = await input.db.query(
+    `select pk.id, pk.chain_type, pk.address from public_keys pk
+      join agent_wallets aw on aw.public_key_id = pk.id
+     where pk.user_id = $1 order by pk.chain_type, pk.address`,
+    [input.userId],
+  );
+  for (const key of keys.rows) {
+    const family = String(key.chain_type).trim().toLowerCase();
+    const address = String(key.address).trim();
+    const lock = `signing-authorization:${family}:${family === "evm" ? address.toLowerCase() : address}`;
+    await input.db.query(
+      `select pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [lock],
+    );
+    await input.db.query(
+      `update public_keys set signing_mode = 'denied',
+          authorization_version = authorization_version + 1,
+          authorization_metadata = coalesce(authorization_metadata, '{}'::jsonb) || jsonb_build_object('reason', 'account_deactivated', 'mode', 'denied', 'at', extract(epoch from now())::bigint),
+          updated_at = extract(epoch from now())::bigint where id = $1`,
+      [key.id],
+    );
+    await input.db.query(
+      `update signing_delegations set revoked_at = extract(epoch from now())::bigint,
+          revocation_reason = 'account_deactivated', updated_at = extract(epoch from now())::bigint
+        where public_key_id = $1 and revoked_at is null`,
+      [key.id],
+    );
+    await input.db.query(
+      `update agent_wallets set instant_clients = '{}', rule_version = rule_version + 1,
+          updated_at = extract(epoch from now())::bigint where public_key_id = $1`,
+      [key.id],
+    );
+  }
+}
+
 export async function revokeAllAuthIdentitiesForUser(input: {
   userId: AomiUserId;
   db?: Db;

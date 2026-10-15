@@ -59,6 +59,7 @@ export type AgentWalletHandlers = {
 function useWalletActions(
   run: AgentWalletHandlers["run"],
   onClose: (() => void) | undefined,
+  client: AomiClient | undefined,
 ): Pick<AgentWalletHandlers, "onRename" | "onWithdraw"> {
   const kit = useAomiWalletKit();
   const runtime = useOptionalAomiRuntime();
@@ -79,11 +80,24 @@ function useWalletActions(
           void run(
             `withdraw:${wallet.id}`,
             async () => {
-              // A new chat adopts this device's pick.
-              if (row && !row.active && activate) await activate(row.key);
-              await runtime.createThread({
+              if (
+                !row ||
+                !activate ||
+                !client ||
+                `w_${row.linkedWalletId}` !== wallet.id ||
+                (await activate(row.key)) !== "active"
+              ) {
+                throw new Error("Wallet unavailable. Refresh and retry.");
+              }
+              const threadId = await runtime.createThread({
                 draft: `Send all funds from ${wallet.label} to `,
               });
+              const selected = await client.account.wallets.setThreadWallet(
+                threadId,
+                wallet.id,
+              );
+              if (selected.active_wallet[wallet.family] !== wallet.id)
+                throw new Error("Wallet unavailable. Refresh and retry.");
               onClose?.();
             },
             false,
@@ -125,7 +139,7 @@ export function AgentWalletGroup({
   client,
   ...handlers
 }: GroupProps) {
-  const defaults = useWalletActions(run, onClose);
+  const defaults = useWalletActions(run, onClose, client);
   const onRename = handlers.onRename ?? defaults.onRename;
   const onWithdraw = handlers.onWithdraw ?? defaults.onWithdraw;
   const agents = useAgentWallets(client);

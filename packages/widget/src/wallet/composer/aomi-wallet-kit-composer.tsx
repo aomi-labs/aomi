@@ -46,6 +46,9 @@ export function AomiWalletKitComposer({
   const { registryStore, registryState } = evm;
   const accountId = account.guest ? undefined : account.user?.id;
   const [selectionVersion, setSelectionVersion] = useState(0);
+  // A connected connector can keep following its own chain. The server
+  // wallet's application network is independent of that connector.
+  const [agentEvmChainId, setAgentEvmChainId] = useState<number>();
   // An address the user removed from the account; no Verify nag for it
   // until the wallet app moves to another address.
   const [removedKey, setRemovedKey] = useState<string>();
@@ -360,6 +363,8 @@ export function AomiWalletKitComposer({
       setSelectionVersion((version) => version + 1);
     };
     const actions = buildWalletKitActions({
+      selectAgentEvmNetwork: agentEvm ? setAgentEvmChainId : undefined,
+      selectAgentSvmNetwork: agentSvm ? (id) => svm?.selectAppNetwork?.(id) : undefined,
       accounts,
       auth: { ...auth, login: account.loginProvider ?? auth.login },
       evm,
@@ -373,14 +378,14 @@ export function AomiWalletKitComposer({
     const hasAnyDisconnectablePath = Boolean(
       registryState.connections.length > 0 || svmIdentity?.address,
     );
+    // The agent wallet keeps the chain the app last selected.
     const identity = buildWalletKitIdentity({
       auth,
-      // The agent wallet keeps the chain the app last selected.
       evmWallet:
-        agentEvm && operatingEvm && !operatingEvm.chainId
+        agentEvm && operatingEvm
           ? {
               ...operatingEvm,
-              chainId: gracefulEvmIdentity.identity.chainId,
+              chainId: agentEvmChainId ?? gracefulEvmIdentity.identity.chainId,
             }
           : operatingEvm,
       svmWallet: operatingSvm,
@@ -388,6 +393,9 @@ export function AomiWalletKitComposer({
       isConnected,
       svm,
     });
+    // Temporary Better Auth guests are a transport principal, never an
+    // account-management principal. Keep that boundary at the adapter too,
+    // so stale or non-canonical account responses cannot expose guest chrome.
     return {
       identity,
       isReady: !isBooting,
@@ -405,13 +413,11 @@ export function AomiWalletKitComposer({
       accounts,
       wallets,
       accountStatus: account.status,
+      refreshAccount: account.refresh,
       accountError: account.error,
       accountConflict: account.conflict,
       accountGuest: account.guest,
       accountGuestUserId: account.guest ? account.guestUserId : undefined,
-      // Temporary Better Auth guests are a transport principal, never an
-      // account-management principal. Keep that boundary at the adapter too,
-      // so stale or non-canonical account responses cannot expose guest chrome.
       accountUser: account.guest ? undefined : account.user,
       accountLinkedAccounts: account.guest ? [] : account.linkedAccounts,
       accountWallets: account.guest ? [] : account.wallets,
@@ -511,7 +517,8 @@ export function AomiWalletKitComposer({
         solana: svm?.supportedNetworks ?? [],
       },
       selectedSolanaNetwork: svm?.selectedNetwork,
-      solanaNetworkSwitchRequiresReconnect: Boolean(svmIdentity?.address),
+      solanaNetworkSwitchRequiresReconnect:
+        !agentSvm && Boolean(svmIdentity?.address),
       connect: actions.connect,
       disconnect: actions.disconnect,
       openAccountUI: actions.openAccountUI,
@@ -546,8 +553,10 @@ export function AomiWalletKitComposer({
     };
   }, [
     registryState.phase,
+    agentEvmChainId,
     auth,
     account.wallets,
+    account.refresh,
     account.linkedAccounts,
     account.status,
     account.error,

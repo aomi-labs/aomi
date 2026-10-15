@@ -8,6 +8,8 @@ import type { SvmWalletRuntime, SvmIdentity } from "./types";
 import { toRegistryFamily } from "@/wallet/wallet-utils";
 
 type BuildWalletKitActionsParams = {
+  selectAgentEvmNetwork?: (chainId: number) => void;
+  selectAgentSvmNetwork?: (networkId: string | number) => void;
   accounts: readonly AomiAccount[];
   auth: AuthRuntime;
   evm: EvmWalletRuntime;
@@ -33,6 +35,8 @@ type WalletKitActions = Pick<
 >;
 
 export function buildWalletKitActions({
+  selectAgentEvmNetwork,
+  selectAgentSvmNetwork,
   accounts,
   auth,
   evm,
@@ -44,6 +48,7 @@ export function buildWalletKitActions({
   svmIdentity,
 }: BuildWalletKitActionsParams) {
   const selectEvmNetwork = async (chainId: number) => {
+    if (selectAgentEvmNetwork) return selectAgentEvmNetwork(chainId);
     // The execution runtime owns the signer-specific switch operation. This
     // lets embedded wallets (which deliberately have no wagmi connector) use
     // their provider switcher while ordinary wagmi wallets keep using wagmi.
@@ -144,13 +149,16 @@ export function buildWalletKitActions({
       }
       await auth.openAccountUI?.("account-modal", "ACCOUNT_MAIN");
     },
-    switchChain: execution.evm.switchChainAsync ? selectEvmNetwork : undefined,
+    switchChain:
+      selectAgentEvmNetwork || execution.evm.switchChainAsync
+        ? selectEvmNetwork
+        : undefined,
     selectNetwork: async (target) => {
       if (target.family === "evm") {
         await selectEvmNetwork(target.chainId);
         return;
       }
-      await svm?.selectNetwork(target.networkId);
+      await (selectAgentSvmNetwork ?? svm?.selectNetwork)?.(target.networkId);
     },
   } satisfies WalletKitActions;
 }
