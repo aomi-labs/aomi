@@ -183,7 +183,7 @@ describe("preparation route selection", () => {
     "preserves explicit %s submitters after a policy change",
     (chain) => {
       const address = profile(chain, "manual").user_accounts[0].address.address;
-      for (const mode of ["manual", "client_auto", "denied"] as const) {
+      for (const mode of ["manual", "denied"] as const) {
         for (const broadcaster of ["hosted", "venue"] as const) {
           const routed = UserState.route(
             { [chain]: { address, broadcaster } },
@@ -201,8 +201,9 @@ describe("preparation route selection", () => {
         const state = { evm: { address: "0xAlice", broadcaster } };
         const account = profile("evm", mode as never);
         expect(() => UserState.route(state, account)).not.toThrow();
-        if (mode === "weird") {
-          // Unknown modes are sent unchanged so the backend decides.
+        if (mode === "weird" || mode === "client_auto") {
+          // Unknown and retired modes (`client_auto` reads as Ask me on the
+          // backend) are sent unchanged so the backend decides.
           expect(UserState.route(state, account)).toEqual(state);
         }
       }

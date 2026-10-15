@@ -1,9 +1,8 @@
 "use client";
 
-import type { SignerMode, WalletPolicy } from "@/account/types";
+import type { SignerChoice, SignerMode, WalletPolicy } from "@/account/types";
 import {
   modeLabel,
-  reconcile,
   signingChoicesFor,
   unavailableReason,
   walletDisplayName,
@@ -13,7 +12,6 @@ import {
 import { useAomiWalletKit } from "./context";
 import { WalletProviderAvatar } from "./wallet-brands";
 import { Loader2 } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { ListRow } from "@/ui/aomi/list-group";
 import { Segmented } from "@/ui/aomi/segmented";
 import { shortAddress } from "@aomi-labs/client";
@@ -21,10 +19,10 @@ import { shortAddress } from "@aomi-labs/client";
 interface WalletPolicyRowProps {
   wallet: WalletPolicy;
   /** The mode being reviewed or signed, shown until it commits or is dropped. */
-  draft?: SignerMode;
+  draft?: SignerChoice;
   busy: boolean;
   error?: string;
-  onSelect: (mode: SignerMode) => void;
+  onSelect: (mode: SignerChoice) => void;
 }
 
 /** "0xda65…3cf0 · EVM": the address line under a wallet's name. */
@@ -35,30 +33,21 @@ export function walletAddressLine(
 }
 
 /**
- * The quiet status under a row: persistent delegation or drift state only. An
- * in-flight change shows as the drafted segment plus a spinner, not a line.
+ * The quiet status under a row, only when the saved mode is not one this row
+ * offers. An in-flight change shows as the drafted segment plus a spinner.
+ * An agent wallet already on Automatic shows it as its selected slot instead.
  */
 function statusLine(
   wallet: WalletPolicy,
-  choices: readonly SignerMode[],
-): { text: string; danger?: boolean } | null {
-  if (wallet.desiredMode === "auto") {
-    const recon = reconcile(wallet);
-    return recon.status === "drifted"
-      ? { text: "Automatic signing · Delegation expired", danger: true }
-      : {
-          text: `Automatic signing · Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}`,
-        };
-  }
-  if (!choices.includes(wallet.desiredMode)) {
-    return {
-      text: `${modeLabel(wallet.desiredMode)} isn't available for this wallet. Choose another mode.`,
-    };
-  }
-  return null;
+  slots: readonly SignerMode[],
+): { text: string } | null {
+  if (slots.includes(wallet.desiredMode)) return null;
+  return {
+    text: `${modeLabel(wallet.desiredMode)} isn't available for this wallet. Choose another mode.`,
+  };
 }
 
-/** One signable address with its Ask me / Auto / Locked choice. */
+/** One signable address with its Ask me / Locked choice. */
 export function WalletPolicyRow({
   wallet,
   draft,
@@ -66,8 +55,14 @@ export function WalletPolicyRow({
   error,
   onSelect,
 }: WalletPolicyRowProps) {
-  const choices = signingChoicesFor(wallet);
-  const status = statusLine(wallet, choices);
+  const choices: readonly SignerMode[] = signingChoicesFor(wallet);
+  // Every row shows the same slots so the controls line up; a mode this
+  // wallet can't move to stays visible but disabled. An agent wallet keeps a
+  // read-only Automatic slot so its current mode stays visible.
+  const slots: SignerMode[] = wallet.providerManaged
+    ? ["auto", "denied"]
+    : ["manual", "denied"];
+  const status = statusLine(wallet, slots);
   // A SIWE/SIWS wallet carries no brand on the wire; borrow the connector's
   // name (Rabby, MetaMask) when this browser knows the address.
   const connector = useAomiWalletKit().wallets.find(
@@ -81,12 +76,6 @@ export function WalletPolicyRow({
   const markKey =
     walletMarkKey(wallet) ??
     (generic ? walletNameToMarkKey(connector?.walletName) : null);
-  // Every row shows the same three slots so the controls line up; a mode
-  // this wallet can't hold stays visible but disabled.
-  const slots: SignerMode[] = wallet.providerManaged
-    ? choices
-    : ["manual", "client_auto", "denied"];
-
   return (
     <div id={`wallet-${wallet.id}`}>
       <ListRow
@@ -106,9 +95,14 @@ export function WalletPolicyRow({
               size="sm"
               label={`Signing for ${name} ${wallet.address}`}
               value={draft ?? wallet.desiredMode}
-              onChange={onSelect}
+              onChange={(mode) => {
+                if (mode !== "auto") onSelect(mode);
+              }}
               options={slots.map((mode) => {
-                const available = choices.includes(mode);
+                // The saved mode stays selectable so it renders as selected;
+                // choosing it again is a no-op.
+                const available =
+                  choices.includes(mode) || mode === wallet.desiredMode;
                 return {
                   value: mode,
                   disabled: !available,
@@ -128,14 +122,7 @@ export function WalletPolicyRow({
       {status || error ? (
         <div className="-mt-1.5 flex flex-col gap-0.5 pb-3 pl-[58px] pr-3.5">
           {status ? (
-            <p
-              className={cn(
-                "type-meta",
-                status.danger ? "text-aomi-danger" : "text-aomi-muted",
-              )}
-            >
-              {status.text}
-            </p>
+            <p className="type-meta text-aomi-muted">{status.text}</p>
           ) : null}
           {error ? (
             <p role="alert" className="type-meta text-aomi-danger">

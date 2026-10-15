@@ -1,30 +1,20 @@
 "use client";
 
-/** Canonical account wire layer. Policy and exact-address delegation state are
- * returned together so the ACL view never reconciles two independently-timed
- * snapshots.
- */
+/** Canonical account wire layer: the signing policy of every linked wallet. */
 
 import type { ShellRequest } from "./transport";
 import { accountScopedFetch } from "./settings-api";
 import type {
   AomiAccountProfile,
   AomiChainKind,
-  AomiDelegatedAccount,
   AomiOnchainAddress,
   AomiSigningPolicy,
   AomiUserAccount,
 } from "@aomi-labs/client";
-import type {
-  DelegatedAccountView,
-  LinkedVia,
-  SignerMode,
-  WalletPolicy,
-} from "./types";
+import type { LinkedVia, SignerMode, WalletPolicy } from "./types";
 import { shortAddress } from "@aomi-labs/client";
 
 export type AccountProfile = AomiAccountProfile;
-export type DelegatedAccount = AomiDelegatedAccount;
 export type OnchainAddress = AomiOnchainAddress;
 export type SigningPolicy = AomiSigningPolicy;
 export type UserAccount = AomiUserAccount;
@@ -33,10 +23,7 @@ type ChainKind = AomiChainKind;
 export async function fetchAccountAcl(
   request: ShellRequest = accountScopedFetch,
   signal?: AbortSignal,
-): Promise<{
-  wallets: WalletPolicy[];
-  delegatedAccounts: DelegatedAccountView[];
-}> {
+): Promise<{ wallets: WalletPolicy[] }> {
   const data = await request<AccountProfile>("/api/account", { signal });
   const owned = new Set(
     data.user_accounts.map((account) => addressKey(account.address)),
@@ -44,24 +31,14 @@ export async function fetchAccountAcl(
   const userAccountsByAddress = new Map(
     data.user_accounts.map((account) => [addressKey(account.address), account]),
   );
-  const delegationsByAddress = new Map<string, DelegatedAccount[]>();
-  for (const delegation of data.delegated_accounts) {
-    const key = addressKey(delegation.address);
-    delegationsByAddress.set(key, [
-      ...(delegationsByAddress.get(key) ?? []),
-      delegation,
-    ]);
-  }
   return {
     wallets: data.signing_policies.map((policy) =>
       toWalletPolicy(
         policy,
         userAccountsByAddress.get(addressKey(policy.address)),
-        delegationsByAddress.get(addressKey(policy.address)) ?? [],
         owned,
       ),
     ),
-    delegatedAccounts: data.delegated_accounts.map(toDelegatedAccountView),
   };
 }
 
@@ -69,21 +46,6 @@ function addressKey(address: OnchainAddress): string {
   const value =
     address.chain === "evm" ? address.address.toLowerCase() : address.address;
   return `${address.chain}:${value}`;
-}
-
-/**
- * Cut a provider's exact delegated accounts. Vault secrets hang off the
- * provider identity, so the endpoint revokes that provider capability as one
- * operation rather than pretending each address has independent secrets.
- */
-export function revokeProviderDelegation(
-  providerKey: string,
-  request: ShellRequest = accountScopedFetch,
-): Promise<unknown> {
-  return request(
-    `/api/account/providers/${encodeURIComponent(providerKey)}/delegation`,
-    { method: "DELETE" },
-  );
 }
 
 /**
@@ -104,20 +66,11 @@ export function provisionProviderAgentWallet(
   );
 }
 
-const DELEGATION_KIND_LABELS: Record<string, string> = {
-  session_delegation: "Session delegation",
-  agent_delegation: "Agent delegation",
-  signing_delegation: "Signing delegation",
-};
-
-export function delegationKindLabel(kind: string): string {
-  return DELEGATION_KIND_LABELS[kind] ?? kind.replace(/_/g, " ");
-}
-
 /**
  * Normalize the kernel's `signing_mode` to the view's `SignerMode`. Only the
- * canonical ladder spellings (`denied → manual → client_auto → server_auto`)
- * are recognized; anything else fails closed.
+ * canonical ladder spellings (`denied → manual → server_auto`) are recognized;
+ * anything else fails closed. A retired `client_auto` row reads as Ask me,
+ * which is how the backend already treats it.
  */
 export function normalizeSignerMode(mode: string): SignerMode {
   switch (mode) {
@@ -125,7 +78,7 @@ export function normalizeSignerMode(mode: string): SignerMode {
     case "server_auto":
       return "auto";
     case "client_auto":
-      return "client_auto";
+      return "manual";
     case "denied":
       return "denied";
     case "manual":
@@ -153,21 +106,9 @@ function linkedViaOf(
 function toWalletPolicy(
   row: SigningPolicy,
   userAccount: UserAccount | undefined,
-  delegations: DelegatedAccount[],
   ownedAddresses: Set<string>,
 ): WalletPolicy {
   const chain = row.address.chain;
-  const provider = userAccount?.auth_provider?.toLowerCase();
-  const active = provider
-    ? delegations.find(
-        (delegation) =>
-          delegation.status === "active" &&
-          delegation.revoked_at === null &&
-          (delegation.expires_at === null ||
-            delegation.expires_at * 1000 > Date.now()) &&
-          delegation.delegation_provider.toLowerCase() === provider,
-      )
-    : undefined;
   return {
     id: `${chain}:${row.address.address}`,
     chain,
@@ -175,41 +116,11 @@ function toWalletPolicy(
     linkedVia: linkedViaOf(userAccount, chain),
     primary: userAccount?.is_primary ?? false,
     desiredMode: normalizeSignerMode(row.mode),
-    delegationActive: Boolean(active),
-    delegationExpiresLabel: formatDate(active?.expires_at),
     authVersion: row.authorization_version,
     lastPermit: formatPermit(row, ownedAddresses),
     provider: userAccount?.auth_provider ?? undefined,
-    // Offerability is current capability, not the policy already selected.
-    // A manual wallet with a live delegated account must be able to move to
-    // auto; a stale auto policy without that capability must not.
-    canUseAuto: Boolean(active),
     providerManaged: userAccount?.provider_managed ?? false,
   };
-}
-
-function toDelegatedAccountView(row: DelegatedAccount): DelegatedAccountView {
-  return {
-    id: String(row.id),
-    provider: titleCase(row.delegation_provider),
-    providerKey: row.delegation_provider,
-    address: row.address,
-    scope: delegationScope(row),
-    kind: delegationKindLabel(row.kind),
-    status:
-      row.revoked_at !== null
-        ? "revoked"
-        : row.status === "active" &&
-            row.expires_at !== null &&
-            row.expires_at * 1000 <= Date.now()
-          ? "expired"
-          : row.status,
-  };
-}
-
-function delegationScope(row: DelegatedAccount): string {
-  const chain = row.address.chain === "svm" ? "Solana" : "Ethereum";
-  return `${chain} · ${shortAddress(row.address.address)}`;
 }
 
 /**
@@ -302,8 +213,4 @@ export function explainAccountError(cause: unknown): string {
       }
       return raw || "Something went wrong.";
   }
-}
-
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

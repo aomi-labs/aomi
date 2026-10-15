@@ -1,5 +1,4 @@
 import type * as PrivyAuth from "@privy-io/react-auth";
-import type * as PrivySmartWallets from "@privy-io/react-auth/smart-wallets";
 import type * as PrivySolana from "@privy-io/react-auth/solana";
 
 /**
@@ -9,7 +8,6 @@ import type * as PrivySolana from "@privy-io/react-auth/solana";
  */
 export type PrivySdk = {
   auth: typeof PrivyAuth;
-  smartWallets: typeof PrivySmartWallets;
   solana: typeof PrivySolana;
 };
 

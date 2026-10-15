@@ -11,7 +11,6 @@ const walletKit = vi.hoisted(() => ({
   providers: undefined as Record<string, unknown> | undefined,
   account: undefined as unknown,
   providerMounts: 0,
-  privyDelegationMounts: 0,
   throwOnProviderMount: "",
   replace: vi.fn(),
 }));
@@ -106,12 +105,7 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
 });
 
 vi.mock("@aomi-labs/widget/providers/para", () => ({}));
-vi.mock("@aomi-labs/widget/providers/privy", () => ({
-  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => {
-    walletKit.privyDelegationMounts += 1;
-    return <div data-testid="privy-delegation-root">{children}</div>;
-  },
-}));
+vi.mock("@aomi-labs/widget/providers/privy", () => ({}));
 vi.mock("@aomi-labs/widget/browser-auth", () => ({
   authClient: { useSession: () => ({ data: null }) },
 }));
@@ -133,7 +127,6 @@ describe("WalletProviders Privy configuration", () => {
     walletKit.providers = undefined;
     walletKit.account = undefined;
     walletKit.providerMounts = 0;
-    walletKit.privyDelegationMounts = 0;
     walletKit.throwOnProviderMount = "";
     walletKit.replace.mockReset();
     navigation.pathname = "/settings";
@@ -253,7 +246,6 @@ describe("WalletProviders Privy configuration", () => {
     fireEvent.click(screen.getByRole("button", { name: "privy" }));
     await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(view.queryByTestId("privy-delegation-root")).toBeNull();
   });
 
   it("offers both configured providers and opens only the selected provider", async () => {
@@ -277,7 +269,6 @@ describe("WalletProviders Privy configuration", () => {
       }),
     );
     expect(screen.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(screen.queryByTestId("privy-delegation-root")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "privy" }));
     await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
@@ -298,7 +289,6 @@ describe("WalletProviders Privy configuration", () => {
 
     expect(walletKit.auth).toBe(false);
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(walletKit.privyDelegationMounts).toBe(0);
   });
 
   it("mounts exactly the Para auth SDK selected by a device route", async () => {
@@ -319,7 +309,6 @@ describe("WalletProviders Privy configuration", () => {
       methods: ["email", "google"],
     });
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(walletKit.privyDelegationMounts).toBe(0);
   });
 
   it("does not mount a selected provider whose public config is missing", async () => {

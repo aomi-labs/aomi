@@ -50,10 +50,6 @@ export {
   type DualWalletBarProps,
 } from "./wallet/dual-wallet-bar";
 export type { WalletAccountMenuOptions } from "./account/account-menu-types";
-export {
-  usePrivyDelegation,
-  type PrivyDelegationContextValue,
-} from "./wallet/providers/privy/privy-delegation-context";
 export { createWidgetX402Client } from "./wallet/payment-client";
 export { SvmWalletBindingGate } from "./wallet/svm-wallet-binding-gate";
 export { useSvmWalletBinding } from "./wallet/use-svm-wallet-binding";
@@ -68,7 +64,7 @@ export { PackageIcon } from "./library/package-row";
 export { toCatalogPackage } from "./library/packages-catalog";
 export { PackagesModal } from "./library/packages-modal";
 export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-menu";
-export type { DelegatedAccountView, WalletPolicy } from "./account/types";
+export type { WalletPolicy } from "./account/types";
 export { StatementView } from "./account/usage/statement-view";
 export {
   Chip,

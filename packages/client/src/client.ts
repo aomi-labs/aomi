@@ -916,20 +916,6 @@ export class AomiClient {
   }
 
   /**
-   * Start Privy's separate one-time delegated-signer consent. This is not a
-   * wallet-link operation and callers should label it as enabling Auto.
-   */
-  async beginPrivyDelegation(
-    sessionId: string,
-    options?: { application?: string; walletFamily?: AomiAuthWalletFamily },
-  ): Promise<AomiBeginAccountAuthResponse> {
-    return this.beginPrivyAuth(sessionId, {
-      ...options,
-      purpose: "delegate_signing",
-    });
-  }
-
-  /**
    * Get available models.
    */
   async getModels(

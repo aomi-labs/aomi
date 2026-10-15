@@ -2,6 +2,19 @@
 
 ## Last Updated
 
+2026-10-15 — AGENT WALLETS STEP 1: DELETE AUTOMATIC SIGNING (branch
+  `feat/agent-wallets`; backend half in product-mono). Removed the Telegram
+  Mini App (`apps/telegram`, portal `/api/auth/widget/telegram/*`, the
+  account `./telegram` helpers, CI/scripts entries), the portal
+  `/api/delegation/*` routes and unused `managed_signing` backend routes,
+  Privy delegation (`privy-delegation*`, `usePrivyDelegation`) and the Privy
+  SmartWalletsProvider path, and every Settings auto/delegation control:
+  Safety now offers Ask me / Locked per wallet; an agent wallet already on
+  Automatic shows it read-only and can still be locked; the Para "Create agent
+  wallet" action stays; the General "Review wallet signing" banner is gone.
+  `client_auto` reads as Ask me. Pending: steps 3-4 (Aomi agent wallet with
+  Ask/Instant rules) rework the agent-wallet section.
+
 2026-10-14 — TRACE: TRANSACTION HISTORY TOOLS (branch `feat/tx-history`, with
   product-mono `feat/tx-history`). The backend's new `list_transactions` and
   `get_transaction` (EVM and Solana) get trace rows: "List transactions" with

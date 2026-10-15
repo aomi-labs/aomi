@@ -25,15 +25,8 @@ export function SigningSettings({ onLoad }: { onLoad?: () => void } = {}) {
   return (
     <AccountSigningView
       wallets={acl.wallets}
-      delegatedAccounts={acl.delegatedAccounts}
       onCommit={acl.commitMode}
       onPrepare={acl.prepareMode}
-      onSelectWallet={acl.selectWallet}
-      onRevokeDelegation={acl.revokeDelegation}
-      onStopAllAuto={acl.stopAllAuto}
-      canConnectPrivy={acl.canConnectPrivy}
-      onConnectPrivy={acl.connectPrivy}
-      onRenewDelegation={acl.renewDelegation}
       onCreateAgentWallet={acl.createAgentWallet}
       blockedReason={acl.blockedReason}
     />

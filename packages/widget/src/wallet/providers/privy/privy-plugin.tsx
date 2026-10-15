@@ -6,7 +6,6 @@ import {
   registerWalletProvider,
   type WalletProviderPlugin,
 } from "@/wallet/providers/plugin-registry";
-import { PrivyDelegationProvider } from "./privy-delegation";
 import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { buildPrivyClientConfig, toPrivyLoginMethods } from "./privy-auth";
 import { privySdk } from "./privy-sdk";
@@ -54,12 +53,9 @@ function PrivyAuthLayer({
   }
 
   const { PrivyProvider } = privySdk().auth;
-  const { SmartWalletsProvider } = privySdk().smartWallets;
   return (
     <PrivyProvider appId={appId} config={config}>
-      <SmartWalletsProvider>
-        <PrivyDelegationProvider>{children}</PrivyDelegationProvider>
-      </SmartWalletsProvider>
+      {children}
     </PrivyProvider>
   );
 }
@@ -77,7 +73,6 @@ export const privyPlugin: WalletProviderPlugin = {
     account,
     auth,
     children,
-    execution,
     externalSvmWallet,
     solanaRuntimeConfig,
     supportedChains,
@@ -87,7 +82,6 @@ export const privyPlugin: WalletProviderPlugin = {
       loginMethods={
         isPrivyAuth(auth) ? toPrivyLoginMethods(auth.methods) : undefined
       }
-      execution={execution}
       externalSvmWallet={externalSvmWallet}
       account={account}
       preferDirectSend={solanaRuntimeConfig?.preferDirectSend}

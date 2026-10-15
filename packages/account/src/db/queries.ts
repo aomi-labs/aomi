@@ -60,41 +60,6 @@ export async function findAomiUserById(
   return result.rows[0] ? mapUser(result.rows[0]) : null;
 }
 
-/** Resolve the verified Telegram identity and claim an unowned runtime session
- * for that same canonical user. A session already owned by anyone else is
- * rejected, preventing a valid Telegram launch from crossing accounts. */
-export async function claimTelegramSessionOwner(input: {
-  sessionId: string;
-  telegramUserId: string;
-  db?: Db;
-}): Promise<AomiUserId | null> {
-  const db = input.db ?? getPool();
-  const result = await db.query(
-    `with telegram_owner as (
-       select ap.user_id
-         from auth_providers ap
-         join users u on u.id = ap.user_id
-        where ap.provider = 'telegram'
-          and ap.issuer_environment = 'aomi'
-          and ap.tenant_id = 'global'
-          and ap.subject = $2
-          and coalesce(u.status, 'active') = 'active'
-        limit 1
-     ), claimed as (
-       update threads t
-          set user_id = owner.user_id
-         from telegram_owner owner
-        where t.id = $1
-          and (t.user_id is null or t.user_id = owner.user_id)
-       returning t.user_id
-     )
-     select user_id from claimed`,
-    [input.sessionId, input.telegramUserId],
-  );
-  const userId = result.rows[0]?.user_id;
-  return typeof userId === "string" ? userId : null;
-}
-
 export async function createAomiUser(input: {
   userId?: AomiUserId;
   email?: string | null;

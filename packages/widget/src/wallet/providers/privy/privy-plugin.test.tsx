@@ -6,10 +6,6 @@ const mounted = vi.hoisted(() => ({ config: undefined as unknown }));
 
 // Stub the heavy composer provider so importing the plugin does not pull in
 // the full wallet-kit runtime tree.
-vi.mock("./privy-delegation", () => ({
-  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 vi.mock("./privy-plugin-provider", () => ({
   AomiPrivyPluginProvider: ({ children }: { children: ReactNode }) => children,
 }));
@@ -27,17 +23,12 @@ vi.mock("@privy-io/react-auth", () => ({
   },
 }));
 
-vi.mock("@privy-io/react-auth/smart-wallets", () => ({
-  SmartWalletsProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 // Imported after the mocks are registered.
 const { getWalletProvider } = await import("@/wallet/providers/plugin-registry");
 const { privyPlugin } = await import("./privy-plugin");
 const { setPrivySdk } = await import("./privy-sdk");
 setPrivySdk({
   auth: await import("@privy-io/react-auth"),
-  smartWallets: await import("@privy-io/react-auth/smart-wallets"),
   solana: {} as never,
 });
 

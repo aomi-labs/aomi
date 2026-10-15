@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { modeHintFor, signingChoicesFor } from "@/account/account-reconcile";
+import {
+  modeHintFor,
+  modeLabel,
+  signingChoicesFor,
+  unavailableReason,
+} from "@/account/account-reconcile";
 import { normalizeSignerMode } from "@/account/account-api";
 import type { WalletPolicy } from "@/account/types";
 
@@ -17,57 +22,50 @@ function wallet(overrides: Partial<WalletPolicy>): WalletPolicy {
 
 describe("modeHintFor", () => {
   it("says manual always requires Alice's popup", () => {
-    expect(modeHintFor(wallet({}), "manual")).toContain("wallet popup");
-    expect(modeHintFor(wallet({}), "manual")).toContain("cannot sign");
+    expect(modeHintFor("manual")).toContain("wallet popup");
+    expect(modeHintFor("manual")).toContain("cannot sign");
   });
 
-  it("keeps Privy Auto on Alice's same delegated wallet", () => {
-    expect(modeHintFor(wallet({ linkedVia: "privy" }), "auto")).toContain(
-      "same wallet",
-    );
-  });
-
-  it("shows that Para Auto uses a separate agent address", () => {
-    expect(
-      modeHintFor(wallet({ linkedVia: "para", providerManaged: true }), "auto"),
-    ).toContain("separate Para agent wallet");
-  });
-
-  it("does not imply the Para login wallet can be delegated", () => {
-    expect(
-      modeHintFor(
-        wallet({ linkedVia: "para", providerManaged: false }),
-        "auto",
-      ),
-    ).toContain("cannot delegate this login wallet");
+  it("says Locked stops the wallet signing", () => {
+    expect(modeHintFor("denied")).toContain("cannot sign");
   });
 });
 
 describe("signingChoicesFor", () => {
-  it("offers Auto only where client auto-approve is valid today", () => {
-    expect(signingChoicesFor(wallet({ linkedVia: "privy" }))).toEqual([
-      "manual",
-      "client_auto",
-      "denied",
-    ]);
-    expect(signingChoicesFor(wallet({ linkedVia: "siwe" }))).toEqual([
-      "manual",
-      "denied",
-    ]);
+  it("offers Ask me and Locked to every wallet that holds a user key", () => {
+    for (const linkedVia of ["privy", "para", "siwe", "siws"] as const) {
+      expect(signingChoicesFor(wallet({ linkedVia }))).toEqual([
+        "manual",
+        "denied",
+      ]);
+    }
+  });
+
+  it("only lets a provider-managed agent wallet be locked", () => {
     expect(
       signingChoicesFor(wallet({ linkedVia: "para", providerManaged: true })),
     ).toEqual(["denied"]);
+  });
+
+  it("never offers Automatic", () => {
+    expect(unavailableReason(wallet({}), "auto")).toContain(
+      "can't be turned on",
+    );
+    expect(modeLabel("auto")).toBe("Automatic");
   });
 });
 
 describe("normalizeSignerMode", () => {
   it("maps only the canonical ladder spellings; everything else fails closed", () => {
     expect(normalizeSignerMode("server_auto")).toBe("auto");
-    expect(normalizeSignerMode("client_auto")).toBe("client_auto");
     expect(normalizeSignerMode("denied")).toBe("denied");
     expect(normalizeSignerMode("manual")).toBe("manual");
     // The canonical account DTO names the server-controlled mode `auto`.
     expect(normalizeSignerMode("auto")).toBe("auto");
     expect(normalizeSignerMode("agent_sync")).toBe("denied");
+  });
+
+  it("reads a retired client_auto row as Ask me, like the backend", () => {
+    expect(normalizeSignerMode("client_auto")).toBe("manual");
   });
 });

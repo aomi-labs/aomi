@@ -1,10 +1,9 @@
 import type {
-  DelegatedAccountView,
   LinkedVia,
+  SignerChoice,
   SignerMode,
   WalletPolicy,
 } from "./types";
-import { UserState } from "@aomi-labs/client";
 
 export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   {
@@ -13,14 +12,9 @@ export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
     hint: "You approve every transaction in your wallet. Nothing signs without you.",
   },
   {
-    id: "client_auto",
-    label: "Auto",
-    hint: "Your wallet auto-signs each transaction. Aomi never holds the key.",
-  },
-  {
     id: "auto",
-    label: "Automatic signing",
-    hint: "The delegated provider authorizes transactions; Hosted submits by default. Application and sponsorship limits still apply.",
+    label: "Automatic",
+    hint: "This agent wallet signs for you within your rules.",
   },
   {
     id: "denied",
@@ -50,32 +44,14 @@ const EMBEDDED_PROVIDERS: Partial<Record<LinkedVia, string>> = {
   para: "Para",
 };
 
-export type Recon =
-  | { status: "reconciled"; detail: string }
-  | { status: "drifted"; detail: string; action: string };
-
 export function modeLabel(mode: SignerMode): string {
   return SIGNER_MODES.find((m) => m.id === mode)?.label ?? mode;
 }
 
-/** Human copy for the actual signer, not just the abstract mode name. */
-export function modeHintFor(wallet: WalletPolicy, mode: SignerMode): string {
+/** Human copy for what a change to `mode` means for this wallet. */
+export function modeHintFor(mode: SignerChoice): string {
   if (mode === "manual") {
     return "A wallet popup asks you to approve each transaction. Aomi cannot sign it for you.";
-  }
-  if (mode !== "auto") {
-    return (
-      SIGNER_MODES.find((candidate) => candidate.id === mode)?.hint ?? mode
-    );
-  }
-  if (wallet.linkedVia === "privy") {
-    return "Privy signs from this same wallet only after your separate one-time Aomi delegation.";
-  }
-  if (wallet.linkedVia === "para" && wallet.providerManaged) {
-    return "Aomi signs from this separate Para agent wallet. Your Para login wallet remains manual.";
-  }
-  if (wallet.linkedVia === "para") {
-    return "Para cannot delegate this login wallet. Create the separate Para agent wallet to use Auto.";
   }
   return SIGNER_MODES.find((candidate) => candidate.id === mode)?.hint ?? mode;
 }
@@ -122,91 +98,27 @@ export function walletDisplayName(wallet: WalletPolicy): string {
 }
 
 /**
- * Which modes this wallet may hold — backend truth wins where the wire carries it.
+ * The per-wallet choices on the Safety tab: Ask me · Locked. A provider-managed
+ * agent wallet holds no user key, so it can only be locked.
  */
-export function modeValidFor(wallet: WalletPolicy, mode: SignerMode): boolean {
-  if (wallet.providerManaged)
-    return mode === "denied" || (mode === "auto" && wallet.canUseAuto === true);
-  if (mode === "denied" || mode === "manual") return true;
-  // `client_auto` stays offered on Para/Privy wallets, where it is valid today.
-  // No execution path reads it for an external (SIWE/SIWS) wallet yet, so it
-  // is not offered there; revisit once external auto-approve is wired.
-  if (mode === "client_auto")
-    return wallet.linkedVia === "para" || wallet.linkedVia === "privy";
-  return wallet.canUseAuto === true;
-}
-
-/** The per-wallet choices on the Safety tab: Ask me · Auto · Locked. */
-export function signingChoicesFor(wallet: WalletPolicy): SignerMode[] {
-  return (["manual", "client_auto", "denied"] as const).filter((mode) =>
-    modeValidFor(wallet, mode),
-  );
+export function signingChoicesFor(wallet: WalletPolicy): SignerChoice[] {
+  return wallet.providerManaged ? ["denied"] : ["manual", "denied"];
 }
 
 export function unavailableReason(
   wallet: WalletPolicy,
   mode: SignerMode,
 ): string {
+  if (mode === "auto") return "Automatic signing can't be turned on here.";
   if (wallet.providerManaged) {
     return "This is a provider-managed signer — you hold no key for it.";
   }
-  if (mode === "auto")
-    return "Requires an active delegation for this exact wallet.";
-  if (mode === "client_auto")
-    return "Auto is only available on Para and Privy wallets.";
   return "Not available for this wallet.";
 }
 
-export function reconcile(wallet: WalletPolicy): Recon {
-  switch (wallet.desiredMode) {
-    case "denied":
-      return {
-        status: "reconciled",
-        detail: "Locked. This wallet cannot sign.",
-      };
-    case "manual":
-      return { status: "reconciled", detail: "You approve every transaction." };
-    case "client_auto":
-      return {
-        status: "reconciled",
-        detail: "Your wallet auto-signs each transaction.",
-      };
-    case "auto":
-      return wallet.delegationActive
-        ? {
-            status: "reconciled",
-            detail: `Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}.`,
-          }
-        : {
-            status: "drifted",
-            detail:
-              "Auto is set, but the delegation is unavailable. Execution is blocked.",
-            action: "Renew delegation",
-          };
-  }
-}
-
-export function findDelegationForWallet(
-  delegatedAccounts: DelegatedAccountView[],
-  wallet: WalletPolicy,
-): DelegatedAccountView | undefined {
-  const matching = delegatedAccounts.filter(
-    (delegation) =>
-      UserState.sameAddress(delegation.address, {
-        chain: wallet.chain,
-        address: wallet.address,
-      }) && delegation.providerKey === wallet.provider,
-  );
-  return (
-    matching.find((delegation) => delegation.status === "active") ?? matching[0]
-  );
-}
-
+/** Primary wallet first; otherwise the backend's order. */
 export function sortWallets(wallets: WalletPolicy[]): WalletPolicy[] {
   return [...wallets].sort((a, b) => {
-    const aDrift = reconcile(a).status === "drifted" ? 0 : 1;
-    const bDrift = reconcile(b).status === "drifted" ? 0 : 1;
-    if (aDrift !== bDrift) return aDrift - bDrift;
     if (a.primary && !b.primary) return -1;
     if (!a.primary && b.primary) return 1;
     return 0;
