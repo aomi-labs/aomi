@@ -50,6 +50,7 @@ import { SetStateAction } from 'react';
 import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import * as _tanstack_react_query from '@tanstack/react-query';
 import { ThreadMessageLike } from '@assistant-ui/react';
+import { ThreadOrigin } from '@aomi-labs/client';
 import { toAAWalletCall } from '@aomi-labs/client';
 import { toAAWalletCalls } from '@aomi-labs/client';
 import { toViemSignMessageArgs } from '@aomi-labs/client';
@@ -451,6 +452,8 @@ export type ThreadMetadata = {
     lastActiveAt?: string | number;
     control: ThreadControlState;
     pending?: boolean;
+    origin?: ThreadOrigin;
+    originApp?: number;
 };
 
 // @public (undocumented)

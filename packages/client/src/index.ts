@@ -198,6 +198,22 @@ export type {
   AomiOAuthStrategy,
 } from "./sdk/auth";
 export { AomiAgent, AgentRun } from "./sdk/agent";
+export { AomiCommits, CommitHandle } from "./sdk/commits";
+export type { CommitSigner } from "./sdk/commits";
+export {
+  COMMIT_REF_ERROR_CODES,
+  CommitNotFoundError,
+  CommitStaleError,
+  commitRefPaths,
+} from "./commit-ref";
+export type {
+  CommitRefBroadcastRequest,
+  CommitRefRejectRequest,
+  CommitRefSignRequest,
+  CommitRefView,
+  SessionOriginFields,
+  ThreadOrigin,
+} from "./commit-ref";
 export type {
   AgentRunEventMap,
   AgentRunOptions,

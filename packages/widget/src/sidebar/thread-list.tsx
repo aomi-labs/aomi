@@ -21,11 +21,17 @@ import {
 import {
   ArchiveIcon,
   CheckIcon,
+  ClockIcon,
+  LayoutGridIcon,
   MoreHorizontalIcon,
   PencilIcon,
+  PlugIcon,
   PlusIcon,
+  TerminalIcon,
   XIcon,
+  type LucideIcon,
 } from "lucide-react";
+import type { ThreadOrigin } from "@aomi-labs/client";
 
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
@@ -129,6 +135,8 @@ const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
+  // Optional call: partial runtimes (tests, older hosts) may omit it.
+  const metadata = runtime?.getThreadMetadata?.(thread.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -258,6 +266,10 @@ const ThreadListItem: FC = () => {
               aria-hidden="true"
               className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
             />
+            <ThreadOriginBadge
+              origin={metadata?.origin}
+              originApp={metadata?.originApp}
+            />
             <ThreadListItemTitle />
           </ThreadListItemPrimitive.Trigger>
           <ThreadListItemMenu
@@ -277,6 +289,41 @@ const ThreadListItem: FC = () => {
         </p>
       )}
     </ThreadListItemPrimitive.Root>
+  );
+};
+
+const ORIGIN_BADGES: Partial<
+  Record<ThreadOrigin, { icon: LucideIcon; label: string }>
+> = {
+  cron: { icon: ClockIcon, label: "Scheduled task" },
+  mcp: { icon: PlugIcon, label: "Started over MCP" },
+  api: { icon: PlugIcon, label: "Started over the API" },
+  cli: { icon: TerminalIcon, label: "Started from the CLI" },
+  sdk: { icon: TerminalIcon, label: "Started from the SDK" },
+};
+
+/** Where a chat came from, when it is not this chat UI. Portal and widget
+ * chats show nothing; a chat inside an app shows a grid. */
+export const ThreadOriginBadge: FC<{
+  origin?: ThreadOrigin;
+  originApp?: number;
+}> = ({ origin, originApp }) => {
+  const badge =
+    (origin && ORIGIN_BADGES[origin]) ??
+    (originApp !== undefined && origin !== "telegram"
+      ? { icon: LayoutGridIcon, label: "Chat inside an app" }
+      : undefined);
+  if (!badge) return null;
+  const Icon = badge.icon;
+  return (
+    <Icon
+      role="img"
+      aria-label={badge.label}
+      data-origin={origin ?? "app"}
+      className="aui-thread-origin text-aomi-muted size-3.5 shrink-0"
+    >
+      <title>{badge.label}</title>
+    </Icon>
   );
 };
 

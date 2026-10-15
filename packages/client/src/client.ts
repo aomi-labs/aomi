@@ -191,7 +191,11 @@ export function wrapFetchWithAccountBearer(
 }
 
 function isCommitPath(path: string): boolean {
-  return path === "/api/commits" || path.startsWith("/api/commits/");
+  return (
+    path === "/api/commits" ||
+    path.startsWith("/api/commits/") ||
+    path.startsWith("/v1/commits/")
+  );
 }
 
 export function wrapFetchWithPublicApiAuthorization(input: {
@@ -292,6 +296,17 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   const payment = new Headers(headers).has("payment-signature")
     ? ["payments:submit"]
     : [];
+  if (url.pathname.startsWith("/v1/commits/")) {
+    // api-server accepts agent:read / agent:write (or pipeline:execute) here.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: [
+        method.toUpperCase() === "GET" ? "agent:read" : "agent:write",
+        ...payment,
+      ],
+      method: method.toUpperCase(),
+    };
+  }
   if (isCommitPath(url.pathname)) {
     return {
       resource: `${origin}/v1/agent` as AomiOAuthResource,

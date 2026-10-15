@@ -67,6 +67,10 @@ export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-
 export type { WalletPolicy } from "./account/types";
 export { StatementView } from "./account/usage/statement-view";
 export {
+  CommitSignPanel,
+  type CommitSignPanelProps,
+} from "./commit/commit-sign-panel";
+export {
   Chip,
   MatrixTable,
   Meter,

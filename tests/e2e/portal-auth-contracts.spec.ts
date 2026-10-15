@@ -4,6 +4,7 @@ import {
   portalAccount,
   requiredOrigin,
   resetContractState,
+  seedCommit,
   sendPrompt,
   signInThroughUi,
   signOutThroughUi,
@@ -193,4 +194,126 @@ test("sign-out and account switching isolate agent history", async ({
   expect(JSON.stringify(sessions)).not.toContain(
     "private history for account one",
   );
+});
+
+test("a sign link is login-only and returns to its review after sign-in", async ({
+  page,
+}) => {
+  const ref = "cmt_contract";
+  const signer = keys.evmAddress;
+  await signInThroughUi(page, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+  });
+  const owner = (await portalAccount(page)).user!.id!;
+  await seedCommit(ref, owner, {
+    version: 1,
+    commit_id: ref,
+    thread_id: "cli-thread",
+    stage_id: "direct:contract:0",
+    chain_family: "evm",
+    chain_ref: "84532",
+    signer,
+    broadcaster: "wallet",
+    state: "needs_signature",
+    transaction_id: null,
+    failure_code: null,
+    batch: null,
+    wallet_attempt: null,
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "evm_transaction",
+        chain_id: 84532,
+        signer,
+        transaction: {
+          to: "0x2222222222222222222222222222222222222222",
+          data: "0x",
+          value: "0",
+          nonce: 0,
+          gas: "21000",
+          max_fee_per_gas: "1",
+          max_priority_fee_per_gas: "1",
+        },
+      },
+    },
+    review: {
+      version: 1,
+      revision: 1,
+      digest: "contract-digest",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 84532,
+            from: signer,
+            to: "0x2222222222222222222222222222222222222222",
+            data: "0x",
+            label: "Contract transfer",
+            kind: "transaction",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [],
+          warnings: [],
+          fees: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      },
+      legs: [],
+    },
+    origin: "cli",
+    origin_app: null,
+    initiator: "cli",
+    notify: "cli",
+    sign_url: `${portalOrigin}/sign/${ref}`,
+    created_at: Math.floor(Date.now() / 1000) - 120,
+  });
+  await signOutThroughUi(page);
+  await page.close();
+
+  const signedOut = await page.context().newPage();
+  await signedOut.goto(`${portalOrigin}/sign/${ref}`);
+  await expect(signedOut).toHaveURL(
+    `${portalOrigin}/?return_to=%2Fsign%2F${ref}`,
+  );
+
+  await signInThroughUi(signedOut, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+    path: `/sign/${ref}`,
+    expectAccountMenu: false,
+  });
+  await signedOut.waitForURL(`${portalOrigin}/sign/${ref}`, {
+    timeout: 30_000,
+  });
+  const request = signedOut.getByRole("region", {
+    name: "Transaction request",
+  });
+  await expect(request).toBeVisible({ timeout: 30_000 });
+  await expect(request.getByText("From CLI · 2 minutes ago")).toBeVisible();
+  await expect(
+    request.getByRole("region", { name: "Wallet impact", exact: true }),
+  ).toBeVisible();
+  await expect(request.getByText("Simulation passed")).toBeVisible();
+  await expect(
+    request.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeVisible();
+  await expect(
+    request.getByRole("button", { name: "Reject", exact: true }),
+  ).toBeVisible();
+  await expect(request.getByRole("button", { name: /Approve/ })).toHaveCount(0);
+  const read = (await upstreamRecords()).find(
+    (record) => record.path === `/v1/commits/${ref}`,
+  );
+  expect(read?.principal?.sub).toBe(owner);
+  expect(read?.headers["x-thread-id"]).toBeUndefined();
 });

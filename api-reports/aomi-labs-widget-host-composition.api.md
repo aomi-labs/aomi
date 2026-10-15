@@ -11,6 +11,7 @@ import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
+import { CommitHandle } from '@aomi-labs/client';
 import { Context } from 'react';
 import type { CreateConnectorFn } from 'wagmi';
 import { createEvmPaymentClient } from '@aomi-labs/client';
@@ -303,6 +304,15 @@ export function Chip(input: {
     children: ReactNode;
     accent?: boolean;
 }): JSX.Element;
+
+// @public
+export function CommitSignPanel(input: CommitSignPanelProps): JSX.Element;
+
+// @public (undocumented)
+export type CommitSignPanelProps = {
+    handle: CommitHandle;
+    appName?: string;
+};
 
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">): ReturnType<typeof createEvmPaymentClient> | undefined;

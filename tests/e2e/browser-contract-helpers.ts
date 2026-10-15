@@ -84,6 +84,23 @@ export async function resetContractState(): Promise<void> {
   }
 }
 
+/** Seed a commit the fake backend serves at `/v1/commits/:ref` to its owner. */
+export async function seedCommit(
+  ref: string,
+  owner: string,
+  view: unknown,
+): Promise<void> {
+  const response = await fetch(
+    `${requiredOrigin("BROWSER_CONTRACT_UPSTREAM_URL")}/__commits`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ref, owner, view }),
+    },
+  );
+  if (!response.ok) throw new Error(`Commit seed failed: ${response.status}`);
+}
+
 export async function upstreamRecords(): Promise<UpstreamRecord[]> {
   const response = await fetch(
     `${requiredOrigin("BROWSER_CONTRACT_UPSTREAM_URL")}/__records`,
@@ -109,6 +126,10 @@ export async function signInThroughUi(
     svmSecretKey?: string;
     rejectSignatures?: boolean;
     navigate?: boolean;
+    /** Page to open first; the portal root unless set. */
+    path?: string;
+    /** False when sign-in navigates away from the chat on its own. */
+    expectAccountMenu?: boolean;
   },
 ) {
   const wallet = await installBrowserWallet(page, {
@@ -119,7 +140,9 @@ export async function signInThroughUi(
     rejectSignatures: input.rejectSignatures,
   });
   if (input.navigate !== false) {
-    await page.goto(input.pageOrigin, { waitUntil: "domcontentloaded" });
+    await page.goto(`${input.pageOrigin}${input.path ?? ""}`, {
+      waitUntil: "domcontentloaded",
+    });
   }
   if (input.pageOrigin === input.challengeOrigin) {
     await declineCookies(page);
@@ -166,6 +189,8 @@ export async function signInThroughUi(
     return { wallet, verified: undefined };
   }
   const verifiedResponse = await verified!;
+  if (input.expectAccountMenu === false)
+    return { wallet, verified: verifiedResponse };
   await expect(signing).toBeHidden({ timeout: 30_000 });
   await expect(
     page.getByRole("button", { name: "Open account menu" }),

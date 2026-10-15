@@ -479,6 +479,28 @@ describe("principal × route family", () => {
     },
   );
 
+  it.each([
+    ["cookie user", "session"],
+    ["e2e cookie", "session"],
+    ["widget user", "widget"],
+    ["widget guest", "widget"],
+    ["session bearer", "cli_session"],
+    ["OAuth user", "oauth"],
+  ])(
+    "names the client a %s authenticated through as %s",
+    async (credential, source) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.agent.POST(
+        request("/v1/agent/sessions", { method: "POST", headers, origin }),
+      );
+      expect(response.status).toBe(200);
+      expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ auth_source: source }),
+      );
+    },
+  );
+
   it("only mints actions:resolve where the request needs it", async () => {
     await routes.agent.POST(
       request("/v1/agent/sessions/t/actions/a/result", {
@@ -799,6 +821,75 @@ describe("error mapping", () => {
     expect(await apps.json()).toEqual({
       error: { code: "not_found", message: "Not found" },
     });
+  });
+});
+
+describe("/v1/commits forwarding", () => {
+  const cookie = { cookie: "session=user" };
+  it.each([
+    ["GET", "/v1/commits/cmt_1", routes.commits.GET],
+    ["POST", "/v1/commits/cmt_1/sign", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/broadcast", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/reject", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/attempts", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/attempts/att_2/report", routes.commits.POST],
+  ] as const)(
+    "%s %s reaches the backend as the account",
+    async (method, path, handler) => {
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(200);
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(`https://backend.example${path}`);
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+      expect(mocks.mintAccountBearer).toHaveBeenCalledWith("acct-user");
+    },
+  );
+
+  it.each([
+    ["POST", "/v1/commits/cmt_1/manual"],
+    ["GET", "/v1/commits/cmt_1/sign"],
+    ["POST", "/v1/commits/cmt_1"],
+    ["GET", "/v1/commits/../api/secrets"],
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      const handler =
+        method === "GET" ? routes.commits.GET : routes.commits.POST;
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(404);
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("asks an OAuth caller for agent:read / agent:write, like api-server", async () => {
+    const read = await routes.commits.GET(
+      request("/v1/commits/cmt_1", {
+        headers: { authorization: "Bearer oauth.user.jwt" },
+      }),
+    );
+    expect(read.status).toBe(200);
+    const write = await routes.commits.POST(
+      request("/v1/commits/cmt_1/reject", {
+        method: "POST",
+        headers: { authorization: "Bearer oauth.user.jwt" },
+      }),
+    );
+    expect(write.status).toBe(200);
+  });
+
+  it("requires a principal", async () => {
+    const response = await routes.commits.GET(
+      request("/v1/commits/cmt_1", { origin: PORTAL }),
+    );
+    expect(response.status).toBe(401);
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });
 
