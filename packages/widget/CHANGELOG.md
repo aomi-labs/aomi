@@ -1,8 +1,10 @@
 # @aomi-labs/widget
 
-## 3.1.6
+## 3.1.7
 
 - Show transactions staged by protocol staging tools (`stage_*`, which return `staged: [records]`) in the working trace and the activity sidebar, with "Stage …" titles. Retired `*_prepare_*` tool names still render in saved threads.
+
+## 3.1.6
 
 - Show transaction history and transaction detail reads in the working trace, with network, transaction, balance-change, and status chips.
 - Link transaction-history counterparties to their chain explorers.
