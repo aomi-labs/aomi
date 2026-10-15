@@ -28,6 +28,12 @@ async function browserJson<T>(page: Page, path: string): Promise<T> {
 
 async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   const wallet = await installHostedWallet(page, family, chainId);
+  // This journey verifies wallet login and signing, not cookie consent. Seed the
+  // existing non-sensitive consent preference before hydration so the banner
+  // cannot cover the login control while its click handler is being attached.
+  await page.addInitScript(() => {
+    window.localStorage.setItem("aomi-cookie-consent", "declined");
+  });
   const forbiddenRequests: string[] = [];
   const authStatuses: string[] = [];
   page.on("response", (response) => {
@@ -59,8 +65,9 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   await expect(page.getByTestId("portal-shell")).toBeVisible({
     timeout: 60_000,
   });
-  const cookies = page.getByRole("button", { name: "Decline", exact: true });
-  if (await cookies.isVisible()) await cookies.click();
+  await expect(
+    page.getByRole("button", { name: "Decline", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Sign in", exact: true }).click({
     timeout: 15_000,
   });
