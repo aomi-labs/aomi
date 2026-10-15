@@ -84,3 +84,23 @@ describe("wallet selection storage", () => {
     ).not.toThrow();
   });
 });
+
+describe("agent wallet picks", () => {
+  it("keep a picked agent wallet over the wallet app's own active account", () => {
+    const linked = [
+      { family: "evm" as const, address: "0xAA", kind: "agent" },
+      { family: "evm" as const, address: "0xBB" },
+    ];
+    expect(
+      selectedWalletKeys(
+        { evm: "evm:0xaa" },
+        { evm: { address: "0xBB" } },
+        linked,
+      ),
+    ).toEqual({ evm: "evm:0xaa" });
+    // Without an agent pick the wallet app's account still wins.
+    expect(
+      selectedWalletKeys({}, { evm: { address: "0xBB" } }, linked),
+    ).toEqual({ evm: "evm:0xbb" });
+  });
+});

@@ -10,7 +10,11 @@ import { buildWalletKitAccounts } from "@/wallet/accounts";
 import { buildWalletKitIdentity } from "./build-identity";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 import type { AomiWalletKitComposerProps } from "./types";
-import { planWalletActivation, resolveWalletState } from "./wallet-state";
+import {
+  agentFamilies,
+  planWalletActivation,
+  resolveWalletState,
+} from "./wallet-state";
 import {
   readWalletSelection,
   selectedWalletKeys,
@@ -147,7 +151,10 @@ export function AomiWalletKitComposer({
             id: wallet.id,
             family: wallet.family,
             address: wallet.address,
-            kind: wallet.kind === "embedded" ? "embedded" : "external",
+            kind:
+              wallet.kind === "embedded" || wallet.kind === "agent"
+                ? wallet.kind
+                : "external",
             provider: wallet.provider,
             chainId: wallet.chainId,
             label: wallet.label ?? undefined,
@@ -309,6 +316,11 @@ export function AomiWalletKitComposer({
     const operatingSvm = walletState.wallets.find(
       (wallet) => wallet.family === "svm" && wallet.operating,
     );
+    // An agent wallet signs on the server: this device never signs for its
+    // family, so its local signing paths are withheld below.
+    const agents = agentFamilies(walletState.wallets);
+    const agentEvm = agents.has("evm");
+    const agentSvm = agents.has("svm");
     const address = operatingEvm?.address;
     const svmIdentity = svm?.identity(Date.now());
     const registryEvmConnected = registryState.connections.some(
@@ -363,7 +375,14 @@ export function AomiWalletKitComposer({
     );
     const identity = buildWalletKitIdentity({
       auth,
-      evmWallet: operatingEvm,
+      // The agent wallet keeps the chain the app last selected.
+      evmWallet:
+        agentEvm && operatingEvm && !operatingEvm.chainId
+          ? {
+              ...operatingEvm,
+              chainId: gracefulEvmIdentity.identity.chainId,
+            }
+          : operatingEvm,
       svmWallet: operatingSvm,
       isBooting,
       isConnected,
@@ -428,6 +447,12 @@ export function AomiWalletKitComposer({
       activateWallet: async (key) => {
         const plan = planWalletActivation(walletState.wallets, key);
         if (!plan) throw new Error("This wallet is not in your account.");
+        if (plan.kind === "agent") {
+          // No connector and no popup: the pick is the whole step.
+          writeWalletSelection(selectionStorage, accountId, plan.family, key);
+          setSelectionVersion((version) => version + 1);
+          return "active";
+        }
         setActivating(plan.kind === "active" ? undefined : key);
         if (plan.kind === "select") {
           await selectAccount(plan.accountId).catch((error: unknown) => {
@@ -492,20 +517,30 @@ export function AomiWalletKitComposer({
       openAccountUI: actions.openAccountUI,
       switchChain: actions.switchChain,
       selectNetwork: actions.selectNetwork,
-      sendTransaction: execution.evm.sendTransaction,
-      preparePreparedEvmTransaction:
-        execution.evm.preparePreparedEvmTransaction,
-      sendPreparedEvmTransaction: execution.evm.sendPreparedEvmTransaction,
-      signEvmTransaction: execution.evm.signEvmTransaction,
-      signTypedData: execution.evm.signTypedData,
-      signMessage: execution.evm.signMessage,
+      ...(agentEvm
+        ? {}
+        : {
+            sendTransaction: execution.evm.sendTransaction,
+            preparePreparedEvmTransaction:
+              execution.evm.preparePreparedEvmTransaction,
+            sendPreparedEvmTransaction:
+              execution.evm.sendPreparedEvmTransaction,
+            signEvmTransaction: execution.evm.signEvmTransaction,
+            signTypedData: execution.evm.signTypedData,
+            signMessage: execution.evm.signMessage,
+          }),
       getAccountCredential:
         auth.status === "authenticated" ? auth.getCredential : undefined,
       getAccountBearer: account.getAccountBearer,
-      signSolanaTransaction: svm?.execution.signSolanaTransaction,
-      signSolanaMessage: svm?.execution.signSolanaMessage,
-      sendSolanaTransaction: svm?.execution.sendSolanaTransaction,
-      signAndSendSolanaTransaction: svm?.execution.signAndSendSolanaTransaction,
+      ...(agentSvm
+        ? {}
+        : {
+            signSolanaTransaction: svm?.execution.signSolanaTransaction,
+            signSolanaMessage: svm?.execution.signSolanaMessage,
+            sendSolanaTransaction: svm?.execution.sendSolanaTransaction,
+            signAndSendSolanaTransaction:
+              svm?.execution.signAndSendSolanaTransaction,
+          }),
       solanaRpcHttpUrl: svm?.execution.solanaRpcHttpUrl,
       solanaRpcWsUrl: svm?.execution.solanaRpcWsUrl,
     };

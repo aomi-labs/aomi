@@ -210,7 +210,7 @@ export type AccountGraphWallet = {
     id: string;
     family: "evm" | "svm";
     address: string;
-    kind?: "external" | "embedded" | "smart_account";
+    kind?: "external" | "embedded" | "smart_account" | "agent";
     provider?: string;
     providerWalletId?: string;
     chainScope?: string;
@@ -250,6 +250,20 @@ export class AccountTransport extends AccountGraphTransport {
     constructor(requestResponse: RequestResponse);
     // (undocumented)
     readonly credits: AccountCreditsTransport;
+    readonly wallets: AccountWalletsTransport;
+}
+
+// @public
+export class AccountWalletsTransport {
+    constructor(requestResponse: RequestResponse$5);
+    createAgentWallets(families?: readonly AomiWalletFamily[]): Promise<AomiAgentWalletsCreated>;
+    listWallets(options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAccountWallet[]>;
+    setThreadWallet(threadId: string, id: string): Promise<AomiThreadWallet>;
+    walletBalance(id: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiWalletBalance>;
 }
 
 // @public (undocumented)
@@ -359,6 +373,9 @@ export type ActionResultFor<Type extends ActionType> = Type extends "sign" ? Ext
 
 // @public (undocumented)
 export type ActionType = ActionRequest["type"];
+
+// @public
+export function activeWalletOf(value: unknown): AomiActiveWallet | undefined;
 
 // @public (undocumented)
 export class AgentApiError extends AomiApiError {
@@ -490,6 +507,7 @@ export class Aomi {
     readonly transactionSafety: TransactionSafetyTransport;
     // (undocumented)
     readonly wallet?: Wallets;
+    readonly wallets: AomiWallets;
 }
 
 // @public
@@ -527,6 +545,37 @@ export type AomiAccountRecordStatus = "provisioning" | "active" | "expired" | "r
 // @public (undocumented)
 export type AomiAccountResponse = AomiAccountProfile;
 
+// @public
+export type AomiAccountWallet = {
+    id: string;
+    kind: AomiAccountWalletKind;
+    family: AomiWalletFamily;
+    address: string;
+    label: string;
+    custom_label: string | null;
+    wallet_app: string | null;
+    provider: string | null;
+    is_default: boolean;
+    status: AomiAccountWalletStatus;
+    merged: boolean;
+    bound_app: {
+        id: number;
+        name: string;
+        label: string;
+    } | null;
+    rule: AomiWalletRule | null;
+    created_at: number | null;
+};
+
+// @public
+export type AomiAccountWalletKind = "agent" | "browser" | "embedded";
+
+// @public
+export type AomiAccountWalletStatus = "ready" | "paused" | "linked";
+
+// @public
+export type AomiActiveWallet = Partial<Record<AomiWalletFamily, string>>;
+
 // @public (undocumented)
 export class AomiAgent {
     constructor(raw: AomiClient["agent"], client: AomiClient, actions?: ActionCapabilities, defaultUserState?: () => UserState | undefined, commits?: CommitCapabilities);
@@ -536,6 +585,16 @@ export class AomiAgent {
     // (undocumented)
     run(prompt: string, options?: AgentRunOptions): AgentRun;
 }
+
+// @public
+export type AomiAgentWalletsCreated = {
+    wallets: AomiAccountWallet[];
+    created: string[];
+    failed: {
+        family: AomiWalletFamily;
+        error: string;
+    }[];
+};
 
 // @public
 export class AomiApiError extends Error {
@@ -1345,6 +1404,11 @@ export class AomiSvmPipeline {
 }
 
 // @public
+export type AomiThreadWallet = {
+    active_wallet: AomiActiveWallet;
+};
+
+// @public
 export interface AomiUser {
     application_ids?: number[];
     // (undocumented)
@@ -1405,7 +1469,75 @@ export interface AomiUserAppSecretSlot {
 }
 
 // @public (undocumented)
+export type AomiWalletAmount = {
+    amount: string;
+    usd: string | null;
+};
+
+// @public
+export type AomiWalletBalance = {
+    id: string;
+    family: AomiWalletFamily;
+    address: string;
+    as_of: number;
+    total_usd: string | null;
+    chains: AomiWalletChainBalance[];
+};
+
+// @public (undocumented)
+export type AomiWalletChainBalance = {
+    chain: string;
+    name: string;
+    native_symbol: string;
+    source: "indexed" | "rpc" | (string & {});
+    native: AomiWalletAmount | null;
+    tokens: AomiWalletTokenBalance[];
+    error: string | null;
+};
+
+// @public
+export class AomiWalletError extends AomiApiError {
+    constructor(status: number, code: AomiWalletErrorCode, message: string, requestId?: string, details?: unknown);
+}
+
+// @public (undocumented)
+export type AomiWalletErrorCode = (typeof WALLET_ERROR_CODES)[keyof typeof WALLET_ERROR_CODES] | (string & {});
+
+// @public (undocumented)
 export type AomiWalletFamily = "evm" | "svm";
+
+// @public
+export type AomiWalletRule = {
+    mode: "ask" | "paused";
+    rule_version: number;
+    instant: AomiWalletRuleClient[];
+};
+
+// @public
+export type AomiWalletRuleClient = {
+    client: string;
+    kind: "portal" | "cli" | "mcp" | "telegram" | (string & {});
+    label: string;
+};
+
+// @public
+export class AomiWallets {
+    constructor(client: AomiClient);
+    balance(id: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiWalletBalance>;
+    list(options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAccountWallet[]>;
+}
+
+// @public (undocumented)
+export type AomiWalletTokenBalance = {
+    symbol: string;
+    address: string;
+    amount: string;
+    usd: string | null;
+};
 
 // @public (undocumented)
 export type ApiErrorFields = {
@@ -2605,6 +2737,9 @@ export function oauth(options: AomiDeviceOAuthOptions | AomiBrowserOAuthOptions)
 export function parseChainId(value: unknown): number | undefined;
 
 // @public
+export function parseWalletRef(value: string): string | undefined;
+
+// @public
 export type PartialWalletExecution = {
     completedTxHashes: string[];
     failedCallIndex: number;
@@ -3018,6 +3153,7 @@ export class Session {
     sendAsync(message: string, options?: SendOptions): Promise<EventPage>;
     // (undocumented)
     readonly sessionId: string;
+    setActiveWallet(active: AomiActiveWallet): void;
     // (undocumented)
     startStreaming(): void;
     // (undocumented)
@@ -3081,6 +3217,7 @@ export type SessionSnapshot = Readonly<{
     actions: readonly Action[];
     commits: readonly CommitView[];
     title?: string;
+    activeWallet?: AomiActiveWallet;
     isStreaming: boolean;
     isSubmitting: boolean;
     isStopping?: boolean;
@@ -3670,8 +3807,8 @@ export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record
     removeAllListeners(): void;
 }
 
-// @public (undocumented)
-export type UserState = Schemas$2["UserState"];
+// @public
+export type UserState = Schemas$2["UserState"] & UserStateWalletFields;
 
 // @public (undocumented)
 export namespace UserState {
@@ -3696,6 +3833,13 @@ export namespace UserState {
     const // (undocumented)
     withExt: (state: UserState, key: string, value: unknown) => UserState;
 }
+
+// @public
+export type UserStateWalletFields = {
+    wallet_pick?: Partial<Record<AomiWalletFamily, string | null>>;
+    wallet_presence?: string[];
+    active_wallet?: AomiActiveWallet;
+};
 
 // @public
 export function validatePipelineArguments(value: unknown, schema: PipelineJsonSchema, definitions?: Record<string, PipelineJsonSchema>): void;
@@ -3731,6 +3875,21 @@ export type ViemSignTypedDataArgs = {
     }>>;
     primaryType: string;
     message?: Record<string, unknown>;
+};
+
+// @public (undocumented)
+export const WALLET_ERROR_CODES: {
+    readonly invalidFamily: "invalid_family";
+    readonly guestAccount: "guest_account";
+    readonly agentWalletUnavailable: "agent_wallet_unavailable";
+    readonly agentWalletProviderError: "agent_wallet_provider_error";
+    readonly invalidWalletId: "invalid_wallet_id";
+    readonly walletNotFound: "wallet_not_found";
+    readonly balanceUnavailable: "balance_unavailable";
+    readonly walletSwitchPending: "wallet_switch_pending";
+    readonly walletSwitchUnavailable: "wallet_switch_unavailable";
+    readonly labelTooLong: "label_too_long";
+    readonly agentWalletNotRemovable: "agent_wallet_not_removable";
 };
 
 // @public (undocumented)
@@ -3774,6 +3933,17 @@ export type WalletEip712Payload = {
     signer?: string;
     chainId?: number;
 };
+
+// @public (undocumented)
+export const walletPaths: {
+    readonly list: "/v1/account/wallets";
+    readonly agent: "/v1/account/wallets/agent";
+    readonly balance: (id: string) => string;
+    readonly threadWallet: "/api/thread/wallet";
+};
+
+// @public
+export function walletRef(publicKeyId: string | number): string;
 
 // @public (undocumented)
 export interface Wallets {

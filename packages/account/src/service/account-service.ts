@@ -1021,7 +1021,7 @@ export async function unlinkWallet(input: {
   userId: AomiUserId;
   walletId: string;
   betterAuthUserId?: string | null;
-}): Promise<"revoked" | "not_found" | "last_factor"> {
+}): Promise<"revoked" | "not_found" | "last_factor" | "agent_wallet"> {
   const status = await withTransaction(async (db) => {
     await lockIdentityResolutionKeys(
       [`aomi-login-factors:${input.userId}`],
@@ -1029,6 +1029,8 @@ export async function unlinkWallet(input: {
     );
     const wallet = await findWalletById(input.walletId, db);
     if (!wallet || wallet.userId !== input.userId) return "not_found" as const;
+    // An agent wallet may hold funds; it is withdrawn from, never removed.
+    if (wallet.kind === "agent") return "agent_wallet" as const;
     const provider = wallet.family === "evm" ? "siwe" : "siws";
     await lockSignalRefs(
       [

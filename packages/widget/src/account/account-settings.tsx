@@ -12,12 +12,14 @@ import {
   visibleSignInMethods,
 } from "@/wallet/account-presentation";
 import { useAccountAcl } from "./use-account-acl";
+import { useShellTransport } from "./transport";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const adapter = useAomiWalletKit();
   const acl = useAccountAcl();
+  const transport = useShellTransport();
   const pendingRef = useRef(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     }
   };
 
+  const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
   const disconnect = adapter.disconnect;
   const unlinkWallet = adapter.unlinkLinkedWallet;
   const unlinkLogin = adapter.unlinkLinkedAccount;
@@ -166,6 +169,9 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
                 );
               }
             : undefined
+        }
+        agentWallets={
+          signedIn ? { run, onClose, client: transport.client } : undefined
         }
         onSignOut={() => {
           // Close first so the panel never renders the signed-out account;

@@ -86,7 +86,7 @@ describe("policy confirmation", () => {
       expect(commit).toHaveBeenCalledExactlyOnceWith(current, to, challenge);
     },
   );
-  it("offers to create a Para agent wallet for a chain that has only the login wallet", async () => {
+  it("leaves creating agent wallets to Account", () => {
     const paraLogin: WalletPolicy = {
       id: "para-svm-login",
       address: "BdMAnLogin1111111111111111111111111111111111",
@@ -96,25 +96,7 @@ describe("policy confirmation", () => {
       desiredMode: "manual",
       authVersion: 1,
     };
-    const onCreateAgentWallet = vi.fn(async () => {});
-    const first = render(view([paraLogin], undefined, { onCreateAgentWallet }));
-    const button = screen.getByRole("button", { name: "Create agent wallet" });
-    expect(screen.getByText("Solana agent wallet")).toBeTruthy();
-    await act(async () => {
-      fireEvent.click(button);
-    });
-    expect(onCreateAgentWallet).toHaveBeenCalledWith("svm");
-    first.unmount();
-
-    // Once the agent wallet exists the offer disappears.
-    const agent: WalletPolicy = {
-      ...paraLogin,
-      id: "para-svm-agent",
-      address: "3TWBeAgent111111111111111111111111111111111",
-      providerManaged: true,
-      desiredMode: "denied",
-    };
-    render(view([paraLogin, agent], undefined, { onCreateAgentWallet }));
+    render(view([paraLogin]));
     expect(
       screen.queryAllByRole("button", { name: "Create agent wallet" }),
     ).toHaveLength(0);
@@ -216,16 +198,12 @@ describe("policy confirmation", () => {
   });
   it("renders no automatic-signing or delegation controls", () => {
     render(
-      view(
-        [
-          wallet,
-          paraAgent,
-          // A wallet still saved on a retired provider-delegated Auto.
-          { ...wallet, id: "privy-auto", desiredMode: "auto" },
-        ],
-        undefined,
-        { onCreateAgentWallet: vi.fn(async () => {}) },
-      ),
+      view([
+        wallet,
+        paraAgent,
+        // A wallet still saved on a retired provider-delegated Auto.
+        { ...wallet, id: "privy-auto", desiredMode: "auto" },
+      ]),
     );
     for (const name of [
       "Fix",

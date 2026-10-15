@@ -116,6 +116,29 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       });
     }
 
+    // The account's wallet list and balances (step 3): one funded default
+    // EVM agent wallet per account, so Settings renders the agent group.
+    if (url.pathname.startsWith("/v1/account/wallets")) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      if (method === "GET" && url.pathname === "/v1/account/wallets")
+        return json(response, 200, { wallets: [AGENT_WALLET] });
+      if (method === "POST" && url.pathname === "/v1/account/wallets/agent")
+        return json(response, 200, {
+          wallets: [AGENT_WALLET],
+          created: [],
+          failed: [],
+        });
+      if (
+        method === "GET" &&
+        url.pathname === `/v1/account/wallets/${AGENT_WALLET.id}/balance`
+      )
+        return json(response, 200, AGENT_BALANCE);
+      return json(response, 404, { error: "wallet_not_found" });
+    }
+
     if (url.pathname.startsWith("/api/")) {
       const accountRoute = accountResponse(method, url.pathname);
       if (!accountRoute) {
@@ -215,6 +238,58 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     },
   };
 }
+
+const AGENT_WALLET = {
+  id: "w_900",
+  kind: "agent",
+  family: "evm",
+  address: "0x7a3f5e1d2c4b6a8901234567890abcdef012c41e",
+  label: "Agent wallet",
+  custom_label: null,
+  wallet_app: null,
+  provider: "para",
+  is_default: true,
+  status: "ready",
+  merged: false,
+  bound_app: null,
+  rule: { mode: "ask", rule_version: 0, instant: [] },
+  created_at: 1_760_000_000,
+} as const;
+
+const AGENT_BALANCE = {
+  id: AGENT_WALLET.id,
+  family: "evm",
+  address: AGENT_WALLET.address,
+  as_of: 1_760_000_000,
+  total_usd: "412.80",
+  chains: [
+    {
+      chain: "8453",
+      name: "Base",
+      native_symbol: "ETH",
+      source: "indexed",
+      native: { amount: "0.004", usd: "10.20" },
+      tokens: [
+        {
+          symbol: "USDC",
+          address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          amount: "402.60",
+          usd: "402.60",
+        },
+      ],
+      error: null,
+    },
+    {
+      chain: "1",
+      name: "Ethereum",
+      native_symbol: "ETH",
+      source: "indexed",
+      native: null,
+      tokens: [],
+      error: null,
+    },
+  ],
+};
 
 type AccountRoute =
   | "account"

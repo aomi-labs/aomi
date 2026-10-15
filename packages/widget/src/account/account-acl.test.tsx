@@ -656,26 +656,6 @@ describe("account ACL wiring", () => {
     ).toBeNull();
   });
 
-  it("creates a Para agent wallet through the provider route", async () => {
-    const paraAccount = {
-      ...ACCOUNT,
-      user_accounts: [ACCOUNT.user_accounts[0]],
-      signing_policies: [ACCOUNT.signing_policies[0]],
-    };
-    const { calls } = installFetchRecorder({
-      "/api/account": () => Response.json(paraAccount),
-      "/api/account/providers/para/agent-wallet": () =>
-        Response.json({ address: "0x2222", created: true }),
-    });
-
-    await renderAcl();
-    await click(screen.getByRole("button", { name: "Create agent wallet" }));
-
-    expect(bodyOf(calls, "/api/account/providers/para/agent-wallet")).toEqual({
-      chain_type: "evm",
-    });
-  });
-
   it("shows an existing agent wallet's Automatic mode without offering auto or delegation", async () => {
     const AGENT = "0x2222222222222222222222222222222222222222";
     const { calls } = installFetchRecorder({

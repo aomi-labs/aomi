@@ -1,6 +1,7 @@
 import * as accessors from "./accessors";
 import type { components } from "../generated/agent-v1/types";
 import type { AomiAccountProfile, AomiOnchainAddress } from "../types";
+import type { UserStateWalletFields } from "../account/wallets";
 
 /**
  * Client-side user state synced with the backend.
@@ -13,7 +14,8 @@ import type { AomiAccountProfile, AomiOnchainAddress } from "../types";
  */
 type Schemas = components["schemas"];
 
-export type UserState = Schemas["UserState"];
+/** The generated wire shape plus the hand-written step 3 wallet fields. */
+export type UserState = Schemas["UserState"] & UserStateWalletFields;
 export type UserStateConnection = Schemas["UserStateConnection"];
 export type UserStateEvm = Schemas["UserStateEvm"];
 export type UserStateSvm = Schemas["UserStateSvm"];

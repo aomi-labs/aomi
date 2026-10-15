@@ -893,6 +893,94 @@ describe("/v1/commits forwarding", () => {
   });
 });
 
+describe("/v1/account/wallets forwarding", () => {
+  const cookie = { cookie: "session=user" };
+  it.each([
+    ["GET", "/v1/account/wallets", routes.accountWallets.GET],
+    ["POST", "/v1/account/wallets/agent", routes.accountWallets.POST],
+    ["GET", "/v1/account/wallets/w_12/balance", routes.accountWallets.GET],
+  ] as const)(
+    "%s %s reaches the backend as the account",
+    async (method, path, handler) => {
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(200);
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(`https://backend.example${path}`);
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+    },
+  );
+
+  it.each([
+    ["POST", "/v1/account/wallets"],
+    ["GET", "/v1/account/wallets/agent"],
+    ["GET", "/v1/account/wallets/12/balance"],
+    ["GET", "/v1/account/wallets/w_0/balance"],
+    ["GET", "/v1/account/wallets/w_12/balance/extra"],
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      const handler =
+        method === "GET"
+          ? routes.accountWallets.GET
+          : routes.accountWallets.POST;
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(404);
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("lets an OAuth client read with agent:read, but never create", async () => {
+    const auth = { authorization: "Bearer oauth.user.jwt" };
+    const list = await routes.accountWallets.GET(
+      request("/v1/account/wallets", { headers: auth }),
+    );
+    expect(list.status).toBe(200);
+    const balance = await routes.accountWallets.GET(
+      request("/v1/account/wallets/w_12/balance", { headers: auth }),
+    );
+    expect(balance.status).toBe(200);
+    expect(upstreamCalls()).toHaveLength(2);
+    const create = await routes.accountWallets.POST(
+      request("/v1/account/wallets/agent", { method: "POST", headers: auth }),
+    );
+    expect(create.status).toBe(401);
+    expect(upstreamCalls()).toHaveLength(2);
+  });
+
+  it("requires a principal", async () => {
+    const response = await routes.accountWallets.GET(
+      request("/v1/account/wallets", { origin: PORTAL }),
+    );
+    expect(response.status).toBe(401);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards the thread wallet switch like the thread safety level", async () => {
+    const response = await routes.backend.PUT(
+      request("/api/thread/wallet", {
+        method: "PUT",
+        headers: { ...cookie, "x-thread-id": "thread-1" },
+        origin: PORTAL,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const [call] = upstreamCalls();
+    expect(call.url).toBe("https://backend.example/api/thread/wallet");
+    expect(call.headers.get("x-thread-id")).toBe("thread-1");
+    const read = await routes.backend.GET(
+      request("/api/thread/wallet", { headers: cookie, origin: PORTAL }),
+    );
+    expect(read.status).toBe(404);
+  });
+});
+
 describe("/api forwarding", () => {
   it.each([
     [[], "/api/thread/apps"],

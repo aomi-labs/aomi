@@ -62,7 +62,9 @@ export type WalletSource =
   | "coinbase"
   | "baseAccount"
   | "embedded"
-  | "stored";
+  | "stored"
+  /** An Aomi agent wallet: signs on the server, never in this browser. */
+  | "agent";
 
 export type AomiLoginMethod =
   | "google"

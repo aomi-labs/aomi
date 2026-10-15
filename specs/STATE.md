@@ -20,6 +20,32 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-15 — AGENT WALLETS STEP 3 (FRONTEND): AGENT WALLET PER ACCOUNT
+  (branch `feat/agent-wallets`; backend half built against
+  `notes/step3-contract.md`). Client: `client.account.wallets`
+  (`listWallets`, `createAgentWallets`, `walletBalance`, `setThreadWallet`,
+  `AomiWalletError`) and `aomi.wallets.list()/balance()`; wire types
+  hand-written in `packages/client/src/account/wallets.ts` (incl. the
+  `UserState` fields `wallet_pick` / `wallet_presence` / `active_wallet` and
+  `EventPage.active_wallet` → `SessionSnapshot.activeWallet`). Portal BFF:
+  `accountWallets` binding (`GET /v1/account/wallets`, `POST …/agent`,
+  `GET …/w_<id>/balance`) and `PUT /api/thread/wallet`. `packages/account`:
+  `kind: "agent"` via a LEFT JOIN on active `agent_wallets`, unlink 409
+  `agent_wallet_not_removable`, provider-managed keys are not login factors,
+  account deletion keeps agent keys, PATCH/DELETE accept `w_<id>`, 40-char
+  label limit. Widget: wallet kit `kind: "agent"` rows (ready once the
+  account is, pick-only, never default/stand-in, registry never overrides
+  the pick; no local signing for that family), `wallet_pick` /
+  `wallet_presence` in `setUser`; Settings Agent wallet group
+  (`agent-wallet-group.tsx`) and lazy `deposit-sheet.tsx` (`uqr` QR); thread
+  banner "This chat uses … · Switch"; the Para "Create agent wallet" offer and
+  `provisionProviderAgentWallet` are gone. Removed stale committed
+  `packages/react/src/query/display-cache.d.ts` / `display-persistence.d.ts`
+  that shadowed the source in the react d.ts build. Pending: regenerate the
+  agent API and alias the hand-written types; Signing rule / approvals UI is
+  step 4; the FE must deploy after the `agent_wallets` migration (the
+  account graph query joins it).
+
 2026-10-15 — AGENT WALLETS STEP 2 (FRONTEND): COMMIT REFS, ORIGIN, SIGNING
   PAGE (branch `feat/agent-wallets`; backend half in product-mono, built
   against `notes/step2-contract.md`). `aomi.commits.get(ref)` →

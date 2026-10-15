@@ -346,6 +346,14 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       method: method.toUpperCase(),
     };
   }
+  if (isAgentReadableWalletPath(url.pathname, method)) {
+    // api-server serves the wallet list and balances on the agent resource.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:read", ...payment],
+      method: "GET",
+    };
+  }
   if (
     url.pathname === "/v1/account" ||
     url.pathname.startsWith("/v1/account/")
@@ -383,6 +391,15 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     };
   }
   return null;
+}
+
+/** `GET /v1/account/wallets` and `GET /v1/account/wallets/:id/balance`. */
+function isAgentReadableWalletPath(pathname: string, method: string): boolean {
+  return (
+    method.toUpperCase() === "GET" &&
+    (pathname === "/v1/account/wallets" ||
+      /^\/v1\/account\/wallets\/[^/]+\/balance$/.test(pathname))
+  );
 }
 
 function absoluteBase(baseUrl: string): string {

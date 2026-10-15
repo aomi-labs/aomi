@@ -13,6 +13,7 @@ import { ActionRequest } from '@aomi-labs/client';
 import { ActionResult } from '@aomi-labs/client';
 import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
+import { AomiActiveWallet } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiByokKeyEntry } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
@@ -115,7 +116,9 @@ export type AomiRuntimeApi = {
     prefetchThread?: (threadId: string) => void;
     isRemoteThread?: (threadId: string) => boolean;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
-    createThread: () => Promise<string>;
+    createThread: (options?: {
+        draft?: string;
+    }) => Promise<string>;
     deleteThread: (threadId: string) => Promise<void>;
     renameThread: (threadId: string, title: string) => Promise<void>;
     archiveThread: (threadId: string) => Promise<void>;
@@ -150,6 +153,8 @@ export type AomiRuntimeApi = {
     }) => Promise<AomiSimulateResponse["result"]>;
     events: readonly Event_2[];
     turnState?: TurnState;
+    activeWallet?: AomiActiveWallet;
+    setThreadWallet?: (id: string) => Promise<void>;
 };
 
 // @public (undocumented)
@@ -250,6 +255,7 @@ export type DisplayCache = {
     client: QueryClient;
     scope: DisplayScope;
     apiClient?: AomiClient;
+    restoredAccount?: RuntimeAccount;
     key: (resource: DisplayResource, parameters?: readonly unknown[]) => QueryKey;
 };
 
@@ -285,7 +291,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "profile" | "credits" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
+export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "account-acl" | "account-apps" | "transaction-safety" | "usage" | "account-wallets" | "wallet-balance";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;

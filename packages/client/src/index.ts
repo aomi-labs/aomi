@@ -450,6 +450,32 @@ export type {
 } from "./expected-calls";
 
 export { AccountGraphTransport, AccountGraphApiError } from "./account/graph";
+export {
+  AccountWalletsTransport,
+  AomiWalletError,
+  WALLET_ERROR_CODES,
+  activeWalletOf,
+  parseWalletRef,
+  walletPaths,
+  walletRef,
+} from "./account/wallets";
+export type {
+  AomiAccountWallet,
+  AomiAccountWalletKind,
+  AomiAccountWalletStatus,
+  AomiActiveWallet,
+  AomiAgentWalletsCreated,
+  AomiThreadWallet,
+  AomiWalletAmount,
+  AomiWalletBalance,
+  AomiWalletChainBalance,
+  AomiWalletErrorCode,
+  AomiWalletRule,
+  AomiWalletRuleClient,
+  AomiWalletTokenBalance,
+  UserStateWalletFields,
+} from "./account/wallets";
+export { AomiWallets } from "./sdk/wallets";
 export type {
   AccountGraphUser,
   AccountGraphLinkedAccount,

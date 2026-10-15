@@ -7,8 +7,13 @@ import type { AccountWallet } from "@/wallet/account/types";
 import { AomiWalletKitComposer } from "./aomi-wallet-kit-composer";
 import type { AomiWalletKitComposerProps, AuthRuntime } from "./types";
 
-vi.mock("@aomi-labs/react", () => ({ useUser: () => ({ setUser: vi.fn() }) }));
-afterEach(cleanup);
+const setUser = vi.hoisted(() => vi.fn());
+vi.mock("@aomi-labs/react", () => ({ useUser: () => ({ setUser }) }));
+afterEach(() => {
+  cleanup();
+  setUser.mockClear();
+  localStorage.clear();
+});
 
 function connectedSigner(family: "evm" | "svm") {
   const address =
@@ -245,4 +250,82 @@ it("stops offering Verify for an address the user removed", async () => {
   view.rerender(tree([]));
   expect(unlinkWallet).toHaveBeenCalledWith("w1");
   expect(kit!.unlinkedWallet).toBeUndefined();
+});
+
+it("picks an agent wallet with no connector, signs nothing locally and tells the backend", async () => {
+  const { props, address, sign } = connectedSigner("evm");
+  const agent = `0x${"7a".repeat(20)}`;
+  let kit: AomiWalletKit | undefined;
+  render(
+    <WalletAuthPublisherContext.Provider
+      value={(next) => {
+        kit = next;
+      }}
+    >
+      <AomiWalletKitComposer
+        {...props}
+        account={{
+          status: "ready",
+          user: { id: "user-agent" },
+          linkedAccounts: [],
+          wallets: [
+            { id: "1", family: "evm", address, linkedVia: "siwe" },
+            {
+              id: "12",
+              family: "evm",
+              address: agent,
+              kind: "agent",
+              provider: "para",
+              linkedVia: "para",
+            },
+          ],
+          refresh: async () => undefined,
+        }}
+        auth={{
+          provider: "privy",
+          sessionProvider: "privy",
+          status: "unauthenticated",
+          canOpenModal: false,
+          methods: [],
+        }}
+      >
+        connected chat
+      </AomiWalletKitComposer>
+    </WalletAuthPublisherContext.Provider>,
+  );
+  const agentKey = `evm:${agent}`;
+  expect(kit!.identity.address).toBe(address);
+  expect(setUser).toHaveBeenCalledWith({
+    wallet_pick: { evm: "w_1", svm: null },
+    wallet_presence: ["w_1"],
+  });
+
+  let outcome: string | undefined;
+  await act(async () => {
+    outcome = await kit!.activateWallet!(agentKey);
+  });
+  expect(outcome).toBe("active");
+  expect(props.evm.registryStore.dispatch).not.toHaveBeenCalled();
+  expect(kit!.wallets.find((row) => row.key === agentKey)).toMatchObject({
+    kind: "agent",
+    active: true,
+  });
+  expect(kit!.identity).toMatchObject({
+    address: agent,
+    walletSource: "agent",
+  });
+  // The agent signs on the server: no local EVM signing path is offered.
+  expect(kit!.signMessage).toBeUndefined();
+  expect(kit!.signTypedData).toBeUndefined();
+  expect(kit!.sendTransaction).toBeUndefined();
+  expect(sign).not.toHaveBeenCalled();
+  expect(setUser).toHaveBeenCalledWith({
+    wallet_pick: { evm: "w_12", svm: null },
+    wallet_presence: ["w_1"],
+  });
+  expect(setUser).toHaveBeenCalledWith(
+    expect.objectContaining({
+      evm: expect.objectContaining({ address: agent }),
+    }),
+  );
 });

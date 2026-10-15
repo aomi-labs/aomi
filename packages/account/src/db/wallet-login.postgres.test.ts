@@ -209,6 +209,109 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).status).toBe("linked");
   }
+  it("maps an agent wallet to kind agent, never removes it and never counts it as a login", async () => {
+    const w = wallet("evm");
+    const owner = await w.signIn();
+    const now = Math.floor(Date.now() / 1000);
+    const subject = `agent:${randomUUID()}`;
+    const identity = await pool.query(
+      `insert into auth_providers
+         (user_id, provider, issuer_environment, tenant_id, subject, method,
+          value, provider_metadata, created_at, updated_at)
+       values ($1, 'para', 'aomi', 'global', $2, 'agent', $2,
+               '{"provisioned_by":"agent_wallet_v1"}', $3, $3)
+       returning id`,
+      [owner.userId, subject, now],
+    );
+    const agentAddress =
+      privateKeyToAccount(generatePrivateKey()).address.toLowerCase();
+    const agentKey = await pool.query(
+      `insert into public_keys
+         (chain_type, address, user_id, auth_provider_id, provider_managed,
+          signing_mode, created_at, updated_at)
+       values ('evm', $1, $2, $3, true, 'server_auto', $4, $4)
+       returning id`,
+      [agentAddress, owner.userId, identity.rows[0].id, now],
+    );
+    const agentId = String(agentKey.rows[0].id);
+    await pool.query(
+      `insert into agent_wallets
+         (user_id, chain_type, public_key_id, para_subject, status,
+          is_default, source, created_at, updated_at)
+       values ($1, 'evm', $2, $3, 'active', true, 'provisioned', $4, $4)`,
+      [owner.userId, agentId, subject, now],
+    );
+
+    const account = await service.getAccountResponseForBetterAuthSession({
+      betterAuthUserId: owner.betterAuthUserId,
+    });
+    expect(
+      account.wallets.find((entry) => entry.address === agentAddress),
+    ).toMatchObject({ id: agentId, kind: "agent" });
+
+    // The agent wallet's Para identity is no login: the SIWE wallet is the last factor.
+    const siwe = await pool.query(
+      `select id from public_keys where address = $1`,
+      [w.address.toLowerCase()],
+    );
+    expect(
+      await service.unlinkWallet({
+        userId: owner.userId,
+        walletId: String(siwe.rows[0].id),
+      }),
+    ).toBe("last_factor");
+    expect(
+      await service.unlinkWallet({ userId: owner.userId, walletId: agentId }),
+    ).toBe("agent_wallet");
+
+    const principal = {
+      kind: "widget",
+      accountId: owner.userId,
+      guest: false,
+      expiresAt: now + 300,
+      authMethod: "test",
+    };
+    const removed = await handlers.unlinkAccountWallet({
+      request: new Request(`${origin}/v1/account/wallets/w_${agentId}`, {
+        method: "DELETE",
+      }),
+      principal,
+      params: { id: `w_${agentId}` },
+    } as never);
+    expect(removed.status).toBe(409);
+    expect(await removed.json()).toEqual({
+      error: "agent_wallet_not_removable",
+    });
+
+    const rename = (label: string) =>
+      handlers.renameAccountWallet({
+        request: new Request(`${origin}/v1/account/wallets/w_${agentId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ label }),
+        }),
+        principal,
+        params: { id: `w_${agentId}` },
+      } as never);
+    const tooLong = await rename("x".repeat(41));
+    expect(tooLong.status).toBe(400);
+    expect(await tooLong.json()).toEqual({ error: "label_too_long" });
+    expect((await rename("Trading")).status).toBe(200);
+    const renamed = await pool.query(
+      `select authorization_metadata->>'display_label' as label
+         from public_keys where id = $1`,
+      [agentId],
+    );
+    expect(renamed.rows[0].label).toBe("Trading");
+
+    // Deleting the account keeps the funded agent wallet's key and identity.
+    await service.deactivateAomiAccount({ userId: owner.userId });
+    const kept = await pool.query(
+      `select count(*)::int as count from public_keys where id = $1`,
+      [agentId],
+    );
+    expect(kept.rows[0].count).toBe(1);
+  });
+
   for (const family of ["evm", "svm"] as const) {
     it(`${family}: sign in, unlink, sign in creates a new account without duplicate email`, async () => {
       const w = wallet(family);

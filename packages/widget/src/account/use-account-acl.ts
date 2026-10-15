@@ -19,11 +19,7 @@ import {
 import { useAomiWalletKit } from "../wallet/context";
 import { useShellTransport, type ShellRequest } from "./transport";
 import { accountProfileQuery } from "./account-overview";
-import {
-  explainAccountError,
-  fetchAccountAcl,
-  provisionProviderAgentWallet,
-} from "./account-api";
+import { explainAccountError, fetchAccountAcl } from "./account-api";
 import type { SignerChoice, SignerMode, WalletPolicy } from "./types";
 
 /** Run `action`, restating any failure in words the user can act on. */
@@ -93,8 +89,6 @@ export type AccountAcl = {
     mode: SignerChoice,
     challenge: AomiAuthorizationChallenge,
   ) => Promise<void>;
-  /** Provision the provider's server-side agent wallet for one chain. */
-  createAgentWallet: (chain: "evm" | "svm") => Promise<void>;
   /** Why this wallet can't sign the given change right now, or null if it can. */
   blockedReason: (wallet: WalletPolicy, mode: SignerChoice) => string | null;
 };
@@ -275,16 +269,6 @@ export function useAccountAcl(): AccountAcl {
     ],
   );
 
-  const createAgentWallet = useCallback(
-    async (chain: "evm" | "svm") => {
-      await readable(() =>
-        provisionProviderAgentWallet("para", chain, request),
-      );
-      await refresh();
-    },
-    [refresh],
-  );
-
   return useMemo(
     () => ({
       status,
@@ -293,19 +277,9 @@ export function useAccountAcl(): AccountAcl {
       refresh,
       prepareMode,
       commitMode,
-      createAgentWallet,
       blockedReason,
     }),
-    [
-      blockedReason,
-      prepareMode,
-      commitMode,
-      createAgentWallet,
-      error,
-      refresh,
-      status,
-      wallets,
-    ],
+    [blockedReason, prepareMode, commitMode, error, refresh, status, wallets],
   );
 }
 

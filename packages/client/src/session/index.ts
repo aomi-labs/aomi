@@ -17,6 +17,7 @@ import {
 import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
 import { conversationMessages } from "./conversation";
+import { activeWalletOf, type AomiActiveWallet } from "../account/wallets";
 import type { AomiClientOptions } from "../types";
 import type {
   SendOptions,
@@ -117,6 +118,8 @@ export class ClientSession {
   };
   private lastPageNewEvents = 0;
   private title?: string;
+  /** The thread's active wallet ids, as the backend last reported them. */
+  private activeWallet?: AomiActiveWallet;
   private error?: unknown;
   private sentAt?: number;
   private timingTurnId?: string;
@@ -223,6 +226,22 @@ export class ClientSession {
   }
 
   getSnapshot = (): SessionSnapshot => this.snapshot;
+
+  /**
+   * Record the thread's active wallet after an explicit switch
+   * (`PUT /api/thread/wallet`), before the next event page confirms it.
+   */
+  setActiveWallet(active: AomiActiveWallet): void {
+    if (this.adoptActiveWallet(active)) this.publish();
+  }
+
+  private adoptActiveWallet(active: AomiActiveWallet | undefined): boolean {
+    if (!active) return false;
+    const current = this.activeWallet ?? {};
+    if (current.evm === active.evm && current.svm === active.svm) return false;
+    this.activeWallet = active;
+    return true;
+  }
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -781,6 +800,9 @@ export class ClientSession {
     this.lastPageNewEvents = 0;
     try {
       for (const view of page.commits ?? []) this.commits.ingest(view);
+      this.adoptActiveWallet(
+        activeWalletOf((page as { active_wallet?: unknown }).active_wallet),
+      );
       for (const event of page.events) {
         if (event.type === "action" && this.replaceActionEvent(event)) {
           this.actions.ingest(event);
@@ -1393,6 +1415,7 @@ export class ClientSession {
       commits: this.commits.all(),
       ...(this.timing ? { timing: { ...this.timing } } : {}),
       ...(this.title ? { title: this.title } : {}),
+      ...(this.activeWallet ? { activeWallet: this.activeWallet } : {}),
       isStreaming: this.streamingActive,
       isSubmitting: this.isSubmitting,
       isStopping: Boolean(this.interruptOperation),

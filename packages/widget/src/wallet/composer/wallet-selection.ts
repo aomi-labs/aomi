@@ -8,12 +8,24 @@ export type WalletSelection = Partial<Record<WalletFamily, string>>;
 export function selectedWalletKeys(
   stored: WalletSelection,
   active: Partial<Record<WalletFamily, { address: string }>>,
-  linked?: readonly { family: WalletFamily; address: string }[],
+  linked?: readonly { family: WalletFamily; address: string; kind?: string }[],
 ): WalletSelection {
   const selection: WalletSelection = linked ? { ...stored } : {};
   for (const family of ["evm", "svm"] as const) {
     const current = active[family];
     if (!current) continue;
+    // A picked agent wallet has no connection, so the wallet app's own
+    // active account does not replace it.
+    const pick = stored[family];
+    if (
+      pick &&
+      linked?.some(
+        (wallet) =>
+          wallet.kind === "agent" &&
+          walletKey(wallet.family, wallet.address) === pick,
+      )
+    )
+      continue;
     const key = walletKey(family, current.address);
     if (
       !linked ||
