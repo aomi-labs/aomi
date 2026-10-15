@@ -117,8 +117,6 @@ export function AomiRuntimeCore({
   threadPersistenceKey,
 }: Readonly<AomiRuntimeCoreProps>) {
   const threadContext = useThreadContext();
-  const accountRef = useRef(account);
-  accountRef.current = account;
   const threadContextRef = useRef(threadContext);
   threadContextRef.current = threadContext;
   const [chatView] = useState(() => createChatViewStore());
@@ -203,9 +201,6 @@ export function AomiRuntimeCore({
       const failure = describeSendFailure(
         error,
         Boolean(sessionManager.get(threadId)?.getSnapshot().isStartUncertain),
-        accountRef.current === undefined
-          ? undefined
-          : accountRef.current?.kind === "user",
       );
       if (failure.forgetThread) forgetPersistedThread();
       notificationContext.showNotification(failure.notice);

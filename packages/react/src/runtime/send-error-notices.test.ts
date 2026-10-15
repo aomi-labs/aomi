@@ -9,7 +9,7 @@ describe("send failure notices", () => {
   it.each([
     [404, "app_not_found", "App not found", /doesn't exist/],
     [409, "app_inactive", "App not active", /isn't active yet/],
-    [401, "app_key_required", "App key required", /private.*App key/],
+    [401, "app_key_required", "App key required", /private.*App key.*builder/],
     [
       403,
       "app_key_not_scoped",
@@ -28,31 +28,6 @@ describe("send failure notices", () => {
       expect(failure.forgetThread).toBeFalsy();
     },
   );
-
-  it("tells a signed-out visitor to sign in to a private App", () => {
-    const failure = describeSendFailure(
-      apiError(401, "app_key_required"),
-      false,
-      false,
-    );
-    expect(failure.notice).toMatchObject({
-      title: "Sign in to use this App",
-      message: expect.stringMatching(/Sign in/),
-    });
-  });
-
-  it("points a signed-in account without access at owner setup", () => {
-    const failure = describeSendFailure(
-      apiError(401, "app_key_required"),
-      false,
-      true,
-    );
-    expect(failure.notice).toMatchObject({
-      title: "No access to this App",
-      message: expect.stringMatching(/open it from Build/),
-    });
-    expect(failure.notice.message).not.toMatch(/^Ask the App's owner/);
-  });
 
   it.each([
     [

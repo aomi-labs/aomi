@@ -27,7 +27,6 @@ import {
 } from "@aomi-labs/widget/host-composition";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { OverlayPortal } from "@/components/shell/overlay-portal";
-import { OwnerClaimRedeemer } from "@/components/shell/owner-claim";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
@@ -83,7 +82,8 @@ function PortalComposer({
       sendDisabled={sendDisabled && !threadListError}
       opening={opening && !threadListError}
       controlBarProps={{
-        hideApiKey: true,
+        // Private Apps need the key their builder shares from Build.
+        hideApiKey: false,
         routing,
         enabledAppIds: enabledApps,
         initialAppTag: appTag,
@@ -332,12 +332,7 @@ function PortalFrameContents({
     onWalletAccountMenuChange(walletAccountMenu);
   }, [onWalletAccountMenuChange, walletAccountMenu]);
 
-  return (
-    <>
-      <OwnerClaimRedeemer ready={ready} />
-      <ThreadUrlBootstrap ready={ready} navigation={navigation} />
-    </>
-  );
+  return <ThreadUrlBootstrap ready={ready} navigation={navigation} />;
 }
 
 export function PortalAomiFrame() {

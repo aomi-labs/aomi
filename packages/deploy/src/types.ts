@@ -39,7 +39,8 @@ export interface AuditEvent {
     | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
-    | "issue_owner_claim"
+    | "get_builder_app_key"
+    | "regenerate_builder_app_key"
     | "list_user_deployments"
     | "list_user_project_deployments"
     | "list_user_project_bots"
@@ -563,20 +564,23 @@ export interface GetBuilderApplicationInput extends BearerOverride {
   applicationId: number;
 }
 
-export interface IssueOwnerClaimInput extends GetBuilderApplicationInput {
+export interface BuilderAppKeyInput extends GetBuilderApplicationInput {
   actor?: string;
 }
 
 /**
- * A one-time, short-lived claim the owner redeems in Chat while signed in.
- * It grants that account access to this exact private application. It is not
- * an App key; treat it as a secret until it is redeemed.
+ * The key a builder shares so others can use a private application in Chat.
+ * Anyone holding it can use the application, so treat it as a secret.
+ * Regenerating it revokes the previous key.
  */
-export interface OwnerClaim {
-  claim: string;
+export interface BuilderAppKey {
+  key: string;
+  keyPrefix: string;
   applicationId: number;
   /** Unix seconds. */
-  expiresAt: number;
+  createdAt: number;
+  /** Unix seconds, or null when the key has not been used yet. */
+  lastUsedAt: number | null;
 }
 
 export interface BuilderApplication {

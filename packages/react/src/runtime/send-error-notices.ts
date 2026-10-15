@@ -23,39 +23,14 @@ const APP_ACCESS_NOTICES: Record<
   app_key_required: {
     title: "App key required",
     message:
-      "This App is private — it needs an App key. Ask the App's owner for one and configure it for this chat.",
+      "This App is private — it needs an App key. Enter the key its builder shared with you, then send your message again.",
   },
   app_key_not_scoped: {
     title: "App key not valid for this App",
     message:
-      "The configured App key doesn't grant access to this App. Ask the App's owner for a key issued for it.",
+      "The configured App key doesn't grant access to this App. Its builder may have regenerated it; ask them for the current key.",
   },
 };
-
-/**
- * A private App's key failure depends on who is asking: a signed-out visitor
- * needs to sign in, while a signed-in account that lacks access is told how an
- * owner sets it up (from Build) instead of being sent to "ask the owner".
- */
-const SIGNED_OUT_KEY_REQUIRED = {
-  title: "Sign in to use this App",
-  message:
-    "This App is private. Sign in with an account that has access to it, then send your message again.",
-};
-const SIGNED_IN_KEY_REQUIRED = {
-  title: "No access to this App",
-  message:
-    "This App is private and your account doesn't have access yet. If you own it, open it from Build to set up owner access. Otherwise ask its owner for access.",
-};
-
-function appAccessNotice(
-  code: AgentAppAccessErrorCode,
-  signedIn: boolean | undefined,
-): { title: string; message: string } {
-  if (code === "app_key_required" && signedIn !== undefined)
-    return signedIn ? SIGNED_IN_KEY_REQUIRED : SIGNED_OUT_KEY_REQUIRED;
-  return APP_ACCESS_NOTICES[code];
-}
 
 export type SendFailure = {
   notice: NotificationData;
@@ -67,7 +42,6 @@ export type SendFailure = {
 export function describeSendFailure(
   error: unknown,
   startUncertain: boolean,
-  signedIn?: boolean,
 ): SendFailure {
   // The payment modal has its own copy; only `kind` routes it.
   if (getHttpStatus(error) === 402)
@@ -81,10 +55,7 @@ export function describeSendFailure(
   const apiError = error instanceof AgentApiError ? error : undefined;
   if (apiError?.appAccessCode)
     return {
-      notice: {
-        type: "error",
-        ...appAccessNotice(apiError.appAccessCode, signedIn),
-      },
+      notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },
     };
   if (apiError?.code === "session_not_found")
     return {

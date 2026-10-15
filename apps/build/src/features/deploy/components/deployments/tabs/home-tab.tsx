@@ -35,7 +35,6 @@ import {
 } from "../usage-peek";
 import { SdkBadge } from "../ui/sdk-badge";
 import { EmptyPanel } from "../ui/state-panels";
-import { openOwnerChat } from "@/features/deploy/owner-chat";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 
@@ -266,7 +265,8 @@ export function HomeTab({
     tab: "home" | "deployments" | "providers" | "environment" | "chat",
   ) => tabHref?.(tab) ?? `?tab=${tab}`;
 
-  const isLive = status.isLive && Boolean(lifecycle.chatApp) && !outdated;
+  const isLive =
+    status.isLive && Boolean(lifecycle.chatApp) && !outdated;
   const chatUrl = isLive
     ? chatAppUrl(lifecycle.chatApp!, {
         locked: true,
@@ -429,13 +429,6 @@ export function HomeTab({
               href={nextAction.href}
               target="_blank"
               rel="noreferrer"
-              onClick={(event) =>
-                openOwnerChat(
-                  event,
-                  nextAction.href,
-                  lifecycle.chatApplicationId,
-                )
-              }
               className="bg-primary text-primary-foreground inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium hover:opacity-90"
             >
               <MessageSquare className="size-3.5" aria-hidden />

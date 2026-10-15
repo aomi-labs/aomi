@@ -14,8 +14,8 @@ import type {
   ClaimGitHubProjectResult,
   GetBuilderApplicationDetailInput,
   GetBuilderApplicationInput,
-  IssueOwnerClaimInput,
-  OwnerClaim,
+  BuilderAppKeyInput,
+  BuilderAppKey,
   GetUserProjectInput,
   GetUserObservabilityInput,
   ActivateUserProjectReleasesInput,
@@ -273,10 +273,45 @@ export class BackendClient extends BackendPlatformClient {
   }
 
   /**
-   * Issue a one-time claim that lets the builder's own Chat account use this
-   * private application. The manager proves Project ownership first.
+   * The private application's current Build key, or null before one is
+   * issued. The manager proves the builder owns the application's Project.
    */
-  async issueOwnerClaim(input: IssueOwnerClaimInput): Promise<OwnerClaim> {
+  async getBuilderAppKey(
+    input: BuilderAppKeyInput,
+  ): Promise<BuilderAppKey | null> {
+    const raw = await this.get<Record<string, unknown>>(
+      this.builderAppKeyPath(input),
+      "get_builder_app_key",
+      this.resolveBearer(input.bearer),
+    );
+    await this.audit("get_builder_app_key", input.actor, {
+      applicationId: input.applicationId,
+    });
+    return camelBuilderAppKey(raw.app_key);
+  }
+
+  /**
+   * Issue a new Build key for the private application. Any earlier key stops
+   * working at once.
+   */
+  async regenerateBuilderAppKey(
+    input: BuilderAppKeyInput,
+  ): Promise<BuilderAppKey> {
+    const raw = await this.post<Record<string, unknown>>(
+      this.builderAppKeyPath(input),
+      {},
+      "regenerate_builder_app_key",
+      this.resolveBearer(input.bearer),
+    );
+    await this.audit("regenerate_builder_app_key", input.actor, {
+      applicationId: input.applicationId,
+    });
+    const key = camelBuilderAppKey(raw.app_key);
+    if (!key) throw new Error("app key response is missing `app_key`");
+    return key;
+  }
+
+  private builderAppKeyPath(input: BuilderAppKeyInput): string {
     if (
       !Number.isSafeInteger(input.applicationId) ||
       input.applicationId <= 0
@@ -284,27 +319,10 @@ export class BackendClient extends BackendPlatformClient {
       throw new Error("applicationId must be a positive integer");
     }
     const githubUserId = required(input.githubUserId, "githubUserId");
-    const bearer = this.resolveBearer(input.bearer);
-    const params = new URLSearchParams({ github_user_id: githubUserId });
-    const raw = await this.post<Record<string, unknown>>(
-      this.builderPath(
-        `applications/${encodeURIComponent(String(input.applicationId))}/owner-claims`,
-        params,
-      ),
-      {},
-      "issue_owner_claim",
-      bearer,
+    return this.builderPath(
+      `applications/${encodeURIComponent(String(input.applicationId))}/app-key`,
+      new URLSearchParams({ github_user_id: githubUserId }),
     );
-    await this.audit("issue_owner_claim", input.actor, {
-      applicationId: input.applicationId,
-    });
-    const claim = optString(raw.claim);
-    if (!claim) throw new Error("owner claim response is missing `claim`");
-    return {
-      claim,
-      applicationId: Number(raw.application_id ?? input.applicationId),
-      expiresAt: Number(raw.expires_at ?? 0),
-    };
   }
 
   async getBuilderApplication(
@@ -1122,4 +1140,18 @@ export class BackendClient extends BackendPlatformClient {
       },
     );
   }
+}
+
+function camelBuilderAppKey(raw: unknown): BuilderAppKey | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const key = optString(row.key);
+  if (!key) return null;
+  return {
+    key,
+    keyPrefix: optString(row.key_prefix) ?? key.slice(0, 8),
+    applicationId: Number(row.application_id ?? 0),
+    createdAt: Number(row.created_at ?? 0),
+    lastUsedAt: typeof row.last_used_at === "number" ? row.last_used_at : null,
+  };
 }

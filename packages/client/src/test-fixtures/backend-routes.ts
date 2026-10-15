@@ -210,6 +210,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
     path: "/api/integrations/github-app/builder/applications/:application_id/detail",
     auth: ["service"],
   },
@@ -565,11 +570,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/app-owner-claims/redeem",
-    auth: ["account"],
-  },
-  {
-    method: "POST",
     path: "/api/account/apps/:application_id",
     auth: ["account"],
   },
@@ -715,7 +715,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/integrations/github-app/builder/applications/:application_id/owner-claims",
+    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
     auth: ["service"],
   },
   {
