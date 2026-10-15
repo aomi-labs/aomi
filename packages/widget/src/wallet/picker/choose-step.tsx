@@ -4,7 +4,7 @@ import { useContext, useMemo } from "react";
 import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { useAomiWalletKit } from "@/wallet/context";
-import { WalletSignInOptionsContext } from "./sign-in-options";
+import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 import { buildWalletChoices, type WalletChoice } from "./wallet-options";
 import type { SheetMode } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";

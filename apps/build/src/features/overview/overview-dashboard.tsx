@@ -20,8 +20,8 @@ import {
 } from "@/features/deploy/query-keys";
 import { operateFetch } from "@/features/operate/client";
 import { BUILD_GLOSSARY } from "@/lib/glossary";
-import { lastUsageHref, projectHref } from "@/lib/deep-links";
-import { getLastProjectId } from "@/lib/last-project";
+import { lastUsageHref, projectHref } from "@/lib/project-navigation";
+import { getLastProjectId } from "@/lib/project-navigation";
 import { platformHref } from "@/features/deploy/platform";
 
 type UsagePayload = {

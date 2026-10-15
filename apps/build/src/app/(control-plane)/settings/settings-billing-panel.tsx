@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Gauge, KeyRound, MessageSquare } from "lucide-react";
 
 import { resolveChatUrl } from "@/lib/chat-url";
-import { lastEnvironmentHref, lastUsageHref } from "@/lib/deep-links";
+import { lastEnvironmentHref, lastUsageHref } from "@/lib/project-navigation";
 
 /**
  * Billing guidance: payment setup lives on Chat; spend meter is Usage.
@@ -15,26 +15,24 @@ export function SettingsBillingPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-border bg-surface-1 p-4">
-        <div className="text-sm font-medium text-foreground">
-          Payment setup
-        </div>
-        <p className="mt-2 text-[13px] leading-5 text-dim">
+      <div className="border-border bg-surface-1 rounded-lg border p-4">
+        <div className="text-foreground text-sm font-medium">Payment setup</div>
+        <p className="text-dim mt-2 text-[13px] leading-5">
           Credits, API keys for models, and wallet pay are managed in{" "}
-          <span className="text-foreground font-medium">Chat</span>. Build
-          signs in with GitHub and cannot show that status here yet.
+          <span className="text-foreground font-medium">Chat</span>. Build signs
+          in with GitHub and cannot show that status here yet.
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface-1 p-4">
-        <div className="text-sm font-medium text-foreground">Coming later</div>
-        <p className="mt-2 text-[13px] leading-5 text-dim">
+      <div className="border-border bg-surface-1 rounded-lg border p-4">
+        <div className="text-foreground text-sm font-medium">Coming later</div>
+        <p className="text-dim mt-2 text-[13px] leading-5">
           Balance, invoices, and partner fees. For spend today, use Operate →
           Usage. For app API keys, use Project → Environment.
         </p>
       </div>
 
-      <ul className="divide-border overflow-hidden rounded-lg border border-border bg-surface-1 divide-y">
+      <ul className="divide-border border-border bg-surface-1 divide-y overflow-hidden rounded-lg border">
         <li>
           <Link
             href={lastUsageHref()}

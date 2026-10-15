@@ -4,7 +4,7 @@ import {
   providerEmailDisplayHint,
   visibleSignInMethods,
   walletConnectionSummary,
-} from "@/wallet/wallet-management-model";
+} from "@/wallet/account-presentation";
 
 describe("wallet management classification", () => {
   it("summarizes linked wallets that are offline on this device", () => {

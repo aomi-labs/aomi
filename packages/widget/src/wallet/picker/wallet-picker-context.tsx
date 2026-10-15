@@ -10,12 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { useAomiWalletKit } from "@/wallet/context";
-import { useSheetChannel } from "./sheet-channel";
+import { useSheetChannel } from "@/wallet/picker/picker-context";
 import { CLOSED_SHEET, sheetReducer, type SheetState } from "./sheet-machine";
 import { useSheetFlow, type SheetFlow } from "./use-sheet-flow";
 import { useWalletAppSwitch } from "./use-wallet-app-switch";
 
-export { WalletSignInOptionsContext } from "./sign-in-options";
+export { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 
 export type WalletPickerContextValue = {
   open: boolean;

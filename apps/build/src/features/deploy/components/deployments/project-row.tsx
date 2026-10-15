@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { UserProject } from "@aomi-labs/deploy";
 import { projectDeploymentStatus } from "./project-deployment-status";
 import { projectSdk } from "./sdk-compatibility";
-import { StatusDot } from "./ui/status-dot";
+import { DeploymentStatusDot } from "@/features/deploy/components/deployments/deployment-status";
 import { SdkBadge } from "./ui/sdk-badge";
 
 export function ProjectRow({
@@ -54,7 +54,9 @@ export function ProjectRow({
             {source.repositoryLink ?? "Unknown repository"}
           </div>
           <div className="text-dim mt-1 flex items-center gap-2 text-xs">
-            <StatusDot state={outdated ? "outdated" : status.dotState} />
+            <DeploymentStatusDot
+              state={outdated ? "outdated" : status.dotState}
+            />
             <span>{outdated ? "Outdated" : status.label}</span>
             <span aria-hidden>·</span>
             <span>{appLabel}</span>

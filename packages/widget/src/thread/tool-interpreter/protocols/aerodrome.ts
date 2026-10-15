@@ -1,7 +1,15 @@
-import { asRecord, chainFactFromRecord, statusFact } from "@/thread/tool-interpreter/normalize";
+import {
+  asRecord,
+  chainFactFromRecord,
+  statusFact,
+} from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
-import { displayedAmount, protocolOperation, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  displayedAmount,
+  protocolOperation,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const matchAerodrome: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!validResult(resultRecord) || resultRecord.protocol !== "aerodrome")

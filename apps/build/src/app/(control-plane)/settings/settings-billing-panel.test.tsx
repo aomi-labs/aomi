@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { setLastProjectId } from "@/lib/last-project";
+import { setLastProjectId } from "@/lib/project-navigation";
 
 vi.mock("@/lib/chat-url", () => ({
   resolveChatUrl: () => "https://chat.aomi.dev",

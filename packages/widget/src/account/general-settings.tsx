@@ -14,7 +14,7 @@ import { useAccountAcl } from "./use-account-acl";
 import {
   countDriftedWallets,
   walletConnectionSummary,
-} from "@/wallet/wallet-management-model";
+} from "@/wallet/account-presentation";
 import {
   creditAllowanceFromPosition,
   formatAllowanceCredits,
