@@ -14,7 +14,6 @@ export type Capability =
   | "custody" // delegated custody
   | "settings" // installed apps, app secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
-  | "managed_signing" // execution profile, AA accounts, signing requests
   | "backend_bearer" // a raw 15-minute backend token
   | "cli_session" // a separate one-day CLI session
   | "device_login" // grant a CLI device login
@@ -29,7 +28,6 @@ const SIGNED_IN: readonly Capability[] = [
   "custody",
   "settings",
   "safety_policy",
-  "managed_signing",
   "backend_bearer",
   "cli_session",
   "device_login",

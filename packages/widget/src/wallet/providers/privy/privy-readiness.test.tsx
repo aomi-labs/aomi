@@ -5,7 +5,7 @@ import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { resolveWalletState } from "@/wallet/composer/wallet-state";
 
 const EOA = "0x1111111111111111111111111111111111111111";
-const SMART = "0x2222222222222222222222222222222222222222";
+const OTHER = "0x2222222222222222222222222222222222222222";
 const fixture = vi.hoisted(() => ({
   props: null as AomiWalletKitComposerProps | null,
   ready: true,
@@ -14,7 +14,6 @@ const fixture = vi.hoisted(() => ({
   external: false,
   detached: false,
   dropped: [] as string[],
-  smart: false,
   svmSigning: true,
   identityToken: "signed-identity-token" as string | null,
   accessToken: vi.fn(async () => "signed-access-token"),
@@ -45,15 +44,6 @@ vi.mock("./privy-auth", () => ({
   useSafePrivyIdentityToken: () => fixture.identityToken,
   useSafePrivyModalOpen: () => false,
   useSafeWallets: () => ({ wallets: [], ready: fixture.hydrated }),
-  useSafeSmartWallets: () => ({
-    client: fixture.smart
-      ? {
-          account: { address: SMART },
-          signTypedData: vi.fn(),
-          sendTransaction: vi.fn(),
-        }
-      : undefined,
-  }),
   useSafeSvmWallets: () => ({
     ready: true,
     wallets: [
@@ -89,7 +79,7 @@ vi.mock("@/wallet/runtime/evm/wallet-runtime", () => ({
       },
     },
     shouldUseExternalSigner: fixture.external,
-    activeEvmConnection: fixture.external ? { address: SMART } : undefined,
+    activeEvmConnection: fixture.external ? { address: OTHER } : undefined,
     signTypedDataAsync: fixture.external ? vi.fn() : undefined,
     chainsById: {},
   }),
@@ -109,7 +99,6 @@ beforeEach(() => {
     external: false,
     detached: false,
     dropped: [],
-    smart: false,
     svmSigning: true,
     identityToken: "signed-identity-token",
   });
@@ -180,7 +169,7 @@ describe("Privy signer readiness", () => {
       ["ready", true],
       ["ready", true],
     ]);
-    expect(execution.canSignFor?.("evm", SMART)).toBe(false);
+    expect(execution.canSignFor?.("evm", OTHER)).toBe(false);
     expect(execution.canSignFor?.("svm", "solanawallet")).toBe(false);
   });
   it.each([
@@ -214,17 +203,10 @@ describe("Privy signer readiness", () => {
     fixture.svmSigning = false;
     expect(mount().canSignFor?.("svm", "SolanaWallet")).toBe(false);
   });
-  it("reports only the actual smart fallback address", () => {
-    fixture.hydrated = false;
-    fixture.smart = true;
-    const execution = mount();
-    expect(execution.canSignFor?.("evm", SMART)).toBe(true);
-    expect(execution.canSignFor?.("evm", EOA)).toBe(false);
-  });
   it("preserves the exact embedded typed-data signer check", async () => {
     const execution = mount();
     await expect(
-      execution.evm.signTypedData!({ signer: SMART }),
+      execution.evm.signTypedData!({ signer: OTHER }),
     ).rejects.toThrow("not the requested signer");
     expect(fixture.providerRequest).not.toHaveBeenCalled();
   });

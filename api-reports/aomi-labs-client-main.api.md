@@ -652,7 +652,7 @@ export interface AomiAuthProvider {
 }
 
 // @public
-export type AomiAuthPurpose = "link_wallet" | "delegate_signing";
+export type AomiAuthPurpose = "link_wallet";
 
 // @public (undocumented)
 export type AomiAuthStatus = {
@@ -746,10 +746,6 @@ export class AomiClient {
         application?: string;
         walletFamily?: AomiAuthWalletFamily;
         purpose?: AomiAuthPurpose;
-    }): Promise<AomiBeginAccountAuthResponse>;
-    beginPrivyDelegation(sessionId: string, options?: {
-        application?: string;
-        walletFamily?: AomiAuthWalletFamily;
     }): Promise<AomiBeginAccountAuthResponse>;
     clearAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiClearAppSecretsResponse>;
     clearSecrets(sessionId: string, clientId: string): Promise<AomiClearSecretsResponse>;
@@ -1306,7 +1302,7 @@ export interface AomiSigningPolicy {
     // (undocumented)
     last_authorized_by: AomiOnchainAddress | null;
     // (undocumented)
-    mode: "auto" | "manual" | "client_auto" | "denied";
+    mode: "auto" | "manual" | "denied";
 }
 
 // @public

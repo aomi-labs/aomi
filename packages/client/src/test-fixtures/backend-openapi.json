@@ -1016,12 +1016,11 @@
                             ]
                           },
                           "mode": {
-                            "description": "Durable signing authority. Client automation never grants server custody.",
+                            "description": "Durable signing authority.",
                             "type": "string",
                             "enum": [
                               "denied",
                               "manual",
-                              "client_auto",
                               "auto"
                             ]
                           },

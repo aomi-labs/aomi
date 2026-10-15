@@ -7,7 +7,6 @@
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import { AomiOnchainAddress } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
@@ -315,21 +314,6 @@ export const CURATED_APP_IDS: typeof CURATED_APP_IDS_2;
 export const DEFAULT_SIDEBAR_PRODUCTS: SidebarProduct[];
 
 // @public
-export interface DelegatedAccountView {
-    address: AomiOnchainAddress;
-    // (undocumented)
-    id: string;
-    // (undocumented)
-    kind: string;
-    provider: string;
-    providerKey?: string;
-    // (undocumented)
-    scope: string;
-    // (undocumented)
-    status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";
-}
-
-// @public
 export const DualWalletBar: FC<DualWalletBarProps>;
 
 // @public (undocumented)
@@ -431,14 +415,6 @@ export function PackagesModal(input: PackagesModalProps): JSX.Element;
 
 // @public (undocumented)
 export function parseRpcOverrides(raw: string): Record<number, string>;
-
-// @public (undocumented)
-export type PrivyDelegationContextValue = {
-    start: (input: {
-        state: string;
-        signerId: string;
-    }) => Promise<void>;
-};
 
 // @public
 export function requestSettingsOpen(tab: SettingsTab): void;
@@ -608,9 +584,6 @@ export function usePortalWalletAccountMenu(onOpenSettings: () => void, onManageA
     theme?: boolean;
 }): WalletAccountMenuOptions | undefined;
 
-// @public (undocumented)
-export function usePrivyDelegation(): PrivyDelegationContextValue;
-
 // @public
 export function useRuntimeAccount(): RuntimeAccount | null | undefined;
 
@@ -659,11 +632,8 @@ export interface WalletPolicy {
     // (undocumented)
     address: string;
     authVersion: number;
-    canUseAuto?: boolean;
     // (undocumented)
     chain: "evm" | "svm";
-    delegationActive?: boolean;
-    delegationExpiresLabel?: string;
     desiredMode: SignerMode;
     // (undocumented)
     id: string;

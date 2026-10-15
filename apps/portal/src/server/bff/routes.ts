@@ -386,21 +386,6 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
   { path: /^\/api\/control\/models$/, methods: ["GET"], need: chat },
   { path: /^\/api\/control\/model$/, methods: ["POST"], need: chat },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
-  {
-    path: /^\/api\/widget\/v1\/execution-profile$/,
-    methods: ["GET"],
-    need: { capability: "managed_signing" },
-  },
-  {
-    path: /^\/api\/widget\/v1\/aa-accounts\/[^/]+$/,
-    methods: ["PUT"],
-    need: { capability: "managed_signing" },
-  },
-  {
-    path: /^\/api\/widget\/v1\/signing-requests\/sign%3A[^/]+$/i,
-    methods: ["POST"],
-    need: { capability: "managed_signing" },
-  },
 ];
 
 function backendRoute(request: Request): BackendRoute | undefined {
@@ -600,20 +585,6 @@ export const routes = {
   siweVerify: widgetSignIn("widget.siwe.verify", widgetAuth.siweVerify),
   siwsNonce: widgetSignIn("widget.siws.nonce", widgetAuth.siwsNonce),
   siwsVerify: widgetSignIn("widget.siws.verify", widgetAuth.siwsVerify),
-  telegramCustomAuth: widgetSignIn(
-    "telegram.custom_auth",
-    widgetAuth.telegramCustomAuth,
-  ),
-  telegramExchange: widgetSignIn(
-    "telegram.exchange",
-    widgetAuth.exchangeTelegram,
-  ),
-  telegramCustomAuthKeys: bind({
-    operation: "telegram.custom_auth.jwks",
-    need: "public",
-    handle: { GET: widgetAuth.telegramCustomAuthKeys },
-    cors: "none",
-  }),
   widgetSession: bind({
     operation: "widget.session.revoke",
     need: "public",
@@ -627,22 +598,6 @@ export const routes = {
     handle: { POST: widgetAuth.issueOAuthBootstrap },
     fallback: "widget_auth_failed",
   }),
-
-  delegationBegin: (provider: "privy" | "para") =>
-    bind({
-      operation: `delegation.${provider}.begin`,
-      need: { capability: "account" },
-      handle: {
-        POST: (call) => toBackend(call, `/api/auth/${provider}/begin`),
-      },
-    }),
-  delegationCallback: (provider: "privy" | "para") =>
-    bind({
-      operation: `delegation.${provider}.callback`,
-      need: "public",
-      handle: { POST: (call) => account.recordDelegation(call, provider) },
-      cors: provider === "privy" ? "open_widget" : "none",
-    }),
 
   publicCatalog: {
     GET: async (

@@ -63,7 +63,6 @@ const sourceRoots = [
   "packages/client/src",
   "packages/react/src",
   "apps/portal/src",
-  "apps/telegram/src",
   "packages/widget/src",
 ];
 for (const relative of sourceRoots) {

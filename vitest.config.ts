@@ -17,7 +17,6 @@ export default defineConfig({
         for (const directory of [
           "apps/portal",
           "apps/build",
-          "apps/telegram",
           "packages/widget",
         ]) {
           if (importer.startsWith(resolve(currentDir, directory) + "/")) {
@@ -69,7 +68,6 @@ export default defineConfig({
       "scripts/**/*.{test,spec}.{ts,tsx,mjs,cjs,js}",
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
-      "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/app/oauth/consent/**/*.{test,spec}.{ts,tsx}",

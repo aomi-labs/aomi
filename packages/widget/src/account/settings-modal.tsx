@@ -207,7 +207,6 @@ export function SettingsModal({
               <GeneralSettings
                 onManageAccount={() => selectTab("account")}
                 onViewUsage={() => selectTab("usage")}
-                onFixWallets={() => selectTab("account")}
               />
             ) : id === "account" ? (
               <AccountSettings onClose={onClose} />

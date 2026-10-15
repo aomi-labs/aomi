@@ -25,7 +25,7 @@ import {
   type SafeSvmWalletState,
 } from "@/wallet/runtime/svm/wallet-runtime";
 import type { AomiAccount, AomiAccountCredential } from "@/wallet/types";
-import type { AccountConfig, ExecutionConfig } from "@/wallet/config/types";
+import type { AccountConfig } from "@/wallet/config/types";
 import {
   inferPrivyAuthMethod,
   inferPrivyPrimaryLabel,
@@ -36,13 +36,11 @@ import {
   useSafePrivyIdentityToken,
   useSafePrivyModalOpen,
   useSafeSignTransaction,
-  useSafeSmartWallets,
   useSafeSvmWallets,
   useSafeWallets,
 } from "./privy-auth";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
 import { buildPrivySvmWalletState } from "./privy-svm";
-import { sendPrivySmartWalletTransaction } from "./privy-execution";
 import {
   sendPrivyEmbeddedTransaction,
   signPrivyEmbeddedTransaction,
@@ -55,7 +53,6 @@ export type AomiPrivyPluginProviderProps = {
   children: ReactNode;
   supportedChains: readonly Chain[];
   loginMethods?: PrivyClientConfig["loginMethods"];
-  execution?: ExecutionConfig;
   account?: AccountConfig;
   preferDirectSend?: boolean;
   externalSvmWallet?: SafeSvmWalletState;
@@ -65,7 +62,6 @@ export function AomiPrivyPluginProvider({
   children,
   supportedChains,
   loginMethods,
-  execution,
   account,
   preferDirectSend = true,
   externalSvmWallet,
@@ -74,8 +70,6 @@ export function AomiPrivyPluginProvider({
   const privy = useSafePrivy();
   const identityToken = useSafePrivyIdentityToken();
   const privyModalOpen = useSafePrivyModalOpen();
-  const { client: smartWalletClient, getClientForChain } =
-    useSafeSmartWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } =
     useSafeSvmWallets();
   const { wallets: connectedWallets, ready: connectedWalletsReady } =
@@ -109,23 +103,16 @@ export function AomiPrivyPluginProvider({
     },
     [evmRuntime.registryStore],
   );
-  const smartAddress = smartWalletClient?.account?.address as Hex | undefined;
   // Embedded EVM EOA from Privy's connected-wallet snapshot or user record.
   // Surfaced as a synthetic EVM connection so it appears in "Connected now"
-  // with write capability, mirroring the Para session source. Falls back to
-  // the smart wallet address when one is active so account-abstracted
-  // execution stays the primary surface when present.
+  // with write capability, mirroring the Para session source.
   const embeddedEvmWallet = pickPrivyEmbeddedEvmWallet(connectedWallets);
   const embeddedEvmUserWallet = pickPrivyEmbeddedEvmUserWallet(privy.user);
   const embeddedEvmAddress = (embeddedEvmWallet?.address ??
     embeddedEvmUserWallet?.address) as Hex | undefined;
-  // Backend-owned AA treats Privy's embedded EOA as the owner and provisions
-  // its executor server-side. Never replace the owner identity with Privy's
-  // client-managed smart account when both are present.
-  const sessionEvmAddress = embeddedEvmAddress ?? smartAddress ?? null;
+  const sessionEvmAddress = embeddedEvmAddress ?? null;
   const sessionReady =
-    privy.authenticated &&
-    Boolean(embeddedEvmWallet || embeddedEvmUserWallet || smartAddress);
+    privy.authenticated && Boolean(embeddedEvmWallet || embeddedEvmUserWallet);
   const activeSolanaWallet =
     solanaWallets.find((wallet) => wallet.address === activeSolanaAddress) ??
     solanaWallets[0];
@@ -259,12 +246,10 @@ export function AomiPrivyPluginProvider({
   // execution can never disagree about the address.
   //
   // An external wallet (MetaMask, Rabby, WalletConnect) wins when one is
-  // connected: it owns both lanes through wagmi, so we add no overrides. Then
-  // the embedded EOA, which is also the address the kit publishes as the
-  // user's identity (`sessionEvmAddress` above) and therefore the address the
-  // backend quotes against. The client smart account is last: it only becomes
-  // the signer when there is no embedded EOA to be the identity, so a swap
-  // priced for the EOA can never be sent from the smart account.
+  // connected: it owns both lanes through wagmi, so we add no overrides.
+  // Otherwise the embedded EOA, which is also the address the kit publishes as
+  // the user's identity (`sessionEvmAddress` above) and therefore the address
+  // the backend quotes against.
   const externalSignerActive = evmRuntime.shouldUseExternalSigner;
   const embeddedSigner = useMemo<{
     wallet: PrivyEmbeddedEvmWallet;
@@ -276,10 +261,6 @@ export function AomiPrivyPluginProvider({
         : null,
     [embeddedEvmAddress, embeddedEvmWallet, externalSignerActive],
   );
-  const smartWalletSigner =
-    !externalSignerActive && !embeddedSigner && smartWalletClient
-      ? smartWalletClient
-      : null;
 
   const svmRuntime = useSvmWalletRuntime({
     preferDirectSend,
@@ -331,10 +312,6 @@ export function AomiPrivyPluginProvider({
             embeddedSigner.owner.toLowerCase() === target &&
             typeof embeddedSigner.wallet.getEthereumProvider === "function" &&
             typeof signPrivyTransaction === "function") ||
-          (smartWalletSigner?.account?.address.toLowerCase() === target &&
-            typeof smartWalletSigner.signTypedData === "function" &&
-            typeof smartWalletSigner.sendTransaction === "function" &&
-            execution?.aa !== "off") ||
           (externalSignerActive &&
             evmRuntime.activeEvmConnection?.address.toLowerCase() === target &&
             evmRuntime.signTypedDataAsync &&
@@ -379,17 +356,6 @@ export function AomiPrivyPluginProvider({
         // unset lets `buildEvmExecutionRuntime` wrap the primitives below in
         // the shared executor, which handles chain selection, sequential
         // batches, nonce-safe ordering and partial-batch reporting.
-        sendTransaction:
-          smartWalletSigner && execution?.aa !== "off"
-            ? async (payload) =>
-                sendPrivySmartWalletTransaction({
-                  payload,
-                  smartWalletClient: smartWalletSigner,
-                  getClientForChain,
-                  wagmiChainId: evmRuntime.activeEvmConnection?.chainId,
-                  smartAddress,
-                })
-            : undefined,
         ...(embeddedSigner
           ? {
               sendTransactionAsync: async (args: {
@@ -444,31 +410,18 @@ export function AomiPrivyPluginProvider({
               }
               return { signature };
             }
-          : smartWalletSigner
-            ? async (payload: WalletEip712Payload) => {
-                const args = toViemSignTypedDataArgs(payload);
-                if (!args) throw new Error("Missing typed_data payload");
-                const signature = await smartWalletSigner.signTypedData(
-                  args as never,
-                );
-                return { signature };
-              }
-            : undefined,
+          : undefined,
       }),
     }),
     [
       embeddedSigner,
       embeddedEvmWallet,
       evmRuntime,
-      execution,
       externalSignerActive,
-      getClientForChain,
       connectedWalletsReady,
       privy.authenticated,
       privy.ready,
       signPrivyTransaction,
-      smartAddress,
-      smartWalletSigner,
       solanaWalletsReady,
       svmWallet,
     ],

@@ -12,7 +12,6 @@ import * as aomiClient from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/react';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiInferenceFundingSource } from '@aomi-labs/react';
-import { AomiOnchainAddress } from '@aomi-labs/client';
 import * as aomiReact from '@aomi-labs/react';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
@@ -304,9 +303,6 @@ export type PrivyAuthOptions = {
 };
 
 // @public @deprecated (undocumented)
-export type PrivyDelegationContextValue = host.PrivyDelegationContextValue;
-
-// @public @deprecated (undocumented)
 export const requestWalletPickerOpen: typeof host.requestWalletPickerOpen;
 
 // @public @deprecated (undocumented)
@@ -350,9 +346,6 @@ export const useFullTestnet: typeof host.useFullTestnet;
 
 // @public @deprecated (undocumented)
 export const useOptionalSidebar: typeof host.useOptionalSidebar;
-
-// @public @deprecated (undocumented)
-export const usePrivyDelegation: typeof host.usePrivyDelegation;
 
 // @public @deprecated (undocumented)
 export type UserConfig = aomiReact.UserConfig;

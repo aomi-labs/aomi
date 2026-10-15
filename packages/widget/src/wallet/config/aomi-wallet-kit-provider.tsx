@@ -47,10 +47,8 @@ import {
   createWalletAuthStore,
   useWalletAuthStore,
   WalletAuthPublisherContext,
-  WalletDelegationPublisherContext,
   type WalletAuthStore,
 } from "@/wallet/providers/auth-store";
-import { PrivyDelegationContext } from "@/wallet/providers/privy/privy-delegation-context";
 import type { AuthRuntime, ExecutionRuntime } from "@/wallet/composer/types";
 import { useResolvedAccountRuntime } from "@/wallet/account/use-resolved-account-runtime";
 import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
@@ -649,11 +647,9 @@ function WalletAuthBridge({
     supportedSolanaNetworks,
   ]);
   return (
-    <PrivyDelegationContext.Provider value={snapshot.delegation}>
-      <AomiWalletKitContextProvider value={kit}>
-        {children}
-      </AomiWalletKitContextProvider>
-    </PrivyDelegationContext.Provider>
+    <AomiWalletKitContextProvider value={kit}>
+      {children}
+    </AomiWalletKitContextProvider>
   );
 }
 
@@ -681,7 +677,6 @@ function ProviderShell({
   auth,
   active,
   providers,
-  store,
   signIn,
   children,
 }: {
@@ -689,7 +684,6 @@ function ProviderShell({
   auth?: AuthConfig;
   active: boolean;
   providers?: ProvidersConfig;
-  store: WalletAuthStore;
   signIn: SocialSignIn;
   children: ReactNode;
 }) {
@@ -703,19 +697,15 @@ function ProviderShell({
     (message: string | null) => onFailure(id, message),
     [id, onFailure],
   );
-  return (
-    <WalletDelegationPublisherContext.Provider
-      value={active ? store.publishDelegation : null}
-    >
-      {plugin.wrap
-        ? plugin.wrap({
-            auth: shellAuth,
-            providers,
-            onFailure: publishFailure,
-            children,
-          })
-        : children}
-    </WalletDelegationPublisherContext.Provider>
+  return plugin.wrap ? (
+    plugin.wrap({
+      auth: shellAuth,
+      providers,
+      onFailure: publishFailure,
+      children,
+    })
+  ) : (
+    <>{children}</>
   );
 }
 
@@ -827,7 +817,6 @@ function WalletIslands({
               auth={auth}
               active={id === active}
               providers={props.providers}
-              store={store}
               signIn={signIn}
             >
               {id === active ? runtime : null}

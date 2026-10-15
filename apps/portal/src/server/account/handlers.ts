@@ -34,14 +34,12 @@ import {
   type SiwsCluster,
 } from "@aomi-labs/account/better-auth";
 import { revokeWidgetSession } from "@aomi-labs/account/widget-auth";
-import { BACKEND_API_HEADERS, forward } from "@aomi-labs/account/forward";
 import { recoverMessageAddress } from "viem";
 
 import { portalFailures } from "@/server/bff/failures";
 import { mintBearer } from "@/server/bff/http";
 import { PrincipalError, type Principal } from "@/server/bff/principal";
 import type { Call } from "@/server/bff/routes";
-import { backendUrl } from "@/server/env";
 import { verifyWidgetProviderCredential } from "@/server/widget-auth/exchange";
 import { createCliSession, revokeSession } from "./cli-session";
 import { sessionUserSeed } from "./session";
@@ -524,33 +522,4 @@ export async function backendBearer({ principal }: Call): Promise<Response> {
     mintAccountBearer(principal.accountId),
   );
   return Response.json({ bearer, expires_at: expiresAt });
-}
-
-const DELEGATION_CALLBACK_FIELDS = {
-  privy: ["state", "access_token", "user_id"],
-  para: ["state", "para_jwt", "user_id"],
-} as const;
-
-/** Record a provider's signing delegation with the backend; the provider calls this, not a signed-in user. */
-export async function recordDelegation(
-  { request }: Call,
-  provider: "privy" | "para",
-): Promise<Response> {
-  const input = await body<Record<string, unknown>>(request.clone());
-  if (
-    !input ||
-    DELEGATION_CALLBACK_FIELDS[provider].some(
-      (field) => typeof input[field] !== "string",
-    ) ||
-    (provider === "privy" && !Array.isArray(input.wallets))
-  )
-    return error(400, `invalid_${provider}_callback`);
-  const upstream = await forward({
-    request,
-    url: new URL(`/api/auth/${provider}/callback`, backendUrl()),
-    policy: BACKEND_API_HEADERS,
-  });
-  if (!upstream.ok)
-    return error(upstream.status, `${provider}_delegation_rejected`);
-  return Response.json({ status: "connected" });
 }

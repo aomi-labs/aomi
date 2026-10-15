@@ -6,10 +6,14 @@
 
 /**
  * ACL policy axis — the `public_keys.signing_mode` a user *wants* a wallet to
- * stay in (desired state). The runtime reconciles toward it; it is not the
- * runtime's live mode. Mirrors the backend `SigningMode` enum.
+ * stay in (desired state). Mirrors the backend `SigningMode` enum. `auto` is
+ * the server-signed mode an agent wallet may already hold; Settings shows it
+ * but never offers it.
  */
-export type SignerMode = "manual" | "client_auto" | "auto" | "denied";
+export type SignerMode = "manual" | "auto" | "denied";
+
+/** The modes Settings can move a wallet to: Ask me or Locked. */
+export type SignerChoice = Exclude<SignerMode, "auto">;
 
 /**
  * How a wallet was proven and attached — the tidy provenance set that mirrors
@@ -37,42 +41,15 @@ export interface WalletPolicy {
   primary?: boolean;
   /** The ACL — the committed desired signing mode. */
   desiredMode: SignerMode;
-  /** Whether a live delegated account currently backs `auto` (capability axis). */
-  delegationActive?: boolean;
-  /** Human label for the delegated account's expiry, when relevant. */
-  delegationExpiresLabel?: string;
   /** Monotonic authorization_version (bumped by each committed permit). */
   authVersion: number;
   /** Audit label of the last permit that set the mode. */
   lastPermit?: string;
-  /** Raw `auth_providers.provider` — what delegation revocation is keyed on. */
+  /** Raw `auth_providers.provider`. */
   provider?: string;
   /**
-   * Whether `auto` is currently offerable, derived from a matching active
-   * `DelegatedAccount`. The client must not infer this from the saved policy
-   * mode or `linkedVia`: provenance alone is not a signing capability.
-   */
-  canUseAuto?: boolean;
-  /**
-   * A provisioned agent wallet — only the provider holds key material, so the
-   * client-side modes (`manual`, `client_auto`) are meaningless for it.
+   * A provisioned agent wallet — only the provider holds key material, so
+   * `manual` is meaningless for it.
    */
   providerManaged?: boolean;
-}
-
-/**
- * A `DelegatedAccount` — the capability axis. Its presence + validity is
- * what lets an `auto` ACL actually reconcile.
- */
-export interface DelegatedAccountView {
-  id: string;
-  /** Display name, e.g. "Privy". */
-  provider: string;
-  /** Raw provider key the revoke route is addressed by, e.g. "privy". */
-  providerKey?: string;
-  /** Exact identity; scope below is presentation only. */
-  address: import("@aomi-labs/client").AomiOnchainAddress;
-  scope: string;
-  kind: string;
-  status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";
 }
