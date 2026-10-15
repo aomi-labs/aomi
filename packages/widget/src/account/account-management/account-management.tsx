@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
 import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
 import { AccountAvatar } from "../account-avatar";
@@ -10,8 +10,17 @@ import { SectionHeader } from "@/ui/aomi/section-header";
 import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
-import { IconButton, TextButton } from "./controls";
+import { Divider, IconButton, TextButton } from "./controls";
 import { SignsWithStrip } from "./signs-with";
+import type { AgentWalletHandlers } from "./agent-wallet-group";
+
+// Loads with the first signed-in Settings view, off the host bundle; it
+// renders nothing until its list arrives anyway.
+const AgentWalletGroup = lazy(() =>
+  import("./agent-wallet-group").then((module) => ({
+    default: module.AgentWalletGroup,
+  })),
+);
 import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
   addressSummary,
@@ -35,6 +44,8 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
   onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
+  /** Shows the account's agent wallets (signed-in accounts only). */
+  agentWallets?: AgentWalletHandlers;
 };
 
 export function AccountManagement({
@@ -51,6 +62,7 @@ export function AccountManagement({
   onRemoveLogin,
   onSignOut,
   onDeleteAccount,
+  agentWallets,
   ...rowHandlers
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
@@ -163,7 +175,7 @@ export function AccountManagement({
           }
         />
 
-        {wallets.length || logins.length ? (
+        {wallets.length || logins.length || agentWallets ? (
           <div className={listGroupClass}>
             <SignsWithStrip
               rows={rows}
@@ -171,6 +183,16 @@ export function AccountManagement({
               onActivate={rowHandlers.onActivate}
               onAddWallet={onAddWallet}
             />
+            {agentWallets ? (
+              <Suspense fallback={null}>
+                <AgentWalletGroup
+                  rows={rows}
+                  pending={pending}
+                  onActivate={rowHandlers.onActivate}
+                  {...agentWallets}
+                />
+              </Suspense>
+            ) : null}
             {wallets.length ? (
               <>
                 <Divider
@@ -252,16 +274,6 @@ export function AccountManagement({
           </ListGroup>
         </section>
       ) : null}
-    </div>
-  );
-}
-
-/** A section band inside the wallets card. */
-function Divider({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
-      <span className="type-meta text-aomi-fg font-medium">{title}</span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
     </div>
   );
 }

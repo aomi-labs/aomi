@@ -1,7 +1,12 @@
 export type AomiUserId = string;
 export type BetterAuthUserId = string;
 export type WalletFamily = "evm" | "svm";
-export type WalletKind = "external" | "embedded" | "smart_account";
+/**
+ * `agent`: an Aomi agent wallet (a provider-managed key with an active
+ * `agent_wallets` row). It signs on the server under its rule and is never
+ * removed from the account.
+ */
+export type WalletKind = "external" | "embedded" | "smart_account" | "agent";
 export type KnownLinkedVia =
   | "siwe"
   | "siws"

@@ -175,6 +175,31 @@ describe("ClientSession Agent transport", () => {
     vi.useRealTimers();
   });
 
+  it("carries the thread's active wallet from the event page and an explicit switch", async () => {
+    const api = client();
+    vi.spyOn(api.agent, "start").mockResolvedValue(
+      page([turn(1, "complete")], {
+        active_wallet: { evm: "w_12", svm: "w_13" },
+      } as Partial<EventPage>),
+    );
+    vi.spyOn(api.agent, "poll").mockResolvedValue(page([turn(1, "complete")]));
+    const session = new Session(api, { sessionId: "session-agent" });
+    await session.sendAsync("hello");
+    expect(session.getSnapshot().activeWallet).toEqual({
+      evm: "w_12",
+      svm: "w_13",
+    });
+    const before = session.getSnapshot();
+    session.setActiveWallet({ evm: "w_12", svm: "w_13" });
+    expect(session.getSnapshot()).toBe(before);
+    session.setActiveWallet({ evm: "w_4", svm: "w_13" });
+    expect(session.getSnapshot().activeWallet).toEqual({
+      evm: "w_4",
+      svm: "w_13",
+    });
+    session.close();
+  });
+
   it("sends its current cursor on a later send so the start page skips seen history", async () => {
     const api = client();
     const start = vi

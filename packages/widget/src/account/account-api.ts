@@ -49,24 +49,6 @@ function addressKey(address: OnchainAddress): string {
 }
 
 /**
- * Create (or re-arm) the provider's server-side agent wallet for one chain.
- * Para holds the key; the backend records it as a provider-managed account
- * with a fresh active delegation. Repeat calls are idempotent on the address
- * and only renew the delegation, which is also how a revoked one comes back.
- * Without `application_id` the backend attaches it to the public default app.
- */
-export function provisionProviderAgentWallet(
-  providerKey: string,
-  chain: "evm" | "svm",
-  request: ShellRequest = accountScopedFetch,
-): Promise<{ address: string; created: boolean }> {
-  return request(
-    `/api/account/providers/${encodeURIComponent(providerKey)}/agent-wallet`,
-    { method: "POST", body: JSON.stringify({ chain_type: chain }) },
-  );
-}
-
-/**
  * Normalize the kernel's `signing_mode` to the view's `SignerMode`. Only the
  * canonical ladder spellings (`denied → manual → server_auto`) are recognized;
  * anything else fails closed. A retired `client_auto` row reads as Ask me,

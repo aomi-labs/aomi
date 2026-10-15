@@ -3,7 +3,11 @@ import { walletKey } from "@/wallet/wallet-utils";
 import { formatWalletProvider } from "@/wallet/identity";
 import { brandDisplayName } from "@/wallet/runtime/evm/brands";
 
-type WalletKind = "external" | "embedded";
+/**
+ * `agent`: an Aomi agent wallet. It signs on the server under its rule, so it
+ * is ready once the account is and never has a connection on this device.
+ */
+export type WalletKind = "external" | "embedded" | "agent";
 
 /** A wallet the account owns, from the account graph. */
 export type LinkedWalletFact = {
@@ -180,37 +184,50 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
         ? { ...row, state: "loading" }
         : input.account?.status === "error"
           ? { ...row, state: "offline", reason: "account_error" }
-          : !connection && wallet.kind === "embedded"
-            ? !input.mountedProviders.includes(wallet.provider ?? "")
-              ? { ...row, state: "offline", reason: "provider_unavailable" }
-              : providerConnection
-                ? providerConnection.signerReady
-                  ? {
-                      ...row,
-                      state: "mismatch",
-                      observedAddress: providerConnection.address,
-                    }
+          : wallet.kind === "agent"
+            ? { ...row, state: "ready" }
+            : !connection && wallet.kind === "embedded"
+              ? !input.mountedProviders.includes(wallet.provider ?? "")
+                ? { ...row, state: "offline", reason: "provider_unavailable" }
+                : providerConnection
+                  ? providerConnection.signerReady
+                    ? {
+                        ...row,
+                        state: "mismatch",
+                        observedAddress: providerConnection.address,
+                      }
+                    : input.providerSettled?.(
+                          wallet.family,
+                          wallet.provider ?? "",
+                        )
+                      ? {
+                          ...row,
+                          state: "offline",
+                          reason: "signer_unavailable",
+                        }
+                      : { ...row, state: "loading" }
                   : input.providerSettled?.(
                         wallet.family,
                         wallet.provider ?? "",
                       )
                     ? { ...row, state: "offline", reason: "signer_unavailable" }
                     : { ...row, state: "loading" }
-                : input.providerSettled?.(wallet.family, wallet.provider ?? "")
-                  ? { ...row, state: "offline", reason: "signer_unavailable" }
-                  : { ...row, state: "loading" }
-            : !connection
-              ? { ...row, state: "offline", reason: "disconnected" }
-              : connection.kind === "embedded" && !connection.signerReady
-                ? connection.signerSelectable
-                  ? { ...row, state: "offline", reason: "selection_required" }
-                  : input.providerSettled?.(
-                        connection.family,
-                        connection.provider ?? wallet.provider ?? "",
-                      )
-                    ? { ...row, state: "offline", reason: "signer_unavailable" }
-                    : { ...row, state: "loading" }
-                : { ...row, state: "ready" },
+              : !connection
+                ? { ...row, state: "offline", reason: "disconnected" }
+                : connection.kind === "embedded" && !connection.signerReady
+                  ? connection.signerSelectable
+                    ? { ...row, state: "offline", reason: "selection_required" }
+                    : input.providerSettled?.(
+                          connection.family,
+                          connection.provider ?? wallet.provider ?? "",
+                        )
+                      ? {
+                          ...row,
+                          state: "offline",
+                          reason: "signer_unavailable",
+                        }
+                      : { ...row, state: "loading" }
+                  : { ...row, state: "ready" },
     );
   }
   for (const connection of input.connections) {
@@ -253,12 +270,15 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
   const clearSelection: WalletFamily[] = [];
   const persist: WalletState["persist"] = {};
   for (const family of ["evm", "svm"] as const) {
+    let stored = input.selection[family];
+    // An agent wallet operates only when picked: it is never the sole-wallet
+    // default nor a stand-in for an unreachable pick.
     const eligible = [...rows.values()].filter(
       (row) =>
         row.family === family &&
-        (row.state === "ready" || row.state === "guest"),
+        (row.state === "ready" || row.state === "guest") &&
+        (row.kind !== "agent" || row.key === stored),
     );
-    let stored = input.selection[family];
     // Not owned by this account means gone for good; merely unreachable means
     // operate the only eligible wallet in its place without saving it, so the
     // saved wallet returns once reachable (an embedded signer may still be
@@ -273,9 +293,10 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       stored = undefined;
     }
     if (stored) {
+      const standIns = eligible.filter((row) => row.kind !== "agent");
       if (eligible.some((row) => row.key === stored))
         operating[family] = persist[family] = stored;
-      else if (eligible.length) operating[family] = eligible[0].key;
+      else if (standIns.length) operating[family] = standIns[0].key;
     } else if (eligible.length === 1) {
       operating[family] = persist[family] = eligible[0].key;
     }
@@ -307,7 +328,8 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       } else if (row.connectionId) {
         actions.push({ kind: "disconnect", connectionId: row.connectionId });
       }
-      if (row.state === "ready" && row.linkedWalletId)
+      // An agent wallet is never unlinked; picking is its only action.
+      if (row.state === "ready" && row.linkedWalletId && row.kind !== "agent")
         actions.push({ kind: "unlink", linkedWalletId: row.linkedWalletId });
     } else if (row.state === "unlinked") {
       if (row.connectionId) {
@@ -383,9 +405,21 @@ function pendingStep(
   return appIsHere ? "switch" : "connect";
 }
 
+/** The families an agent wallet signs for on this device; they never sign locally. */
+export function agentFamilies(
+  wallets: readonly Pick<WalletRow, "family" | "kind" | "operating">[],
+): Set<WalletFamily> {
+  return new Set(
+    wallets
+      .filter((wallet) => wallet.operating && wallet.kind === "agent")
+      .map((wallet) => wallet.family),
+  );
+}
+
 /** What making a row active takes: nothing, a selection, the app, or a connect. */
 export type WalletActivation =
   | { kind: "active" }
+  | { kind: "agent"; family: WalletFamily }
   | { kind: "select"; accountId: string }
   | { kind: "switch"; appAccountId?: string }
   | { kind: "connect" };
@@ -396,6 +430,12 @@ export function planWalletActivation(
 ): WalletActivation | null {
   const row = wallets.find((wallet) => wallet.key === key);
   if (!row) return null;
+  if (row.kind === "agent") {
+    if (row.state !== "ready") return null;
+    return row.operating
+      ? { kind: "active" }
+      : { kind: "agent", family: row.family };
+  }
   if (row.state === "ready" || row.state === "guest") {
     return row.operating || !row.connectionId
       ? { kind: "active" }

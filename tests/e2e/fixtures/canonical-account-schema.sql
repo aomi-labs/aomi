@@ -10,6 +10,8 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
+--   20261015050000_agent_wallets.sql (the table packages/account reads;
+--     without its backfill, merge trigger and composite foreign keys)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
 
@@ -80,3 +82,28 @@ create index if not exists public_keys_user_idx on public_keys (user_id);
 create unique index if not exists public_keys_primary_per_provider_uidx
   on public_keys (auth_provider_id)
   where is_primary and auth_provider_id is not null;
+
+create table if not exists agent_wallets (
+  id bigserial primary key,
+  uid uuid not null default gen_random_uuid() unique,
+  user_id text not null references users(id),
+  chain_type text not null check (chain_type in ('evm', 'svm')),
+  public_key_id bigint unique,
+  para_subject text not null,
+  status text not null default 'provisioning'
+    check (status in ('provisioning', 'active')),
+  is_default boolean not null default false,
+  source text not null check (source in ('provisioned', 'legacy_app')),
+  bound_application_id bigint,
+  instant_clients text[] not null default '{}',
+  rule_version bigint not null default 0,
+  merged_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (para_subject, chain_type),
+  check (status <> 'active' or public_key_id is not null)
+);
+
+create unique index if not exists agent_wallets_one_default
+  on agent_wallets (user_id, chain_type) where is_default;
+create index if not exists agent_wallets_user on agent_wallets (user_id);

@@ -4,6 +4,8 @@ import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { WalletMark, resolveWalletBrandKey } from "@/wallet/wallet-brands";
+import { AomiMark } from "@/ui/aomi-mark";
+import { AGENT_WALLET } from "./wallet-model";
 
 /**
  * A wallet app's mark. The dot says whether the address is usable here
@@ -20,14 +22,17 @@ export function BrandMark({
   size?: number;
   box?: number;
 }) {
-  const key = resolveWalletBrandKey(brand);
+  const agent = brand === AGENT_WALLET;
+  const key = agent ? null : resolveWalletBrandKey(brand);
   return (
     <span
       className="relative flex shrink-0 items-center justify-center"
       style={{ width: box, height: box }}
-      data-wallet-brand={key ?? undefined}
+      data-wallet-brand={agent ? "agent" : (key ?? undefined)}
     >
-      {key ? (
+      {agent ? (
+        <AomiMark size={Math.max(12, size - 2)} className="text-aomi-fg" />
+      ) : key ? (
         <WalletMark name={key} size={size} />
       ) : (
         <Wallet size={Math.min(size, 16)} className="text-aomi-muted" />
@@ -262,4 +267,14 @@ export function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/** A section band inside the wallets card. */
+export function Divider({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
+      <span className="type-meta text-aomi-fg font-medium">{title}</span>
+      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+    </div>
+  );
 }

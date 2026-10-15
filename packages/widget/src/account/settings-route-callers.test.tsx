@@ -113,7 +113,6 @@ vi.mock("@/account/use-account-acl", () => ({
     refresh: vi.fn(),
     prepareMode: vi.fn(),
     commitMode: vi.fn(),
-    createAgentWallet: vi.fn(),
     blockedReason: () => null,
   }),
 }));

@@ -10,10 +10,8 @@ import {
   modeHintFor,
 } from "./account-reconcile";
 import { WalletPolicyRow } from "@/wallet/wallet-policy-row";
-import { Loader2 } from "lucide-react";
-import { AomiButton } from "@/ui/aomi/button";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 
 interface AccountSigningViewProps {
@@ -28,21 +26,8 @@ interface AccountSigningViewProps {
     mode: SignerChoice,
     challenge: AomiAuthorizationChallenge,
   ) => Promise<void>;
-  /** Provision a Para agent wallet for a chain that has none yet. */
-  onCreateAgentWallet?: (chain: "evm" | "svm") => Promise<void>;
   /** Why a target mode can't be signed right now, or null when it can. */
   blockedReason?: (wallet: WalletPolicy, mode: SignerChoice) => string | null;
-}
-
-const createAgentKey = (chain: "evm" | "svm") => `__create_agent_${chain}__`;
-const CHAIN_LABEL = { evm: "Ethereum", svm: "Solana" } as const;
-
-function ErrorLine({ children }: { children?: string }) {
-  return children ? (
-    <p role="alert" className="type-meta text-aomi-danger px-3.5 pb-3">
-      {children}
-    </p>
-  ) : null;
 }
 
 /**
@@ -54,7 +39,6 @@ export function AccountSigningView({
   wallets,
   onCommit,
   onPrepare,
-  onCreateAgentWallet,
   blockedReason,
 }: AccountSigningViewProps) {
   const [drafts, setDrafts] = useState<Record<string, SignerChoice>>({});
@@ -96,27 +80,6 @@ export function AccountSigningView({
   };
 
   const signingWallets = useMemo(() => sortWallets(wallets), [wallets]);
-
-  // A Para login wallet can't sign for Aomi itself; offer the separate Para
-  // agent wallet on that chain until one exists.
-  const offerParaAgent = useMemo(
-    () =>
-      onCreateAgentWallet
-        ? (["evm", "svm"] as const).filter(
-            (chain) =>
-              wallets.some(
-                (wallet) =>
-                  wallet.chain === chain &&
-                  wallet.linkedVia === "para" &&
-                  !wallet.providerManaged,
-              ) &&
-              !wallets.some(
-                (wallet) => wallet.chain === chain && wallet.providerManaged,
-              ),
-          )
-        : [],
-    [onCreateAgentWallet, wallets],
-  );
 
   const cancelDraft = (id: string) =>
     setDrafts((d) => {
@@ -211,41 +174,6 @@ export function AccountSigningView({
           )}
         </ListGroup>
       </section>
-
-      {offerParaAgent.length ? (
-        <section
-          aria-labelledby="agent-wallet-heading"
-          className="flex flex-col gap-2"
-        >
-          <SectionHeader id="agent-wallet-heading" title="Agent wallet" />
-          <ListGroup>
-            {offerParaAgent.map((chain) => {
-              const key = createAgentKey(chain);
-              return (
-                <div key={key}>
-                  <ListRow
-                    title={`${CHAIN_LABEL[chain]} agent wallet`}
-                    description="Creates a separate Para agent wallet. Your Para login wallet stays as it is."
-                    trailing={
-                      <AomiButton
-                        size="sm"
-                        disabled={Boolean(busy[key])}
-                        onClick={() =>
-                          void run(key, () => onCreateAgentWallet!(chain))
-                        }
-                      >
-                        {busy[key] && <Loader2 className="animate-spin" />}
-                        {busy[key] ? "Creating…" : "Create agent wallet"}
-                      </AomiButton>
-                    }
-                  />
-                  <ErrorLine>{errors[key]}</ErrorLine>
-                </div>
-              );
-            })}
-          </ListGroup>
-        </section>
-      ) : null}
 
       <ConfirmDialog
         open={Boolean(confirmation)}

@@ -42,7 +42,7 @@ export type AccountWallet = {
     id: string;
     family: WalletFamily;
     address: string;
-    kind?: "external" | "embedded" | "smart_account";
+    kind?: "external" | "embedded" | "smart_account" | "agent";
     provider?: string;
     providerWalletId?: string;
     chainScope?: string;

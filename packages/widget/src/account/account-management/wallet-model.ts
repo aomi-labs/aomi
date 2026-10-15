@@ -22,8 +22,12 @@ export const providerName = (provider: LoginProvider) =>
 export const familyTag = (family: WalletFamily) =>
   family === "evm" ? "EVM" : "SVM";
 
-/** The wallet app, e.g. "Rabby" or "Privy". */
+/** What an agent wallet is called where a wallet app's name would go. */
+export const AGENT_WALLET = "Agent wallet";
+
+/** The wallet app, e.g. "Rabby" or "Privy"; "Agent wallet" for an agent wallet. */
 export const appName = (row: WalletRow) => {
+  if (row.kind === "agent") return AGENT_WALLET;
   const provider = loginProvider(row.provider);
   return row.brand ?? (provider ? providerName(provider) : "Wallet");
 };
@@ -39,7 +43,9 @@ export function rowTitle(row: WalletRow): { title: string; app?: string } {
 
 /** The login's email beside an embedded wallet's address. */
 export const rowEmail = (row: WalletRow) =>
-  loginProvider(row.provider) ? row.loginEmail : undefined;
+  row.kind !== "agent" && loginProvider(row.provider)
+    ? row.loginEmail
+    : undefined;
 
 /** What a login card shows under its name: an email or another real identifier. */
 export function loginSubtitle(
@@ -93,6 +99,8 @@ export function walletSections(
   const byProvider = new Map<LoginProvider, WalletRow[]>();
   const wallets: WalletRow[] = [];
   for (const row of rows) {
+    // Agent wallets have their own group above these.
+    if (row.kind === "agent") continue;
     const provider = loginProvider(row.provider);
     if (!provider) {
       if (row.linked) wallets.push(row);

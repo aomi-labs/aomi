@@ -27,7 +27,6 @@ export function SigningSettings({ onLoad }: { onLoad?: () => void } = {}) {
       wallets={acl.wallets}
       onCommit={acl.commitMode}
       onPrepare={acl.prepareMode}
-      onCreateAgentWallet={acl.createAgentWallet}
       blockedReason={acl.blockedReason}
     />
   );

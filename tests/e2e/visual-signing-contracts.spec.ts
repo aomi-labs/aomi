@@ -49,9 +49,13 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     exact: true,
   });
   await expect(accountSettings).toBeVisible();
+  // The agent wallet group loads after the rest of Settings, with its balance.
+  await expect(
+    accountSettings.locator("[data-agent-wallet] [data-balance]"),
+  ).toHaveText("$412.80");
   await settleVisuals(page);
   // The account-linking UI groups the active signer and linked wallets
-  // under Wallets & access.
+  // under Wallets & access, with the agent wallet first.
   await expect(accountSettings).toHaveScreenshot(
     "account-settings.png",
     screenshot(),

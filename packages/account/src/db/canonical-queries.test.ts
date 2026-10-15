@@ -41,6 +41,8 @@ describe("canonical account queries", () => {
     expect(calls[0]?.sql).not.toContain("'siwe'");
     expect(calls[0]?.sql).not.toContain("'siws'");
     expect(calls[0]?.sql).toContain("'betterauth'");
+    // Agent wallet identities (provider-managed keys) are never logins.
+    expect(calls[0]?.sql).toContain("method <> 'agent'");
   });
 
   it("links a SIWE wallet as an owned public key with SIWE provenance", async () => {

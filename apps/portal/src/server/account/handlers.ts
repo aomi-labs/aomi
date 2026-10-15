@@ -177,6 +177,15 @@ export async function unlinkIdentity({
   return Response.json({ status: "revoked" });
 }
 
+/** A wallet's id in the path: the public key id, or the `w_<id>` the wallet list uses. */
+function walletId(param: unknown): string | null {
+  const match = /^(?:w_)?([1-9][0-9]{0,17})$/.exec(String(param));
+  return match ? match[1]! : null;
+}
+
+/** The longest name a wallet may have. */
+const WALLET_LABEL_MAX = 40;
+
 export async function renameAccountWallet({
   request,
   principal,
@@ -185,9 +194,16 @@ export async function renameAccountWallet({
   const current = account(principal);
   const input = await body<{ label?: string | null }>(request);
   if (!input || !("label" in input)) return error(400, "label_required");
+  const id = walletId(params.id);
+  if (!id) return error(404, "wallet_not_found");
+  if (
+    typeof input.label === "string" &&
+    [...input.label.trim()].length > WALLET_LABEL_MAX
+  )
+    return error(400, "label_too_long");
   const renamed = await renameWallet({
     userId: current.accountId,
-    walletId: String(params.id),
+    walletId: id,
     label: input.label ?? null,
   });
   if (!renamed) return error(404, "wallet_not_found");
@@ -199,13 +215,17 @@ export async function unlinkAccountWallet({
   params,
 }: Call): Promise<Response> {
   const current = account(principal);
+  const id = walletId(params.id);
+  if (!id) return error(404, "wallet_not_found");
   const result = await unlinkWallet({
     userId: current.accountId,
-    walletId: String(params.id),
+    walletId: id,
     betterAuthUserId:
       current.kind === "widget" ? null : current.betterAuthUserId,
   });
   if (result === "not_found") return error(404, "wallet_not_found");
+  if (result === "agent_wallet")
+    return error(409, "agent_wallet_not_removable");
   if (result === "last_factor")
     return error(409, "cannot_unlink_last_login_factor");
   return Response.json({ status: "revoked" });

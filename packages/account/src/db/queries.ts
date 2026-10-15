@@ -264,7 +264,10 @@ export async function countLoginFactors(
     `select count(*)::int as count
        from auth_providers
       where user_id = $1
-        and provider not in ('betterauth', 'better_auth', 'wallet')`,
+        and provider not in ('betterauth', 'better_auth', 'wallet')
+        -- The identity behind a provider-managed agent key signs; nobody
+        -- logs in with it.
+        and method <> 'agent'`,
     [userId],
   );
   return Number(result.rows[0]?.count ?? 0);
@@ -509,9 +512,11 @@ export async function listWalletsForUser(
   const result = await db.query(
     `select pk.*,
             ap.provider as wallet_provider,
-            ap.provider_metadata as wallet_provider_metadata
+            ap.provider_metadata as wallet_provider_metadata,
+            aw.id as agent_wallet_id
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
+       ${AGENT_WALLET_JOIN}
       where pk.user_id = $1
       order by pk.is_primary desc, pk.created_at asc`,
     [userId],
@@ -635,15 +640,25 @@ export async function revokeAllAuthIdentitiesForUser(input: {
   db?: Db;
 }): Promise<number> {
   const db = input.db ?? getPool();
+  // Agent wallet keys (and the identities they sign through) stay with the
+  // deactivated account: they may hold funds and are never removed.
   await db.query(
     `delete from public_keys
       where auth_provider_id in (
         select id from auth_providers where user_id = $1
-      )`,
+      )
+        and not exists (
+          select 1 from agent_wallets aw where aw.public_key_id = public_keys.id
+        )`,
     [input.userId],
   );
   const result = await db.query(
-    `delete from auth_providers where user_id = $1`,
+    `delete from auth_providers
+      where user_id = $1
+        and not exists (
+          select 1 from public_keys pk
+           where pk.auth_provider_id = auth_providers.id
+        )`,
     [input.userId],
   );
   return result.rowCount ?? 0;
@@ -654,9 +669,14 @@ export async function revokeAllWalletsForUser(input: {
   db?: Db;
 }): Promise<number> {
   const db = input.db ?? getPool();
-  const result = await db.query(`delete from public_keys where user_id = $1`, [
-    input.userId,
-  ]);
+  const result = await db.query(
+    `delete from public_keys
+      where user_id = $1
+        and not exists (
+          select 1 from agent_wallets aw where aw.public_key_id = public_keys.id
+        )`,
+    [input.userId],
+  );
   return result.rowCount ?? 0;
 }
 
@@ -667,9 +687,11 @@ export async function findWalletById(
   const result = await db.query(
     `select pk.*,
             ap.provider as wallet_provider,
-            ap.provider_metadata as wallet_provider_metadata
+            ap.provider_metadata as wallet_provider_metadata,
+            aw.id as agent_wallet_id
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
+       ${AGENT_WALLET_JOIN}
       where pk.id = $1
       limit 1`,
     [Number(walletId)],
@@ -1098,10 +1120,18 @@ function mapIdentity(row: Row): DbAomiAuthIdentity {
   };
 }
 
+/**
+ * An active `agent_wallets` row makes a key an agent wallet. Provider-managed
+ * keys without one (World handover keys) keep their provider mapping.
+ */
+const AGENT_WALLET_JOIN = `left join agent_wallets aw
+         on aw.public_key_id = pk.id and aw.status = 'active'`;
+
 function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));
   const address = String(row.address);
   const walletMetadata = asRecord(row.authorization_metadata);
+  const agent = row.agent_wallet_id != null;
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -1110,8 +1140,9 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     normalizedAddress: normalizeWalletAddress(family, address),
     caip10: null,
     chainScope: null,
-    kind:
-      provider && provider !== "siwe" && provider !== "siws"
+    kind: agent
+      ? "agent"
+      : provider && provider !== "siwe" && provider !== "siws"
         ? "embedded"
         : "external",
     provider: provider ? publicProvider(provider) : null,

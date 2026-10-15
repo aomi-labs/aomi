@@ -372,6 +372,11 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     need: { capability: "safety_policy" },
   },
   {
+    path: /^\/api\/thread\/wallet$/,
+    methods: ["PUT"],
+    need: { capability: "safety_policy" },
+  },
+  {
     path: /^\/api\/account(\/.*)?$/,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     need: { capability: "settings" },
@@ -443,6 +448,36 @@ function backendRoute(request: Request): BackendRoute | undefined {
   );
 }
 
+/**
+ * The account's wallet list, balances and agent wallet creation. Reads take
+ * the same scope api-server asks of OAuth clients; creating an agent wallet
+ * is for a first-party session only.
+ */
+const WALLET_ID = "w_[1-9][0-9]*";
+export const ACCOUNT_WALLET_ROUTES: readonly {
+  path: RegExp;
+  method: "GET" | "POST";
+}[] = [
+  { path: /^\/v1\/account\/wallets$/, method: "GET" },
+  { path: /^\/v1\/account\/wallets\/agent$/, method: "POST" },
+  {
+    path: new RegExp(`^/v1/account/wallets/${WALLET_ID}/balance$`),
+    method: "GET",
+  },
+];
+
+function accountWalletNeed(request: Request): Need | null {
+  const { pathname } = new URL(request.url);
+  const route = ACCOUNT_WALLET_ROUTES.find(
+    (candidate) =>
+      candidate.path.test(pathname) && candidate.method === request.method,
+  );
+  if (!route) return null;
+  return route.method === "GET"
+    ? { resource: resources().agentRest, scopes: ["agent:read"] }
+    : { capability: "account" };
+}
+
 const ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
 /** Every portal BFF route family. Route files bind one entry each. */
@@ -471,6 +506,13 @@ export const routes = {
             scopes: [request.method === "GET" ? "agent:read" : "agent:write"],
           }
         : null,
+    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+  }),
+
+  accountWallets: bind({
+    operation: "account.wallets",
+    methods: ["GET", "POST"],
+    need: accountWalletNeed,
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
   }),
 

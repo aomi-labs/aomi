@@ -1,5 +1,6 @@
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
+import { AccountWalletsTransport } from "./wallets";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
@@ -250,9 +251,12 @@ function invalidCreditResponse(detail: string): TypeError {
 
 export class AccountTransport extends AccountGraphTransport {
   readonly credits: AccountCreditsTransport;
+  /** The wallet list, agent wallets, balances and the thread switch. */
+  readonly wallets: AccountWalletsTransport;
   constructor(requestResponse: RequestResponse) {
     super(requestResponse);
     this.credits = new AccountCreditsTransport(requestResponse);
+    this.wallets = new AccountWalletsTransport(requestResponse);
   }
 }
 

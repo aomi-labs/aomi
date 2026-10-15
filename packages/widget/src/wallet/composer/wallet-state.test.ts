@@ -532,3 +532,85 @@ describe("active address and the step it needs", () => {
     expect(planWalletActivation(state.wallets, key(NEW))).toBeNull();
   });
 });
+
+describe("agent wallets", () => {
+  const AGENT = "0x7a3f00000000000000000000000000000000c41e";
+  const agent = {
+    id: "12",
+    family: "evm",
+    address: AGENT,
+    kind: "agent",
+    provider: "para",
+  } as const;
+  const metamask = { id: "w1", family: "evm", address: METAMASK } as const;
+  const metamaskConnection = external("c1", METAMASK.toLowerCase());
+
+  it("is ready with no connection once the account is, and offers only a pick", () => {
+    const state = resolveWalletState(
+      input({ linked: [agent, metamask], connections: [metamaskConnection] }),
+    );
+    const row = state.wallets.find((wallet) => wallet.key === key(AGENT))!;
+    expect(row).toMatchObject({
+      kind: "agent",
+      state: "ready",
+      connected: false,
+      linked: true,
+      pendingStep: null,
+    });
+    expect(row.connectionId).toBeUndefined();
+    expect(row.actions).toEqual([{ kind: "select", walletKey: key(AGENT) }]);
+    // Never the default: the connected browser wallet operates.
+    expect(state.operating.evm).toBe(key(METAMASK));
+  });
+
+  it("waits for the account before it is ready", () => {
+    const loading = resolveWalletState(
+      input({ account: { id: "acct-1", status: "loading" }, linked: [agent] }),
+    );
+    expect(loading.wallets[0]).toMatchObject({ state: "loading", actions: [] });
+  });
+
+  it("is never the sole-wallet default nor a stand-in for an unreachable pick", () => {
+    const alone = resolveWalletState(input({ linked: [agent] }));
+    expect(alone.operating.evm).toBeUndefined();
+    expect(alone.persist.evm).toBeUndefined();
+
+    const standIn = resolveWalletState(
+      input({
+        linked: [agent, metamask],
+        selection: { evm: key(METAMASK) },
+      }),
+    );
+    expect(standIn.operating.evm).toBeUndefined();
+  });
+
+  it("operates once picked, without unlink or disconnect", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [agent, metamask],
+        connections: [metamaskConnection],
+        selection: { evm: key(AGENT) },
+      }),
+    );
+    expect(state.operating.evm).toBe(key(AGENT));
+    expect(state.persist.evm).toBe(key(AGENT));
+    const row = state.wallets.find((wallet) => wallet.key === key(AGENT))!;
+    expect(row).toMatchObject({ active: true, operating: true, actions: [] });
+  });
+
+  it("plans a pick with no connector step", () => {
+    const state = resolveWalletState(
+      input({ linked: [agent, metamask], connections: [metamaskConnection] }),
+    );
+    expect(planWalletActivation(state.wallets, key(AGENT))).toEqual({
+      kind: "agent",
+      family: "evm",
+    });
+    const picked = resolveWalletState(
+      input({ linked: [agent], selection: { evm: key(AGENT) } }),
+    );
+    expect(planWalletActivation(picked.wallets, key(AGENT))).toEqual({
+      kind: "active",
+    });
+  });
+});
