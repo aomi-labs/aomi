@@ -5,8 +5,12 @@ import {
   statusFact,
 } from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
-import { displayedAmount, protocolOperation, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  displayedAmount,
+  protocolOperation,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const titles: Record<string, { title: string; kind: "read" | "prepare" }> = {
   uniswap_v4_quote: { title: "Quote Uniswap V4 swap", kind: "read" },

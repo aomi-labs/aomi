@@ -10,8 +10,8 @@ import {
   protocolOperation,
   routeFact,
   validResult,
-} from "./shared";
-import type { ProtocolAdapter } from "./types";
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const definitions: Record<string, { protocol: string; title: string }> = {
   stage_circle_gateway_deposit: {

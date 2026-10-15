@@ -22,14 +22,14 @@ import {
   sameWalletBrand,
   type WalletChoice,
 } from "./wallet-options";
-import type { SheetRequest } from "./sheet-channel";
+import type { SheetRequest } from "@/wallet/picker/picker-context";
 import type {
   SheetEvent,
   SheetMode,
   SheetState,
   SheetTarget,
 } from "./sheet-machine";
-import { WalletSignInOptionsContext } from "./sign-in-options";
+import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 
 // External wallets answer a connect within seconds; a Solana adapter waits on
 // its own popup, which can take as long as the user does.

@@ -1049,6 +1049,165 @@ describe("tool interpreter", () => {
     expect(step.confidence).toBe("high");
   });
 
+  it("shows what a transaction history read asked and how many it found", () => {
+    const step = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({
+        chains: ["base"],
+        direction: "out",
+        token: "USDC",
+        since: "2026-10-13",
+      }),
+      result: {
+        transactions: [
+          {
+            chain: "base",
+            chain_id: 8453,
+            transaction_hash: `0x${"a".repeat(64)}`,
+            time: "2026-10-13T14:02:11Z",
+            moves: [{ direction: "out", amount: "10", symbol: "USDC" }],
+          },
+        ],
+        checked_chains: ["base"],
+        hidden_spam: 3,
+      },
+    });
+
+    expect(step.title).toBe("List transactions");
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "1 tx"]);
+  });
+
+  it("reads Solana history and all-chain history without a chain chip", () => {
+    const solana = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({ chains: "solana", direction: "in" }),
+      result: { transactions: [], checked_chains: ["solana"] },
+    });
+    expect(labelsFor(solana.chips)).toEqual(["Solana", "0 txs"]);
+
+    const all = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({ chains: null, direction: null }),
+    });
+    expect(all.title).toBe("List transactions");
+    expect(all.chips).toEqual([]);
+  });
+
+  it("shows a read transaction's network, hash and what moved", () => {
+    const hash = `0x859af39b${"0".repeat(56)}`;
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash }),
+      result: {
+        chain: "base",
+        chain_id: 8453,
+        transaction_hash: hash,
+        status: "success",
+        effects: {
+          balance_changes: [
+            { direction: "out", amount: "47.526861", symbol: "USDC" },
+          ],
+        },
+      },
+    });
+
+    expect(step.title).toBe("Get transaction");
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0x859af…00000",
+      "−47.526861 USDC",
+    ]);
+  });
+
+  it("does not show a sent amount for a reverted EVM receipt", () => {
+    const hash = `0x${"b".repeat(64)}`;
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash }),
+      result: {
+        chain: "base",
+        chain_id: 8453,
+        transaction_hash: hash,
+        status: "failed",
+        value: "1",
+        fee: "0.000021",
+        effects: { account: "0xsender" },
+      },
+    });
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xbbbbb…bbbbb",
+      "Reverted",
+    ]);
+  });
+
+  it("flags a reverted transaction without failing the read", () => {
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash: "5r51fcxVcZVowYmjjSGDZqMTbBUt" }),
+      result: {
+        chain: "solana",
+        cluster: "mainnet-beta",
+        signature: "5r51fcxVcZVowYmjjSGDZqMTbBUt",
+        status: "failed",
+        moves: [{ direction: "in", amount: "0.0045", symbol: "SOL" }],
+      },
+    });
+
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "5r51fcx…TbBUt",
+      "+0.0045 SOL",
+      "Reverted",
+    ]);
+  });
+
+  it.each([
+    [
+      "execution_error",
+      { execution_error: { InstructionError: [0, { Custom: 1 }] } },
+    ],
+    // Saved threads from before the key was renamed.
+    ["a top-level error", { error: { InstructionError: [0, { Custom: 1 }] } }],
+  ])(
+    "reads a reverted Solana transaction with %s as Reverted, not failed",
+    (_, executionError) => {
+      const signature = "5r51fcxVcZVowYmjjSGDZqMTbBUt";
+      const step = interpretToolStep({
+        toolName: "get_transaction",
+        argsText: JSON.stringify({ hash: signature }),
+        result: {
+          chain: "solana",
+          cluster: "mainnet-beta",
+          signature,
+          status: "failed",
+          ...executionError,
+        },
+      });
+
+      expect(step.outcome).toBe("success");
+      expect(labelsFor(step.chips)).toEqual([
+        "Solana",
+        "5r51fcx…TbBUt",
+        "Reverted",
+      ]);
+    },
+  );
+
+  it("still fails a get_transaction call that errored", () => {
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash: "5r51fcxVcZVowYmjjSGDZqMTbBUt" }),
+      result: { error: "transaction not found on Solana mainnet-beta" },
+    });
+
+    expect(step.outcome).toBe("failed");
+  });
+
   it("does not attribute a prior tool's chain to a native balance", () => {
     const step = interpretToolStep({
       toolName: "get_account_info",

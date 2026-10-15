@@ -8,7 +8,7 @@
 // find them.
 // =============================================================================
 
-import type { RequiredSecretsByApp } from "@/features/deploy/required-secrets";
+import type { RequiredSecretsByApp } from "@aomi-labs/deploy/launch";
 import { BUILD_GLOSSARY } from "@/lib/glossary";
 
 export type EnvironmentCard = {

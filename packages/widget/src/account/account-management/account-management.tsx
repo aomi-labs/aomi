@@ -7,7 +7,7 @@ import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
-import { accountDisplayName } from "@/wallet/wallet-management-model";
+import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 import { IconButton, TextButton } from "./controls";

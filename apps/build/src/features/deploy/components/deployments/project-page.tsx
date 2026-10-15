@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { prefetchProjectDetail } from "@/components/control-plane/prefetch-control-plane-route";
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { platformHref } from "@/features/deploy/platform";
-import { setLastProjectId } from "@/lib/last-project";
+import { setLastProjectId } from "@/lib/project-navigation";
 import { ProjectHeader } from "./project-header";
 import { ChatTab } from "./tabs/chat-tab";
 import { DeploymentsTab } from "./tabs/deployments-tab";

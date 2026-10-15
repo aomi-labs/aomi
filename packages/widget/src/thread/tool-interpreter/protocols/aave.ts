@@ -7,8 +7,12 @@ import {
   statusFact,
 } from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
-import { displayedAmount, protocolOperation, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  displayedAmount,
+  protocolOperation,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 // `aave_v4_prepare` is the retired name, still in saved threads.
 const stageTools = ["stage_aave_v4", "aave_v4_prepare"];

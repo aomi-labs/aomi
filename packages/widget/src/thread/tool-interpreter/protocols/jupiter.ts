@@ -7,8 +7,8 @@ import {
 import { SHAPE_ICONS } from "@/thread/tool-registry";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import { svmClusterFact } from "@/thread/tool-interpreter/families/svm/context";
-import { validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import { validResult } from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const amountDisplayFact = (
   value: unknown,
