@@ -18,7 +18,7 @@ import {
 } from "./wallet-selection";
 import { preferenceStorage, useWidgetStorage } from "@/lib/widget-storage";
 import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
-import { useSheetChannel } from "@/wallet/picker/sheet-channel";
+import { useSheetChannel } from "@/wallet/picker/picker-context";
 import { walletKey } from "@/wallet/wallet-utils";
 import { shortAddress } from "@aomi-labs/client";
 

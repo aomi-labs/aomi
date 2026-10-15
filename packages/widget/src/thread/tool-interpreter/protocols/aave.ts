@@ -7,8 +7,12 @@ import {
   statusFact,
 } from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
-import { displayedAmount, protocolOperation, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  displayedAmount,
+  protocolOperation,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const readTitles: Record<string, string> = {
   aave_v4_markets: "Read Aave V4 markets",

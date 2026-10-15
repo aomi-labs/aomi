@@ -40,20 +40,15 @@ vi.mock("@/features/deploy/client", () => ({
     ],
     nextCursor: null,
   })),
-}));
 
-vi.mock("@/features/deploy/dashboard", () => ({
-  fetchGitHubSession: vi.fn(async () => ({
+  launchFetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "ceciliaz030",
   })),
 }));
 
 import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
-import {
-  deploymentFeed,
-  deploymentProjects,
-} from "@/features/deploy/client";
+import { deploymentFeed, deploymentProjects } from "@/features/deploy/client";
 import { useGlobalDeploymentRecords } from "./use-global-deployment-records";
 
 function wrapper(client = new QueryClient()) {

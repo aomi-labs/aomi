@@ -9,10 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  fetchGitHubSession,
-  type GitHubSessionInfo,
-} from "@/features/deploy/dashboard";
+import { launchFetchGitHubSession } from "@/features/deploy/client";
+import { type GitHubSessionInfo } from "@aomi-labs/deploy/launch";
 
 import { BUILD_SESSION_EXPIRED } from "@/lib/session-expiry";
 
@@ -52,7 +50,7 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchGitHubSession().then((session) => {
+    launchFetchGitHubSession().then((session) => {
       if (!cancelled) setAccount({ ...session, loading: false });
     });
     return () => {
@@ -73,7 +71,7 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
     if (!account.expired) return;
     let cancelled = false;
     const resume = () => {
-      void fetchGitHubSession().then((session) => {
+      void launchFetchGitHubSession().then((session) => {
         if (!cancelled && session.signedIn) {
           setAccount({ ...session, loading: false });
         }

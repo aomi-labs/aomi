@@ -1,12 +1,12 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { setLastProjectId } from "./last-project";
+import { setLastProjectId } from "@/lib/project-navigation";
 import {
   lastEnvironmentHref,
   lastProjectHref,
   lastUsageHref,
   projectHref,
   usageHref,
-} from "./deep-links";
+} from "@/lib/project-navigation";
 
 describe("deep-links", () => {
   beforeEach(() => {
@@ -20,9 +20,7 @@ describe("deep-links", () => {
   it("builds project and usage hrefs", () => {
     expect(projectHref(42)).toBe("/projects/42");
     expect(projectHref(42, "home")).toBe("/projects/42");
-    expect(projectHref(42, "environment")).toBe(
-      "/projects/42?tab=environment",
-    );
+    expect(projectHref(42, "environment")).toBe("/projects/42?tab=environment");
     expect(usageHref(42)).toBe("/operate/usage?project=42");
     expect(usageHref(null)).toBe("/operate/usage");
   });

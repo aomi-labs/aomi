@@ -19,8 +19,8 @@ import type {
   ToolContext,
   ToolFact,
 } from "@/thread/tool-interpreter/types";
-import { validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import { validResult } from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 import {
   failedFact,
   operation,

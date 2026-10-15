@@ -18,8 +18,8 @@ import {
   lastEnvironmentHref,
   lastProjectHref,
   lastUsageHref,
-} from "@/lib/deep-links";
-import { getLastProjectId } from "@/lib/last-project";
+} from "@/lib/project-navigation";
+import { getLastProjectId } from "@/lib/project-navigation";
 import { platformHref } from "@/features/deploy/platform";
 import { usePlatform } from "@/features/deploy/use-platform";
 

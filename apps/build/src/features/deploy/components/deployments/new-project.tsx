@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Github, Sparkles } from "lucide-react";
 import { Onboarding } from "@/features/deploy/components/onboarding";
-import {
-  fetchGitHubSession,
-  type GitHubSessionInfo,
-} from "@/features/deploy/dashboard";
-import { loadLaunch } from "@/features/deploy";
+import { launchFetchGitHubSession } from "@/features/deploy/client";
+import { type GitHubSessionInfo } from "@aomi-labs/deploy/launch";
+import { loadLaunch } from "@aomi-labs/deploy/launch";
 import type { NewProjectMode } from "@/features/deploy/new-project-mode";
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { RepositoryConnector } from "./repository-connector";
@@ -60,7 +58,7 @@ export function NewProject({
   const [mode, setMode] = useState<NewProjectMode | null>(modeParam ?? null);
 
   useEffect(() => {
-    void fetchGitHubSession()
+    void launchFetchGitHubSession()
       .then(setSession)
       .catch(() => setSession({ signedIn: false, githubLogin: null }));
   }, []);

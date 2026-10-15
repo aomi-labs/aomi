@@ -5,8 +5,8 @@ import {
   deploymentRequiredSecrets,
   deploymentSetSecrets,
   launchCreateRepo,
-} from "@/features/deploy";
-import type { LaunchProgress } from "@/features/deploy";
+} from "@/features/deploy/client";
+import type { LaunchProgress } from "@aomi-labs/deploy/launch";
 
 const noop = () => {};
 
@@ -36,7 +36,8 @@ vi.mock("@aomi-labs/widget/host-composition", () => ({
 // `@/lib/chat-url` is intentionally NOT mocked: it is a pure helper and
 // a stale fake here previously dropped `application_id` from asserted URLs.
 
-vi.mock("@/features/deploy", () => ({
+vi.mock("@aomi-labs/deploy/launch", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   oneshotStep: (p: LaunchProgress) => {
     if (p.live) return "live";
     if (p.deploymentId || p.deployment) return "build";
@@ -45,6 +46,9 @@ vi.mock("@/features/deploy", () => ({
     return "install";
   },
   installationStatusLabel: () => null,
+}));
+
+vi.mock("@/features/deploy/client", () => ({
   launchCreateRepo: vi.fn(),
   deploymentRequiredSecrets: vi.fn(),
   deploymentSetSecrets: vi.fn(),
@@ -57,6 +61,9 @@ vi.mock("@/features/deploy", () => ({
   launchStatus: vi.fn(),
   launchActivate: vi.fn(),
   launchAppsStatus: vi.fn(),
+}));
+
+vi.mock("@/features/deploy/contracts", () => ({
   TEMPLATE_REPO: "aomi-labs/playground-example",
   TEMPLATE_REPO_URL: "https://github.com/aomi-labs/playground-example",
 }));

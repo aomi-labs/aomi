@@ -12,7 +12,7 @@ import {
   withPendingInstall,
   withProgress,
   type LaunchState,
-} from "./";
+} from "@aomi-labs/deploy/launch";
 
 const launchState = (over: Partial<LaunchState> = {}): LaunchState => ({
   platform: null,

@@ -10,7 +10,7 @@ import { providerName } from "@/account/account-management/wallet-model";
 import {
   providerEmailDisplayHint,
   visibleSignInMethods,
-} from "@/wallet/wallet-management-model";
+} from "@/wallet/account-presentation";
 import { useAccountAcl } from "./use-account-acl";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 

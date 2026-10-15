@@ -97,7 +97,7 @@ import { resolveEvmConnectionPersistence } from "./evm-connection-persistence";
 import {
   createSheetChannel,
   SheetChannelContext,
-} from "@/wallet/picker/sheet-channel";
+} from "@/wallet/picker/picker-context";
 import {
   SocialLoginOpener,
   SocialSignInOptions,

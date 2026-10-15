@@ -6,8 +6,11 @@ import {
   statusFact,
 } from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
-import { protocolOperation, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  protocolOperation,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const titles: Record<string, string> = {
   morpho_find_vaults: "Find Morpho vaults",

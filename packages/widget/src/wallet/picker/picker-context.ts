@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { type AomiWalletOption } from "@/wallet/types";
 
 /** What the kit asks the wallet sheet to show. */
 export type SheetRequest =
@@ -45,3 +46,8 @@ export type SheetChannel = ReturnType<typeof createSheetChannel>;
 export const SheetChannelContext = createContext<SheetChannel | null>(null);
 
 export const useSheetChannel = () => useContext(SheetChannelContext);
+
+/** Host-owned provider choices; selecting one does not grant wallet authority. */
+export const WalletSignInOptionsContext = createContext<
+  readonly (AomiWalletOption & { connect: () => Promise<void> })[]
+>([]);

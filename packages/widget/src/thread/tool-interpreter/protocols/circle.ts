@@ -1,13 +1,17 @@
 import { declaredToolIdentity } from "@/thread/tool-interpreter/identity";
-import { asRecord, chainFactFromRecord, statusFact } from "@/thread/tool-interpreter/normalize";
+import {
+  asRecord,
+  chainFactFromRecord,
+  statusFact,
+} from "@/thread/tool-interpreter/normalize";
 import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import {
   displayedAmount,
   protocolOperation,
   routeFact,
   validResult,
-} from "./shared";
-import type { ProtocolAdapter } from "./types";
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const definitions: Record<string, { protocol: string; title: string }> = {
   circle_gateway_prepare_deposit: {
