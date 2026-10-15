@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 
 import { AccountSettings } from "@/account/account-settings";
-import { SigningSettings } from "@/account/provider-policy-settings";
+import { SafetyWallets } from "@/account/safety/safety-wallets";
 import {
   AccountOverviewFixture,
   seedAccountOverview,
@@ -103,10 +103,11 @@ const ACCOUNT = {
       provider_managed: false,
     },
   ],
+  // Both wallets were Locked before agent wallets: Safety offers Unlock.
   signing_policies: [
     {
       address: { chain: "evm", address: CONNECTED_EVM.toLowerCase() },
-      mode: "manual",
+      mode: "denied",
       authorization_version: 2,
       last_authorized_at: 1_752_000_000,
       last_authorized_by: {
@@ -116,7 +117,7 @@ const ACCOUNT = {
     },
     {
       address: { chain: "svm", address: PRIVY_SVM },
-      mode: "manual",
+      mode: "denied",
       authorization_version: 4,
     },
   ],
@@ -141,7 +142,7 @@ function installFetchRecorder(overrides: Record<string, () => Response> = {}) {
             account: "acct-1",
             chain_type: "evm",
             wallet: CONNECTED_EVM,
-            mode: "denied",
+            mode: "manual",
             version: 2,
             expiry: 1_800_000_000,
           },
@@ -152,7 +153,7 @@ function installFetchRecorder(overrides: Record<string, () => Response> = {}) {
         return Response.json({
           address: CONNECTED_EVM,
           chain_type: "evm",
-          signing_mode: "denied",
+          signing_mode: "manual",
           authorization_version: 3,
         });
       }
@@ -190,7 +191,7 @@ async function renderAcl(
             : []
         }
       >
-        {account ? <AccountSettings /> : <SigningSettings />}
+        {account ? <AccountSettings /> : <SafetyWallets />}
       </WalletSignInOptionsContext.Provider>,
     );
   });
@@ -207,16 +208,15 @@ const click = async (el: HTMLElement) => {
   });
 };
 
-/** A wallet's Ask me / Locked switch on the Safety tab. */
-const findSigning = (address: string) =>
-  screen.findByRole("radiogroup", {
-    name: (name) => name.endsWith(` ${address}`),
+/** A Locked wallet's Unlock button on the Safety tab. */
+const findUnlock = (address: string) =>
+  screen.findByRole("button", {
+    name: (name) => name.startsWith("Unlock ") && name.endsWith(` ${address}`),
   });
-const findWalletRow = async () => findSigning(CONNECTED_EVM.toLowerCase());
-const findPrivyRow = async () => findSigning(PRIVY_SVM);
-/** Pick a signing mode; a change opens the review dialog (or explains why not). */
-const choose = async (row: HTMLElement, label: string) =>
-  click(within(row).getByRole("radio", { name: label }));
+const findWalletRow = async () => findUnlock(CONNECTED_EVM.toLowerCase());
+const findPrivyRow = async () => findUnlock(PRIVY_SVM);
+/** Unlock opens the review dialog (or explains why not). */
+const unlock = async (button: HTMLElement) => click(button);
 
 const paths = (calls: FetchCall[]) =>
   calls.map(
@@ -318,19 +318,18 @@ describe("account ACL wiring", () => {
                     account: "acct-1",
                     chain_type: "svm",
                     wallet: PRIVY_SVM,
-                    mode: "denied",
+                    mode: "manual",
                     version: 4,
                     expiry: 1_800_000_000,
                   },
-                  message_base64: btoa("Aomi Authorization\nmode: denied"),
+                  message_base64: btoa("Aomi Authorization\nmode: manual"),
                 }),
             }
           : {},
       );
       await renderAcl();
-      await choose(
+      await unlock(
         chain === "evm" ? await findWalletRow() : await findPrivyRow(),
-        "Locked",
       );
       const dialog = screen.getByRole("alertdialog", {
         name: "Confirm signing policy",
@@ -338,7 +337,7 @@ describe("account ACL wiring", () => {
       expect(dialog.textContent).toContain(
         chain === "evm" ? CONNECTED_EVM.toLowerCase() : PRIVY_SVM,
       );
-      expect(dialog.textContent).toContain("Ask me → Locked");
+      expect(dialog.textContent).toContain("Locked → Ask me");
       expect(
         within(dialog).getByLabelText("Payload to sign").textContent,
       ).toContain(
@@ -358,7 +357,7 @@ describe("account ACL wiring", () => {
     walletKit.wallets[0] = { ...walletKit.wallets[0], operating: false };
     const { calls } = installFetchRecorder();
     await renderAcl();
-    await choose(await findWalletRow(), "Locked");
+    await unlock(await findWalletRow());
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
     expect(walletKit.signTypedData).not.toHaveBeenCalled();
@@ -374,7 +373,7 @@ describe("account ACL wiring", () => {
         }),
     });
     await renderAcl();
-    await choose(await findPrivyRow(), "Locked");
+    await unlock(await findPrivyRow());
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     expect(walletKit.signSolanaMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -405,9 +404,8 @@ describe("account ACL wiring", () => {
           : {},
       );
       await renderAcl();
-      await choose(
+      await unlock(
         chain === "evm" ? await findWalletRow() : await findPrivyRow(),
-        "Locked",
       );
       await click(screen.getByRole("button", { name: "Sign to approve" }));
       await screen.findByText("Wallet signing cancelled");
@@ -480,7 +478,7 @@ describe("account ACL wiring", () => {
             account: "acct-1",
             chain_type: "evm",
             wallet: CONNECTED_EVM,
-            mode: "denied",
+            mode: "manual",
             version: 2,
             expiry: 1,
           },
@@ -488,7 +486,7 @@ describe("account ACL wiring", () => {
         }),
     });
     await renderAcl();
-    await choose(await findWalletRow(), "Locked");
+    await unlock(await findWalletRow());
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     expect(screen.getByText(/This authorization expired/)).toBeTruthy();
     expect(walletKit.signTypedData).not.toHaveBeenCalled();
@@ -506,7 +504,7 @@ describe("account ACL wiring", () => {
         Response.json({ permit: {} }),
     });
     await renderAcl();
-    await choose(await findWalletRow(), "Locked");
+    await unlock(await findWalletRow());
     expect(screen.getByText(/authorization payload is missing/)).toBeTruthy();
     expect(
       screen.queryByRole("alertdialog", { name: "Confirm signing policy" }),
@@ -519,7 +517,7 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    await choose(await findWalletRow(), "Locked");
+    await unlock(await findWalletRow());
     const reviewed = JSON.parse(
       screen.getByLabelText("Payload to sign").textContent ?? "",
     );
@@ -532,7 +530,7 @@ describe("account ACL wiring", () => {
     expect(bodyOf(calls, "/api/account/authorization/challenge")).toEqual({
       chain_type: "evm",
       wallet: CONNECTED_EVM.toLowerCase(),
-      mode: "denied",
+      mode: "manual",
     });
     expect(walletKit.signTypedData).toHaveBeenCalledOnce();
     expect(walletKit.signTypedData).toHaveBeenCalledWith(
@@ -548,7 +546,7 @@ describe("account ACL wiring", () => {
     expect(paths(calls).filter((p) => p === "/api/account")).toHaveLength(2);
   });
 
-  it("gives a user-controlled Para wallet Ask me and Locked only", async () => {
+  it("leaves a wallet that asks in the wallet itself with nothing to set", async () => {
     const paraAccount = {
       user_accounts: [
         {
@@ -557,7 +555,7 @@ describe("account ACL wiring", () => {
           provider_managed: false,
         },
       ],
-      signing_policies: [ACCOUNT.signing_policies[0]],
+      signing_policies: [{ ...ACCOUNT.signing_policies[0], mode: "manual" }],
       delegated_accounts: [],
     };
     const { calls } = installFetchRecorder({
@@ -565,21 +563,16 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    const row = await findWalletRow();
-
     expect(
-      within(row)
-        .getAllByRole("radio")
-        .map((radio) => radio.textContent),
-    ).toEqual(["Ask me", "Locked"]);
+      screen.getByText(/Browser and embedded wallets always ask/),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "Locked wallets" }),
+    ).toBeNull();
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /^Unlock / })).toBeNull();
     expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
-
-    await choose(row, "Locked");
-    await click(screen.getByRole("button", { name: "Sign to approve" }));
-    await waitFor(() =>
-      expect(paths(calls)).toContain("/api/account/authorization/commit"),
-    );
-    expect(walletKit.signTypedData).toHaveBeenCalledOnce();
+    expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
   });
 
   it("blocks a loosening permit when the wallet is not operating", async () => {
@@ -601,7 +594,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await choose(await findWalletRow(), "Ask me");
+    await unlock(await findWalletRow());
 
     expect(
       screen.getByText("Connect a Ethereum wallet to sign this authorization."),
@@ -621,7 +614,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await choose(await findWalletRow(), "Locked");
+    await unlock(await findWalletRow());
     await click(screen.getByRole("button", { name: "Sign to approve" }));
 
     expect(
@@ -656,8 +649,9 @@ describe("account ACL wiring", () => {
     ).toBeNull();
   });
 
-  it("shows an existing agent wallet's Automatic mode without offering auto or delegation", async () => {
+  it("never lists an agent wallet, Automatic or paused, as a Locked wallet", async () => {
     const AGENT = "0x2222222222222222222222222222222222222222";
+    const PAUSED = "0x3333333333333333333333333333333333333333";
     const { calls } = installFetchRecorder({
       "/api/account": () =>
         Response.json({
@@ -670,34 +664,53 @@ describe("account ACL wiring", () => {
               is_primary: false,
               provider_managed: true,
             },
+            {
+              address: { chain: "evm", address: PAUSED },
+              auth_provider: "para",
+              is_primary: false,
+              provider_managed: false,
+            },
           ],
           signing_policies: [
-            ...ACCOUNT.signing_policies.map((policy) =>
-              // A retired client_auto row reads as Ask me.
-              policy.address.chain === "svm"
-                ? { ...policy, mode: "client_auto" }
-                : policy,
-            ),
+            ...ACCOUNT.signing_policies,
             {
               address: { chain: "evm", address: AGENT },
               mode: "server_auto",
               authorization_version: 1,
+            },
+            // A paused agent wallet's key is `denied`; its card has Pause.
+            {
+              address: { chain: "evm", address: PAUSED },
+              mode: "denied",
+              authorization_version: 5,
+            },
+          ],
+        }),
+      "/v1/account/wallets": () =>
+        Response.json({
+          wallets: [
+            {
+              id: "w_7",
+              kind: "agent",
+              family: "evm",
+              address: PAUSED,
+              label: "Agent wallet",
+              status: "paused",
+              rule: { mode: "paused", rule_version: 2, instant: [] },
             },
           ],
         }),
     });
 
     await renderAcl();
-    const agent = await findSigning(AGENT);
-    const automatic = within(agent).getByRole("radio", { name: "Automatic" });
-    expect(automatic).toHaveAttribute("aria-checked", "true");
-    await click(automatic);
-    expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
-
+    await findWalletRow();
+    await findPrivyRow();
     expect(
-      within(await findPrivyRow()).getByRole("radio", { name: "Ask me" }),
-    ).toHaveAttribute("aria-checked", "true");
-    expect(screen.queryByRole("radio", { name: "Auto" })).toBeNull();
+      screen.queryByRole("button", {
+        name: (name) => name.endsWith(AGENT) || name.endsWith(PAUSED),
+      }),
+    ).toBeNull();
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
     for (const name of ["Enable", "Set up", "Renew", "Manage", "Fix"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }

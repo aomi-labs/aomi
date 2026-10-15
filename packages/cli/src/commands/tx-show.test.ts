@@ -78,6 +78,7 @@ const view: CommitRefView = {
   initiator: "mcp:client-1",
   notify: "mcp:client-1",
   sign_url: "https://chat.aomi.dev/sign/cmt_show",
+  can_approve: false,
   created_at: 1_760_529_600,
 };
 

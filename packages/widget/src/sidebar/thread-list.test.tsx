@@ -227,6 +227,23 @@ describe("chat Rename", () => {
     expect(screen.getByRole("img", { name: "Scheduled task" })).toBeTruthy();
     actions.getThreadMetadata.mockReset();
   });
+
+  it("keeps an amber dot on a chat with a trade waiting for approval", () => {
+    actions.getThreadMetadata.mockReturnValue({
+      awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
+    });
+    const { container, unmount } = render(<Harness />);
+    expect(
+      container.querySelector(".aui-thread-list-item[data-awaiting-approval]"),
+    ).toBeTruthy();
+    unmount();
+    actions.getThreadMetadata.mockReturnValue({ awaitingApproval: [] });
+    const quiet = render(<Harness />);
+    expect(
+      quiet.container.querySelector("[data-awaiting-approval]"),
+    ).toBeNull();
+    actions.getThreadMetadata.mockReset();
+  });
 });
 
 describe("ThreadOriginBadge", () => {

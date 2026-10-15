@@ -26,7 +26,7 @@ import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
 
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
-import type { SettingsTab } from "./settings-events";
+import { useWalletRuleOpenRequest, type SettingsTab } from "./settings-events";
 
 export type { SettingsTab };
 
@@ -151,6 +151,12 @@ export function SettingsModal({
     setTab(next);
     setVisited((tabs) => (tabs.includes(next) ? tabs : [...tabs, next]));
   };
+  // Account's "Signing rule" opens Safety at that agent wallet's card.
+  const [focusWallet, setFocusWallet] = useState<string>();
+  useWalletRuleOpenRequest((walletId) => {
+    setFocusWallet(walletId);
+    selectTab("policy");
+  });
   const hadSession = useRef(status === "ready");
   useEffect(() => {
     if (status === "ready") hadSession.current = true;
@@ -213,7 +219,7 @@ export function SettingsModal({
             ) : id === "usage" ? (
               <UsageSettings />
             ) : (
-              <PolicyPage />
+              <PolicyPage focusWallet={focusWallet} />
             )}
           </div>
         ))}

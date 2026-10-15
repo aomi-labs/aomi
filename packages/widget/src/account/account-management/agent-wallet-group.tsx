@@ -24,6 +24,7 @@ import {
 } from "./controls";
 import { AGENT_WALLET, familyTag } from "./wallet-model";
 import { useAgentWallets, useWalletBalance } from "./use-agent-wallets";
+import { requestWalletRuleOpen } from "../settings-events";
 
 // The sheet and its QR encoder load on first open, off the Settings bundle.
 const DepositSheet = lazy(() =>
@@ -290,6 +291,10 @@ export function AgentWalletRow({
       label: "Rename",
       onSelect: () => setDraft(wallet.custom_label ?? ""),
     });
+  items.push({
+    label: "Signing rule",
+    onSelect: () => requestWalletRuleOpen(wallet.id),
+  });
   if (explorer) items.push({ label: "View on explorer", href: explorer });
 
   const content = (

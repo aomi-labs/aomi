@@ -3,10 +3,15 @@ import { Aomi } from "./aomi";
 import { AomiClient } from "../client";
 import { AomiCommits } from "./commits";
 import {
+  CommitApprovalForbiddenError,
+  CommitExpiredError,
+  CommitNotAwaitingApprovalError,
   CommitNotFoundError,
   CommitStaleError,
   type CommitRefView,
 } from "../commit-ref";
+import { CommitController } from "../commits";
+import { projectCommitLifecycle } from "../commit-lifecycle";
 import type { Wallets } from "../wallet/types";
 
 const signer = "0x1111111111111111111111111111111111111111";
@@ -78,8 +83,19 @@ const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
   notify: "mcp:client-1",
   sign_url: `https://portal.example/sign/${ref}`,
   created_at: 1_760_529_600,
+  can_approve: false,
   ...overrides,
 });
+
+/** An agent-wallet commit parked for approval: no action, nothing signed. */
+const parked = (overrides: Partial<CommitRefView> = {}): CommitRefView =>
+  view({
+    state: "awaiting_approval",
+    action: null,
+    can_approve: true,
+    approval: { state: "pending", client: "mcp", expires_at: 1_760_530_200 },
+    ...overrides,
+  });
 
 type Route = (body: unknown) => Response;
 
@@ -355,5 +371,167 @@ describe("aomi.commits — thread-less commit refs", () => {
     expect(error).toBeInstanceOf(CommitStaleError);
     expect(signTransaction).not.toHaveBeenCalled();
     expect(calls.some((call) => call.method === "POST")).toBe(false);
+  });
+});
+
+describe("CommitHandle.approve — parked agent-wallet commits", () => {
+  it("approves at the current version and review digest", async () => {
+    const approved = parked({
+      version: 4,
+      state: "needs_signature",
+      can_approve: false,
+      approval: {
+        state: "approved",
+        client: "mcp",
+        expires_at: 1_760_530_200,
+        approved_at: 1_760_529_700,
+        approved_by: "portal",
+      },
+    });
+    const { aomi, calls } = backend({
+      [`GET /v1/commits/${ref}`]: () => Response.json(parked()),
+      [`POST /v1/commits/${ref}/approve`]: () => Response.json(approved),
+    });
+    const handle = await aomi.commits.get(ref);
+    handles.push(handle);
+    expect(handle.view.can_approve).toBe(true);
+    expect(projectCommitLifecycle(handle.view)).toMatchObject({
+      phase: "awaiting_approval",
+      label: "Waiting for your approval",
+    });
+    expect(handle.canSign()).toBe(false);
+
+    const result = await handle.approve();
+
+    expect(calls.at(-1)).toMatchObject({
+      method: "POST",
+      path: `/v1/commits/${ref}/approve`,
+      body: { version: 3, review_digest: "digest-3" },
+    });
+    expect(calls.at(-1)?.headers.has("x-thread-id")).toBe(false);
+    expect(result.approval?.state).toBe("approved");
+    expect(handle.view.version).toBe(4);
+    expect(projectCommitLifecycle(handle.view)).toMatchObject({
+      phase: "signing",
+      label: "Signing…",
+    });
+  });
+
+  it("sends an empty review digest when the commit has no review", async () => {
+    const { aomi, calls } = backend({
+      [`GET /v1/commits/${ref}`]: () => Response.json(parked({ review: null })),
+      [`POST /v1/commits/${ref}/approve`]: () =>
+        Response.json(parked({ version: 4, state: "needs_signature" })),
+    });
+    const handle = await aomi.commits.get(ref);
+    handles.push(handle);
+    await handle.approve();
+    expect(calls.at(-1)?.body).toEqual({ version: 3, review_digest: "" });
+  });
+
+  it.each([
+    [
+      "an OAuth token (api-server body)",
+      403,
+      {
+        error: {
+          code: "commit_approval_forbidden",
+          message: "Approve at sign_url",
+        },
+      },
+      CommitApprovalForbiddenError,
+      "commit_approval_forbidden",
+    ],
+    [
+      "a widget session (BFF body)",
+      403,
+      { code: "commit_approval_forbidden", status: 403 },
+      CommitApprovalForbiddenError,
+      "commit_approval_forbidden",
+    ],
+    [
+      "an expired commit",
+      410,
+      { code: "commit_expired", status: 410 },
+      CommitExpiredError,
+      "commit_expired",
+    ],
+    [
+      "a commit that is not parked",
+      409,
+      { code: "commit_not_awaiting_approval", status: 409 },
+      CommitNotAwaitingApprovalError,
+      "commit_not_awaiting_approval",
+    ],
+    [
+      "a stale card",
+      409,
+      { code: "commit_version_conflict", status: 409 },
+      CommitStaleError,
+      "commit_version_conflict",
+    ],
+  ])(
+    "raises a typed error for %s",
+    async (_, status, body, ErrorClass, code) => {
+      const { aomi } = backend({
+        [`GET /v1/commits/${ref}`]: () => Response.json(parked()),
+        [`POST /v1/commits/${ref}/approve`]: () =>
+          Response.json(body, { status }),
+      });
+      const handle = await aomi.commits.get(ref);
+      handles.push(handle);
+      const error = await handle.approve().catch((caught) => caught);
+      expect(error).toBeInstanceOf(ErrorClass);
+      expect(error).toMatchObject({ status, code });
+    },
+  );
+
+  it("a thread controller approves on the thread-less ref route, even for a scheduled run's commit", async () => {
+    const child = parked({ thread_id: "cron-child" });
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const url = new URL(String(input));
+      expect(`${init?.method} ${url.pathname}`).toBe(
+        `POST /v1/commits/${ref}/approve`,
+      );
+      expect(new Headers(init?.headers).has("x-session-id")).toBe(false);
+      return Response.json({ ...child, version: 4, state: "needs_signature" });
+    });
+    const controller = new CommitController(
+      new AomiClient({ baseUrl: "https://api.example", guest: false, fetch }),
+      "parent-thread",
+    );
+    handles.push(controller);
+
+    const result = await controller.approve(ref, {
+      expectedVersion: 3,
+      expectedReviewDigest: "digest-3",
+    });
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      version: 3,
+      review_digest: "digest-3",
+    });
+    expect(result.thread_id).toBe("cron-child");
+    // A foreign thread's view never enters this thread's cache.
+    expect(controller.all()).toEqual([]);
+  });
+
+  it("labels a cancelled or expired approval as nothing signed", () => {
+    expect(
+      projectCommitLifecycle(
+        parked({
+          state: "expired",
+          approval: { state: "expired", expires_at: 1 },
+        }),
+      ).label,
+    ).toBe("Expired · nothing was signed");
+    expect(
+      projectCommitLifecycle(
+        parked({
+          state: "rejected",
+          approval: { state: "cancelled", expires_at: 1 },
+        }),
+      ).label,
+    ).toBe("Cancelled · nothing was signed");
   });
 });

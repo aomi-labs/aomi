@@ -12,6 +12,8 @@
 --   20260726030000_public_keys_provider_managed.sql
 --   20261015050000_agent_wallets.sql (the table packages/account reads;
 --     without its backfill, merge trigger and composite foreign keys)
+--   threads and bot_registrations: only the columns the Telegram part of
+--     GET /v1/account/connections reads
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
 
@@ -107,3 +109,21 @@ create table if not exists agent_wallets (
 create unique index if not exists agent_wallets_one_default
   on agent_wallets (user_id, chain_type) where is_default;
 create index if not exists agent_wallets_user on agent_wallets (user_id);
+
+create table if not exists threads (
+  id text primary key,
+  user_id text references users(id)
+);
+
+create table if not exists bot_registrations (
+  id text primary key,
+  owner_user_id text references users(id),
+  platform text not null,
+  status text not null default 'active',
+  label text,
+  platform_bot_id text not null,
+  platform_username text,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (platform, platform_bot_id)
+);

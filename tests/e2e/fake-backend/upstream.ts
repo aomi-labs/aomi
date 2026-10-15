@@ -52,6 +52,8 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const owners = new Map<string, string>();
   /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
   const commits = new Map<string, { owner: string; view: unknown }>();
+  /** The agent wallet's signing rule per account (step 4 Safety page). */
+  const rules = new Map<string, WalletRule>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -84,6 +86,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       records.length = 0;
       owners.clear();
       commits.clear();
+      rules.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
     }
@@ -109,8 +112,52 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       const commit = commits.get(decodeURIComponent(ref));
       if (!commit || commit.owner !== principal.sub)
         return json(response, 404, { code: "commit_not_found", status: 404 });
+      // Step 4: only a portal or CLI login may approve a parked commit.
+      const approver =
+        principal.auth_source === "session" ||
+        principal.auth_source === "cli_session";
+      const view = commit.view as Record<string, unknown>;
       if (method === "GET" && rest.length === 0)
-        return json(response, 200, commit.view);
+        return json(response, 200, {
+          ...view,
+          can_approve: approver && view.state === "awaiting_approval",
+        });
+      if (method === "POST" && rest.join("/") === "approve") {
+        const body = JSON.parse(await readBody(request)) as {
+          version: number;
+          review_digest: string;
+        };
+        if (!approver)
+          return json(response, 403, {
+            code: "commit_approval_forbidden",
+            status: 403,
+          });
+        if (view.state !== "awaiting_approval")
+          return json(response, 409, {
+            code: "commit_not_awaiting_approval",
+            status: 409,
+          });
+        const digest =
+          (view.review as { digest?: string } | null)?.digest ?? "";
+        if (body.version !== view.version || body.review_digest !== digest)
+          return json(response, 409, {
+            code: "commit_version_conflict",
+            status: 409,
+          });
+        const approved = {
+          ...view,
+          version: (view.version as number) + 1,
+          state: "needs_signature",
+          approval: {
+            ...(view.approval as object),
+            state: "approved",
+            approved_at: Math.floor(Date.now() / 1000),
+            approved_by: principal.auth_source === "session" ? "portal" : "cli",
+          },
+        };
+        commit.view = approved;
+        return json(response, 200, { ...approved, can_approve: false });
+      }
       return json(response, 404, {
         error: { code: "fixture_route_not_found" },
       });
@@ -136,6 +183,29 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         url.pathname === `/v1/account/wallets/${AGENT_WALLET.id}/balance`
       )
         return json(response, 200, AGENT_BALANCE);
+      if (url.pathname === `/v1/account/wallets/${AGENT_WALLET.id}/rule`) {
+        const rule = rules.get(principal.sub) ?? {
+          rule_version: 0,
+          paused: false,
+          instant: [],
+        };
+        if (method === "GET") return json(response, 200, ruleSettings(rule));
+        if (method === "PUT") {
+          // The backend's require_portal_session.
+          if (principal.auth_source !== "session")
+            return json(response, 403, { error: "portal_session_required" });
+          const update = JSON.parse(await readBody(request)) as WalletRule;
+          if (update.rule_version !== rule.rule_version)
+            return json(response, 409, { error: "rule_version_conflict" });
+          const next = {
+            rule_version: rule.rule_version + 1,
+            paused: update.paused,
+            instant: update.instant,
+          };
+          rules.set(principal.sub, next);
+          return json(response, 200, ruleSettings(next));
+        }
+      }
       return json(response, 404, { error: "wallet_not_found" });
     }
 
@@ -255,6 +325,26 @@ const AGENT_WALLET = {
   rule: { mode: "ask", rule_version: 0, instant: [] },
   created_at: 1_760_000_000,
 } as const;
+
+type WalletRule = { rule_version: number; paused: boolean; instant: string[] };
+
+const RULE_CLIENTS = [
+  { client: "portal", kind: "portal", label: "Portal" },
+  { client: "cli", kind: "cli", label: "CLI" },
+  { client: "mcp", kind: "mcp", label: "AI clients (MCP)" },
+] as const;
+
+function ruleSettings(rule: WalletRule) {
+  return {
+    id: AGENT_WALLET.id,
+    rule_version: rule.rule_version,
+    paused: rule.paused,
+    clients: RULE_CLIENTS.map((client) => ({
+      ...client,
+      instant: rule.instant.includes(client.client),
+    })),
+  };
+}
 
 const AGENT_BALANCE = {
   id: AGENT_WALLET.id,

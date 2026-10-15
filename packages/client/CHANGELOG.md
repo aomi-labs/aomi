@@ -3,6 +3,7 @@
 ## 0.10.4
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.
+- Approve parked agent-wallet commits: `CommitHandle.approve()` and `CommitController.approve(id, review?)` post the reviewed version and review digest to the thread-less `/v1/commits/:ref/approve`, once for a whole batch. `CommitView` gains state `awaiting_approval` and `approval`; `CommitRefView` gains `can_approve`. New `CommitApprovalForbiddenError`, `CommitExpiredError` and `CommitNotAwaitingApprovalError`; `projectCommitLifecycle` adds the `awaiting_approval` and `signing` phases. Agent wallet rules (`walletRule`, `setWalletRule`, `aomi.wallets.rule()` / `setRule()`) and connected apps (`client.account.connections`). Hand-written wire types until the agent API is regenerated.
 
 ## 0.10.3
 

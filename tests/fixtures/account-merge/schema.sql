@@ -104,7 +104,7 @@ CREATE UNIQUE INDEX onchain_policy_bindings_active_delegate_provider_uidx
 CREATE INDEX onchain_policy_bindings_user_history_idx
     ON onchain_policy_bindings(user_id, created_at DESC, id DESC);
 
-create table threads (
+create table if not exists threads (
   id text primary key,
   user_id text not null references users(id)
 );

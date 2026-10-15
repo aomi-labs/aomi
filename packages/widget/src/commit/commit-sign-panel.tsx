@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { lazy, Suspense, useEffect, useReducer, useState } from "react";
 import { ExternalLink, Wallet } from "lucide-react";
 import {
   CommitStaleError,
@@ -15,6 +15,12 @@ import { AomiButton } from "@/ui/aomi/button";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
+
+const CommitApprovePanel = lazy(() =>
+  import("./approval").then((module) => ({
+    default: module.CommitApprovePanel,
+  })),
+);
 
 const ORIGIN_LABELS: Record<ThreadOrigin, string> = {
   portal: "Portal",
@@ -84,7 +90,10 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
   );
   const family = view.chain_family === "evm" ? "evm" : "svm";
   const connected = signerConnected(view, wallet.identity);
-  const settled = isTerminalCommit(view) || view.state === "submitted";
+  const settled =
+    isTerminalCommit(view) ||
+    view.state === "submitted" ||
+    lifecycle.phase === "signing";
   const awaitingWallet = Boolean(view.action) && !settled;
   const canSign = connected && handle.canSign(capabilities);
   const time = commitRelativeTime(view.created_at);
@@ -127,6 +136,11 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
         From {appName ?? ORIGIN_LABELS[view.origin] ?? view.origin}
         {time ? ` · ${time}` : ""}
       </p>
+      {view.state === "awaiting_approval" ? (
+        <Suspense fallback={null}>
+          <CommitApprovePanel handle={handle} />
+        </Suspense>
+      ) : null}
       {awaitingWallet && !connected ? (
         <div className="border-aomi-border bg-aomi-raised rounded-card mt-3 grid gap-3 border p-3">
           <p className="type-meta">

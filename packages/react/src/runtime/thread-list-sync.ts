@@ -455,6 +455,7 @@ export function useThreadListSync({
           // control through existingControl and the commit-time merge.
           control: existingControl ?? initRemoteThreadControl(),
           ...threadOrigin(thread),
+          ...threadAwaitingApproval(thread),
         });
 
         const match = title.match(/^Chat (\d+)$/);
@@ -646,4 +647,14 @@ function threadOrigin(
     ...(origin ? { origin } : {}),
     ...(typeof origin_app === "number" ? { originApp: origin_app } : {}),
   };
+}
+
+/** Step 4 refs waiting for approval; live listings only, never the cache. */
+function threadAwaitingApproval(
+  thread: AgentSession,
+): Pick<ThreadMetadata, "awaitingApproval"> {
+  const refs = (thread as AgentSession & SessionOriginFields).awaitingApproval;
+  return Array.isArray(refs) && refs.length > 0
+    ? { awaitingApproval: refs.filter((ref) => typeof ref === "string") }
+    : {};
 }

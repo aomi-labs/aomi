@@ -10,10 +10,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testIds } from "@/test-ids";
 import {
+  CommitApprovalForbiddenError,
   CommitController,
   type CommitView,
   type Event,
 } from "@aomi-labs/client";
+import { ApprovalAuthorityContext } from "@/commit/approval-authority";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
 import { WalletReview } from "./wallet-review";
@@ -551,9 +553,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
-    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
-      "devnet",
-    );
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent("devnet");
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     const signAction = commit.action;
     if (signAction?.kind !== "sign") throw new Error("expected sign action");
@@ -1555,5 +1555,183 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("approvals (agent wallet commits parked for the user)", () => {
+  const REF = "5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60";
+  const SIGN_URL = `https://portal.example/sign/${REF}`;
+  const request = {
+    type: "execute_evm" as const,
+    transactions: [1, 2].map((index) => ({
+      chain_id: 8453,
+      from: "0x7a3f00000000000000000000000000000000c41e",
+      to: "0x2222222222222222222222222222222222222222",
+      data: `0x0${index}`,
+      label: `Swap ${index}`,
+      kind: "swap",
+    })),
+    simulation: simulation(),
+  };
+  const parked = (
+    index: number,
+    legs = 2,
+    overrides: Partial<CommitView> = {},
+  ): CommitView => ({
+    version: 2,
+    commit_id: index ? `leg-${index}` : REF,
+    thread_id: "thread-1",
+    stage_id: `evm:${index + 1}`,
+    chain_family: "evm",
+    chain_ref: "8453",
+    signer: request.transactions[0].from,
+    broadcaster: "hosted",
+    state: "awaiting_approval",
+    transaction_id: null,
+    failure_code: null,
+    batch:
+      legs > 1
+        ? {
+            batch_id: "batch-1",
+            index,
+            ordered_stage_ids: ["evm:1", "evm:2"],
+            ordered_commit_ids: [REF, "leg-1"],
+            sources: [],
+            predecessor_commit_id: index ? REF : null,
+            review_digest: "digest-2",
+          }
+        : null,
+    review: {
+      version: 2,
+      revision: 1,
+      digest: "digest-2",
+      request,
+      legs: [],
+    },
+    wallet_attempt: null,
+    action: null,
+    signing_mode: "auto",
+    approval: { state: "pending", client: "portal", expires_at: 1_760_530_200 },
+    ...overrides,
+  });
+
+  const approve = vi.fn();
+  const reject = vi.fn();
+  const execute = vi.fn();
+  const refView = vi.fn(async () => ({ sign_url: SIGN_URL }));
+  beforeEach(() => {
+    runtime.pendingActions = [];
+    runtime.events = [];
+    runtime.commits = [parked(0), parked(1)];
+    runtime.isRunning = false;
+    runtime.sendMessage.mockReset().mockResolvedValue(undefined);
+    runtime.getThreadMetadata.mockReset().mockReturnValue(undefined);
+    approve.mockReset().mockResolvedValue(parked(0));
+    reject.mockReset().mockResolvedValue(parked(0));
+    execute.mockReset();
+    refView.mockClear();
+    runtime.commitController = {
+      threadId: "thread-1",
+      review: () => request,
+      canExecute: () => false,
+      execute,
+      approve,
+      reject,
+      refView,
+      refresh: vi.fn(async () => parked(0)),
+    } as unknown as CommitController;
+  });
+  afterEach(cleanup);
+
+  it("approves a whole parked batch with one call, never through the wallet", async () => {
+    render(<WalletReview />);
+    const button = await screen.findByRole("button", { name: "Approve all 2" });
+    expect(
+      screen.getByText("Aomi signs with your agent wallet after you approve."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Submit/)).toBeNull();
+    expect(screen.queryByText(/Your wallet asks for/)).toBeNull();
+
+    await act(async () => fireEvent.click(button));
+
+    expect(approve).toHaveBeenCalledExactlyOnceWith(REF, {
+      expectedVersion: 2,
+      expectedReviewDigest: "digest-2",
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("labels a single parked commit Approve and rejects it", async () => {
+    runtime.commits = [parked(0, 1)];
+    render(<WalletReview />);
+    expect(
+      await screen.findByRole("button", { name: "Approve" }),
+    ).toBeEnabled();
+    const rejectButton = screen.getByRole("button", { name: "Reject" });
+    expect(rejectButton).toBeEnabled();
+    await act(async () => fireEvent.click(rejectButton));
+    expect(reject).toHaveBeenCalledExactlyOnceWith(REF);
+  });
+
+  it("links an embed to Approve on Aomi instead of approving", async () => {
+    render(
+      <ApprovalAuthorityContext.Provider value={false}>
+        <WalletReview />
+      </ApprovalAuthorityContext.Provider>,
+    );
+    const link = await screen.findByRole("link", { name: "Approve on Aomi" });
+    expect(link).toHaveAttribute("href", SIGN_URL);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(refView).toHaveBeenCalledWith(REF);
+    expect(approve).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the link when the server refuses this session", async () => {
+    approve.mockRejectedValueOnce(
+      new CommitApprovalForbiddenError("HTTP 403: commit_approval_forbidden"),
+    );
+    render(<WalletReview />);
+    await act(async () =>
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Approve all 2" }),
+      ),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Approve on Aomi" }),
+    ).toHaveAttribute("href", SIGN_URL);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers Retry once the approval window ends with nothing signed", async () => {
+    runtime.commits = [
+      parked(0, 1, {
+        state: "expired",
+        approval: { state: "expired", expires_at: 1 },
+      }),
+    ];
+    render(<WalletReview />);
+    expect(
+      await screen.findByText("Expired · nothing was signed"),
+    ).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Retry" })),
+    );
+    expect(runtime.sendMessage).toHaveBeenCalledExactlyOnceWith(
+      "Retry the trade that expired (ref `5f0c2a1e`).",
+    );
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("points at a scheduled run's parked commit from the parent chat", async () => {
+    runtime.commits = [];
+    runtime.getThreadMetadata.mockReturnValue({ awaitingApproval: [REF] });
+    render(<ActivitySidebar />);
+    expect(
+      await screen.findByText("A scheduled run is waiting for your approval"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute(
+      "href",
+      `/sign/${REF}`,
+    );
   });
 });

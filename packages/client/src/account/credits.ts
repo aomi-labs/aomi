@@ -1,6 +1,7 @@
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import { AccountWalletsTransport } from "./wallets";
+import { AccountConnectionsTransport } from "./connections";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
@@ -253,10 +254,13 @@ export class AccountTransport extends AccountGraphTransport {
   readonly credits: AccountCreditsTransport;
   /** The wallet list, agent wallets, balances and the thread switch. */
   readonly wallets: AccountWalletsTransport;
+  /** Connected OAuth clients and Telegram (portal sessions only). */
+  readonly connections: AccountConnectionsTransport;
   constructor(requestResponse: RequestResponse) {
     super(requestResponse);
     this.credits = new AccountCreditsTransport(requestResponse);
     this.wallets = new AccountWalletsTransport(requestResponse);
+    this.connections = new AccountConnectionsTransport(requestResponse);
   }
 }
 

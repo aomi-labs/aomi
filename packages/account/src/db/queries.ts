@@ -1036,6 +1036,127 @@ export async function deleteBetterAuthSessions(
   ]);
 }
 
+/** The Better Auth users that resolve to an account, as a SQL subquery on $1. */
+const ACCOUNT_BETTER_AUTH_USERS = `select subject from auth_providers
+      where user_id = $1 and provider in ('betterauth', 'better_auth')
+        and subject is not null`;
+
+/**
+ * The OAuth clients that hold a consent or a live refresh token for any of the
+ * account's Better Auth users, oldest grant first. `resources` joins the
+ * client's bound resources with the ones its grants name.
+ */
+export async function listOAuthConnections(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<
+  {
+    clientId: string;
+    name: string | null;
+    connectedAt: number;
+    resources: string[];
+  }[]
+> {
+  const result = await db.query(
+    `with grants as (
+       select client_id, created_at, resources from ba_oauth_consents
+        where user_id in (${ACCOUNT_BETTER_AUTH_USERS})
+       union all
+       select client_id, created_at, resources from ba_oauth_refresh_tokens
+        where user_id in (${ACCOUNT_BETTER_AUTH_USERS})
+          and revoked is null and expires_at > now()
+     )
+     select c.client_id, c.name,
+            extract(epoch from min(g.created_at))::bigint as connected_at,
+            array(
+              select r.resource_id from ba_oauth_client_resources r
+               where r.client_id = c.client_id
+              union
+              select jsonb_array_elements_text(g2.resources) from grants g2
+               where g2.client_id = c.client_id
+                 and jsonb_typeof(g2.resources) = 'array'
+            ) as resources
+       from grants g
+       join ba_oauth_clients c on c.client_id = g.client_id
+      group by c.client_id, c.name
+      order by min(g.created_at), c.client_id`,
+    [userId],
+  );
+  return result.rows.map((row) => ({
+    clientId: String(row.client_id),
+    name: optionalString(row.name),
+    connectedAt: Number(row.connected_at),
+    resources: (row.resources as unknown[]).map(String),
+  }));
+}
+
+/**
+ * Remove one OAuth client's consent, refresh tokens and stored access tokens
+ * for every Better Auth user of the account. False when it had none.
+ */
+export async function deleteOAuthConnection(input: {
+  userId: AomiUserId;
+  clientId: string;
+}): Promise<boolean> {
+  return withTransaction(async (db) => {
+    let deleted = 0;
+    for (const table of [
+      "ba_oauth_access_tokens",
+      "ba_oauth_refresh_tokens",
+      "ba_oauth_consents",
+    ]) {
+      const result = await db.query(
+        `delete from ${table}
+          where client_id = $2 and user_id in (${ACCOUNT_BETTER_AUTH_USERS})`,
+        [input.userId, input.clientId],
+      );
+      deleted += result.rowCount ?? 0;
+    }
+    return deleted > 0;
+  });
+}
+
+/**
+ * The account's Telegram user and the active Telegram bots it has chatted
+ * with (a `telegram:bot:<platform bot id>:…` thread). Null without a Telegram
+ * identity.
+ */
+export async function findTelegramConnection(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<{
+  username: string | null;
+  bots: { botId: string; label: string }[];
+} | null> {
+  const identity = await db.query(
+    `select provider_metadata->>'handle' as handle from auth_providers
+      where user_id = $1 and provider = 'telegram'
+      order by is_primary desc, updated_at desc, id desc
+      limit 1`,
+    [userId],
+  );
+  if (!identity.rows[0]) return null;
+  const bots = await db.query(
+    `select b.platform_bot_id,
+            coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
+                     b.platform_bot_id) as label
+       from bot_registrations b
+      where b.platform = 'telegram' and b.status = 'active'
+        and exists (select 1 from threads t
+                     where t.user_id = $1
+                       and starts_with(t.id, 'telegram:bot:' || b.platform_bot_id || ':'))
+      order by b.created_at, b.platform_bot_id`,
+    [userId],
+  );
+  return {
+    username: optionalString(identity.rows[0].handle),
+    bots: bots.rows.map((row) => ({
+      botId: String(row.platform_bot_id),
+      label: String(row.label),
+    })),
+  };
+}
+
 /** A short-lived single-use value in Better Auth's verification table. */
 export async function storeVerification(input: {
   identifier: string;

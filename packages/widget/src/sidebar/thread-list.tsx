@@ -204,6 +204,9 @@ const ThreadListItem: FC = () => {
   return (
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
+      data-awaiting-approval={
+        metadata?.awaitingApproval?.length ? "" : undefined
+      }
       data-testid={testIds.threadItem}
       className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
       onPointerEnter={cancelClose}
@@ -261,7 +264,8 @@ const ThreadListItem: FC = () => {
         <>
           <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
             {/* Sky dot marks the active session; it blinks while Aomi works
-                and turns amber while a wallet request waits on the user. */}
+                and turns amber while a wallet request waits on the user. Any
+                chat with a trade waiting for approval keeps an amber dot. */}
             <span
               aria-hidden="true"
               className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"

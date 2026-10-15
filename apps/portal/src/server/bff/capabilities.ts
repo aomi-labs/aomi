@@ -11,7 +11,6 @@ export type Capability =
   | "account" // own profile, identities, wallets, provider links, deactivation
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
-  | "custody" // delegated custody
   | "settings" // installed apps, app secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
   | "backend_bearer" // a raw 15-minute backend token
@@ -25,7 +24,6 @@ const SIGNED_IN: readonly Capability[] = [
   "account",
   "account_read",
   "payments",
-  "custody",
   "settings",
   "safety_policy",
   "backend_bearer",
@@ -83,7 +81,6 @@ const SCOPE_CAPABILITY: Record<string, Capability> = {
   "agent:actions:resolve": "actions",
   "payments:submit": "payments",
   "account:credits:topup": "payments",
-  "custody:delegate": "custody",
   "account:credits:read": "account_read",
   "account:usage:read": "account_read",
   "account:transaction-safety:read": "safety_policy",
@@ -131,8 +128,6 @@ export type Need =
   | { capability: Capability; anonymous?: true }
   | { resource: string; scopes: readonly string[] };
 
-const DELEGATING_SCOPES = ["agent:write", "pipeline:execute"];
-
 /**
  * The one permission check. Returns the scopes to mint for a protected
  * resource (empty for capability routes), or throws a PrincipalError.
@@ -152,11 +147,5 @@ export function authorize(principal: Principal, need: Need): string[] {
   const held = scopesOn(principal, policyFor(need.resource));
   if (need.scopes.some((scope) => !held.includes(scope)))
     throw new PrincipalError(403, "insufficient_scope", need.scopes);
-  const minted = [...new Set(need.scopes)];
-  if (
-    need.scopes.some((scope) => DELEGATING_SCOPES.includes(scope)) &&
-    held.includes("custody:delegate")
-  )
-    minted.push("custody:delegate");
-  return minted;
+  return [...new Set(need.scopes)];
 }

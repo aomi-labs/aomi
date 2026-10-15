@@ -68,6 +68,14 @@ export type {
 } from "./providers/account-credentials";
 
 export {
+  listAccountConnections,
+  revokeOAuthConnection,
+  type AccountConnections,
+  type ConnectionKind,
+  type OAuthConnection,
+} from "./service/connections";
+
+export {
   WALLET_LINK_NONCE_MAX_AGE_MS,
   consumeWalletLinkNonce,
   issueWalletLinkNonce,

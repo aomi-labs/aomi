@@ -291,12 +291,153 @@ describe("aomi.wallets", () => {
     });
     await authorized("https://chat.aomi.dev/v1/account/wallets");
     await authorized("https://chat.aomi.dev/v1/account/wallets/w_12/balance");
+    await authorized("https://chat.aomi.dev/v1/account/wallets/w_12/rule");
     for (const call of oauth.mock.calls)
       expect(call[0]).toEqual({
         resource: "https://chat.aomi.dev/v1/agent",
         scopes: ["agent:read"],
         forceRefresh: false,
       });
-    expect(oauth).toHaveBeenCalledTimes(2);
+    expect(oauth).toHaveBeenCalledTimes(3);
+  });
+});
+
+const rule = {
+  id: "w_12",
+  rule_version: 3,
+  paused: false,
+  clients: [
+    { client: "portal", kind: "portal", label: "Portal", instant: false },
+    { client: "cli", kind: "cli", label: "CLI", instant: false },
+    { client: "mcp", kind: "mcp", label: "AI clients (MCP)", instant: false },
+    {
+      client: "telegram:7712345678",
+      kind: "telegram",
+      label: "@HooditBot",
+      instant: true,
+      detail: "kept on from the beta",
+    },
+  ],
+};
+
+describe("wallet rules (step 4)", () => {
+  it("reads the per-client switches and writes the full desired state", async () => {
+    const { fetch, calls } = backend({
+      "GET /v1/account/wallets/w_12/rule": () => Response.json(rule),
+      "PUT /v1/account/wallets/w_12/rule": () =>
+        Response.json({
+          ...rule,
+          rule_version: 4,
+          paused: true,
+          clients: rule.clients.map((client) => ({
+            ...client,
+            instant: client.client === "mcp",
+          })),
+        }),
+    });
+    const aomi = new Aomi({
+      baseUrl: "https://api.example",
+      guest: false,
+      fetch,
+    });
+    const read = await aomi.wallets.rule("w_12");
+    expect(
+      read.clients.map((client) => [client.client, client.instant]),
+    ).toEqual([
+      ["portal", false],
+      ["cli", false],
+      ["mcp", false],
+      ["telegram:7712345678", true],
+    ]);
+    expect(read.clients[3]!.detail).toBe("kept on from the beta");
+
+    const written = await aomi.wallets.setRule("w_12", {
+      rule_version: 3,
+      paused: true,
+      instant: ["mcp"],
+    });
+    expect(calls.at(-1)).toMatchObject({
+      method: "PUT",
+      path: "/v1/account/wallets/w_12/rule",
+      body: { rule_version: 3, paused: true, instant: ["mcp"] },
+    });
+    expect(calls.at(-1)!.headers.get("x-aomi-csrf")).toBe("1");
+    expect(written).toMatchObject({ rule_version: 4, paused: true });
+  });
+
+  it("surfaces a stale write as rule_version_conflict", async () => {
+    const { client } = backend({
+      "PUT /v1/account/wallets/w_12/rule": () =>
+        Response.json({ error: "rule_version_conflict" }, { status: 409 }),
+    });
+    await expect(
+      client.account.wallets.setWalletRule("w_12", {
+        rule_version: 2,
+        paused: false,
+        instant: [],
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: WALLET_ERROR_CODES.ruleVersionConflict,
+    });
+  });
+});
+
+describe("connected apps (step 4)", () => {
+  it("lists OAuth clients and Telegram, and disconnects one client", async () => {
+    const { client, calls } = backend({
+      "GET /v1/account/connections": () =>
+        Response.json({
+          oauth: [
+            {
+              client_id: "c1",
+              name: "Claude Code",
+              kind: "mcp",
+              connected_at: 1_760_400_000,
+            },
+            { client_id: "c2", name: "Script", kind: "other" },
+          ],
+          telegram: {
+            username: "arixon",
+            bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
+          },
+        }),
+      "DELETE /v1/account/connections/oauth/c1": () =>
+        Response.json({ revoked: true }),
+    });
+    const connections = await client.account.connections.list();
+    expect(connections.oauth).toEqual([
+      {
+        client_id: "c1",
+        name: "Claude Code",
+        kind: "mcp",
+        connected_at: 1_760_400_000,
+      },
+      { client_id: "c2", name: "Script", kind: "api", connected_at: null },
+    ]);
+    expect(connections.telegram?.bots[0]?.label).toBe("@HooditBot");
+
+    await client.account.connections.disconnectOAuth("c1");
+    expect(calls.at(-1)).toMatchObject({
+      method: "DELETE",
+      path: "/v1/account/connections/oauth/c1",
+    });
+    expect(calls.at(-1)!.headers.get("x-aomi-csrf")).toBe("1");
+  });
+
+  it("reads a missing Telegram link as null and a gone client as 404", async () => {
+    const { client } = backend({
+      "GET /v1/account/connections": () =>
+        Response.json({ oauth: [], telegram: null }),
+      "DELETE /v1/account/connections/oauth/gone": () =>
+        Response.json({ code: "connection_not_found" }, { status: 404 }),
+    });
+    expect(await client.account.connections.list()).toEqual({
+      oauth: [],
+      telegram: null,
+    });
+    await expect(
+      client.account.connections.disconnectOAuth("gone"),
+    ).rejects.toMatchObject({ status: 404, code: "connection_not_found" });
   });
 });

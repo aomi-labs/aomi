@@ -8,6 +8,7 @@ import { modelDef } from "./commands/defs/model";
 import { appDef } from "./commands/defs/app";
 import { chainDef } from "./commands/defs/chain";
 import { walletDef } from "./commands/defs/wallet";
+import { walletsDef } from "./commands/defs/wallets";
 import { accountDef } from "./commands/defs/account";
 import { configDef } from "./commands/defs/config";
 import { secretDef } from "./commands/defs/secret";
@@ -29,6 +30,7 @@ export const SUBCOMMAND_NAMES = new Set([
   "app",
   "chain",
   "wallet",
+  "wallets",
   "account",
   "logout",
   "config",
@@ -97,6 +99,7 @@ export const root = defineCommand({
     app: appDef,
     chain: chainDef,
     wallet: walletDef,
+    wallets: walletsDef,
     account: accountDef,
     logout: logoutDef,
     config: configDef,

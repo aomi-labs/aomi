@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.9
+
+- Approvals: a parked agent-wallet commit shows Approve ("Approve all N" for a batch) and Reject in the sidebar and on the sign page, with no wallet step; embeds link to "Approve on Aomi" instead. An expired approval offers Retry. Chats with a trade waiting for approval keep an amber dot, and a scheduled run's waiting trade shows in its parent chat. Settings › Safety now has one compact card per agent wallet (Pause, Ask always on, Instant per client), a Locked wallets list with Unlock for legacy locked keys, and Connected apps with Disconnect; the per-wallet Ask me / Locked choice is gone. The agent wallet menu gains "Signing rule".
+
 ## 3.1.8
 
 - Refresh the canonical inventory after agent wallet creation, bind withdrawals to the selected wallet, and select agent networks without local wallet prompts.

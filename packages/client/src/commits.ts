@@ -17,9 +17,14 @@ import {
   CommitStaleError,
   commitRefError,
   commitRefPaths,
+  type CommitRefApproveRequest,
+  type CommitRefView,
+  type CommitStep4Fields,
 } from "./commit-ref";
 
-export type CommitView = components["schemas"]["CommitView"];
+/** The generated view plus the hand-written step 4 fields (see commit-ref.ts). */
+export type CommitView = Omit<components["schemas"]["CommitView"], "state"> &
+  CommitStep4Fields;
 export type CommitState = CommitView["state"];
 export type CommitAction = NonNullable<CommitView["action"]>;
 export type SignableCommit = components["schemas"]["SignableCommit"];
@@ -688,6 +693,50 @@ export class CommitController {
   async reject(id: string): Promise<CommitView> {
     return this.manual(id, { kind: "rejected" });
   }
+  /** The commit on the thread-less ref route, with its `sign_url` and
+   * whether this session may approve it (`can_approve`). Not cached. */
+  refView(id: string): Promise<CommitRefView> {
+    return this.sendRef<CommitRefView>("GET", commitRefPaths.view(id));
+  }
+  /**
+   * Approve a parked commit (`awaiting_approval`) at the reviewed version and
+   * review digest; Aomi then signs with the agent wallet. Always uses the
+   * thread-less ref route, so it also works for refs from other threads (a
+   * scheduled run). Approving one member approves the whole batch.
+   */
+  async approve(
+    id: string,
+    review?: CommitExecutionReview,
+  ): Promise<CommitRefView> {
+    if (this.closed) throw new Error("Commit session closed");
+    // Without an explicit review, approve exactly what this controller shows.
+    const basis = review
+      ? undefined
+      : (this.views.get(id) ??
+        (await this.sendRef<CommitView>("GET", commitRefPaths.view(id))));
+    const body: CommitRefApproveRequest = review
+      ? {
+          version: review.expectedVersion,
+          review_digest: review.expectedReviewDigest ?? "",
+        }
+      : { version: basis!.version, review_digest: basis!.review?.digest ?? "" };
+    const view = await this.sendRef<CommitRefView>(
+      "POST",
+      commitRefPaths.approve(id),
+      body,
+    );
+    if (view.commit_id !== id)
+      throw new Error("Commit response identity mismatch");
+    if (!this.threadBound || view.thread_id === this.threadId) {
+      this.store(view);
+      // The other members moved with this one; pick them up now.
+      for (const member of view.batch?.ordered_commit_ids ?? [])
+        if (member !== id && this.views.has(member))
+          void this.refresh(member).catch(() => undefined);
+      this.schedule();
+    }
+    return view;
+  }
   close(): void {
     this.closed = true;
     clearTimeout(this.timer);
@@ -728,6 +777,13 @@ export class CommitController {
         sessionId: this.threadId,
         ...(body === undefined ? {} : { body }),
       });
+    return this.sendRef<T>(method, path, body);
+  }
+  private async sendRef<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     const response = await this.client.requestResponse(method, path, {
       ...(body === undefined ? {} : { body }),
     });
