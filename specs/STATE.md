@@ -20,6 +20,30 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-15 — AGENT WALLETS STEP 2 (FRONTEND): COMMIT REFS, ORIGIN, SIGNING
+  PAGE (branch `feat/agent-wallets`; backend half in product-mono, built
+  against `notes/step2-contract.md`). `aomi.commits.get(ref)` →
+  `CommitHandle` (`packages/client/src/sdk/commits.ts`) over the
+  thread-less `/v1/commits/:ref` family via `CommitController`'s new `"ref"`
+  route family: no X-Thread-Id, writes carry `version` (+ `review_digest` for
+  sign/broadcast), typed `CommitNotFoundError` / `CommitStaleError`. The
+  hand-written wire types (`CommitRefView`, `ThreadOrigin`, request bodies,
+  paths) live only in `packages/client/src/commit-ref.ts` until the generated
+  OpenAPI has them. Portal: BFF `/v1/commits/*` → backend like
+  `/api/commits`; login-only `/sign/:ref` (server redirect to
+  `/?return_to=/sign/<ref>`, `SignInReturn` brings the user back) hosting the
+  widget's new `CommitSignPanel` (`./host-composition`). Thread rows show a
+  muted origin icon from optional `origin` / `origin_app`; Telegram threads
+  are skipped client-side. CLI `aomi tx show <ref>`. Reconciled with
+  product-mono 2b801a8f6: refs are commit UUIDs, `created_at` is unix
+  seconds, errors parse both the backend `{code, status}` and api-server
+  `{error: {code, message, details}}` bodies, OAuth asks agent:read /
+  agent:write for `/v1/commits`, and the BFF mints `auth_source` "widget" /
+  "cli_session" / "session" / "oauth" per principal. Pending: regenerate the
+  agent API and swap the hand-written types in `commit-ref.ts` for
+  `components["schemas"]["CommitRefView"]` etc.; sessions carry no
+  `origin_app`, so the app badge stays dark until a later step.
+
 2026-10-15 — AGENT WALLETS STEP 1: DELETE AUTOMATIC SIGNING (branch
   `feat/agent-wallets`; backend half in product-mono). Removed the Telegram
   Mini App (`apps/telegram`, portal `/api/auth/widget/telegram/*`, the

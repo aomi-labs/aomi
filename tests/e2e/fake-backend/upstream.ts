@@ -50,6 +50,8 @@ export type UpstreamOptions = {
 export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const records: UpstreamRecord[] = [];
   const owners = new Map<string, string>();
+  /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
+  const commits = new Map<string, { owner: string; view: unknown }>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -81,8 +83,37 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     if (url.pathname === "/__reset" && method === "POST") {
       records.length = 0;
       owners.clear();
+      commits.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
+    }
+
+    if (url.pathname === "/__commits" && method === "POST") {
+      const seed = JSON.parse(await readBody(request)) as {
+        ref: string;
+        owner: string;
+        view: unknown;
+      };
+      commits.set(seed.ref, { owner: seed.owner, view: seed.view });
+      return json(response, 204);
+    }
+
+    // Thread-less commit refs: the BFF forwards them like /api/commits, with
+    // an account bearer. A stranger's ref answers 404, never 403.
+    if (url.pathname.startsWith("/v1/commits/")) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      const [, , , ref = "", ...rest] = url.pathname.split("/");
+      const commit = commits.get(decodeURIComponent(ref));
+      if (!commit || commit.owner !== principal.sub)
+        return json(response, 404, { code: "commit_not_found", status: 404 });
+      if (method === "GET" && rest.length === 0)
+        return json(response, 200, commit.view);
+      return json(response, 404, {
+        error: { code: "fixture_route_not_found" },
+      });
     }
 
     if (url.pathname.startsWith("/api/")) {

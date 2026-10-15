@@ -56,7 +56,7 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
   );
-  expectVerifiedBffRecord(chat, first.session.user.id, "session", "guest");
+  expectVerifiedBffRecord(chat, first.session.user.id, "widget", "guest");
 
   const secondGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -223,7 +223,7 @@ test("wallet-authenticated packaged widget persists its WST and canonical user",
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
   );
-  expectVerifiedBffRecord(chat, session.user.id, "session");
+  expectVerifiedBffRecord(chat, session.user.id, "widget");
   expect(chat?.principal?.principal_class).toBe("user");
 
   await page.reload({ waitUntil: "domcontentloaded" });

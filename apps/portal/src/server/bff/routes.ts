@@ -162,6 +162,28 @@ async function toBackend(call: Call, path: string): Promise<Response> {
   });
 }
 
+/**
+ * Which client the caller authenticated through. The backend records it as a
+ * commit's initiator and notify target: portal cookie sessions are "session",
+ * embedded widgets "widget", the CLI's Better Auth session bearer
+ * "cli_session", and OAuth clients (MCP included) "oauth".
+ */
+export function authSource(
+  principal: Exclude<Principal, { kind: "none" }>,
+): "session" | "widget" | "cli_session" | "oauth" {
+  switch (principal.kind) {
+    case "oauth":
+      return "oauth";
+    case "widget":
+      return "widget";
+    case "session_bearer":
+      return "cli_session";
+    case "cookie":
+    case "e2e":
+      return "session";
+  }
+}
+
 /** Forward to the agent API with a bearer carrying exactly the authorized scopes. */
 async function toAgentApi(call: Call, resource: string): Promise<Response> {
   const { principal } = call;
@@ -173,7 +195,7 @@ async function toAgentApi(call: Call, resource: string): Promise<Response> {
       scope: call.scopes.join(" "),
       resource,
       client_id: principal.kind === "oauth" ? principal.clientId : undefined,
-      auth_source: principal.kind === "oauth" ? "oauth" : "session",
+      auth_source: authSource(principal),
       principal_class: principal.guest ? "guest" : "user",
       grant_id: principal.kind === "oauth" ? principal.grantId : undefined,
       // A raw session token never enters an internal assertion; only the
@@ -388,6 +410,36 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
 ];
 
+/** Thread-less commits by ref (`/v1/commits/:ref`). Same account authority
+ * and backend as /api/commits, without a thread header. */
+const COMMIT_REF = "[A-Za-z0-9_-]+";
+export const COMMIT_REF_ROUTES: readonly {
+  path: RegExp;
+  methods: readonly string[];
+}[] = [
+  { path: new RegExp(`^/v1/commits/${COMMIT_REF}$`), methods: ["GET"] },
+  {
+    path: new RegExp(
+      `^/v1/commits/${COMMIT_REF}/(?:sign|broadcast|attempts|reject)$`,
+    ),
+    methods: ["POST"],
+  },
+  {
+    path: new RegExp(
+      `^/v1/commits/${COMMIT_REF}/attempts/${COMMIT_REF}/report$`,
+    ),
+    methods: ["POST"],
+  },
+];
+
+function isCommitRefRoute(request: Request): boolean {
+  const { pathname } = new URL(request.url);
+  return COMMIT_REF_ROUTES.some(
+    (route) =>
+      route.path.test(pathname) && route.methods.includes(request.method),
+  );
+}
+
 function backendRoute(request: Request): BackendRoute | undefined {
   const { pathname } = new URL(request.url);
   return BACKEND_ROUTES.find(
@@ -410,6 +462,20 @@ export const routes = {
         ? route.need(request)
         : route.need;
     },
+    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+  }),
+
+  commits: bind({
+    operation: "commits.request",
+    methods: ["GET", "POST"],
+    // The same scopes api-server asks of OAuth clients on this family.
+    need: (request) =>
+      isCommitRefRoute(request)
+        ? {
+            resource: resources().agentRest,
+            scopes: [request.method === "GET" ? "agent:read" : "agent:write"],
+          }
+        : null,
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
   }),
 

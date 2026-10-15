@@ -481,6 +481,7 @@ export class Aomi {
     readonly agent: AomiAgent;
     // (undocumented)
     readonly auth: AomiAuthController;
+    readonly commits: AomiCommits;
     // (undocumented)
     readonly pipeline: AomiPipeline;
     // (undocumented)
@@ -829,6 +830,14 @@ export type AomiClientOptions = {
 
 // @public
 export type AomiClientType = "ts_cli" | "web_ui" | (string & {});
+
+// @public
+export class AomiCommits {
+    constructor(client: AomiClient, capabilities?: CommitCapabilities);
+    get(ref: string, options?: {
+        signer?: CommitSigner;
+    }): Promise<CommitHandle>;
+}
 
 // @public (undocumented)
 export type AomiCreditActivity = {
@@ -1668,6 +1677,13 @@ export const CLIENT_TYPE_TS_CLI: AomiClientType;
 export const CLIENT_TYPE_WEB_UI: AomiClientType;
 
 // @public (undocumented)
+export const COMMIT_REF_ERROR_CODES: {
+    readonly notFound: "commit_not_found";
+    readonly versionConflict: "commit_version_conflict";
+    readonly digestMismatch: "commit_review_digest_mismatch";
+};
+
+// @public (undocumented)
 export type CommitAction = NonNullable<CommitView["action"]>;
 
 // @public
@@ -1694,7 +1710,7 @@ export function commitCapabilities(wallets: Wallets, recovery?: CommitRecoverySt
 
 // @public
 export class CommitController {
-    constructor(client: AomiClient, threadId: string, capabilities?: CommitCapabilities, routeFamily?: "agent" | "pipeline");
+    constructor(client: AomiClient, threadId: string, capabilities?: CommitCapabilities, routeFamily?: CommitRouteFamily);
     // (undocumented)
     all: () => readonly CommitView[];
     // (undocumented)
@@ -1734,6 +1750,27 @@ export type CommitExecutionReview = {
     expectedReviewDigest?: string;
 };
 
+// @public
+export class CommitHandle {
+    constructor(ref: string, controller: CommitController);
+    canSign(signer?: CommitSigner): boolean;
+    // (undocumented)
+    close(): void;
+    // (undocumented)
+    get recoveryRecord(): CommitRecoveryRecord | undefined;
+    // (undocumented)
+    readonly ref: string;
+    // (undocumented)
+    refresh(): Promise<CommitRefView>;
+    reject(): Promise<CommitRefView>;
+    get review(): CommitReview | undefined;
+    sign(signer?: CommitSigner, review?: CommitExecutionReview): Promise<CommitRefView>;
+    get submissionPhase(): CommitSubmissionPhase | undefined;
+    // (undocumented)
+    subscribe(listener: () => void): () => void;
+    get view(): CommitRefView;
+}
+
 // @public (undocumented)
 export type CommitManual = {
     kind: "signed";
@@ -1744,6 +1781,11 @@ export type CommitManual = {
 } | {
     kind: "rejected";
 };
+
+// @public
+export class CommitNotFoundError extends AomiApiError {
+    constructor(message: string, requestId?: string, details?: unknown);
+}
 
 // @public (undocumented)
 export type CommitPresentation = {
@@ -1768,8 +1810,58 @@ export type CommitRecoveryStore = {
     remove: (threadId: string, commitId: string) => void;
 };
 
+// @public (undocumented)
+export type CommitRefBroadcastRequest = {
+    version: number;
+    review_digest: string;
+    transaction_id: string;
+};
+
+// @public
+export const commitRefPaths: {
+    readonly view: (value: string) => string;
+    readonly sign: (value: string) => string;
+    readonly broadcast: (value: string) => string;
+    readonly reject: (value: string) => string;
+    readonly attempts: (value: string) => string;
+    readonly report: (value: string, attempt: string) => string;
+};
+
+// @public (undocumented)
+export type CommitRefRejectRequest = {
+    version: number;
+};
+
+// @public (undocumented)
+export type CommitRefSignRequest = {
+    version: number;
+    review_digest: string;
+    payloads: string[];
+};
+
+// @public
+export type CommitRefView = CommitView & {
+    origin: ThreadOrigin;
+    origin_app: number | null;
+    initiator: string;
+    notify: string;
+    sign_url: string;
+    created_at: number;
+};
+
 // @public
 export type CommitReview = ActionRequest;
+
+// @public
+export type CommitRouteFamily = "agent" | "pipeline" | "ref";
+
+// @public
+export type CommitSigner = Wallets | CommitCapabilities;
+
+// @public
+export class CommitStaleError extends AomiApiError {
+    constructor(code: typeof COMMIT_REF_ERROR_CODES.versionConflict | typeof COMMIT_REF_ERROR_CODES.digestMismatch, message: string, requestId?: string, details?: unknown);
+}
 
 // @public (undocumented)
 export type CommitState = CommitView["state"];
@@ -2955,6 +3047,12 @@ export type SessionOptions = {
     actions?: ActionCapabilities;
 };
 
+// @public
+export type SessionOriginFields = {
+    origin?: ThreadOrigin | null;
+    origin_app?: number | null;
+};
+
 // @public (undocumented)
 export type SessionPage = Schemas$3["SessionPage"];
 
@@ -3493,6 +3591,9 @@ export type TaskPhaseEvent = Schemas$3["TaskPhaseEvent"];
 
 // @public (undocumented)
 export type TaskStartedEvent = Schemas$3["TaskStartedEvent"];
+
+// @public
+export type ThreadOrigin = "portal" | "widget" | "cli" | "sdk" | "mcp" | "api" | "telegram" | "cron";
 
 // @public (undocumented)
 export type TitleEvent = Schemas$3["TitleEvent"];

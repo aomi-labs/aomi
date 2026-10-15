@@ -11,9 +11,12 @@ import {
   useExternalStoreRuntime,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { ThreadList } from "./thread-list";
+import { ThreadList, ThreadOriginBadge } from "./thread-list";
 
-const actions = vi.hoisted(() => ({ renameThread: vi.fn() }));
+const actions = vi.hoisted(() => ({
+  renameThread: vi.fn(),
+  getThreadMetadata: vi.fn(),
+}));
 vi.mock("@aomi-labs/react", async () => ({
   ...(await vi.importActual("@aomi-labs/react")),
   useOptionalAomiRuntime: () => actions,
@@ -216,5 +219,38 @@ describe("chat Rename", () => {
     expect(screen.queryByLabelText("Chat title")).toBeNull();
     expect(actions.renameThread).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Chat options")).toHaveFocus();
+  });
+
+  it("shows the thread's origin as a small icon in its row", () => {
+    actions.getThreadMetadata.mockReturnValue({ origin: "cron" });
+    render(<Harness />);
+    expect(screen.getByRole("img", { name: "Scheduled task" })).toBeTruthy();
+    actions.getThreadMetadata.mockReset();
+  });
+});
+
+describe("ThreadOriginBadge", () => {
+  it.each([
+    ["cron", undefined, "Scheduled task"],
+    ["mcp", undefined, "Started over MCP"],
+    ["api", undefined, "Started over the API"],
+    ["cli", undefined, "Started from the CLI"],
+    ["sdk", undefined, "Started from the SDK"],
+    ["portal", 7, "Chat inside an app"],
+  ] as const)("marks %s (app %s) as %s", (origin, originApp, label) => {
+    render(<ThreadOriginBadge origin={origin} originApp={originApp} />);
+    expect(screen.getByRole("img", { name: label })).toBeTruthy();
+  });
+
+  it.each([
+    ["portal", undefined],
+    ["widget", undefined],
+    ["telegram", 7],
+    [undefined, undefined],
+  ] as const)("shows nothing for %s chats", (origin, originApp) => {
+    const { container } = render(
+      <ThreadOriginBadge origin={origin} originApp={originApp} />,
+    );
+    expect(container.firstChild).toBeNull();
   });
 });

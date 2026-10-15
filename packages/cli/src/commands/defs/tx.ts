@@ -10,6 +10,27 @@ const txListDef = defineCommand({
   },
 });
 
+const txShowDef = defineCommand({
+  meta: {
+    name: "show",
+    description:
+      "Show one commit by ref: state, chain, signer, origin and sign URL",
+  },
+  args: {
+    ...globalArgs,
+    ref: {
+      type: "positional",
+      description: "Commit ref",
+      required: false,
+    },
+  },
+  async run({ args }) {
+    const { txShowCommand } = await import("../tx-show");
+    const refs = getPositionals(args);
+    await txShowCommand(buildCliConfig(args), refs.length === 1 ? refs[0] : "");
+  },
+});
+
 const txSimulateDef = defineCommand({
   meta: {
     name: "simulate",
@@ -140,6 +161,7 @@ export const txDef = defineCommand({
   meta: { name: "tx", description: "Transaction management" },
   subCommands: {
     list: txListDef,
+    show: txShowDef,
     simulate: txSimulateDef,
     export: txExportDef,
     submit: txSubmitDef,

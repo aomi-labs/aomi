@@ -17,6 +17,7 @@ import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
+import { CommitHandle } from '@aomi-labs/client';
 import { Context } from 'react';
 import type { CreateConnectorFn } from 'wagmi';
 import { createEvmPaymentClient } from '@aomi-labs/client';
