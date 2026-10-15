@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FC } from "react";
+import { memo, useState, type FC } from "react";
 import { KeyIcon, CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useApiKey, cn } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
@@ -27,12 +27,32 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
   title = "App key",
   description = "Private Apps need a key. Enter the one the App's builder shared with you.",
 }) => {
+  // The control context changes during every turn; only the key matters here.
   const { state, actions } = useApiKey();
+  return (
+    <ApiKeyDialog
+      className={className}
+      title={title}
+      description={description}
+      hasApiKey={Boolean(state.apiKey)}
+      setApiKey={actions.setApiKey}
+    />
+  );
+};
+
+const ApiKeyDialog = memo(function ApiKeyDialog({
+  className,
+  title,
+  description,
+  hasApiKey,
+  setApiKey,
+}: ApiKeyInputProps & {
+  hasApiKey: boolean;
+  setApiKey: (apiKey: string | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [showKey, setShowKey] = useState(false);
-
-  const hasApiKey = Boolean(state.apiKey);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -94,7 +114,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
               variant="outline"
               className="rounded-full"
               onClick={() => {
-                actions.setApiKey(null);
+                setApiKey(null);
                 setInputValue("");
               }}
             >
@@ -105,7 +125,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
             className="rounded-full"
             onClick={() => {
               if (inputValue.trim()) {
-                actions.setApiKey(inputValue.trim());
+                setApiKey(inputValue.trim());
                 setOpen(false);
                 setInputValue("");
               }
@@ -118,4 +138,4 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
       </DialogContent>
     </Dialog>
   );
-};
+});
