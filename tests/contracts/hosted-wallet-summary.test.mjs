@@ -15,6 +15,20 @@ test("hosted wallet evidence uses the exact trusted main workflow commit", () =>
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
 });
 
+test("wallet login waits for and dismisses staging cookie consent before sign-in", () => {
+  const journeys = readFileSync(
+    new URL("../e2e/hosted-wallet-journeys.spec.ts", import.meta.url),
+    "utf8",
+  );
+  const wait = journeys.indexOf('declineCookies.waitFor({ state: "visible"');
+  const decline = journeys.indexOf("await declineCookies.click()");
+  const signIn = journeys.indexOf(
+    'page.getByRole("button", { name: "Sign in", exact: true }).click',
+  );
+  assert.ok(wait >= 0 && wait < decline && decline < signIn);
+  assert.doesNotMatch(journeys, /localStorage\.setItem\("aomi-cookie-consent"/);
+});
+
 test("checkout SHA mismatch explicitly fails the Playwright run", () => {
   const previousSha = process.env.GITHUB_SHA;
   process.env.GITHUB_SHA = "0".repeat(40);
