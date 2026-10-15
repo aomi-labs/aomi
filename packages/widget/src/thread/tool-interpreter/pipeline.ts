@@ -72,8 +72,11 @@ const withStaged = (
 ): ToolOperation => {
   const staged = stagedRecords(ctx);
   if (staged.length === 0) return operation;
+  const base = operation.facts.filter(
+    (fact) => !(fact.kind === "status" && fact.value === "success"),
+  );
   const facts: Array<ToolFact | null> = [
-    ...operation.facts,
+    ...base,
     operation.facts.some(
       (fact) => fact.kind === "chain" || fact.kind === "cluster",
     )
@@ -87,9 +90,7 @@ const withStaged = (
       value: String(staged.length),
       source: "result",
     },
-    operation.facts.some((fact) => fact.kind === "status")
-      ? null
-      : statusFact("queued"),
+    base.some((fact) => fact.kind === "status") ? null : statusFact("queued"),
   ];
   return {
     ...operation,

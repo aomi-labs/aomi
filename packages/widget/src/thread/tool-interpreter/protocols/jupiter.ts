@@ -43,7 +43,13 @@ export const matchJupiterSwapPrep: ToolMatcher = ({
   if (!quote || !asRecord(quote.input_token) || !asRecord(quote.output_token)) {
     return null;
   }
-  if (!("ix_ids" in resultRecord || "instruction_count" in resultRecord)) {
+  if (
+    !(
+      "ix_ids" in resultRecord ||
+      "instruction_count" in resultRecord ||
+      (Array.isArray(resultRecord.staged) && resultRecord.staged.length > 0)
+    )
+  ) {
     return null;
   }
 

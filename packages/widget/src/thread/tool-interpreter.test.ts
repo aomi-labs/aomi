@@ -1483,6 +1483,55 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
+  it.each([
+    ["success", "Staged"],
+    ["failed", "Failed"],
+  ])(
+    "keeps staged Aave %s results in the correct lifecycle",
+    (status, label) => {
+      const step = interpretToolStep({
+        toolName: "stage_aave_v4",
+        result: {
+          protocol: "aave_v4",
+          operation: "supply",
+          chain_id: 1,
+          status,
+          staged: [{ pending_tx_id: 1, chain_kind: "evm", chain_id: 1 }],
+        },
+      });
+      expect(labelsFor(step.chips)).toContain(label);
+      expect(labelsFor(step.chips)).not.toContain("Success");
+      if (status === "failed") {
+        expect(labelsFor(step.chips)).not.toContain("Staged");
+      }
+    },
+  );
+
+  it("keeps Jupiter amounts and token direction for staged-only results", () => {
+    const step = interpretToolStep({
+      toolName: "stage_jupiter_swap",
+      result: {
+        staged: [
+          { pending_tx_id: 1, chain_kind: "svm", cluster: "mainnet-beta" },
+        ],
+        quote: {
+          input_token: { symbol: "SOL" },
+          output_token: { symbol: "USDC" },
+          input: { display: "0.001 SOL" },
+          expected_output: { display: "0.073903 USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "SOL → USDC",
+      "0.001 SOL",
+      "0.073903 USDC",
+      "1 tx",
+      "Staged",
+    ]);
+  });
+
   it("shows any staging tool's staged txs without a protocol adapter", () => {
     const step = interpretToolStep({
       toolName: "stage_raydium_swap",
