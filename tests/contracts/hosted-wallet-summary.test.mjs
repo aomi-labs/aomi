@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import HostedWalletReporter from "../../.github/scripts/hosted-wallet-reporter.mjs";
 import { summarize } from "../../.github/scripts/hosted-wallet-summary.mjs";
 
 test("hosted wallet evidence uses the exact trusted main workflow commit", () => {
@@ -11,6 +12,20 @@ test("hosted wallet evidence uses the exact trusted main workflow commit", () =>
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
   assert.doesNotMatch(workflow, /ref: refs\/heads\/main/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+});
+
+test("checkout SHA mismatch explicitly fails the Playwright run", () => {
+  const previousSha = process.env.GITHUB_SHA;
+  process.env.GITHUB_SHA = "0".repeat(40);
+  try {
+    assert.deepEqual(
+      new HostedWalletReporter().onEnd({ status: "passed" }),
+      { status: "failed" },
+    );
+  } finally {
+    if (previousSha === undefined) delete process.env.GITHUB_SHA;
+    else process.env.GITHUB_SHA = previousSha;
+  }
 });
 
 const input = () => ({

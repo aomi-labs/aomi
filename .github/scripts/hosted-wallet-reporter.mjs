@@ -20,7 +20,7 @@ export default class HostedWalletReporter {
       encoding: "utf8",
     }).trim();
     if (sourceSha !== process.env.GITHUB_SHA) {
-      throw new Error("Checkout SHA differs from the trusted workflow source");
+      return { status: "failed" };
     }
     const summary = summarize({
       sourceSha,
