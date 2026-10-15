@@ -10,9 +10,11 @@ import { Shield } from "lucide-react";
 import { AomiButton } from "@/ui/aomi/button";
 import { getChainIcon } from "@/icons/chain-map";
 import { Meter } from "./usage/usage-shared";
-import { countDriftedWallets } from "@/wallet/wallet-attention";
 import { useAccountAcl } from "./use-account-acl";
-import { walletConnectionSummary } from "@/wallet/wallet-management-model";
+import {
+  countDriftedWallets,
+  walletConnectionSummary,
+} from "@/wallet/wallet-management-model";
 import {
   creditAllowanceFromPosition,
   formatAllowanceCredits,

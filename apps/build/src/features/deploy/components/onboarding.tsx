@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { githubAppInstallUrl } from "@/features/deploy/client";
 import {
-  githubAppInstallUrl,
   loadLaunch,
   saveLaunch,
   readGithubRedirect,
@@ -15,7 +15,7 @@ import {
   type LaunchState,
   type LaunchProgress,
   type UserProject,
-} from "@/features/deploy";
+} from "@aomi-labs/deploy/launch";
 import { readPlatform } from "@/features/deploy/platform";
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { OneshotWizard } from "./oneshot-wizard";

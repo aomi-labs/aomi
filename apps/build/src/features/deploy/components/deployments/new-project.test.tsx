@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fetchGitHubSession = vi.hoisted(() => vi.fn());
+const launchFetchGitHubSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/deploy/dashboard", () => ({
-  fetchGitHubSession,
-  GITHUB_SIGNIN_URL: "/api/github/signin",
+vi.mock("@/features/deploy/client", () => ({
+  launchFetchGitHubSession,
+  githubSigninUrl: "/api/github/signin",
 }));
 
 vi.mock("@/features/deploy/components/onboarding", () => ({
@@ -21,7 +21,7 @@ vi.mock("./repository-connector", () => ({
 }));
 
 import { newProjectMode } from "@/features/deploy/new-project-mode";
-import { saveLaunch } from "@/features/deploy";
+import { saveLaunch } from "@aomi-labs/deploy/launch";
 import { NewProject } from "./new-project";
 
 const TEMPLATE_CARD = { name: /Start from the template/ };
@@ -31,7 +31,7 @@ describe("NewProject", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState({}, "", "/operate/deployments/new");
-    fetchGitHubSession.mockResolvedValue({
+    launchFetchGitHubSession.mockResolvedValue({
       signedIn: true,
       githubLogin: "alice",
       installationId: "42",
@@ -152,7 +152,7 @@ describe("NewProject", () => {
   });
 
   it("asks for GitHub sign-in before showing the cards", async () => {
-    fetchGitHubSession.mockResolvedValue({
+    launchFetchGitHubSession.mockResolvedValue({
       signedIn: false,
       githubLogin: null,
     });

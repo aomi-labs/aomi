@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sessionScopedFetch = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/settings-api", () => ({ sessionScopedFetch }));
 
-import { githubAppInstallUrl } from "./client";
+import { githubAppInstallUrl, launchSignOutGitHub } from "./client";
+import { loadLaunch, saveLaunch } from "@aomi-labs/deploy/launch";
 
 describe("githubAppInstallUrl", () => {
   beforeEach(() => {
@@ -31,4 +32,41 @@ describe("githubAppInstallUrl", () => {
       "https://build.aomi.dev/projects?platform=somm.finance",
     );
   });
+});
+
+describe("GitHub sign-out state isolation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it.each([false, true])(
+    "clears wizard state when request fails: %s",
+    async (fails) => {
+      saveLaunch({
+        ...loadLaunch(),
+        platform: "community",
+        path: "oneshot",
+        oneshot: {
+          installationId: "old-account-installation",
+          repo: "old/account",
+        },
+      });
+      expect(loadLaunch().oneshot.repo).toBe("old/account");
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+      if (fails) fetch.mockRejectedValue(new Error("offline"));
+      else fetch.mockResolvedValue(new Response(null, { status: 204 }));
+
+      const result = launchSignOutGitHub();
+      if (fails) await expect(result).rejects.toThrow("offline");
+      else await result;
+
+      expect(fetch).toHaveBeenCalledWith("/api/bff/auth/github/signout", {
+        method: "POST",
+      });
+      expect(loadLaunch().oneshot).toEqual({});
+      expect(loadLaunch().platform).toBeNull();
+    },
+  );
 });

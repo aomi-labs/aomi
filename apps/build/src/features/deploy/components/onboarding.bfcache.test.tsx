@@ -38,14 +38,17 @@ vi.mock("@aomi-labs/widget/host-composition", () => ({
 
 // Keep the real helpers (state transitions, labels, step math) and stub only
 // the two things a test must not do: talk to GitHub, and persist to storage.
-vi.mock("@/features/deploy", async (importOriginal) => {
+vi.mock("@aomi-labs/deploy/launch", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    githubAppInstallUrl: vi.fn(async () => "https://github.test/install"),
     saveLaunch: vi.fn(),
   };
 });
+
+vi.mock("@/features/deploy/client", () => ({
+  githubAppInstallUrl: vi.fn(async () => "https://github.test/install"),
+}));
 
 vi.mock("@/features/deploy/platform", () => ({
   readPlatform: () => "community",
@@ -120,9 +123,7 @@ describe("Onboarding bfcache restore", () => {
 
   it("refreshes the Build login when the App was installed after sign-in", async () => {
     render(<Onboarding platform="community" />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /already installed/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /already installed/i }));
     await waitFor(() =>
       expect(window.location.href).toBe(
         "https://build.test/api/bff/auth/github/login?resume=template&platform=community",

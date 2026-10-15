@@ -28,9 +28,8 @@ vi.mock("@/features/deploy/client", () => ({
     sdkStatus: { requiredVersion: "3.0.1", status: "unknown" },
   })),
   deploymentFeed: vi.fn(),
-}));
-vi.mock("@/features/deploy/dashboard", () => ({
-  fetchGitHubSession: vi.fn(async () => ({
+
+  launchFetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "alice",
     githubUserId: "u1",
@@ -42,8 +41,8 @@ import { useProjects } from "./use-projects";
 import {
   deploymentFeed,
   deploymentProjects,
+  launchFetchGitHubSession,
 } from "@/features/deploy/client";
-import { fetchGitHubSession } from "@/features/deploy/dashboard";
 
 function wrapper() {
   const client = new QueryClient({
@@ -68,7 +67,7 @@ describe("useProjects", () => {
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
     // The session must come from the provider — exactly one status fetch,
     // not one per hook consumer.
-    expect(fetchGitHubSession).toHaveBeenCalledTimes(1);
+    expect(launchFetchGitHubSession).toHaveBeenCalledTimes(1);
     expect(deploymentFeed).not.toHaveBeenCalled();
     if (result.current.state.status === "ready") {
       // A claimed source with no apps yet (fresh connect) is a real project.
