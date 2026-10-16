@@ -178,7 +178,8 @@ BEGIN
     END IF;
     IF EXISTS (SELECT 1 FROM payment_runs
                WHERE principal_kind='account' AND principal_id IN (source_user_id, target_user_id)
-                 AND (reserved_microusd>0 OR (state IN ('ready','running') AND expires_at>now_s))) THEN
+                 -- A finished run holds nothing, whatever reservation it last recorded.
+                 AND state IN ('ready','running') AND (expires_at>now_s OR reserved_microusd>0)) THEN
         RAISE EXCEPTION 'account_merge_payment_in_progress';
     END IF;
     IF EXISTS (SELECT 1 FROM account_merge_fences

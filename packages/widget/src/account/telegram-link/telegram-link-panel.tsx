@@ -83,7 +83,10 @@ export function telegramLinkFailure(
   if (error.error === "account_link_busy") {
     const sending = error.inFlight.length;
     return {
-      message: FAILURES.account_link_busy!,
+      // No trade listed: a reply is still being billed.
+      message: sending
+        ? FAILURES.account_link_busy!
+        : "Your Telegram account is still finishing a reply. Try again in a minute.",
       detail: sending
         ? `${plural(sending, "trade")} still being sent.`
         : undefined,
