@@ -28,6 +28,8 @@ async function browserJson<T>(page: Page, path: string): Promise<T> {
 
 async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   const wallet = await installHostedWallet(page, family, chainId);
+  // This journey verifies wallet login and signing, not cookie consent. Dismiss
+  // the real consent banner before clicking a control that it can cover.
   const forbiddenRequests: string[] = [];
   const authStatuses: string[] = [];
   page.on("response", (response) => {
@@ -59,8 +61,13 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   await expect(page.getByTestId("portal-shell")).toBeVisible({
     timeout: 60_000,
   });
-  const cookies = page.getByRole("button", { name: "Decline", exact: true });
-  if (await cookies.isVisible()) await cookies.click();
+  const declineCookies = page.getByRole("button", {
+    name: "Decline",
+    exact: true,
+  });
+  await declineCookies.waitFor({ state: "visible", timeout: 30_000 });
+  await declineCookies.click();
+  await expect(declineCookies).toHaveCount(0);
   await page.getByRole("button", { name: "Sign in", exact: true }).click({
     timeout: 15_000,
   });
