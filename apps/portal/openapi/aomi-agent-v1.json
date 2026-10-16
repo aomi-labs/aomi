@@ -5151,6 +5151,45 @@
           },
           "fee_outcome": {
             "$ref": "#/components/schemas/FeeOutcome"
+          },
+          "prepared_by": {
+            "type": "string"
+          },
+          "failure_rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["classification", "advice"],
+              "additionalProperties": false,
+              "properties": {
+                "any": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "classification": {
+                  "type": "string"
+                },
+                "advice": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "follow_up": {
+            "type": "object",
+            "required": ["tool", "note"],
+            "additionalProperties": false,
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "data": {}
+            }
           }
         }
       },
