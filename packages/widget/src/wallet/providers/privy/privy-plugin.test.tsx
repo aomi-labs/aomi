@@ -23,12 +23,17 @@ vi.mock("@privy-io/react-auth", () => ({
   },
 }));
 
+vi.mock("@privy-io/react-auth/smart-wallets", () => ({
+  SmartWalletsProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
 // Imported after the mocks are registered.
 const { getWalletProvider } = await import("@/wallet/providers/plugin-registry");
 const { privyPlugin } = await import("./privy-plugin");
 const { setPrivySdk } = await import("./privy-sdk");
 setPrivySdk({
   auth: await import("@privy-io/react-auth"),
+  smartWallets: await import("@privy-io/react-auth/smart-wallets"),
   solana: {} as never,
 });
 

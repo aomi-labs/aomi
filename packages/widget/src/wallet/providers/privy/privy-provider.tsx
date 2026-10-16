@@ -5,6 +5,7 @@ import {
   PrivyProvider as PrivyAuthProvider,
   type PrivyClientConfig,
 } from "@privy-io/react-auth";
+import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Chain } from "viem";
@@ -58,7 +59,6 @@ export type AomiPrivyProviderProps = {
   wallets?: EvmWalletsConfig;
   loginMethods?: PrivyClientConfig["loginMethods"];
   walletConnectProjectId?: string;
-  /** No longer read: Privy has no client smart-wallet path to switch. */
   execution?: ExecutionConfig;
   solana?: {
     networks?: readonly SvmNetworkOption[];
@@ -77,6 +77,7 @@ function AomiPrivyProviderInner({
   networks = defaultNetworks,
   wallets,
   loginMethods,
+  execution,
   solana,
   walletConnectProjectId,
 }: AomiPrivyProviderProps) {
@@ -103,13 +104,16 @@ function AomiPrivyProviderInner({
   const adapter = (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
-        <AomiPrivyPluginProvider
-          supportedChains={networks}
-          loginMethods={loginMethods}
-          preferDirectSend={solana?.preferDirectSend}
-        >
-          {children}
-        </AomiPrivyPluginProvider>
+        <SmartWalletsProvider>
+          <AomiPrivyPluginProvider
+            supportedChains={networks}
+            loginMethods={loginMethods}
+            execution={execution}
+            preferDirectSend={solana?.preferDirectSend}
+          >
+            {children}
+          </AomiPrivyPluginProvider>
+        </SmartWalletsProvider>
       </WagmiProvider>
     </QueryClientProvider>
   );

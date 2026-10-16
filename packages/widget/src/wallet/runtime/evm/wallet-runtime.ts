@@ -85,7 +85,11 @@ export type EvmWalletRuntimeProviderHooks = {
   }) => Promise<`0x${string}` | null | undefined>;
 };
 
-export type EvmWalletRuntime = WalletRuntime<"evm"> & {
+export type EvmWalletRuntime = Omit<WalletRuntime<"evm">, "selectAccount"> & {
+  selectAccount: (
+    accountId: string,
+    options?: { waitForCosmeticSwitch?: boolean },
+  ) => Promise<void>;
   registryStore: WalletRegistryStore;
   registryState: WalletRegistryState;
   activeEvmConnection?: WalletRegistryState["connections"][number];
@@ -347,7 +351,7 @@ export function useEvmWalletRuntime({
   );
 
   const selectAccount = useCallback(
-    async (id: string) => {
+    async (id: string, options?: { waitForCosmeticSwitch?: boolean }) => {
       const connection = findEvmConnection(
         registryStore.getSnapshot().connections,
         id,
@@ -375,14 +379,24 @@ export function useEvmWalletRuntime({
         });
         return;
       }
-      try {
-        await switchAccountAsync({ connector });
-      } catch (error) {
+      const logFailure = (error: unknown) => {
         walletDebug("active-evm:cosmetic-switch-failed", {
           uid: connection.uid,
           stableId: connection.stableId,
           error: error instanceof Error ? error.message : String(error),
         });
+      };
+      try {
+        const switching = switchAccountAsync({ connector });
+        if (options?.waitForCosmeticSwitch === false) {
+          // Registry selection is already complete. Only log late failures;
+          // settling this cosmetic operation must never write another pick.
+          void switching.catch(logFailure);
+        } else {
+          await switching;
+        }
+      } catch (error) {
+        logFailure(error);
       }
     },
     [registryStore, switchAccountAsync, wagmiConfig.connectors],

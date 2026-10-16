@@ -352,8 +352,32 @@ export function AomiWalletKitComposer({
       })) ?? [];
     const selectAccount = async (id: string) => {
       const selected = accounts.find((candidate) => candidate.id === id);
-      await actions.selectAccount(id);
+      const saved = readWalletSelection(selectionStorage, accountId);
+      const replacingAgent =
+        selected &&
+        account.wallets.some(
+          (wallet) =>
+            wallet.kind === "agent" &&
+            wallet.family === selected.family &&
+            walletKey(wallet.family, wallet.address) === saved[selected.family],
+        );
+      await actions.selectAccount(
+        id,
+        replacingAgent ? { waitForCosmeticSwitch: false } : undefined,
+      );
       if (!selected || !accountId) return;
+      const active =
+        registryStore.getSnapshot().activeByFamily[selected.family];
+      if (
+        !active ||
+        active.family !== selected.family ||
+        walletKey(active.family, active.address) !==
+          walletKey(selected.family, selected.address)
+      ) {
+        throw new Error(
+          `Couldn’t switch to ${shortAddress(selected.address)}. Pick it in ${selected.walletName ?? "your wallet"} and try again.`,
+        );
+      }
       writeWalletSelection(
         selectionStorage,
         accountId,
@@ -364,7 +388,9 @@ export function AomiWalletKitComposer({
     };
     const actions = buildWalletKitActions({
       selectAgentEvmNetwork: agentEvm ? setAgentEvmChainId : undefined,
-      selectAgentSvmNetwork: agentSvm ? (id) => svm?.selectAppNetwork?.(id) : undefined,
+      selectAgentSvmNetwork: agentSvm
+        ? (id) => svm?.selectAppNetwork?.(id)
+        : undefined,
       accounts,
       auth: { ...auth, login: account.loginProvider ?? auth.login },
       evm,
