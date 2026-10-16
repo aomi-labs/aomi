@@ -3,23 +3,11 @@
 import { fileURLToPath } from "node:url";
 import {
   changedPathsBetween,
+  changedPathsForPullRequest,
   selectsVercelProject,
 } from "../.github/scripts/select-ci-paths.mjs";
 
-const TEMPORARY_BRANCH_PREFIXES = [
-  "codex/",
-  "codex-queue/",
-  "claude/",
-  "copilot/",
-  "cursor/",
-  "agent/",
-  "agents/",
-  "work/agent-",
-  "work/agent/",
-  "tmp/",
-  "temp/",
-  "wip/",
-];
+const TELEGRAM_STAGING_PROJECT_ID = "prj_AWIwZJ8VT0YS20VVN2wQn822mIhS";
 
 const ON_DEMAND_BRANCH_PREFIXES = ["preview/", "qa/", "release/"];
 
@@ -31,7 +19,11 @@ const PROJECT_SURFACES = {
   prj_AWIwZJ8VT0YS20VVN2wQn822mIhS: "telegram",
 };
 
-export function deploymentDecision(env, getChangedPaths = changedPathsBetween) {
+export function deploymentDecision(
+  env,
+  getChangedPaths = changedPathsBetween,
+  getPullRequestPaths = changedPathsForPullRequest,
+) {
   const {
     VERCEL_ENV,
     VERCEL_GIT_COMMIT_REF: branch,
@@ -66,17 +58,16 @@ export function deploymentDecision(env, getChangedPaths = changedPathsBetween) {
     };
   }
 
+  // Preserve standalone previews even for codex/*, claude/* and other agent
+  // branches. Branch names are not evidence that a deployment is disposable.
+  // Telegram's separate staging project, however, only serves main-based
+  // release qualification; ordinary PRs use the primary Telegram preview.
   if (
-    TEMPORARY_BRANCH_PREFIXES.some((prefix) =>
-      normalizedBranch.startsWith(prefix),
-    )
+    projectId === TELEGRAM_STAGING_PROJECT_ID &&
+    pullRequestId !== "" &&
+    normalizedBranch !== "main"
   ) {
-    if (pullRequestId === "") {
-      return {
-        ignore: true,
-        reason: `standalone preview disabled for temporary branch ${branch}`,
-      };
-    }
+    return { ignore: true, reason: "Telegram staging does not need ordinary PR previews" };
   }
 
   if (normalizedBranch === "prod") {
@@ -87,14 +78,18 @@ export function deploymentDecision(env, getChangedPaths = changedPathsBetween) {
   }
 
   const surface = PROJECT_SURFACES[projectId];
-  if (!surface || !headSha || !previousSha) {
+  if (!surface || !headSha) {
     return {
       ignore: false,
       reason: "project or Git history is unavailable; building safely",
     };
   }
 
-  const paths = getChangedPaths(previousSha, headSha, { mode: "push" });
+  // A PR must be classified by its entire diff. The previous successful
+  // deployment can be empty on first preview, or omit earlier PR commits.
+  const paths = pullRequestId
+    ? getPullRequestPaths(pullRequestId, headSha)
+    : getChangedPaths(previousSha, headSha, { mode: "push" });
   if (paths === null) {
     return {
       ignore: false,

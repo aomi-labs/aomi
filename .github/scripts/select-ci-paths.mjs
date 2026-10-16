@@ -269,6 +269,38 @@ export function changedPathsBetween(
   }
 }
 
+// Compare the complete GitHub PR merge result against its base. This works
+// on the first PR deployment and across multiple commits, unlike Vercel's
+// PREVIOUS_SHA (which only identifies the last successful branch deployment).
+// GitHub's merge ref is fetched from the existing origin; inaccessible or
+// conflicted PR refs fail open to a build. Never use just HEAD^..HEAD for a PR.
+export function changedPathsForPullRequest(
+  pullRequestId,
+  head,
+  { cwd = process.cwd() } = {},
+) {
+  if (!/^[1-9]\\d*$/.test(pullRequestId) || !/^[a-f0-9]{40}$/i.test(head)) {
+    return null;
+  }
+  try {
+    execFileSync(
+      "git",
+      ["fetch", "--quiet", "--no-tags", "--depth=2", "origin", `refs/pull/${pullRequestId}/merge`],
+      { cwd, timeout: 10_000, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const [merge, base, prHead] = execFileSync(
+      "git",
+      ["rev-list", "--parents", "-n", "1", "FETCH_HEAD"],
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim().split(/\\s+/);
+    // A stale GitHub merge ref cannot qualify a newer PR head.
+    if (!merge || !base || prHead !== head) return null;
+    return changedPathsBetween(base, merge, { mode: "push", cwd });
+  } catch {
+    return null;
+  }
+}
+
 function changedPaths() {
   return changedPathsBetween(process.env.CI_BASE_SHA, process.env.CI_HEAD_SHA, {
     mode: process.env.CI_DIFF_MODE,

@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   classifyPaths,
   changedPathsBetween,
+  changedPathsForPullRequest,
   selectsVercelProject,
 } from "../../.github/scripts/select-ci-paths.mjs";
 
@@ -194,5 +195,49 @@ test("journey harness changes run the journeys and the packed browser jobs only"
     assert.equal(selected.journeys, true, path);
     assert.equal(selected.browser_contracts, true, path);
     assert.equal(selected.packages, false, path);
+  }
+});
+
+test("PR comparison includes all commits via exact-head GitHub merge ref", () => {
+  const repo = mkdtempSync(join(tmpdir(), "aomi-pr-diff-"));
+  const git = (...args) =>
+    execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+  try {
+    git("init", "-q");
+    git("config", "user.name", "PR test");
+    git("config", "user.email", "pr-test@example.invalid");
+    git("checkout", "-qb", "main");
+    writeFileSync(join(repo, "README.md"), "baseline\n");
+    git("add", ".");
+    git("commit", "-qm", "base");
+    git("checkout", "-qb", "codex/multi-commit");
+    mkdirSync(join(repo, "apps/landing"), { recursive: true });
+    writeFileSync(join(repo, "apps/landing/page.tsx"), "landing\n");
+    git("add", ".");
+    git("commit", "-qm", "landing");
+    mkdirSync(join(repo, "apps/telegram"), { recursive: true });
+    writeFileSync(join(repo, "apps/telegram/page.tsx"), "telegram\n");
+    git("add", ".");
+    git("commit", "-qm", "telegram");
+    const prHead = git("rev-parse", "HEAD");
+    git("checkout", "-q", "main");
+    git("merge", "--no-ff", "-q", "codex/multi-commit", "-m", "merge");
+    git("update-ref", "refs/pull/123/merge", "HEAD");
+    git("remote", "add", "origin", ".");
+    git("checkout", "-q", "codex/multi-commit");
+
+    assert.deepEqual(
+      changedPathsForPullRequest("123", prHead, { cwd: repo }).sort(),
+      ["apps/landing/page.tsx", "apps/telegram/page.tsx"],
+    );
+    assert.equal(
+      changedPathsForPullRequest("123", "a".repeat(40), { cwd: repo }),
+      null,
+      "stale merge head must fail open",
+    );
+    assert.equal(changedPathsForPullRequest("not-a-number", prHead, { cwd: repo }), null);
+    assert.equal(changedPathsForPullRequest("99999", prHead, { cwd: repo }), null);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
   }
 });
