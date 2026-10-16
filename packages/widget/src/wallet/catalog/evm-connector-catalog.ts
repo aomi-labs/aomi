@@ -136,6 +136,10 @@ function deferredWalletConnect(
     let awake = false;
     return {
       ...connector,
+      // Waking runs setup instead; asleep there is nothing to listen to.
+      async setup(this: typeof connector) {
+        if (awake) await connector.setup?.call(this);
+      },
       async connect(this: typeof connector, options) {
         awake = true;
         return connector.connect.call(this, options);
@@ -147,8 +151,7 @@ function deferredWalletConnect(
             connector.id,
           );
           if (!awake) throw new ProviderNotFoundError();
-          // setup() skipped its listeners while asleep.
-          void connector.setup?.call(this);
+          void connector.setup?.call(this)?.catch(() => undefined);
         }
         return connector.getProvider.call(this, options);
       },
