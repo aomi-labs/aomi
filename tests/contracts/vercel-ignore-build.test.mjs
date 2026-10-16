@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { deploymentDecision } from "./vercel-ignore-build.mjs";
+import { deploymentDecision } from "../../scripts/vercel-ignore-build.mjs";
 
 const previewEnv = (branch, pullRequestId = "") => ({
   VERCEL_ENV: "preview",
@@ -194,7 +194,7 @@ test("skips unnecessary Telegram staging PR builds but preserves QA and main", (
 
 test("uses Vercel ignore-command exit semantics", () => {
   const script = fileURLToPath(
-    new URL("./vercel-ignore-build.mjs", import.meta.url),
+    new URL("../../scripts/vercel-ignore-build.mjs", import.meta.url),
   );
   const skipped = spawnSync(process.execPath, [script], {
     encoding: "utf8",
