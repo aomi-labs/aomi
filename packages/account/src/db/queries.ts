@@ -497,8 +497,9 @@ export async function listIdentitiesForUser(
   db: Db = getPool(),
 ): Promise<DbAomiAuthIdentity[]> {
   const result = await db.query(
+    // Agent wallets' Para identities are internal to signing, never logins.
     `select * from auth_providers
-      where user_id = $1
+      where user_id = $1 and method <> 'agent'
       order by is_primary desc, created_at asc`,
     [userId],
   );
