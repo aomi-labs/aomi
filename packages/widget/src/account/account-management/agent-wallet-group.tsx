@@ -335,6 +335,11 @@ export function AgentWalletRow({
             · {chainsLine(wallet, balance.data)}
           </span>
         </span>
+        {wallet.pinned_telegram && !wallet.is_default ? (
+          <span data-pinned-telegram className="type-meta text-aomi-muted">
+            Used by your Telegram bots
+          </span>
+        ) : null}
       </span>
     </>
   );

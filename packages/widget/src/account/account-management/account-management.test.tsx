@@ -200,12 +200,54 @@ describe("Wallets & access", () => {
     expect(
       screen.getByText("Sign in by signing a message"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Privy and Para logins, with their wallets"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Privy, Para and Telegram")).toBeInTheDocument();
     expect(screen.getAllByText("5 addresses · 3 on this device")).toHaveLength(
       2,
     );
+  });
+
+  it("shows the linked Telegram under Social sign-in, with no Remove", () => {
+    renderSettings([main], {
+      signInMethods: [],
+      telegram: {
+        username: "arixon",
+        bots: [
+          { bot_id: "7712345678", label: "@HooditBot" },
+          { bot_id: "88", label: "@WorldBot" },
+        ],
+        linked_from: { bot_id: "7712345678", label: "@HooditBot" },
+        linked_at: 1_760_400_500,
+      },
+    });
+    expect(screen.getByText("Social sign-in")).toBeInTheDocument();
+    const telegram = document.querySelector(
+      "[data-telegram-identity]",
+    ) as HTMLElement;
+    expect(within(telegram).getByText("Telegram @arixon")).toBeInTheDocument();
+    expect(
+      within(telegram).getByText(
+        "Linked from @HooditBot · used in @HooditBot, @WorldBot",
+      ),
+    ).toBeInTheDocument();
+    expect(within(telegram).queryByRole("button")).toBeNull();
+  });
+
+  it("reads a Telegram that was never linked by code as used in its bots", () => {
+    renderSettings([main], {
+      telegram: {
+        username: null,
+        bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
+        linked_from: null,
+        linked_at: null,
+      },
+    });
+    const telegram = document.querySelector(
+      "[data-telegram-identity]",
+    ) as HTMLElement;
+    expect(within(telegram).getByText("Telegram")).toBeInTheDocument();
+    expect(
+      within(telegram).getByText("Used in @HooditBot"),
+    ).toBeInTheDocument();
   });
 
   it("keeps an empty SVM slot that offers to add a wallet", () => {
@@ -413,6 +455,7 @@ describe("Agent wallet group", () => {
     is_default: true,
     status: "ready",
     merged: false,
+    pinned_telegram: false,
     bound_app: null,
     rule: { mode: "ask", rule_version: 0, instant: [] },
     created_at: 1_760_000_000,
@@ -549,6 +592,23 @@ describe("Agent wallet group", () => {
     expect(
       within(agentFor("w_13")).getByText(/SVM · pays its own SOL gas/),
     ).toBeInTheDocument();
+  });
+
+  it("marks the extra wallet the Telegram bots keep using", async () => {
+    agentData.wallets = [
+      defaultEvm,
+      { ...hoodit, bound_app: null, pinned_telegram: true },
+      defaultSvm,
+    ];
+    await renderGroup();
+    const extra = agentFor("w_31");
+    expect(within(extra).getByText("Merged")).toBeInTheDocument();
+    expect(
+      within(extra).getByText("Used by your Telegram bots"),
+    ).toBeInTheDocument();
+    expect(
+      within(agentFor("w_12")).queryByText("Used by your Telegram bots"),
+    ).toBeNull();
   });
 
   it("picks an extra wallet through its kit row", async () => {

@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { shortAddress } from "@aomi-labs/client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  shortAddress,
+  type AomiClient,
+  type AomiTelegramConnection,
+} from "@aomi-labs/client";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
@@ -14,6 +18,30 @@ import {
 import { useAccountAcl } from "./use-account-acl";
 import { useShellTransport } from "./transport";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
+
+/** The account's linked Telegram, for its row under Social sign-in. */
+function useTelegramConnection(
+  client: AomiClient | undefined,
+  enabled: boolean,
+): AomiTelegramConnection | null {
+  const [telegram, setTelegram] = useState<AomiTelegramConnection | null>(null);
+  useEffect(() => {
+    setTelegram(null);
+    if (!enabled || !client) return;
+    let stale = false;
+    client.account.connections.list().then(
+      (connections) => {
+        if (!stale) setTelegram(connections.telegram);
+      },
+      // The row is extra context; Settings works without it.
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [client, enabled]);
+  return telegram;
+}
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
@@ -62,6 +90,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   };
 
   const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
+  const telegram = useTelegramConnection(transport.client, signedIn);
   const disconnect = adapter.disconnect;
   const unlinkWallet = adapter.unlinkLinkedWallet;
   const unlinkLogin = adapter.unlinkLinkedAccount;
@@ -173,6 +202,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         agentWallets={
           signedIn ? { run, onClose, client: transport.client } : undefined
         }
+        telegram={telegram}
         onSignOut={() => {
           // Close first so the panel never renders the signed-out account;
           // errors from the old session have nowhere useful to go.

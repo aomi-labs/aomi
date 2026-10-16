@@ -70,7 +70,7 @@ export class AccountChallengeBindingError extends Error {
 
 // @public
 export class AccountConnectionsTransport {
-    constructor(requestResponse: RequestResponse$1);
+    constructor(requestResponse: RequestResponse$2);
     disconnectOAuth(clientId: string): Promise<void>;
     list(options?: {
         signal?: AbortSignal;
@@ -157,7 +157,7 @@ export type AccountGraphResponse = {
 
 // @public
 export class AccountGraphTransport {
-    constructor(transport: RequestResponse$2);
+    constructor(transport: RequestResponse$3);
     // (undocumented)
     deleteAccount(): Promise<AccountGraphDeleteResponse>;
     // (undocumented)
@@ -254,18 +254,27 @@ export type AccountSessionSigner = {
     signMessage(message: string): Promise<string>;
 };
 
+// @public
+export class AccountTelegramLinkTransport {
+    constructor(requestResponse: RequestResponse$1);
+    cancelTelegramLink(code: string): Promise<void>;
+    confirmTelegramLink(code: string): Promise<TelegramLinkResult>;
+    previewTelegramLink(code: string): Promise<TelegramLinkPreview>;
+}
+
 // @public (undocumented)
 export class AccountTransport extends AccountGraphTransport {
     constructor(requestResponse: RequestResponse);
     readonly connections: AccountConnectionsTransport;
     // (undocumented)
     readonly credits: AccountCreditsTransport;
+    readonly telegramLink: AccountTelegramLinkTransport;
     readonly wallets: AccountWalletsTransport;
 }
 
 // @public
 export class AccountWalletsTransport {
-    constructor(requestResponse: RequestResponse$6);
+    constructor(requestResponse: RequestResponse$7);
     createAgentWallets(families?: readonly AomiWalletFamily[]): Promise<AomiAgentWalletsCreated>;
     listWallets(options?: {
         signal?: AbortSignal;
@@ -474,7 +483,7 @@ export type AgentTarget = {
 
 // @public (undocumented)
 export class AgentTransport {
-    constructor(requestResponse: RequestResponse$5, defaultInferenceFunding?: AomiInferenceFundingSource | undefined);
+    constructor(requestResponse: RequestResponse$6, defaultInferenceFunding?: AomiInferenceFundingSource | undefined);
     // (undocumented)
     interrupt(sessionId: string, turnId: string, idempotencyKey?: string): Promise<EventPage>;
     // (undocumented)
@@ -577,6 +586,7 @@ export type AomiAccountWallet = {
     is_default: boolean;
     status: AomiAccountWalletStatus;
     merged: boolean;
+    pinned_telegram: boolean;
     bound_app: {
         id: number;
         name: string;
@@ -1440,6 +1450,11 @@ export type AomiTelegramConnection = {
         bot_id: string;
         label: string;
     }[];
+    linked_from: {
+        bot_id: string;
+        label: string;
+    } | null;
+    linked_at: number | null;
 };
 
 // @public
@@ -1877,6 +1892,7 @@ export const COMMIT_REF_ERROR_CODES: {
     readonly notFound: "commit_not_found";
     readonly versionConflict: "commit_version_conflict";
     readonly digestMismatch: "commit_review_digest_mismatch";
+    readonly gasStale: "commit_gas_stale";
     readonly approvalForbidden: "commit_approval_forbidden";
     readonly notAwaitingApproval: "commit_not_awaiting_approval";
     readonly expired: "commit_expired";
@@ -2097,7 +2113,7 @@ export type CommitSigner = Wallets | CommitCapabilities;
 
 // @public
 export class CommitStaleError extends AomiApiError {
-    constructor(code: typeof COMMIT_REF_ERROR_CODES.versionConflict | typeof COMMIT_REF_ERROR_CODES.digestMismatch, message: string, requestId?: string, details?: unknown);
+    constructor(code: typeof COMMIT_REF_ERROR_CODES.versionConflict | typeof COMMIT_REF_ERROR_CODES.digestMismatch | typeof COMMIT_REF_ERROR_CODES.gasStale, message: string, requestId?: string, details?: unknown);
 }
 
 // @public (undocumented)
@@ -2337,7 +2353,7 @@ export interface EvmDirectInput extends PipelineExecutionScope {
 
 // @public (undocumented)
 export class EvmPipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<EvmSimulatedBuild>;
     // (undocumented)
@@ -2618,6 +2634,9 @@ export type InterruptIntent = Schemas$3["InterruptIntent"];
 
 // @public
 export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean;
+
+// @public
+export function isTelegramLinkCode(value: unknown): value is string;
 
 // @public (undocumented)
 export const isTerminalCommit: (view: CommitView) => boolean;
@@ -2905,7 +2924,7 @@ export type PipelineApprovalKind = PipelineApprovalChange["kind"];
 
 // @public (undocumented)
 export class PipelineAppsTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     get(app: string): PipelineOperationTransport;
     // (undocumented)
@@ -3037,7 +3056,7 @@ export interface PipelineOperationInvocation<Arguments extends Record<string, un
 
 // @public (undocumented)
 export class PipelineOperationTransport {
-    constructor(requestResponse: RequestResponse$3, scope: "apps" | "skills", owner: string);
+    constructor(requestResponse: RequestResponse$4, scope: "apps" | "skills", owner: string);
     // (undocumented)
     directory(): Promise<PipelineDirectory>;
     // (undocumented)
@@ -3067,7 +3086,7 @@ export type PipelineSimulationStatus = PipelineSimulation["status"];
 
 // @public (undocumented)
 export class PipelineSkillsTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     get(skill: string): PipelineSkillTransport;
     // (undocumented)
@@ -3076,14 +3095,14 @@ export class PipelineSkillsTransport {
 
 // @public (undocumented)
 export class PipelineSkillTransport extends PipelineOperationTransport {
-    constructor(skillRequestResponse: RequestResponse$3, skill: string);
+    constructor(skillRequestResponse: RequestResponse$4, skill: string);
     // (undocumented)
     instructions(): Promise<string>;
 }
 
 // @public
 export class PipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     app(name: string): PipelineOperationTransport;
     // (undocumented)
@@ -3297,7 +3316,7 @@ export type SessionOptions = {
 export type SessionOriginFields = {
     origin?: ThreadOrigin | null;
     origin_app?: number | null;
-    awaiting_approval?: string[] | null;
+    awaitingApproval?: string[] | null;
 };
 
 // @public (undocumented)
@@ -3673,7 +3692,7 @@ export interface SvmInstructionBatch {
 
 // @public (undocumented)
 export class SvmPipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<SvmSimulatedBuild>;
     // (undocumented)
@@ -3840,6 +3859,114 @@ export type TaskPhaseEvent = Schemas$3["TaskPhaseEvent"];
 // @public (undocumented)
 export type TaskStartedEvent = Schemas$3["TaskStartedEvent"];
 
+// @public (undocumented)
+export const TELEGRAM_LINK_ERROR_CODES: {
+    readonly invalidCode: "invalid_code";
+    readonly portalSessionRequired: "portal_session_required";
+    readonly linkInProgress: "link_in_progress";
+    readonly telegramAlreadyLinked: "telegram_already_linked";
+    readonly accountHasOtherTelegram: "account_has_other_telegram";
+    readonly accountLinkConflict: "account_link_conflict";
+    readonly accountMergeInProgress: "account_merge_in_progress";
+    readonly accountLinkBusy: "account_link_busy";
+    readonly linkCodeInvalid: "link_code_invalid";
+    readonly linkCodeExpired: "link_code_expired";
+    readonly linkCodeUsed: "link_code_used";
+    readonly rateLimited: "rate_limited";
+};
+
+// @public (undocumented)
+export type TelegramLinkBot = {
+    bot_id: string;
+    label: string;
+};
+
+// @public
+export class TelegramLinkError extends AomiApiError {
+    constructor(status: number, body: unknown);
+    // (undocumented)
+    readonly error: TelegramLinkErrorCode;
+    // (undocumented)
+    readonly extras: Record<string, unknown>;
+    get inFlight(): TelegramLinkInFlight[];
+    get sameAccount(): boolean;
+}
+
+// @public (undocumented)
+export type TelegramLinkErrorCode = (typeof TELEGRAM_LINK_ERROR_CODES)[keyof typeof TELEGRAM_LINK_ERROR_CODES] | (string & {});
+
+// @public
+export type TelegramLinkInFlight = {
+    id: string;
+    state: string;
+    chain: string | null;
+    transaction_url: string | null;
+};
+
+// @public (undocumented)
+export const telegramLinkPaths: {
+    readonly preview: "/v1/account/link/telegram/preview";
+    readonly confirm: "/v1/account/link/telegram/confirm";
+    readonly cancel: "/v1/account/link/telegram/cancel";
+};
+
+// @public
+export type TelegramLinkPreview = {
+    telegram: {
+        username: string | null;
+        bots: TelegramLinkBot[];
+        linked_from: TelegramLinkBot | null;
+    };
+    account: {
+        label: string;
+    };
+    survivor: "this_account";
+    moves: {
+        agent_wallets: TelegramLinkWalletMove[];
+        chats_in_bots: number;
+        scheduled_jobs: number;
+        pending_trades: {
+            cancel: number;
+            wait: number;
+        };
+        world: {
+            bot: string;
+            state: string;
+        }[];
+    };
+    expires_at: number;
+};
+
+// @public
+export type TelegramLinkResult = {
+    linked: true;
+    telegram: {
+        username: string | null;
+    };
+    wallets: {
+        id: string;
+        address: string;
+        role: "default" | "extra";
+        used_by_bots: boolean;
+    }[];
+    cancelled: number;
+    moved: {
+        chats: number;
+        wallets: number;
+    };
+};
+
+// @public
+export type TelegramLinkWalletMove = {
+    id: string;
+    family: "evm" | "svm";
+    address: string;
+    label: string;
+    total_usd: string | null;
+    becomes: "default" | "extra";
+    instant: string[];
+};
+
 // @public
 export type ThreadOrigin = "portal" | "widget" | "cli" | "sdk" | "mcp" | "api" | "telegram" | "cron";
 
@@ -3887,7 +4014,7 @@ export type TransactionSafetyProjection = Schemas$1["TransactionSafetyProjection
 
 // @public
 export class TransactionSafetyTransport {
-    constructor(requestResponse: RequestResponse$4);
+    constructor(requestResponse: RequestResponse$5);
     // (undocumented)
     getAccountDefault(): Promise<TransactionSafetyPolicy>;
     // (undocumented)

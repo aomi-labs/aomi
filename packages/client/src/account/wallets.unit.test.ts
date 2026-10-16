@@ -10,6 +10,7 @@ import {
   walletRef,
   type AomiAccountWallet,
 } from "./wallets";
+import { TelegramLinkError, isTelegramLinkCode } from "./telegram-link";
 
 const agent = {
   id: "w_12",
@@ -23,6 +24,7 @@ const agent = {
   is_default: true,
   status: "ready",
   merged: false,
+  pinned_telegram: false,
   bound_app: null,
   rule: {
     mode: "ask",
@@ -39,6 +41,7 @@ const hoodit = {
   label: "Hoodit wallet",
   is_default: false,
   merged: true,
+  pinned_telegram: true,
   bound_app: { id: 42, name: "hoodit", label: "Hoodit" },
   rule: { mode: "ask", rule_version: 0, instant: [] },
 };
@@ -138,6 +141,7 @@ describe("account wallets", () => {
     expect(wallets[0]).toEqual(agent satisfies AomiAccountWallet);
     expect(wallets[1]).toMatchObject({
       merged: true,
+      pinned_telegram: true,
       bound_app: { id: 42, label: "Hoodit" },
     });
     expect(wallets[2]).toEqual({
@@ -146,6 +150,7 @@ describe("account wallets", () => {
       wallet_app: null,
       is_default: false,
       merged: false,
+      pinned_telegram: false,
       bound_app: null,
       created_at: null,
     });
@@ -416,6 +421,8 @@ describe("connected apps (step 4)", () => {
       { client_id: "c2", name: "Script", kind: "api", connected_at: null },
     ]);
     expect(connections.telegram?.bots[0]?.label).toBe("@HooditBot");
+    expect(connections.telegram?.linked_from).toBeNull();
+    expect(connections.telegram?.linked_at).toBeNull();
 
     await client.account.connections.disconnectOAuth("c1");
     expect(calls.at(-1)).toMatchObject({
@@ -439,5 +446,152 @@ describe("connected apps (step 4)", () => {
     await expect(
       client.account.connections.disconnectOAuth("gone"),
     ).rejects.toMatchObject({ status: 404, code: "connection_not_found" });
+  });
+});
+
+describe("Telegram link (step 5)", () => {
+  const code = "A".repeat(42) + "_";
+  const preview = {
+    telegram: {
+      username: "arixon",
+      bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
+      linked_from: { bot_id: "7712345678", label: "@HooditBot" },
+    },
+    account: { label: "arixon.ethereum@gmail.com" },
+    survivor: "this_account",
+    moves: {
+      agent_wallets: [
+        {
+          id: "w_31",
+          family: "evm",
+          address: "0x7a3f…c41e",
+          label: "Agent wallet",
+          total_usd: "95.10",
+          becomes: "extra",
+          instant: ["@HooditBot"],
+        },
+      ],
+      chats_in_bots: 3,
+      scheduled_jobs: 1,
+      pending_trades: { cancel: 1, wait: 0 },
+      world: [{ bot: "@WorldMarketsBot", state: "active" }],
+    },
+    expires_at: 1_760_401_000,
+  };
+
+  it("reads Telegram's linked_from and linked_at on connections", async () => {
+    const { client } = backend({
+      "GET /v1/account/connections": () =>
+        Response.json({
+          oauth: [],
+          telegram: {
+            username: "arixon",
+            bots: [],
+            linked_from: { bot_id: "7712345678", label: "@HooditBot" },
+            linked_at: 1_760_400_500,
+          },
+        }),
+    });
+    const { telegram } = await client.account.connections.list();
+    expect(telegram).toEqual({
+      username: "arixon",
+      bots: [],
+      linked_from: { bot_id: "7712345678", label: "@HooditBot" },
+      linked_at: 1_760_400_500,
+    });
+  });
+
+  it("previews, confirms and cancels with the code in a CSRF-marked body", async () => {
+    const result = {
+      linked: true,
+      telegram: { username: "arixon" },
+      wallets: [
+        { id: "w_12", address: "0x91c0…", role: "default" },
+        { id: "w_31", address: "0x7a3f…", role: "extra", used_by_bots: true },
+      ],
+      cancelled: 1,
+      moved: { chats: 3, wallets: 2 },
+    };
+    const { client, calls } = backend({
+      "POST /v1/account/link/telegram/preview": () => Response.json(preview),
+      "POST /v1/account/link/telegram/confirm": () => Response.json(result),
+      "POST /v1/account/link/telegram/cancel": () =>
+        Response.json({ cancelled: true }),
+    });
+    const link = client.account.telegramLink;
+    expect(await link.previewTelegramLink(code)).toEqual(preview);
+    expect(await link.confirmTelegramLink(code)).toEqual({
+      ...result,
+      wallets: [
+        {
+          id: "w_12",
+          address: "0x91c0…",
+          role: "default",
+          used_by_bots: false,
+        },
+        { id: "w_31", address: "0x7a3f…", role: "extra", used_by_bots: true },
+      ],
+    });
+    await link.cancelTelegramLink(code);
+    expect(calls.map((call) => [call.path, call.body])).toEqual([
+      ["/v1/account/link/telegram/preview", { code }],
+      ["/v1/account/link/telegram/confirm", { code }],
+      ["/v1/account/link/telegram/cancel", { code }],
+    ]);
+    for (const call of calls) {
+      expect(call.method).toBe("POST");
+      expect(call.headers.get("x-aomi-csrf")).toBe("1");
+    }
+  });
+
+  it("keeps the error code and its extras", async () => {
+    const { client } = backend({
+      "POST /v1/account/link/telegram/confirm": () =>
+        Response.json(
+          {
+            error: "account_link_busy",
+            in_flight: [
+              {
+                id: "c-1",
+                state: "submitted",
+                chain: "8453",
+                transaction_url: null,
+              },
+            ],
+          },
+          { status: 409 },
+        ),
+      "POST /v1/account/link/telegram/preview": () =>
+        Response.json(
+          { error: "telegram_already_linked", same_account: true },
+          { status: 409 },
+        ),
+    });
+    const busy = await client.account.telegramLink
+      .confirmTelegramLink(code)
+      .catch((error: unknown) => error);
+    expect(busy).toBeInstanceOf(TelegramLinkError);
+    expect(busy).toMatchObject({
+      status: 409,
+      code: "account_link_busy",
+      error: "account_link_busy",
+    });
+    expect((busy as TelegramLinkError).inFlight).toEqual([
+      { id: "c-1", state: "submitted", chain: "8453", transaction_url: null },
+    ]);
+    const linked = await client.account.telegramLink
+      .previewTelegramLink(code)
+      .catch((error: unknown) => error);
+    expect((linked as TelegramLinkError).sameAccount).toBe(true);
+    expect((linked as TelegramLinkError).extras).toEqual({
+      same_account: true,
+    });
+  });
+
+  it("knows a well-formed code", () => {
+    expect(isTelegramLinkCode(code)).toBe(true);
+    expect(isTelegramLinkCode(code.slice(1))).toBe(false);
+    expect(isTelegramLinkCode(`${code.slice(1)}=`)).toBe(false);
+    expect(isTelegramLinkCode(undefined)).toBe(false);
   });
 });

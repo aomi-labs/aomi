@@ -1117,9 +1117,9 @@ export async function deleteOAuthConnection(input: {
 }
 
 /**
- * The account's Telegram user and the active Telegram bots it has chatted
- * with (a `telegram:bot:<platform bot id>:…` thread). Null without a Telegram
- * identity.
+ * The account's Telegram user, the active Telegram bots it has chatted with
+ * (a `telegram:bot:<platform bot id>:…` thread), and the bot whose `/link`
+ * code last linked it to this account. Null without a Telegram identity.
  */
 export async function findTelegramConnection(
   userId: AomiUserId,
@@ -1127,6 +1127,8 @@ export async function findTelegramConnection(
 ): Promise<{
   username: string | null;
   bots: { botId: string; label: string }[];
+  linkedFrom: { botId: string; label: string } | null;
+  linkedAt: number | null;
 } | null> {
   const identity = await db.query(
     `select provider_metadata->>'handle' as handle from auth_providers
@@ -1148,12 +1150,29 @@ export async function findTelegramConnection(
       order by b.created_at, b.platform_bot_id`,
     [userId],
   );
+  // A link code keeps the issuing bot; the confirmed one names this account.
+  const link = await db.query(
+    `select c.bot_id, c.consumed_at,
+            coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
+                     c.bot_id) as label
+       from telegram_link_codes c
+       left join bot_registrations b on b.id = c.bot_registration_id
+      where c.target_user_id = $1 and c.state = 'linked'
+      order by c.consumed_at desc, c.id
+      limit 1`,
+    [userId],
+  );
+  const linked = link.rows[0];
   return {
     username: optionalString(identity.rows[0].handle),
     bots: bots.rows.map((row) => ({
       botId: String(row.platform_bot_id),
       label: String(row.label),
     })),
+    linkedFrom: linked
+      ? { botId: String(linked.bot_id), label: String(linked.label) }
+      : null,
+    linkedAt: linked ? Number(linked.consumed_at) : null,
   };
 }
 

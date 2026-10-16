@@ -6,6 +6,7 @@
 
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
+import { AomiClient } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
@@ -502,6 +503,16 @@ export function StatementView(): JSX.Element;
 
 // @public (undocumented)
 export function SvmWalletBindingGate(): JSX.Element | null;
+
+// @public
+export function TelegramLinkPanel(props: TelegramLinkPanelProps): JSX.Element;
+
+// @public (undocumented)
+export type TelegramLinkPanelProps = {
+    client: AomiClient;
+    code: string | null;
+    settingsHref?: string;
+};
 
 // @public (undocumented)
 export type TestId = (typeof testIds)[keyof typeof testIds];

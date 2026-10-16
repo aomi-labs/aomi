@@ -1,6 +1,11 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { safeSignReturn, signLoginRedirect } from "@/lib/sign-return";
+import {
+  loginRedirect,
+  safeReturn,
+  signLoginRedirect,
+  telegramLinkPath,
+} from "@/lib/sign-return";
 
 const useSession = vi.hoisted(() => vi.fn());
 const kit = vi.hoisted(() => ({
@@ -35,16 +40,31 @@ describe("returning to a sign link after login", () => {
     vi.unstubAllGlobals();
   });
 
-  it("only accepts same-origin sign pages", () => {
+  it("only accepts same-origin sign and Telegram link pages", () => {
+    const code = "A".repeat(42) + "-";
     expect(signLoginRedirect("cmt_1")).toBe("/?return_to=%2Fsign%2Fcmt_1");
-    expect(safeSignReturn("/sign/cmt_1")).toBe("/sign/cmt_1");
+    expect(safeReturn("/sign/cmt_1")).toBe("/sign/cmt_1");
+    expect(telegramLinkPath(code)).toBe(`/link/telegram?code=${code}`);
+    expect(loginRedirect(telegramLinkPath(code))).toBe(
+      `/?return_to=%2Flink%2Ftelegram%3Fcode%3D${code}`,
+    );
+    expect(safeReturn(`/link/telegram?code=${code}`)).toBe(
+      `/link/telegram?code=${code}`,
+    );
     for (const target of [
       "https://evil.example/sign/x",
       "//evil.example/sign/x",
       "/sign/x/../../settings",
       "/settings",
+      `https://evil.example/link/telegram?code=${code}`,
+      `//evil.example/link/telegram?code=${code}`,
+      `/link/telegram?code=${code}&next=//evil.example`,
+      `/link/telegram?code=${code.slice(1)}`,
+      `/link/telegram?code=${code}#x`,
+      `/link/telegram/../settings?code=${code}`,
+      "/link/telegram",
     ])
-      expect(safeSignReturn(target)).toBeNull();
+      expect(safeReturn(target)).toBeNull();
   });
 
   it("waits for a real sign-in, then returns once", async () => {

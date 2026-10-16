@@ -495,6 +495,21 @@ export type {
   AomiOAuthConnection,
   AomiTelegramConnection,
 } from "./account/connections";
+export {
+  AccountTelegramLinkTransport,
+  TELEGRAM_LINK_ERROR_CODES,
+  TelegramLinkError,
+  isTelegramLinkCode,
+  telegramLinkPaths,
+} from "./account/telegram-link";
+export type {
+  TelegramLinkBot,
+  TelegramLinkErrorCode,
+  TelegramLinkInFlight,
+  TelegramLinkPreview,
+  TelegramLinkResult,
+  TelegramLinkWalletMove,
+} from "./account/telegram-link";
 export type {
   AccountGraphUser,
   AccountGraphLinkedAccount,
