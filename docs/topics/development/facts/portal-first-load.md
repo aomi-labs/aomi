@@ -60,3 +60,24 @@ When upgrading EthereumProvider, inspect upstream modal initialization and
 remove the patch if the same lazy behavior is available upstream. Do not
 silently carry it to an unreviewed provider version. Frozen installs verify
 its version and hash.
+
+## Coinbase optional signing code
+
+The stronger capture on PR #753 also exposed five later script requests that
+were absent from the old readiness snapshot. Four belong to Coinbase SDK and
+its dependencies, totaling 98,716 gzip bytes; one additional Next.js chunk is
+1,129 bytes. After removing eager QR loading the settled capture still measured
+1,292,984 bytes. This is a separate startup dependency graph, not a reason to
+exclude those requests.
+
+Coinbase SDK 4.3.6 imports optional subaccount/key implementations statically
+from SCWSigner. The second version-bound patch changes only those four imports
+at already-awaited operation sites. Original operation bodies, arguments,
+results, signer selection, restoration and RPC requests are unchanged. The
+modules still ship as dynamic chunks. An isolated SDK bundle comparison fell
+from 145,493 to 58,397 initial gzip bytes; full Portal CI is the acceptance gate.
+
+`coinbase-optional-code.test.mjs` verifies the installed SDK's startup graph
+excludes the optional operations while still bundling them, and normalizes the
+import moves to check the complete remaining signer body against the exact
+upstream version's hash. Remove/review this patch when upgrading that SDK.
