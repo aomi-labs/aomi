@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsModal } from "@/account/settings-modal";
 
+const loadedPages = vi.hoisted(() => ({
+  account: vi.fn(),
+  usage: vi.fn(),
+  policy: vi.fn(),
+}));
+
 const session = vi.hoisted(() => ({
   status: "ready" as "ready" | "anonymous" | "establishing" | "error",
   retry: vi.fn(),
@@ -39,17 +45,20 @@ vi.mock("./general-settings", () => ({
   ),
 }));
 
-vi.mock("./account-settings", () => ({
-  AccountSettings: () => <div>Account content</div>,
-}));
+vi.mock("./account-settings", () => {
+  loadedPages.account();
+  return { AccountSettings: () => <div>Account content</div> };
+});
 
-vi.mock("@/account/usage/usage-settings", () => ({
-  UsageSettings: () => <div>Usage content</div>,
-}));
+vi.mock("@/account/usage/usage-settings", () => {
+  loadedPages.usage();
+  return { UsageSettings: () => <div>Usage content</div> };
+});
 
-vi.mock("@/account/policy/policy-page", () => ({
-  PolicyPage: () => <div>Policy content</div>,
-}));
+vi.mock("@/account/policy/policy-page", () => {
+  loadedPages.policy();
+  return { PolicyPage: () => <div>Policy content</div> };
+});
 
 describe("SettingsModal directory shell", () => {
   afterEach(() => {
@@ -58,6 +67,10 @@ describe("SettingsModal directory shell", () => {
 
   it("matches the Library frame and keeps navigation in the sidebar", () => {
     render(<SettingsModal onClose={vi.fn()} />);
+
+    expect(loadedPages.account).not.toHaveBeenCalled();
+    expect(loadedPages.usage).not.toHaveBeenCalled();
+    expect(loadedPages.policy).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole("dialog", { name: "Settings" });
     expect(dialog.style.width).toBe("1000px");
@@ -85,28 +98,28 @@ describe("SettingsModal directory shell", () => {
     ).toBeTruthy();
   });
 
-  it("switches sections from both the sidebar and in-content actions", () => {
+  it("switches sections from both the sidebar and in-content actions", async () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(screen.getByText("Account content")).toBeTruthy();
+    expect(await screen.findByText("Account content")).toBeTruthy();
     expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Safety" }));
-    expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(await screen.findByText("Policy content")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
     expect(
       screen.getByText("Guard policy and signing permissions"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "View usage" }));
-    expect(screen.getByText("Usage content")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "View usage" }));
+    expect(await screen.findByText("Usage content")).toBeTruthy();
     expect(screen.getByText("Spend, allowance, and statements")).toBeTruthy();
   });
 
-  it("gives every tab the same reading column", () => {
+  it("gives every tab the same reading column", async () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     for (const [tab, content] of [
@@ -116,9 +129,9 @@ describe("SettingsModal directory shell", () => {
       ["Usage", "Usage content"],
     ]) {
       fireEvent.click(screen.getByRole("button", { name: tab }));
-      const column = screen
-        .getByText(content)
-        .closest("[data-settings-column]");
+      const column = (await screen.findByText(content)).closest(
+        "[data-settings-column]",
+      );
       expect(column).toHaveClass("w-full", "px-6");
       expect(column).not.toHaveClass("mx-auto");
     }
@@ -146,11 +159,11 @@ describe("SettingsModal directory shell", () => {
     view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
     expect(onClose).toHaveBeenCalledOnce();
   });
-  it("keeps visited account content mounted during a refresh", () => {
+  it("keeps visited account content mounted during a refresh", async () => {
     const view = render(
       <SettingsModal onClose={vi.fn()} initialTab="account" />,
     );
-    const content = screen.getByText("Account content");
+    const content = await screen.findByText("Account content");
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     expect(content).toBeInTheDocument();
     expect(content).not.toBeVisible();
