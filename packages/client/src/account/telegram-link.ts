@@ -91,8 +91,6 @@ export type TelegramLinkResult = {
     id: string;
     address: string;
     role: "default" | "extra";
-    /** The Telegram bots keep using this wallet. */
-    used_by_bots: boolean;
   }[];
   /** Trades that were waiting for approval and were cancelled. */
   cancelled: number;
@@ -275,7 +273,6 @@ export function parseResult(value: unknown): TelegramLinkResult {
           id,
           address: stringValue(wallet.address) ?? "",
           role: wallet.role === "default" ? "default" : "extra",
-          used_by_bots: wallet.used_by_bots === true,
         },
       ];
     }),

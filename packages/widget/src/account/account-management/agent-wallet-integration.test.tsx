@@ -40,7 +40,6 @@ const agent = {
   is_default: true,
   status: "ready",
   merged: false,
-  pinned_telegram: false,
   created_at: 1,
   rule: { mode: "ask", rule_version: 0, instant: [] },
 } as AomiAccountWallet;

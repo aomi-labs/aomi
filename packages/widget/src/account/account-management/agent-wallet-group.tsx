@@ -152,7 +152,7 @@ export function AgentWalletGroup({
     setCreating(true);
     setCreateError([]);
     try {
-      const result = await agents.create(["evm", "svm"]);
+      const result = await agents.create();
       setCreateError(
         result.failed.map(
           (failure) =>
@@ -173,6 +173,10 @@ export function AgentWalletGroup({
           (other) => other.is_default && other.family !== wallet.family,
         )
       : undefined;
+  const missing = (["evm", "svm"] as const).filter(
+    (family) =>
+      !wallets.some((wallet) => wallet.is_default && wallet.family === family),
+  );
 
   return (
     <div data-agent-wallets>
@@ -184,7 +188,7 @@ export function AgentWalletGroup({
         <p className="type-control text-aomi-muted px-3.5 py-3">
           Couldn’t load your agent wallets.
         </p>
-      ) : wallets.length ? (
+      ) : (
         <div className="divide-aomi-border divide-y">
           {wallets.map((wallet) => (
             <AgentWalletRow
@@ -207,26 +211,31 @@ export function AgentWalletGroup({
               onWithdraw={onWithdraw}
             />
           ))}
-        </div>
-      ) : (
-        <div className="flex min-h-14 flex-wrap items-center gap-3 py-3 pl-3.5 pr-3 sm:flex-nowrap">
-          <BrandMark brand={AGENT_WALLET} />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="type-row">No agent wallet yet</span>
-            <span className="type-meta text-aomi-muted">
-              One EVM and one Solana address that Aomi signs from. Each trade
-              asks first.
-            </span>
-          </span>
-          <button
-            type="button"
-            disabled={creating || pending !== null}
-            onClick={() => void create()}
-            className={aomiButton({ variant: "secondary", size: "sm" })}
-          >
-            {creating ? <Loader2 className="animate-spin" /> : <Plus />}
-            Create agent wallet
-          </button>
+          {missing.length ? (
+            <div className="flex min-h-14 flex-wrap items-center gap-3 py-3 pl-3.5 pr-3 sm:flex-nowrap">
+              <BrandMark brand={AGENT_WALLET} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="type-row">
+                  {missing.length === 2
+                    ? "No agent wallet yet"
+                    : `No ${familyName(missing[0])} agent wallet yet`}
+                </span>
+                <span className="type-meta text-aomi-muted">
+                  One EVM and one Solana address that Aomi signs from. Each
+                  trade asks first.
+                </span>
+              </span>
+              <button
+                type="button"
+                disabled={creating || pending !== null}
+                onClick={() => void create()}
+                className={aomiButton({ variant: "secondary", size: "sm" })}
+              >
+                {creating ? <Loader2 className="animate-spin" /> : <Plus />}
+                Create agent wallet
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
       {createError.length ? (
@@ -268,7 +277,6 @@ export function AgentWalletRow({
   const active = Boolean(row?.active);
   const busy = row !== undefined && (pending?.endsWith(`:${row.key}`) ?? false);
   const locked = pending !== null;
-  const badge = wallet.bound_app?.label || (wallet.merged ? "Merged" : null);
   const explorer = walletExplorer(wallet, balance.data);
   const use = row && !active && onActivate ? () => onActivate(row) : undefined;
 
@@ -322,7 +330,6 @@ export function AgentWalletRow({
         ) : (
           <span className="type-row flex min-w-0 items-center gap-1.5">
             <span className="truncate">{wallet.label}</span>
-            {badge ? <StatusPill>{badge}</StatusPill> : null}
             {wallet.status === "paused" ? (
               <StatusPill tone="warning">Paused</StatusPill>
             ) : null}
@@ -335,11 +342,6 @@ export function AgentWalletRow({
             · {chainsLine(wallet, balance.data)}
           </span>
         </span>
-        {wallet.pinned_telegram && !wallet.is_default ? (
-          <span data-pinned-telegram className="type-meta text-aomi-muted">
-            Used by your Telegram bots
-          </span>
-        ) : null}
       </span>
     </>
   );

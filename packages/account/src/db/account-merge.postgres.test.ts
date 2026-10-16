@@ -342,25 +342,33 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     expect(merged.rows[0].merged).toMatchObject({ cancelled: 1 });
   });
 
-  it("keeps both agent wallets: the survivor's default, the Telegram one pinned", async () => {
+  it("keeps both agent wallets; the older key stays the default", async () => {
     const { target, source } = await accounts("wallets");
-    const wallet = (user: string, subject: string, pin: number | null) =>
-      db.query(
-        `insert into agent_wallets
-           (user_id, chain_type, para_subject, is_default, source,
-            instant_clients, pinned_telegram_user, created_at, updated_at)
-         values ($1, 'evm', $2, true, 'provisioned', $3, $4, 1, 1)
+    const wallet = async (user: string, keyAt: number, instant: string[]) => {
+      const key = await db.query(
+        `insert into public_keys (chain_type, address, created_at, updated_at, user_id)
+         values ('evm', $1, $2, $2, $3)
          returning id`,
-        [user, subject, pin ? ["telegram:7712345678"] : [], pin],
+        [`0x${randomUUID().replaceAll("-", "")}`, keyAt, user],
       );
-    const kept = (await wallet(target, `p-${target}`, null)).rows[0].id;
-    const moved = (await wallet(source, `p-${source}`, 42)).rows[0].id;
+      const row = await db.query(
+        `insert into agent_wallets
+           (user_id, chain_type, public_key_id, para_subject, status, is_default,
+            source, instant_clients, created_at, updated_at)
+         values ($1, 'evm', $2, $3, 'active', true, 'provisioned', $4, 1, 1)
+         returning id`,
+        [user, key.rows[0].id, `p-${user}`, instant],
+      );
+      return row.rows[0].id;
+    };
+    const kept = await wallet(target, 2, []);
+    const moved = await wallet(source, 1, ["telegram:7712345678"]);
 
     await mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
 
     const rows = await db.query(
       `select id, user_id, is_default, merged_at is not null as merged,
-              pinned_telegram_user, instant_clients
+              instant_clients
          from agent_wallets where id = any($1) order by id`,
       [[kept, moved]],
     );
@@ -368,17 +376,15 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       {
         id: kept,
         user_id: target,
-        is_default: true,
+        is_default: false,
         merged: false,
-        pinned_telegram_user: null,
         instant_clients: [],
       },
       {
         id: moved,
         user_id: target,
-        is_default: false,
+        is_default: true,
         merged: true,
-        pinned_telegram_user: "42",
         instant_clients: ["telegram:7712345678"],
       },
     ]);

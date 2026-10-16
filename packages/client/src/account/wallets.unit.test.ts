@@ -24,8 +24,6 @@ const agent = {
   is_default: true,
   status: "ready",
   merged: false,
-  pinned_telegram: false,
-  bound_app: null,
   rule: {
     mode: "ask",
     rule_version: 3,
@@ -41,8 +39,6 @@ const hoodit = {
   label: "Hoodit wallet",
   is_default: false,
   merged: true,
-  pinned_telegram: true,
-  bound_app: { id: 42, name: "hoodit", label: "Hoodit" },
   rule: { mode: "ask", rule_version: 0, instant: [] },
 };
 // The contract's example omits fields on non-agent entries.
@@ -139,19 +135,13 @@ describe("account wallets", () => {
     expect(calls[0]!.headers.has("x-aomi-csrf")).toBe(false);
     expect(wallets.map((wallet) => wallet.id)).toEqual(["w_12", "w_31", "w_9"]);
     expect(wallets[0]).toEqual(agent satisfies AomiAccountWallet);
-    expect(wallets[1]).toMatchObject({
-      merged: true,
-      pinned_telegram: true,
-      bound_app: { id: 42, label: "Hoodit" },
-    });
+    expect(wallets[1]).toMatchObject({ merged: true });
     expect(wallets[2]).toEqual({
       ...privy,
       custom_label: null,
       wallet_app: null,
       is_default: false,
       merged: false,
-      pinned_telegram: false,
-      bound_app: null,
       created_at: null,
     });
   });
@@ -166,7 +156,7 @@ describe("account wallets", () => {
     );
   });
 
-  it("creates agent wallets for both families by default and reports per-family failures", async () => {
+  it("creates both agent wallet families and reports per-family failures", async () => {
     const { client, calls } = backend({
       "POST /v1/account/wallets/agent": () =>
         Response.json({
@@ -176,7 +166,7 @@ describe("account wallets", () => {
         }),
     });
     const result = await client.account.wallets.createAgentWallets();
-    expect(calls[0]!.body).toEqual({ families: ["evm", "svm"] });
+    expect(calls[0]!.body ?? null).toBeNull();
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(result).toEqual({
       wallets: [agent],
@@ -186,7 +176,6 @@ describe("account wallets", () => {
   });
 
   it.each([
-    [400, "invalid_family"],
     [403, "guest_account"],
     [503, "agent_wallet_unavailable"],
     [502, "agent_wallet_provider_error"],
@@ -196,7 +185,7 @@ describe("account wallets", () => {
         Response.json({ error: code }, { status }),
     });
     const failure = await client.account.wallets
-      .createAgentWallets(["evm"])
+      .createAgentWallets()
       .catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(AomiWalletError);
     expect(failure).toMatchObject({ status, code });
@@ -507,7 +496,7 @@ describe("Telegram link (step 5)", () => {
       telegram: { username: "arixon" },
       wallets: [
         { id: "w_12", address: "0x91c0…", role: "default" },
-        { id: "w_31", address: "0x7a3f…", role: "extra", used_by_bots: true },
+        { id: "w_31", address: "0x7a3f…", role: "extra" },
       ],
       cancelled: 1,
       moved: { chats: 3, wallets: 2 },
@@ -527,9 +516,8 @@ describe("Telegram link (step 5)", () => {
           id: "w_12",
           address: "0x91c0…",
           role: "default",
-          used_by_bots: false,
         },
-        { id: "w_31", address: "0x7a3f…", role: "extra", used_by_bots: true },
+        { id: "w_31", address: "0x7a3f…", role: "extra" },
       ],
     });
     await link.cancelTelegramLink(code);

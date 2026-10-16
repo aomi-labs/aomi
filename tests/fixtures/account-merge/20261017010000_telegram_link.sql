@@ -6,7 +6,7 @@
 -- admission, and the merge cancels the source's unsigned commits. A source
 -- commit that is signed or sent blocks the merge until it settles.
 --
--- Online-compatible: new tables, a nullable column, and function bodies that
+-- Online-compatible: new tables and function bodies that
 -- old writers tolerate (a cancelled commit is an ordinary `rejected` row).
 
 -- One-time `/link` codes. Their columns avoid the names the merge sweep moves.
@@ -64,12 +64,6 @@ CREATE TABLE IF NOT EXISTS public.account_merge_fences (
 CREATE INDEX IF NOT EXISTS account_merge_fences_merge ON public.account_merge_fences (merge_id);
 ALTER TABLE public.account_merge_fences ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.account_merge_fences FROM PUBLIC;
-
--- The Telegram user whose bots keep trading from this wallet after a link.
-ALTER TABLE public.agent_wallets ADD COLUMN IF NOT EXISTS pinned_telegram_user BIGINT;
-CREATE UNIQUE INDEX IF NOT EXISTS agent_wallets_one_pin
-    ON public.agent_wallets (user_id, chain_type, pinned_telegram_user)
-    WHERE pinned_telegram_user IS NOT NULL;
 
 -- How an account merge treats a Commit Service row: 'cancel'
 -- when nothing was signed (parked, or waiting for a signature with no

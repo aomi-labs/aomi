@@ -11,7 +11,6 @@
  *   - `GET  /v1/account/wallets/:id/balance`  -> `AomiWalletBalance`
  *   - `PUT  /api/thread/wallet`               -> `AomiThreadWallet`
  *   - `GET  /v1/account/wallets/:id/rule`     -> `AomiWalletRuleSettings` (step 4)
- *   - `AomiAccountWallet.pinned_telegram` (step 5)
  *   - `PUT  /v1/account/wallets/:id/rule`     <- `AomiWalletRuleUpdate` (step 4)
  *   - `UserState` fields `wallet_pick`, `wallet_presence`, `active_wallet`
  *     (`UserStateWalletFields`) and `EventPage.active_wallet`.
@@ -67,10 +66,6 @@ export type AomiAccountWallet = {
   status: AomiAccountWalletStatus;
   /** Moved in by an account merge. */
   merged: boolean;
-  /** The account's Telegram bots keep using this wallet (step 5 link). */
-  pinned_telegram: boolean;
-  /** The app a legacy agent wallet is bound to. */
-  bound_app: { id: number; name: string; label: string } | null;
   /** Null for non-agent wallets. */
   rule: AomiWalletRule | null;
   /** Unix seconds. */
@@ -252,18 +247,12 @@ export class AccountWalletsTransport {
   }
 
   /**
-   * Create the account's default agent wallet for each family (both when
-   * omitted). Portal sessions only. Per-family provider failures come back in
-   * `failed`; the call throws only when every family failed.
+   * Create the account's default EVM and SVM agent wallets where missing.
+   * Portal sessions only. Per-family provider failures come back in `failed`;
+   * the call throws only when every family failed.
    */
-  async createAgentWallets(
-    families: readonly AomiWalletFamily[] = ["evm", "svm"],
-  ): Promise<AomiAgentWalletsCreated> {
-    const body = asRecord(
-      await this.request("POST", walletPaths.agent, {
-        body: { families: [...families] },
-      }),
-    );
+  async createAgentWallets(): Promise<AomiAgentWalletsCreated> {
+    const body = asRecord(await this.request("POST", walletPaths.agent));
     if (!body) throw invalid("body must be an object");
     return {
       wallets: arrayOf(body.wallets, "wallets").map(parseAccountWallet),
@@ -394,7 +383,6 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
   const status = requiredString(record.status, "wallet.status");
   if (status !== "ready" && status !== "paused" && status !== "linked")
     throw invalid(`unsupported wallet status: ${status}`);
-  const bound = asRecord(record.bound_app);
   return {
     id,
     kind,
@@ -407,15 +395,6 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
     is_default: record.is_default === true,
     status,
     merged: record.merged === true,
-    pinned_telegram: record.pinned_telegram === true,
-    bound_app:
-      bound && typeof bound.id === "number"
-        ? {
-            id: bound.id,
-            name: stringValue(bound.name) ?? "",
-            label: stringValue(bound.label) ?? stringValue(bound.name) ?? "",
-          }
-        : null,
     rule: parseRule(record.rule),
     created_at:
       typeof record.created_at === "number" ? record.created_at : null,
