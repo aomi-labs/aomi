@@ -82,6 +82,21 @@ describe("returning to a sign link after login", () => {
     expect(sessionStorage.getItem("aomi.sign.return")).toBeNull();
   });
 
+  it.each(["requested", "stashed"])(
+    "loads a new document for a %s Telegram link",
+    async (source) => {
+      const target = `/link/telegram?code=${"A".repeat(43)}`;
+      if (source === "requested")
+        window.location.search = `?return_to=${encodeURIComponent(target)}`;
+      else sessionStorage.setItem("aomi.sign.return", target);
+      useSession.mockReturnValue({ data: { user: { id: "user" } } });
+      render(<SignInReturn />);
+      await waitFor(() => expect(replace).toHaveBeenCalledWith(target));
+      expect(replace).toHaveBeenCalledTimes(1);
+      expect(sessionStorage.getItem("aomi.sign.return")).toBeNull();
+    },
+  );
+
   it("ignores an unsafe return target", async () => {
     window.location.search = "?return_to=https%3A%2F%2Fevil.example";
     useSession.mockReturnValue({ data: { user: { id: "user" } } });

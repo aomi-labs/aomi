@@ -200,17 +200,15 @@ describe("account merge handlers", () => {
     ["payment_in_progress", "account_merge_payment_in_progress"],
     ["commits_in_flight", "account_merge_commits_in_flight"],
     ["merge_in_progress", "account_merge_in_progress"],
-  ])(
-    "answers a merge still busy with %s as a retryable 409",
-    async (status, code) => {
-      service.mergeAccountWithTicket.mockResolvedValue({ status });
+    ["handover_conflict", "account_merge_handover_conflict"],
+  ])("answers a merge refusal with %s as a 409", async (status, code) => {
+    service.mergeAccountWithTicket.mockResolvedValue({ status });
 
-      const response = await mergeAccount(
-        call("/v1/account/merge", { ticket: "ticket-1" }),
-      );
+    const response = await mergeAccount(
+      call("/v1/account/merge", { ticket: "ticket-1" }),
+    );
 
-      expect(response.status).toBe(409);
-      expect(await response.json()).toEqual({ error: code });
-    },
-  );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: code });
+  });
 });

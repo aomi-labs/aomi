@@ -71,16 +71,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS agent_wallets_one_pin
     ON public.agent_wallets (user_id, chain_type, pinned_telegram_user)
     WHERE pinned_telegram_user IS NOT NULL;
 
--- How an account merge treats a non-terminal Commit Service row: 'cancel'
+-- How an account merge treats a Commit Service row: 'cancel'
 -- when nothing was signed (parked, or waiting for a signature with no
 -- signature or wallet attempt recorded), 'wait' once it is signed or sent,
--- NULL when terminal.
-CREATE OR REPLACE FUNCTION public.commit_merge_action(state TEXT, signed BOOLEAN)
+-- Recent expired rows with signed evidence also wait; NULL otherwise.
+CREATE OR REPLACE FUNCTION public.commit_merge_action(state TEXT, signed BOOLEAN, recent BOOLEAN)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
 AS $$
     SELECT CASE
+        -- A browser wallet can still broadcast an attempt the tick expired.
+        WHEN state = 'expired' AND signed AND recent THEN 'wait'
         WHEN state = 'awaiting_approval' THEN 'cancel'
         WHEN state = 'needs_signature' AND NOT signed THEN 'cancel'
         WHEN state IN ('needs_signature', 'awaiting_broadcast', 'submitted') THEN 'wait'
@@ -106,7 +108,8 @@ BEGIN
     IF EXISTS (SELECT 1 FROM commits
                 WHERE user_id = source_user_id AND commit_request IS NOT NULL
                   AND commit_merge_action(state, signed_blob IS NOT NULL
-                                                 OR provider_operation_id IS NOT NULL) = 'wait') THEN
+                                                 OR provider_operation_id IS NOT NULL,
+                                      updated_at > EXTRACT(EPOCH FROM NOW()) - 900) = 'wait') THEN
         RAISE EXCEPTION 'account_merge_commits_in_flight';
     END IF;
     UPDATE commits
@@ -114,7 +117,8 @@ BEGIN
            version = version + 1, updated_at = EXTRACT(EPOCH FROM NOW())::BIGINT
      WHERE user_id = source_user_id AND commit_request IS NOT NULL
        AND commit_merge_action(state, signed_blob IS NOT NULL
-                                      OR provider_operation_id IS NOT NULL) = 'cancel';
+                                      OR provider_operation_id IS NOT NULL,
+                                      updated_at > EXTRACT(EPOCH FROM NOW()) - 900) = 'cancel';
     GET DIAGNOSTICS cancelled = ROW_COUNT;
     RETURN cancelled;
 END;

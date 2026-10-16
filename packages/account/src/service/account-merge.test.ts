@@ -93,6 +93,17 @@ describe("account merge billing wait", () => {
     },
   );
 
+  it("returns the World conflict without retrying", async () => {
+    vi.mocked(mergeAccountRows).mockRejectedValue(
+      new Error("account_merge_handover_conflict"),
+    );
+    await expect(mergeAccountWithTicket(input)).resolves.toEqual({
+      status: "handover_conflict",
+    });
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("does not retry unrelated failures", async () => {
     const failure = new Error("database unavailable");
     vi.mocked(mergeAccountRows).mockRejectedValue(failure);
