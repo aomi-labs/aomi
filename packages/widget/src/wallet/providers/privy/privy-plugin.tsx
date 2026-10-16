@@ -53,9 +53,10 @@ function PrivyAuthLayer({
   }
 
   const { PrivyProvider } = privySdk().auth;
+  const { SmartWalletsProvider } = privySdk().smartWallets;
   return (
     <PrivyProvider appId={appId} config={config}>
-      {children}
+      <SmartWalletsProvider>{children}</SmartWalletsProvider>
     </PrivyProvider>
   );
 }
@@ -73,6 +74,7 @@ export const privyPlugin: WalletProviderPlugin = {
     account,
     auth,
     children,
+    execution,
     externalSvmWallet,
     solanaRuntimeConfig,
     supportedChains,
@@ -82,6 +84,7 @@ export const privyPlugin: WalletProviderPlugin = {
       loginMethods={
         isPrivyAuth(auth) ? toPrivyLoginMethods(auth.methods) : undefined
       }
+      execution={execution}
       externalSvmWallet={externalSvmWallet}
       account={account}
       preferDirectSend={solanaRuntimeConfig?.preferDirectSend}

@@ -69,7 +69,10 @@ export function buildWalletKitActions({
   };
 
   return {
-    selectAccount: async (id: string) => {
+    selectAccount: async (
+      id: string,
+      options?: Parameters<EvmWalletRuntime["selectAccount"]>[1],
+    ) => {
       const target = accounts.find(
         (account) =>
           account.id === id ||
@@ -79,7 +82,8 @@ export function buildWalletKitActions({
         throw new Error(`Unknown account: ${id}`);
       }
       if (target.family === "evm") {
-        await evm.selectAccount(id);
+        if (options) await evm.selectAccount(id, options);
+        else await evm.selectAccount(id);
         return;
       }
       await svm?.selectAccount(id);

@@ -517,6 +517,17 @@ export function useActions(session: Session | undefined): {
                     };
                     amount: string;
                 };
+                prepared_by?: string;
+                failure_rules?: {
+                    any?: string[];
+                    classification: string;
+                    advice: string;
+                }[];
+                follow_up?: {
+                    tool: string;
+                    note: string;
+                    data?: unknown;
+                };
             }[];
             simulation: {
                 status: "passed" | "failed" | "unavailable";

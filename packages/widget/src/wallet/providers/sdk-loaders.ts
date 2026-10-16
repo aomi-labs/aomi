@@ -18,11 +18,12 @@ export class MissingWalletSdkError extends Error {
 
 export async function loadPrivyPlugin(): Promise<WalletProviderPlugin> {
   try {
-    const [auth, solana] = await Promise.all([
+    const [auth, smartWallets, solana] = await Promise.all([
       import("@privy-io/react-auth"),
+      import("@privy-io/react-auth/smart-wallets"),
       import("@privy-io/react-auth/solana"),
     ]);
-    setPrivySdk({ auth, solana });
+    setPrivySdk({ auth, smartWallets, solana });
   } catch (cause) {
     throw new MissingWalletSdkError("Privy", ["@privy-io/react-auth"], cause);
   }
