@@ -391,6 +391,7 @@ function pendingStep(
 ): WalletPendingStep | null {
   if (row.state !== "offline" && row.state !== "mismatch") return null;
   if (row.state === "offline" && row.reason === "account_error") return null;
+  if (row.reason === "selection_required") return null;
   if (row.kind === "embedded") return "connect";
   const brand = brands.get(row.key);
   // The app is here on another address: the user switches inside the app.
@@ -436,6 +437,10 @@ export function planWalletActivation(
       ? { kind: "active" }
       : { kind: "agent", family: row.family };
   }
+  // A hydrated embedded signer that another signer outranks: selecting it is
+  // the step, never a fresh login (the provider is already signed in).
+  if (row.reason === "selection_required" && row.connectionId)
+    return { kind: "select", accountId: row.connectionId };
   if (row.state === "ready" || row.state === "guest") {
     return row.operating || !row.connectionId
       ? { kind: "active" }
