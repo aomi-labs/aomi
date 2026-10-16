@@ -173,17 +173,31 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
     },
     HeaderControls: ({
       onOpenSettings,
+      onOpenPackages,
       showSettings,
     }: {
       onOpenSettings: () => void;
+      onOpenPackages: () => void;
       showSettings: boolean;
-    }) =>
-      showSettings ? (
-        <button type="button" onClick={onOpenSettings}>
-          Open settings
+    }) => (
+      <>
+        {showSettings && (
+          <button type="button" onClick={onOpenSettings}>
+            Open settings
+          </button>
+        )}
+        <button type="button" onClick={onOpenPackages}>
+          Open Library
         </button>
-      ) : null,
-    PackagesModal: () => <div data-testid="packages-modal" />,
+      </>
+    ),
+    PackagesModal: ({ onClose }: { onClose: () => void }) => (
+      <div data-testid="packages-modal">
+        <button type="button" onClick={onClose}>
+          Close Library
+        </button>
+      </div>
+    ),
     SettingsModal: ({ initialTab }: { initialTab?: string }) => (
       <div data-testid="settings-modal" data-tab={initialTab} />
     ),
@@ -386,8 +400,23 @@ describe("PortalAomiFrame account bootstrap", () => {
     // runtime and reports "Open a chat thread before enabling automatic
     // signing." with a chat open. It must stay a descendant.
     expect(screen.getByTestId("aomi-frame")).toContainElement(
-      screen.getByTestId("settings-modal"),
+      await screen.findByTestId("settings-modal"),
     );
+  });
+
+  it("opens and reopens the deferred Library without remounting the chat", async () => {
+    render(<PortalAomiFrame />);
+    const frame = screen.getByTestId("aomi-frame");
+    expect(screen.queryByTestId("packages-modal")).not.toBeInTheDocument();
+    for (let open = 0; open < 2; open++) {
+      fireEvent.click(screen.getByRole("button", { name: "Open Library" }));
+      expect(frame).toContainElement(
+        await screen.findByTestId("packages-modal"),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Close Library" }));
+      expect(screen.queryByTestId("packages-modal")).not.toBeInTheDocument();
+      expect(screen.getByTestId("aomi-frame")).toBe(frame);
+    }
   });
 
   it("mounts the anonymous frame after a signed-out lookup resolves", async () => {
@@ -531,7 +560,7 @@ describe("PortalAomiFrame account bootstrap", () => {
       settingsOpenRequest.current?.("policy");
     });
 
-    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+    expect(await screen.findByTestId("settings-modal")).toHaveAttribute(
       "data-tab",
       "policy",
     );

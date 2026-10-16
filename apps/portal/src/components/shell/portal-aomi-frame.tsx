@@ -8,14 +8,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import dynamic from "next/dynamic";
 import type { AomiRoutingConfig, DirectRoutingApp } from "@aomi-labs/widget";
 import { AomiFrame } from "@aomi-labs/widget/frame";
 import {
   DEFAULT_SIDEBAR_PRODUCTS,
   getBackendUrl,
   HeaderControls,
-  PackagesModal,
-  SettingsModal,
   useAccountOverview,
   useAccountSnapshot,
   useAomiWalletKit,
@@ -26,12 +25,13 @@ import {
   type WalletAccountMenuOptions,
 } from "@aomi-labs/widget/host-composition";
 import { useAomiRuntime } from "@aomi-labs/react";
-import { OverlayPortal } from "@/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
 } from "@/lib/portal-client-options";
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
+
+const PortalOverlay = dynamic(() => import("./portal-overlay"), { ssr: false });
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
 
@@ -485,19 +485,12 @@ export function PortalAomiFrame() {
           {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one
             backdrop still covers the sidebar and chat as one surface. */}
-          {overlay === "settings" && (
-            <OverlayPortal>
-              <SettingsModal
-                key={settingsTab}
-                initialTab={settingsTab}
-                onClose={() => setOverlay("none")}
-              />
-            </OverlayPortal>
-          )}
-          {overlay === "packages" && (
-            <OverlayPortal>
-              <PackagesModal onClose={() => setOverlay("none")} />
-            </OverlayPortal>
+          {overlay !== "none" && (
+            <PortalOverlay
+              kind={overlay}
+              settingsTab={settingsTab}
+              onClose={() => setOverlay("none")}
+            />
           )}
         </AomiFrame.Root>
       </div>
