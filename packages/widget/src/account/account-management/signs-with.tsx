@@ -16,6 +16,9 @@ import {
   rowTitle,
 } from "./wallet-model";
 
+/** An agent wallet lives on the server, so it is always ready to sign. */
+const ready = (row: WalletRow) => row.kind === "agent" || row.connected;
+
 export function FamilyTag({ family }: { family: WalletFamily }) {
   return (
     <span className="border-aomi-border text-aomi-muted inline-flex h-4 items-center rounded-[5px] border px-1 font-mono text-[10px] font-medium leading-none">
@@ -145,7 +148,7 @@ function FamilySlot({
           <span className="flex min-w-0 items-center gap-1.5 opacity-60">
             <BrandMark
               brand={appName(current)}
-              dot={current.connected ? "on" : "off"}
+              dot={ready(current) ? "on" : "off"}
               size={13}
               box={16}
             />
@@ -235,7 +238,7 @@ function FamilySlot({
             >
               <BrandMark
                 brand={appName(row)}
-                dot={row.connected ? "on" : "off"}
+                dot={ready(row) ? "on" : "off"}
                 size={15}
                 box={28}
               />
