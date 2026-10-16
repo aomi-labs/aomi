@@ -279,7 +279,7 @@ export function changedPathsForPullRequest(
   head,
   { cwd = process.cwd() } = {},
 ) {
-  if (!/^[1-9]\\d*$/.test(pullRequestId) || !/^[a-f0-9]{40}$/i.test(head)) {
+  if (!/^[1-9]\d*$/.test(pullRequestId) || !/^[a-f0-9]{40}$/i.test(head)) {
     return null;
   }
   try {
@@ -292,7 +292,7 @@ export function changedPathsForPullRequest(
       "git",
       ["rev-list", "--parents", "-n", "1", "FETCH_HEAD"],
       { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-    ).trim().split(/\\s+/);
+    ).trim().split(/\s+/);
     // A stale GitHub merge ref cannot qualify a newer PR head.
     if (!merge || !base || prHead !== head) return null;
     return changedPathsBetween(base, merge, { mode: "push", cwd });
