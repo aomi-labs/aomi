@@ -15,6 +15,7 @@ import { AomiButton } from "@/ui/aomi/button";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
+import { ImpactPanel } from "@/sidebar/activity/wallet-impact";
 
 const CommitApprovePanel = lazy(() =>
   import("./approval").then((module) => ({
@@ -94,7 +95,11 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
     isTerminalCommit(view) ||
     view.state === "submitted" ||
     lifecycle.phase === "signing";
-  const awaitingWallet = Boolean(view.action) && !settled;
+  // An agent-wallet commit: once approved, Aomi signs it; no wallet here.
+  const serverSigned = view.signing_mode === "auto";
+  const awaitingWallet = Boolean(view.action) && !settled && !serverSigned;
+  const serverSigning =
+    serverSigned && !settled && view.state !== "awaiting_approval";
   const canSign = connected && handle.canSign(capabilities);
   const time = commitRelativeTime(view.created_at);
   const signerRow = wallet.wallets.find(
@@ -199,6 +204,31 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
           }
           onReject={() => void run(() => handle.reject())}
         />
+      ) : null}
+      {serverSigning ? (
+        <div className="mt-3 grid gap-3">
+          {review ? (
+            <ImpactPanel
+              request={review}
+              balanceChanges={
+                review.type === "sign"
+                  ? []
+                  : (review.simulation?.balanceChanges ?? [])
+              }
+              approvals={
+                review.type === "sign"
+                  ? []
+                  : (review.simulation?.approvals ?? [])
+              }
+              supportedChains={wallet.supportedChains}
+              showNetwork
+              failed={false}
+            />
+          ) : null}
+          <p role="status" className="type-meta text-aomi-muted">
+            Approved · Aomi is signing with your agent wallet.
+          </p>
+        </div>
       ) : null}
       {awaitingWallet && !review ? (
         <p role="status" className="type-meta text-aomi-muted mt-3">
