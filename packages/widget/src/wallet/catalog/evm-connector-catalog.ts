@@ -5,6 +5,7 @@ import { http } from "viem";
 import {
   createConfig,
   createStorage,
+  ProviderNotFoundError,
   type Config,
   type CreateConnectorFn,
 } from "wagmi";
@@ -100,6 +101,61 @@ function memoryStringStorage() {
   };
 }
 
+type StoredConnection = { connector?: { id?: string } };
+
+async function hasStoredConnection(
+  storage: Config["storage"],
+  connectorId: string,
+): Promise<boolean> {
+  try {
+    if ((await storage?.getItem("recentConnectorId")) === connectorId)
+      return true;
+    const stored = (await storage?.getItem("store")) as {
+      state?: { connections?: Map<string, StoredConnection> };
+    } | null;
+    return [...(stored?.state?.connections?.values() ?? [])].some(
+      (connection) => connection.connector?.id === connectorId,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * WalletConnect's provider and QR modal are large lazy imports, and wagmi's
+ * setup and mount-time reconnect ask every connector for its provider. Keep
+ * them unloaded until the user picks WalletConnect or a stored session needs
+ * restoring, so guests never download them on first load.
+ */
+function deferredWalletConnect(
+  parameters: Parameters<typeof walletConnect>[0],
+): CreateConnectorFn {
+  const create = walletConnect(parameters);
+  return ((config) => {
+    const connector = create(config);
+    let awake = false;
+    return {
+      ...connector,
+      async connect(this: typeof connector, options) {
+        awake = true;
+        return connector.connect.call(this, options);
+      },
+      async getProvider(this: typeof connector, options) {
+        if (!awake) {
+          awake = await hasStoredConnection(
+            config.storage ?? null,
+            connector.id,
+          );
+          if (!awake) throw new ProviderNotFoundError();
+          // setup() skipped its listeners while asleep.
+          void connector.setup?.call(this);
+        }
+        return connector.getProvider.call(this, options);
+      },
+    } as typeof connector;
+  }) as CreateConnectorFn;
+}
+
 export function createAomiEvmConfig(input: ResolvedEvmWalletsConfig): Config {
   const wanted = new Set(
     input.wallets ?? EVM_PRESETS[input.preset ?? "popular"],
@@ -120,7 +176,7 @@ export function createAomiEvmConfig(input: ResolvedEvmWalletsConfig): Config {
   const connectors: CreateConnectorFn[] = [
     injected({ shimDisconnect: true }),
     ...(wanted.has("walletconnect") && wcProjectId
-      ? [walletConnect({ projectId: wcProjectId, showQrModal: true })]
+      ? [deferredWalletConnect({ projectId: wcProjectId, showQrModal: true })]
       : []),
     ...(input.coinbase !== false && wanted.has("coinbase")
       ? [
