@@ -228,12 +228,29 @@ export function classifyPaths(paths, { forceFull = false } = {}) {
   return selection;
 }
 
-function changedPaths() {
-  const base = process.env.CI_BASE_SHA;
-  const head = process.env.CI_HEAD_SHA;
+export function selectsVercelProject(
+  paths,
+  project,
+  { forceFull = false } = {},
+) {
+  if (!APP_KEYS.includes(project)) return true;
+
+  const selection = classifyPaths(paths, { forceFull });
+  if (selection.full || selection[project]) return true;
+
+  // Preview E2E resolves immutable deployments for both apps on every path
+  // selection that enables it. Keep those exact-SHA Portal/Build previews.
+  return selection.preview && (project === "portal" || project === "build");
+}
+
+export function changedPathsBetween(
+  base,
+  head,
+  { mode = "pull_request", cwd = process.cwd() } = {},
+) {
   if (!base || !head || /^0+$/.test(base)) return null;
 
-  const separator = process.env.CI_DIFF_MODE === "push" ? ".." : "...";
+  const separator = mode === "push" ? ".." : "...";
   try {
     const output = execFileSync(
       "git",
@@ -244,12 +261,18 @@ function changedPaths() {
         "-z",
         `${base}${separator}${head}`,
       ],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
     return output.split("\0").filter(Boolean);
   } catch {
     return null;
   }
+}
+
+function changedPaths() {
+  return changedPathsBetween(process.env.CI_BASE_SHA, process.env.CI_HEAD_SHA, {
+    mode: process.env.CI_DIFF_MODE,
+  });
 }
 
 function writeOutputs(selection, paths) {
