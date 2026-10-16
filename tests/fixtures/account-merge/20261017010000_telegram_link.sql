@@ -216,6 +216,13 @@ BEGIN
     DELETE FROM user_application_secrets WHERE user_id = source_user_id;
 
     -- Tables with a per-account unique key: the target's row wins.
+    DELETE FROM agent_wallet_rules
+     WHERE user_id = source_user_id
+       AND EXISTS (SELECT 1 FROM agent_wallet_rules WHERE user_id = target_user_id);
+    DELETE FROM account_connections s
+     WHERE s.user_id = source_user_id
+       AND EXISTS (SELECT 1 FROM account_connections t
+                   WHERE t.user_id = target_user_id AND t.key = s.key);
     DELETE FROM user_application_installs i
      WHERE i.user_id = source_user_id
        AND EXISTS (SELECT 1 FROM user_application_installs t

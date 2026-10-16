@@ -49,7 +49,7 @@ export type CommitApprovalState =
  */
 export type CommitApprovalView = {
   state: CommitApprovalState;
-  /** Rule client that asked: `portal`, `cli`, `mcp`, `telegram:<bot id>`. */
+  /** Connection that asked: `portal`, `cli`, `oauth:<client id>`, `telegram:<bot id>`. */
   client?: string | null;
   /** Unix seconds; the commit's own expiry. */
   expires_at: number;

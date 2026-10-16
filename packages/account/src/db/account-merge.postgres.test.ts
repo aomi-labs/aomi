@@ -344,7 +344,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
 
   it("keeps both agent wallets; the older key stays the default", async () => {
     const { target, source } = await accounts("wallets");
-    const wallet = async (user: string, keyAt: number, instant: string[]) => {
+    const wallet = async (user: string, keyAt: number) => {
       const key = await db.query(
         `insert into public_keys (chain_type, address, created_at, updated_at, user_id)
          values ('evm', $1, $2, $2, $3)
@@ -354,21 +354,20 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       const row = await db.query(
         `insert into agent_wallets
            (user_id, chain_type, public_key_id, para_subject, status, is_default,
-            source, instant_clients, created_at, updated_at)
-         values ($1, 'evm', $2, $3, 'active', true, 'provisioned', $4, 1, 1)
+            created_at, updated_at)
+         values ($1, 'evm', $2, $3, 'active', true, 1, 1)
          returning id`,
-        [user, key.rows[0].id, `p-${user}`, instant],
+        [user, key.rows[0].id, `p-${user}`],
       );
       return row.rows[0].id;
     };
-    const kept = await wallet(target, 2, []);
-    const moved = await wallet(source, 1, ["telegram:7712345678"]);
+    const kept = await wallet(target, 2);
+    const moved = await wallet(source, 1);
 
     await mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
 
     const rows = await db.query(
-      `select id, user_id, is_default, merged_at is not null as merged,
-              instant_clients
+      `select id, user_id, is_default, merged_at is not null as merged
          from agent_wallets where id = any($1) order by id`,
       [[kept, moved]],
     );
@@ -378,14 +377,12 @@ describe.skipIf(!enabled)("merge_accounts", () => {
         user_id: target,
         is_default: false,
         merged: false,
-        instant_clients: [],
       },
       {
         id: moved,
         user_id: target,
         is_default: true,
         merged: true,
-        instant_clients: ["telegram:7712345678"],
       },
     ]);
   });

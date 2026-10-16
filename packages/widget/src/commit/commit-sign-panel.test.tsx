@@ -96,7 +96,7 @@ const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
         max_priority_fee_per_gas: "1",
       },
     },
-  } as CommitRefView["action"],
+  } as unknown as CommitRefView["action"],
   origin: "cli",
   origin_app: null,
   initiator: "cli",
@@ -140,7 +140,37 @@ async function open(
   return { handle, writes };
 }
 
+/** The page's own reads: the account's connections and its lock. */
+const account = vi.hoisted(() => ({
+  locked: false,
+  writes: [] as unknown[],
+}));
 beforeEach(() => {
+  account.locked = false;
+  account.writes = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input), "https://portal.test").pathname;
+      if (path === "/v1/account/agent-rule") {
+        if (init?.method === "PUT") {
+          account.writes.push(JSON.parse(String(init.body)));
+          account.locked = false;
+        }
+        return Response.json({ locked: account.locked, version: 7 });
+      }
+      return Response.json({
+        connections: [
+          {
+            key: "telegram:77",
+            kind: "telegram",
+            name: "@HooditBot",
+            removable: false,
+          },
+        ],
+      });
+    }),
+  );
   kit.identity.address = signer;
   kit.wallets = [];
   kit.connect.mockReset();
@@ -148,6 +178,7 @@ beforeEach(() => {
   signTransaction.mockClear();
 });
 afterEach(() => {
+  vi.unstubAllGlobals();
   handle?.close();
   handle = undefined;
   cleanup();
@@ -164,7 +195,7 @@ describe("CommitSignPanel", () => {
         transaction_id: "0xhash",
       }),
     );
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     expect(screen.getByText("From CLI · 5 minutes ago")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Wallet impact" })).toBeTruthy();
@@ -176,13 +207,17 @@ describe("CommitSignPanel", () => {
       path: `/v1/commits/${ref}/sign`,
       body: { version: 2, review_digest: "digest-2", payloads: ["0xsigned"] },
     });
-    expect(await screen.findByText("Submitted; confirming")).toBeTruthy();
+    // Submit spins in place until the transaction confirms.
+    expect(
+      await screen.findByRole("button", { name: /Working…/ }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByRole("heading", { name: "Review trade" })).toBeTruthy();
   });
 
   it("asks for exactly the commit's signer before signing", async () => {
     kit.identity.address = "0x9999999999999999999999999999999999999999";
     const { handle } = await open(view());
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     expect(screen.getByText(/to review and sign this request/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Submit/ })).toHaveProperty(
@@ -199,7 +234,7 @@ describe("CommitSignPanel", () => {
     kit.identity.address = undefined;
     kit.wallets = [{ key: "evm:signer", family: "evm", address: signer }];
     const { handle } = await open(view());
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Switch to this wallet" }),
@@ -219,9 +254,11 @@ describe("CommitSignPanel", () => {
         transaction_url: "https://etherscan.io/tx/0xhash",
       }),
     );
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
-    expect(screen.getByText("Confirmed")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Transaction confirmed" }),
+    ).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /View on explorer/ }),
     ).toHaveProperty("href", "https://etherscan.io/tx/0xhash");
@@ -230,7 +267,7 @@ describe("CommitSignPanel", () => {
 });
 
 describe("CommitSignPanel · approvals", () => {
-  it("approves a parked commit with no wallet to connect, then shows Signing…", async () => {
+  it("approves a parked commit with no wallet to connect, spinning in place", async () => {
     kit.identity.address = undefined;
     const { handle, writes } = await open(
       parked(),
@@ -247,7 +284,7 @@ describe("CommitSignPanel · approvals", () => {
         },
       }),
     );
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     const approve = await screen.findByRole("button", { name: "Approve" });
     expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
@@ -260,7 +297,10 @@ describe("CommitSignPanel · approvals", () => {
       path: `/v1/commits/${ref}/approve`,
       body: { version: 2, review_digest: "digest-2" },
     });
-    expect(await screen.findByText("Signing…")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: /Working…/ }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.queryByText("Signing…")).toBeNull();
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
@@ -272,11 +312,11 @@ describe("CommitSignPanel · approvals", () => {
     [{ code: "commit_expired", status: 410 }, "Expired · nothing was signed"],
     [
       { code: "commit_signing_denied", status: 403 },
-      "This wallet is paused. Unpause it in Settings → Safety.",
+      "Your agent wallet is locked. Unlock it in Settings → Account.",
     ],
   ])("explains a refused approval (%o)", async (refusal, message) => {
     const { handle } = await open(parked(), refusal);
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
     expect(await screen.findByText(message)).toBeTruthy();
   });
@@ -286,7 +326,7 @@ describe("CommitSignPanel · approvals", () => {
       code: "commit_gas_stale",
       status: 409,
     });
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
     expect(
       await screen.findByText("This request changed. Nothing was signed."),
@@ -297,9 +337,26 @@ describe("CommitSignPanel · approvals", () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
+  it("names the bot that asked, and offers Unlock when the account is locked", async () => {
+    account.locked = true;
+    const { handle } = await open(parked({ notify: "telegram:77:1234" }));
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    expect(
+      await screen.findByRole("heading", {
+        name: "Your agent wallet is locked",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(
+      await screen.findByRole("heading", { name: "Review trade" }),
+    ).toBeTruthy();
+    expect(account.writes).toEqual([{ locked: false, version: 7 }]);
+    expect(screen.getByText(/^From @HooditBot · expires in/)).toBeTruthy();
+  });
+
   it("asks a session that cannot approve to sign in on Aomi", async () => {
     const { handle } = await open(parked({ can_approve: false }));
-    render(<CommitSignPanel handle={handle} />);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
     expect(await screen.findByText("Sign in on Aomi to approve.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });

@@ -166,6 +166,9 @@ export const auth = betterAuth({
       "/oauth2/authorize": { window: 60, max: 30 },
       "/oauth2/token": { window: 60, max: 60 },
       "/device/code": { window: 60, max: 20 },
+      // The plugin's own rule is 5 reads per code lifetime; one CLI login
+      // reads three codes.
+      "/device": { window: 60, max: 20 },
     },
   },
   onAPIError: {

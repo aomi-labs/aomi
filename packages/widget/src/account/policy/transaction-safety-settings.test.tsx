@@ -12,7 +12,12 @@ const state = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: state.request }),
 }));
+import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
+
+// Settings always runs under the frame's display cache; saves write into it.
+const renderSettings = () =>
+  render(<TransactionSafetySettings />, { wrapper: AccountOverviewFixture });
 
 const account: TransactionSafetyPolicy = {
   mode: "balanced",
@@ -30,7 +35,7 @@ beforeEach(() => {
 
 describe("default transaction safety", () => {
   it("reads only the account default, never a chat or Swig policy", async () => {
-    render(<TransactionSafetySettings />);
+    renderSettings();
     expect(
       await screen.findByRole("radio", { name: "Balanced" }),
     ).toHaveAttribute("aria-checked", "true");
@@ -49,7 +54,7 @@ describe("default transaction safety", () => {
           })
         : Promise.resolve(account),
     );
-    render(<TransactionSafetySettings />);
+    renderSettings();
     fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
 
     expect(state.request).toHaveBeenCalledWith(
@@ -83,7 +88,7 @@ describe("default transaction safety", () => {
           })
         : Promise.resolve(account),
     );
-    render(<TransactionSafetySettings />);
+    renderSettings();
     fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
 
     // The row being saved swaps its check for a spinner; every row is locked.
@@ -118,7 +123,7 @@ describe("default transaction safety", () => {
           : account,
       ),
     );
-    render(<TransactionSafetySettings />);
+    renderSettings();
     const balanced = await screen.findByRole("radio", { name: "Balanced" });
     fireEvent.keyDown(balanced, { key: "ArrowDown" });
 
@@ -132,7 +137,7 @@ describe("default transaction safety", () => {
   });
 
   it("shows Yolo but never offers it as a default", async () => {
-    render(<TransactionSafetySettings />);
+    renderSettings();
     const yolo = await screen.findByRole("radio", { name: "Yolo" });
     expect(yolo).toBeDisabled();
     fireEvent.click(yolo);
@@ -153,7 +158,7 @@ describe("default transaction safety", () => {
           : { ...account, mode: "guarded_only", revision: 5 },
       );
     });
-    render(<TransactionSafetySettings />);
+    renderSettings();
     fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Policy changed in another window",
@@ -169,7 +174,7 @@ describe("default transaction safety", () => {
 
   it("rejects an unknown mode instead of defaulting", async () => {
     state.request.mockResolvedValue({ ...account, mode: "unknown" });
-    render(<TransactionSafetySettings />);
+    renderSettings();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).toBeNull();
   });

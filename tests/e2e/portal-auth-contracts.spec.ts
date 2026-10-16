@@ -278,28 +278,30 @@ test("a sign link is login-only and returns to its review after sign-in", async 
   await signOutThroughUi(page);
   await page.close();
 
+  // Signed out, the sign page itself opens the wallet picker with its
+  // purpose; closed, it leaves a Sign in sheet that reopens it.
   const signedOut = await page.context().newPage();
   await signedOut.goto(`${portalOrigin}/sign/${ref}`);
-  await expect(signedOut).toHaveURL(
-    `${portalOrigin}/?return_to=%2Fsign%2F${ref}`,
-  );
+  const picker = signedOut.getByRole("dialog", { name: "Sign in to Aomi" });
+  await expect(picker.getByText("To review a trade")).toBeVisible({
+    timeout: 30_000,
+  });
+  await picker.getByRole("button", { name: "Close" }).click();
 
   await signInThroughUi(signedOut, {
     family: "evm",
     pageOrigin: portalOrigin,
     challengeOrigin: portalOrigin,
     privateKeys: [keys.evm[0]!],
-    path: `/sign/${ref}`,
+    navigate: false,
     expectAccountMenu: false,
   });
-  await signedOut.waitForURL(`${portalOrigin}/sign/${ref}`, {
-    timeout: 30_000,
-  });
+  await expect(signedOut).toHaveURL(`${portalOrigin}/sign/${ref}`);
   const request = signedOut.getByRole("region", {
     name: "Transaction request",
   });
   await expect(request).toBeVisible({ timeout: 30_000 });
-  await expect(request.getByText("From CLI · 2 minutes ago")).toBeVisible();
+  await expect(signedOut.getByText("From CLI · 2 minutes ago")).toBeVisible();
   await expect(
     request.getByRole("region", { name: "Wallet impact", exact: true }),
   ).toBeVisible();
@@ -346,7 +348,11 @@ test("a portal session approves a parked agent-wallet commit on its sign page", 
     batch: null,
     wallet_attempt: null,
     action: null,
-    approval: { state: "pending", client: "mcp", expires_at: 1_900_000_000 },
+    approval: {
+      state: "pending",
+      client: "oauth:contract",
+      expires_at: 1_900_000_000,
+    },
     review: {
       version: 2,
       revision: 1,
@@ -378,8 +384,8 @@ test("a portal session approves a parked agent-wallet commit on its sign page", 
     },
     origin: "mcp",
     origin_app: null,
-    initiator: "mcp:contract",
-    notify: "mcp:contract",
+    initiator: "oauth:contract",
+    notify: "oauth:contract",
     sign_url: `${portalOrigin}/sign/${ref}`,
     created_at: Math.floor(Date.now() / 1000) - 60,
   });
@@ -395,7 +401,10 @@ test("a portal session approves a parked agent-wallet commit on its sign page", 
     request.getByRole("button", { name: /Connect wallet|Switch to/ }),
   ).toHaveCount(0);
   await request.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect(request.getByText("Signing…")).toBeVisible({ timeout: 30_000 });
+  // Approve spins in place while Aomi signs; there is no "Signing…" screen.
+  await expect(request.getByRole("button", { name: /Working…/ })).toBeVisible({
+    timeout: 30_000,
+  });
 
   const approve = (await upstreamRecords()).find(
     (record) =>

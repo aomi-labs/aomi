@@ -28,12 +28,12 @@ export type DisplayResource =
   | "threads"
   | "profile"
   | "credits"
-  | "account-acl"
   | "account-apps"
   | "transaction-safety"
   | "usage"
   | "account-wallets"
-  | "wallet-balance";
+  | "agent-rule"
+  | "connections";
 
 /** The same for every caller: keyed without the account and cached at the edge. */
 const PUBLIC_CATALOGS: ReadonlySet<DisplayResource> = new Set([
@@ -52,13 +52,14 @@ const STALE_TIME: Partial<Record<DisplayResource, number>> = {
   credits: MINUTE,
   "transaction-safety": 10 * MINUTE,
   "account-wallets": MINUTE,
-  // The server caches a balance for 30 s.
-  "wallet-balance": 30_000,
+  "agent-rule": MINUTE,
+  connections: MINUTE,
 };
 const REFRESH_ON_FOCUS: ReadonlySet<DisplayResource> = new Set([
   "profile",
-  "account-acl",
   "account-wallets",
+  "agent-rule",
+  "connections",
 ]);
 
 /**

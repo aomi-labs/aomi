@@ -672,12 +672,21 @@ export async function denyAgentWalletsForUser(input: {
         where public_key_id = $1 and revoked_at is null`,
       [key.id],
     );
-    await input.db.query(
-      `update agent_wallets set instant_clients = '{}', rule_version = rule_version + 1,
-          updated_at = extract(epoch from now())::bigint where public_key_id = $1`,
-      [key.id],
-    );
   }
+  // Lock the account and put every connection back on Ask.
+  await input.db.query(
+    `insert into agent_wallet_rules (user_id, locked, version, updated_at)
+     values ($1, true, 1, extract(epoch from now())::bigint)
+     on conflict (user_id) do update set locked = true,
+       version = agent_wallet_rules.version + 1, updated_at = excluded.updated_at`,
+    [input.userId],
+  );
+  await input.db.query(
+    `update account_connections set instant = false,
+        updated_at = extract(epoch from now())::bigint
+      where user_id = $1 and instant`,
+    [input.userId],
+  );
 }
 
 export async function revokeAllAuthIdentitiesForUser(input: {
@@ -1091,6 +1100,31 @@ export async function listOAuthConnections(
   }));
 }
 
+/** The account's own connection settings: label, Ask/Instant and last use. */
+export async function listConnectionSettings(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<
+  {
+    key: string;
+    label: string | null;
+    instant: boolean;
+    lastUsedAt: number | null;
+  }[]
+> {
+  const result = await db.query(
+    `select key, label, instant, last_used_at from account_connections
+      where user_id = $1`,
+    [userId],
+  );
+  return result.rows.map((row) => ({
+    key: String(row.key),
+    label: optionalString(row.label),
+    instant: row.instant === true,
+    lastUsedAt: row.last_used_at == null ? null : Number(row.last_used_at),
+  }));
+}
+
 /**
  * Remove one OAuth client's consent, refresh tokens and stored access tokens
  * for every Better Auth user of the account. False when it had none.
@@ -1113,6 +1147,10 @@ export async function deleteOAuthConnection(input: {
       );
       deleted += result.rowCount ?? 0;
     }
+    await db.query(
+      `delete from account_connections where user_id = $1 and key = 'oauth:' || $2`,
+      [input.userId, input.clientId],
+    );
     return deleted > 0;
   });
 }

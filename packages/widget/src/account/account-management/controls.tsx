@@ -143,6 +143,8 @@ export type MenuItem =
       label: string;
       detail?: string;
       danger?: boolean;
+      /** One of a choice; the chosen item is filled. */
+      checked?: boolean;
       href?: string;
       onSelect?: () => unknown;
     }
@@ -161,10 +163,11 @@ export function ActionsMenu({
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const itemClass = (danger?: boolean) =>
+  const itemClass = (danger?: boolean, checked?: boolean) =>
     cn(
       "hover:bg-aomi-hover focus:bg-aomi-hover flex w-full flex-col items-start gap-0.5 rounded-[8px] px-3 py-2 text-left outline-none",
       danger ? "text-aomi-danger" : "text-aomi-fg",
+      checked && "bg-aomi-surface-2",
     );
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
@@ -196,7 +199,7 @@ export function ActionsMenu({
           event.preventDefault();
           const nodes = Array.from(
             event.currentTarget.querySelectorAll<HTMLElement>(
-              '[role="menuitem"]',
+              '[role^="menuitem"]',
             ),
           );
           const current = nodes.indexOf(document.activeElement as HTMLElement);
@@ -245,8 +248,11 @@ export function ActionsMenu({
               ) : (
                 <button
                   type="button"
-                  role="menuitem"
-                  className={itemClass(item.danger)}
+                  role={
+                    item.checked === undefined ? "menuitem" : "menuitemradio"
+                  }
+                  aria-checked={item.checked}
+                  className={itemClass(item.danger, item.checked)}
                   onClick={() => {
                     setOpen(false);
                     void item.onSelect?.();

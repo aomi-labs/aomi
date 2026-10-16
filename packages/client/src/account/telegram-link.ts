@@ -55,8 +55,6 @@ export type TelegramLinkWalletMove = {
   total_usd: string | null;
   /** `default` when this account has no agent wallet of that family yet. */
   becomes: "default" | "extra";
-  /** Bot labels that sign from this wallet without asking. */
-  instant: string[];
 };
 
 /** `POST /v1/account/link/telegram/preview`: read-only, does not claim the code. */
@@ -230,9 +228,6 @@ export function parsePreview(value: unknown): TelegramLinkPreview {
             label: stringValue(wallet.label) ?? "Agent wallet",
             total_usd: stringValue(wallet.total_usd) ?? null,
             becomes: wallet.becomes === "default" ? "default" : "extra",
-            instant: list(wallet.instant).flatMap((label) =>
-              typeof label === "string" ? [label] : [],
-            ),
           },
         ];
       }),

@@ -19,8 +19,7 @@ import {
   type DeviceAuthProvider,
 } from "@/lib/device-auth-provider";
 import {
-  deviceGrantFailure,
-  providerExchangeFailure,
+  deviceLinkFailure,
   waitForProviderCredential,
 } from "@/lib/device-auth-handoff";
 
@@ -39,7 +38,6 @@ export function DeviceAuthClient() {
   const router = useRouter();
   const params = useSearchParams();
   const provider = normalizeDeviceAuthProvider(params.get("provider"));
-  const mode = params.get("mode") === "link" ? "link" : "login";
   const request = useMemo(
     () => ({
       state: params.get("state") ?? "",
@@ -54,7 +52,7 @@ export function DeviceAuthClient() {
     !request.state ||
     !request.codeChallenge ||
     !request.redirectUri ||
-    (mode === "link" && !request.linkIntent) ||
+    !request.linkIntent ||
     !isApprovedCliLoopbackRedirectUri(request.redirectUri)
   ) {
     return <DeviceAuthLayout status="Invalid device auth request." />;
@@ -93,23 +91,15 @@ export function DeviceAuthClient() {
     );
   }
 
-  return (
-    <DeviceAuthProviderPanel
-      mode={mode}
-      provider={provider}
-      request={request}
-    />
-  );
+  return <DeviceAuthProviderPanel provider={provider} request={request} />;
 }
 
 type HandoffPhase = "idle" | "provider" | "handoff" | "complete";
 
 function DeviceAuthProviderPanel({
-  mode,
   provider,
   request,
 }: {
-  mode: "login" | "link";
   provider: DeviceAuthProvider;
   request: {
     state: string;
@@ -123,9 +113,7 @@ function DeviceAuthProviderPanel({
   const getAccountCredential = walletKit.getAccountCredential;
   const label = providerLabels[provider];
   const [status, setStatus] = useState(
-    `Continue with ${label} to ${
-      mode === "link" ? "link this login method." : "connect your CLI."
-    }`,
+    `Continue with ${label} to link this login method.`,
   );
   const [phase, setPhase] = useState<HandoffPhase>("idle");
   // Every click starts a new attempt. Cancelling or restarting bumps the
@@ -188,76 +176,27 @@ function DeviceAuthProviderPanel({
     setPhase("handoff");
     const run = async () => {
       try {
-        setStatus(
-          mode === "link"
-            ? "Preparing account link..."
-            : "Creating Aomi session...",
-        );
+        setStatus("Preparing account link...");
         const credential = await waitForProviderCredential(
           getAccountCredential,
           { isCancelled: () => !live() },
         );
         if (!live()) return;
-        if (mode === "link") {
-          const grantResponse = await fetch(
-            "/v1/account/device-auth/link-grant",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({
-                linkIntent: request.linkIntent,
-                state: request.state,
-                redirectUri: request.redirectUri,
-                provider,
-                credential,
-              }),
-            },
-          );
-          if (!live()) return;
-          const grant = (await grantResponse
-            .json()
-            .catch(() => null)) as GrantResponse | null;
-          if (
-            !grantResponse.ok ||
-            typeof grant?.code !== "string" ||
-            grant.state !== request.state
-          ) {
-            throw deviceGrantFailure(grantResponse.status, "link");
-          }
-          setPhase("complete");
-          setStatus("Account link complete. Returning to the CLI...");
-          redirectToCli({
-            code: grant.code,
-            redirectUri: request.redirectUri,
-            state: request.state,
-          });
-          return;
-        }
-        const exchangeResponse = await fetch(
-          "/api/auth/aomi/provider/exchange",
+        const grantResponse = await fetch(
+          "/v1/account/device-auth/link-grant",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify(credential),
+            body: JSON.stringify({
+              linkIntent: request.linkIntent,
+              state: request.state,
+              redirectUri: request.redirectUri,
+              provider,
+              credential,
+            }),
           },
         );
-        if (!live()) return;
-        if (!exchangeResponse.ok) {
-          throw providerExchangeFailure(exchangeResponse.status);
-        }
-        const grantResponse = await fetch("/v1/account/device-auth/grant", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            state: request.state,
-            codeChallenge: request.codeChallenge,
-            redirectUri: request.redirectUri,
-            provider,
-          }),
-        });
         if (!live()) return;
         const grant = (await grantResponse
           .json()
@@ -267,10 +206,10 @@ function DeviceAuthProviderPanel({
           typeof grant?.code !== "string" ||
           grant.state !== request.state
         ) {
-          throw deviceGrantFailure(grantResponse.status, "login");
+          throw deviceLinkFailure(grantResponse.status);
         }
         setPhase("complete");
-        setStatus("Authentication complete. Returning to the CLI...");
+        setStatus("Account link complete. Returning to the CLI...");
         redirectToCli({
           code: grant.code,
           redirectUri: request.redirectUri,
@@ -282,7 +221,7 @@ function DeviceAuthProviderPanel({
       }
     };
     void run();
-  }, [phase, getAccountCredential, mode, provider, request, fail]);
+  }, [phase, getAccountCredential, provider, request, fail]);
 
   const busy = phase === "provider" || phase === "handoff";
   return (

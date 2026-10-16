@@ -19,7 +19,7 @@ import { PendingMark } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
-import { FamilyTag } from "./account-management/signs-with";
+import { FamilyTag } from "./account-management/family-tag";
 import {
   appName,
   familySlots,

@@ -1017,8 +1017,13 @@ describe("/v1/account/wallets forwarding", () => {
     ["GET", "/v1/account/wallets", routes.accountWallets.GET],
     ["POST", "/v1/account/wallets/agent", routes.accountWallets.POST],
     ["GET", "/v1/account/wallets/w_12/balance", routes.accountWallets.GET],
-    ["GET", "/v1/account/wallets/w_12/rule", routes.accountWallets.GET],
-    ["PUT", "/v1/account/wallets/w_12/rule", routes.accountWallets.PUT],
+    ["GET", "/v1/account/agent-rule", routes.accountWallets.GET],
+    ["PUT", "/v1/account/agent-rule", routes.accountWallets.PUT],
+    [
+      "PUT",
+      "/v1/account/connection-settings/oauth%3Aclaude",
+      routes.accountWallets.PUT,
+    ],
   ] as const)(
     "%s %s reaches the backend as the account",
     async (method, path, handler) => {
@@ -1041,8 +1046,10 @@ describe("/v1/account/wallets forwarding", () => {
     ["GET", "/v1/account/wallets/12/balance"],
     ["GET", "/v1/account/wallets/w_0/balance"],
     ["GET", "/v1/account/wallets/w_12/balance/extra"],
-    ["POST", "/v1/account/wallets/w_12/rule"],
-    ["PUT", "/v1/account/wallets/12/rule"],
+    ["GET", "/v1/account/wallets/w_12/rule"],
+    ["POST", "/v1/account/agent-rule"],
+    ["GET", "/v1/account/connection-settings/portal"],
+    ["PUT", "/v1/account/connection-settings/a/b"],
     ["PUT", "/v1/account/wallets/w_12/balance"],
   ] as const)(
     "answers %s %s with 404 before identifying the caller",
@@ -1105,15 +1112,15 @@ describe("/v1/account/wallets forwarding", () => {
     },
   );
 
-  it("lets an OAuth client read a wallet's rule with agent:read", async () => {
+  it("lets an OAuth client read the agent rule with agent:read", async () => {
     const response = await routes.accountWallets.GET(
-      request("/v1/account/wallets/w_12/rule", {
+      request("/v1/account/agent-rule", {
         headers: { authorization: "Bearer oauth.user.jwt" },
       }),
     );
     expect(response.status).toBe(200);
     expect(upstreamCalls()[0].url).toBe(
-      "https://backend.example/v1/account/wallets/w_12/rule",
+      "https://backend.example/v1/account/agent-rule",
     );
     expect(mocks.mintAccountBearer).toHaveBeenCalledWith("acct-user");
   });
@@ -1127,15 +1134,15 @@ describe("/v1/account/wallets forwarding", () => {
     ["e2e cookie", 401],
     ["OAuth user", 401],
   ] as const)(
-    "writing a rule admits only the portal session: %s",
+    "locking admits only the portal session: %s",
     async (credential, status) => {
       const { headers, origin } = CREDENTIALS[credential];
       const response = await routes.accountWallets.PUT(
-        request("/v1/account/wallets/w_12/rule", {
+        request("/v1/account/agent-rule", {
           method: "PUT",
           headers,
           origin,
-          body: JSON.stringify({ rule_version: 3, paused: false, instant: [] }),
+          body: JSON.stringify({ locked: true, version: 3 }),
         }),
       );
       expect(response.status).toBe(status);

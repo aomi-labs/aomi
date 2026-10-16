@@ -116,7 +116,10 @@ export function AddressRow({
 
   const content = (
     <>
-      <BrandMark brand={app} dot={row.connected ? "on" : "off"} />
+      <BrandMark
+        brand={app}
+        dot={row.connected || row.kind === "agent" ? "on" : "off"}
+      />
       <span className="flex min-w-0 flex-col gap-0.5">
         {draft !== null ? (
           <input

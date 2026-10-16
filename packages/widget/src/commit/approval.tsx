@@ -41,7 +41,7 @@ function approvalError(error: unknown): string {
     return "Expired · nothing was signed";
   if (error instanceof AomiApiError)
     return error.code === "commit_signing_denied"
-      ? "This wallet is paused. Unpause it in Settings → Safety."
+      ? "Your agent wallet is locked. Unlock it in Settings → Account."
       : "Couldn't approve right now. Try again.";
   return error instanceof Error ? error.message : "The request failed";
 }
@@ -256,9 +256,19 @@ export function ScheduledApproval({ refs }: { refs: readonly string[] }) {
 
 /**
  * The sign page for a parked commit: no wallet to connect, only Approve
- * (Aomi then signs with the agent wallet) or Reject.
+ * (Aomi then signs with the agent wallet) or Reject. While Aomi signs after
+ * the approval (`signing`), Approve keeps spinning in place.
  */
-export function CommitApprovePanel({ handle }: { handle: CommitHandle }) {
+export function CommitApprovePanel({
+  handle,
+  signing = false,
+  onDenied,
+}: {
+  handle: CommitHandle;
+  signing?: boolean;
+  /** The account is locked: no agent wallet may sign. */
+  onDenied?: () => void;
+}) {
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   const { supportedChains } = useAomiWalletKit();
@@ -266,7 +276,7 @@ export function CommitApprovePanel({ handle }: { handle: CommitHandle }) {
   const view = handle.view;
   const review = handle.review;
   if (changed) return <ChangedApproval commit={view} />;
-  if (!view.can_approve)
+  if (!view.can_approve && !signing)
     return (
       <p role="status" className="type-meta text-aomi-muted mt-3">
         Sign in on Aomi to approve.
@@ -284,6 +294,11 @@ export function CommitApprovePanel({ handle }: { handle: CommitHandle }) {
       caught instanceof CommitExpiredError
     )
       void handle.refresh().catch(() => undefined);
+    if (
+      caught instanceof AomiApiError &&
+      caught.code === "commit_signing_denied"
+    )
+      onDenied?.();
   };
   return (
     <TransactionReview
@@ -293,7 +308,7 @@ export function CommitApprovePanel({ handle }: { handle: CommitHandle }) {
         request: review,
       }}
       supportedChains={supportedChains}
-      approving={busy}
+      approving={busy || signing}
       approveLabel={approveLabel(view)}
       note={APPROVAL_NOTE}
       status={error}

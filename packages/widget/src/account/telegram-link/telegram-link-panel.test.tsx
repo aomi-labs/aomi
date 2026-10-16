@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AomiClient } from "@aomi-labs/client";
 import { TelegramLinkPanel } from "./telegram-link-panel";
@@ -22,7 +22,6 @@ const preview = {
         label: "Agent wallet",
         total_usd: "95.10",
         becomes: "extra",
-        instant: ["@HooditBot"],
       },
     ],
     chats_in_bots: 3,
@@ -68,6 +67,7 @@ function backend(routes: Record<string, Route | Route[]>) {
   return { client, calls };
 }
 
+const onClose = vi.fn();
 const refuse = (status: number, body: Record<string, unknown>) => () =>
   Response.json(body, { status });
 
@@ -77,7 +77,9 @@ async function renderPanel(
 ) {
   const { client, calls } = backend(routes);
   await act(async () => {
-    render(<TelegramLinkPanel client={client} code={panelCode} />);
+    render(
+      <TelegramLinkPanel client={client} code={panelCode} onClose={onClose} />,
+    );
   });
   return calls;
 }
@@ -88,56 +90,40 @@ const click = (name: string) =>
 afterEach(() => vi.useRealTimers());
 
 describe("TelegramLinkPanel", () => {
-  it("shows both sides and exactly what moves", async () => {
+  it("asks to link with the account and what linking changes", async () => {
     const calls = await renderPanel({ preview: () => Response.json(preview) });
     expect(calls).toEqual([
       { path: "/v1/account/link/telegram/preview", body: { code } },
     ]);
     expect(
-      screen.getByRole("heading", { name: "Link Telegram to this account" }),
+      screen.getByRole("heading", { name: "Link Telegram @arixon?" }),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        "Add Telegram @arixon and its agent wallet ($95.10) to this account?",
-      ),
+      screen.getByText("Aomi bots will use this account and its agent wallet."),
     ).toBeTruthy();
-    expect(screen.getByText("Telegram @arixon")).toBeTruthy();
-    expect(screen.getByText("used in @HooditBot")).toBeTruthy();
     expect(screen.getByText("arixon.ethereum@gmail.com")).toBeTruthy();
-    expect(screen.getByText("stays your account")).toBeTruthy();
     for (const line of [
-      "Agent wallet 0x7a3f…c41e",
-      "$95.10 · becomes an extra wallet here; your Telegram bots keep using it",
-      "Chats stay in their bots (3)",
-      "Scheduled tasks (1) run from this account",
-      "Approval rules move with each wallet (Instant in @HooditBot stays on)",
+      "The Telegram agent wallet joins this account",
+      "Chats stay in the bot; 1 scheduled task moves here",
       "1 trade waiting for approval will be cancelled. Nothing was signed.",
-      "World Markets trading stays connected",
     ])
       expect(screen.getByText(line)).toBeTruthy();
     expect(
       screen.getByText(
-        "Only continue if @arixon is your Telegram account. The Telegram account becomes part of this one; this can’t be undone yet.",
+        "Only continue if @arixon is you. This can’t be undone yet.",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Link Telegram" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
   });
 
-  it("says a wallet becomes the agent wallet when this account has none, and leaves out empty lines", async () => {
+  it("leaves out lines that change nothing", async () => {
     await renderPanel({
       preview: () =>
         Response.json({
           ...preview,
           moves: {
-            agent_wallets: [
-              {
-                ...preview.moves.agent_wallets[0],
-                total_usd: null,
-                becomes: "default",
-                instant: [],
-              },
-            ],
+            agent_wallets: [],
             chats_in_bots: 0,
             scheduled_jobs: 0,
             pending_trades: { cancel: 0, wait: 0 },
@@ -145,42 +131,28 @@ describe("TelegramLinkPanel", () => {
           },
         }),
     });
-    expect(
-      screen.getByText(
-        "Add Telegram @arixon and its agent wallet to this account?",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("becomes your agent wallet")).toBeTruthy();
-    expect(
-      screen.getByText("Approval rules move with each wallet"),
-    ).toBeTruthy();
-    expect(screen.queryByText(/Chats stay/)).toBeNull();
-    expect(screen.queryByText(/Scheduled tasks/)).toBeNull();
+    expect(screen.getByText("Chats stay in the bot")).toBeTruthy();
+    expect(screen.queryByText(/agent wallet joins/)).toBeNull();
     expect(screen.queryByText(/will be cancelled/)).toBeNull();
-    expect(screen.queryByText(/World Markets/)).toBeNull();
   });
 
-  it("links on confirm and offers Settings", async () => {
+  it("links on confirm and sends you back to the bot", async () => {
     const calls = await renderPanel({
       preview: () => Response.json(preview),
       confirm: () => Response.json(linked),
     });
-    await click("Link Telegram");
+    await click("Link");
     expect(calls.at(-1)).toEqual({
       path: "/v1/account/link/telegram/confirm",
       body: { code },
     });
+    expect(screen.getByRole("heading", { name: "Linked" })).toBeTruthy();
+    expect(screen.getByText("@HooditBot now uses this account.")).toBeTruthy();
     expect(
-      screen.getByText("Linked. Your Telegram bots now use this account."),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "1 trade waiting for approval was cancelled. Nothing was signed.",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Open Settings" }).getAttribute("href"),
-    ).toBe("/settings/account");
+      screen
+        .getByRole("link", { name: "Back to @HooditBot" })
+        .getAttribute("href"),
+    ).toBe("https://t.me/HooditBot");
   });
 
   it("says it is finishing trades when linking takes a while", async () => {
@@ -190,25 +162,16 @@ describe("TelegramLinkPanel", () => {
       confirm: () => new Promise<Response>((resolve) => (finish = resolve)),
     });
     vi.useFakeTimers();
-    await click("Link Telegram");
+    await click("Link");
     expect(
       (screen.getByRole("button", { name: "Linking…" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    expect(
-      screen.queryByText("Linking… finishing trades in progress"),
-    ).toBeNull();
     await act(async () => vi.advanceTimersByTime(3_000));
-    expect(
-      screen.getByText("Linking… finishing trades in progress"),
-    ).toBeTruthy();
+    expect(screen.getByText("Finishing trades in progress…")).toBeTruthy();
     vi.useRealTimers();
     await act(async () => finish(Response.json(linked)));
-    expect(
-      await screen.findByText(
-        "Linked. Your Telegram bots now use this account.",
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Linked" })).toBeTruthy();
   });
 
   it("cancels the code and says nothing was linked", async () => {
@@ -221,9 +184,7 @@ describe("TelegramLinkPanel", () => {
       path: "/v1/account/link/telegram/cancel",
       body: { code },
     });
-    expect(
-      screen.getByText("Not linked. You can close this page."),
-    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Not linked" })).toBeTruthy();
   });
 
   it.each([
@@ -270,8 +231,8 @@ describe("TelegramLinkPanel", () => {
     ],
   ] as const)("explains a %i %j from preview", async (status, body, copy) => {
     await renderPanel({ preview: refuse(status, body) });
-    expect(within(screen.getByRole("alert")).getByText(copy)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Link Telegram" })).toBeNull();
+    expect(screen.getByRole("heading", { name: copy })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Link" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
@@ -293,23 +254,20 @@ describe("TelegramLinkPanel", () => {
         () => Response.json(linked),
       ],
     });
-    await click("Link Telegram");
-    const alert = screen.getByRole("alert");
+    await click("Link");
     expect(
-      within(alert).getByText(
-        "A trade from your Telegram account is still being sent. Try again in a minute.",
-      ),
+      screen.getByRole("heading", {
+        name: "A trade from your Telegram account is still being sent. Try again in a minute.",
+      }),
     ).toBeTruthy();
-    expect(within(alert).getByText("1 trade still being sent.")).toBeTruthy();
+    expect(screen.getByText("1 trade still being sent.")).toBeTruthy();
     await click("Try again");
     expect(calls.map((call) => call.path.split("/").pop())).toEqual([
       "preview",
       "confirm",
       "confirm",
     ]);
-    expect(
-      screen.getByText("Linked. Your Telegram bots now use this account."),
-    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Linked" })).toBeTruthy();
   });
 
   it("reloads the preview after a failure to reach Aomi", async () => {
@@ -322,7 +280,7 @@ describe("TelegramLinkPanel", () => {
     expect(screen.getByText("Couldn’t reach Aomi. Try again.")).toBeTruthy();
     await click("Try again");
     expect(calls).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Link Telegram" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
   });
 
   it("shows a malformed code as invalid without asking the server", async () => {

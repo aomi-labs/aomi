@@ -1,50 +1,66 @@
 /**
- * Connected apps (Agent Wallets v1, step 4): the OAuth clients that hold a
- * grant on the account, and the linked Telegram user.
+ * Connections: the portal, each OAuth client (AI clients over MCP, SDK apps,
+ * the Aomi CLI) and each Telegram bot that uses the account, with its
+ * Ask/Instant setting, label and last use.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/step4-contract.md §5 "Endpoints
- * behind Safety". These routes are portal-only (served by the portal from the
- * Better Auth tables, never by the backend), so they have no OpenAPI schema:
- *   - `GET    /v1/account/connections`                 -> `AomiAccountConnections`
- *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }`
- * Step 5 (notes/step5-contract.md §4.2) adds `telegram.linked_from` and
- * `telegram.linked_at`.
+ * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2:
+ *   - `GET    /v1/account/connections`                  -> `AomiAccountConnections` (portal)
+ *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }` (portal)
+ *   - `PUT    /v1/account/connection-settings/:key`     -> `AomiConnectionSettings` (backend)
  */
 import { asRecord, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletError } from "./wallets";
 
-/** `mcp`: an AI client over MCP. `cli`: the Aomi CLI. `api`: anything else. */
-export type AomiConnectionKind = "mcp" | "cli" | "api";
+export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
 
-export type AomiOAuthConnection = {
-  client_id: string;
-  name: string;
+export type AomiAccountConnection = {
+  /** `portal`, `oauth:<client id>`, `telegram:<bot id>` or `cli`. */
+  key: string;
   kind: AomiConnectionKind;
+  /** The user's label, else the registered name, else `@bot`. */
+  name: string;
+  /** `Telegram @user` for a bot; null otherwise. */
+  detail: string | null;
+  /** Signs without asking; otherwise each trade waits for approval. */
+  instant: boolean;
+  /** Unix seconds. */
+  last_used_at: number | null;
   /** Unix seconds. */
   connected_at: number | null;
+  /** OAuth clients only. */
+  removable: boolean;
 };
 
-export type AomiTelegramConnection = {
-  username: string | null;
-  /** The bots this Telegram user has chatted with. */
-  bots: { bot_id: string; label: string }[];
-  /** The bot whose `/link` code linked it to this account; null if never linked. */
-  linked_from: { bot_id: string; label: string } | null;
-  /** Unix seconds of that link. */
-  linked_at: number | null;
+/** The portal first, then by last use. */
+export type AomiAccountConnections = { connections: AomiAccountConnection[] };
+
+/** One connection's own settings; omitted fields keep their value. */
+export type AomiConnectionSettingsUpdate = {
+  /** Trimmed, up to 40 characters; empty or null clears it. */
+  label?: string | null;
+  instant?: boolean;
 };
 
-export type AomiAccountConnections = {
-  oauth: AomiOAuthConnection[];
-  /** Null when no Telegram user is linked. */
-  telegram: AomiTelegramConnection | null;
-};
+export type AomiConnectionSettings = Pick<
+  AomiAccountConnection,
+  "key" | "instant" | "last_used_at"
+> & { label: string | null };
+
+const KINDS: readonly AomiConnectionKind[] = [
+  "portal",
+  "ai",
+  "app",
+  "cli",
+  "telegram",
+];
 
 export const connectionPaths = {
   list: "/v1/account/connections",
   oauth: (clientId: string) =>
     `/v1/account/connections/oauth/${encodeURIComponent(clientId)}`,
+  settings: (key: string) =>
+    `/v1/account/connection-settings/${encodeURIComponent(key)}`,
 } as const;
 
 type RequestResponse = (
@@ -57,13 +73,31 @@ type RequestResponse = (
 export class AccountConnectionsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  /** Every OAuth client with a grant on the account, and Telegram. */
   async list(
     options: { signal?: AbortSignal } = {},
   ): Promise<AomiAccountConnections> {
     return parseConnections(
       await this.request("GET", connectionPaths.list, options),
     );
+  }
+
+  /** Ask/Instant and the label of one connection. */
+  async setConnectionSettings(
+    key: string,
+    update: AomiConnectionSettingsUpdate,
+  ): Promise<AomiConnectionSettings> {
+    const record = asRecord(
+      await this.request("PUT", connectionPaths.settings(key), {
+        body: update,
+      }),
+    );
+    if (!record) throw new TypeError("Invalid connection settings response");
+    return {
+      key: stringValue(record.key) ?? key,
+      label: stringValue(record.label) ?? null,
+      instant: record.instant === true,
+      last_used_at: unixOrNull(record.last_used_at),
+    };
   }
 
   /**
@@ -98,48 +132,29 @@ export class AccountConnectionsTransport {
 }
 
 export function parseConnections(value: unknown): AomiAccountConnections {
-  const record = asRecord(value);
-  if (!record) throw new TypeError("Invalid connections response");
-  const telegram = asRecord(record.telegram);
+  const list = asRecord(value)?.connections;
+  if (!Array.isArray(list)) throw new TypeError("Invalid connections response");
   return {
-    oauth: (Array.isArray(record.oauth) ? record.oauth : []).flatMap(
-      (entry) => {
-        const client = asRecord(entry);
-        const id = stringValue(client?.client_id);
-        if (!client || !id) return [];
-        const kind = client.kind;
-        return [
-          {
-            client_id: id,
-            name: stringValue(client.name) ?? id,
-            kind: kind === "mcp" || kind === "cli" ? kind : "api",
-            connected_at:
-              typeof client.connected_at === "number"
-                ? client.connected_at
-                : null,
-          },
-        ];
-      },
-    ),
-    telegram: telegram
-      ? {
-          username: stringValue(telegram.username) ?? null,
-          bots: (Array.isArray(telegram.bots) ? telegram.bots : []).flatMap(
-            (entry) => {
-              const bot = parseBot(entry);
-              return bot ? [bot] : [];
-            },
-          ),
-          linked_from: parseBot(telegram.linked_from),
-          linked_at:
-            typeof telegram.linked_at === "number" ? telegram.linked_at : null,
-        }
-      : null,
+    connections: list.flatMap((entry) => {
+      const row = asRecord(entry);
+      const key = stringValue(row?.key);
+      const kind = row?.kind as AomiConnectionKind;
+      if (!row || !key || !KINDS.includes(kind)) return [];
+      return [
+        {
+          key,
+          kind,
+          name: stringValue(row.name) ?? key,
+          detail: stringValue(row.detail) ?? null,
+          instant: row.instant === true,
+          last_used_at: unixOrNull(row.last_used_at),
+          connected_at: unixOrNull(row.connected_at),
+          removable: row.removable === true,
+        },
+      ];
+    }),
   };
 }
 
-function parseBot(value: unknown): { bot_id: string; label: string } | null {
-  const bot = asRecord(value);
-  const id = stringValue(bot?.bot_id);
-  return id ? { bot_id: id, label: stringValue(bot?.label) ?? id } : null;
-}
+const unixOrNull = (value: unknown) =>
+  typeof value === "number" ? value : null;

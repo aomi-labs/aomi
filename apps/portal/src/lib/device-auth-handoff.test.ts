@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   DeviceAuthHandoffError,
-  deviceGrantFailure,
-  providerExchangeFailure,
+  deviceLinkFailure,
   waitForProviderCredential,
 } from "./device-auth-handoff";
 
@@ -82,23 +81,9 @@ describe("waitForProviderCredential", () => {
 });
 
 describe("handoff failure mapping", () => {
-  it("maps provider exchange statuses onto actionable codes", () => {
-    expect(providerExchangeFailure(409).code).toBe("provider_account_conflict");
-    expect(providerExchangeFailure(429).code).toBe(
-      "provider_exchange_rate_limited",
-    );
-    expect(providerExchangeFailure(500)).toMatchObject({
-      code: "provider_exchange_failed",
-      status: 500,
-    });
-  });
-
-  it("separates login and link grant failures", () => {
-    expect(deviceGrantFailure(500, "login").code).toBe("device_grant_failed");
-    expect(deviceGrantFailure(400, "link").code).toBe("device_link_failed");
-    expect(deviceGrantFailure(429, "link").code).toBe(
-      "provider_exchange_rate_limited",
-    );
+  it("maps link grant failures onto actionable codes", () => {
+    expect(deviceLinkFailure(400).code).toBe("device_link_failed");
+    expect(deviceLinkFailure(429).code).toBe("provider_exchange_rate_limited");
   });
 
   it("never carries provider or HTTP bodies in its message", () => {

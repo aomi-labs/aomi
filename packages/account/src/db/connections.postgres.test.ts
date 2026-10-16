@@ -137,6 +137,13 @@ describe.skipIf(!enabled)("account connections", () => {
               ('telegram:bot:555:dm:7', 'other'),
               ('telegram:bot:5550:dm:42', 'owner')`,
     );
+    // The owner renamed Claude, put it on Instant and used it last.
+    await pool.query(
+      `insert into account_connections
+         (user_id, key, label, instant, last_used_at, created_at, updated_at)
+       values ('owner', 'oauth:claude', 'Laptop Claude', true, 1760409000, 1, 1),
+              ('owner', 'telegram:88', null, false, 1760408000, 1, 1)`,
+    );
     // Owner was linked from Hoodit, then a later code from the side bot was
     // only issued; "other" was linked from the side bot.
     await pool.query(
@@ -153,61 +160,72 @@ describe.skipIf(!enabled)("account connections", () => {
     );
   }
 
-  it("lists every OAuth client of the account's Better Auth users and its Telegram bots", async () => {
+  const portal = {
+    key: "portal",
+    kind: "portal",
+    name: "Aomi",
+    detail: null,
+    instant: false,
+    last_used_at: null,
+    connected_at: null,
+    removable: false,
+  };
+  const oauth = (
+    client: string,
+    kind: string,
+    name: string,
+    connected: number,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    key: `oauth:${client}`,
+    kind,
+    name,
+    detail: null,
+    instant: false,
+    last_used_at: null,
+    connected_at: connected,
+    removable: true,
+    ...extra,
+  });
+  const bot = (
+    id: string,
+    name: string,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    key: `telegram:${id}`,
+    kind: "telegram",
+    name,
+    detail: "Telegram @arixon",
+    instant: false,
+    last_used_at: null,
+    connected_at: null,
+    removable: false,
+    ...extra,
+  });
+
+  it("lists the portal, then each OAuth client and Telegram bot by last use", async () => {
     expect(await connections.listAccountConnections("owner")).toEqual({
-      oauth: [
-        {
-          client_id: "claude",
-          name: "Claude Code",
-          kind: "mcp",
-          connected_at: 1760400000,
-        },
-        {
-          client_id: "partner",
-          name: "Partner app",
-          kind: "api",
-          connected_at: 1760400100,
-        },
-        {
-          client_id: "cli",
-          name: "Aomi CLI",
-          kind: "cli",
-          connected_at: 1760400200,
-        },
-        {
-          client_id: "codex",
-          name: "codex",
-          kind: "mcp",
-          connected_at: 1760400300,
-        },
+      connections: [
+        portal,
+        oauth("claude", "ai", "Laptop Claude", 1760400000, {
+          instant: true,
+          last_used_at: 1760409000,
+        }),
+        bot("88", "Side bot", { last_used_at: 1760408000 }),
+        oauth("partner", "app", "Partner app", 1760400100),
+        oauth("cli", "cli", "Aomi CLI", 1760400200),
+        oauth("codex", "ai", "codex", 1760400300),
+        bot("7712345678", "@HooditBot"),
       ],
-      telegram: {
-        username: "arixon",
-        bots: [
-          { bot_id: "7712345678", label: "@HooditBot" },
-          { bot_id: "88", label: "Side bot" },
-        ],
-        linked_from: { bot_id: "7712345678", label: "@HooditBot" },
-        linked_at: 1760400500,
-      },
     });
   });
 
-  it("has no Telegram entry without a Telegram identity", async () => {
+  it("lists only the portal and its own clients for another account", async () => {
     expect(await connections.listAccountConnections("other")).toEqual({
-      oauth: [
-        {
-          client_id: "claude",
-          name: "Claude Code",
-          kind: "mcp",
-          connected_at: 1760400000,
-        },
-      ],
-      telegram: null,
+      connections: [portal, oauth("claude", "ai", "Claude Code", 1760400000)],
     });
     expect(await connections.listAccountConnections("no-telegram")).toEqual({
-      oauth: [],
-      telegram: null,
+      connections: [portal],
     });
   });
 
@@ -225,10 +243,14 @@ describe.skipIf(!enabled)("account connections", () => {
     );
     expect(left.rows).toEqual([{ kind: "consent", user_id: "ba-3" }]);
     expect(
-      (await connections.listAccountConnections("owner")).oauth.map(
-        (client) => client.client_id,
-      ),
-    ).toEqual(["partner", "cli", "codex"]);
+      (await connections.listAccountConnections("owner")).connections
+        .filter((row) => row.key.startsWith("oauth:"))
+        .map((row) => row.key),
+    ).toEqual(["oauth:partner", "oauth:cli", "oauth:codex"]);
+    const settings = await pool.query(
+      `select key from account_connections where user_id = 'owner' order by key`,
+    );
+    expect(settings.rows).toEqual([{ key: "telegram:88" }]);
     expect(
       await connections.revokeOAuthConnection({
         userId: "owner",

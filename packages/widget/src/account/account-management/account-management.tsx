@@ -1,9 +1,9 @@
 "use client";
 
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
-import { Check, LogOut, Pencil, Plus, Send, Trash2, X } from "lucide-react";
-import type { AomiTelegramConnection } from "@aomi-labs/client";
+import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { AomiAccountWallet, AomiAgentRule } from "@aomi-labs/client";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
@@ -12,16 +12,10 @@ import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 import { Divider, IconButton, TextButton } from "./controls";
-import { SignsWithStrip } from "./signs-with";
-import type { AgentWalletHandlers } from "./agent-wallet-group";
-
-// Loads with the first signed-in Settings view, off the host bundle; it
-// renders nothing until its list arrives anyway.
-const AgentWalletGroup = lazy(() =>
-  import("./agent-wallet-group").then((module) => ({
-    default: module.AgentWalletGroup,
-  })),
-);
+import {
+  AgentWalletGroup,
+  type AgentWalletHandlers,
+} from "./agent-wallet-group";
 import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
   addressSummary,
@@ -46,9 +40,11 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
   /** Shows the account's agent wallets (signed-in accounts only). */
-  agentWallets?: AgentWalletHandlers;
-  /** The Telegram account linked to this one, shown under Social sign-in. */
-  telegram?: AomiTelegramConnection | null;
+  agentWallets?: AgentWalletHandlers & {
+    /** Undefined when the list failed to load. */
+    wallets?: readonly AomiAccountWallet[];
+    rule?: AomiAgentRule;
+  };
 };
 
 export function AccountManagement({
@@ -66,7 +62,6 @@ export function AccountManagement({
   onSignOut,
   onDeleteAccount,
   agentWallets,
-  telegram,
   ...rowHandlers
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
@@ -179,23 +174,15 @@ export function AccountManagement({
           }
         />
 
-        {wallets.length || logins.length || agentWallets || telegram ? (
+        {wallets.length || logins.length || agentWallets ? (
           <div className={listGroupClass}>
-            <SignsWithStrip
-              rows={rows}
-              disabled={pending !== null}
-              onActivate={rowHandlers.onActivate}
-              onAddWallet={onAddWallet}
-            />
             {agentWallets ? (
-              <Suspense fallback={null}>
-                <AgentWalletGroup
-                  rows={rows}
-                  pending={pending}
-                  onActivate={rowHandlers.onActivate}
-                  {...agentWallets}
-                />
-              </Suspense>
+              <AgentWalletGroup
+                rows={rows.filter((row) => row.kind === "agent")}
+                pending={pending}
+                onActivate={rowHandlers.onActivate}
+                {...agentWallets}
+              />
             ) : null}
             {wallets.length ? (
               <>
@@ -210,12 +197,9 @@ export function AccountManagement({
                 </div>
               </>
             ) : null}
-            {logins.length || telegram ? (
+            {logins.length ? (
               <>
-                <Divider
-                  title="Social sign-in"
-                  detail="Privy, Para and Telegram"
-                />
+                <Divider title="Sign-in wallets" detail="Privy and Para" />
                 <div className="divide-aomi-border divide-y">
                   {logins.map((group) => (
                     <LoginRows
@@ -226,7 +210,6 @@ export function AccountManagement({
                       {...handlers}
                     />
                   ))}
-                  {telegram ? <TelegramRow telegram={telegram} /> : null}
                 </div>
               </>
             ) : null}
@@ -280,28 +263,6 @@ export function AccountManagement({
         </section>
       ) : null}
     </div>
-  );
-}
-
-/** The linked Telegram account. Read-only: there is no unlink yet. */
-function TelegramRow({ telegram }: { telegram: AomiTelegramConnection }) {
-  const usedIn = telegram.bots.map((bot) => bot.label).join(", ");
-  const description = telegram.linked_from
-    ? `Linked from ${telegram.linked_from.label}${usedIn ? ` · used in ${usedIn}` : ""}`
-    : usedIn
-      ? `Used in ${usedIn}`
-      : undefined;
-  return (
-    <ListRow
-      data-telegram-identity
-      leading={
-        <RowIcon>
-          <Send className="size-4" />
-        </RowIcon>
-      }
-      title={`Telegram${telegram.username ? ` @${telegram.username}` : ""}`}
-      description={description}
-    />
   );
 }
 

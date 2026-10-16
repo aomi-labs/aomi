@@ -8,15 +8,17 @@ import {
   type CommitHandle,
 } from "@aomi-labs/client";
 import {
+  AomiSheet,
   CommitSignPanel,
   getBackendUrl,
+  SheetHeader,
 } from "@aomi-labs/widget/host-composition";
+import { StandalonePage } from "@/components/shell/standalone-page";
 
 type LoadState =
   | { kind: "loading" }
   | { kind: "ready"; handle: CommitHandle }
-  | { kind: "missing" }
-  | { kind: "error"; message: string };
+  | { kind: "failed"; title: string; detail?: string };
 
 /** Same-origin BFF: the Better Auth cookie is the credential. */
 function createCommits(): AomiCommits {
@@ -34,8 +36,18 @@ function createCommits(): AomiCommits {
   );
 }
 
-/** A centered host for the widget's own review of one commit. */
+const home = () => window.location.assign("/");
+
+/** `/sign/:ref`: the wallet picker if needed, then the commit's review sheet. */
 export function SignCommitClient({ commitRef }: { commitRef: string }) {
+  return (
+    <StandalonePage purpose={{ text: "To review a trade" }}>
+      <Review commitRef={commitRef} />
+    </StandalonePage>
+  );
+}
+
+function Review({ commitRef }: { commitRef: string }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
@@ -54,13 +66,16 @@ export function SignCommitClient({ commitRef }: { commitRef: string }) {
           if (cancelled) return;
           setState(
             error instanceof CommitNotFoundError
-              ? { kind: "missing" }
+              ? {
+                  kind: "failed",
+                  title: "This request doesn’t exist",
+                  detail: "It may belong to another account.",
+                }
               : {
-                  kind: "error",
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : "This request could not be loaded",
+                  kind: "failed",
+                  title: "This request couldn’t be loaded",
+                  detail:
+                    error instanceof Error ? error.message : "Try again later.",
                 },
           );
         },
@@ -71,43 +86,16 @@ export function SignCommitClient({ commitRef }: { commitRef: string }) {
     };
   }, [commitRef]);
 
+  if (state.kind === "loading") return null;
+  if (state.kind === "ready")
+    return <CommitSignPanel handle={state.handle} onClose={home} />;
   return (
-    <main
-      data-testid="sign-page"
-      className="bg-aomi-bg text-aomi-fg flex h-full w-full justify-center overflow-y-auto px-4 py-10 sm:items-center"
-    >
-      <div className="w-full max-w-md">
-        <h1 className="mb-1 text-lg font-semibold tracking-tight">
-          Review transaction
-        </h1>
-        {state.kind === "loading" ? (
-          <p role="status" className="type-meta text-aomi-muted">
-            Loading request…
-          </p>
-        ) : state.kind === "missing" ? (
-          <p role="alert" className="type-meta text-aomi-muted">
-            This request does not exist, or it belongs to another account.
-          </p>
-        ) : state.kind === "error" ? (
-          <p role="alert" className="type-meta text-aomi-danger">
-            {state.message}
-          </p>
-        ) : (
-          <CommitSignPanel handle={state.handle} />
-        )}
-        <a
-          href={
-            state.kind === "ready" && state.handle.view.origin !== "telegram"
-              ? `/?thread=${encodeURIComponent(state.handle.view.thread_id)}`
-              : "/"
-          }
-          className="type-meta text-aomi-muted hover:text-aomi-fg mt-6 inline-block"
-        >
-          {state.kind === "ready" && state.handle.view.origin !== "telegram"
-            ? "Open the chat"
-            : "Back to Aomi"}
-        </a>
-      </div>
-    </main>
+    <AomiSheet backdrop={false}>
+      <SheetHeader
+        title={state.title}
+        description={state.detail}
+        onClose={home}
+      />
+    </AomiSheet>
   );
 }

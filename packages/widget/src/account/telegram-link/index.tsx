@@ -13,19 +13,10 @@ const Panel = lazy(() =>
   })),
 );
 
-/**
- * The `/link/telegram` page: what linking a Telegram account to this one
- * moves, then Link Telegram or Cancel.
- */
+/** The `/link/telegram` page's sheet: Link Telegram @x?, then Linked. */
 export function TelegramLinkPanel(props: TelegramLinkPanelProps) {
   return (
-    <Suspense
-      fallback={
-        <p role="status" className="type-meta text-aomi-muted">
-          Loading link…
-        </p>
-      }
-    >
+    <Suspense fallback={null}>
       <Panel {...props} />
     </Suspense>
   );

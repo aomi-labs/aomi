@@ -1,36 +1,20 @@
 "use client";
 
-import { lazy, Suspense, useState } from "react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { useShellTransport } from "@/account/transport";
 import { OnchainPolicySettings } from "./onchain-policy-settings";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
+import { accountSafetyQuery } from "./transaction-safety-api";
 
-// Agent wallet rules, Locked wallets and Connected apps load with the tab.
-const SafetyWallets = lazy(() =>
-  import("../safety/safety-wallets").then((module) => ({
-    default: module.SafetyWallets,
-  })),
-);
-
-/** The Safety tab: the default level for new chats, then who may sign.
- * Both sections load behind one spinner and appear together. */
-export function PolicyPage({ focusWallet }: { focusWallet?: string } = {}) {
-  const [guardLoaded, setGuardLoaded] = useState(false);
-  const [signingLoaded, setSigningLoaded] = useState(false);
-  const loaded = guardLoaded && signingLoaded;
+/** The Safety tab: the guard policy new chats start on (and Swig, behind its flag). */
+export function PolicyPage() {
+  const guard = useDisplayQuery(accountSafetyQuery(useShellTransport().json));
+  if (guard.isPending) return <LoadingPane label="Loading safety settings" />;
   return (
-    <>
-      {loaded ? null : <LoadingPane label="Loading safety settings" />}
-      <div hidden={!loaded} className="flex flex-col gap-8">
-        <TransactionSafetySettings onLoad={() => setGuardLoaded(true)} />
-        <Suspense fallback={null}>
-          <SafetyWallets
-            onLoad={() => setSigningLoaded(true)}
-            focusWallet={loaded ? focusWallet : undefined}
-          />
-        </Suspense>
-        <OnchainPolicySettings />
-      </div>
-    </>
+    <div className="flex flex-col gap-8">
+      <TransactionSafetySettings />
+      <OnchainPolicySettings />
+    </div>
   );
 }

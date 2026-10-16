@@ -9,29 +9,9 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shortAddress } from "@aomi-labs/client";
+import { shortAddress, type AomiAccountWallet } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AccountManagement } from "./account-management";
-
-const agentData = vi.hoisted(() => ({
-  wallets: [] as unknown[],
-  balances: {} as Record<string, unknown>,
-  create: vi.fn(),
-  refresh: vi.fn(async () => undefined),
-}));
-vi.mock("./use-agent-wallets", () => ({
-  useAgentWallets: () => ({
-    wallets: agentData.wallets,
-    status: "ready",
-    error: null,
-    refresh: agentData.refresh,
-    create: agentData.create,
-  }),
-  useWalletBalance: (_client: unknown, id: string) => ({
-    data: agentData.balances[id],
-    refetch: vi.fn(),
-  }),
-}));
 
 const disconnect = [{ kind: "disconnect", connectionId: "c" }] as const;
 
@@ -131,18 +111,6 @@ describe("Wallets & access", () => {
     expect(within(rowFor(main)).getByText("Rabby")).toBeInTheDocument();
   });
 
-  it("keeps the remaining address in the strip, dimmed with its step", () => {
-    const onActivate = vi.fn();
-    renderSettings([trading], { onActivate });
-    const slot = screen.getByRole("button", {
-      name: "Switch in Rabby (EVM Trading)",
-    });
-    expect(within(slot).getByText("Switch in Rabby")).toBeInTheDocument();
-    expect(screen.queryByText("Choose a wallet")).not.toBeInTheDocument();
-    fireEvent.click(slot);
-    expect(onActivate).toHaveBeenCalledWith(trading);
-  });
-
   it("takes Active and the bar off a chosen address that cannot sign here", () => {
     const signedOut = row("0x13af000000000000000000000000000000005cf7", {
       kind: "embedded",
@@ -158,11 +126,6 @@ describe("Wallets & access", () => {
     expect(rowFor(signedOut).dataset.active).toBeUndefined();
     expect(
       within(rowFor(signedOut)).getByText("Sign in with Privy"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Sign in with Privy (EVM Privy)",
-      }),
     ).toBeInTheDocument();
   });
 
@@ -189,83 +152,16 @@ describe("Wallets & access", () => {
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
-  it("lays out the signs-with strip, Wallets and Social sign-in", () => {
+  it("lays out Wallets and Sign-in wallets", () => {
     renderSettings([main, trading, metamask, privyEvm, privySvm]);
-    expect(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "SVM signs with Privy" }),
-    ).toBeInTheDocument();
     expect(
       screen.getByText("Sign in by signing a message"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Privy, Para and Telegram")).toBeInTheDocument();
+    expect(screen.getByText("Sign-in wallets")).toBeInTheDocument();
+    expect(screen.getByText("Privy and Para")).toBeInTheDocument();
     expect(screen.getAllByText("5 addresses · 3 on this device")).toHaveLength(
       2,
     );
-  });
-
-  it("shows the linked Telegram under Social sign-in, with no Remove", () => {
-    renderSettings([main], {
-      signInMethods: [],
-      telegram: {
-        username: "arixon",
-        bots: [
-          { bot_id: "7712345678", label: "@HooditBot" },
-          { bot_id: "88", label: "@WorldBot" },
-        ],
-        linked_from: { bot_id: "7712345678", label: "@HooditBot" },
-        linked_at: 1_760_400_500,
-      },
-    });
-    expect(screen.getByText("Social sign-in")).toBeInTheDocument();
-    const telegram = document.querySelector(
-      "[data-telegram-identity]",
-    ) as HTMLElement;
-    expect(within(telegram).getByText("Telegram @arixon")).toBeInTheDocument();
-    expect(
-      within(telegram).getByText(
-        "Linked from @HooditBot · used in @HooditBot, @WorldBot",
-      ),
-    ).toBeInTheDocument();
-    expect(within(telegram).queryByRole("button")).toBeNull();
-  });
-
-  it("reads a Telegram that was never linked by code as used in its bots", () => {
-    renderSettings([main], {
-      telegram: {
-        username: null,
-        bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
-        linked_from: null,
-        linked_at: null,
-      },
-    });
-    const telegram = document.querySelector(
-      "[data-telegram-identity]",
-    ) as HTMLElement;
-    expect(within(telegram).getByText("Telegram")).toBeInTheDocument();
-    expect(
-      within(telegram).getByText("Used in @HooditBot"),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps an empty SVM slot that offers to add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main], { onAddWallet });
-    expect(screen.queryByText("No SVM wallet")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add SVM wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
-  });
-
-  it("ends each family picker with Add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main, trading], { onAddWallet });
-    fireEvent.click(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 
   it("titles a row with its name and puts the app beside it", () => {
@@ -445,38 +341,25 @@ describe("Wallets & access", () => {
 
 describe("Agent wallet group", () => {
   const AGENT = "0x7a3f00000000000000000000000000000000c41e";
-  const HOODIT = "0x91c0000000000000000000000000000000000a11";
-  const listed = (overrides: Record<string, unknown>) => ({
-    kind: "agent",
-    family: "evm",
-    custom_label: null,
-    wallet_app: null,
-    provider: "para",
-    is_default: true,
-    status: "ready",
-    merged: false,
-    rule: { mode: "ask", rule_version: 0, instant: [] },
-    created_at: 1_760_000_000,
-    ...overrides,
-  });
-  const defaultEvm = listed({
-    id: "w_12",
-    address: AGENT,
-    label: "Agent wallet",
-  });
-  const hoodit = listed({
-    id: "w_31",
-    address: HOODIT,
-    label: "Hoodit wallet",
-    is_default: false,
-    merged: true,
-  });
-  const defaultSvm = listed({
-    id: "w_13",
-    family: "svm",
-    address: "7xKp111111111111111111111111111111111111111",
-    label: "Agent wallet",
-  });
+  const EXTRA = "0x91c0000000000000000000000000000000000a11";
+  const listed = (overrides: Record<string, unknown>) =>
+    ({
+      kind: "agent",
+      family: "evm",
+      label: "Agent wallet",
+      custom_label: null,
+      wallet_app: null,
+      provider: "para",
+      is_default: true,
+      status: "ready",
+      merged: false,
+      created_at: 1_760_000_000,
+      ...overrides,
+    }) as AomiAccountWallet;
+  const wallets = [
+    listed({ id: "w_12", address: AGENT }),
+    listed({ id: "w_31", address: EXTRA, is_default: false, merged: true }),
+  ];
   const agentRow = row(AGENT, {
     kind: "agent",
     provider: "para",
@@ -487,13 +370,13 @@ describe("Agent wallet group", () => {
     brand: undefined,
     actions: [],
   });
-  const hooditRow = row(HOODIT, {
+  const extraRow = row(EXTRA, {
     kind: "agent",
     provider: "para",
     linkedWalletId: "31",
     connected: false,
     brand: undefined,
-    actions: [{ kind: "select", walletKey: `evm:${HOODIT}` }],
+    actions: [],
   });
   const para = {
     id: "para-1",
@@ -501,204 +384,106 @@ describe("Agent wallet group", () => {
     subject: "para-user",
     email: "aron@megyeri.eu",
   };
-
-  // The group loads lazily, after the rest of Settings.
-  const loaded = () =>
-    waitFor(() =>
-      expect(document.querySelector("[data-agent-wallets]")).toBeTruthy(),
-    );
-  const renderGroup = async (
+  const renderGroup = (
+    agentWallets: Parameters<typeof AccountManagement>[0]["agentWallets"],
     extra: Partial<Parameters<typeof AccountManagement>[0]> = {},
-  ) => {
-    renderSettings([agentRow, hooditRow, privyEvm], {
+  ) =>
+    renderSettings([agentRow, extraRow, privyEvm], {
       signInMethods: [privy, para],
-      agentWallets: { onRename: vi.fn(async () => true), onWithdraw: vi.fn() },
+      agentWallets,
       ...extra,
     });
-    await loaded();
-  };
-  const agentFor = (id: string) =>
-    document.querySelector(`[data-agent-wallet="${id}"]`) as HTMLElement;
-  const menuOf = (id: string, label: string, address: string) => {
+  const group = () =>
+    document.querySelector("[data-agent-wallets]") as HTMLElement;
+  const parentMenu = () => {
     fireEvent.click(
-      within(agentFor(id)).getByRole("button", {
-        name: `Actions for ${label} ${shortAddress(address)}`,
-      }),
+      within(group()).getByRole("button", { name: "Actions for agent wallet" }),
     );
-    return screen.getByRole("menu", {
-      name: `Actions for ${label} ${shortAddress(address)}`,
-    });
+    return screen.getByRole("menu", { name: "Actions for agent wallet" });
   };
 
-  beforeEach(() => {
-    agentData.wallets = [defaultEvm, hoodit, defaultSvm];
-    agentData.balances = {
-      w_12: {
-        id: "w_12",
-        family: "evm",
-        address: AGENT,
-        as_of: 1,
-        total_usd: "412.80",
-        chains: ["Base", "Ethereum", "Arbitrum", "Optimism"].map(
-          (name, index) => ({
-            chain: String([8453, 1, 42161, 10][index]),
-            name,
-            native_symbol: "ETH",
-            source: "indexed",
-            native: null,
-            tokens: [],
-            error: null,
-          }),
-        ),
-      },
-    };
-    agentData.create.mockReset();
-  });
+  it("nests each agent address under one Agent wallet row, like a login", () => {
+    const onActivate = vi.fn();
+    renderGroup(
+      { wallets, rule: { locked: false, version: 0 } },
+      { onActivate },
+    );
+    expect(group().firstElementChild).toHaveTextContent(
+      "Agent wallet" + "Aomi signs with it when you or a connection asks",
+    );
+    expect(within(group()).getByText("Asks before each trade")).toBeVisible();
+    expect(within(rowFor(agentRow)).getByText("Active")).toBeInTheDocument();
+    expect(rowFor(agentRow).textContent).toContain(
+      `${shortAddress(AGENT)} · EVM`,
+    );
+    for (const gone of ["Deposit", "$412.80", "Create agent wallet"])
+      expect(screen.queryByText(gone)).toBeNull();
 
-  it("lists agent wallets with balance, chains, Deposit, Active and their ··· items", async () => {
-    await renderGroup();
-    const main = agentFor("w_12");
-    expect(within(main).getByText("Agent wallet")).toBeInTheDocument();
-    expect(within(main).getByText("$412.80")).toBeInTheDocument();
-    expect(
-      within(main).getByText(/EVM · Base, Ethereum, Arbitrum…/),
-    ).toBeInTheDocument();
-    expect(within(main).getByText("Active")).toBeInTheDocument();
-    expect(main).toHaveAttribute("data-active", "true");
-    expect(
-      within(main).getByRole("button", { name: "Deposit" }),
-    ).toBeInTheDocument();
-    expect(
-      within(main).getByRole("button", { name: `Copy address ${AGENT}` }),
-    ).toBeInTheDocument();
-    const items = within(menuOf("w_12", "Agent wallet", AGENT))
+    openMenu(extraRow, "Agent wallet");
+    const items = within(
+      screen.getByRole("menu", {
+        name: `Actions for Agent wallet ${shortAddress(EXTRA)}`,
+      }),
+    )
       .getAllByRole("menuitem")
       .map((item) => item.querySelector("span")?.textContent);
     expect(items).toEqual([
-      "Deposit",
-      "Withdraw to…",
-      "Rename",
-      "Signing rule",
+      "Use this wallet",
+      "Copy address",
       "View on explorer",
     ]);
-
-    const extra = agentFor("w_31");
-    expect(within(extra).getByText("—")).toBeInTheDocument();
-    expect(within(extra).queryByText("Active")).toBeNull();
-    expect(
-      within(agentFor("w_13")).getByText(/SVM · pays its own SOL gas/),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Use this wallet"));
+    expect(onActivate).toHaveBeenCalledWith(extraRow);
   });
 
-  it("picks an extra wallet through its kit row", async () => {
-    const onActivate = vi.fn();
-    await renderGroup({ onActivate });
-    const menu = menuOf("w_31", "Hoodit wallet", HOODIT);
-    fireEvent.click(within(menu).getByText("Use this wallet"));
-    expect(onActivate).toHaveBeenCalledWith(hooditRow);
-  });
-
-  it("opens Safety at the wallet's rule from Signing rule", async () => {
-    const opened = vi.fn();
-    const listener = (event: Event) =>
-      opened((event as CustomEvent<string>).detail);
-    window.addEventListener("aomi:open-wallet-rule", listener);
-    try {
-      await renderGroup();
-      fireEvent.click(
-        within(menuOf("w_12", "Agent wallet", AGENT)).getByText("Signing rule"),
-      );
-      expect(opened).toHaveBeenCalledWith("w_12");
-    } finally {
-      window.removeEventListener("aomi:open-wallet-rule", listener);
-    }
-  });
-
-  it("starts a withdrawal and renames by the w_ id", async () => {
-    const onWithdraw = vi.fn();
-    const onRename = vi.fn(async () => true);
-    await renderGroup({ agentWallets: { onWithdraw, onRename } });
-    fireEvent.click(
-      within(menuOf("w_12", "Agent wallet", AGENT)).getByText("Withdraw to…"),
-    );
-    expect(onWithdraw).toHaveBeenCalledWith(defaultEvm, agentRow);
-
-    fireEvent.click(
-      within(menuOf("w_12", "Agent wallet", AGENT)).getByText("Rename"),
-    );
-    const input = screen.getByRole("textbox", {
-      name: `Name for ${shortAddress(AGENT)}`,
+  it("locks every agent wallet from the parent row, and unlocks", () => {
+    const onLock = vi.fn();
+    const { rerender } = renderGroup({
+      wallets,
+      rule: { locked: false, version: 3 },
+      onLock,
     });
+    const lock = within(parentMenu()).getByRole("menuitem", { name: /Lock/ });
+    expect(lock).toHaveTextContent("Nothing signs until you unlock");
+    fireEvent.click(lock);
+    expect(onLock).toHaveBeenCalledWith(true);
+
+    rerender(
+      <AccountManagement
+        user={{ id: "user-1", displayName: "Aron" }}
+        rows={[agentRow, extraRow]}
+        signInMethods={[]}
+        pending={null}
+        agentWallets={{ wallets, rule: { locked: true, version: 4 }, onLock }}
+      />,
+    );
+    expect(within(group()).getByLabelText("Locked")).toBeInTheDocument();
+    expect(within(group()).getByText("Locked · nothing signs")).toBeVisible();
+    fireEvent.click(
+      within(parentMenu()).getByRole("menuitem", { name: "Unlock" }),
+    );
+    expect(onLock).toHaveBeenLastCalledWith(false);
+  });
+
+  it("renames the agent wallet from the parent row", async () => {
+    const onRename = vi.fn(async () => true);
+    renderGroup({ wallets, rule: { locked: false, version: 0 }, onRename });
+    fireEvent.click(within(parentMenu()).getByText("Rename"));
+    const input = screen.getByRole("textbox", { name: "Agent wallet name" });
     fireEvent.change(input, { target: { value: "Trading" } });
     await act(async () => {
       fireEvent.keyDown(input, { key: "Enter" });
     });
-    expect(onRename).toHaveBeenCalledWith(defaultEvm, "Trading");
-    expect(agentData.refresh).toHaveBeenCalled();
+    expect(onRename).toHaveBeenCalledWith("Trading");
   });
 
-  it("keeps agent wallets out of the Para login group", async () => {
-    await renderGroup();
-    for (const address of [AGENT, HOODIT])
-      expect(
-        document.querySelector(`[data-wallet-row="evm:${address}"]`),
-      ).toBeNull();
-    expect(
-      document.querySelector('[data-wallet-provider="para"]'),
-    ).toBeTruthy();
+  it("keeps agent wallets out of the Para login group", () => {
+    renderGroup({ wallets, rule: { locked: false, version: 0 } });
     expect(
       within(
         document.querySelector('[data-wallet-provider="para"]') as HTMLElement,
       ).queryByText(shortAddress(AGENT)),
     ).toBeNull();
-  });
-
-  it("offers to create both agent wallets and shows a family that failed", async () => {
-    agentData.wallets = [];
-    agentData.create.mockResolvedValue({
-      wallets: [defaultEvm],
-      created: ["w_12"],
-      failed: [{ family: "svm", error: "agent_wallet_provider_error" }],
-    });
-    renderSettings([main], { agentWallets: {} });
-    expect(await screen.findByText("No agent wallet yet")).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Create agent wallet" }),
-      );
-    });
-    expect(agentData.create).toHaveBeenCalledWith();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Solana wallet couldn’t be created. Try again.",
-    );
-  });
-
-  it("offers the missing family next to an existing agent wallet", async () => {
-    agentData.wallets = [defaultEvm];
-    renderSettings([main], { agentWallets: {} });
-    expect(
-      await screen.findByText("No Solana agent wallet yet"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Create agent wallet" }),
-    ).toBeEnabled();
-  });
-
-  it("shows a refused create in words", async () => {
-    agentData.wallets = [];
-    agentData.create.mockRejectedValue(
-      Object.assign(new Error("x"), { code: "agent_wallet_unavailable" }),
-    );
-    renderSettings([main], { agentWallets: {} });
-    await loaded();
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Create agent wallet" }),
-      );
-    });
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Agent wallets aren’t available right now.",
-    );
   });
 
   it("is not shown without agent wallet support", () => {

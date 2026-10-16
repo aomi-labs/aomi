@@ -43,8 +43,24 @@ export {
 export { signOutAndDisconnect } from "./wallet/account/sign-out";
 export {
   requestWalletPickerOpen,
+  useWalletPicker,
+  WalletPickerProvider,
   WalletSignInOptionsContext,
+  type SheetPurpose,
 } from "./wallet/picker/wallet-picker-context";
+export { WalletPicker } from "./wallet/picker/wallet-picker";
+export { AomiSheet } from "./ui/aomi/aomi-sheet";
+export { AomiButton } from "./ui/aomi/button";
+export {
+  FootnoteLink,
+  SheetAlert,
+  SheetFootnote,
+  SheetHeader,
+  WaitingButton,
+} from "./wallet/picker/sheet-parts";
+export { WidgetScope } from "./ui/widget-scope";
+export { ConnectionMark } from "./account/connections/connection-mark";
+export { accountDisplayName } from "./wallet/account-presentation";
 export {
   DualWalletBar,
   type DualWalletBarProps,
@@ -66,10 +82,7 @@ export { PackagesModal } from "./library/packages-modal";
 export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-menu";
 export type { WalletPolicy } from "./account/types";
 export { StatementView } from "./account/usage/statement-view";
-export {
-  CommitSignPanel,
-  type CommitSignPanelProps,
-} from "./commit/commit-sign-panel";
+export { CommitSignPanel, type CommitSignPanelProps } from "./commit";
 export {
   TelegramLinkPanel,
   type TelegramLinkPanelProps,

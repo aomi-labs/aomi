@@ -10,8 +10,9 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
---   20261015050000_agent_wallets.sql (the table packages/account reads;
---     without its backfill, merge trigger and composite foreign keys)
+--   20261015050000_agent_wallets.sql (agent_wallets, agent_wallet_rules and
+--     account_connections; without the backfill, merge trigger and composite
+--     foreign keys)
 --   threads and bot_registrations: only the columns the Telegram part of
 --     GET /v1/account/connections reads
 --   20261017010000_telegram_link.sql (telegram_link_codes only: the
@@ -97,9 +98,6 @@ create table if not exists agent_wallets (
   status text not null default 'provisioning'
     check (status in ('provisioning', 'active')),
   is_default boolean not null default false,
-  source text not null check (source in ('provisioned', 'legacy_app')),
-  instant_clients text[] not null default '{}',
-  rule_version bigint not null default 0,
   merged_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
@@ -110,6 +108,26 @@ create table if not exists agent_wallets (
 create unique index if not exists agent_wallets_one_default
   on agent_wallets (user_id, chain_type) where is_default;
 create index if not exists agent_wallets_user on agent_wallets (user_id);
+
+-- The account's lock and each connection's Ask/Instant, label and last use.
+create table if not exists agent_wallet_rules (
+  user_id text primary key references users(id),
+  locked boolean not null default false,
+  version bigint not null default 0,
+  updated_at bigint not null
+);
+
+create table if not exists account_connections (
+  user_id text not null references users(id),
+  key text not null
+    check (key ~ '^(portal|cli|oauth:[A-Za-z0-9._~-]{1,200}|telegram:[0-9]{1,20})$'),
+  label text,
+  instant boolean not null default false,
+  last_used_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (user_id, key)
+);
 
 create table if not exists threads (
   id text primary key,

@@ -1,112 +1,60 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@aomi-labs/widget/browser-auth";
-import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
+import {
+  ConnectionMark,
+  FootnoteLink,
+} from "@aomi-labs/widget/host-composition";
+import { StandalonePage } from "@/components/shell/standalone-page";
+import { useOAuthClientName } from "../oauth-client-name";
 
-const STASH_KEY = "aomi.oauth.authorize.query";
-
+/**
+ * Better Auth's login page for an OAuth client (MCP or SDK): the wallet picker
+ * with the client's purpose, then back to the authorize request.
+ */
 export function OAuthAuthorizeClient() {
   const params = useSearchParams();
-  const wallet = useAomiWalletKit();
-  const { data: session } = authClient.useSession();
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-
+  const name = useOAuthClientName(params);
+  const query = params.toString();
   useEffect(() => {
-    sessionStorage.setItem(STASH_KEY, `?${params.toString()}`);
-  }, [params]);
-
-  useEffect(() => {
-    if (!session?.session) return;
-    resumeAuthorization();
-  }, [session?.session]);
-
-  const signIn = useCallback(async () => {
-    setPending(true);
-    setStatus("Opening secure sign-in…");
-    try {
-      await wallet.connectSocial?.("google");
-      const credential = await waitForCredential(wallet.getAccountCredential);
-      const response = await fetch("/api/auth/aomi/provider/exchange", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(credential),
-      });
-      if (!response.ok) throw new Error("Sign-in could not be completed");
-      resumeAuthorization();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Sign-in failed");
-      setPending(false);
-    }
-  }, [wallet]);
-
-  const guest = useCallback(async () => {
-    setPending(true);
-    setStatus("Creating a private guest account…");
-    const result = await authClient.signIn.anonymous();
-    if (result.error) {
-      setStatus(result.error.message ?? "Guest sign-in failed");
-      setPending(false);
-      return;
-    }
-    resumeAuthorization();
-  }, []);
-
+    if (params.get("client_id")) sessionStorage.setItem(STASH_KEY, query);
+  }, [params, query]);
   return (
-    <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
-      <section className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Connect to Aomi
-        </h1>
-        <p className="text-muted-foreground mt-3 text-sm">
-          Sign in to review the exact access requested by your app or MCP
-          client.
-        </p>
-        {status ? (
-          <p className="text-muted-foreground mt-4 text-sm">{status}</p>
-        ) : null}
-        <div className="mt-6 grid gap-3">
-          <button
-            className="bg-foreground text-background flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-60"
-            disabled={pending}
-            onClick={() => void signIn()}
-            type="button"
-          >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Continue with your account
-          </button>
-          <button
-            className="border-border h-11 rounded-md border px-4 text-sm font-medium disabled:opacity-60"
-            disabled={pending}
-            onClick={() => void guest()}
-            type="button"
-          >
-            Continue as guest
-          </button>
-        </div>
-      </section>
-    </main>
+    <StandalonePage
+      purpose={{
+        icon: <ConnectionMark kind="app" name={name} size={16} />,
+        text: `To connect ${name} to your account`,
+      }}
+      footnote={
+        <FootnoteLink
+          onClick={() =>
+            void authClient.signIn.anonymous().then((result) => {
+              if (!result.error) resume(query);
+            })
+          }
+        >
+          Continue as guest
+        </FootnoteLink>
+      }
+    >
+      <Resume query={query} />
+    </StandalonePage>
   );
 }
 
-function resumeAuthorization() {
-  const query = sessionStorage.getItem(STASH_KEY) ?? window.location.search;
+const STASH_KEY = "aomi.oauth.authorize.query";
+
+/** Back to the authorize request, with the query a login redirect may have rewritten. */
+function resume(query: string) {
+  const stashed = sessionStorage.getItem(STASH_KEY) ?? query;
   sessionStorage.removeItem(STASH_KEY);
-  window.location.replace(`/api/auth/oauth2/authorize${query}`);
+  window.location.replace(`/api/auth/oauth2/authorize?${stashed}`);
 }
 
-async function waitForCredential(
-  getCredential: (() => Promise<unknown>) | undefined,
-): Promise<unknown> {
-  if (!getCredential) throw new Error("No account provider is configured");
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const credential = await getCredential().catch(() => null);
-    if (credential) return credential;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error("Timed out waiting for account sign-in");
+/** Signed in: finish the authorize request. */
+function Resume({ query }: { query: string }) {
+  useEffect(() => resume(query), [query]);
+  return null;
 }

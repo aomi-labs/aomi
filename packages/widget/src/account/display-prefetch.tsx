@@ -11,7 +11,12 @@ import { useShellTransport } from "./transport";
 import { skillCatalogQuery } from "../composer/capabilities/skill-catalog";
 import { packageCatalogQuery } from "@/library/use-package-catalog";
 import { accountProfileQuery } from "./account-overview";
-import { accountAclQuery } from "./use-account-acl";
+import {
+  accountWalletsQuery,
+  agentRuleQuery,
+  connectionsQuery,
+} from "./account-queries";
+import { accountSafetyQuery } from "./policy/transaction-safety-api";
 
 /**
  * Warm Library and Settings during idle time, with the same query
@@ -19,7 +24,7 @@ import { accountAclQuery } from "./use-account-acl";
  */
 export function DisplayPrefetch() {
   const cache = useAomiDisplayCache();
-  const request = useShellTransport().json;
+  const { json: request, client } = useShellTransport();
   useEffect(() => {
     const api = cache?.apiClient;
     if (!cache || !api) return;
@@ -33,7 +38,10 @@ export function DisplayPrefetch() {
             accountProfileQuery(request, userId),
             displayQueries.credits(api),
             packageCatalogQuery(api, request, userId),
-            accountAclQuery(request, cache),
+            accountWalletsQuery(client),
+            agentRuleQuery(client),
+            connectionsQuery(client),
+            accountSafetyQuery(request),
           ]
         : []),
     ];
@@ -47,6 +55,6 @@ export function DisplayPrefetch() {
     }
     const id = window.setTimeout(warm, 0);
     return () => window.clearTimeout(id);
-  }, [cache, request]);
+  }, [cache, client, request]);
   return null;
 }

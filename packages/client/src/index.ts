@@ -468,6 +468,7 @@ export {
 export type {
   AomiAccountWallet,
   AomiAccountWalletKind,
+  AomiAgentRule,
   AomiAccountWalletStatus,
   AomiActiveWallet,
   AomiAgentWalletsCreated,
@@ -476,11 +477,6 @@ export type {
   AomiWalletBalance,
   AomiWalletChainBalance,
   AomiWalletErrorCode,
-  AomiWalletRule,
-  AomiWalletRuleClient,
-  AomiWalletRuleClientSetting,
-  AomiWalletRuleSettings,
-  AomiWalletRuleUpdate,
   AomiWalletTokenBalance,
   UserStateWalletFields,
 } from "./account/wallets";
@@ -490,10 +486,11 @@ export {
   connectionPaths,
 } from "./account/connections";
 export type {
+  AomiAccountConnection,
   AomiAccountConnections,
   AomiConnectionKind,
-  AomiOAuthConnection,
-  AomiTelegramConnection,
+  AomiConnectionSettings,
+  AomiConnectionSettingsUpdate,
 } from "./account/connections";
 export {
   AccountTelegramLinkTransport,
