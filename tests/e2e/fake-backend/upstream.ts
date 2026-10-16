@@ -52,8 +52,10 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const owners = new Map<string, string>();
   /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
   const commits = new Map<string, { owner: string; view: unknown }>();
-  /** The agent wallet's signing rule per account (step 4 Safety page). */
-  const rules = new Map<string, WalletRule>();
+  /** Each account's lock over its agent wallets. */
+  const rules = new Map<string, AgentRule>();
+  /** Each account's connection settings, by connection key. */
+  const settings = new Map<string, ConnectionSetting>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -87,6 +89,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       owners.clear();
       commits.clear();
       rules.clear();
+      settings.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
     }
@@ -163,9 +166,14 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       });
     }
 
-    // The account's wallet list and balances (step 3): one funded default
-    // EVM agent wallet per account, so Settings renders the agent group.
-    if (url.pathname.startsWith("/v1/account/wallets")) {
+    // The account's wallet list and balances: one funded default EVM agent
+    // wallet per account, so Settings renders the agent group; its lock and
+    // each connection's Ask/Instant.
+    if (
+      url.pathname.startsWith("/v1/account/wallets") ||
+      url.pathname === "/v1/account/agent-rule" ||
+      url.pathname.startsWith("/v1/account/connection-settings/")
+    ) {
       const principal = verifyBearer(request, "aomi-backend");
       record(principal);
       if (!principal)
@@ -183,28 +191,47 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         url.pathname === `/v1/account/wallets/${AGENT_WALLET.id}/balance`
       )
         return json(response, 200, AGENT_BALANCE);
-      if (url.pathname === `/v1/account/wallets/${AGENT_WALLET.id}/rule`) {
-        const rule = rules.get(principal.sub) ?? {
-          rule_version: 0,
-          paused: false,
-          instant: [],
-        };
-        if (method === "GET") return json(response, 200, ruleSettings(rule));
+      // The backend's require_portal_session for writes.
+      const portalOnly = () =>
+        principal.auth_source === "session"
+          ? null
+          : json(response, 403, { error: "portal_session_required" });
+      if (url.pathname === "/v1/account/agent-rule") {
+        const rule = rules.get(principal.sub) ?? { locked: false, version: 0 };
+        if (method === "GET") return json(response, 200, rule);
         if (method === "PUT") {
-          // The backend's require_portal_session.
-          if (principal.auth_source !== "session")
-            return json(response, 403, { error: "portal_session_required" });
-          const update = JSON.parse(await readBody(request)) as WalletRule;
-          if (update.rule_version !== rule.rule_version)
+          const refused = portalOnly();
+          if (refused) return refused;
+          const update = JSON.parse(await readBody(request)) as AgentRule;
+          if (update.version !== rule.version)
             return json(response, 409, { error: "rule_version_conflict" });
-          const next = {
-            rule_version: rule.rule_version + 1,
-            paused: update.paused,
-            instant: update.instant,
-          };
+          const next = { locked: update.locked, version: rule.version + 1 };
           rules.set(principal.sub, next);
-          return json(response, 200, ruleSettings(next));
+          return json(response, 200, next);
         }
+      }
+      if (
+        method === "PUT" &&
+        url.pathname.startsWith("/v1/account/connection-settings/")
+      ) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const key = decodeURIComponent(url.pathname.split("/").pop()!);
+        const id = `${principal.sub}\0${key}`;
+        const update = JSON.parse(await readBody(request)) as Partial<
+          Omit<ConnectionSetting, "key">
+        >;
+        const next = {
+          ...(settings.get(id) ?? {
+            key,
+            label: null,
+            instant: false,
+            last_used_at: null,
+          }),
+          ...update,
+        };
+        settings.set(id, next);
+        return json(response, 200, next);
       }
       return json(response, 404, { error: "wallet_not_found" });
     }
@@ -322,29 +349,16 @@ const AGENT_WALLET = {
   status: "ready",
   merged: false,
   bound_app: null,
-  rule: { mode: "ask", rule_version: 0, instant: [] },
   created_at: 1_760_000_000,
 } as const;
 
-type WalletRule = { rule_version: number; paused: boolean; instant: string[] };
-
-const RULE_CLIENTS = [
-  { client: "portal", kind: "portal", label: "Portal" },
-  { client: "cli", kind: "cli", label: "CLI" },
-  { client: "mcp", kind: "mcp", label: "AI clients (MCP)" },
-] as const;
-
-function ruleSettings(rule: WalletRule) {
-  return {
-    id: AGENT_WALLET.id,
-    rule_version: rule.rule_version,
-    paused: rule.paused,
-    clients: RULE_CLIENTS.map((client) => ({
-      ...client,
-      instant: rule.instant.includes(client.client),
-    })),
-  };
-}
+type AgentRule = { locked: boolean; version: number };
+type ConnectionSetting = {
+  key: string;
+  label: string | null;
+  instant: boolean;
+  last_used_at: number | null;
+};
 
 const AGENT_BALANCE = {
   id: AGENT_WALLET.id,

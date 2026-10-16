@@ -1,21 +1,33 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useReducer, useState } from "react";
-import { ExternalLink, Wallet } from "lucide-react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useReducer,
+  useState,
+  type ReactNode,
+} from "react";
+import { CircleCheck, Clock, Lock, Send, Wallet } from "lucide-react";
 import {
   CommitStaleError,
   isTerminalCommit,
   projectCommitLifecycle,
   shortAddress,
+  type AomiAccountConnection,
   type CommitHandle,
   type CommitRefView,
   type ThreadOrigin,
 } from "@aomi-labs/client";
-import { AomiButton } from "@/ui/aomi/button";
+import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
+import { AomiButton, aomiButton } from "@/ui/aomi/button";
+import { AomiSheet } from "@/ui/aomi/aomi-sheet";
+import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
+import { useShellTransport } from "@/account/transport";
+import { agentRuleQuery, connectionsQuery } from "@/account/account-queries";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
-import { ImpactPanel } from "@/sidebar/activity/wallet-impact";
 
 const CommitApprovePanel = lazy(() =>
   import("./approval").then((module) => ({
@@ -54,6 +66,19 @@ export function commitRelativeTime(
   return "just now";
 }
 
+/** `expires in 8:41`, ticking. */
+function useExpiry(expiresAt: number | undefined): string | undefined {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (expiresAt === undefined) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt]);
+  if (expiresAt === undefined) return undefined;
+  const left = Math.max(0, Math.round(expiresAt - now / 1000));
+  return `expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+}
+
 function signerConnected(
   view: CommitRefView,
   identity: { address?: string; svmAddress?: string },
@@ -63,45 +88,64 @@ function signerConnected(
     : identity.svmAddress === view.signer;
 }
 
+/** The connection that asked, from the commit's `notify` (else `initiator`) key. */
+function sourceOf(
+  view: CommitRefView,
+  connections: readonly AomiAccountConnection[] | undefined,
+) {
+  const key = view.notify || view.initiator;
+  return connections?.find(
+    (row) => key === row.key || key.startsWith(`${row.key}:`),
+  );
+}
+
 export type CommitSignPanelProps = {
   /** The commit, opened with `aomi.commits.get(ref)`. */
   handle: CommitHandle;
-  /** Display name for `origin_app`, when the host knows it. */
-  appName?: string;
+  /** The header's close button. */
+  onClose: () => void;
 };
 
 /**
- * The widget's own transaction review for one commit, outside any chat.
- * Asks for exactly the commit's signer, then signs through the handle.
+ * The sign page's sheet for one commit: the review, then a tick, an expiry
+ * or the lock. Asks for exactly the commit's signer, then signs through the
+ * handle; an agent-wallet commit only needs Approve.
  */
-export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
+export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   const wallet = useAomiWalletKit();
   const capabilities = useCommitCapabilities();
+  const { client } = useShellTransport();
+  const cache = useAomiDisplayCache();
+  const connections = useDisplayQuery(connectionsQuery(client));
+  const view = handle.view;
+  const parkedOrSigning = view.signing_mode === "auto";
+  const rule = useDisplayQuery({
+    ...agentRuleQuery(client),
+    enabled: parkedOrSigning,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-
-  const view = handle.view;
   const review = handle.review;
   const lifecycle = projectCommitLifecycle(
     view,
     handle.submissionPhase,
     handle.recoveryRecord,
   );
+  const expiry = useExpiry(
+    view.state === "awaiting_approval" ? view.approval?.expires_at : undefined,
+  );
   const family = view.chain_family === "evm" ? "evm" : "svm";
   const connected = signerConnected(view, wallet.identity);
-  const settled =
-    isTerminalCommit(view) ||
-    view.state === "submitted" ||
-    lifecycle.phase === "signing";
-  // An agent-wallet commit: once approved, Aomi signs it; no wallet here.
-  const serverSigned = view.signing_mode === "auto";
-  const awaitingWallet = Boolean(view.action) && !settled && !serverSigned;
-  const serverSigning =
-    serverSigned && !settled && view.state !== "awaiting_approval";
+  const terminal = isTerminalCommit(view);
+  const inFlight =
+    !terminal &&
+    (view.state === "submitted" ||
+      lifecycle.phase === "signing" ||
+      lifecycle.phase === "submitted");
+  const awaitingWallet = Boolean(view.action) && !terminal && !parkedOrSigning;
   const canSign = connected && handle.canSign(capabilities);
-  const time = commitRelativeTime(view.created_at);
   const signerRow = wallet.wallets.find(
     (row) =>
       row.family === family &&
@@ -109,6 +153,8 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
         ? row.address.toLowerCase() === view.signer.toLowerCase()
         : row.address === view.signer),
   );
+  const source = sourceOf(view, connections.data?.connections);
+  const from = source?.name ?? ORIGIN_LABELS[view.origin] ?? view.origin;
 
   const run = async (step: () => Promise<unknown>) => {
     if (busy) return;
@@ -130,142 +176,202 @@ export function CommitSignPanel({ handle, appName }: CommitSignPanelProps) {
     }
   };
 
-  return (
-    <section
-      aria-label="Transaction request"
-      data-commit-ref={handle.ref}
-      data-commit-state={view.state}
-      className="text-aomi-fg w-full min-w-0"
-    >
-      <p className="type-meta text-aomi-muted">
-        From {appName ?? ORIGIN_LABELS[view.origin] ?? view.origin}
-        {time ? ` · ${time}` : ""}
-      </p>
-      {view.state === "awaiting_approval" ? (
-        <Suspense fallback={null}>
-          <CommitApprovePanel handle={handle} />
-        </Suspense>
-      ) : null}
-      {awaitingWallet && !connected ? (
-        <div className="border-aomi-border bg-aomi-raised rounded-card mt-3 grid gap-3 border p-3">
-          <p className="type-meta">
-            Connect{" "}
-            <span title={view.signer} className="type-address">
-              {shortAddress(view.signer, { head: 8, tail: 6 })}
-            </span>{" "}
-            to review and sign this request.
-          </p>
-          <AomiButton
-            variant="secondary"
-            onClick={() =>
-              void run(async () => {
-                if (signerRow && wallet.activateWallet)
-                  await wallet.activateWallet(signerRow.key);
-                else await wallet.connect({ family });
-              })
-            }
-            disabled={busy || (!signerRow && !wallet.canConnect)}
-          >
-            <Wallet />
-            {signerRow ? "Switch to this wallet" : "Connect wallet"}
-          </AomiButton>
-        </div>
-      ) : null}
-      {awaitingWallet && review ? (
-        <TransactionReview
-          review={{
-            id: view.commit_id,
-            revision: view.review?.revision ?? view.version,
-            request: review,
-          }}
-          supportedChains={wallet.supportedChains}
-          approving={
-            busy ||
-            ["preparing", "switching_chain", "awaiting_wallet"].includes(
-              lifecycle.phase,
-            )
+  // Where "back" goes once the trade is done or gone.
+  const telegramBack =
+    source?.kind === "telegram" && source.name.startsWith("@")
+      ? `https://t.me/${source.name.slice(1)}`
+      : undefined;
+  const goBack =
+    source?.kind === "cli"
+      ? "Go back to your terminal. You can close this tab."
+      : source && (source.kind === "ai" || source.kind === "app")
+        ? `Go back to ${source.name}. You can close this tab.`
+        : undefined;
+  const backButton = (primary: boolean) =>
+    telegramBack ? (
+      <a
+        href={telegramBack}
+        className={`${aomiButton({ variant: primary ? "primary" : "secondary" })} h-10 w-full`}
+      >
+        <Send />
+        Back to {source!.name}
+      </a>
+    ) : !goBack && view.origin !== "telegram" ? (
+      <a
+        href={`/?thread=${encodeURIComponent(view.thread_id)}`}
+        className={`${aomiButton({ variant: "secondary" })} h-10 w-full`}
+      >
+        Open the chat
+      </a>
+    ) : null;
+
+  const done = (
+    title: string,
+    description: ReactNode,
+    icon: ReactNode,
+    action: ReactNode,
+  ) => (
+    <AomiSheet backdrop={false}>
+      <SheetHeader title={title} description={description} onClose={onClose} />
+      <div
+        data-commit-ref={handle.ref}
+        data-commit-state={view.state}
+        className="flex flex-col items-center gap-4 px-5 pb-5"
+      >
+        {icon}
+        {action}
+      </div>
+    </AomiSheet>
+  );
+
+  if (view.state === "confirmed") {
+    const explorer = view.transaction_url ? (
+      <a
+        href={view.transaction_url}
+        target="_blank"
+        rel="noreferrer"
+        className="hover:text-aomi-fg underline underline-offset-2"
+      >
+        View on explorer
+      </a>
+    ) : undefined;
+    return done(
+      "Transaction confirmed",
+      goBack ?? explorer,
+      <CircleCheck className="text-aomi-success size-12" strokeWidth={1.5} />,
+      goBack ? explorer : backButton(true),
+    );
+  }
+  if (view.state === "expired")
+    return done(
+      "This request expired",
+      goBack ?? "Nothing was signed. Ask again in the chat.",
+      <Clock className="text-aomi-muted size-12" strokeWidth={1.5} />,
+      backButton(false),
+    );
+  if (terminal) return done(lifecycle.label, goBack, null, backButton(false));
+  if (view.state === "awaiting_approval" && rule.data?.locked)
+    return done(
+      "Your agent wallet is locked",
+      "Unlock it to approve this trade.",
+      <Lock className="text-aomi-muted size-12" strokeWidth={1.5} />,
+      <>
+        <AomiButton
+          variant="primary"
+          className="h-10 w-full"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const next = await client.account.wallets.setAgentRule({
+                locked: false,
+                version: rule.data!.version,
+              });
+              if (cache)
+                cache.client.setQueryData(cache.key("agent-rule"), next);
+              else await rule.refetch();
+            })
           }
-          approveDisabled={!canSign}
-          status={
-            error ??
-            (lifecycle.phase === "rejected" ? lifecycle.label : undefined)
-          }
-          statusIsError={Boolean(error)}
-          recoveringExistingAttempt={Boolean(
-            view.wallet_attempt || handle.recoveryRecord?.attemptId,
-          )}
-          onApprove={() =>
-            void run(() =>
-              handle.sign(capabilities, {
-                expectedVersion: view.version,
-                expectedReviewDigest: view.review?.digest,
-              }),
-            )
-          }
-          onReject={() => void run(() => handle.reject())}
-        />
-      ) : null}
-      {serverSigning ? (
-        <div className="mt-3 grid gap-3">
-          {review ? (
-            <ImpactPanel
-              request={review}
-              balanceChanges={
-                review.type === "sign"
-                  ? []
-                  : (review.simulation?.balanceChanges ?? [])
-              }
-              approvals={
-                review.type === "sign"
-                  ? []
-                  : (review.simulation?.approvals ?? [])
-              }
-              supportedChains={wallet.supportedChains}
-              showNetwork
-              failed={false}
-            />
-          ) : null}
-          <p role="status" className="type-meta text-aomi-muted">
-            Approved · Aomi is signing with your agent wallet.
-          </p>
-        </div>
-      ) : null}
-      {awaitingWallet && !review ? (
-        <p role="status" className="type-meta text-aomi-muted mt-3">
-          This request has no review to show yet.
-        </p>
-      ) : null}
-      {settled ? (
-        <div
-          role="status"
-          className="border-aomi-border bg-aomi-raised rounded-card mt-3 grid gap-2 border p-3"
         >
-          <p className="font-medium">{lifecycle.label}</p>
-          {view.transaction_url ? (
-            <a
-              href={view.transaction_url}
-              target="_blank"
-              rel="noreferrer"
-              className="type-meta text-aomi-muted hover:text-aomi-fg inline-flex w-fit items-center gap-1.5"
-            >
-              View on explorer
-              <ExternalLink className="size-3.5" />
-            </a>
-          ) : lifecycle.transactionId ? (
-            <p
-              title={lifecycle.transactionId}
-              className="type-meta type-address text-aomi-muted truncate"
-            >
-              {shortAddress(lifecycle.transactionId, { head: 10, tail: 8 })}
+          Unlock
+        </AomiButton>
+        {error ? (
+          <p role="alert" className="type-meta text-aomi-danger">
+            {error}
+          </p>
+        ) : null}
+      </>,
+    );
+
+  return (
+    <AomiSheet backdrop={false}>
+      <SheetHeader
+        title="Review trade"
+        description={[
+          `From ${from}`,
+          expiry ?? commitRelativeTime(view.created_at),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        onClose={onClose}
+      />
+      <section
+        aria-label="Transaction request"
+        data-commit-ref={handle.ref}
+        data-commit-state={view.state}
+        className="flex min-h-0 flex-col overflow-y-auto px-5 pb-5"
+      >
+        {parkedOrSigning ? (
+          <Suspense fallback={null}>
+            <CommitApprovePanel
+              handle={handle}
+              signing={inFlight}
+              onDenied={() => void rule.refetch()}
+            />
+          </Suspense>
+        ) : null}
+        {awaitingWallet && !connected ? (
+          <div className="border-aomi-border bg-aomi-raised rounded-card mt-3 grid gap-3 border p-3">
+            <p className="type-meta">
+              Connect{" "}
+              <span title={view.signer} className="type-address">
+                {shortAddress(view.signer, { head: 8, tail: 6 })}
+              </span>{" "}
+              to review and sign this request.
             </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="type-meta text-aomi-danger">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
+            <AomiButton
+              variant="secondary"
+              onClick={() =>
+                void run(async () => {
+                  if (signerRow && wallet.activateWallet)
+                    await wallet.activateWallet(signerRow.key);
+                  else await wallet.connect({ family });
+                })
+              }
+              disabled={busy || (!signerRow && !wallet.canConnect)}
+            >
+              <Wallet />
+              {signerRow ? "Switch to this wallet" : "Connect wallet"}
+            </AomiButton>
+          </div>
+        ) : null}
+        {!parkedOrSigning && (awaitingWallet || inFlight) && review ? (
+          <TransactionReview
+            review={{
+              id: view.commit_id,
+              revision: view.review?.revision ?? view.version,
+              request: review,
+            }}
+            supportedChains={wallet.supportedChains}
+            approving={
+              busy ||
+              inFlight ||
+              ["preparing", "switching_chain", "awaiting_wallet"].includes(
+                lifecycle.phase,
+              )
+            }
+            approveDisabled={!canSign}
+            status={error}
+            statusIsError={Boolean(error)}
+            recoveringExistingAttempt={Boolean(
+              view.wallet_attempt || handle.recoveryRecord?.attemptId,
+            )}
+            onApprove={() =>
+              void run(() =>
+                handle.sign(capabilities, {
+                  expectedVersion: view.version,
+                  expectedReviewDigest: view.review?.digest,
+                }),
+              )
+            }
+            onReject={() => void run(() => handle.reject())}
+          />
+        ) : null}
+        {awaitingWallet && !review ? (
+          <p role="status" className="type-meta text-aomi-muted mt-3">
+            This request has no review to show yet.
+          </p>
+        ) : null}
+      </section>
+    </AomiSheet>
   );
 }

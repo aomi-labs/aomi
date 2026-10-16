@@ -40,32 +40,18 @@ const wallet = (overrides: Partial<AomiAccountWallet>): AomiAccountWallet => ({
   is_default: true,
   status: "ready",
   merged: false,
-  rule: { mode: "ask", rule_version: 1, instant: [] },
   created_at: 1_760_529_600,
   ...overrides,
 });
 
 const wallets = [
   wallet({}),
-  wallet({
-    id: "w_2",
-    label: "Trading",
-    rule: {
-      mode: "ask",
-      rule_version: 4,
-      instant: [
-        { client: "portal", kind: "portal", label: "Portal" },
-        { client: "mcp", kind: "mcp", label: "MCP" },
-      ],
-    },
-  }),
+  wallet({ id: "w_2", label: "Trading" }),
   wallet({
     id: "w_3",
     family: "svm",
     address: "J2w7ZT5Wd4ACuQAH3dmzjWoRhaqejMRoMRL4C7Qbg5Ks",
     label: "Solana agent",
-    status: "paused",
-    rule: { mode: "paused", rule_version: 2, instant: [] },
   }),
   wallet({
     id: "w_4",
@@ -74,7 +60,6 @@ const wallets = [
     label: "Rabby",
     is_default: false,
     status: "linked",
-    rule: null,
   }),
 ];
 
@@ -84,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("aomi wallets", () => {
-  it("prints id, kind, family, address, label and rule", async () => {
+  it("prints id, kind, family, address and label", async () => {
     mocks.fetch.mockResolvedValue(Response.json({ wallets }));
     await walletsListCommand({ secrets: {} });
 
@@ -92,15 +77,11 @@ describe("aomi wallets", () => {
       "https://example.test/v1/account/wallets",
     );
     const lines = String(vi.mocked(console.log).mock.calls[0]?.[0]).split("\n");
-    expect(lines[0]).toMatch(/^ID\s+KIND\s+FAMILY\s+ADDRESS\s+LABEL\s+RULE$/);
-    expect(lines[1]).toMatch(
-      /^w_1\s+agent\s+evm\s+0x1111\S+\s+Agent wallet\s+ask$/,
-    );
-    expect(lines[2]).toMatch(/Trading\s+ask · instant: Portal, MCP$/);
-    expect(lines[3]).toMatch(
-      /^w_3\s+agent\s+svm\s+J2w7\S+\s+Solana agent\s+paused$/,
-    );
-    expect(lines[4]).toMatch(/^w_4\s+browser\s+evm\s+0x4444\S+\s+Rabby\s+—$/);
+    expect(lines[0]).toMatch(/^ID\s+KIND\s+FAMILY\s+ADDRESS\s+LABEL$/);
+    expect(lines[1]).toMatch(/^w_1\s+agent\s+evm\s+0x1111\S+\s+Agent wallet$/);
+    expect(lines[2]).toMatch(/\s+Trading$/);
+    expect(lines[3]).toMatch(/^w_3\s+agent\s+svm\s+J2w7\S+\s+Solana agent$/);
+    expect(lines[4]).toMatch(/^w_4\s+browser\s+evm\s+0x4444\S+\s+Rabby$/);
     expect(mocks.close).toHaveBeenCalledOnce();
   });
 

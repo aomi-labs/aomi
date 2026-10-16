@@ -2,6 +2,27 @@
 
 ## Last Updated
 
+2026-10-16 — AGENT WALLETS REDESIGN (FRONTEND): ONE RULE, CONNECTIONS, ONE
+  POPUP (branch `feat/agent-wallets`; `notes/redesign-contract.md` §4).
+  Client: `agentRule()` / `setAgentRule({locked, version})` replace the
+  per-wallet rule; connections are `{connections: AomiAccountConnection[]}`
+  with `setConnectionSettings(key, {label?, instant?})`. Display cache keys
+  `agent-rule` and `connections` (factories in `account/account-queries.ts`,
+  warmed by `DisplayPrefetch`); `account-acl` and `wallet-balance` are gone.
+  Widget: `AomiSheet` (the wallet popup's card) and a picker `purpose` line;
+  Settings › Account nests agent addresses under one "Agent wallet" row with
+  Lock/Unlock and one LoadingPane gate; new Connections tab (Ask/Instant,
+  Rename, Remove, Add sheet); Safety is Guard policy (+ Swig) only. Deleted:
+  Deposit sheet, balances, signs-with strip, Telegram row, Safety rule cards,
+  Connected apps, Locked wallets/permit UI. Portal: `/oauth/authorize`,
+  `/oauth/consent`, `/oauth/device`, `/link/telegram`, `/sign/:ref` render one
+  sheet on a blank page (`StandalonePage`), opening the real wallet picker
+  when signed out (no more `?return_to=`); `GET /v1/account/connections`
+  joins `account_connections`; BFF proxies `/v1/account/agent-rule` and
+  `/v1/account/connection-settings/:key`. CLI: `account login --provider`
+  removed. Pending: live check on the stack; browser contracts for the new
+  pages.
+
 2026-10-16 — AGENT WALLETS STEP 5 (FRONTEND): LINK TELEGRAM ↔ PORTAL (branch
   `feat/agent-wallets`; backend half built against `notes/step5-contract.md`).
   Portal: login-only `/link/telegram?code=` page (`referrer: no-referrer`,

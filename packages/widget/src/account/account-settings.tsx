@@ -1,53 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  shortAddress,
-  type AomiClient,
-  type AomiTelegramConnection,
-} from "@aomi-labs/client";
+import { useMemo, useRef, useState } from "react";
+import { shortAddress, type AomiAgentRule } from "@aomi-labs/client";
+import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { AccountManagement } from "@/account/account-management/account-management";
+import { accountWalletsQuery, agentRuleQuery } from "@/account/account-queries";
 import { providerName } from "@/account/account-management/wallet-model";
 import {
   providerEmailDisplayHint,
   visibleSignInMethods,
 } from "@/wallet/account-presentation";
-import { useAccountAcl } from "./use-account-acl";
 import { useShellTransport } from "./transport";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-
-/** The account's linked Telegram, for its row under Social sign-in. */
-function useTelegramConnection(
-  client: AomiClient | undefined,
-  enabled: boolean,
-): AomiTelegramConnection | null {
-  const [telegram, setTelegram] = useState<AomiTelegramConnection | null>(null);
-  useEffect(() => {
-    setTelegram(null);
-    if (!enabled || !client) return;
-    let stale = false;
-    client.account.connections.list().then(
-      (connections) => {
-        if (!stale) setTelegram(connections.telegram);
-      },
-      // The row is extra context; Settings works without it.
-      () => undefined,
-    );
-    return () => {
-      stale = true;
-    };
-  }, [client, enabled]);
-  return telegram;
-}
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const adapter = useAomiWalletKit();
-  const acl = useAccountAcl();
-  const transport = useShellTransport();
+  const { client } = useShellTransport();
+  const cache = useAomiDisplayCache();
+  const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
+  const walletList = useDisplayQuery({
+    ...accountWalletsQuery(client),
+    enabled: signedIn,
+  });
+  const ruleQuery = useDisplayQuery({
+    ...agentRuleQuery(client),
+    enabled: signedIn,
+  });
   const pendingRef = useRef(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -76,7 +59,15 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     setActionError(null);
     try {
       await action();
-      if (refresh) await acl.refresh();
+      if (refresh && cache)
+        await Promise.all(
+          (["profile", "account-wallets"] as const).map((resource) =>
+            cache.client.invalidateQueries({
+              queryKey: cache.key(resource),
+              exact: true,
+            }),
+          ),
+        );
       return true;
     } catch (cause) {
       setActionError(
@@ -89,13 +80,20 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     }
   };
 
-  const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
-  const telegram = useTelegramConnection(transport.client, signedIn);
+  const saveRule = (rule: AomiAgentRule) => {
+    if (cache) cache.client.setQueryData(cache.key("agent-rule"), rule);
+    else void ruleQuery.refetch();
+  };
+  const rule = ruleQuery.data;
   const disconnect = adapter.disconnect;
   const unlinkWallet = adapter.unlinkLinkedWallet;
   const unlinkLogin = adapter.unlinkLinkedAccount;
   const renameWallet = adapter.updateLinkedWallet;
   const activateWallet = adapter.activateWallet;
+
+  // One spinner until the agent wallet's reads answer, then everything at once.
+  if (signedIn && (walletList.isPending || ruleQuery.isPending))
+    return <LoadingPane label="Loading your account" />;
 
   return (
     <div className="flex flex-col">
@@ -200,9 +198,59 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
             : undefined
         }
         agentWallets={
-          signedIn ? { run, onClose, client: transport.client } : undefined
+          signedIn
+            ? {
+                wallets: walletList.data,
+                rule,
+                onLock: rule
+                  ? (locked) =>
+                      void run(
+                        "agent:lock",
+                        async () => {
+                          try {
+                            saveRule(
+                              await client.account.wallets.setAgentRule({
+                                locked,
+                                version: rule.version,
+                              }),
+                            );
+                          } catch (cause) {
+                            void ruleQuery.refetch();
+                            throw (cause as { code?: unknown }).code ===
+                              "rule_version_conflict"
+                              ? new Error(
+                                  "Your agent wallet changed in another tab. Try again.",
+                                )
+                              : cause;
+                          }
+                        },
+                        false,
+                      )
+                  : undefined,
+                onRename: renameWallet
+                  ? (label) =>
+                      run("agent:rename", () =>
+                        Promise.all(
+                          adapter.wallets
+                            .filter((row) =>
+                              walletList.data?.some(
+                                (wallet) =>
+                                  wallet.is_default &&
+                                  wallet.id === `w_${row.linkedWalletId}`,
+                              ),
+                            )
+                            .map((row) =>
+                              renameWallet({
+                                walletId: row.linkedWalletId!,
+                                label,
+                              }),
+                            ),
+                        ),
+                      )
+                  : undefined,
+              }
+            : undefined
         }
-        telegram={telegram}
         onSignOut={() => {
           // Close first so the panel never renders the signed-out account;
           // errors from the old session have nowhere useful to go.

@@ -70,9 +70,9 @@ export type {
 export {
   listAccountConnections,
   revokeOAuthConnection,
+  type AccountConnection,
   type AccountConnections,
   type ConnectionKind,
-  type OAuthConnection,
 } from "./service/connections";
 
 export {

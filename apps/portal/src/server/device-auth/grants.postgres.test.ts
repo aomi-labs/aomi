@@ -137,12 +137,11 @@ describePostgres("PostgreSQL device-auth records", () => {
               ($3, $4, 'expired', now() - interval '1 minute', now(), now())`,
       [randomUUID(), expiredDevice, randomUUID(), unrelated],
     );
-    await grants.issueDeviceAuthGrant({
+    await grants.issueDeviceAuthLinkIntent({
       state,
       codeChallenge,
       redirectUri,
-      sessionToken: "cleanup-test-session",
-      expiresAt: null,
+      betterAuthUserId: "postgres-test-user",
       provider: "para",
     });
     const remaining = await pool.query<{ identifier: string }>(

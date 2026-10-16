@@ -237,8 +237,8 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     await pool.query(
       `insert into agent_wallets
          (user_id, chain_type, public_key_id, para_subject, status,
-          is_default, source, created_at, updated_at)
-       values ($1, 'evm', $2, $3, 'active', true, 'provisioned', $4, $4)`,
+          is_default, created_at, updated_at)
+       values ($1, 'evm', $2, $3, 'active', true, $4, $4)`,
       [owner.userId, agentId, subject, now],
     );
 
@@ -314,8 +314,9 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       ],
     );
     await pool.query(
-      `update agent_wallets set instant_clients = ARRAY['telegram:77'] where public_key_id=$1`,
-      [agentId],
+      `insert into account_connections (user_id, key, instant, created_at, updated_at)
+       values ($1, 'telegram:77', true, 1, 1)`,
+      [owner.userId],
     );
     // Deleting the account keeps funds but revokes all signing authority.
     await service.deactivateAomiAccount({ userId: owner.userId });
@@ -325,17 +326,21 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     );
     expect(kept.rows[0].count).toBe(1);
     const authority = await pool.query(
-      `select pk.signing_mode, pk.authorization_version, pk.authorization_metadata, aw.instant_clients, aw.rule_version
-      from public_keys pk join agent_wallets aw on aw.public_key_id=pk.id where pk.id=$1`,
+      `select pk.signing_mode, pk.authorization_version, pk.authorization_metadata
+      from public_keys pk where pk.id=$1`,
       [agentId],
     );
     expect(authority.rows[0]).toMatchObject({
       signing_mode: "denied",
       authorization_metadata: { reason: "account_deactivated" },
-      instant_clients: [],
     });
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
-    expect(Number(authority.rows[0].rule_version)).toBeGreaterThan(0);
+    const rule = await pool.query(
+      `select r.locked, c.instant from agent_wallet_rules r
+         join account_connections c on c.user_id = r.user_id where r.user_id = $1`,
+      [owner.userId],
+    );
+    expect(rule.rows).toEqual([{ locked: true, instant: false }]);
     const grants = await pool.query(
       `select count(*)::int as count from signing_delegations where public_key_id=$1 and revoked_at is null`,
       [agentId],

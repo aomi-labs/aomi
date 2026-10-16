@@ -8,6 +8,7 @@ import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 import { buildWalletChoices, type WalletChoice } from "./wallet-options";
 import type { SheetMode } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";
+import type { SheetPurpose } from "./wallet-picker-context";
 import {
   BrandMark,
   ChoiceRow,
@@ -21,10 +22,12 @@ export function ChooseStep({
   mode,
   error,
   flow,
+  purpose,
 }: {
   mode: SheetMode;
   error?: string;
   flow: SheetFlow;
+  purpose?: SheetPurpose;
 }) {
   const kit = useAomiWalletKit();
   const hostOptions = useContext(WalletSignInOptionsContext);
@@ -78,6 +81,15 @@ export function ChooseStep({
         onClose={flow.close}
       />
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        {purpose ? (
+          <p
+            data-sheet-purpose
+            className="rounded-control bg-aomi-surface-2 type-meta text-aomi-muted flex items-center gap-2 px-2.5 py-1.5 [&_svg]:size-4 [&_svg]:shrink-0"
+          >
+            {purpose.icon}
+            {purpose.text}
+          </p>
+        ) : null}
         {error || flow.error || kit.accountError ? (
           <SheetAlert>{error ?? flow.error ?? kit.accountError}</SheetAlert>
         ) : null}

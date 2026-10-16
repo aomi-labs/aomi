@@ -1,133 +1,200 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, CircleCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@aomi-labs/widget/browser-auth";
+import {
+  AomiButton,
+  AomiSheet,
+  ConnectionMark,
+  FootnoteLink,
+  SheetAlert,
+  SheetFootnote,
+  SheetHeader,
+  signOutAndDisconnect,
+  accountDisplayName,
+  useAomiWalletKit,
+} from "@aomi-labs/widget/host-composition";
+import { StandalonePage } from "@/components/shell/standalone-page";
+import { useOAuthClientName } from "../oauth-client-name";
 import { oauthConsentRedirect } from "./consent-response";
 
-const DESCRIPTIONS: Record<string, string> = {
-  "account:apps:read": "View your available and installed apps",
-  "account:apps:write": "Install and remove apps from your account",
-  "account:credentials:read":
-    "View app credential setup status (never saved values)",
-  "account:credentials:write": "Save, replace, and remove your app credentials",
-  "agent:read": "Read your Agent sessions",
-  "agent:write": "Start and manage Agent turns",
-  "agent:actions:resolve": "Resolve staged Agent actions",
-  "pipeline:catalog": "Browse public Pipeline apps and tools",
-  "pipeline:execute": "Attempt Pipeline execution under Aomi policy",
-  "mcp:agent": "Connect to the Agent MCP server",
-  "mcp:pipeline": "Connect to the Pipeline MCP server",
-  "payments:submit": "Submit a client-held payment signature",
-  offline_access: "Stay connected with a refresh token",
+const CHAT = "Chat with Aomi and read your wallets";
+const TRADE = "Propose trades. Each one waits for you.";
+
+/** What each scope lets the client do, in plain words; unknown scopes show as-is. */
+const SCOPE_LINES: Record<string, string[]> = {
+  "agent:read": [CHAT],
+  "agent:write": [CHAT, TRADE],
+  "mcp:agent": [CHAT, TRADE],
+  "agent:actions:resolve": [TRADE],
+  "pipeline:execute": [TRADE],
+  "pipeline:catalog": ["Browse Aomi apps and tools"],
+  "mcp:pipeline": ["Browse Aomi apps and tools"],
+  "payments:submit": ["Pay for its own requests"],
+  "account:apps:read": ["See your installed apps"],
+  "account:apps:write": ["Install and remove apps"],
+  "account:credentials:read": [
+    "See which app keys are set, never their values",
+  ],
+  "account:credentials:write": ["Save and remove app keys"],
+  offline_access: [],
+  openid: [],
+  profile: [],
+  email: [],
 };
 
-export function OAuthConsentClient() {
-  const params = useSearchParams();
-  const { data: session } = authClient.useSession();
-  // Better Auth redirects to the consent page with the complete signed OAuth
-  // request in its query string. The consent endpoint validates this value
-  // before it reads any user-selected fields.
-  const oauthQuery = params.toString();
-  const scopes = useMemo(
-    () => (params.get("scope") ?? "").split(/\s+/).filter(Boolean),
-    [params],
-  );
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const acceptedScopes = useMemo(() => {
-    if (session?.user.isAnonymous !== true) return scopes;
-    const ceiling = new Set([
-      "agent:read",
-      "agent:write",
-      "pipeline:catalog",
-      "mcp:agent",
-      "mcp:pipeline",
-      "offline_access",
-    ]);
-    return scopes.filter((scope) => ceiling.has(scope));
-  }, [scopes, session?.user.isAnonymous]);
+/** Scopes a guest account may grant. */
+const GUEST_SCOPES = new Set([
+  "agent:read",
+  "agent:write",
+  "pipeline:catalog",
+  "mcp:agent",
+  "mcp:pipeline",
+  "offline_access",
+]);
 
-  const decide = useCallback(
-    async (accept: boolean) => {
-      if (!oauthQuery) {
-        return setStatus("This authorization request is incomplete.");
-      }
-      setPending(true);
-      const response = await fetch("/api/auth/oauth2/consent", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          accept,
-          oauth_query: oauthQuery,
-          // The signed request has already passed the canonical server policy.
-          // Echo it unchanged; the route validates it again before minting.
-          scope: acceptedScopes.join(" "),
-        }),
-      });
-      const redirect = oauthConsentRedirect(
-        await response.json().catch(() => null),
-      );
-      if (!response.ok || !redirect) {
-        setStatus(`Consent failed (HTTP ${response.status})`);
-        setPending(false);
-        return;
-      }
-      window.location.assign(redirect);
-    },
-    [acceptedScopes, oauthQuery],
+/** Better Auth's consent page: Allow <Client>? in the wallet popup's sheet. */
+export function OAuthConsentClient() {
+  const name = useOAuthClientName(useSearchParams());
+  return (
+    <StandalonePage
+      guest
+      purpose={{
+        icon: <ConnectionMark kind="app" name={name} size={16} />,
+        text: `To connect ${name} to your account`,
+      }}
+    >
+      <ConsentSheet name={name} />
+    </StandalonePage>
   );
+}
+
+export function ConsentSheet({ name }: { name: string }) {
+  const params = useSearchParams();
+  const kit = useAomiWalletKit();
+  const { data: session } = authClient.useSession();
+  // Better Auth redirects here with the complete signed OAuth request in its
+  // query string; the consent endpoint validates it before reading anything.
+  const oauthQuery = params.toString();
+  const guest = session?.user.isAnonymous === true;
+  const scopes = useMemo(() => {
+    const requested = (params.get("scope") ?? "").split(/\s+/).filter(Boolean);
+    return guest
+      ? requested.filter((scope) => GUEST_SCOPES.has(scope))
+      : requested;
+  }, [params, guest]);
+  const lines = [
+    ...new Set(scopes.flatMap((scope) => SCOPE_LINES[scope] ?? [scope])),
+  ];
+  const [pending, setPending] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const decide = async (accept: boolean) => {
+    if (!oauthQuery) return setError("This request is incomplete.");
+    setPending(true);
+    setError(null);
+    const response = await fetch("/api/auth/oauth2/consent", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        accept,
+        oauth_query: oauthQuery,
+        // The signed request already passed the server policy; the route
+        // validates this scope again before minting.
+        scope: scopes.join(" "),
+      }),
+    }).catch(() => null);
+    const redirect = oauthConsentRedirect(
+      await response?.json().catch(() => null),
+    );
+    if (!response?.ok || !redirect) {
+      setError("That didn’t go through. Try again.");
+      setPending(false);
+      return;
+    }
+    if (!accept) return window.location.assign(redirect);
+    // Show "connected" for a moment before handing back to the client.
+    setConnected(true);
+    setTimeout(() => window.location.assign(redirect), 1200);
+  };
+
+  if (connected)
+    return (
+      <AomiSheet backdrop={false}>
+        <SheetHeader
+          title={`${name} is connected`}
+          description={`Go back to ${name}. You can close this tab.`}
+          onClose={() => window.close()}
+        />
+        <div className="flex flex-col items-center gap-4 px-5 pb-5">
+          <CircleCheck
+            className="text-aomi-success size-12"
+            strokeWidth={1.5}
+          />
+          <SheetFootnote>
+            It asks before every trade. Change that in Settings → Connections.
+          </SheetFootnote>
+        </div>
+      </AomiSheet>
+    );
 
   return (
-    <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
-      <section className="w-full max-w-md">
-        <h1 className="text-2xl font-semibold tracking-tight">Review access</h1>
-        <p className="text-muted-foreground mt-3 text-sm">
-          Only approve the capabilities this client needs. A revoked JWT may
-          remain valid for at most five minutes.
-        </p>
-        <ul className="mt-5 grid gap-2">
-          {acceptedScopes.map((scope) => (
-            <li
-              className="text-muted-foreground flex items-center gap-2 text-sm"
-              key={scope}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {DESCRIPTIONS[scope] ?? scope}
+    <AomiSheet backdrop={false}>
+      <SheetHeader
+        title={`Allow ${name}?`}
+        description={`${name} will use your Aomi account.`}
+        onClose={() => void decide(false)}
+      />
+      <div className="flex flex-col items-center gap-4 px-5 pb-5">
+        <ConnectionMark kind="app" name={name} size={36} />
+        <span className="rounded-control bg-aomi-surface-2 type-meta max-w-full truncate px-2.5 py-1">
+          {guest ? "Guest account" : accountDisplayName(kit.accountUser)}
+        </span>
+        <ul className="type-control flex w-full flex-col gap-1.5">
+          {lines.map((line) => (
+            <li key={line} className="flex items-start gap-2">
+              <Check className="text-aomi-success mt-0.5 size-4 shrink-0" />
+              {line}
             </li>
           ))}
         </ul>
-        {acceptedScopes.length !== scopes.length ? (
-          <p className="text-muted-foreground mt-4 text-sm">
-            Guest accounts receive only the guest-safe subset of the requested
-            access.
-          </p>
+        {error ? (
+          <div className="w-full">
+            <SheetAlert>{error}</SheetAlert>
+          </div>
         ) : null}
-        {status ? (
-          <p className="text-muted-foreground mt-4 text-sm">{status}</p>
-        ) : null}
-        <div className="mt-6 grid gap-3">
-          <button
-            className="bg-foreground text-background flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-60"
+        <div className="flex w-full flex-col gap-2">
+          <AomiButton
+            variant="primary"
+            className="h-10 w-full"
             disabled={pending}
             onClick={() => void decide(true)}
-            type="button"
           >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Authorize
-          </button>
-          <button
-            className="border-border h-11 rounded-md border px-4 text-sm font-medium disabled:opacity-60"
+            Allow
+          </AomiButton>
+          <AomiButton
+            className="h-10 w-full"
             disabled={pending}
             onClick={() => void decide(false)}
-            type="button"
           >
             Deny
-          </button>
+          </AomiButton>
         </div>
-      </section>
-    </main>
+        <SheetFootnote>
+          Not you?{" "}
+          <FootnoteLink
+            onClick={() =>
+              void signOutAndDisconnect(kit).catch(() => undefined)
+            }
+          >
+            Use another account
+          </FootnoteLink>
+        </SheetFootnote>
+      </div>
+    </AomiSheet>
   );
 }

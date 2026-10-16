@@ -181,7 +181,8 @@ async function toBackend(call: Call, path: string): Promise<Response> {
 }
 
 const WALLET_ID = "w_[1-9][0-9]*";
-const WALLET_RULE = new RegExp(`^/v1/account/wallets/${WALLET_ID}/rule$`);
+const AGENT_RULE = /^\/v1\/account\/agent-rule$/;
+const CONNECTION_SETTINGS = /^\/v1\/account\/connection-settings\/[^/]+$/;
 
 /** Linking a Telegram account with a `/link` code (step 5). */
 const TELEGRAM_LINK =
@@ -190,7 +191,8 @@ const TELEGRAM_LINK =
 /** Writes only a signed-in portal session may make; the backend checks it too. */
 const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
   { method: "POST", path: /^\/v1\/account\/wallets\/agent$/ },
-  { method: "PUT", path: WALLET_RULE },
+  { method: "PUT", path: AGENT_RULE },
+  { method: "PUT", path: CONNECTION_SETTINGS },
   { method: "POST", path: TELEGRAM_LINK },
 ];
 
@@ -516,9 +518,9 @@ function backendRoute(request: Request): BackendRoute | undefined {
 }
 
 /**
- * The account's wallet list, balances, agent wallet creation and signing
- * rules. Reads take the same scope api-server asks of OAuth clients; creating
- * an agent wallet and writing its rule are for a portal session only.
+ * The account's wallet list, balances, agent wallet creation, its lock and
+ * each connection's Ask/Instant. Reads take the same scope api-server asks of
+ * OAuth clients; the writes are for a portal session only.
  */
 export const ACCOUNT_WALLET_ROUTES: readonly {
   path: RegExp;
@@ -530,8 +532,9 @@ export const ACCOUNT_WALLET_ROUTES: readonly {
     path: new RegExp(`^/v1/account/wallets/${WALLET_ID}/balance$`),
     method: "GET",
   },
-  { path: WALLET_RULE, method: "GET" },
-  { path: WALLET_RULE, method: "PUT" },
+  { path: AGENT_RULE, method: "GET" },
+  { path: AGENT_RULE, method: "PUT" },
+  { path: CONNECTION_SETTINGS, method: "PUT" },
 ];
 
 function accountWalletNeed(request: Request): Need | null {
@@ -761,13 +764,6 @@ export const routes = {
     handle: { GET: account.backendBearer },
   }),
 
-  deviceGrant: bind({
-    operation: "device_auth.grant",
-    need: { capability: "device_login" },
-    handle: { POST: deviceAuth.grantDeviceLogin },
-    cors: "none",
-    fallback: "device_auth_failed",
-  }),
   deviceLinkIntent: bind({
     operation: "device_auth.link_intent",
     need: { capability: "device_login" },

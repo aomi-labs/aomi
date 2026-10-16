@@ -31,13 +31,19 @@ const service = createDeviceAuthGrantService({
 async function main() {
   try {
     if (action === "issue") {
-      const grant = await service.issueDeviceAuthGrant({
+      const intent = await service.issueDeviceAuthLinkIntent({
         state,
         codeChallenge,
         redirectUri,
-        sessionToken: "cross-process-session-fixture",
-        expiresAt: null,
+        betterAuthUserId: "cross-process-user-fixture",
         provider: "para",
+      });
+      const grant = await service.issueDeviceAuthLinkGrant({
+        linkIntent: intent.id,
+        state,
+        redirectUri,
+        provider: "para",
+        credential: { provider: "para" },
       });
       process.stdout.write(JSON.stringify({ code: grant.code }));
     } else if (action === "exchange") {

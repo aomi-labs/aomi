@@ -37,6 +37,7 @@ const DEFAULT_ENABLED_APPS = ["default"] as const;
 const SETTINGS_TABS: readonly SettingsTab[] = [
   "general",
   "account",
+  "connections",
   "policy",
   "usage",
 ];

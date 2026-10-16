@@ -3,7 +3,12 @@
 import { useEffect, useRef } from "react";
 
 /** Settings modal tabs; `policy` is the Safety tab. */
-export type SettingsTab = "general" | "account" | "policy" | "usage";
+export type SettingsTab =
+  | "general"
+  | "account"
+  | "connections"
+  | "policy"
+  | "usage";
 
 const OPEN_SETTINGS_EVENT = "aomi:open-settings";
 
@@ -24,26 +29,5 @@ export function useSettingsOpenRequest(onOpen: (tab: SettingsTab) => void) {
       handler.current((event as CustomEvent<SettingsTab>).detail);
     window.addEventListener(OPEN_SETTINGS_EVENT, open);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, open);
-  }, []);
-}
-
-const OPEN_WALLET_RULE_EVENT = "aomi:open-wallet-rule";
-
-/** Inside open Settings: show Safety at one agent wallet's rule (`w_` id). */
-export function requestWalletRuleOpen(walletId: string) {
-  window.dispatchEvent(
-    new CustomEvent<string>(OPEN_WALLET_RULE_EVENT, { detail: walletId }),
-  );
-}
-
-/** SettingsModal side of `requestWalletRuleOpen`. */
-export function useWalletRuleOpenRequest(onOpen: (walletId: string) => void) {
-  const handler = useRef(onOpen);
-  handler.current = onOpen;
-  useEffect(() => {
-    const open = (event: Event) =>
-      handler.current((event as CustomEvent<string>).detail);
-    window.addEventListener(OPEN_WALLET_RULE_EVENT, open);
-    return () => window.removeEventListener(OPEN_WALLET_RULE_EVENT, open);
   }, []);
 }

@@ -28,7 +28,7 @@ const walletsUseDef = defineCommand({
 export const walletsDef = defineCommand({
   meta: {
     name: "wallets",
-    description: "Account wallets and their signing rules",
+    description: "Account wallets",
   },
   args: { ...globalArgs },
   subCommands: { use: walletsUseDef },

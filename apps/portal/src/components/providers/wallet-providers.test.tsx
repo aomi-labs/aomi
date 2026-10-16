@@ -159,7 +159,7 @@ describe("WalletProviders Privy configuration", () => {
       expect(walletKit.providers).toBe(original.providers);
       expect(walletKit.account).toBe(original.account);
     }
-    navigation.pathname = "/oauth/device";
+    navigation.pathname = "/device-auth";
     navigation.search = "provider=privy";
     view.rerender(<WalletProviders>chat</WalletProviders>);
     expect(walletKit.auth).toEqual({ provider: "privy" });
@@ -294,7 +294,7 @@ describe("WalletProviders Privy configuration", () => {
   it("mounts exactly the Para auth SDK selected by a device route", async () => {
     vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
     vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-    navigation.pathname = "/oauth/device";
+    navigation.pathname = "/device-auth";
     navigation.search = "provider=para";
     const { WalletProviders } = await import("./wallet-providers");
 
@@ -328,37 +328,21 @@ describe("WalletProviders Privy configuration", () => {
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
   });
 
-  it.each([
-    ["/device-auth", "para"],
-    ["/device-auth", "privy"],
-    ["/oauth/device", "para"],
-    ["/oauth/device", "privy"],
-  ])(
-    "composes one provider owner for %s with %s selected",
-    async (pathname, provider) => {
+  it.each(["para", "privy"])(
+    "composes one provider owner for /device-auth with %s selected",
+    async (provider) => {
       vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
       vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-      navigation.pathname = pathname;
-      navigation.search =
-        pathname === "/device-auth"
-          ? `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`
-          : `provider=${provider}&user_code=AOMI-1234`;
-      const [{ WalletProviders }, page] = await Promise.all([
+      navigation.pathname = "/device-auth";
+      navigation.search = `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`;
+      const [{ WalletProviders }, { DeviceAuthClient }] = await Promise.all([
         import("./wallet-providers"),
-        pathname === "/device-auth"
-          ? import("@/app/device-auth/device-auth-client")
-          : import("@/app/oauth/device/oauth-device-client"),
+        import("@/app/device-auth/device-auth-client"),
       ]);
-      const Page =
-        pathname === "/device-auth"
-          ? (page as typeof import("@/app/device-auth/device-auth-client"))
-              .DeviceAuthClient
-          : (page as typeof import("@/app/oauth/device/oauth-device-client"))
-              .OAuthDeviceClient;
 
       const view = render(
         <WalletProviders>
-          <Page />
+          <DeviceAuthClient />
         </WalletProviders>,
       );
 

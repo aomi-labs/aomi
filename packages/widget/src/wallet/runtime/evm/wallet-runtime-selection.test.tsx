@@ -37,6 +37,8 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock("@aomi-labs/react", () => ({
   useUser: () => ({ setUser: fixture.setUser }),
+  useAomiDisplayCache: () => null,
+  useDisplayQuery: () => ({ isPending: false }),
 }));
 vi.mock("@/wallet/wallet-debug", () => ({ walletDebug: fixture.debug }));
 vi.mock("wagmi", () => {
@@ -90,9 +92,6 @@ vi.mock("./registry-source", () => ({
       store.dispatch({ type: "wagmi/settled", now: Date.now() });
     }, [store]);
   },
-}));
-vi.mock("@/account/use-account-acl", () => ({
-  useAccountAcl: () => ({ refresh: vi.fn() }),
 }));
 vi.mock("@/account/transport", () => ({ useShellTransport: () => ({}) }));
 vi.mock("@/ui/aomi/confirm-dialog", () => ({ useConfirmDialog: () => ({}) }));

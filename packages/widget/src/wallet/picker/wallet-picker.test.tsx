@@ -154,6 +154,35 @@ describe("wallet sheet", () => {
     expect(screen.getByText("Solana")).toBeInTheDocument();
   });
 
+  it("shows the opener's purpose under the header until the sheet closes", () => {
+    let open!: ReturnType<typeof useWalletPicker>["openPicker"];
+    function Opener() {
+      open = useWalletPicker().openPicker;
+      return null;
+    }
+    render(
+      <Harness initial={baseKit()} open={false}>
+        <Opener />
+      </Harness>,
+    );
+    act(() =>
+      open({
+        purpose: {
+          icon: <svg data-testid="mark" />,
+          text: "To connect Claude to your account",
+        },
+      }),
+    );
+    const purpose = screen.getByText("To connect Claude to your account");
+    expect(purpose).toHaveAttribute("data-sheet-purpose");
+    expect(screen.getByTestId("mark")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]!);
+    act(() => open());
+    expect(screen.getByText("Sign in to Aomi")).toBeInTheDocument();
+    expect(document.querySelector("[data-sheet-purpose]")).toBeNull();
+  });
+
   it("connects, asks for the signature at once, and falls back to Verify", async () => {
     const linkWallet = vi
       .fn()

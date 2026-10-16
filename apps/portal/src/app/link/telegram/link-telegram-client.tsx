@@ -3,9 +3,11 @@
 import { useMemo } from "react";
 import { AomiClient } from "@aomi-labs/client";
 import {
-  TelegramLinkPanel,
+  ConnectionMark,
   getBackendUrl,
+  TelegramLinkPanel,
 } from "@aomi-labs/widget/host-composition";
+import { StandalonePage } from "@/components/shell/standalone-page";
 
 /** Same-origin BFF: the Better Auth cookie is the credential. */
 function createClient(): AomiClient {
@@ -17,23 +19,21 @@ function createClient(): AomiClient {
   });
 }
 
-/** A centered host for the widget's Telegram link review. */
+/** `/link/telegram?code=`: the wallet picker if needed, then the link sheet. */
 export function LinkTelegramClient({ code }: { code: string | null }) {
-  const client = useMemo(createClient, []);
+  const client = useMemo(() => createClient(), []);
   return (
-    <main
-      data-testid="link-telegram-page"
-      className="bg-aomi-bg text-aomi-fg flex h-full w-full justify-center overflow-y-auto px-4 py-10 sm:items-center"
+    <StandalonePage
+      purpose={{
+        icon: <ConnectionMark kind="telegram" name="Telegram" size={16} />,
+        text: "To link your Telegram",
+      }}
     >
-      <div className="w-full max-w-md">
-        <TelegramLinkPanel client={client} code={code} />
-        <a
-          href="/"
-          className="type-meta text-aomi-muted hover:text-aomi-fg mt-6 inline-block"
-        >
-          Back to Aomi
-        </a>
-      </div>
-    </main>
+      <TelegramLinkPanel
+        client={client}
+        code={code}
+        onClose={() => window.location.assign("/")}
+      />
+    </StandalonePage>
   );
 }

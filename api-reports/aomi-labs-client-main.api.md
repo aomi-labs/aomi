@@ -72,9 +72,11 @@ export class AccountChallengeBindingError extends Error {
 export class AccountConnectionsTransport {
     constructor(requestResponse: RequestResponse$2);
     disconnectOAuth(clientId: string): Promise<void>;
+    // (undocumented)
     list(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountConnections>;
+    setConnectionSettings(key: string, update: AomiConnectionSettingsUpdate): Promise<AomiConnectionSettings>;
 }
 
 // @public
@@ -275,18 +277,18 @@ export class AccountTransport extends AccountGraphTransport {
 // @public
 export class AccountWalletsTransport {
     constructor(requestResponse: RequestResponse$7);
+    agentRule(options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAgentRule>;
     createAgentWallets(): Promise<AomiAgentWalletsCreated>;
     listWallets(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
+    setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule>;
     setThreadWallet(threadId: string, id: string): Promise<AomiThreadWallet>;
-    setWalletRule(id: string, update: AomiWalletRuleUpdate): Promise<AomiWalletRuleSettings>;
     walletBalance(id: string, options?: {
         signal?: AbortSignal;
     }): Promise<AomiWalletBalance>;
-    walletRule(id: string, options?: {
-        signal?: AbortSignal;
-    }): Promise<AomiWalletRuleSettings>;
 }
 
 // @public (undocumented)
@@ -544,9 +546,20 @@ export interface AomiAccountAppMutationResponse {
 }
 
 // @public (undocumented)
+export type AomiAccountConnection = {
+    key: string;
+    kind: AomiConnectionKind;
+    name: string;
+    detail: string | null;
+    instant: boolean;
+    last_used_at: number | null;
+    connected_at: number | null;
+    removable: boolean;
+};
+
+// @public
 export type AomiAccountConnections = {
-    oauth: AomiOAuthConnection[];
-    telegram: AomiTelegramConnection | null;
+    connections: AomiAccountConnection[];
 };
 
 // @public (undocumented)
@@ -586,7 +599,6 @@ export type AomiAccountWallet = {
     is_default: boolean;
     status: AomiAccountWalletStatus;
     merged: boolean;
-    rule: AomiWalletRule | null;
     created_at: number | null;
 };
 
@@ -594,7 +606,7 @@ export type AomiAccountWallet = {
 export type AomiAccountWalletKind = "agent" | "browser" | "embedded";
 
 // @public
-export type AomiAccountWalletStatus = "ready" | "paused" | "linked";
+export type AomiAccountWalletStatus = "ready" | "linked";
 
 // @public
 export type AomiActiveWallet = Partial<Record<AomiWalletFamily, string>>;
@@ -608,6 +620,12 @@ export class AomiAgent {
     // (undocumented)
     run(prompt: string, options?: AgentRunOptions): AgentRun;
 }
+
+// @public
+export type AomiAgentRule = {
+    locked: boolean;
+    version: number;
+};
 
 // @public
 export type AomiAgentWalletsCreated = {
@@ -921,8 +939,19 @@ export class AomiCommits {
     }): Promise<CommitHandle>;
 }
 
+// @public (undocumented)
+export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
+
+// @public (undocumented)
+export type AomiConnectionSettings = Pick<AomiAccountConnection, "key" | "instant" | "last_used_at"> & {
+    label: string | null;
+};
+
 // @public
-export type AomiConnectionKind = "mcp" | "cli" | "api";
+export type AomiConnectionSettingsUpdate = {
+    label?: string | null;
+    instant?: boolean;
+};
 
 // @public (undocumented)
 export type AomiCreditActivity = {
@@ -1088,14 +1117,6 @@ export interface AomiListSecretsResponse {
     by_app?: Record<string, string[]>;
     names?: string[];
 }
-
-// @public (undocumented)
-export type AomiOAuthConnection = {
-    client_id: string;
-    name: string;
-    kind: AomiConnectionKind;
-    connected_at: number | null;
-};
 
 // @public (undocumented)
 export class AomiOAuthError extends Error {
@@ -1437,20 +1458,6 @@ export class AomiSvmPipeline {
     stage(input: SvmStageInput, options?: PipelineMutationOptions): Promise<SvmStaged>;
 }
 
-// @public (undocumented)
-export type AomiTelegramConnection = {
-    username: string | null;
-    bots: {
-        bot_id: string;
-        label: string;
-    }[];
-    linked_from: {
-        bot_id: string;
-        label: string;
-    } | null;
-    linked_at: number | null;
-};
-
 // @public
 export type AomiThreadWallet = {
     active_wallet: AomiActiveWallet;
@@ -1555,53 +1562,18 @@ export type AomiWalletErrorCode = (typeof WALLET_ERROR_CODES)[keyof typeof WALLE
 export type AomiWalletFamily = "evm" | "svm";
 
 // @public
-export type AomiWalletRule = {
-    mode: "ask" | "paused";
-    rule_version: number;
-    instant: AomiWalletRuleClient[];
-};
-
-// @public
-export type AomiWalletRuleClient = {
-    client: string;
-    kind: "portal" | "cli" | "mcp" | "telegram" | (string & {});
-    label: string;
-};
-
-// @public
-export type AomiWalletRuleClientSetting = AomiWalletRuleClient & {
-    instant: boolean;
-    detail?: string | null;
-};
-
-// @public
-export type AomiWalletRuleSettings = {
-    id: string;
-    rule_version: number;
-    paused: boolean;
-    clients: AomiWalletRuleClientSetting[];
-};
-
-// @public
-export type AomiWalletRuleUpdate = {
-    rule_version: number;
-    paused: boolean;
-    instant: string[];
-};
-
-// @public
 export class AomiWallets {
     constructor(client: AomiClient);
+    agentRule(options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAgentRule>;
     balance(id: string, options?: {
         signal?: AbortSignal;
     }): Promise<AomiWalletBalance>;
     list(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
-    rule(id: string, options?: {
-        signal?: AbortSignal;
-    }): Promise<AomiWalletRuleSettings>;
-    setRule(id: string, update: AomiWalletRuleUpdate): Promise<AomiWalletRuleSettings>;
+    setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule>;
 }
 
 // @public (undocumented)
@@ -2132,6 +2104,7 @@ export type CommitWalletAttemptView = components["schemas"]["CommitWalletAttempt
 export const connectionPaths: {
     readonly list: "/v1/account/connections";
     readonly oauth: (clientId: string) => string;
+    readonly settings: (key: string) => string;
 };
 
 // @public (undocumented)
@@ -3957,7 +3930,6 @@ export type TelegramLinkWalletMove = {
     label: string;
     total_usd: string | null;
     becomes: "default" | "extra";
-    instant: string[];
 };
 
 // @public
@@ -4122,8 +4094,6 @@ export const WALLET_ERROR_CODES: {
     readonly labelTooLong: "label_too_long";
     readonly agentWalletNotRemovable: "agent_wallet_not_removable";
     readonly threadBusy: "thread_busy";
-    readonly invalidRule: "invalid_rule";
-    readonly unknownClient: "unknown_client";
     readonly ruleVersionConflict: "rule_version_conflict";
     readonly portalSessionRequired: "portal_session_required";
 };
@@ -4175,7 +4145,7 @@ export const walletPaths: {
     readonly list: "/v1/account/wallets";
     readonly agent: "/v1/account/wallets/agent";
     readonly balance: (id: string) => string;
-    readonly rule: (id: string) => string;
+    readonly agentRule: "/v1/account/agent-rule";
     readonly threadWallet: "/api/thread/wallet";
 };
 

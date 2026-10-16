@@ -24,13 +24,6 @@ const agent = {
   is_default: true,
   status: "ready",
   merged: false,
-  rule: {
-    mode: "ask",
-    rule_version: 3,
-    instant: [
-      { client: "telegram:7712345678", kind: "telegram", label: "@HooditBot" },
-    ],
-  },
   created_at: 1_760_000_000,
 };
 const hoodit = {
@@ -39,7 +32,6 @@ const hoodit = {
   label: "Hoodit wallet",
   is_default: false,
   merged: true,
-  rule: { mode: "ask", rule_version: 0, instant: [] },
 };
 // The contract's example omits fields on non-agent entries.
 const privy = {
@@ -50,7 +42,6 @@ const privy = {
   label: "Privy",
   provider: "privy",
   status: "linked",
-  rule: null,
 };
 const balance = {
   id: "w_12",
@@ -285,7 +276,7 @@ describe("aomi.wallets", () => {
     });
     await authorized("https://chat.aomi.dev/v1/account/wallets");
     await authorized("https://chat.aomi.dev/v1/account/wallets/w_12/balance");
-    await authorized("https://chat.aomi.dev/v1/account/wallets/w_12/rule");
+    await authorized("https://chat.aomi.dev/v1/account/agent-rule");
     for (const call of oauth.mock.calls)
       expect(call[0]).toEqual({
         resource: "https://chat.aomi.dev/v1/agent",
@@ -296,80 +287,43 @@ describe("aomi.wallets", () => {
   });
 });
 
-const rule = {
-  id: "w_12",
-  rule_version: 3,
-  paused: false,
-  clients: [
-    { client: "portal", kind: "portal", label: "Portal", instant: false },
-    { client: "cli", kind: "cli", label: "CLI", instant: false },
-    { client: "mcp", kind: "mcp", label: "AI clients (MCP)", instant: false },
-    {
-      client: "telegram:7712345678",
-      kind: "telegram",
-      label: "@HooditBot",
-      instant: true,
-      detail: "kept on from the beta",
-    },
-  ],
-};
-
-describe("wallet rules (step 4)", () => {
-  it("reads the per-client switches and writes the full desired state", async () => {
+describe("agent rule", () => {
+  it("reads the lock and writes it at the version read", async () => {
     const { fetch, calls } = backend({
-      "GET /v1/account/wallets/w_12/rule": () => Response.json(rule),
-      "PUT /v1/account/wallets/w_12/rule": () =>
-        Response.json({
-          ...rule,
-          rule_version: 4,
-          paused: true,
-          clients: rule.clients.map((client) => ({
-            ...client,
-            instant: client.client === "mcp",
-          })),
-        }),
+      "GET /v1/account/agent-rule": () =>
+        Response.json({ locked: false, version: 3 }),
+      "PUT /v1/account/agent-rule": () =>
+        Response.json({ locked: true, version: 4 }),
     });
     const aomi = new Aomi({
       baseUrl: "https://api.example",
       guest: false,
       fetch,
     });
-    const read = await aomi.wallets.rule("w_12");
-    expect(
-      read.clients.map((client) => [client.client, client.instant]),
-    ).toEqual([
-      ["portal", false],
-      ["cli", false],
-      ["mcp", false],
-      ["telegram:7712345678", true],
-    ]);
-    expect(read.clients[3]!.detail).toBe("kept on from the beta");
-
-    const written = await aomi.wallets.setRule("w_12", {
-      rule_version: 3,
-      paused: true,
-      instant: ["mcp"],
+    expect(await aomi.wallets.agentRule()).toEqual({
+      locked: false,
+      version: 3,
+    });
+    const written = await aomi.wallets.setAgentRule({
+      locked: true,
+      version: 3,
     });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",
-      path: "/v1/account/wallets/w_12/rule",
-      body: { rule_version: 3, paused: true, instant: ["mcp"] },
+      path: "/v1/account/agent-rule",
+      body: { locked: true, version: 3 },
     });
     expect(calls.at(-1)!.headers.get("x-aomi-csrf")).toBe("1");
-    expect(written).toMatchObject({ rule_version: 4, paused: true });
+    expect(written).toEqual({ locked: true, version: 4 });
   });
 
   it("surfaces a stale write as rule_version_conflict", async () => {
     const { client } = backend({
-      "PUT /v1/account/wallets/w_12/rule": () =>
+      "PUT /v1/account/agent-rule": () =>
         Response.json({ error: "rule_version_conflict" }, { status: 409 }),
     });
     await expect(
-      client.account.wallets.setWalletRule("w_12", {
-        rule_version: 2,
-        paused: false,
-        instant: [],
-      }),
+      client.account.wallets.setAgentRule({ locked: false, version: 2 }),
     ).rejects.toMatchObject({
       status: 409,
       code: WALLET_ERROR_CODES.ruleVersionConflict,
@@ -377,41 +331,77 @@ describe("wallet rules (step 4)", () => {
   });
 });
 
-describe("connected apps (step 4)", () => {
-  it("lists OAuth clients and Telegram, and disconnects one client", async () => {
+describe("connections", () => {
+  it("lists connections, writes one's settings and removes an OAuth client", async () => {
     const { client, calls } = backend({
       "GET /v1/account/connections": () =>
         Response.json({
-          oauth: [
+          connections: [
             {
-              client_id: "c1",
-              name: "Claude Code",
-              kind: "mcp",
-              connected_at: 1_760_400_000,
+              key: "portal",
+              kind: "portal",
+              name: "Aomi",
+              detail: null,
+              instant: false,
+              last_used_at: null,
+              connected_at: null,
+              removable: false,
             },
-            { client_id: "c2", name: "Script", kind: "other" },
+            {
+              key: "telegram:7712345678",
+              kind: "telegram",
+              name: "@HooditBot",
+              detail: "Telegram @arixon",
+              instant: true,
+              last_used_at: 1_760_400_000,
+              connected_at: null,
+              removable: false,
+            },
+            { key: "oauth:c1", kind: "ai", name: "Claude", removable: true },
+            { key: "mystery", kind: "robot", name: "Dropped" },
           ],
-          telegram: {
-            username: "arixon",
-            bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
-          },
+        }),
+      "PUT /v1/account/connection-settings/oauth%3Ac1": () =>
+        Response.json({
+          key: "oauth:c1",
+          label: "Laptop",
+          instant: true,
+          last_used_at: null,
         }),
       "DELETE /v1/account/connections/oauth/c1": () =>
         Response.json({ revoked: true }),
     });
-    const connections = await client.account.connections.list();
-    expect(connections.oauth).toEqual([
-      {
-        client_id: "c1",
-        name: "Claude Code",
-        kind: "mcp",
-        connected_at: 1_760_400_000,
-      },
-      { client_id: "c2", name: "Script", kind: "api", connected_at: null },
+    const { connections } = await client.account.connections.list();
+    expect(connections.map((row) => row.key)).toEqual([
+      "portal",
+      "telegram:7712345678",
+      "oauth:c1",
     ]);
-    expect(connections.telegram?.bots[0]?.label).toBe("@HooditBot");
-    expect(connections.telegram?.linked_from).toBeNull();
-    expect(connections.telegram?.linked_at).toBeNull();
+    expect(connections[1]).toMatchObject({
+      detail: "Telegram @arixon",
+      instant: true,
+    });
+    expect(connections[2]).toMatchObject({
+      instant: false,
+      last_used_at: null,
+      removable: true,
+    });
+
+    expect(
+      await client.account.connections.setConnectionSettings("oauth:c1", {
+        label: "Laptop",
+        instant: true,
+      }),
+    ).toEqual({
+      key: "oauth:c1",
+      label: "Laptop",
+      instant: true,
+      last_used_at: null,
+    });
+    expect(calls.at(-1)).toMatchObject({
+      method: "PUT",
+      body: { label: "Laptop", instant: true },
+    });
 
     await client.account.connections.disconnectOAuth("c1");
     expect(calls.at(-1)).toMatchObject({
@@ -419,22 +409,6 @@ describe("connected apps (step 4)", () => {
       path: "/v1/account/connections/oauth/c1",
     });
     expect(calls.at(-1)!.headers.get("x-aomi-csrf")).toBe("1");
-  });
-
-  it("reads a missing Telegram link as null and a gone client as 404", async () => {
-    const { client } = backend({
-      "GET /v1/account/connections": () =>
-        Response.json({ oauth: [], telegram: null }),
-      "DELETE /v1/account/connections/oauth/gone": () =>
-        Response.json({ code: "connection_not_found" }, { status: 404 }),
-    });
-    expect(await client.account.connections.list()).toEqual({
-      oauth: [],
-      telegram: null,
-    });
-    await expect(
-      client.account.connections.disconnectOAuth("gone"),
-    ).rejects.toMatchObject({ status: 404, code: "connection_not_found" });
   });
 });
 
@@ -457,7 +431,6 @@ describe("Telegram link (step 5)", () => {
           label: "Agent wallet",
           total_usd: "95.10",
           becomes: "extra",
-          instant: ["@HooditBot"],
         },
       ],
       chats_in_bots: 3,
@@ -467,28 +440,6 @@ describe("Telegram link (step 5)", () => {
     },
     expires_at: 1_760_401_000,
   };
-
-  it("reads Telegram's linked_from and linked_at on connections", async () => {
-    const { client } = backend({
-      "GET /v1/account/connections": () =>
-        Response.json({
-          oauth: [],
-          telegram: {
-            username: "arixon",
-            bots: [],
-            linked_from: { bot_id: "7712345678", label: "@HooditBot" },
-            linked_at: 1_760_400_500,
-          },
-        }),
-    });
-    const { telegram } = await client.account.connections.list();
-    expect(telegram).toEqual({
-      username: "arixon",
-      bots: [],
-      linked_from: { bot_id: "7712345678", label: "@HooditBot" },
-      linked_at: 1_760_400_500,
-    });
-  });
 
   it("previews, confirms and cancels with the code in a CSRF-marked body", async () => {
     const result = {

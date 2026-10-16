@@ -4,26 +4,15 @@ import { fatal } from "../errors";
 import { printJson } from "../output";
 import type { CliConfig } from "../types";
 
-/** "ask", "paused", or "ask · instant: Portal, MCP"; "—" for non-agent wallets. */
-export function ruleSummary(wallet: AomiAccountWallet): string {
-  const rule = wallet.rule;
-  if (!rule) return "—";
-  if (rule.mode === "paused") return "paused";
-  return rule.instant.length
-    ? `ask · instant: ${rule.instant.map((client) => client.label).join(", ")}`
-    : "ask";
-}
-
 export function formatWalletsTable(wallets: AomiAccountWallet[]): string {
   const rows = [
-    ["ID", "KIND", "FAMILY", "ADDRESS", "LABEL", "RULE"],
+    ["ID", "KIND", "FAMILY", "ADDRESS", "LABEL"],
     ...wallets.map((wallet) => [
       wallet.id,
       wallet.kind,
       wallet.family,
       wallet.address,
       wallet.label,
-      ruleSummary(wallet),
     ]),
   ];
   const widths = rows[0]!.map((_, column) =>
@@ -40,7 +29,7 @@ export function formatWalletsTable(wallets: AomiAccountWallet[]): string {
     .join("\n");
 }
 
-/** `aomi wallets`: every wallet the account owns and its signing rule. */
+/** `aomi wallets`: every wallet the account owns. */
 export async function walletsListCommand(config: CliConfig): Promise<void> {
   const cli = CliSession.loadOrCreate(config);
   const session = cli.createClientSession(config);

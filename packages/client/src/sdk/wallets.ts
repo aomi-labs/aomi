@@ -2,13 +2,12 @@ import type { AomiClient } from "../client";
 import type {
   AomiAccountWallet,
   AomiWalletBalance,
-  AomiWalletRuleSettings,
-  AomiWalletRuleUpdate,
+  AomiAgentRule,
 } from "../account/wallets";
 
 /**
  * The account's wallets: every wallet the model can use, the balance of one,
- * and an agent wallet's signing rule. Separate from `aomi.wallet`, which is this process's own
+ * and the account's agent wallet lock. Separate from `aomi.wallet`, which is this process's own
  * signer. OAuth clients need `agent:read`.
  */
 export class AomiWallets {
@@ -27,22 +26,16 @@ export class AomiWallets {
     return this.client.account.wallets.walletBalance(id, options);
   }
 
-  /** An agent wallet's signing rule: Pause and one Instant switch per client. */
-  rule(
-    id: string,
-    options: { signal?: AbortSignal } = {},
-  ): Promise<AomiWalletRuleSettings> {
-    return this.client.account.wallets.walletRule(id, options);
+  /** The account's lock: when locked, no agent wallet signs anything. */
+  agentRule(options: { signal?: AbortSignal } = {}): Promise<AomiAgentRule> {
+    return this.client.account.wallets.agentRule(options);
   }
 
   /**
-   * Replace an agent wallet's rule at the version that was read. Portal
-   * sessions only; other callers get 403 `portal_session_required`.
+   * Lock or unlock at the version that was read. Portal sessions only; other
+   * callers get 403 `portal_session_required`.
    */
-  setRule(
-    id: string,
-    update: AomiWalletRuleUpdate,
-  ): Promise<AomiWalletRuleSettings> {
-    return this.client.account.wallets.setWalletRule(id, update);
+  setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule> {
+    return this.client.account.wallets.setAgentRule(rule);
   }
 }
