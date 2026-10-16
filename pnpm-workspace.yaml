@@ -73,6 +73,8 @@ packageExtensions:
 # Pipeline, and REST clients even when they request one exact resource. Aomi
 # binds resource-less RFC 7591 clients on their first authorize request instead.
 patchedDependencies:
+  # Defer QR UI until pairing; session initialization stays eager.
+  "@walletconnect/ethereum-provider@2.21.1": patches/@walletconnect__ethereum-provider@2.21.1.patch
   "@better-auth/mcp@1.7.1": patches/@better-auth__mcp@1.7.1.patch
   "@better-auth/oauth-provider@1.7.1": patches/@better-auth__oauth-provider@1.7.1.patch
   "next@16.1.0": patches/next@16.1.0.patch

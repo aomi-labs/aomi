@@ -10,7 +10,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { execFileSync } from "node:child_process";
-import { chromium, type Browser, type Page } from "@playwright/test";
+import {
+  chromium,
+  type Browser,
+  type Page,
+  type Request,
+} from "@playwright/test";
 import type { EventBody } from "../../tests/e2e/fake-backend/protocol";
 import { createFakeAgentServer } from "../../tests/e2e/fake-backend/server";
 import {
@@ -63,9 +68,20 @@ try {
     });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    const scriptPaths = new Set<string>();
+    const pendingScripts = new Set<Request>();
+    let lastScriptRequestAt = Date.now();
+    const completeScript = (request: Request) => pendingScripts.delete(request);
+    page.on("requestfinished", completeScript);
+    page.on("requestfailed", completeScript);
     const requestsByPath: Record<string, number> = {};
     page.on("request", (request) => {
       const path = new URL(request.url()).pathname;
+      if (request.resourceType() === "script") {
+        scriptPaths.add(path);
+        pendingScripts.add(request);
+        lastScriptRequestAt = Date.now();
+      }
       requestsByPath[path] = (requestsByPath[path] ?? 0) + 1;
     });
     await page.route(/\/v1\/agent(?:\/|$)/, (route) => {
@@ -89,7 +105,21 @@ try {
     const harnessSendReadyMs = Date.now() - started;
     await composer.fill("");
     const load = await readPerfWindow(page);
-    const firstLoadJs = await firstLoadScripts(page);
+    // Readiness can precede async wallet initialization. Count every script
+    // requested through a minimum observation window and a script-quiet period,
+    // including requests still pending when the composer first became ready.
+    const observeUntil = Date.now() + 2_000;
+    const deadline = Date.now() + 10_000;
+    while (
+      Date.now() < observeUntil ||
+      pendingScripts.size > 0 ||
+      Date.now() - lastScriptRequestAt < 500
+    ) {
+      if (Date.now() > deadline)
+        throw new Error("Initial scripts did not settle");
+      await page.waitForTimeout(50);
+    }
+    const firstLoadJs = await firstLoadScripts(page, scriptPaths);
     const firstLoadJsGzipBytes = firstLoadJs.reduce(
       (total, entry) => total + entry.gzipBytes,
       0,
@@ -222,7 +252,7 @@ async function signInGuest(request: Page["request"]) {
 }
 
 /** Script chunks the page loaded, sized as gzip of the build's own files. */
-async function firstLoadScripts(page: Page) {
+async function firstLoadScripts(page: Page, requested: Set<string>) {
   const paths = await page.evaluate(() =>
     performance
       .getEntriesByType("resource")
@@ -232,7 +262,7 @@ async function firstLoadScripts(page: Page) {
       )
       .map((entry) => new URL(entry.name).pathname),
   );
-  return [...new Set(paths)]
+  return [...new Set([...paths, ...requested])]
     .filter((path) => path.startsWith("/_next/static/"))
     .map((path) => ({
       path,
