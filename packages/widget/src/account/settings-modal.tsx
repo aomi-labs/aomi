@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-  type ComponentType,
-} from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   ChartNoAxesCombined,
   Settings2,
@@ -26,34 +19,16 @@ import {
   ModalShell,
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
+import { GeneralSettings } from "./general-settings";
+import { AccountSettings } from "./account-settings";
+import { UsageSettings } from "@/account/usage/usage-settings";
+import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
 
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
 import type { SettingsTab } from "./settings-events";
 
 export type { SettingsTab };
-
-// Keep account, usage and signing settings out of the guest chat bundle.
-const GeneralSettings = lazy(() =>
-  import("./general-settings").then((module) => ({
-    default: module.GeneralSettings,
-  })),
-);
-const AccountSettings = lazy(() =>
-  import("./account-settings").then((module) => ({
-    default: module.AccountSettings,
-  })),
-);
-const UsageSettings = lazy(() =>
-  import("./usage/usage-settings").then((module) => ({
-    default: module.UsageSettings,
-  })),
-);
-const PolicyPage = lazy(() =>
-  import("./policy/policy-page").then((module) => ({
-    default: module.PolicyPage,
-  })),
-);
 
 const NAV: {
   id: SettingsTab;
@@ -228,21 +203,19 @@ export function SettingsModal({
               tab === id && "animate-in-fade",
             )}
           >
-            <Suspense fallback={<LoadingPane label="Loading settings" />}>
-              {id === "general" ? (
-                <GeneralSettings
-                  onManageAccount={() => selectTab("account")}
-                  onViewUsage={() => selectTab("usage")}
-                  onFixWallets={() => selectTab("account")}
-                />
-              ) : id === "account" ? (
-                <AccountSettings onClose={onClose} />
-              ) : id === "usage" ? (
-                <UsageSettings />
-              ) : (
-                <PolicyPage />
-              )}
-            </Suspense>
+            {id === "general" ? (
+              <GeneralSettings
+                onManageAccount={() => selectTab("account")}
+                onViewUsage={() => selectTab("usage")}
+                onFixWallets={() => selectTab("account")}
+              />
+            ) : id === "account" ? (
+              <AccountSettings onClose={onClose} />
+            ) : id === "usage" ? (
+              <UsageSettings />
+            ) : (
+              <PolicyPage />
+            )}
           </div>
         ))}
       </div>
