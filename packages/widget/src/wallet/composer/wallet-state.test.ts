@@ -396,8 +396,14 @@ describe("embedded wallets", () => {
         state: "offline",
         reason: "selection_required",
         actions: [{ kind: "select", walletKey: key(PRIVY_LINKED) }],
+        pendingStep: null,
       }),
     );
+    // Activating it selects the signer; it never asks Privy to log in again.
+    expect(planWalletActivation(state.wallets, key(PRIVY_LINKED))).toEqual({
+      kind: "select",
+      accountId: state.wallets[0]!.connectionId,
+    });
     const afterSelection = resolveWalletState(
       input({
         linked: [privyLinked],
