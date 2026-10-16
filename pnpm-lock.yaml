@@ -21,6 +21,12 @@ patchedDependencies:
   '@better-auth/oauth-provider@1.7.1':
     hash: b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97
     path: patches/@better-auth__oauth-provider@1.7.1.patch
+  '@coinbase/wallet-sdk@4.3.6':
+    hash: ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57
+    path: patches/@coinbase__wallet-sdk@4.3.6.patch
+  '@walletconnect/ethereum-provider@2.21.1':
+    hash: 06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55
+    path: patches/@walletconnect__ethereum-provider@2.21.1.patch
   next@16.1.0:
     hash: 61c1d5db576a8e2ab8e18d78b17abb7ed31e22acc71502170d9469b0ff91fce1
     path: patches/next@16.1.0.patch
@@ -18779,7 +18785,7 @@ snapshots:
       eventemitter3: 5.0.1
       preact: 10.28.1
 
-  '@coinbase/wallet-sdk@4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)':
+  '@coinbase/wallet-sdk@4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)':
     dependencies:
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
@@ -18799,7 +18805,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@coinbase/wallet-sdk@4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.2.1)':
+  '@coinbase/wallet-sdk@4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.2.1)':
     dependencies:
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
@@ -18819,7 +18825,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@coinbase/wallet-sdk@4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)':
+  '@coinbase/wallet-sdk@4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)':
     dependencies:
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
@@ -34173,13 +34179,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(1d689910f1971511e8747faef1a1ce89)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@4.4.3)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(d961c6bd43f05ab203c29325ba221083)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -34227,13 +34233,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(29c690d69db038ea970d1cf597f8c376)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@3.25.76)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(eaffba9cd8e9d15a9d79136078c0ff96)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -34281,13 +34287,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(41cdf0ab0f0b45ff60e5c9b4f0eacad3)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@4.4.3)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(a0d74439d4980bbe4e5ce8918c5bbb01)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -34335,13 +34341,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(9f447e76773081cf08f389122840037f)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@3.25.76)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(1da783b878f02a109104c890670e537f)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
@@ -34389,13 +34395,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(c38168d5662e91f443d0d4712391eec4)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@3.25.76)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(f7090e5f29de72170d5438fa210b6bf6)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
@@ -34443,13 +34449,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(cbbb5fac15015f5fab5edceed2eb6756)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@4.4.3)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(fe4691ac18359ad9b2c9ca53c51f0de3)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -34497,13 +34503,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(d0821ecbc509b01d430d8dfbfa8accf2)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@4.4.3)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.4.3)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(b7dce5d6f2e1d91b37aeb8dd5e2d86b3)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
@@ -34551,13 +34557,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(f91112cb5bc5411dd336a765858794b7)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@3.25.76)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(18c94d8f558e25e3a9f2e3bf890d799d)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
@@ -34605,13 +34611,13 @@ snapshots:
   '@wagmi/connectors@6.2.0(fb47df2dc9b6d3d7b557cb49f0d4b7b8)':
     dependencies:
       '@base-org/account': 2.4.0(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(zod@4.2.1)
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.2.1)
+      '@coinbase/wallet-sdk': 4.3.6(patch_hash=ea56be86466b7c431951b3d8b9e6ad3ab61978d76be00e7a78e76a6ba9b62c57)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@4.2.1)
       '@gemini-wallet/core': 0.3.2(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1))
       '@metamask/sdk': 0.33.1(bufferutil@4.1.0)(encoding@0.1.13)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
       '@wagmi/core': 2.22.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1))
-      '@walletconnect/ethereum-provider': 2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
+      '@walletconnect/ethereum-provider': 2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
       porto: 0.2.35(b2951df018261500fe8babb54df0d876)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
@@ -36009,7 +36015,7 @@ snapshots:
     dependencies:
       tslib: 1.14.1
 
-  '@walletconnect/ethereum-provider@2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
+  '@walletconnect/ethereum-provider@2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
     dependencies:
       '@reown/appkit': 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@walletconnect/jsonrpc-http-connection': 1.0.8(encoding@0.1.13)
@@ -36050,7 +36056,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@walletconnect/ethereum-provider@2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)':
+  '@walletconnect/ethereum-provider@2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)':
     dependencies:
       '@reown/appkit': 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.2.1)
       '@walletconnect/jsonrpc-http-connection': 1.0.8(encoding@0.1.13)
@@ -36091,7 +36097,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@walletconnect/ethereum-provider@2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
+  '@walletconnect/ethereum-provider@2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
     dependencies:
       '@reown/appkit': 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(aws4fetch@1.0.20)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@walletconnect/jsonrpc-http-connection': 1.0.8(encoding@0.1.13)
@@ -36132,7 +36138,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@walletconnect/ethereum-provider@2.21.1(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
+  '@walletconnect/ethereum-provider@2.21.1(patch_hash=06d14591ee6f289f4bb25e40165a79cbd161e275226f4f146e755aa2e4cdcf55)(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
     dependencies:
       '@reown/appkit': 1.7.8(@react-native-async-storage/async-storage@1.24.0(react-native@0.84.1(@babel/core@7.28.5)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)))(@types/react@19.2.14)(bufferutil@4.1.0)(encoding@0.1.13)(react@19.2.7)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3)
       '@walletconnect/jsonrpc-http-connection': 1.0.8(encoding@0.1.13)
