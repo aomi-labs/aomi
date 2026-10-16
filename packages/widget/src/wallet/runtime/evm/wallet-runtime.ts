@@ -48,9 +48,6 @@ import {
 } from "./wagmi-hooks";
 import { walletDebug } from "@/wallet/wallet-debug";
 
-/** How long a cosmetic connector switch may hold up a wallet pick. */
-const CONNECTOR_SWITCH_WAIT_MS = 3_000;
-
 export type EvmWalletRuntimeProviderHooks = {
   /**
    * Provider-owned account/session logout. The registry command is still named
@@ -379,14 +376,7 @@ export function useEvmWalletRuntime({
         return;
       }
       try {
-        // The registry already holds the pick; the connector switch is
-        // cosmetic, and some connectors (Privy embedded) never settle it.
-        await Promise.race([
-          switchAccountAsync({ connector }),
-          new Promise((resolve) =>
-            setTimeout(resolve, CONNECTOR_SWITCH_WAIT_MS),
-          ),
-        ]);
+        await switchAccountAsync({ connector });
       } catch (error) {
         walletDebug("active-evm:cosmetic-switch-failed", {
           uid: connection.uid,
