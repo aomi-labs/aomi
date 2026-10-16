@@ -50,9 +50,29 @@ describe("deferred WalletConnect", () => {
     expect(init).not.toHaveBeenCalled();
   });
 
-  it("restores the provider when WalletConnect was the recent connector", async () => {
-    const { config, connector } = walletConnectConnector(true, "returning");
+  it("stays asleep after a WalletConnect disconnect left only the recent id", async () => {
+    const { config, connector } = walletConnectConnector(true, "disconnected");
     await config.storage?.setItem("recentConnectorId", "walletConnect");
+    await expect(connector.getProvider()).rejects.toThrow();
+    expect(init).not.toHaveBeenCalled();
+  });
+
+  it("restores the provider when a WalletConnect connection is stored", async () => {
+    const { config, connector } = walletConnectConnector(true, "returning");
+    await config.storage?.setItem("store", {
+      state: {
+        connections: new Map([
+          [
+            connector.uid,
+            {
+              accounts: ["0x0000000000000000000000000000000000000001"],
+              chainId: mainnet.id,
+              connector: { id: "walletConnect" },
+            },
+          ],
+        ]),
+      },
+    });
     await expect(connector.getProvider()).resolves.toBeDefined();
     expect(init).toHaveBeenCalled();
   });

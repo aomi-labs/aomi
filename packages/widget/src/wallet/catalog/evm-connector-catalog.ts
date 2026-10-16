@@ -107,9 +107,8 @@ async function hasStoredConnection(
   storage: Config["storage"],
   connectorId: string,
 ): Promise<boolean> {
+  // Not recentConnectorId: wagmi keeps it after a disconnect.
   try {
-    if ((await storage?.getItem("recentConnectorId")) === connectorId)
-      return true;
     const stored = (await storage?.getItem("store")) as {
       state?: { connections?: Map<string, StoredConnection> };
     } | null;
