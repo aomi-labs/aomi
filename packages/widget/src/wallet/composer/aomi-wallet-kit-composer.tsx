@@ -364,9 +364,7 @@ export function AomiWalletKitComposer({
     };
     const actions = buildWalletKitActions({
       selectAgentEvmNetwork: agentEvm ? setAgentEvmChainId : undefined,
-      selectAgentSvmNetwork: agentSvm
-        ? (id) => svm?.selectAppNetwork?.(id)
-        : undefined,
+      selectAgentSvmNetwork: agentSvm ? (id) => svm?.selectAppNetwork?.(id) : undefined,
       accounts,
       auth: { ...auth, login: account.loginProvider ?? auth.login },
       evm,
@@ -479,15 +477,7 @@ export function AomiWalletKitComposer({
             );
           }
         }
-        if (plan.kind === "active" || plan.kind === "select") {
-          // Replace a saved agent-wallet pick: the connection alone doesn't.
-          const row = walletState.wallets.find((wallet) => wallet.key === key);
-          if (row) {
-            writeWalletSelection(selectionStorage, accountId, row.family, key);
-            setSelectionVersion((version) => version + 1);
-          }
-          return "active";
-        }
+        if (plan.kind === "active" || plan.kind === "select") return "active";
         if (plan.kind === "switch") {
           if (plan.appAccountId)
             void evm
