@@ -275,7 +275,7 @@ export class AccountTransport extends AccountGraphTransport {
 // @public
 export class AccountWalletsTransport {
     constructor(requestResponse: RequestResponse$7);
-    createAgentWallets(families?: readonly AomiWalletFamily[]): Promise<AomiAgentWalletsCreated>;
+    createAgentWallets(): Promise<AomiAgentWalletsCreated>;
     listWallets(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
@@ -587,12 +587,6 @@ export type AomiAccountWallet = {
     is_default: boolean;
     status: AomiAccountWalletStatus;
     merged: boolean;
-    pinned_telegram: boolean;
-    bound_app: {
-        id: number;
-        name: string;
-        label: string;
-    } | null;
     rule: AomiWalletRule | null;
     created_at: number | null;
 };
@@ -3949,7 +3943,6 @@ export type TelegramLinkResult = {
         id: string;
         address: string;
         role: "default" | "extra";
-        used_by_bots: boolean;
     }[];
     cancelled: number;
     moved: {

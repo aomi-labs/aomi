@@ -8,7 +8,6 @@ import type {
   AomiAgentWalletsCreated,
   AomiClient,
   AomiWalletBalance,
-  AomiWalletFamily,
 } from "@aomi-labs/client";
 
 /**
@@ -24,10 +23,8 @@ export function useAgentWallets(client: AomiClient | undefined) {
   });
   const refresh = query.refetch;
   const create = useCallback(
-    async (
-      families: AomiWalletFamily[] = ["evm", "svm"],
-    ): Promise<AomiAgentWalletsCreated> => {
-      const result = await client!.account.wallets.createAgentWallets(families);
+    async (): Promise<AomiAgentWalletsCreated> => {
+      const result = await client!.account.wallets.createAgentWallets();
       if (!refreshAccount)
         throw new Error("Wallet unavailable. Refresh and retry.");
       await refreshAccount();

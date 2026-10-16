@@ -38,7 +38,7 @@ const linked = {
   telegram: { username: "arixon" },
   wallets: [
     { id: "w_12", address: "0x91c0…", role: "default" },
-    { id: "w_31", address: "0x7a3f…", role: "extra", used_by_bots: true },
+    { id: "w_31", address: "0x7a3f…", role: "extra" },
   ],
   cancelled: 1,
   moved: { chats: 3, wallets: 2 },

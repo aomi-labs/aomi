@@ -98,7 +98,6 @@ create table if not exists agent_wallets (
     check (status in ('provisioning', 'active')),
   is_default boolean not null default false,
   source text not null check (source in ('provisioned', 'legacy_app')),
-  bound_application_id bigint,
   instant_clients text[] not null default '{}',
   rule_version bigint not null default 0,
   merged_at bigint,

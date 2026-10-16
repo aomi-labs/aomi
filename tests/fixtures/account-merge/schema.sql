@@ -212,24 +212,39 @@ create unique index bot_handover_tokens_one_live_per_user_per_bot_uidx
   on bot_handover_tokens (bot_registration_id, claimed_user_id)
   where state in ('claimed', 'active') and owner_address is not null;
 
--- From 20261015050000_agent_wallets.sql: a moved-in wallet stays an extra
--- when the survivor already has a default for its family.
+-- From 20261015050000_agent_wallets.sql: when both accounts have a default
+-- for the family, the active wallet with the older key stays the default.
 create function agent_wallets_merge_default()
 returns trigger
 language plpgsql
 as $$
+declare
+  other agent_wallets%rowtype;
+  new_key_at bigint;
+  other_key_at bigint;
 begin
   if new.user_id is distinct from old.user_id then
     new.merged_at := extract(epoch from now())::bigint;
     new.updated_at := new.merged_at;
-    if new.is_default and exists (
-      select 1 from agent_wallets w
+    if new.is_default then
+      select * into other from agent_wallets w
        where w.user_id = new.user_id
          and w.chain_type = new.chain_type
          and w.is_default
-         and w.id <> new.id
-    ) then
-      new.is_default := false;
+         and w.id <> new.id;
+      if found then
+        select created_at into new_key_at from public_keys where id = new.public_key_id;
+        select created_at into other_key_at from public_keys where id = other.public_key_id;
+        if other.status <> 'active'
+           or (new.status = 'active'
+               and (new_key_at, new.public_key_id) < (other_key_at, other.public_key_id)) then
+          update agent_wallets
+             set is_default = false, updated_at = new.updated_at
+           where id = other.id;
+        else
+          new.is_default := false;
+        end if;
+      end if;
     end if;
   end if;
   return new;

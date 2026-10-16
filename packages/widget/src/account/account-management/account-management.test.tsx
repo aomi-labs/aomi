@@ -455,8 +455,6 @@ describe("Agent wallet group", () => {
     is_default: true,
     status: "ready",
     merged: false,
-    pinned_telegram: false,
-    bound_app: null,
     rule: { mode: "ask", rule_version: 0, instant: [] },
     created_at: 1_760_000_000,
     ...overrides,
@@ -472,7 +470,6 @@ describe("Agent wallet group", () => {
     label: "Hoodit wallet",
     is_default: false,
     merged: true,
-    bound_app: { id: 42, name: "hoodit", label: "Hoodit" },
   });
   const defaultSvm = listed({
     id: "w_13",
@@ -586,29 +583,11 @@ describe("Agent wallet group", () => {
     ]);
 
     const extra = agentFor("w_31");
-    expect(within(extra).getByText("Hoodit")).toBeInTheDocument();
     expect(within(extra).getByText("—")).toBeInTheDocument();
     expect(within(extra).queryByText("Active")).toBeNull();
     expect(
       within(agentFor("w_13")).getByText(/SVM · pays its own SOL gas/),
     ).toBeInTheDocument();
-  });
-
-  it("marks the extra wallet the Telegram bots keep using", async () => {
-    agentData.wallets = [
-      defaultEvm,
-      { ...hoodit, bound_app: null, pinned_telegram: true },
-      defaultSvm,
-    ];
-    await renderGroup();
-    const extra = agentFor("w_31");
-    expect(within(extra).getByText("Merged")).toBeInTheDocument();
-    expect(
-      within(extra).getByText("Used by your Telegram bots"),
-    ).toBeInTheDocument();
-    expect(
-      within(agentFor("w_12")).queryByText("Used by your Telegram bots"),
-    ).toBeNull();
   });
 
   it("picks an extra wallet through its kit row", async () => {
@@ -688,10 +667,21 @@ describe("Agent wallet group", () => {
         screen.getByRole("button", { name: "Create agent wallet" }),
       );
     });
-    expect(agentData.create).toHaveBeenCalledWith(["evm", "svm"]);
+    expect(agentData.create).toHaveBeenCalledWith();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Solana wallet couldn’t be created. Try again.",
     );
+  });
+
+  it("offers the missing family next to an existing agent wallet", async () => {
+    agentData.wallets = [defaultEvm];
+    renderSettings([main], { agentWallets: {} });
+    expect(
+      await screen.findByText("No Solana agent wallet yet"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create agent wallet" }),
+    ).toBeEnabled();
   });
 
   it("shows a refused create in words", async () => {

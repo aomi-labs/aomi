@@ -23,8 +23,6 @@ const wallet: AomiAccountWallet = {
   is_default: true,
   status: "ready",
   merged: false,
-  pinned_telegram: false,
-  bound_app: null,
   rule: { mode: "ask", rule_version: 3, instant: [] },
   created_at: 1_760_000_000,
 };
