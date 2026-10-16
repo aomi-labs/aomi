@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.6
+
+- Link Telegram to a portal account: `client.account.telegramLink` previews, confirms and cancels a `/link` code (`TelegramLinkError` keeps the server's code and extras; `isTelegramLinkCode`). Connections' `telegram` gains `linked_from` / `linked_at`, and `AomiAccountWallet` gains `pinned_telegram`.
+
 ## 0.10.4
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.

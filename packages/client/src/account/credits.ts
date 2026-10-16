@@ -2,6 +2,7 @@ import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import { AccountWalletsTransport } from "./wallets";
 import { AccountConnectionsTransport } from "./connections";
+import { AccountTelegramLinkTransport } from "./telegram-link";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
@@ -256,11 +257,14 @@ export class AccountTransport extends AccountGraphTransport {
   readonly wallets: AccountWalletsTransport;
   /** Connected OAuth clients and Telegram (portal sessions only). */
   readonly connections: AccountConnectionsTransport;
+  /** Link a Telegram account with a `/link` code (portal sessions only). */
+  readonly telegramLink: AccountTelegramLinkTransport;
   constructor(requestResponse: RequestResponse) {
     super(requestResponse);
     this.credits = new AccountCreditsTransport(requestResponse);
     this.wallets = new AccountWalletsTransport(requestResponse);
     this.connections = new AccountConnectionsTransport(requestResponse);
+    this.telegramLink = new AccountTelegramLinkTransport(requestResponse);
   }
 }
 

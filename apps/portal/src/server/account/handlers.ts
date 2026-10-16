@@ -438,6 +438,10 @@ export async function mergeAccount({
     return error(410, "merge_ticket_invalid");
   if (result.status === "payment_in_progress")
     return error(409, "account_merge_payment_in_progress");
+  if (result.status === "commits_in_flight")
+    return error(409, "account_merge_commits_in_flight");
+  if (result.status === "merge_in_progress")
+    return error(409, "account_merge_in_progress");
   return Response.json({
     moved: result.moved,
     account: await accountResponse(current),

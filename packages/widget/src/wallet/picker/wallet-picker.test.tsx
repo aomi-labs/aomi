@@ -323,12 +323,23 @@ describe("wallet sheet", () => {
     },
   );
 
-  it("explains billing when a merge remains blocked", async () => {
+  it.each([
+    [
+      "account_merge_payment_in_progress",
+      "Your last reply is still being billed — try again in a moment.",
+    ],
+    [
+      "account_merge_commits_in_flight",
+      "The other account has a trade in progress. Try again in a minute.",
+    ],
+    [
+      "account_merge_in_progress",
+      "One of these accounts is being linked right now. Try again in a minute.",
+    ],
+  ])("explains why a merge remains blocked: %s", async (code, copy) => {
     const mergeAccount = vi
       .fn()
-      .mockRejectedValue(
-        new AomiAccountRequestError(409, "account_merge_payment_in_progress"),
-      );
+      .mockRejectedValue(new AomiAccountRequestError(409, code));
     render(
       <Harness
         open={false}
@@ -359,9 +370,7 @@ describe("wallet sheet", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Merge into this account" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Your last reply is still being billed — try again in a moment.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(copy);
     expect(
       screen.getByRole("button", { name: "Merge into this account" }),
     ).toBeEnabled();

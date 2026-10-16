@@ -10,6 +10,8 @@ import type { AomiUserId } from "../types";
  * Wire types of the portal-only connection routes (Agent Wallets v1 step 4):
  *   GET    /v1/account/connections                  -> AccountConnections
  *   DELETE /v1/account/connections/oauth/:client_id -> { revoked: true }
+ * Step 5 adds `telegram.linked_from` / `telegram.linked_at`: the bot whose
+ * `/link` code linked the Telegram account here, from `telegram_link_codes`.
  * The client mirrors them in packages/client/src/account/connections.ts.
  */
 
@@ -30,6 +32,10 @@ export type AccountConnections = {
   telegram: {
     username: string | null;
     bots: { bot_id: string; label: string }[];
+    /** Null when the identity was never linked with a `/link` code. */
+    linked_from: { bot_id: string; label: string } | null;
+    /** Unix seconds of that link. */
+    linked_at: number | null;
   } | null;
 };
 
@@ -61,6 +67,11 @@ export async function listAccountConnections(
         bot_id: bot.botId,
         label: bot.label,
       })),
+      linked_from: telegram.linkedFrom && {
+        bot_id: telegram.linkedFrom.botId,
+        label: telegram.linkedFrom.label,
+      },
+      linked_at: telegram.linkedAt,
     },
   };
 }

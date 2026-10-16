@@ -7,6 +7,8 @@
  * Better Auth tables, never by the backend), so they have no OpenAPI schema:
  *   - `GET    /v1/account/connections`                 -> `AomiAccountConnections`
  *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }`
+ * Step 5 (notes/step5-contract.md §4.2) adds `telegram.linked_from` and
+ * `telegram.linked_at`.
  */
 import { asRecord, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
@@ -27,6 +29,10 @@ export type AomiTelegramConnection = {
   username: string | null;
   /** The bots this Telegram user has chatted with. */
   bots: { bot_id: string; label: string }[];
+  /** The bot whose `/link` code linked it to this account; null if never linked. */
+  linked_from: { bot_id: string; label: string } | null;
+  /** Unix seconds of that link. */
+  linked_at: number | null;
 };
 
 export type AomiAccountConnections = {
@@ -120,14 +126,20 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           username: stringValue(telegram.username) ?? null,
           bots: (Array.isArray(telegram.bots) ? telegram.bots : []).flatMap(
             (entry) => {
-              const bot = asRecord(entry);
-              const id = stringValue(bot?.bot_id);
-              return id
-                ? [{ bot_id: id, label: stringValue(bot?.label) ?? id }]
-                : [];
+              const bot = parseBot(entry);
+              return bot ? [bot] : [];
             },
           ),
+          linked_from: parseBot(telegram.linked_from),
+          linked_at:
+            typeof telegram.linked_at === "number" ? telegram.linked_at : null,
         }
       : null,
   };
+}
+
+function parseBot(value: unknown): { bot_id: string; label: string } | null {
+  const bot = asRecord(value);
+  const id = stringValue(bot?.bot_id);
+  return id ? { bot_id: id, label: stringValue(bot?.label) ?? id } : null;
 }

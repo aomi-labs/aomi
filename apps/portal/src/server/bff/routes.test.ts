@@ -1267,6 +1267,112 @@ describe("/v1/account/connections", () => {
   );
 });
 
+describe("/v1/account/link/telegram", () => {
+  const code = "A".repeat(43);
+  const post = (credential: string, action = "confirm") => {
+    const { headers, origin } = CREDENTIALS[credential];
+    return routes.telegramLink.POST(
+      request(`/v1/account/link/telegram/${action}`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        origin,
+        body: JSON.stringify({ code }),
+      }),
+    );
+  };
+
+  it.each(["preview", "confirm", "cancel"])(
+    "forwards %s for a portal session with the session claims",
+    async (action) => {
+      const response = await post("cookie user", action);
+      expect(response.status).toBe(200);
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(
+        `https://backend.example/v1/account/link/telegram/${action}`,
+      );
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+      expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+        "acct-user",
+        "user",
+        {
+          auth_source: "session",
+          principal_class: "user",
+        },
+      );
+      const [, init] = mocks.fetch.mock.calls[0]!;
+      expect(JSON.parse(await new Response(init.body).text())).toEqual({
+        code,
+      });
+    },
+  );
+
+  it.each([
+    ["cookie guest", 403],
+    ["widget user", 403],
+    ["widget guest", 403],
+    ["session bearer", 403],
+    ["e2e cookie", 401],
+    ["OAuth user", 401],
+    ["none", 401],
+  ] as const)("refuses %s", async (credential, status) => {
+    const response = await post(credential);
+    expect(response.status).toBe(status);
+    if (status === 403)
+      expect(await response.json()).toEqual({
+        error: "portal_session_required",
+      });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a cross-site cookie write", async () => {
+    const response = await routes.telegramLink.POST(
+      request("/v1/account/link/telegram/confirm", {
+        method: "POST",
+        headers: { cookie: "session=user" },
+        origin: "https://evil.example",
+        body: JSON.stringify({ code }),
+      }),
+    );
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("passes the backend's refusal through unchanged", async () => {
+    mocks.fetch.mockResolvedValueOnce(
+      Response.json(
+        { error: "account_link_busy", in_flight: [{ id: "c-1" }] },
+        { status: 409 },
+      ),
+    );
+    const response = await post("cookie user");
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "account_link_busy",
+      in_flight: [{ id: "c-1" }],
+    });
+  });
+
+  it("has no other actions or methods", async () => {
+    const { headers, origin } = CREDENTIALS["cookie user"];
+    const response = await routes.telegramLink.POST(
+      request("/v1/account/link/telegram/unlink", {
+        method: "POST",
+        headers,
+        origin,
+      }),
+    );
+    expect(response.status).toBe(404);
+    expect(Object.keys(routes.telegramLink).sort()).toEqual([
+      "OPTIONS",
+      "POST",
+    ]);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe("/api forwarding", () => {
   it.each([
     [[], "/api/thread/apps"],

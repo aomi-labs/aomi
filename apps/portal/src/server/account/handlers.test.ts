@@ -195,4 +195,22 @@ describe("account merge handlers", () => {
     expect(response.status).toBe(410);
     expect(await response.json()).toEqual({ error: "merge_ticket_invalid" });
   });
+
+  it.each([
+    ["payment_in_progress", "account_merge_payment_in_progress"],
+    ["commits_in_flight", "account_merge_commits_in_flight"],
+    ["merge_in_progress", "account_merge_in_progress"],
+  ])(
+    "answers a merge still busy with %s as a retryable 409",
+    async (status, code) => {
+      service.mergeAccountWithTicket.mockResolvedValue({ status });
+
+      const response = await mergeAccount(
+        call("/v1/account/merge", { ticket: "ticket-1" }),
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ error: code });
+    },
+  );
 });

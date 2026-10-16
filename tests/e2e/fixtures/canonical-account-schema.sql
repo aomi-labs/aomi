@@ -14,6 +14,8 @@
 --     without its backfill, merge trigger and composite foreign keys)
 --   threads and bot_registrations: only the columns the Telegram part of
 --     GET /v1/account/connections reads
+--   20261017010000_telegram_link.sql (telegram_link_codes only: the
+--     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
 
@@ -126,4 +128,29 @@ create table if not exists bot_registrations (
   created_at bigint not null,
   updated_at bigint not null,
   unique (platform, platform_bot_id)
+);
+
+-- One-time Telegram `/link` codes (product-mono 20261017010000_telegram_link).
+create table if not exists telegram_link_codes (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),
+  source_user_id text not null references users(id),
+  telegram_user_id bigint not null,
+  telegram_handle text,
+  bot_id text not null,
+  bot_registration_id text not null references bot_registrations(id),
+  chat_id bigint not null,
+  state text not null default 'issued'
+    check (state in ('issued', 'linking', 'linked', 'cancelled', 'superseded')),
+  target_user_id text references users(id),
+  merge_id uuid,
+  linking_until bigint,
+  result jsonb,
+  created_at bigint not null,
+  expires_at bigint not null,
+  consumed_at bigint,
+  notified_at bigint,
+  check (expires_at = created_at + 600),
+  check (state <> 'linking' or (target_user_id is not null and merge_id is not null and linking_until is not null)),
+  check (state <> 'linked' or (target_user_id is not null and consumed_at is not null))
 );

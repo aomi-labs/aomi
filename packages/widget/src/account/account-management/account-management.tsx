@@ -2,7 +2,8 @@
 
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
-import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, LogOut, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import type { AomiTelegramConnection } from "@aomi-labs/client";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
@@ -46,6 +47,8 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onDeleteAccount?: () => Promise<void>;
   /** Shows the account's agent wallets (signed-in accounts only). */
   agentWallets?: AgentWalletHandlers;
+  /** The Telegram account linked to this one, shown under Social sign-in. */
+  telegram?: AomiTelegramConnection | null;
 };
 
 export function AccountManagement({
@@ -63,6 +66,7 @@ export function AccountManagement({
   onSignOut,
   onDeleteAccount,
   agentWallets,
+  telegram,
   ...rowHandlers
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
@@ -175,7 +179,7 @@ export function AccountManagement({
           }
         />
 
-        {wallets.length || logins.length || agentWallets ? (
+        {wallets.length || logins.length || agentWallets || telegram ? (
           <div className={listGroupClass}>
             <SignsWithStrip
               rows={rows}
@@ -206,11 +210,11 @@ export function AccountManagement({
                 </div>
               </>
             ) : null}
-            {logins.length ? (
+            {logins.length || telegram ? (
               <>
                 <Divider
                   title="Social sign-in"
-                  detail="Privy and Para logins, with their wallets"
+                  detail="Privy, Para and Telegram"
                 />
                 <div className="divide-aomi-border divide-y">
                   {logins.map((group) => (
@@ -222,6 +226,7 @@ export function AccountManagement({
                       {...handlers}
                     />
                   ))}
+                  {telegram ? <TelegramRow telegram={telegram} /> : null}
                 </div>
               </>
             ) : null}
@@ -275,6 +280,28 @@ export function AccountManagement({
         </section>
       ) : null}
     </div>
+  );
+}
+
+/** The linked Telegram account. Read-only: there is no unlink yet. */
+function TelegramRow({ telegram }: { telegram: AomiTelegramConnection }) {
+  const usedIn = telegram.bots.map((bot) => bot.label).join(", ");
+  const description = telegram.linked_from
+    ? `Linked from ${telegram.linked_from.label}${usedIn ? ` · used in ${usedIn}` : ""}`
+    : usedIn
+      ? `Used in ${usedIn}`
+      : undefined;
+  return (
+    <ListRow
+      data-telegram-identity
+      leading={
+        <RowIcon>
+          <Send className="size-4" />
+        </RowIcon>
+      }
+      title={`Telegram${telegram.username ? ` @${telegram.username}` : ""}`}
+      description={description}
+    />
   );
 }
 

@@ -127,11 +127,10 @@ export function ConnectedApps({
           {telegram ? (
             <ListRow
               className="min-h-0 py-2.5"
-              title={`Telegram${telegram.username ? ` @${telegram.username}` : ""}`}
-              description={
+              title={
                 telegram.bots.length
-                  ? `Used in ${telegram.bots.map((bot) => bot.label).join(", ")}`
-                  : undefined
+                  ? `Your Telegram account · used in ${telegram.bots.map((bot) => bot.label).join(", ")}`
+                  : "Your Telegram account"
               }
             />
           ) : null}
@@ -141,6 +140,11 @@ export function ConnectedApps({
             </p>
           ) : null}
         </ListGroup>
+      ) : null}
+      {connections && !telegram ? (
+        <p className="type-meta text-aomi-muted px-0.5">
+          Use Aomi in Telegram? Send /link to any Aomi app bot to add it here.
+        </p>
       ) : null}
       {error ? (
         <p role="alert" className="type-meta text-aomi-danger px-0.5">

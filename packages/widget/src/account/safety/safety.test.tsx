@@ -23,6 +23,7 @@ const wallet: AomiAccountWallet = {
   is_default: true,
   status: "ready",
   merged: false,
+  pinned_telegram: false,
   bound_app: null,
   rule: { mode: "ask", rule_version: 3, instant: [] },
   created_at: 1_760_000_000,
@@ -258,8 +259,10 @@ describe("Connected apps", () => {
     expect(await screen.findByText("Claude Code")).toBeTruthy();
     expect(screen.getByText("MCP")).toBeTruthy();
     expect(screen.getByText("CLI")).toBeTruthy();
-    expect(screen.getByText("Telegram @arixon")).toBeTruthy();
-    expect(screen.getByText("Used in @HooditBot")).toBeTruthy();
+    expect(
+      screen.getByText("Your Telegram account · used in @HooditBot"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Send \/link/)).toBeNull();
     // Telegram has no Unlink yet; only OAuth clients disconnect.
     expect(screen.getAllByRole("button", { name: "Disconnect" })).toHaveLength(
       2,
@@ -310,5 +313,10 @@ describe("Connected apps", () => {
       render(<ConnectedApps client={client} />);
     });
     expect(await screen.findByText("No apps connected.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Use Aomi in Telegram? Send /link to any Aomi app bot to add it here.",
+      ),
+    ).toBeTruthy();
   });
 });

@@ -182,10 +182,15 @@ async function toBackend(call: Call, path: string): Promise<Response> {
 const WALLET_ID = "w_[1-9][0-9]*";
 const WALLET_RULE = new RegExp(`^/v1/account/wallets/${WALLET_ID}/rule$`);
 
+/** Linking a Telegram account with a `/link` code (step 5). */
+const TELEGRAM_LINK =
+  /^\/v1\/account\/link\/telegram\/(?:preview|confirm|cancel)$/;
+
 /** Writes only a signed-in portal session may make; the backend checks it too. */
 const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
   { method: "POST", path: /^\/v1\/account\/wallets\/agent$/ },
   { method: "PUT", path: WALLET_RULE },
+  { method: "POST", path: TELEGRAM_LINK },
 ];
 
 /**
@@ -589,6 +594,18 @@ export const routes = {
     methods: ["GET", "POST", "PUT"],
     need: accountWalletNeed,
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+  }),
+
+  // Portal sessions only (PORTAL_ONLY_WRITES); the code goes in the body.
+  telegramLink: bind({
+    operation: "account.telegram_link",
+    methods: ["POST"],
+    need: (request) =>
+      TELEGRAM_LINK.test(new URL(request.url).pathname)
+        ? { capability: "account" }
+        : null,
+    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+    cors: "none",
   }),
 
   agent: agentApi(

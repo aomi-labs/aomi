@@ -71,6 +71,10 @@ export {
   type CommitSignPanelProps,
 } from "./commit/commit-sign-panel";
 export {
+  TelegramLinkPanel,
+  type TelegramLinkPanelProps,
+} from "./account/telegram-link";
+export {
   Chip,
   MatrixTable,
   Meter,

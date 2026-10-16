@@ -137,6 +137,20 @@ describe.skipIf(!enabled)("account connections", () => {
               ('telegram:bot:555:dm:7', 'other'),
               ('telegram:bot:5550:dm:42', 'owner')`,
     );
+    // Owner was linked from Hoodit, then a later code from the side bot was
+    // only issued; "other" was linked from the side bot.
+    await pool.query(
+      `insert into telegram_link_codes
+         (code_hash, source_user_id, telegram_user_id, telegram_handle, bot_id,
+          bot_registration_id, chat_id, state, target_user_id, merge_id,
+          created_at, expires_at, consumed_at)
+       values (repeat('a', 64), 'no-telegram', 42, 'arixon', '7712345678', 'b1', 42,
+               'linked', 'owner', gen_random_uuid(), 1760400000, 1760400600, 1760400500),
+              (repeat('b', 64), 'no-telegram', 42, 'arixon', '88', 'b2', 42,
+               'issued', null, null, 1760400700, 1760401300, null),
+              (repeat('c', 64), 'no-telegram', 7, null, '88', 'b2', 7,
+               'linked', 'other', gen_random_uuid(), 1760400000, 1760400600, 1760400100)`,
+    );
   }
 
   it("lists every OAuth client of the account's Better Auth users and its Telegram bots", async () => {
@@ -173,6 +187,8 @@ describe.skipIf(!enabled)("account connections", () => {
           { bot_id: "7712345678", label: "@HooditBot" },
           { bot_id: "88", label: "Side bot" },
         ],
+        linked_from: { bot_id: "7712345678", label: "@HooditBot" },
+        linked_at: 1760400500,
       },
     });
   });

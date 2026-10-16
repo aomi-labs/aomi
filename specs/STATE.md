@@ -20,6 +20,28 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-16 — AGENT WALLETS STEP 5 (FRONTEND): LINK TELEGRAM ↔ PORTAL (branch
+  `feat/agent-wallets`; backend half built against `notes/step5-contract.md`).
+  Portal: login-only `/link/telegram?code=` page (`referrer: no-referrer`,
+  malformed code → invalid state with no backend call) hosting the widget's
+  `TelegramLinkPanel`; `safeReturn` allows `/sign/:ref` and
+  `/link/telegram?code=<43>`; BFF `routes.telegramLink` forwards
+  `POST /v1/account/link/telegram/(preview|confirm|cancel)` as portal-only
+  writes (`maxDuration = 60`); `/settings/account` → `/?settings=account`
+  opens Settings on Account. Client: `client.account.telegramLink`
+  (`TelegramLinkError`, `isTelegramLinkCode`), connections `linked_from` /
+  `linked_at`, wallets `pinned_telegram`. Account: connections read the latest
+  `linked` `telegram_link_codes` row; merges retry
+  `account_merge_commits_in_flight` / `account_merge_in_progress` for 8 s and
+  answer them as 409s. Widget: Social sign-in Telegram row, "Used by your
+  Telegram bots" on the pinned extra wallet, Connected apps /link footer,
+  merge-step copy. Fixtures: canonical schema gains `telegram_link_codes`;
+  `tests/fixtures/account-merge/20261017010000_telegram_link.sql` carries
+  `merge_accounts` v3 (admission barrier, foreign-fence refusal, signed
+  in-flight refusal, unsigned cancel as `commit_account_merged`, World
+  handover conflict, fences lifted). Pending: align the fixture with the
+  backend's final migration; browser contract for `/link/telegram`.
+
 2026-10-15 — AGENT WALLETS STEP 4 (FRONTEND): APPROVALS EVERYWHERE (branch
   `feat/agent-wallets`; backend half built against `notes/step4-contract.md`).
   Client: `CommitView` gains state `awaiting_approval` and `approval`,
