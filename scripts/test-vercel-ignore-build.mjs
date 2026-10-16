@@ -85,19 +85,25 @@ test("keeps explicitly requested, release, ordinary and production deployments",
   }
 
   const unrelatedChange = () => ["apps/landing/content/guide.mdx"];
-  assert.equal(
-    deploymentDecision(
-      {
-        ...previewEnv("release/2026-10-16"),
-        VERCEL_GIT_COMMIT_SHA: "head",
-        VERCEL_GIT_PREVIOUS_SHA: "base",
-        VERCEL_PROJECT_ID: "prj_JFlrYJshAAVu7U5BxFhLUUpzjegK",
-      },
-      unrelatedChange,
-    ).ignore,
-    false,
-    "release previews must build every deployable surface",
-  );
+  for (const branch of [
+    "preview/agent-check",
+    "qa/candidate",
+    "release/2026-10-16",
+  ]) {
+    assert.equal(
+      deploymentDecision(
+        {
+          ...previewEnv(branch),
+          VERCEL_GIT_COMMIT_SHA: "head",
+          VERCEL_GIT_PREVIOUS_SHA: "base",
+          VERCEL_PROJECT_ID: "prj_JFlrYJshAAVu7U5BxFhLUUpzjegK",
+        },
+        unrelatedChange,
+      ).ignore,
+      false,
+      `${branch} must build every deployable surface`,
+    );
+  }
 
   assert.equal(
     deploymentDecision({
