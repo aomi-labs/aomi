@@ -59,6 +59,8 @@ const MERGE_ERRORS: Record<string, string> = {
     "The other account has a trade in progress. Try again in a minute.",
   account_merge_in_progress:
     "One of these accounts is being linked right now. Try again in a minute.",
+  account_merge_handover_conflict:
+    "Both accounts are connected to the same World Markets bot. Revoke one in World first.",
   merge_switch_unavailable:
     "Switching isn’t available here. Merge, or sign in to that account directly.",
 };

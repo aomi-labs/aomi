@@ -8,6 +8,7 @@ import {
   forward,
 } from "@aomi-labs/account/forward";
 import { requireMcpAuth } from "@better-auth/mcp";
+import { accountRateLimitStorage } from "@aomi-labs/account/rate-limit";
 
 import * as account from "@/server/account/handlers";
 import * as deviceAuth from "@/server/device-auth/handlers";
@@ -604,7 +605,22 @@ export const routes = {
       TELEGRAM_LINK.test(new URL(request.url).pathname)
         ? { capability: "account" }
         : null,
-    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+    handle: async (call) => {
+      const { pathname } = new URL(call.request.url);
+      const action = pathname.split("/").at(-1);
+      if (call.principal.kind !== "cookie" || call.principal.guest)
+        return Response.json(
+          { error: "portal_session_required" },
+          { status: 403 },
+        );
+      const result = await accountRateLimitStorage.consume(
+        `telegram-link:${action}:${call.principal.accountId}`,
+        { window: 60, max: action === "preview" ? 20 : 5 },
+      );
+      if (!result.allowed)
+        return Response.json({ error: "rate_limited" }, { status: 429 });
+      return toBackend(call, pathname);
+    },
     cors: "none",
   }),
 

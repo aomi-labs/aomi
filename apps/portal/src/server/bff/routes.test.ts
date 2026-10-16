@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   listConnections: vi.fn(),
   revokeConnection: vi.fn(),
+  consume: vi.fn(async () => ({ allowed: true, retryAfter: null })),
 }));
 
 // One table of credentials stands in for Better Auth, widget sessions and the
@@ -91,6 +92,10 @@ function bearerToken(request: Request): string | undefined {
   return request.headers.get("authorization")?.split(/\s+/)[1];
 }
 
+vi.mock("@aomi-labs/account/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/rate-limit")>()),
+  accountRateLimitStorage: { consume: mocks.consume },
+}));
 vi.mock("@aomi-labs/account", () => ({
   mintAccountBearer: mocks.mintAccountBearer,
   mintAgentApiBearer: mocks.mintAgentApiBearer,
@@ -432,6 +437,9 @@ beforeEach(() => {
   mocks.deleteSession.mockReset();
   mocks.listConnections.mockReset();
   mocks.revokeConnection.mockReset();
+  mocks.consume
+    .mockReset()
+    .mockResolvedValue({ allowed: true, retryAfter: null });
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -1286,6 +1294,10 @@ describe("/v1/account/link/telegram", () => {
     async (action) => {
       const response = await post("cookie user", action);
       expect(response.status).toBe(200);
+      expect(mocks.consume).toHaveBeenCalledWith(
+        `telegram-link:${action}:acct-user`,
+        { window: 60, max: action === "preview" ? 20 : 5 },
+      );
       const [call] = upstreamCalls();
       expect(call.url).toBe(
         `https://backend.example/v1/account/link/telegram/${action}`,
@@ -1325,6 +1337,7 @@ describe("/v1/account/link/telegram", () => {
         error: "portal_session_required",
       });
     expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.consume).not.toHaveBeenCalled();
   });
 
   it("refuses a cross-site cookie write", async () => {
@@ -1337,6 +1350,14 @@ describe("/v1/account/link/telegram", () => {
       }),
     );
     expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses an over-budget account before forwarding", async () => {
+    mocks.consume.mockResolvedValueOnce({ allowed: false, retryAfter: null });
+    const response = await post("cookie user");
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: "rate_limited" });
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 

@@ -442,6 +442,8 @@ export async function mergeAccount({
     return error(409, "account_merge_commits_in_flight");
   if (result.status === "merge_in_progress")
     return error(409, "account_merge_in_progress");
+  if (result.status === "handover_conflict")
+    return error(409, "account_merge_handover_conflict");
   return Response.json({
     moved: result.moved,
     account: await accountResponse(current),

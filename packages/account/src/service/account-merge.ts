@@ -44,7 +44,8 @@ export type AccountMergeResult =
   | { status: "invalid_ticket" }
   | { status: "payment_in_progress" }
   | { status: "commits_in_flight" }
-  | { status: "merge_in_progress" };
+  | { status: "merge_in_progress" }
+  | { status: "handover_conflict" };
 
 /**
  * Offer to merge `sourceUserId` into the signed-in `targetUserId`. The caller
@@ -98,6 +99,11 @@ export async function mergeAccountWithTicket(input: {
         };
       });
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("account_merge_handover_conflict")
+      )
+        return { status: "handover_conflict" };
       const busy = mergeBusy(error);
       if (!busy) throw error;
       const remaining = deadline - Date.now();
