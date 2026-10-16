@@ -6,8 +6,6 @@ export {
   ensureAccountSchema,
   deactivateAomiAccount,
   fetchAttestedProviderWallets,
-  findAomiUserForTelegram,
-  claimTelegramSessionOwner,
   getAccountResponseForBetterAuthSession,
   getAccountResponseForWidgetSession,
   getOrCreateAomiUserForSiwe,
@@ -50,10 +48,8 @@ export {
   providerSessionUserSeed,
   signInWithVerifiedProviderCredential,
   signInWithVerifiedProviderIdentity,
-  signInWithTelegramProviderIdentity,
   verifyProviderCredential,
   type ProviderExchangeResult,
-  type TelegramProviderSignInResult,
 } from "./service/provider-exchange";
 export {
   attachVerifiedProviderIdentityToUser,
@@ -70,6 +66,14 @@ export type {
   VerifiedProviderToken,
   VerifyProviderCredentialOptions,
 } from "./providers/account-credentials";
+
+export {
+  listAccountConnections,
+  revokeOAuthConnection,
+  type AccountConnection,
+  type AccountConnections,
+  type ConnectionKind,
+} from "./service/connections";
 
 export {
   WALLET_LINK_NONCE_MAX_AGE_MS,

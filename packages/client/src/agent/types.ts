@@ -1,4 +1,5 @@
 import type { components } from "../generated/agent-v1/types";
+import type { UserStateWalletFields } from "../account/wallets";
 
 type Schemas = components["schemas"];
 
@@ -23,7 +24,7 @@ export type ErrorEvent = Schemas["ErrorEvent"];
 export type Action = Schemas["Action"];
 export type ActionRequest = Schemas["ActionRequest"];
 export type ActionResult = Schemas["ActionResult"];
-export type UserState = Schemas["UserState"];
+export type UserState = Schemas["UserState"] & UserStateWalletFields;
 export type StartTurnIntent = Schemas["StartTurnIntent"];
 export type AgentMode = "auto" | "direct";
 export type AgentTarget =

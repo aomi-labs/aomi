@@ -3,7 +3,12 @@
 import { useEffect, useRef } from "react";
 
 /** Settings modal tabs; `policy` is the Safety tab. */
-export type SettingsTab = "general" | "account" | "policy" | "usage";
+export type SettingsTab =
+  | "general"
+  | "account"
+  | "connections"
+  | "policy"
+  | "usage";
 
 const OPEN_SETTINGS_EVENT = "aomi:open-settings";
 

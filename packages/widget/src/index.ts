@@ -134,11 +134,6 @@ export const useAomiWalletKit: typeof host.useAomiWalletKit =
 export const requestWalletPickerOpen: typeof host.requestWalletPickerOpen =
   host.requestWalletPickerOpen;
 /** @deprecated Import from "@aomi-labs/widget/host-composition". Removed in @aomi-labs/widget 4.0. */
-export const usePrivyDelegation: typeof host.usePrivyDelegation =
-  host.usePrivyDelegation;
-/** @deprecated Import from "@aomi-labs/widget/host-composition". Removed in @aomi-labs/widget 4.0. */
-export type PrivyDelegationContextValue = host.PrivyDelegationContextValue;
-/** @deprecated Import from "@aomi-labs/widget/host-composition". Removed in @aomi-labs/widget 4.0. */
 export const AOMI_SESSION_BOOTING_IDENTITY: typeof host.AOMI_SESSION_BOOTING_IDENTITY =
   host.AOMI_SESSION_BOOTING_IDENTITY;
 /** @deprecated Import from "@aomi-labs/widget/host-composition". Removed in @aomi-labs/widget 4.0. */

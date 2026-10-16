@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import {
   ChartNoAxesCombined,
+  Plug,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -24,9 +32,15 @@ import { AccountSettings } from "./account-settings";
 import { UsageSettings } from "@/account/usage/usage-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
-
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
 import type { SettingsTab } from "./settings-events";
+
+// Loads with the tab, off the host bundle.
+const ConnectionsSettings = lazy(() =>
+  import("@/account/connections/connections-settings").then((module) => ({
+    default: module.ConnectionsSettings,
+  })),
+);
 
 export type { SettingsTab };
 
@@ -49,9 +63,15 @@ const NAV: {
     Icon: UserRound,
   },
   {
+    id: "connections",
+    label: "Connections",
+    description: "Apps, bots and terminals that use your account",
+    Icon: Plug,
+  },
+  {
     id: "policy",
     label: "Safety",
-    description: "Guard policy and signing permissions",
+    description: "Guard policy for new chats",
     Icon: ShieldCheck,
   },
   {
@@ -207,10 +227,13 @@ export function SettingsModal({
               <GeneralSettings
                 onManageAccount={() => selectTab("account")}
                 onViewUsage={() => selectTab("usage")}
-                onFixWallets={() => selectTab("account")}
               />
             ) : id === "account" ? (
               <AccountSettings onClose={onClose} />
+            ) : id === "connections" ? (
+              <Suspense fallback={<LoadingPane label="Loading connections" />}>
+                <ConnectionsSettings />
+              </Suspense>
             ) : id === "usage" ? (
               <UsageSettings />
             ) : (

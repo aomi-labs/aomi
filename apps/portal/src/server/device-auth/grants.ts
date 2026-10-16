@@ -15,7 +15,6 @@ import { getPool } from "@aomi-labs/account";
 import { readAccountAuthEnv } from "@aomi-labs/account/better-auth/env";
 
 export type DeviceAuthProvider = "privy" | "para";
-export type DeviceAuthGrantPurpose = "login" | "link";
 
 type DeviceAuthGrantBase = {
   code: string;
@@ -27,18 +26,10 @@ type DeviceAuthGrantBase = {
   createdAt: number;
 };
 
-export type DeviceAuthLoginGrant = DeviceAuthGrantBase & {
-  purpose: "login";
-  sessionToken: string;
-  expiresAt: string | number | Date | null | undefined;
-};
-
 export type DeviceAuthLinkGrant = DeviceAuthGrantBase & {
   purpose: "link";
   credential: unknown;
 };
-
-export type DeviceAuthGrant = DeviceAuthLoginGrant | DeviceAuthLinkGrant;
 
 export type DeviceAuthLinkIntent = {
   id: string;
@@ -54,7 +45,7 @@ type StoredGrant = {
   version: 1;
   kind: "grant";
   recordExpiresAt: number;
-  grant: DeviceAuthGrant;
+  grant: DeviceAuthLinkGrant;
 };
 
 type StoredLinkIntent = {
@@ -67,9 +58,7 @@ type StoredLinkIntent = {
 type StoredRecord = StoredGrant | StoredLinkIntent;
 type Db = ReturnType<typeof getPool>;
 type ValueRow = { value: string };
-type UnissuedGrant =
-  | Omit<DeviceAuthLoginGrant, "code" | "createdAt">
-  | Omit<DeviceAuthLinkGrant, "code" | "createdAt">;
+type UnissuedGrant = Omit<DeviceAuthLinkGrant, "code" | "createdAt">;
 
 export type DeviceAuthRecordStore = {
   write(input: {
@@ -89,11 +78,6 @@ export type DeviceAuthRecordStore = {
     };
   }): Promise<Result | null>;
 };
-
-type IssueGrantInput = Omit<
-  DeviceAuthLoginGrant,
-  "code" | "createdAt" | "purpose"
->;
 
 const IDENTIFIER_PREFIX = "aomi:device-auth:";
 const GRANT_TTL_MS = 5 * 60 * 1000;
@@ -129,7 +113,7 @@ export function createDeviceAuthGrantService(input: {
     validateLoopbackRedirectUri(grant.redirectUri);
     const createdAt = now();
     const code = randomBytes(32).toString("base64url");
-    const issued = { ...grant, code, createdAt } as DeviceAuthGrant;
+    const issued: DeviceAuthLinkGrant = { ...grant, code, createdAt };
     const identifier = `${grantPrefix}${code}`;
     const record: StoredGrant = {
       version: 1,
@@ -147,22 +131,7 @@ export function createDeviceAuthGrantService(input: {
     };
   }
 
-  async function issueGrant(grant: UnissuedGrant): Promise<DeviceAuthGrant> {
-    const prepared = prepareGrant(grant);
-    await input.store.write(prepared.write);
-    return prepared.issued;
-  }
-
   return {
-    async issueDeviceAuthGrant(
-      grantInput: IssueGrantInput,
-    ): Promise<DeviceAuthLoginGrant> {
-      return (await issueGrant({
-        ...grantInput,
-        purpose: "login",
-      })) as DeviceAuthLoginGrant;
-    },
-
     async issueDeviceAuthLinkIntent(intentInput: {
       state: string;
       codeChallenge: string;
@@ -248,7 +217,7 @@ export function createDeviceAuthGrantService(input: {
       state: string;
       codeVerifier: string;
       redirectUri: string;
-    }): Promise<DeviceAuthGrant | null> {
+    }): Promise<DeviceAuthLinkGrant | null> {
       const identifier = `${grantPrefix}${exchangeInput.code}`;
       const sealed = await input.store.consume({
         identifier,
@@ -282,12 +251,6 @@ function getDefaultService() {
   return defaultService;
 }
 
-export async function issueDeviceAuthGrant(
-  input: IssueGrantInput,
-): Promise<DeviceAuthLoginGrant> {
-  return getDefaultService().issueDeviceAuthGrant(input);
-}
-
 export async function issueDeviceAuthLinkIntent(input: {
   state: string;
   codeChallenge: string;
@@ -313,7 +276,7 @@ export async function exchangeDeviceAuthGrant(input: {
   state: string;
   codeVerifier: string;
   redirectUri: string;
-}): Promise<DeviceAuthGrant | null> {
+}): Promise<DeviceAuthLinkGrant | null> {
   return getDefaultService().exchangeDeviceAuthGrant(input);
 }
 
@@ -482,27 +445,25 @@ function isStoredRecord(value: unknown): value is StoredRecord {
   ) {
     return false;
   }
-  if (record.kind === "grant") return isDeviceAuthGrant(record.grant);
+  if (record.kind === "grant") return isDeviceAuthLinkGrant(record.grant);
   if (record.kind === "link_intent") {
     return isDeviceAuthLinkIntent(record.intent);
   }
   return false;
 }
 
-function isDeviceAuthGrant(value: unknown): value is DeviceAuthGrant {
+function isDeviceAuthLinkGrant(value: unknown): value is DeviceAuthLinkGrant {
   if (!value || typeof value !== "object") return false;
   const grant = value as Record<string, unknown>;
   return (
-    (grant.purpose === "login" || grant.purpose === "link") &&
+    grant.purpose === "link" &&
     typeof grant.code === "string" &&
     typeof grant.state === "string" &&
     typeof grant.codeChallenge === "string" &&
     typeof grant.redirectUri === "string" &&
     typeof grant.createdAt === "number" &&
     (grant.provider === "para" || grant.provider === "privy") &&
-    (grant.purpose === "login"
-      ? typeof grant.sessionToken === "string"
-      : grant.credential !== undefined)
+    grant.credential !== undefined
   );
 }
 

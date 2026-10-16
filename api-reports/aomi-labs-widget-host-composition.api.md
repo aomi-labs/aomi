@@ -6,15 +6,19 @@
 
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
+import { AomiClient } from '@aomi-labs/client';
+import type { AomiConnectionKind } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import { AomiOnchainAddress } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
+import { CommitHandle } from '@aomi-labs/client';
+import type { ComponentProps } from 'react';
 import { Context } from 'react';
 import type { CreateConnectorFn } from 'wagmi';
 import { createEvmPaymentClient } from '@aomi-labs/client';
+import { Dispatch } from 'react';
 import { EvmWallet } from '@aomi-labs/client';
 import { FC } from 'react';
 import { GetAccountBearer } from '@aomi-labs/client';
@@ -42,7 +46,7 @@ export type AccountWallet = {
     id: string;
     family: WalletFamily;
     address: string;
-    kind?: "external" | "embedded" | "smart_account";
+    kind?: "external" | "embedded" | "smart_account" | "agent";
     provider?: string;
     providerWalletId?: string;
     chainScope?: string;
@@ -79,6 +83,9 @@ export type AomiAccount = {
     linkedVia?: "para" | "privy" | "challenge" | "import" | "observed" | (string & {});
     capability?: "read" | "write";
 };
+
+// @public (undocumented)
+export function AomiButton(input: AomiButtonProps): JSX.Element;
 
 // @public
 export function AomiLogo(input: AomiLogoProps): JSX.Element;
@@ -121,6 +128,13 @@ export type AomiSessionIdentity = {
 // @public (undocumented)
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 
+// @public
+export function AomiSheet(input: {
+    children: ReactNode;
+    onClose?: () => void;
+    backdrop?: boolean;
+}): JSX.Element;
+
 // @public (undocumented)
 export type AomiUserRef = {
     id: string;
@@ -148,6 +162,7 @@ export type AomiWalletKit = {
     accounts: readonly AomiAccount[];
     wallets: readonly WalletRow[];
     accountStatus?: AccountRuntimeStatus;
+    refreshAccount?: () => Promise<void>;
     accountError?: string;
     accountConflict?: AccountConflict;
     accountGuest?: boolean;
@@ -305,6 +320,22 @@ export function Chip(input: {
     accent?: boolean;
 }): JSX.Element;
 
+// @public
+export function CommitSignPanel(props: CommitSignPanelProps): JSX.Element;
+
+// @public (undocumented)
+export type CommitSignPanelProps = {
+    handle: CommitHandle;
+    onClose: () => void;
+};
+
+// @public
+export function ConnectionMark(input: {
+    kind: AomiConnectionKind;
+    name: string;
+    size?: number;
+}): JSX.Element;
+
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">): ReturnType<typeof createEvmPaymentClient> | undefined;
 
@@ -313,21 +344,6 @@ export const CURATED_APP_IDS: typeof CURATED_APP_IDS_2;
 
 // @public (undocumented)
 export const DEFAULT_SIDEBAR_PRODUCTS: SidebarProduct[];
-
-// @public
-export interface DelegatedAccountView {
-    address: AomiOnchainAddress;
-    // (undocumented)
-    id: string;
-    // (undocumented)
-    kind: string;
-    provider: string;
-    providerKey?: string;
-    // (undocumented)
-    scope: string;
-    // (undocumented)
-    status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";
-}
 
 // @public
 export const DualWalletBar: FC<DualWalletBarProps>;
@@ -340,6 +356,12 @@ export type DualWalletBarProps = {
     onConnectionChange?: (connected: boolean) => void;
     accountMenu?: WalletAccountMenuOptions;
 };
+
+// @public
+export function FootnoteLink(input: {
+    children: ReactNode;
+    onClick: () => void;
+}): JSX.Element;
 
 // @public (undocumented)
 export function formatAuthMethod(method?: AomiLoginMethod): string | undefined;
@@ -432,14 +454,6 @@ export function PackagesModal(input: PackagesModalProps): JSX.Element;
 // @public (undocumented)
 export function parseRpcOverrides(raw: string): Record<number, string>;
 
-// @public (undocumented)
-export type PrivyDelegationContextValue = {
-    start: (input: {
-        state: string;
-        signerId: string;
-    }) => Promise<void>;
-};
-
 // @public
 export function requestSettingsOpen(tab: SettingsTab): void;
 
@@ -462,7 +476,32 @@ export function SettingsModal(input: {
 }): JSX.Element;
 
 // @public
-export type SettingsTab = "general" | "account" | "policy" | "usage";
+export type SettingsTab = "general" | "account" | "connections" | "policy" | "usage";
+
+// @public (undocumented)
+export function SheetAlert(input: {
+    children: ReactNode;
+}): JSX.Element;
+
+// @public (undocumented)
+export function SheetFootnote(input: {
+    children: ReactNode;
+    className?: string;
+}): JSX.Element;
+
+// @public
+export function SheetHeader(input: {
+    title: ReactNode;
+    description?: ReactNode;
+    leading?: ReactNode;
+    onClose: () => void;
+}): JSX.Element;
+
+// @public
+export type SheetPurpose = {
+    icon?: ReactNode;
+    text: string;
+};
 
 // @public (undocumented)
 export function ShellTransportProvider(input: {
@@ -515,6 +554,16 @@ export function StatementView(): JSX.Element;
 
 // @public (undocumented)
 export function SvmWalletBindingGate(): JSX.Element | null;
+
+// @public
+export function TelegramLinkPanel(props: TelegramLinkPanelProps): JSX.Element;
+
+// @public (undocumented)
+export type TelegramLinkPanelProps = {
+    client: AomiClient;
+    code: string | null;
+    onClose: () => void;
+};
 
 // @public (undocumented)
 export type TestId = (typeof testIds)[keyof typeof testIds];
@@ -608,9 +657,6 @@ export function usePortalWalletAccountMenu(onOpenSettings: () => void, onManageA
     theme?: boolean;
 }): WalletAccountMenuOptions | undefined;
 
-// @public (undocumented)
-export function usePrivyDelegation(): PrivyDelegationContextValue;
-
 // @public
 export function useRuntimeAccount(): RuntimeAccount | null | undefined;
 
@@ -636,6 +682,14 @@ export function useSvmWalletBinding(): {
     refresh: () => Promise<void>;
 };
 
+// @public (undocumented)
+export function useWalletPicker(): WalletPickerContextValue;
+
+// @public
+export function WaitingButton(input: {
+    children: ReactNode;
+}): JSX.Element;
+
 // @public
 export type WalletAccountMenuOptions = {
     enabled?: boolean;
@@ -655,15 +709,22 @@ export type WalletAccountMenuOptions = {
 };
 
 // @public
+export function WalletPicker(input?: {
+    backdrop?: boolean;
+}): JSX.Element | null;
+
+// @public
+export function WalletPickerProvider(input: {
+    children: ReactNode;
+}): JSX.Element;
+
+// @public
 export interface WalletPolicy {
     // (undocumented)
     address: string;
     authVersion: number;
-    canUseAuto?: boolean;
     // (undocumented)
     chain: "evm" | "svm";
-    delegationActive?: boolean;
-    delegationExpiresLabel?: string;
     desiredMode: SignerMode;
     // (undocumented)
     id: string;
@@ -680,6 +741,12 @@ export interface WalletPolicy {
 export const WalletSignInOptionsContext: Context<readonly (AomiWalletOption & {
 connect: () => Promise<void>;
 })[]>;
+
+// @public
+export function WidgetScope(input: {
+    children: ReactNode;
+    className?: string;
+}): JSX.Element;
 
 // (No @packageDocumentation comment for this package)
 

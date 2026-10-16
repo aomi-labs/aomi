@@ -21,11 +21,17 @@ import {
 import {
   ArchiveIcon,
   CheckIcon,
+  ClockIcon,
+  LayoutGridIcon,
   MoreHorizontalIcon,
   PencilIcon,
+  PlugIcon,
   PlusIcon,
+  TerminalIcon,
   XIcon,
+  type LucideIcon,
 } from "lucide-react";
+import type { ThreadOrigin } from "@aomi-labs/client";
 
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
@@ -129,6 +135,8 @@ const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
+  // Optional call: partial runtimes (tests, older hosts) may omit it.
+  const metadata = runtime?.getThreadMetadata?.(thread.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -196,6 +204,9 @@ const ThreadListItem: FC = () => {
   return (
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
+      data-awaiting-approval={
+        metadata?.awaitingApproval?.length ? "" : undefined
+      }
       data-testid={testIds.threadItem}
       className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
       onPointerEnter={cancelClose}
@@ -253,10 +264,15 @@ const ThreadListItem: FC = () => {
         <>
           <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
             {/* Sky dot marks the active session; it blinks while Aomi works
-                and turns amber while a wallet request waits on the user. */}
+                and turns amber while a wallet request waits on the user. Any
+                chat with a trade waiting for approval keeps an amber dot. */}
             <span
               aria-hidden="true"
               className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
+            />
+            <ThreadOriginBadge
+              origin={metadata?.origin}
+              originApp={metadata?.originApp}
             />
             <ThreadListItemTitle />
           </ThreadListItemPrimitive.Trigger>
@@ -277,6 +293,41 @@ const ThreadListItem: FC = () => {
         </p>
       )}
     </ThreadListItemPrimitive.Root>
+  );
+};
+
+const ORIGIN_BADGES: Partial<
+  Record<ThreadOrigin, { icon: LucideIcon; label: string }>
+> = {
+  cron: { icon: ClockIcon, label: "Scheduled task" },
+  mcp: { icon: PlugIcon, label: "Started over MCP" },
+  api: { icon: PlugIcon, label: "Started over the API" },
+  cli: { icon: TerminalIcon, label: "Started from the CLI" },
+  sdk: { icon: TerminalIcon, label: "Started from the SDK" },
+};
+
+/** Where a chat came from, when it is not this chat UI. Portal and widget
+ * chats show nothing; a chat inside an app shows a grid. */
+export const ThreadOriginBadge: FC<{
+  origin?: ThreadOrigin;
+  originApp?: number;
+}> = ({ origin, originApp }) => {
+  const badge =
+    (origin && ORIGIN_BADGES[origin]) ??
+    (originApp !== undefined && origin !== "telegram"
+      ? { icon: LayoutGridIcon, label: "Chat inside an app" }
+      : undefined);
+  if (!badge) return null;
+  const Icon = badge.icon;
+  return (
+    <Icon
+      role="img"
+      aria-label={badge.label}
+      data-origin={origin ?? "app"}
+      className="aui-thread-origin text-aomi-muted size-3.5 shrink-0"
+    >
+      <title>{badge.label}</title>
+    </Icon>
   );
 };
 

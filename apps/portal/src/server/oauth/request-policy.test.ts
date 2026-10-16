@@ -327,7 +327,9 @@ describe("OAuth request policy", () => {
   // the request from AS metadata, not from the resource metadata and not from
   // the registration response, so it necessarily spans every resource plus the
   // OIDC scopes. Rejecting it made MCP login impossible; it must be narrowed to
-  // the one resource the request names.
+  // the one resource the request names. It was captured while
+  // custody:delegate was still advertised; a client that still asks for it
+  // gets it narrowed away.
   const CODEX_SCOPES =
     "agent:read agent:write agent:actions:resolve mcp:agent payments:submit " +
     "custody:delegate pipeline:catalog pipeline:execute mcp:pipeline openid " +
@@ -351,7 +353,6 @@ describe("OAuth request policy", () => {
         "agent:actions:resolve",
         "agent:read",
         "agent:write",
-        "custody:delegate",
         "mcp:agent",
         "offline_access",
         "payments:submit",
@@ -363,7 +364,6 @@ describe("OAuth request policy", () => {
     );
     expect(scopeOf(pipeline).sort()).toEqual(
       [
-        "custody:delegate",
         "mcp:pipeline",
         "offline_access",
         "payments:submit",

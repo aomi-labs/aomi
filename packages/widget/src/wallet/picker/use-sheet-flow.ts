@@ -55,6 +55,12 @@ const MERGE_ERRORS: Record<string, string> = {
     "This offer expired. Sign the message again to get a new one.",
   account_merge_payment_in_progress:
     "Your last reply is still being billed — try again in a moment.",
+  account_merge_commits_in_flight:
+    "The other account has a trade in progress. Try again in a minute.",
+  account_merge_in_progress:
+    "One of these accounts is being linked right now. Try again in a minute.",
+  account_merge_handover_conflict:
+    "Both accounts are connected to the same World Markets bot. Revoke one in World first.",
   merge_switch_unavailable:
     "Switching isn’t available here. Merge, or sign in to that account directly.",
 };

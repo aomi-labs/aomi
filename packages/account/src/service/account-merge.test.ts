@@ -74,6 +74,36 @@ describe("account merge billing wait", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it.each([
+    ["account_merge_commits_in_flight", "commits_in_flight"],
+    ["account_merge_in_progress", "merge_in_progress"],
+  ] as const)(
+    "waits out %s the same way, then reports it",
+    async (code, status) => {
+      vi.mocked(mergeAccountRows).mockRejectedValueOnce(new Error(code));
+      const merged = mergeAccountWithTicket(input);
+      await vi.advanceTimersByTimeAsync(500);
+      await expect(merged).resolves.toMatchObject({ status: "merged" });
+
+      vi.mocked(mergeAccountRows).mockRejectedValue(new Error(code));
+      const busy = mergeAccountWithTicket(input);
+      await vi.advanceTimersByTimeAsync(8_000);
+      await expect(busy).resolves.toEqual({ status });
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
+  it("returns the World conflict without retrying", async () => {
+    vi.mocked(mergeAccountRows).mockRejectedValue(
+      new Error("account_merge_handover_conflict"),
+    );
+    await expect(mergeAccountWithTicket(input)).resolves.toEqual({
+      status: "handover_conflict",
+    });
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("does not retry unrelated failures", async () => {
     const failure = new Error("database unavailable");
     vi.mocked(mergeAccountRows).mockRejectedValue(failure);

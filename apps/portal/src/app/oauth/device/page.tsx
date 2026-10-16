@@ -5,9 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default function OAuthDevicePage() {
   return (
-    <Suspense
-      fallback={<main className="p-6">Loading device authorization…</main>}
-    >
+    <Suspense fallback={null}>
       <OAuthDeviceClient />
     </Suspense>
   );

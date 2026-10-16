@@ -8,6 +8,7 @@ import type {
 import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { useShellTransport } from "@/account/transport";
 import {
+  accountSafetyQuery,
   fetchTransactionSafety,
   onTransactionSafetyDefaultChange,
   safetyErrorMessage,
@@ -65,11 +66,8 @@ export function useThreadTransactionSafety({
   // Levels live in the display cache, so a chat switch reads them without a
   // request; changes are written straight into it.
   const accountQuery = useDisplayQuery({
-    resource: "transaction-safety",
-    parameters: ["account"],
+    ...accountSafetyQuery(request),
     enabled,
-    staleTime: Infinity,
-    fetcher: () => fetchTransactionSafety(request),
   });
   const threadLoads = enabled && Boolean(threadId) && threadReady;
   const threadQuery = useDisplayQuery({

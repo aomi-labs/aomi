@@ -6,7 +6,6 @@ import {
   registerWalletProvider,
   type WalletProviderPlugin,
 } from "@/wallet/providers/plugin-registry";
-import { PrivyDelegationProvider } from "./privy-delegation";
 import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { buildPrivyClientConfig, toPrivyLoginMethods } from "./privy-auth";
 import { privySdk } from "./privy-sdk";
@@ -57,9 +56,7 @@ function PrivyAuthLayer({
   const { SmartWalletsProvider } = privySdk().smartWallets;
   return (
     <PrivyProvider appId={appId} config={config}>
-      <SmartWalletsProvider>
-        <PrivyDelegationProvider>{children}</PrivyDelegationProvider>
-      </SmartWalletsProvider>
+      <SmartWalletsProvider>{children}</SmartWalletsProvider>
     </PrivyProvider>
   );
 }

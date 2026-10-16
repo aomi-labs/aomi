@@ -10,7 +10,6 @@ const OUTPUT_KEYS = [
   "portal",
   "build",
   "landing",
-  "telegram",
   "journeys",
   "browser_contracts",
   "consumer_compat",
@@ -18,7 +17,7 @@ const OUTPUT_KEYS = [
   "preview",
 ];
 
-const APP_KEYS = ["portal", "build", "landing", "telegram"];
+const APP_KEYS = ["portal", "build", "landing"];
 
 function emptySelection(reason = "paths") {
   return Object.fromEntries([
@@ -127,11 +126,6 @@ function classifyPath(selection, path) {
 
   if (path.startsWith("apps/landing/")) {
     selectApps(selection, "landing");
-    return selection;
-  }
-
-  if (path.startsWith("apps/telegram/")) {
-    selectApps(selection, "telegram");
     return selection;
   }
 

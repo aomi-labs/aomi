@@ -8,20 +8,24 @@ import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/react';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
+import { AomiClient } from '@aomi-labs/client';
 import * as aomiClient from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/react';
+import type { AomiConnectionKind } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiInferenceFundingSource } from '@aomi-labs/react';
-import { AomiOnchainAddress } from '@aomi-labs/client';
 import * as aomiReact from '@aomi-labs/react';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
+import { CommitHandle } from '@aomi-labs/client';
+import type { ComponentProps } from 'react';
 import { Context } from 'react';
 import type { CreateConnectorFn } from 'wagmi';
 import { createEvmPaymentClient } from '@aomi-labs/client';
 import { CSSProperties } from 'react';
+import { Dispatch } from 'react';
 import { DisplayPersistence } from '@aomi-labs/react';
 import { EvmWallet } from '@aomi-labs/client';
 import { FC } from 'react';
@@ -304,9 +308,6 @@ export type PrivyAuthOptions = {
 };
 
 // @public @deprecated (undocumented)
-export type PrivyDelegationContextValue = host.PrivyDelegationContextValue;
-
-// @public @deprecated (undocumented)
 export const requestWalletPickerOpen: typeof host.requestWalletPickerOpen;
 
 // @public @deprecated (undocumented)
@@ -350,9 +351,6 @@ export const useFullTestnet: typeof host.useFullTestnet;
 
 // @public @deprecated (undocumented)
 export const useOptionalSidebar: typeof host.useOptionalSidebar;
-
-// @public @deprecated (undocumented)
-export const usePrivyDelegation: typeof host.usePrivyDelegation;
 
 // @public @deprecated (undocumented)
 export type UserConfig = aomiReact.UserConfig;

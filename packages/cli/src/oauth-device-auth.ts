@@ -1,4 +1,5 @@
 import type { AomiOAuthResource, AomiOAuthTokenSet } from "@aomi-labs/client";
+import { hostname } from "node:os";
 import { joinUrl, normalizeBaseUrl, requestJson } from "./auth";
 
 const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
@@ -33,7 +34,8 @@ export async function signInWithOAuthDevice(input: {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            client_name: "Aomi CLI",
+            // One name per machine: Settings shows its grants as one connection.
+            client_name: `Aomi CLI · ${hostname()}`,
             token_endpoint_auth_method: "none",
             grant_types: [DEVICE_GRANT, "refresh_token"],
             resources: [input.resource],

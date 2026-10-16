@@ -10,6 +10,13 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
+--   20261015050000_agent_wallets.sql (agent_wallets, agent_wallet_rules and
+--     account_connections; without the backfill, merge trigger and composite
+--     foreign keys)
+--   threads and bot_registrations: only the columns the Telegram part of
+--     GET /v1/account/connections reads
+--   20261017010000_telegram_link.sql (telegram_link_codes only: the
+--     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
 
@@ -80,3 +87,87 @@ create index if not exists public_keys_user_idx on public_keys (user_id);
 create unique index if not exists public_keys_primary_per_provider_uidx
   on public_keys (auth_provider_id)
   where is_primary and auth_provider_id is not null;
+
+create table if not exists agent_wallets (
+  id bigserial primary key,
+  uid uuid not null default gen_random_uuid() unique,
+  user_id text not null references users(id),
+  chain_type text not null check (chain_type in ('evm', 'svm')),
+  public_key_id bigint unique,
+  para_subject text not null,
+  status text not null default 'provisioning'
+    check (status in ('provisioning', 'active')),
+  is_default boolean not null default false,
+  merged_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (para_subject, chain_type),
+  check (status <> 'active' or public_key_id is not null)
+);
+
+create unique index if not exists agent_wallets_one_default
+  on agent_wallets (user_id, chain_type) where is_default;
+create index if not exists agent_wallets_user on agent_wallets (user_id);
+
+-- The account's lock and each connection's Ask/Instant, label and last use.
+create table if not exists agent_wallet_rules (
+  user_id text primary key references users(id),
+  locked boolean not null default false,
+  version bigint not null default 0,
+  updated_at bigint not null
+);
+
+create table if not exists account_connections (
+  user_id text not null references users(id),
+  key text not null
+    check (key ~ '^(portal|cli|oauth:[A-Za-z0-9._~-]{1,200}|telegram:[0-9]{1,20})$'),
+  label text,
+  instant boolean not null default false,
+  last_used_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (user_id, key)
+);
+
+create table if not exists threads (
+  id text primary key,
+  user_id text references users(id)
+);
+
+create table if not exists bot_registrations (
+  id text primary key,
+  owner_user_id text references users(id),
+  platform text not null,
+  status text not null default 'active',
+  label text,
+  platform_bot_id text not null,
+  platform_username text,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (platform, platform_bot_id)
+);
+
+-- One-time Telegram `/link` codes (product-mono 20261017010000_telegram_link).
+create table if not exists telegram_link_codes (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),
+  source_user_id text not null references users(id),
+  telegram_user_id bigint not null,
+  telegram_handle text,
+  bot_id text not null,
+  bot_registration_id text not null references bot_registrations(id),
+  chat_id bigint not null,
+  state text not null default 'issued'
+    check (state in ('issued', 'linking', 'linked', 'cancelled', 'superseded')),
+  target_user_id text references users(id),
+  merge_id uuid,
+  linking_until bigint,
+  result jsonb,
+  created_at bigint not null,
+  expires_at bigint not null,
+  consumed_at bigint,
+  notified_at bigint,
+  check (expires_at = created_at + 600),
+  check (state <> 'linking' or (target_user_id is not null and merge_id is not null and linking_until is not null)),
+  check (state <> 'linked' or (target_user_id is not null and consumed_at is not null))
+);

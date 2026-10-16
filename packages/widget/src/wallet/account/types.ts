@@ -36,7 +36,8 @@ export type AccountWallet = {
   id: string;
   family: WalletFamily;
   address: string;
-  kind?: "external" | "embedded" | "smart_account";
+  /** `agent`: an Aomi agent wallet, which signs on the server under its rule. */
+  kind?: "external" | "embedded" | "smart_account" | "agent";
   provider?: string;
   providerWalletId?: string;
   chainScope?: string;

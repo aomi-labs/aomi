@@ -48,7 +48,7 @@ test("shared package changes fan out to every dependent surface", () => {
   assert.equal(selected.consumer_compat, true);
   assert.equal(selected.journeys, true);
   assert.equal(selected.browser_contracts, true);
-  for (const app of ["portal", "build", "landing", "telegram"]) {
+  for (const app of ["portal", "build", "landing"]) {
     assert.equal(selected[app], true);
   }
 });
@@ -94,7 +94,17 @@ test("retired Base paths fail broad across active apps without a retired output"
   assert.equal(selected.full, true);
   assert.equal(selected.reason, "unmapped_path");
   assert.equal(Object.hasOwn(selected, "base"), false);
-  for (const app of ["portal", "build", "landing", "telegram"]) {
+  for (const app of ["portal", "build", "landing"]) {
+    assert.equal(selected[app], true);
+  }
+});
+
+test("retired Telegram Mini App paths fail broad without a retired output", () => {
+  const selected = classifyPaths(["apps/telegram/src/app/page.tsx"]);
+  assert.equal(selected.full, true);
+  assert.equal(selected.reason, "unmapped_path");
+  assert.equal(Object.hasOwn(selected, "telegram"), false);
+  for (const app of ["portal", "build", "landing"]) {
     assert.equal(selected[app], true);
   }
 });

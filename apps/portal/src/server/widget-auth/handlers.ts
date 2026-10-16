@@ -1,10 +1,6 @@
 import "server-only";
 import {
-  claimTelegramSessionOwner,
-  findAomiUserForTelegram,
   getOrCreateAomiUserForBetterAuthSession,
-  linkVerifiedProviderIdentityForUser,
-  signInWithTelegramProviderIdentity,
   signInWithVerifiedProviderIdentity,
 } from "@aomi-labs/account/account";
 import {
@@ -31,19 +27,7 @@ import {
 import { z } from "zod";
 
 import type { Call } from "@/server/bff/routes";
-import { deploymentTier } from "@/server/env";
-import {
-  requireAttestedProviderWallets,
-  verifyWidgetProviderCredential,
-} from "./exchange";
-import {
-  issueTelegramCustomAuthJwt,
-  requirePrivyCustomAuthOwner,
-  statusForTrustedTelegramFailure,
-  telegramCustomAuthJwk,
-  telegramCustomAuthSubject,
-  verifyTrustedTelegramLaunch,
-} from "./telegram-custom-auth";
+import { verifyWidgetProviderCredential } from "./exchange";
 
 /** The snake_case widget session envelope every issuing route returns. */
 function sessionResponse(session: AccountSession): Response {
@@ -254,154 +238,5 @@ export async function issueOAuthBootstrap({
   return Response.json(
     { ticket: issued.ticket, expires_at: issued.expiresAt },
     { headers: { "Cache-Control": "no-store" } },
-  );
-}
-
-function requiredString(value: unknown, maxLength: number): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed && trimmed.length <= maxLength ? trimmed : null;
-}
-
-function trustedTelegramLaunch(input: { initData: string; botId: string }) {
-  const trusted = verifyTrustedTelegramLaunch(input);
-  if (!trusted.ok)
-    throw new WidgetAuthError(
-      trusted.reason,
-      statusForTrustedTelegramFailure(trusted.reason),
-    );
-  return trusted.launch;
-}
-
-export async function telegramCustomAuth({ request }: Call): Promise<Response> {
-  requireWidgetOrigin(request);
-  const input = (await json(request)) as Record<string, unknown> | null;
-  const botId = requiredString(input?.bot_id, 32);
-  const initData = requiredString(input?.init_data, 16_384);
-  const intent = requiredString(input?.intent, 32) ?? "status";
-  if (
-    !botId ||
-    !initData ||
-    !["status", "authenticate", "link", "new"].includes(intent)
-  )
-    throw new WidgetAuthError("invalid_request", 400);
-  const launch = trustedTelegramLaunch({ initData, botId });
-  const bound = Boolean(await findAomiUserForTelegram(launch.telegramUserId));
-  // A first launch must not create a second Privy user by accident: only an
-  // explicit sign-in, new-wallet or link action mints the custom JWT.
-  const issue = bound
-    ? intent === "authenticate"
-    : intent === "link" || intent === "new";
-  return Response.json(
-    {
-      status: bound ? "bound" : "unbound",
-      custom_subject: launch.customSubject,
-      ...(issue
-        ? {
-            custom_auth_jwt: await issueTelegramCustomAuthJwt({
-              customSubject: launch.customSubject,
-            }),
-          }
-        : {}),
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
-}
-
-export async function telegramCustomAuthKeys(): Promise<Response> {
-  return Response.json(
-    { keys: [await telegramCustomAuthJwk()] },
-    { headers: { "Cache-Control": "public, max-age=300" } },
-  );
-}
-
-const TELEGRAM_PROVIDERS = new Set(["privy", "para"]);
-const DM_THREAD_ID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Sign a Telegram Mini App user in with a provider credential, or link it to the
- * account that owns the bot DM thread. Only DM threads (an opaque per-user
- * UUID) may be claimed: shared threads use a derivable id such as
- * `telegram:group:<chat>` that anyone in, or guessing, the chat could present.
- */
-export async function exchangeTelegram({ request }: Call): Promise<Response> {
-  const origin = requireWidgetOrigin(request);
-  const input = (await json(request)) as Record<string, unknown> | null;
-  const botId = requiredString(input?.bot_id, 32);
-  const initData = requiredString(input?.init_data, 16_384);
-  const sessionId = requiredString(input?.session_id, 512);
-  const customUserId = requiredString(input?.custom_user_id, 512);
-  if (!botId || !initData || !sessionId || !input?.credential)
-    throw new WidgetAuthError("invalid_request", 400);
-  if (!DM_THREAD_ID.test(sessionId))
-    throw new WidgetAuthError("unsupported_session", 400);
-  const launch = trustedTelegramLaunch({ initData, botId });
-
-  const { descriptor, identity } = await verifyWidgetProviderCredential(
-    input.credential,
-  );
-  if (
-    !TELEGRAM_PROVIDERS.has(descriptor.id) ||
-    descriptor.id !== identity.provider
-  )
-    throw new WidgetAuthError("provider_not_enabled", 400);
-  // A provider session proves the person, never a wallet: ask the provider
-  // which wallets it holds for this subject before anything is linked, so an
-  // outage cannot leave a linked identity with no signer.
-  const wallets = await requireAttestedProviderWallets(identity);
-
-  if (customUserId) {
-    if (descriptor.id !== "privy")
-      throw new WidgetAuthError("provider_not_enabled", 400);
-    const expected = telegramCustomAuthSubject({
-      environment: deploymentTier(),
-      telegramUserId: launch.telegramUserId,
-    });
-    if (customUserId !== expected)
-      throw new WidgetAuthError("invalid_custom_auth_subject", 403);
-    await requirePrivyCustomAuthOwner({
-      customSubject: customUserId,
-      privyUserId: identity.subject,
-    });
-    const resolution = await signInWithTelegramProviderIdentity({
-      identity,
-      policy: descriptor.policy,
-      wallets,
-      telegramUserId: launch.telegramUserId,
-      sessionId,
-    });
-    if (resolution.status === "session_mismatch")
-      throw new WidgetAuthError("telegram_session_mismatch", 403);
-    if (resolution.status === "conflict") return linkedElsewhere(resolution);
-    return sessionResponse(
-      await issueWidgetSession({
-        userId: resolution.user.id,
-        origin,
-        authMethod: "telegram_privy_custom_auth",
-        providerIdentityId: resolution.identity.id,
-      }),
-    );
-  }
-
-  const userId = await claimTelegramSessionOwner({
-    sessionId,
-    telegramUserId: launch.telegramUserId,
-  });
-  if (!userId) throw new WidgetAuthError("telegram_session_mismatch", 403);
-  const resolution = await linkVerifiedProviderIdentityForUser({
-    userId,
-    identity,
-    policy: descriptor.policy,
-    wallets,
-  });
-  if (resolution.status === "conflict") return linkedElsewhere(resolution);
-  return sessionResponse(
-    await issueWidgetSession({
-      userId,
-      origin,
-      authMethod: `telegram_${descriptor.id}`,
-      providerIdentityId: resolution.identity.id,
-    }),
   );
 }

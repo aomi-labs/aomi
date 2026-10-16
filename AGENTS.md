@@ -8,7 +8,7 @@ before changing public packages, examples, or CI. See
 `packages/client` owns the SDK; `packages/cli` owns the CLI; `packages/react` owns React runtime
 integration; `packages/widget` owns the published widget.
 `packages/account` owns shared authentication and BFF support. Deployed apps
-live under `apps/`, including Portal, Build, Landing, and Telegram.
+live under `apps/`, including Portal, Build, and Landing.
 
 ## Build, Test, and Development Commands
 
@@ -19,7 +19,7 @@ workflow for the selected workspace.
 - `pnpm run build:packages` — build/check shared packages.
 - `pnpm run lint` and `pnpm run typecheck` — workspace lint and library types.
 - `pnpm exec vitest run` — workspace automated tests.
-- `pnpm run test:portal` and `pnpm run test:telegram` — app tests.
+- `pnpm run test:portal` — app tests.
 - `pnpm run test:contracts -- --base <trusted-base-sha>` — build and pack the
   candidate SDK, React runtime, and widget; validate existing consumers from
   that base outside the workspace. CI supplies the PR base SHA automatically.

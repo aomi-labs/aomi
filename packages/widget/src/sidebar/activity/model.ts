@@ -21,9 +21,10 @@ export type ActivityTransaction = {
   commit?: CommitView;
 };
 
-/** Commits awaiting the wallet, in signing order: whole batches in the order
- * they were committed, each batch by its own leg index. A later batch (another
- * chain, say) never cuts in while an earlier batch still has legs to sign. */
+/** Commits awaiting the wallet or the user's approval, in signing order:
+ * whole batches in the order they were committed, each batch by its own leg
+ * index. A later batch (another chain, say) never cuts in while an earlier
+ * batch still has legs to sign. An approved commit is Aomi's to sign. */
 export function selectReviewQueue(
   commits: readonly CommitView[],
   review: ((commitId: string) => unknown) | undefined,
@@ -41,8 +42,10 @@ export function selectReviewQueue(
   return commits
     .filter(
       (commit) =>
-        (commit.state === "needs_signature" ||
-          commit.state === "awaiting_broadcast") &&
+        (commit.state === "awaiting_approval" ||
+          ((commit.state === "needs_signature" ||
+            commit.state === "awaiting_broadcast") &&
+            commit.approval?.state !== "approved")) &&
         review(commit.commit_id) !== undefined,
     )
     .sort(

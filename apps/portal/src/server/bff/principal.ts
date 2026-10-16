@@ -56,6 +56,14 @@ export type Principal =
     }
   | { kind: "e2e"; accountId: string; guest: false };
 
+/**
+ * A signed-in portal browser session. Only it may create agent wallets,
+ * change their signing rules or disconnect apps.
+ */
+export function isPortalSession(principal: Principal): boolean {
+  return principal.kind === "cookie" && !principal.guest;
+}
+
 export type PrincipalCode =
   | "invalid_token"
   | "invalid_widget_session"

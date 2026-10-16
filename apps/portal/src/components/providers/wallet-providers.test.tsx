@@ -11,7 +11,6 @@ const walletKit = vi.hoisted(() => ({
   providers: undefined as Record<string, unknown> | undefined,
   account: undefined as unknown,
   providerMounts: 0,
-  privyDelegationMounts: 0,
   throwOnProviderMount: "",
   replace: vi.fn(),
 }));
@@ -106,12 +105,7 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
 });
 
 vi.mock("@aomi-labs/widget/providers/para", () => ({}));
-vi.mock("@aomi-labs/widget/providers/privy", () => ({
-  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => {
-    walletKit.privyDelegationMounts += 1;
-    return <div data-testid="privy-delegation-root">{children}</div>;
-  },
-}));
+vi.mock("@aomi-labs/widget/providers/privy", () => ({}));
 vi.mock("@aomi-labs/widget/browser-auth", () => ({
   authClient: { useSession: () => ({ data: null }) },
 }));
@@ -133,7 +127,6 @@ describe("WalletProviders Privy configuration", () => {
     walletKit.providers = undefined;
     walletKit.account = undefined;
     walletKit.providerMounts = 0;
-    walletKit.privyDelegationMounts = 0;
     walletKit.throwOnProviderMount = "";
     walletKit.replace.mockReset();
     navigation.pathname = "/settings";
@@ -166,7 +159,7 @@ describe("WalletProviders Privy configuration", () => {
       expect(walletKit.providers).toBe(original.providers);
       expect(walletKit.account).toBe(original.account);
     }
-    navigation.pathname = "/oauth/device";
+    navigation.pathname = "/device-auth";
     navigation.search = "provider=privy";
     view.rerender(<WalletProviders>chat</WalletProviders>);
     expect(walletKit.auth).toEqual({ provider: "privy" });
@@ -253,7 +246,6 @@ describe("WalletProviders Privy configuration", () => {
     fireEvent.click(screen.getByRole("button", { name: "privy" }));
     await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(view.queryByTestId("privy-delegation-root")).toBeNull();
   });
 
   it("offers both configured providers and opens only the selected provider", async () => {
@@ -277,7 +269,6 @@ describe("WalletProviders Privy configuration", () => {
       }),
     );
     expect(screen.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(screen.queryByTestId("privy-delegation-root")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "privy" }));
     await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
@@ -298,13 +289,12 @@ describe("WalletProviders Privy configuration", () => {
 
     expect(walletKit.auth).toBe(false);
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(walletKit.privyDelegationMounts).toBe(0);
   });
 
   it("mounts exactly the Para auth SDK selected by a device route", async () => {
     vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
     vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-    navigation.pathname = "/oauth/device";
+    navigation.pathname = "/device-auth";
     navigation.search = "provider=para";
     const { WalletProviders } = await import("./wallet-providers");
 
@@ -319,7 +309,6 @@ describe("WalletProviders Privy configuration", () => {
       methods: ["email", "google"],
     });
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-    expect(walletKit.privyDelegationMounts).toBe(0);
   });
 
   it("does not mount a selected provider whose public config is missing", async () => {
@@ -339,37 +328,21 @@ describe("WalletProviders Privy configuration", () => {
     expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
   });
 
-  it.each([
-    ["/device-auth", "para"],
-    ["/device-auth", "privy"],
-    ["/oauth/device", "para"],
-    ["/oauth/device", "privy"],
-  ])(
-    "composes one provider owner for %s with %s selected",
-    async (pathname, provider) => {
+  it.each(["para", "privy"])(
+    "composes one provider owner for /device-auth with %s selected",
+    async (provider) => {
       vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
       vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-      navigation.pathname = pathname;
-      navigation.search =
-        pathname === "/device-auth"
-          ? `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`
-          : `provider=${provider}&user_code=AOMI-1234`;
-      const [{ WalletProviders }, page] = await Promise.all([
+      navigation.pathname = "/device-auth";
+      navigation.search = `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`;
+      const [{ WalletProviders }, { DeviceAuthClient }] = await Promise.all([
         import("./wallet-providers"),
-        pathname === "/device-auth"
-          ? import("@/app/device-auth/device-auth-client")
-          : import("@/app/oauth/device/oauth-device-client"),
+        import("@/app/device-auth/device-auth-client"),
       ]);
-      const Page =
-        pathname === "/device-auth"
-          ? (page as typeof import("@/app/device-auth/device-auth-client"))
-              .DeviceAuthClient
-          : (page as typeof import("@/app/oauth/device/oauth-device-client"))
-              .OAuthDeviceClient;
 
       const view = render(
         <WalletProviders>
-          <Page />
+          <DeviceAuthClient />
         </WalletProviders>,
       );
 

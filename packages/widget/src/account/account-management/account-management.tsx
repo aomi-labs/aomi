@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
 import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { AomiAccountWallet, AomiAgentRule } from "@aomi-labs/client";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
@@ -10,8 +11,11 @@ import { SectionHeader } from "@/ui/aomi/section-header";
 import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
-import { IconButton, TextButton } from "./controls";
-import { SignsWithStrip } from "./signs-with";
+import { Divider, IconButton, TextButton } from "./controls";
+import {
+  AgentWalletGroup,
+  type AgentWalletHandlers,
+} from "./agent-wallet-group";
 import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
   addressSummary,
@@ -35,6 +39,12 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
   onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
+  /** Shows the account's agent wallets (signed-in accounts only). */
+  agentWallets?: AgentWalletHandlers & {
+    /** Undefined when the list failed to load. */
+    wallets?: readonly AomiAccountWallet[];
+    rule?: AomiAgentRule;
+  };
 };
 
 export function AccountManagement({
@@ -51,6 +61,7 @@ export function AccountManagement({
   onRemoveLogin,
   onSignOut,
   onDeleteAccount,
+  agentWallets,
   ...rowHandlers
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
@@ -163,14 +174,16 @@ export function AccountManagement({
           }
         />
 
-        {wallets.length || logins.length ? (
+        {wallets.length || logins.length || agentWallets ? (
           <div className={listGroupClass}>
-            <SignsWithStrip
-              rows={rows}
-              disabled={pending !== null}
-              onActivate={rowHandlers.onActivate}
-              onAddWallet={onAddWallet}
-            />
+            {agentWallets ? (
+              <AgentWalletGroup
+                rows={rows.filter((row) => row.kind === "agent")}
+                pending={pending}
+                onActivate={rowHandlers.onActivate}
+                {...agentWallets}
+              />
+            ) : null}
             {wallets.length ? (
               <>
                 <Divider
@@ -186,10 +199,7 @@ export function AccountManagement({
             ) : null}
             {logins.length ? (
               <>
-                <Divider
-                  title="Social sign-in"
-                  detail="Privy and Para logins, with their wallets"
-                />
+                <Divider title="Sign-in wallets" detail="Privy and Para" />
                 <div className="divide-aomi-border divide-y">
                   {logins.map((group) => (
                     <LoginRows
@@ -252,16 +262,6 @@ export function AccountManagement({
           </ListGroup>
         </section>
       ) : null}
-    </div>
-  );
-}
-
-/** A section band inside the wallets card. */
-function Divider({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
-      <span className="type-meta text-aomi-fg font-medium">{title}</span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
     </div>
   );
 }

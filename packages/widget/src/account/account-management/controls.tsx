@@ -4,6 +4,8 @@ import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { WalletMark, resolveWalletBrandKey } from "@/wallet/wallet-brands";
+import { AomiMark } from "@/ui/aomi-mark";
+import { AGENT_WALLET } from "./wallet-model";
 
 /**
  * A wallet app's mark. The dot says whether the address is usable here
@@ -20,14 +22,17 @@ export function BrandMark({
   size?: number;
   box?: number;
 }) {
-  const key = resolveWalletBrandKey(brand);
+  const agent = brand === AGENT_WALLET;
+  const key = agent ? null : resolveWalletBrandKey(brand);
   return (
     <span
       className="relative flex shrink-0 items-center justify-center"
       style={{ width: box, height: box }}
-      data-wallet-brand={key ?? undefined}
+      data-wallet-brand={agent ? "agent" : (key ?? undefined)}
     >
-      {key ? (
+      {agent ? (
+        <AomiMark size={Math.max(12, size - 2)} className="text-aomi-fg" />
+      ) : key ? (
         <WalletMark name={key} size={size} />
       ) : (
         <Wallet size={Math.min(size, 16)} className="text-aomi-muted" />
@@ -138,6 +143,8 @@ export type MenuItem =
       label: string;
       detail?: string;
       danger?: boolean;
+      /** One of a choice; the chosen item is filled. */
+      checked?: boolean;
       href?: string;
       onSelect?: () => unknown;
     }
@@ -156,10 +163,11 @@ export function ActionsMenu({
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const itemClass = (danger?: boolean) =>
+  const itemClass = (danger?: boolean, checked?: boolean) =>
     cn(
       "hover:bg-aomi-hover focus:bg-aomi-hover flex w-full flex-col items-start gap-0.5 rounded-[8px] px-3 py-2 text-left outline-none",
       danger ? "text-aomi-danger" : "text-aomi-fg",
+      checked && "bg-aomi-surface-2",
     );
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
@@ -191,7 +199,7 @@ export function ActionsMenu({
           event.preventDefault();
           const nodes = Array.from(
             event.currentTarget.querySelectorAll<HTMLElement>(
-              '[role="menuitem"]',
+              '[role^="menuitem"]',
             ),
           );
           const current = nodes.indexOf(document.activeElement as HTMLElement);
@@ -240,8 +248,11 @@ export function ActionsMenu({
               ) : (
                 <button
                   type="button"
-                  role="menuitem"
-                  className={itemClass(item.danger)}
+                  role={
+                    item.checked === undefined ? "menuitem" : "menuitemradio"
+                  }
+                  aria-checked={item.checked}
+                  className={itemClass(item.danger, item.checked)}
                   onClick={() => {
                     setOpen(false);
                     void item.onSelect?.();
@@ -262,4 +273,14 @@ export function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/** A section band inside the wallets card. */
+export function Divider({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
+      <span className="type-meta text-aomi-fg font-medium">{title}</span>
+      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+    </div>
+  );
 }

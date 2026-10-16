@@ -53,6 +53,7 @@ import {
 import { AppIndicator } from "@/controls/app-indicator";
 import { useComposerControl } from "@/frame/aomi-frame";
 import { AomiMark } from "@/ui/aomi-mark";
+import { ThreadWalletBanner } from "./thread-wallet-banner";
 import { AssistantMessageRow } from "./assistant-message-row";
 import { ActivitySidebar } from "@/sidebar/activity/activity-sidebar";
 import { ModelSelect } from "@/controls/model-select";
@@ -422,6 +423,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
       />
       <ComposerAction />
       <ComposerSafetyStatus />
+      <ThreadWalletBanner />
     </ComposerPrimitive.Root>
   );
 };

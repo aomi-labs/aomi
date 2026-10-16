@@ -79,6 +79,25 @@ function service(
   };
 }
 
+type Grants = ReturnType<typeof service>["grants"];
+
+async function issueGrant(grants: Grants) {
+  const intent = await grants.issueDeviceAuthLinkIntent({
+    state,
+    codeChallenge,
+    redirectUri,
+    betterAuthUserId: "better-auth-user",
+    provider: "para",
+  });
+  return grants.issueDeviceAuthLinkGrant({
+    linkIntent: intent.id,
+    state,
+    redirectUri,
+    provider: "para",
+    credential: { provider: "para", providerToken: "provider-token" },
+  });
+}
+
 describe("database-backed device auth grants", () => {
   it("rejects identifier namespaces that could widen expiry cleanup", () => {
     expect(() =>
@@ -94,19 +113,11 @@ describe("database-backed device auth grants", () => {
     const store = new MemoryRecordStore();
     const issuer = service(store).grants;
     const exchanger = service(store).grants;
-    const grant = await issuer.issueDeviceAuthGrant({
-      state,
-      codeChallenge,
-      redirectUri,
-      sessionToken: "session-token",
-      expiresAt: "2031-01-01T00:00:00.000Z",
-      betterAuthUserId: "better-auth-user",
-      provider: "privy",
-    });
+    const grant = await issueGrant(issuer);
 
-    expect([...store.records.values()][0]?.value).not.toContain(
-      "session-token",
-    );
+    expect(
+      [...store.records.values()].map((r) => r.value).join(),
+    ).not.toContain("provider-token");
     await expect(
       exchanger.exchangeDeviceAuthGrant({
         code: grant.code,
@@ -115,9 +126,8 @@ describe("database-backed device auth grants", () => {
         redirectUri,
       }),
     ).resolves.toMatchObject({
-      sessionToken: "session-token",
       betterAuthUserId: "better-auth-user",
-      provider: "privy",
+      provider: "para",
     });
     await expect(
       issuer.exchangeDeviceAuthGrant({
@@ -132,14 +142,7 @@ describe("database-backed device auth grants", () => {
   it("rejects expired and tampered encrypted records", async () => {
     let timestamp = 1_000_000;
     const expired = service(new MemoryRecordStore(), () => timestamp);
-    const grant = await expired.grants.issueDeviceAuthGrant({
-      state,
-      codeChallenge,
-      redirectUri,
-      sessionToken: "session-token",
-      expiresAt: null,
-      provider: "para",
-    });
+    const grant = await issueGrant(expired.grants);
     timestamp += 5 * 60 * 1000 + 1;
     await expect(
       expired.grants.exchangeDeviceAuthGrant({
@@ -151,14 +154,7 @@ describe("database-backed device auth grants", () => {
     ).resolves.toBeNull();
 
     const tampered = service();
-    const tamperedGrant = await tampered.grants.issueDeviceAuthGrant({
-      state,
-      codeChallenge,
-      redirectUri,
-      sessionToken: "session-token",
-      expiresAt: null,
-      provider: "para",
-    });
+    const tamperedGrant = await issueGrant(tampered.grants);
     const identifier = tampered.store.identifier("grant:");
     const record = tampered.store.records.get(identifier)!;
     const envelope = record.value.split(".");
@@ -184,14 +180,7 @@ describe("database-backed device auth grants", () => {
     ["PKCE", { codeVerifier: "wrong-verifier" }],
   ])("consumes a grant rejected for the wrong %s", async (_name, changed) => {
     const { grants } = service();
-    const grant = await grants.issueDeviceAuthGrant({
-      state,
-      codeChallenge,
-      redirectUri,
-      sessionToken: "session-token",
-      expiresAt: null,
-      provider: "para",
-    });
+    const grant = await issueGrant(grants);
     const request = {
       code: grant.code,
       state,
@@ -290,14 +279,7 @@ describe("database-backed device auth grants", () => {
   it("rejects records encrypted under another deployment secret", async () => {
     const store = new MemoryRecordStore();
     const issuer = service(store).grants;
-    const grant = await issuer.issueDeviceAuthGrant({
-      state,
-      codeChallenge,
-      redirectUri,
-      sessionToken: "session-token",
-      expiresAt: null,
-      provider: "para",
-    });
+    const grant = await issueGrant(issuer);
     const otherProcess = service(
       store,
       () => Date.now(),
@@ -316,22 +298,20 @@ describe("database-backed device auth grants", () => {
   it("rejects non-loopback and non-callback redirects", async () => {
     const { grants } = service();
     await expect(
-      grants.issueDeviceAuthGrant({
+      grants.issueDeviceAuthLinkIntent({
         state,
         codeChallenge,
         redirectUri: "https://example.com/callback",
-        sessionToken: "session-token",
-        expiresAt: null,
+        betterAuthUserId: "better-auth-user",
         provider: "para",
       }),
     ).rejects.toThrow("invalid_redirect_uri");
     await expect(
-      grants.issueDeviceAuthGrant({
+      grants.issueDeviceAuthLinkIntent({
         state,
         codeChallenge,
         redirectUri: "http://127.0.0.1:49152/not-callback",
-        sessionToken: "session-token",
-        expiresAt: null,
+        betterAuthUserId: "better-auth-user",
         provider: "para",
       }),
     ).rejects.toThrow("invalid_redirect_uri");

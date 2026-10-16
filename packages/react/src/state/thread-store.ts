@@ -1,5 +1,5 @@
 import type { SetStateAction } from "react";
-import { safeEnv, type AgentMode } from "@aomi-labs/client";
+import { safeEnv, type AgentMode, type ThreadOrigin } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { generateUUID } from "../utils/client-session";
@@ -29,6 +29,15 @@ export type ThreadMetadata = {
   control: ThreadControlState;
   /** Local first submission, before the server acknowledges the conversation. */
   pending?: boolean;
+  /** Where the thread was started, when the server reports it. Badge only. */
+  origin?: ThreadOrigin;
+  /** Application the thread runs inside, when the server reports it. */
+  originApp?: number;
+  /**
+   * Refs waiting for the user's approval on this thread and its scheduled
+   * runs, oldest first, when the server reports any.
+   */
+  awaitingApproval?: string[];
 };
 
 export function initThreadControl(): ThreadControlState {

@@ -1,8 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { AccountAvatar } from "../account-avatar";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { shortAddress } from "@aomi-labs/client";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { shortAddress, type AomiAccountWallet } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AccountManagement } from "./account-management";
 
@@ -104,18 +111,6 @@ describe("Wallets & access", () => {
     expect(within(rowFor(main)).getByText("Rabby")).toBeInTheDocument();
   });
 
-  it("keeps the remaining address in the strip, dimmed with its step", () => {
-    const onActivate = vi.fn();
-    renderSettings([trading], { onActivate });
-    const slot = screen.getByRole("button", {
-      name: "Switch in Rabby (EVM Trading)",
-    });
-    expect(within(slot).getByText("Switch in Rabby")).toBeInTheDocument();
-    expect(screen.queryByText("Choose a wallet")).not.toBeInTheDocument();
-    fireEvent.click(slot);
-    expect(onActivate).toHaveBeenCalledWith(trading);
-  });
-
   it("takes Active and the bar off a chosen address that cannot sign here", () => {
     const signedOut = row("0x13af000000000000000000000000000000005cf7", {
       kind: "embedded",
@@ -131,11 +126,6 @@ describe("Wallets & access", () => {
     expect(rowFor(signedOut).dataset.active).toBeUndefined();
     expect(
       within(rowFor(signedOut)).getByText("Sign in with Privy"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Sign in with Privy (EVM Privy)",
-      }),
     ).toBeInTheDocument();
   });
 
@@ -162,41 +152,16 @@ describe("Wallets & access", () => {
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
-  it("lays out the signs-with strip, Wallets and Social sign-in", () => {
+  it("lays out Wallets and Sign-in wallets", () => {
     renderSettings([main, trading, metamask, privyEvm, privySvm]);
-    expect(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "SVM signs with Privy" }),
-    ).toBeInTheDocument();
     expect(
       screen.getByText("Sign in by signing a message"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Privy and Para logins, with their wallets"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Sign-in wallets")).toBeInTheDocument();
+    expect(screen.getByText("Privy and Para")).toBeInTheDocument();
     expect(screen.getAllByText("5 addresses · 3 on this device")).toHaveLength(
       2,
     );
-  });
-
-  it("keeps an empty SVM slot that offers to add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main], { onAddWallet });
-    expect(screen.queryByText("No SVM wallet")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add SVM wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
-  });
-
-  it("ends each family picker with Add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main, trading], { onAddWallet });
-    fireEvent.click(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 
   it("titles a row with its name and puts the app beside it", () => {
@@ -371,5 +336,158 @@ describe("Wallets & access", () => {
     });
     expect(screen.getByText("cecilia@example.com")).toBeInTheDocument();
     expect(screen.queryByText("Privy user")).not.toBeInTheDocument();
+  });
+});
+
+describe("Agent wallet group", () => {
+  const AGENT = "0x7a3f00000000000000000000000000000000c41e";
+  const EXTRA = "0x91c0000000000000000000000000000000000a11";
+  const listed = (overrides: Record<string, unknown>) =>
+    ({
+      kind: "agent",
+      family: "evm",
+      label: "Agent wallet",
+      custom_label: null,
+      wallet_app: null,
+      provider: "para",
+      is_default: true,
+      status: "ready",
+      merged: false,
+      created_at: 1_760_000_000,
+      ...overrides,
+    }) as AomiAccountWallet;
+  const wallets = [
+    listed({ id: "w_12", address: AGENT }),
+    listed({ id: "w_31", address: EXTRA, is_default: false, merged: true }),
+  ];
+  const agentRow = row(AGENT, {
+    kind: "agent",
+    provider: "para",
+    linkedWalletId: "12",
+    connected: false,
+    active: true,
+    operating: true,
+    brand: undefined,
+    actions: [],
+  });
+  const extraRow = row(EXTRA, {
+    kind: "agent",
+    provider: "para",
+    linkedWalletId: "31",
+    connected: false,
+    brand: undefined,
+    actions: [],
+  });
+  const para = {
+    id: "para-1",
+    provider: "para",
+    subject: "para-user",
+    email: "aron@megyeri.eu",
+  };
+  const renderGroup = (
+    agentWallets: Parameters<typeof AccountManagement>[0]["agentWallets"],
+    extra: Partial<Parameters<typeof AccountManagement>[0]> = {},
+  ) =>
+    renderSettings([agentRow, extraRow, privyEvm], {
+      signInMethods: [privy, para],
+      agentWallets,
+      ...extra,
+    });
+  const group = () =>
+    document.querySelector("[data-agent-wallets]") as HTMLElement;
+  const parentMenu = () => {
+    fireEvent.click(
+      within(group()).getByRole("button", { name: "Actions for agent wallet" }),
+    );
+    return screen.getByRole("menu", { name: "Actions for agent wallet" });
+  };
+
+  it("nests each agent address under one Agent wallet row, like a login", () => {
+    const onActivate = vi.fn();
+    renderGroup(
+      { wallets, rule: { locked: false, version: 0 } },
+      { onActivate },
+    );
+    expect(group().firstElementChild).toHaveTextContent(
+      "Agent wallet" + "Aomi signs with it when you or a connection asks",
+    );
+    expect(within(group()).getByText("Asks before each trade")).toBeVisible();
+    expect(within(rowFor(agentRow)).getByText("Active")).toBeInTheDocument();
+    expect(rowFor(agentRow).textContent).toContain(
+      `${shortAddress(AGENT)} · EVM`,
+    );
+    for (const gone of ["Deposit", "$412.80", "Create agent wallet"])
+      expect(screen.queryByText(gone)).toBeNull();
+
+    openMenu(extraRow, "Agent wallet");
+    const items = within(
+      screen.getByRole("menu", {
+        name: `Actions for Agent wallet ${shortAddress(EXTRA)}`,
+      }),
+    )
+      .getAllByRole("menuitem")
+      .map((item) => item.querySelector("span")?.textContent);
+    expect(items).toEqual([
+      "Use this wallet",
+      "Copy address",
+      "View on explorer",
+    ]);
+    fireEvent.click(screen.getByText("Use this wallet"));
+    expect(onActivate).toHaveBeenCalledWith(extraRow);
+  });
+
+  it("locks every agent wallet from the parent row, and unlocks", () => {
+    const onLock = vi.fn();
+    const { rerender } = renderGroup({
+      wallets,
+      rule: { locked: false, version: 3 },
+      onLock,
+    });
+    const lock = within(parentMenu()).getByRole("menuitem", { name: /Lock/ });
+    expect(lock).toHaveTextContent("Nothing signs until you unlock");
+    fireEvent.click(lock);
+    expect(onLock).toHaveBeenCalledWith(true);
+
+    rerender(
+      <AccountManagement
+        user={{ id: "user-1", displayName: "Aron" }}
+        rows={[agentRow, extraRow]}
+        signInMethods={[]}
+        pending={null}
+        agentWallets={{ wallets, rule: { locked: true, version: 4 }, onLock }}
+      />,
+    );
+    expect(within(group()).getByLabelText("Locked")).toBeInTheDocument();
+    expect(within(group()).getByText("Locked · nothing signs")).toBeVisible();
+    fireEvent.click(
+      within(parentMenu()).getByRole("menuitem", { name: "Unlock" }),
+    );
+    expect(onLock).toHaveBeenLastCalledWith(false);
+  });
+
+  it("renames the agent wallet from the parent row", async () => {
+    const onRename = vi.fn(async () => true);
+    renderGroup({ wallets, rule: { locked: false, version: 0 }, onRename });
+    fireEvent.click(within(parentMenu()).getByText("Rename"));
+    const input = screen.getByRole("textbox", { name: "Agent wallet name" });
+    fireEvent.change(input, { target: { value: "Trading" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    expect(onRename).toHaveBeenCalledWith("Trading");
+  });
+
+  it("keeps agent wallets out of the Para login group", () => {
+    renderGroup({ wallets, rule: { locked: false, version: 0 } });
+    expect(
+      within(
+        document.querySelector('[data-wallet-provider="para"]') as HTMLElement,
+      ).queryByText(shortAddress(AGENT)),
+    ).toBeNull();
+  });
+
+  it("is not shown without agent wallet support", () => {
+    renderSettings([main]);
+    expect(document.querySelector("[data-agent-wallets]")).toBeNull();
   });
 });

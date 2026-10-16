@@ -6,10 +6,6 @@ const mounted = vi.hoisted(() => ({ config: undefined as unknown }));
 
 // Stub the heavy composer provider so importing the plugin does not pull in
 // the full wallet-kit runtime tree.
-vi.mock("./privy-delegation", () => ({
-  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 vi.mock("./privy-plugin-provider", () => ({
   AomiPrivyPluginProvider: ({ children }: { children: ReactNode }) => children,
 }));
