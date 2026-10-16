@@ -200,6 +200,7 @@ test("journey harness changes run the journeys and the packed browser jobs only"
 
 test("PR comparison includes all commits via exact-head GitHub merge ref", () => {
   const repo = mkdtempSync(join(tmpdir(), "aomi-pr-diff-"));
+  const checkout = mkdtempSync(join(tmpdir(), "aomi-pr-shallow-"));
   const git = (...args) =>
     execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
   try {
@@ -223,20 +224,73 @@ test("PR comparison includes all commits via exact-head GitHub merge ref", () =>
     git("checkout", "-q", "main");
     git("merge", "--no-ff", "-q", "codex/multi-commit", "-m", "merge");
     git("update-ref", "refs/pull/123/merge", "HEAD");
-    git("remote", "add", "origin", ".");
     git("checkout", "-q", "codex/multi-commit");
+    git("clone", "-q", "--depth=1", "--no-local", repo, checkout);
 
     assert.deepEqual(
-      changedPathsForPullRequest("123", prHead, { cwd: repo }).sort(),
+      changedPathsForPullRequest("123", prHead, { cwd: checkout }).sort(),
       ["apps/landing/page.tsx", "apps/telegram/page.tsx"],
     );
     assert.equal(
-      changedPathsForPullRequest("123", "a".repeat(40), { cwd: repo }),
+      changedPathsForPullRequest("123", "a".repeat(40), { cwd: checkout }),
       null,
       "stale merge head must fail open",
     );
-    assert.equal(changedPathsForPullRequest("not-a-number", prHead, { cwd: repo }), null);
-    assert.equal(changedPathsForPullRequest("99999", prHead, { cwd: repo }), null);
+    assert.equal(
+      changedPathsForPullRequest("not-a-number", prHead, { cwd: checkout }),
+      null,
+    );
+    assert.equal(
+      changedPathsForPullRequest("99999", prHead, { cwd: checkout }),
+      null,
+    );
+  } finally {
+    rmSync(checkout, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("PR deployment selection agrees with CI when base independently acquires a PR change", () => {
+  const repo = mkdtempSync(join(tmpdir(), "aomi-pr-overlap-"));
+  const git = (...args) =>
+    execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+  try {
+    git("init", "-q");
+    git("config", "user.name", "PR test");
+    git("config", "user.email", "pr-test@example.invalid");
+    git("checkout", "-qb", "main");
+    writeFileSync(join(repo, "README.md"), "base\n");
+    git("add", ".");
+    git("commit", "-qm", "base");
+    git("checkout", "-qb", "codex/portal-change");
+    mkdirSync(join(repo, "apps/portal"), { recursive: true });
+    writeFileSync(join(repo, "apps/portal/page.tsx"), "portal\n");
+    git("add", ".");
+    git("commit", "-qm", "portal");
+    const portalCommit = git("rev-parse", "HEAD");
+    writeFileSync(join(repo, "README.md"), "PR docs\n");
+    git("commit", "-qam", "docs");
+    const head = git("rev-parse", "HEAD");
+    git("checkout", "-q", "main");
+    mkdirSync(join(repo, "docs"));
+    writeFileSync(join(repo, "docs/main.md"), "main advanced independently\n");
+    git("add", ".");
+    git("commit", "-qm", "advance main");
+    git("cherry-pick", "--quiet", portalCommit);
+    const base = git("rev-parse", "HEAD");
+    const ciPaths = changedPathsBetween(base, head, { cwd: repo });
+    git("merge", "--no-ff", "-q", "codex/portal-change", "-m", "merge");
+    git("update-ref", "refs/pull/456/merge", "HEAD");
+    git("remote", "add", "origin", ".");
+    git("checkout", "-q", "codex/portal-change");
+
+    const deploymentPaths = changedPathsForPullRequest("456", head, {
+      cwd: repo,
+    });
+    assert.deepEqual(deploymentPaths, ciPaths);
+    for (const project of ["portal", "build"]) {
+      assert.equal(selectsVercelProject(deploymentPaths, project), true);
+    }
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

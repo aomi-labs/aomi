@@ -36,7 +36,7 @@ export function deploymentDecision(
   if (VERCEL_ENV !== "preview") {
     return {
       ignore: false,
-      reason: "only standalone preview deployments are filtered",
+      reason: "only preview deployments are filtered",
     };
   }
 
@@ -47,6 +47,12 @@ export function deploymentDecision(
   }
 
   const normalizedBranch = branch.toLowerCase();
+  if (normalizedBranch === "prod") {
+    return {
+      ignore: false,
+      reason: "production branch deployments are required",
+    };
+  }
   if (
     ON_DEMAND_BRANCH_PREFIXES.some((prefix) =>
       normalizedBranch.startsWith(prefix),
@@ -67,13 +73,9 @@ export function deploymentDecision(
     pullRequestId !== "" &&
     normalizedBranch !== "main"
   ) {
-    return { ignore: true, reason: "Telegram staging does not need ordinary PR previews" };
-  }
-
-  if (normalizedBranch === "prod") {
     return {
-      ignore: false,
-      reason: "production branch deployments are required",
+      ignore: true,
+      reason: "Telegram staging does not need ordinary PR previews",
     };
   }
 

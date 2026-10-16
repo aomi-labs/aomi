@@ -14,19 +14,32 @@ const previewEnv = (branch, pullRequestId = "") => ({
 test("preserves standalone previews on agent and temporary branches", () => {
   const telegramProject = "prj_siJXojKKJ3tnqn7ZtLzvImKQGgnQ";
   for (const branch of [
-    "codex/cost-audit", "codex-queue/repair", "claude/project-thread",
-    "cursor/feature", "agent/feature", "agents/feature", "tmp/experiment",
-    "temp/experiment", "wip/feature",
+    "codex/cost-audit",
+    "codex-queue/repair",
+    "claude/project-thread",
+    "cursor/feature",
+    "agent/feature",
+    "agents/feature",
+    "tmp/experiment",
+    "temp/experiment",
+    "wip/feature",
   ]) {
     // No Vercel comparison metadata: keep the preview, regardless of branch.
     assert.equal(deploymentDecision(previewEnv(branch)).ignore, false, branch);
     // With a trustworthy diff, build the affected app on that same branch.
-    assert.equal(deploymentDecision({
-      ...previewEnv(branch),
-      VERCEL_GIT_COMMIT_SHA: "head",
-      VERCEL_GIT_PREVIOUS_SHA: "base",
-      VERCEL_PROJECT_ID: telegramProject,
-    }, () => ["apps/telegram/src/app/page.tsx"]).ignore, false, branch);
+    assert.equal(
+      deploymentDecision(
+        {
+          ...previewEnv(branch),
+          VERCEL_GIT_COMMIT_SHA: "head",
+          VERCEL_GIT_PREVIOUS_SHA: "base",
+          VERCEL_PROJECT_ID: telegramProject,
+        },
+        () => ["apps/telegram/src/app/page.tsx"],
+      ).ignore,
+      false,
+      branch,
+    );
   }
 });
 
@@ -60,7 +73,10 @@ test("filters PR builds by affected app while keeping both Portal and Build QA p
     ...portalDeployment,
     VERCEL_PROJECT_ID: "prj_dzx0PWpEPEIbxRjfAzQEiqmNzhRO",
   };
-  assert.equal(deploymentDecision(buildDeployment, undefined, portalChange).ignore, false);
+  assert.equal(
+    deploymentDecision(buildDeployment, undefined, portalChange).ignore,
+    false,
+  );
 
   const landingDeployment = {
     ...portalDeployment,
@@ -135,11 +151,15 @@ test("fails open when Vercel Git metadata is unavailable", () => {
     false,
   );
   assert.equal(
-    deploymentDecision({
-      ...previewEnv("codex/first-pr", "123"),
-      VERCEL_GIT_COMMIT_SHA: "head",
-      VERCEL_PROJECT_ID: "prj_JFlrYJshAAVu7U5BxFhLUUpzjegK",
-    }, undefined, () => null).ignore,
+    deploymentDecision(
+      {
+        ...previewEnv("codex/first-pr", "123"),
+        VERCEL_GIT_COMMIT_SHA: "head",
+        VERCEL_PROJECT_ID: "prj_JFlrYJshAAVu7U5BxFhLUUpzjegK",
+      },
+      undefined,
+      () => null,
+    ).ignore,
     false,
     "unresolvable PR must build rather than skip",
   );
@@ -152,18 +172,37 @@ test("skips unnecessary Telegram staging PR builds but preserves QA and main", (
     VERCEL_PROJECT_ID: staging,
   };
   assert.equal(deploymentDecision(preview).ignore, true);
-  for (const branch of ["preview/test", "qa/smoke", "release/rc"]) {
-    assert.equal(deploymentDecision({ ...preview, VERCEL_GIT_COMMIT_REF: branch }).ignore, false);
+  for (const branch of ["preview/test", "qa/smoke", "release/rc", "prod"]) {
+    assert.equal(
+      deploymentDecision({ ...preview, VERCEL_GIT_COMMIT_REF: branch }).ignore,
+      false,
+    );
   }
-  assert.equal(deploymentDecision({ ...preview, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" }).ignore, false);
-  assert.equal(deploymentDecision(previewEnv("codex/telegram-fix")).ignore, false);
+  assert.equal(
+    deploymentDecision({
+      ...preview,
+      VERCEL_ENV: "production",
+      VERCEL_GIT_COMMIT_REF: "main",
+    }).ignore,
+    false,
+  );
+  assert.equal(
+    deploymentDecision({ ...preview, VERCEL_GIT_PULL_REQUEST_ID: "" }).ignore,
+    false,
+  );
 });
 
 test("uses Vercel ignore-command exit semantics", () => {
-  const script = fileURLToPath(new URL("./vercel-ignore-build.mjs", import.meta.url));
+  const script = fileURLToPath(
+    new URL("./vercel-ignore-build.mjs", import.meta.url),
+  );
   const skipped = spawnSync(process.execPath, [script], {
     encoding: "utf8",
-    env: { ...process.env, ...previewEnv("codex/telegram-work", "1366"), VERCEL_PROJECT_ID: "prj_AWIwZJ8VT0YS20VVN2wQn822mIhS" },
+    env: {
+      ...process.env,
+      ...previewEnv("codex/telegram-work", "1366"),
+      VERCEL_PROJECT_ID: "prj_AWIwZJ8VT0YS20VVN2wQn822mIhS",
+    },
   });
   const required = spawnSync(process.execPath, [script], {
     encoding: "utf8",
