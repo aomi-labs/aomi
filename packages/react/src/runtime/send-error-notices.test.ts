@@ -9,7 +9,7 @@ describe("send failure notices", () => {
   it.each([
     [404, "app_not_found", "App not found", /doesn't exist/],
     [409, "app_inactive", "App not active", /isn't active yet/],
-    [401, "app_key_required", "App key required", /private.*App key/],
+    [401, "app_key_required", "App key required", /private.*App key.*builder/],
     [
       403,
       "app_key_not_scoped",
