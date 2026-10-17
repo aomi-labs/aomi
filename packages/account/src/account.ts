@@ -70,6 +70,7 @@ export type {
 export {
   listAccountConnections,
   revokeOAuthConnection,
+  unlinkTelegramConnection,
   type AccountConnection,
   type AccountConnections,
   type ConnectionKind,

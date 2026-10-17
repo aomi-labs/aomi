@@ -12,6 +12,7 @@ import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 import { Divider, IconButton, TextButton } from "./controls";
+import { SignsWithStrip } from "./signs-with";
 import {
   AgentWalletGroup,
   type AgentWalletHandlers,
@@ -176,6 +177,12 @@ export function AccountManagement({
 
         {wallets.length || logins.length || agentWallets ? (
           <div className={listGroupClass}>
+            <SignsWithStrip
+              rows={rows}
+              disabled={pending !== null}
+              onActivate={rowHandlers.onActivate}
+              onAddWallet={onAddWallet}
+            />
             {agentWallets ? (
               <AgentWalletGroup
                 rows={rows.filter((row) => row.kind === "agent")}

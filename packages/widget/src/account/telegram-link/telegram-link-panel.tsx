@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CircleCheck, CircleX, Clock, Send, Wallet } from "lucide-react";
+import { CircleX, Clock, Send, Wallet } from "lucide-react";
 import {
   TelegramLinkError,
   type AomiClient,
@@ -314,16 +314,16 @@ export function TelegramLinkPanel({
               </AomiButton>
             </div>
             <SheetFootnote>
-              Only continue if {handle ?? "this Telegram account"} is you. This
-              can’t be undone yet.
+              Only continue if {handle ?? "this Telegram account"} is you. You
+              can unlink it later in Settings › Connections.
             </SheetFootnote>
           </>
         ) : state.step === "linked" ? (
           <>
-            <CircleCheck
-              className="text-aomi-success size-12"
-              strokeWidth={1.5}
-            />
+            <TelegramMark size={36} />
+            <span className="rounded-control bg-aomi-surface-2 type-meta max-w-full truncate px-2.5 py-1">
+              {state.preview.account.label}
+            </span>
             {backToBot}
           </>
         ) : state.step === "error" ? (

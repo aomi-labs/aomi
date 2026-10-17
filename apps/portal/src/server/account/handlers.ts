@@ -13,6 +13,7 @@ import {
   renameAuthIdentity,
   renameWallet,
   revokeOAuthConnection,
+  unlinkTelegramConnection,
   takeMergeSwitchTicket,
   unlinkAuthIdentity,
   unlinkWallet,
@@ -314,6 +315,20 @@ export async function disconnectOAuthConnection({
       clientId,
     }));
   if (!revoked) return error(404, "connection_not_found");
+  return Response.json({ revoked: true });
+}
+
+/** Unlink Telegram from the account. Only a signed-in portal session may. */
+export async function disconnectTelegramConnection({
+  principal,
+}: Call): Promise<Response> {
+  if (!isPortalSession(principal)) return error(403, "portal_session_required");
+  const result = await unlinkTelegramConnection({
+    userId: account(principal).accountId,
+  });
+  if (result === "not_found") return error(404, "connection_not_found");
+  if (result === "last_factor")
+    return error(409, "cannot_unlink_last_login_factor");
   return Response.json({ revoked: true });
 }
 

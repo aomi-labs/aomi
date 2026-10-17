@@ -6,6 +6,7 @@
  * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2:
  *   - `GET    /v1/account/connections`                  -> `AomiAccountConnections` (portal)
  *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }` (portal)
+ *   - `DELETE /v1/account/connections/telegram`         -> `{ revoked: true }` (portal)
  *   - `PUT    /v1/account/connection-settings/:key`     -> `AomiConnectionSettings` (backend)
  */
 import { asRecord, stringValue } from "../internal/record";
@@ -28,7 +29,7 @@ export type AomiAccountConnection = {
   last_used_at: number | null;
   /** Unix seconds. */
   connected_at: number | null;
-  /** OAuth clients only. */
+  /** Every connection but the portal. */
   removable: boolean;
 };
 
@@ -59,6 +60,7 @@ export const connectionPaths = {
   list: "/v1/account/connections",
   oauth: (clientId: string) =>
     `/v1/account/connections/oauth/${encodeURIComponent(clientId)}`,
+  telegram: "/v1/account/connections/telegram",
   settings: (key: string) =>
     `/v1/account/connection-settings/${encodeURIComponent(key)}`,
 } as const;
@@ -106,6 +108,15 @@ export class AccountConnectionsTransport {
    */
   async disconnectOAuth(clientId: string): Promise<void> {
     await this.request("DELETE", connectionPaths.oauth(clientId));
+  }
+
+  /**
+   * Unlink Telegram: the bots stop acting for this account and the next
+   * message there starts a fresh one. Fails with
+   * `cannot_unlink_last_login_factor` when Telegram is the only sign-in.
+   */
+  async disconnectTelegram(): Promise<void> {
+    await this.request("DELETE", connectionPaths.telegram);
   }
 
   private async request(

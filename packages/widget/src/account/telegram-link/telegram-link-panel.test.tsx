@@ -110,7 +110,7 @@ describe("TelegramLinkPanel", () => {
       expect(screen.getByText(line)).toBeTruthy();
     expect(
       screen.getByText(
-        "Only continue if @arixon is you. This can’t be undone yet.",
+        "Only continue if @arixon is you. You can unlink it later in Settings › Connections.",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();

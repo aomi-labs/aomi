@@ -199,7 +199,7 @@ describe.skipIf(!enabled)("account connections", () => {
     instant: false,
     last_used_at: null,
     connected_at: null,
-    removable: false,
+    removable: true,
     ...extra,
   });
 
@@ -263,5 +263,34 @@ describe.skipIf(!enabled)("account connections", () => {
         clientId: "partner",
       }),
     ).toBe(false);
+  });
+
+  it("unlinks Telegram only while another sign-in remains", async () => {
+    expect(
+      await connections.unlinkTelegramConnection({ userId: "owner" }),
+    ).toBe("last_factor");
+    await pool.query(
+      `insert into auth_providers
+         (user_id, provider, issuer_environment, tenant_id, subject, method,
+          value, provider_metadata, created_at, updated_at)
+       values ('owner', 'email', 'aomi', 'global', 'o@example.test', 'email',
+               'o@example.test', '{}', 1, 1)`,
+    );
+    expect(
+      await connections.unlinkTelegramConnection({ userId: "owner" }),
+    ).toBe("revoked");
+    const left = await pool.query(
+      `select provider from auth_providers where user_id = 'owner' and provider = 'telegram'
+       union all select key from account_connections where user_id = 'owner' and key like 'telegram:%'`,
+    );
+    expect(left.rows).toEqual([]);
+    expect(
+      (await connections.listAccountConnections("owner")).connections.some(
+        (row) => row.kind === "telegram",
+      ),
+    ).toBe(false);
+    expect(
+      await connections.unlinkTelegramConnection({ userId: "owner" }),
+    ).toBe("not_found");
   });
 });

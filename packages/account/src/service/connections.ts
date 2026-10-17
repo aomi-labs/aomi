@@ -1,16 +1,20 @@
 import { aomiOAuthResources } from "../better-auth/oauth-policy";
 import {
   deleteOAuthConnection,
+  deleteTelegramConnectionSettings,
   findTelegramConnection,
+  listTelegramIdentityIds,
   listConnectionSettings,
   listOAuthConnections,
 } from "../db/queries";
 import type { AomiUserId } from "../types";
+import { unlinkAuthIdentity } from "./account-service";
 
 /*
  * Wire types of the portal-only connection routes:
  *   GET    /v1/account/connections                  -> AccountConnections
  *   DELETE /v1/account/connections/oauth/:client_id -> { revoked: true }
+ *   DELETE /v1/account/connections/telegram         -> { revoked: true }
  * The client mirrors them in packages/client/src/account/connections.ts.
  * Ask/Instant and labels are written by the backend
  * (`PUT /v1/account/connection-settings/:key`); this only reads them.
@@ -135,7 +139,7 @@ export async function listAccountConnections(
             ? `Telegram @${telegram.username}`
             : "Telegram",
           connected_at: null,
-          removable: false,
+          removable: true,
         }),
       ),
   ].sort((a, b) => (b.last_used_at ?? -1) - (a.last_used_at ?? -1));
@@ -171,4 +175,27 @@ export async function revokeOAuthConnection(input: {
       (await deleteOAuthConnection({ userId: input.userId, clientId })) ||
       revoked;
   return revoked;
+}
+
+/**
+ * Unlink Telegram: its sign-in identity goes, so the bots no longer resolve
+ * that Telegram user to this account (the next message there starts a fresh
+ * account), and every bot's settings go with it. Chats stay on this account.
+ * Refused when Telegram is the account's only way to sign in.
+ */
+export async function unlinkTelegramConnection(input: {
+  userId: AomiUserId;
+}): Promise<"revoked" | "not_found" | "last_factor"> {
+  const ids = await listTelegramIdentityIds(input.userId);
+  if (!ids.length) return "not_found";
+  for (const identityId of ids) {
+    const result = await unlinkAuthIdentity({
+      userId: input.userId,
+      identityId,
+    });
+    if (result === "last_factor" || result === "protected")
+      return "last_factor";
+  }
+  await deleteTelegramConnectionSettings(input.userId);
+  return "revoked";
 }

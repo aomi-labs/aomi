@@ -69,8 +69,12 @@ export function ConnectionsSettings() {
     try {
       await action();
       await query.refetch();
-    } catch {
-      setError("Couldn’t save that. Try again.");
+    } catch (cause) {
+      setError(
+        (cause as { code?: string }).code === "cannot_unlink_last_login_factor"
+          ? "Telegram is your only way to sign in. Add another sign-in first."
+          : "Couldn’t save that. Try again.",
+      );
     } finally {
       setPending(null);
     }
@@ -98,17 +102,22 @@ export function ConnectionsSettings() {
       setRenaming(null);
     });
   const remove = async (row: AomiAccountConnection) => {
+    const telegram = row.kind === "telegram";
     if (
       !(await confirm({
-        title: `Remove ${row.name}?`,
-        description: "It has to connect again.",
-        confirmLabel: "Remove",
+        title: telegram ? "Unlink Telegram?" : `Remove ${row.name}?`,
+        description: telegram
+          ? "The bots stop using this account. Your chats stay here; the next message on Telegram starts fresh."
+          : "It has to connect again.",
+        confirmLabel: telegram ? "Unlink" : "Remove",
         tone: "danger",
       }))
     )
       return;
     await run(row.key, () =>
-      settings.disconnectOAuth(row.key.slice("oauth:".length)),
+      telegram
+        ? settings.disconnectTelegram()
+        : settings.disconnectOAuth(row.key.slice("oauth:".length)),
     );
   };
 
@@ -137,8 +146,11 @@ export function ConnectionsSettings() {
     });
     if (row.removable)
       items.push("divider", {
-        label: "Remove",
-        detail: `${row.name} has to connect again`,
+        label: row.kind === "telegram" ? "Unlink Telegram" : "Remove",
+        detail:
+          row.kind === "telegram"
+            ? "The bots stop using this account"
+            : `${row.name} has to connect again`,
         danger: true,
         onSelect: () => remove(row),
       });

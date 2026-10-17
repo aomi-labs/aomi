@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CircleCheck, Clock, Lock, Send, Wallet } from "lucide-react";
+import { Clock, Lock, Send, Wallet } from "lucide-react";
 import {
   CommitStaleError,
   isTerminalCommit,
@@ -28,6 +28,8 @@ import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { useShellTransport } from "@/account/transport";
 import { agentRuleQuery, connectionsQuery } from "@/account/account-queries";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
+import { StatusPill } from "@/ui/aomi/status-pill";
+import { CommitTransactions } from "./commit-transactions";
 
 const CommitApprovePanel = lazy(() =>
   import("./approval").then((module) => ({
@@ -238,7 +240,13 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
     return done(
       "Transaction confirmed",
       goBack ?? explorer,
-      <CircleCheck className="text-aomi-success size-12" strokeWidth={1.5} />,
+      review ? (
+        <CommitTransactions view={view} review={review} />
+      ) : (
+        <StatusPill tone="success" dot>
+          Confirmed
+        </StatusPill>
+      ),
       goBack ? explorer : backButton(true),
     );
   }
@@ -300,6 +308,13 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
         data-commit-state={view.state}
         className="flex min-h-0 flex-col overflow-y-auto px-5 pb-5"
       >
+        {review && (parkedOrSigning || awaitingWallet || inFlight) ? (
+          <CommitTransactions
+            view={view}
+            review={review}
+            executing={inFlight}
+          />
+        ) : null}
         {parkedOrSigning ? (
           <Suspense fallback={null}>
             <CommitApprovePanel

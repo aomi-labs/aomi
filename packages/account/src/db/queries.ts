@@ -1155,6 +1155,31 @@ export async function deleteOAuthConnection(input: {
   });
 }
 
+/** The account's Telegram sign-in identities (one per Telegram user). */
+export async function listTelegramIdentityIds(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<string[]> {
+  const result = await db.query(
+    `select id::text from auth_providers
+      where user_id = $1 and provider = 'telegram'`,
+    [userId],
+  );
+  return result.rows.map((row) => String(row.id));
+}
+
+/** Drop the Ask/Instant settings and labels of every Telegram bot. */
+export async function deleteTelegramConnectionSettings(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<void> {
+  await db.query(
+    `delete from account_connections
+      where user_id = $1 and starts_with(key, 'telegram:')`,
+    [userId],
+  );
+}
+
 /**
  * The account's Telegram user, the active Telegram bots it has chatted with
  * (a `telegram:bot:<platform bot id>:…` thread), and the bot whose `/link`

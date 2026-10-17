@@ -23,7 +23,7 @@ const connections = [
     instant: true,
     last_used_at: NOW / 1000 - 2 * 3600,
     connected_at: null,
-    removable: false,
+    removable: true,
   },
   {
     key: "oauth:c1",
@@ -157,6 +157,21 @@ describe("Connections tab", () => {
     expect(writes().at(-1)).toMatchObject({
       method: "DELETE",
       path: "/v1/account/connections/oauth/c1",
+    });
+  });
+
+  it("unlinks Telegram after a confirm", async () => {
+    await renderTab();
+    fireEvent.click(within(menuOf("@HooditBot")).getByText("Unlink Telegram"));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Unlink Telegram?",
+    });
+    await act(async () =>
+      fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" })),
+    );
+    expect(writes().at(-1)).toMatchObject({
+      method: "DELETE",
+      path: "/v1/account/connections/telegram",
     });
   });
 });
