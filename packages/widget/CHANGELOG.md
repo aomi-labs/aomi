@@ -2,6 +2,7 @@
 
 ## 3.1.7
 
+- Publish under the MIT license, with a `repository` link so npm can show build provenance.
 - Show transactions staged by protocol staging tools (`stage_*`, which return `staged: [records]`) in the working trace and the activity sidebar, with "Stage …" titles. Retired `*_prepare_*` tool names still render in saved threads.
 
 ## 3.1.6
