@@ -1,10 +1,30 @@
-# Aomi — Best Blockchain Harness for Agentic AI
+# Aomi — Blockchain Harness for Agentic AI
 
-> A non-custodial harness for AI agents acting on EVM chains. Simulate transactions on a forked chain before signing, sign locally through the user's wallet, and add any product API as a callable tool. Aomi never holds keys, never echoes credentials, never broadcasts without confirmation.
+> A non-custodial harness for AI agents acting on EVM and Solana. Simulate transactions on a forked chain before signing, sign locally through the user's wallet, and add any product API as a callable tool. Aomi never holds keys, never echoes credentials, never broadcasts without confirmation.
 
 The fastest entry point for an agent is `/agents.md` — it routes the user's intent to the right install path. The full corpus is `/llms-full.txt` (every doc plus both skill files concatenated, for one-fetch ingestion).
 
 Safety mantra: Read by default. Simulate before sign. Credentials never round-trip.
+
+## MCP Server
+
+Connect Aomi to Claude, Cursor, or any MCP client:
+
+```sh
+claude mcp add https://chat.aomi.dev/v1/agent/mcp
+```
+
+Or add to your MCP settings manually:
+
+```json
+{
+  "mcpServers": {
+    "aomi": {
+      "url": "https://chat.aomi.dev/v1/agent/mcp"
+    }
+  }
+}
+```
 
 ## Start here
 
