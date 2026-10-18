@@ -42,6 +42,11 @@ try {
     ],
     portal.env,
   );
+  await hosts.run(
+    "node",
+    ["scripts/performance/check-walletconnect-qr.mjs"],
+    portal.env,
+  );
   console.log(`Packed consumers passed (consumer base ${portal.trustedBase}).`);
 } finally {
   await hosts.stop();

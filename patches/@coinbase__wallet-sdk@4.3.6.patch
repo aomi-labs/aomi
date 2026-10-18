@@ -1,0 +1,63 @@
+diff --git a/dist/sign/scw/SCWSigner.js b/dist/sign/scw/SCWSigner.js
+index f6de2481..a7ebb910 100644
+--- a/dist/sign/scw/SCWSigner.js
++++ b/dist/sign/scw/SCWSigner.js
+@@ -12,13 +12,9 @@ import { assertArrayPresence, assertPresence } from '../../util/assertPresence.j
+ import { assertSubAccount } from '../../util/assertSubAccount.js';
+ import { decryptContent, encryptContent, exportKeyToHexString, importKeyFromHexString, } from '../../util/cipher.js';
+ import { fetchRPCRequest } from '../../util/provider.js';
+-import { getCryptoKeyAccount } from '../../kms/crypto-key/index.js';
+ import { SCWKeyManager } from './SCWKeyManager.js';
+ import { addSenderToRequest, appendWithoutDuplicates, assertFetchPermissionsRequest, assertGetCapabilitiesParams, assertParamsChainId, fillMissingParamsForFetchPermissions, getCachedWalletConnectResponse, getSenderFromRequest, initSubAccountConfig, injectRequestCapabilities, makeDataSuffix, prependWithoutDuplicates, requestHasCapability, } from './utils.js';
+-import { createSubAccountSigner } from './utils/createSubAccountSigner.js';
+ import { findOwnerIndex } from './utils/findOwnerIndex.js';
+-import { handleAddSubAccountOwner } from './utils/handleAddSubAccountOwner.js';
+-import { handleInsufficientBalanceError } from './utils/handleInsufficientBalance.js';
+ export class SCWSigner {
+     constructor(params) {
+         var _a, _b, _c, _d;
+@@ -478,7 +474,7 @@ export class SCWSigner {
+                 const config = (_d = store.subAccountsConfig.get()) !== null && _d !== void 0 ? _d : {};
+                 const { account: ownerAccount } = config.toOwnerAccount
+                     ? await config.toOwnerAccount()
+-                    : await getCryptoKeyAccount();
++                    : await (await import('../../kms/crypto-key/index.js')).getCryptoKeyAccount();
+                 if (!ownerAccount) {
+                     throw standardErrors.provider.unauthorized('could not get subaccount owner account when adding sub account');
+                 }
+@@ -512,7 +508,7 @@ export class SCWSigner {
+         // Get the owner account from the config
+         const ownerAccount = (subAccountsConfig === null || subAccountsConfig === void 0 ? void 0 : subAccountsConfig.toOwnerAccount)
+             ? await subAccountsConfig.toOwnerAccount()
+-            : await getCryptoKeyAccount();
++            : await (await import('../../kms/crypto-key/index.js')).getCryptoKeyAccount();
+         assertPresence(ownerAccount === null || ownerAccount === void 0 ? void 0 : ownerAccount.account, standardErrors.provider.unauthorized('no active sub account owner when sending request to sub account signer'));
+         const sender = getSenderFromRequest(request);
+         // if sender is undefined, we inject the active sub account
+@@ -542,7 +538,7 @@ export class SCWSigner {
+             const correlationId = correlationIds.get(request);
+             logAddOwnerStarted({ method: request.method, correlationId });
+             try {
+-                ownerIndex = await handleAddSubAccountOwner({
++                ownerIndex = await (await import('./utils/handleAddSubAccountOwner.js')).handleAddSubAccountOwner({
+                     ownerAccount: ownerAccount.account,
+                     globalAccountRequest: this.sendRequestToPopup.bind(this),
+                 });
+@@ -557,7 +553,7 @@ export class SCWSigner {
+                 return standardErrors.provider.unauthorized('failed to add sub account owner when sending request to sub account signer');
+             }
+         }
+-        const { request: subAccountRequest } = await createSubAccountSigner({
++        const { request: subAccountRequest } = await (await import('./utils/createSubAccountSigner.js')).createSubAccountSigner({
+             address: subAccount.address,
+             owner: ownerAccount.account,
+             client: client,
+@@ -591,7 +587,7 @@ export class SCWSigner {
+             const correlationId = correlationIds.get(request);
+             logInsufficientBalanceErrorHandlingStarted({ method: request.method, correlationId });
+             try {
+-                const result = await handleInsufficientBalanceError({
++                const result = await (await import('./utils/handleInsufficientBalance.js')).handleInsufficientBalanceError({
+                     errorData: errorObject.data,
+                     globalAccountAddress,
+                     subAccountAddress: subAccount.address,
