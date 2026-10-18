@@ -1,7 +1,13 @@
 {
   "name": "@aomi-labs/react",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Runtime, state, and utilities for the Aomi widget.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aomi-labs/aomi.git",
+    "directory": "packages/react"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

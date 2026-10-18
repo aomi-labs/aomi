@@ -24,6 +24,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      # Lets npm sign build provenance for each published package.
+      id-token: write
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -63,6 +68,7 @@ jobs:
       - name: Publish versions not already present
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
         run: |
           node scripts/publish-package-if-needed.mjs packages/client
           node scripts/publish-package-if-needed.mjs packages/deploy
