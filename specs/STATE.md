@@ -2,6 +2,17 @@
 
 ## Last Updated
 
+2026-10-15 — PRIVATE PROJECT APP BUILD KEY (branch
+  `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
+  Build's Chat tab shows an "App key" panel for a private live app
+  (`apps/build/src/features/deploy/components/deployments/app-key-panel.tsx`):
+  the builder can reveal, copy and regenerate (confirm; revokes the old key)
+  the app's key through the BFF `GET|POST /api/bff/deployments/app-key`
+  (`@aomi-labs/deploy` `getBuilderAppKey` / `regenerateBuilderAppKey`). The
+  portal now shows the composer's key button (`hideApiKey: false`), relabelled
+  "App key", so anyone the builder shares the key with can use the app. Client
+  route fixtures regenerated (manager routes 81 -> 83).
+  Pending: screenshots and a live private-app chat run on staging.
 2026-10-17 — MIT LICENSE FOR PUBLISHED PACKAGES (branch `chore/mit-license`).
   Root `LICENSE` (MIT, Aomi Labs) and a copy in each npm package
   (client, react, deploy, widget), plus `license` and `repository` fields.

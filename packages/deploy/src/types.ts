@@ -39,6 +39,8 @@ export interface AuditEvent {
     | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
+    | "get_builder_app_key"
+    | "regenerate_builder_app_key"
     | "list_user_deployments"
     | "list_user_project_deployments"
     | "list_user_project_bots"
@@ -560,6 +562,25 @@ export interface GetUserProjectInput extends BearerOverride {
 export interface GetBuilderApplicationInput extends BearerOverride {
   githubUserId: string;
   applicationId: number;
+}
+
+export interface BuilderAppKeyInput extends GetBuilderApplicationInput {
+  actor?: string;
+}
+
+/**
+ * The key a builder shares so others can use a private application in Chat.
+ * Anyone holding it can use the application, so treat it as a secret.
+ * Regenerating it revokes the previous key.
+ */
+export interface BuilderAppKey {
+  key: string;
+  keyPrefix: string;
+  applicationId: number;
+  /** Unix seconds. */
+  createdAt: number;
+  /** Unix seconds, or null when the key has not been used yet. */
+  lastUsedAt: number | null;
 }
 
 export interface BuilderApplication {

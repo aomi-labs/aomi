@@ -79,6 +79,8 @@ export type {
   GetUserProjectUsageInput,
   GetBuilderApplicationDetailInput,
   GetBuilderApplicationInput,
+  BuilderAppKeyInput,
+  BuilderAppKey,
   BuilderApplication,
   OwnedOperateProjectInput,
   BotRegistration,
