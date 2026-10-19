@@ -80,13 +80,6 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
       name: family === "evm" ? /^MetaMask\b/ : /^Phantom\b/,
     })
     .click();
-  const finish = page
-    .getByRole("dialog", { name: "Finish signing in" })
-    .getByRole("button", {
-      name: "Link wallet and sign in",
-    });
-  await expect(finish).toBeEnabled({ timeout: 30_000 });
-  await finish.click();
   const segment = family === "evm" ? "siwe" : "siws";
   await expect
     .poll(() => authStatuses, { timeout: 30_000 })
