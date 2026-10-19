@@ -77,7 +77,7 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   await expect(picker).toBeVisible();
   await picker
     .getByRole("button", {
-      name: family === "evm" ? "Connect MetaMask" : "Connect Phantom",
+      name: family === "evm" ? /^MetaMask\b/ : /^Phantom\b/,
     })
     .click();
   const finish = page
