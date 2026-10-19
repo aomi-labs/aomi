@@ -154,6 +154,44 @@ describe("wallet sheet", () => {
     expect(screen.getByText("Solana")).toBeInTheDocument();
   });
 
+  it("adds a New agent wallet row on top when adding, which names and creates one", async () => {
+    const created: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        created.push(JSON.parse(String(init?.body)));
+        return Response.json({
+          id: "g-1",
+          name: "Trading",
+          created_at: 1,
+          addresses: [],
+          connections: [],
+        });
+      }),
+    );
+    render(<Harness initial={baseKit({ accountUser: { id: "acct-1" } })} />);
+    expect(
+      screen.getByText("Create one Aomi hosts, or connect one you own"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /New agent wallet/ }));
+    const name = screen.getByRole("textbox", { name: "Name" });
+    expect(name).toHaveValue("Agent wallet");
+    fireEvent.change(name, { target: { value: " Trading " } });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Create wallet" })),
+    );
+    expect(created).toEqual([{ name: "Trading" }]);
+    await waitFor(() =>
+      expect(screen.queryByText("New agent wallet")).toBeNull(),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("never offers an agent wallet when signing in", () => {
+    render(<Harness initial={baseKit()} />);
+    expect(screen.queryByText("New agent wallet")).toBeNull();
+  });
+
   it("shows the opener's purpose under the header until the sheet closes", () => {
     let open!: ReturnType<typeof useWalletPicker>["openPicker"];
     function Opener() {

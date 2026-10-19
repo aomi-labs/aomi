@@ -10,12 +10,14 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
---   20261015050000_agent_wallets.sql (agent_wallets, agent_wallet_rules and
---     account_connections; without the backfill, merge trigger and composite
+--   20261019040000_agent_wallets.sql (agent_wallet_groups, agent_wallets,
+--     agent_wallet_rules, app_wallet_links, account_connections and
+--     connection_wallets; without the backfill, merge trigger and composite
 --     foreign keys)
+--   applications: only the columns wallet lists and the connections route read
 --   threads and bot_registrations: only the columns the Telegram part of
 --     GET /v1/account/connections reads
---   20261017010000_telegram_link.sql (telegram_link_codes only: the
+--   20261019070000_telegram_link.sql (telegram_link_codes only: the
 --     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
@@ -88,28 +90,48 @@ create unique index if not exists public_keys_primary_per_provider_uidx
   on public_keys (auth_provider_id)
   where is_primary and auth_provider_id is not null;
 
-create table if not exists agent_wallets (
+-- Only the columns wallet lists and the connections route read.
+create table if not exists applications (
+  id bigserial primary key,
+  name text not null,
+  label text not null
+);
+
+create table if not exists agent_wallet_groups (
   id bigserial primary key,
   uid uuid not null default gen_random_uuid() unique,
   user_id text not null references users(id),
+  name text not null check (length(name) between 1 and 60),
+  paused boolean not null default false,
+  archived_at bigint,
+  created_by_app bigint references applications(id),
+  last_used_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (id, user_id)
+);
+create index if not exists agent_wallet_groups_user on agent_wallet_groups (user_id);
+
+create table if not exists agent_wallets (
+  id bigserial primary key,
+  user_id text not null references users(id),
+  group_id bigint not null,
   chain_type text not null check (chain_type in ('evm', 'svm')),
   public_key_id bigint unique,
   para_subject text not null,
   status text not null default 'provisioning'
     check (status in ('provisioning', 'active')),
-  is_default boolean not null default false,
-  merged_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
   unique (para_subject, chain_type),
+  unique (group_id, chain_type),
   check (status <> 'active' or public_key_id is not null)
 );
 
-create unique index if not exists agent_wallets_one_default
-  on agent_wallets (user_id, chain_type) where is_default;
 create index if not exists agent_wallets_user on agent_wallets (user_id);
 
--- The account's lock and each connection's Ask/Instant, label and last use.
+-- Pause all, each connection's label, app lock, ceiling and last use, and
+-- which agent wallets each connection may use.
 create table if not exists agent_wallet_rules (
   user_id text primary key references users(id),
   locked boolean not null default false,
@@ -117,16 +139,37 @@ create table if not exists agent_wallet_rules (
   updated_at bigint not null
 );
 
+create table if not exists app_wallet_links (
+  user_id text not null references users(id),
+  application_id bigint not null references applications(id),
+  group_id bigint not null unique,
+  created_at bigint not null,
+  primary key (user_id, application_id)
+);
+
 create table if not exists account_connections (
   user_id text not null references users(id),
   key text not null
     check (key ~ '^(portal|cli|oauth:[A-Za-z0-9._~-]{1,200}|telegram:[0-9]{1,20})$'),
   label text,
-  instant boolean not null default false,
+  application_id bigint references applications(id),
+  ceiling text check (ceiling in ('ask')),
   last_used_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
   primary key (user_id, key)
+);
+
+create table if not exists connection_wallets (
+  user_id text not null,
+  connection_key text not null,
+  group_id bigint not null,
+  instant boolean not null default false,
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (user_id, connection_key, group_id),
+  foreign key (user_id, connection_key)
+    references account_connections (user_id, key) on update cascade on delete cascade
 );
 
 create table if not exists threads (
@@ -147,7 +190,7 @@ create table if not exists bot_registrations (
   unique (platform, platform_bot_id)
 );
 
--- One-time Telegram `/link` codes (product-mono 20261017010000_telegram_link).
+-- One-time Telegram `/link` codes (product-mono 20261019070000_telegram_link).
 create table if not exists telegram_link_codes (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),

@@ -41,7 +41,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
     for (const migration of [
       "20261007000000_account_merge.sql",
-      "20261017010000_telegram_link.sql",
+      "20261019070000_telegram_link.sql",
     ])
       await db.query(readFileSync(new URL(migration, fixtureUrl), "utf8"));
   });
@@ -342,49 +342,59 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     expect(merged.rows[0].merged).toMatchObject({ cancelled: 1 });
   });
 
-  it("keeps both agent wallets; the older key stays the default", async () => {
+  it("keeps both agent wallets; the older one keeps the app link", async () => {
     const { target, source } = await accounts("wallets");
-    const wallet = async (user: string, keyAt: number) => {
+    const app = await db.query(
+      "insert into applications (name, label) values ('hoodit', 'Hoodit') returning id",
+    );
+    const appId = app.rows[0].id;
+    const wallet = async (user: string, createdAt: number) => {
+      const group = await db.query(
+        `insert into agent_wallet_groups (user_id, name, created_by_app, created_at, updated_at)
+         values ($1, 'Hoodit', $2, $3, $3)
+         returning id`,
+        [user, appId, createdAt],
+      );
+      const id = group.rows[0].id;
       const key = await db.query(
         `insert into public_keys (chain_type, address, created_at, updated_at, user_id)
          values ('evm', $1, $2, $2, $3)
          returning id`,
-        [`0x${randomUUID().replaceAll("-", "")}`, keyAt, user],
+        [`0x${randomUUID().replaceAll("-", "")}`, createdAt, user],
       );
-      const row = await db.query(
+      await db.query(
         `insert into agent_wallets
-           (user_id, chain_type, public_key_id, para_subject, status, is_default,
+           (user_id, group_id, chain_type, public_key_id, para_subject, status,
             created_at, updated_at)
-         values ($1, 'evm', $2, $3, 'active', true, 1, 1)
-         returning id`,
-        [user, key.rows[0].id, `p-${user}`],
+         values ($1, $2, 'evm', $3, $4, 'active', 1, 1)`,
+        [user, id, key.rows[0].id, `p-${user}`],
       );
-      return row.rows[0].id;
+      await db.query(
+        `insert into app_wallet_links (user_id, application_id, group_id, created_at)
+         values ($1, $2, $3, 1)`,
+        [user, appId, id],
+      );
+      return id;
     };
-    const kept = await wallet(target, 2);
-    const moved = await wallet(source, 1);
+    const renamed = await wallet(target, 2);
+    const linked = await wallet(source, 1);
 
     await mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
 
-    const rows = await db.query(
-      `select id, user_id, is_default, merged_at is not null as merged
-         from agent_wallets where id = any($1) order by id`,
-      [[kept, moved]],
+    const groups = await db.query(
+      `select id, user_id, name from agent_wallet_groups
+        where id = any($1) order by id`,
+      [[renamed, linked]],
     );
-    expect(rows.rows).toEqual([
-      {
-        id: kept,
-        user_id: target,
-        is_default: false,
-        merged: false,
-      },
-      {
-        id: moved,
-        user_id: target,
-        is_default: true,
-        merged: true,
-      },
+    expect(groups.rows).toEqual([
+      { id: renamed, user_id: target, name: "Hoodit (2)" },
+      { id: linked, user_id: target, name: "Hoodit" },
     ]);
+    const links = await db.query(
+      "select user_id, group_id from app_wallet_links where application_id = $1",
+      [appId],
+    );
+    expect(links.rows).toEqual([{ user_id: target, group_id: linked }]);
   });
 
   it("refuses a merge across a live link fence, and lifts the rest", async () => {

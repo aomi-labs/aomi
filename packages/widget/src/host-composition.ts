@@ -60,6 +60,10 @@ export {
 } from "./wallet/picker/sheet-parts";
 export { WidgetScope } from "./ui/widget-scope";
 export { ConnectionMark } from "./account/connections/connection-mark";
+export {
+  ConsentWallets,
+  type ConsentWalletsProps,
+} from "./account/connections/consent-wallets";
 export { accountDisplayName } from "./wallet/account-presentation";
 export {
   DualWalletBar,

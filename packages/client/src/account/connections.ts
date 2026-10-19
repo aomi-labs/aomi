@@ -1,13 +1,15 @@
 /**
  * Connections: the portal, each OAuth client (AI clients over MCP, SDK apps,
- * the Aomi CLI) and each Telegram bot that uses the account, with its
- * Ask/Instant setting, label and last use.
+ * the Aomi CLI) and each Telegram bot that uses the account, with the agent
+ * wallets it may use (Ask or Instant each), its label and last use.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2:
+ * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2 and
+ * notes/rework-contract.md §5:
  *   - `GET    /v1/account/connections`                  -> `AomiAccountConnections` (portal)
  *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }` (portal)
  *   - `DELETE /v1/account/connections/telegram`         -> `{ revoked: true }` (portal)
  *   - `PUT    /v1/account/connection-settings/:key`     -> `AomiConnectionSettings` (backend)
+ *   - `PUT    /v1/account/connections/:key/wallets`     -> `{ wallets }` (backend)
  */
 import { asRecord, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
@@ -23,14 +25,31 @@ export type AomiAccountConnection = {
   name: string;
   /** `Telegram @user` for a bot; null otherwise. */
   detail: string | null;
-  /** Signs without asking; otherwise each trade waits for approval. */
-  instant: boolean;
+  /** The app this connection is locked to; null when it is open. */
+  application: AomiConnectionApp | null;
+  /** `ask`: never Instant, whatever its wallets say. */
+  ceiling: "ask" | null;
+  /** The agent wallets it may use; each asks unless `instant`. */
+  wallets: AomiConnectionWallet[];
   /** Unix seconds. */
   last_used_at: number | null;
   /** Unix seconds. */
   connected_at: number | null;
   /** Every connection but the portal. */
   removable: boolean;
+};
+
+export type AomiConnectionApp = { id: number; name: string; label: string };
+
+/**
+ * A pair: this connection may use agent wallet `id`. An archived wallet's
+ * pair is listed (and must be sent back on a replace) but grants nothing.
+ */
+export type AomiConnectionWallet = {
+  id: string;
+  name: string;
+  instant: boolean;
+  archived: boolean;
 };
 
 /** The portal first, then by last use. */
@@ -40,13 +59,26 @@ export type AomiAccountConnections = { connections: AomiAccountConnection[] };
 export type AomiConnectionSettingsUpdate = {
   /** Trimmed, up to 40 characters; empty or null clears it. */
   label?: string | null;
-  instant?: boolean;
 };
 
 export type AomiConnectionSettings = Pick<
   AomiAccountConnection,
-  "key" | "instant" | "last_used_at"
+  "key" | "last_used_at"
 > & { label: string | null };
+
+/**
+ * Every agent wallet a connection may use; it replaces the pairs it had.
+ * `application` (an app's name, from app-locked consent) locks the
+ * connection to that app and adds the app's own wallet, creating it if
+ * new. Under any ceiling, `instant` is stored as false.
+ */
+export type AomiConnectionWalletsUpdate = {
+  wallets: { id: string; instant: boolean }[];
+  application?: string;
+  /** With `application`: the mode for the app's wallet, even one made now. */
+  app_wallet_instant?: boolean;
+  ceiling?: "ask";
+};
 
 const KINDS: readonly AomiConnectionKind[] = [
   "portal",
@@ -63,6 +95,8 @@ export const connectionPaths = {
   telegram: "/v1/account/connections/telegram",
   settings: (key: string) =>
     `/v1/account/connection-settings/${encodeURIComponent(key)}`,
+  wallets: (key: string) =>
+    `/v1/account/connections/${encodeURIComponent(key)}/wallets`,
 } as const;
 
 type RequestResponse = (
@@ -83,7 +117,7 @@ export class AccountConnectionsTransport {
     );
   }
 
-  /** Ask/Instant and the label of one connection. */
+  /** The label of one connection. */
   async setConnectionSettings(
     key: string,
     update: AomiConnectionSettingsUpdate,
@@ -97,9 +131,19 @@ export class AccountConnectionsTransport {
     return {
       key: stringValue(record.key) ?? key,
       label: stringValue(record.label) ?? null,
-      instant: record.instant === true,
       last_used_at: unixOrNull(record.last_used_at),
     };
+  }
+
+  /** Replace the agent wallets a connection may use. Portal sessions only. */
+  async setConnectionWallets(
+    key: string,
+    update: AomiConnectionWalletsUpdate,
+  ): Promise<{ wallets: AomiConnectionWallet[] }> {
+    const record = asRecord(
+      await this.request("PUT", connectionPaths.wallets(key), { body: update }),
+    );
+    return { wallets: walletsOf(record?.wallets) };
   }
 
   /**
@@ -157,7 +201,9 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           kind,
           name: stringValue(row.name) ?? key,
           detail: stringValue(row.detail) ?? null,
-          instant: row.instant === true,
+          application: appOf(row.application),
+          ceiling: row.ceiling === "ask" ? "ask" : null,
+          wallets: walletsOf(row.wallets),
           last_used_at: unixOrNull(row.last_used_at),
           connected_at: unixOrNull(row.connected_at),
           removable: row.removable === true,
@@ -165,6 +211,30 @@ export function parseConnections(value: unknown): AomiAccountConnections {
       ];
     }),
   };
+}
+
+function appOf(value: unknown): AomiConnectionApp | null {
+  const app = asRecord(value);
+  const name = stringValue(app?.name);
+  if (!app || typeof app.id !== "number" || !name) return null;
+  return { id: app.id, name, label: stringValue(app.label) ?? name };
+}
+
+function walletsOf(value: unknown): AomiConnectionWallet[] {
+  return (Array.isArray(value) ? value : []).flatMap((entry) => {
+    const wallet = asRecord(entry);
+    const id = stringValue(wallet?.id);
+    return id
+      ? [
+          {
+            id,
+            name: stringValue(wallet?.name) ?? "",
+            instant: wallet?.instant === true,
+            archived: wallet?.archived === true,
+          },
+        ]
+      : [];
+  });
 }
 
 const unixOrNull = (value: unknown) =>

@@ -114,14 +114,22 @@ const parked = (overrides: Partial<CommitRefView> = {}) =>
     action: null,
     signing_mode: "auto",
     can_approve: true,
-    approval: { state: "pending", client: "mcp", expires_at: 1_760_530_200 },
+    approval: {
+      state: "pending",
+      client: "mcp",
+      expires_at: 1_760_530_200,
+      approved_at: null,
+      approved_by: null,
+    },
     ...overrides,
   });
 
 let handle: CommitHandle | undefined;
 async function open(
   initial: CommitRefView,
-  after?: CommitRefView | { code: string; status: number },
+  after?:
+    | CommitRefView
+    | ({ code: string; status: number } & Record<string, unknown>),
 ) {
   const writes: { path: string; body: unknown }[] = [];
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
@@ -140,24 +148,35 @@ async function open(
   return { handle, writes };
 }
 
-/** The page's own reads: the account's connections and its lock. */
+/** The page's own reads: the account's connections and its agent wallets. */
 const account = vi.hoisted(() => ({
-  locked: false,
   writes: [] as unknown[],
 }));
 beforeEach(() => {
-  account.locked = false;
   account.writes = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = new URL(String(input), "https://portal.test").pathname;
-      if (path === "/v1/account/agent-rule") {
-        if (init?.method === "PUT") {
-          account.writes.push(JSON.parse(String(init.body)));
-          account.locked = false;
-        }
-        return Response.json({ locked: account.locked, version: 7 });
+      if (path.startsWith("/v1/account/agent-wallets")) {
+        if (init?.method === "PATCH")
+          account.writes.push({ path, body: JSON.parse(String(init.body)) });
+        const wallet = {
+          id: "g-1",
+          name: "Hoodit",
+          paused: account.writes.length === 0,
+          archived_at: null,
+          app: null,
+          last_used_at: null,
+          created_at: 1,
+          addresses: [],
+          connections: [],
+        };
+        return Response.json(
+          init?.method === "PATCH"
+            ? wallet
+            : { pause_all: false, version: 7, wallets: [wallet] },
+        );
       }
       return Response.json({
         connections: [
@@ -310,10 +329,6 @@ describe("CommitSignPanel · approvals", () => {
       "This request changed. Review it again.",
     ],
     [{ code: "commit_expired", status: 410 }, "Expired · nothing was signed"],
-    [
-      { code: "commit_signing_denied", status: 403 },
-      "Your agent wallet is locked. Unlock it in Settings → Account.",
-    ],
   ])("explains a refused approval (%o)", async (refusal, message) => {
     const { handle } = await open(parked(), refusal);
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
@@ -337,21 +352,27 @@ describe("CommitSignPanel · approvals", () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
-  it("names the bot that asked, and offers Unlock when the account is locked", async () => {
-    account.locked = true;
-    const { handle } = await open(parked({ notify: "telegram:77:1234" }));
+  it("names the bot that asked, and offers Resume when its wallet is paused", async () => {
+    const { handle } = await open(parked({ notify: "telegram:77:1234" }), {
+      code: "commit_wallet_paused",
+      status: 403,
+      wallet_id: "g-1",
+      wallet_name: "Hoodit",
+      connection_key: "telegram:77",
+    });
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
     expect(
-      await screen.findByRole("heading", {
-        name: "Your agent wallet is locked",
-      }),
+      await screen.findByText(/^From @HooditBot · expires in/),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(
-      await screen.findByRole("heading", { name: "Review trade" }),
-    ).toBeTruthy();
-    expect(account.writes).toEqual([{ locked: false, version: 7 }]);
-    expect(screen.getByText(/^From @HooditBot · expires in/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(await screen.findByText('"Hoodit" is paused')).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Resume" }));
+    await waitFor(() =>
+      expect(account.writes).toEqual([
+        { path: "/v1/account/agent-wallets/g-1", body: { paused: false } },
+      ]),
+    );
+    expect(await screen.findByText("Done. Ask again to trade.")).toBeTruthy();
   });
 
   it("asks a session that cannot approve to sign in on Aomi", async () => {

@@ -7,6 +7,7 @@ import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 import { ChooseStep } from "./choose-step";
 import { ChainStep, WalletStep } from "./wallet-step";
 import { MergeStep } from "./merge-step";
+import { NewAgentWalletStep } from "@/account/agent-wallets/new-agent-wallet";
 
 /** The wallet sheet: sign in, add a wallet, verify, switch, merge. */
 export function WalletPicker({ backdrop }: { backdrop?: boolean } = {}) {
@@ -31,6 +32,8 @@ export function WalletPicker({ backdrop }: { backdrop?: boolean } = {}) {
         />
       ) : sheet.step === "chain" ? (
         <ChainStep brand={sheet.brand} flow={flow} />
+      ) : sheet.step === "agent" ? (
+        <NewAgentWalletStep onDone={flow.close} onClose={flow.close} />
       ) : sheet.step === "merge" ? (
         <MergeStep sheet={sheet} flow={flow} />
       ) : (

@@ -21,6 +21,7 @@ import {
 import { connectionsQuery } from "@/account/account-queries";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
+import { ConnectionWalletsSheet } from "./connection-wallets-sheet";
 
 const KIND_LABEL: Record<AomiConnectionKind, string> = {
   portal: "This website",
@@ -45,10 +46,37 @@ export function usedLabel(at: number, now = Date.now()): string {
 
 function description(row: AomiAccountConnection): string {
   const used = row.last_used_at === null ? null : usedLabel(row.last_used_at);
-  return [row.detail ?? KIND_LABEL[row.kind], used].filter(Boolean).join(" · ");
+  const live = row.wallets.filter((wallet) => !wallet.archived).length;
+  const wallets =
+    row.kind === "portal"
+      ? null
+      : `${live} ${live === 1 ? "wallet" : "wallets"}`;
+  return [row.detail ?? KIND_LABEL[row.kind], wallets, used]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-/** Settings › Connections: who uses the account, and whether they ask. */
+/** `AI client · locked to World · connected Oct 16`, under a Wallets… sheet's title. */
+function sheetDescription(row: AomiAccountConnection): string {
+  return [
+    row.detail ?? KIND_LABEL[row.kind],
+    row.kind === "portal"
+      ? null
+      : row.application
+        ? `locked to ${row.application.label}`
+        : "open",
+    row.connected_at === null
+      ? null
+      : `connected ${new Date(row.connected_at * 1000).toLocaleDateString(
+          "en-US",
+          { month: "short", day: "numeric" },
+        )}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** Settings › Connections: who uses the account, and which wallets each may use. */
 export function ConnectionsSettings() {
   const { client } = useShellTransport();
   const query = useDisplayQuery(connectionsQuery(client));
@@ -56,6 +84,7 @@ export function ConnectionsSettings() {
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [walletsOf, setWalletsOf] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -80,20 +109,6 @@ export function ConnectionsSettings() {
     }
   };
   const settings = client.account.connections;
-  const setInstant = async (row: AomiAccountConnection, instant: boolean) => {
-    if (
-      instant &&
-      !(await confirm({
-        title: "Sign without asking?",
-        description: `Trades from ${row.name} will sign without asking.`,
-        confirmLabel: "Turn on",
-      }))
-    )
-      return;
-    await run(row.key, () =>
-      settings.setConnectionSettings(row.key, { instant }),
-    );
-  };
   const rename = (row: AomiAccountConnection) =>
     run(row.key, async () => {
       await settings.setConnectionSettings(row.key, {
@@ -121,28 +136,23 @@ export function ConnectionsSettings() {
     );
   };
 
+  const startRename = (row: AomiAccountConnection) => {
+    setWalletsOf(null);
+    setDraft(row.name);
+    setRenaming(row.key);
+  };
   const menu = (row: AomiAccountConnection): MenuItem[] => {
     const items: MenuItem[] = [
       {
-        label: "Ask before each trade",
-        detail: row.instant ? undefined : "Selected",
-        checked: !row.instant,
-        onSelect: () => row.instant && setInstant(row, false),
-      },
-      {
-        label: "Trade without asking",
-        detail: row.instant ? "Selected" : "Signs right away, after a confirm",
-        checked: row.instant,
-        onSelect: () => !row.instant && setInstant(row, true),
+        label: "Wallets…",
+        detail: "Which agent wallets it may use",
+        onSelect: () => setWalletsOf(row.key),
       },
     ];
     if (row.kind === "portal") return items;
     items.push("divider", {
       label: "Rename",
-      onSelect: () => {
-        setDraft(row.name);
-        setRenaming(row.key);
-      },
+      onSelect: () => startRename(row),
     });
     if (row.removable)
       items.push("divider", {
@@ -156,12 +166,13 @@ export function ConnectionsSettings() {
       });
     return items;
   };
+  const sheetRow = rows.find((row) => row.key === walletsOf);
 
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader
         title="Connected"
-        detail="Each one asks before trades unless you change it"
+        detail="Each one uses only the agent wallets you allow"
         action={
           <button
             type="button"
@@ -202,8 +213,15 @@ export function ConnectionsSettings() {
               ) : (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate">{row.name}</span>
-                  {row.instant ? (
-                    <StatusPill tone="warning">Instant</StatusPill>
+                  {row.application ? (
+                    <StatusPill tone="warning">
+                      {row.application.label}
+                    </StatusPill>
+                  ) : null}
+                  {row.wallets.some(
+                    (wallet) => wallet.instant && !wallet.archived,
+                  ) ? (
+                    <StatusPill tone="accent">Instant</StatusPill>
                   ) : null}
                 </span>
               )
@@ -226,6 +244,24 @@ export function ConnectionsSettings() {
         </p>
       ) : null}
       {adding ? <ConnectAppSheet onClose={() => setAdding(false)} /> : null}
+      {sheetRow ? (
+        <ConnectionWalletsSheet
+          connection={sheetRow}
+          description={sheetDescription(sheetRow)}
+          onClose={() => setWalletsOf(null)}
+          onRename={
+            sheetRow.kind === "portal" ? undefined : () => startRename(sheetRow)
+          }
+          onRemove={
+            sheetRow.removable
+              ? () => {
+                  setWalletsOf(null);
+                  void remove(sheetRow);
+                }
+              : undefined
+          }
+        />
+      ) : null}
       {dialog}
     </section>
   );

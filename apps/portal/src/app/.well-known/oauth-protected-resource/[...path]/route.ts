@@ -3,7 +3,7 @@ import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resourc
 
 import { publicRead } from "@/server/bff/cors";
 import {
-  aomiOAuthResourcePolicies,
+  aomiOAuthResourcePolicy,
   aomiOAuthResources,
 } from "@aomi-labs/account/better-auth";
 
@@ -18,9 +18,8 @@ export async function GET(
 ) {
   const path = `/${(await context.params).path.join("/")}`;
   const resources = aomiOAuthResources();
-  const policy = aomiOAuthResourcePolicies().find(
-    (candidate) => new URL(candidate.identifier).pathname === path,
-  );
+  // The fixed resources, and every app-locked MCP path (/v1/apps/<app>/mcp).
+  const policy = aomiOAuthResourcePolicy(`${resources.portalOrigin}${path}`);
   if (!policy) return Response.json({ error: "not_found" }, { status: 404 });
   return publicRead.apply(
     Response.json(

@@ -1,6 +1,10 @@
 import "server-only";
 import { mintAccountBearer, mintAgentApiBearer } from "@aomi-labs/account";
-import { aomiOAuthResources, auth } from "@aomi-labs/account/better-auth";
+import {
+  aomiOAuthResourcePolicy,
+  aomiOAuthResources,
+  auth,
+} from "@aomi-labs/account/better-auth";
 import {
   AGENT_API_HEADERS,
   BACKEND_API_HEADERS,
@@ -183,6 +187,11 @@ async function toBackend(call: Call, path: string): Promise<Response> {
 const WALLET_ID = "w_[1-9][0-9]*";
 const AGENT_RULE = /^\/v1\/account\/agent-rule$/;
 const CONNECTION_SETTINGS = /^\/v1\/account\/connection-settings\/[^/]+$/;
+const CONNECTION_WALLETS = /^\/v1\/account\/connections\/[^/]+\/wallets$/;
+const AGENT_WALLETS = /^\/v1\/account\/agent-wallets$/;
+const AGENT_WALLET = /^\/v1\/account\/agent-wallets\/[^/]+$/;
+const AGENT_WALLET_BALANCES = /^\/v1\/account\/agent-wallets\/[^/]+\/balances$/;
+const AGENT_WALLET_WITHDRAW = /^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/;
 
 /** Linking a Telegram account with a `/link` code (step 5). */
 const TELEGRAM_LINK =
@@ -190,9 +199,12 @@ const TELEGRAM_LINK =
 
 /** Writes only a signed-in portal session may make; the backend checks it too. */
 const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
-  { method: "POST", path: /^\/v1\/account\/wallets\/agent$/ },
+  { method: "POST", path: AGENT_WALLETS },
+  { method: "PATCH", path: AGENT_WALLET },
+  { method: "POST", path: AGENT_WALLET_WITHDRAW },
   { method: "PUT", path: AGENT_RULE },
   { method: "PUT", path: CONNECTION_SETTINGS },
+  { method: "PUT", path: CONNECTION_WALLETS },
   { method: "POST", path: TELEGRAM_LINK },
 ];
 
@@ -523,23 +535,29 @@ function backendRoute(request: Request): BackendRoute | undefined {
 }
 
 /**
- * The account's wallet list, balances, agent wallet creation, its lock and
- * each connection's Ask/Instant. Reads take the same scope api-server asks of
- * OAuth clients; the writes are for a portal session only.
+ * The account's wallet list and balances, its agent wallets (create, rename,
+ * pause, archive, withdraw), pause-all, and each connection's label and
+ * agent wallets. Reads take the same scope api-server asks of OAuth clients;
+ * the writes are for a portal session only.
  */
 export const ACCOUNT_WALLET_ROUTES: readonly {
   path: RegExp;
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "PATCH";
 }[] = [
   { path: /^\/v1\/account\/wallets$/, method: "GET" },
-  { path: /^\/v1\/account\/wallets\/agent$/, method: "POST" },
   {
     path: new RegExp(`^/v1/account/wallets/${WALLET_ID}/balance$`),
     method: "GET",
   },
+  { path: AGENT_WALLETS, method: "GET" },
+  { path: AGENT_WALLETS, method: "POST" },
+  { path: AGENT_WALLET, method: "PATCH" },
+  { path: AGENT_WALLET_BALANCES, method: "GET" },
+  { path: AGENT_WALLET_WITHDRAW, method: "POST" },
   { path: AGENT_RULE, method: "GET" },
   { path: AGENT_RULE, method: "PUT" },
   { path: CONNECTION_SETTINGS, method: "PUT" },
+  { path: CONNECTION_WALLETS, method: "PUT" },
 ];
 
 function accountWalletNeed(request: Request): Need | null {
@@ -549,9 +567,9 @@ function accountWalletNeed(request: Request): Need | null {
       candidate.path.test(pathname) && candidate.method === request.method,
   );
   if (!route) return null;
-  return route.method === "PUT"
-    ? { capability: "account" }
-    : { resource: resources().agentRest, scopes: ["agent:read"] };
+  return route.method === "GET"
+    ? { resource: resources().agentRest, scopes: ["agent:read"] }
+    : { capability: "account" };
 }
 
 const ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -595,7 +613,7 @@ export const routes = {
 
   accountWallets: bind({
     operation: "account.wallets",
-    methods: ["GET", "POST", "PUT"],
+    methods: ["GET", "POST", "PUT", "PATCH"],
     need: accountWalletNeed,
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
   }),
@@ -687,6 +705,21 @@ export const routes = {
     "agent:write",
     "offline_access",
   ]),
+  // `/v1/apps/<app>/mcp`: the agent MCP locked to one app. The token must be
+  // for exactly this path; api-server resolves the app (404 app_not_found).
+  appMcp: {
+    POST: (request: Request) => {
+      const resource = `${resources().portalOrigin}${new URL(request.url).pathname}`;
+      if (!aomiOAuthResourcePolicy(resource))
+        return Response.json({ error: "app_not_found" }, { status: 404 });
+      return mcp("app.mcp", () => resource, "mcp:agent", [
+        "mcp:agent",
+        "agent:read",
+        "agent:write",
+        "offline_access",
+      ]).POST(request);
+    },
+  },
   pipelineMcp: mcp(
     "pipeline.mcp",
     () => resources().pipelineMcp,

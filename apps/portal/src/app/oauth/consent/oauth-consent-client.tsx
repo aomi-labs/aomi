@@ -1,19 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Check, CircleCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import {
+  AomiClient,
+  type AomiConnectionWalletsUpdate,
+} from "@aomi-labs/client";
 import { authClient } from "@aomi-labs/widget/browser-auth";
 import {
   AomiButton,
   AomiSheet,
   ConnectionMark,
+  ConsentWallets,
   FootnoteLink,
   SheetAlert,
   SheetFootnote,
   SheetHeader,
   signOutAndDisconnect,
   accountDisplayName,
+  getBackendUrl,
   useAomiWalletKit,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
@@ -55,6 +61,29 @@ const GUEST_SCOPES = new Set([
   "offline_access",
 ]);
 
+/** `/v1/apps/<app>/mcp`: a client locked to one app. */
+const APP_MCP = /\/v1\/apps\/([a-z0-9][a-z0-9-_]{0,62})\/mcp$/;
+
+/** The app an app-locked resource names, if the request asks for one. */
+export function consentApp(resource: string | null): string | undefined {
+  if (!resource) return undefined;
+  try {
+    return APP_MCP.exec(new URL(resource).pathname)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+/** Same-origin BFF: the Better Auth cookie is the credential. */
+function createClient(): AomiClient {
+  return new AomiClient({
+    baseUrl: getBackendUrl(),
+    guest: false,
+    fetch: (input, init) =>
+      fetch(input, { ...init, credentials: "same-origin", cache: "no-store" }),
+  });
+}
+
 /** Better Auth's consent page: Allow <Client>? in the wallet popup's sheet. */
 export function OAuthConsentClient() {
   const name = useOAuthClientName(useSearchParams());
@@ -91,6 +120,17 @@ export function ConsentSheet({ name }: { name: string }) {
   const [pending, setPending] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The grant went through but the wallet settings did not: where to go next.
+  const [unsaved, setUnsaved] = useState<string | null>(null);
+  const client = useMemo(() => createClient(), []);
+  const app = consentApp(params.get("resource"));
+  const ceiling = params.get("mode") === "ask";
+  const clientId = params.get("client_id");
+  // The pairs to write once the grant is made; consent itself never touches them.
+  const pairs = useRef<AomiConnectionWalletsUpdate | null>(null);
+  const keepPairs = useCallback((update: AomiConnectionWalletsUpdate) => {
+    pairs.current = update;
+  }, []);
 
   const decide = async (accept: boolean) => {
     if (!oauthQuery) return setError("This request is incomplete.");
@@ -117,10 +157,62 @@ export function ConsentSheet({ name }: { name: string }) {
       return;
     }
     if (!accept) return window.location.assign(redirect);
+    await saveWallets(redirect);
+  };
+
+  /**
+   * Write the wallet settings for the new grant, then hand back. A failure is
+   * never shown as success; the backend keeps the connection on Ask meanwhile.
+   */
+  const saveWallets = async (redirect: string) => {
+    setPending(true);
+    const saved =
+      guest || !clientId || !pairs.current
+        ? true
+        : await client.account.connections
+            .setConnectionWallets(`oauth:${clientId}`, pairs.current)
+            .then(
+              () => true,
+              () => false,
+            );
+    setPending(false);
+    if (!saved) return setUnsaved(redirect);
+    setUnsaved(null);
     // Show "connected" for a moment before handing back to the client.
     setConnected(true);
     setTimeout(() => window.location.assign(redirect), 1200);
   };
+
+  if (unsaved)
+    return (
+      <AomiSheet backdrop={false}>
+        <SheetHeader
+          title={`${name} is connected`}
+          description="Its wallet settings didn’t save."
+          onClose={() => window.close()}
+        />
+        <div className="flex flex-col gap-4 px-5 pb-5">
+          <SheetAlert>
+            {name} is connected, but its wallet settings didn’t save. Set them
+            in Settings → Connections.
+          </SheetAlert>
+          <AomiButton
+            variant="primary"
+            className="h-10 w-full"
+            disabled={pending}
+            onClick={() => void saveWallets(unsaved)}
+          >
+            Try again
+          </AomiButton>
+          <SheetFootnote>
+            Until then it asks before every trade.{" "}
+            <FootnoteLink onClick={() => window.location.assign(unsaved)}>
+              Go back to {name}
+            </FootnoteLink>
+          </SheetFootnote>
+        </div>
+      </AomiSheet>
+    );
 
   if (connected)
     return (
@@ -136,7 +228,7 @@ export function ConsentSheet({ name }: { name: string }) {
             strokeWidth={1.5}
           />
           <SheetFootnote>
-            It asks before every trade. Change that in Settings → Connections.
+            Change which wallets it may use in Settings → Connections.
           </SheetFootnote>
         </div>
       </AomiSheet>
@@ -146,7 +238,11 @@ export function ConsentSheet({ name }: { name: string }) {
     <AomiSheet backdrop={false}>
       <SheetHeader
         title={`Allow ${name}?`}
-        description={`${name} will use your Aomi account.`}
+        description={
+          app
+            ? `${name} will use ${app.charAt(0).toUpperCase()}${app.slice(1)} with your Aomi account.`
+            : `${name} will use your Aomi account.`
+        }
         onClose={() => void decide(false)}
       />
       <div className="flex flex-col items-center gap-4 px-5 pb-5">
@@ -162,6 +258,14 @@ export function ConsentSheet({ name }: { name: string }) {
             </li>
           ))}
         </ul>
+        {guest ? null : (
+          <ConsentWallets
+            client={client}
+            app={app}
+            ceiling={ceiling}
+            onChange={keepPairs}
+          />
+        )}
         {error ? (
           <div className="w-full">
             <SheetAlert>{error}</SheetAlert>

@@ -1,0 +1,155 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Check, Lock } from "lucide-react";
+import type {
+  AomiAgentWallet,
+  AomiClient,
+  AomiConnectionWalletsUpdate,
+} from "@aomi-labs/client";
+import { SectionHeader } from "@/ui/aomi/section-header";
+import { titleCase } from "@/account/account-management/controls";
+import type { PairMode } from "./connection-pairs";
+import { WalletAccessList, type WalletAccess } from "./wallet-access-list";
+
+export type ConsentWalletsProps = {
+  /** A portal-session client. */
+  client: AomiClient;
+  /** The app an app-locked client is for (its MCP path names it). */
+  app?: string;
+  /** The link asked for `mode=ask`: every trade waits for approval. */
+  ceiling?: boolean;
+  /** The pairs to write once the grant is made. */
+  onChange: (update: AomiConnectionWalletsUpdate) => void;
+};
+
+/**
+ * The agent wallet part of OAuth consent. An open client may tick any agent
+ * wallets (none by default); an app-locked one trades from the app's own
+ * wallet, created on first use. Ask unless Instant is picked, and never
+ * Instant under the link's ceiling.
+ */
+export function ConsentWallets({
+  client,
+  app,
+  ceiling = false,
+  onChange,
+}: ConsentWalletsProps) {
+  const [wallets, setWallets] = useState<AomiAgentWallet[] | null>(null);
+  const [access, setAccess] = useState<WalletAccess[]>([]);
+  const [mode, setMode] = useState<PairMode>("ask");
+
+  useEffect(() => {
+    let live = true;
+    client.account.wallets.agentWallets().then(
+      (list) =>
+        live &&
+        setWallets(
+          list.wallets.filter((wallet) => wallet.archived_at === null),
+        ),
+      () => live && setWallets([]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [client]);
+
+  const appWallet = app
+    ? wallets?.find((wallet) => wallet.app?.name === app)
+    : undefined;
+  const update = useMemo<AomiConnectionWalletsUpdate>(() => {
+    const instant = (value: boolean) => value && !ceiling;
+    const pairs = app
+      ? appWallet
+        ? [{ id: appWallet.id, instant: instant(mode === "instant") }]
+        : []
+      : access.map((pair) => ({ ...pair, instant: instant(pair.instant) }));
+    return {
+      wallets: pairs,
+      // The mode picked for the app's wallet, also when it is created now.
+      ...(app
+        ? { application: app, app_wallet_instant: instant(mode === "instant") }
+        : {}),
+      ...(ceiling ? { ceiling: "ask" as const } : {}),
+    };
+  }, [access, app, appWallet, ceiling, mode]);
+  useEffect(() => onChange(update), [onChange, update]);
+
+  if (!wallets) return null;
+
+  if (app) {
+    const label = appWallet?.app?.label ?? titleCase(app);
+    // Until the app makes it, its wallet is named after the app.
+    const row: AomiAgentWallet = appWallet ?? {
+      id: `app:${app}`,
+      name: label,
+      paused: false,
+      archived_at: null,
+      app: { id: 0, name: app, label },
+      last_used_at: null,
+      created_at: 0,
+      addresses: [],
+      connections: [],
+    };
+    return (
+      <section className="flex w-full flex-col gap-2">
+        <SectionHeader
+          title="Trade from"
+          detail={`${label} asks for its wallet`}
+        />
+        <WalletAccessList
+          wallets={[row]}
+          access={[{ id: row.id, instant: mode === "instant" }]}
+          ceiling={ceiling}
+          fixed
+          describe={() =>
+            appWallet
+              ? `used by ${label}`
+              : `used by ${label} · created now if new`
+          }
+          onMode={(_, next) => setMode(next)}
+        />
+        {ceiling ? (
+          <p className="type-meta text-aomi-muted flex items-start gap-1.5">
+            <Lock className="mt-px size-3.5 shrink-0" />
+            This link requires approval for every trade. You can change wallets
+            later in Settings → Connections.
+          </p>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (!wallets.length) return null;
+  return (
+    <section className="flex w-full flex-col gap-2">
+      <SectionHeader title="Agent wallets it may use" detail="optional" />
+      <WalletAccessList
+        wallets={wallets}
+        access={access}
+        ceiling={ceiling}
+        onTick={(wallet, ticked) =>
+          setAccess((current) =>
+            ticked
+              ? [...current, { id: wallet.id, instant: false }]
+              : current.filter((pair) => pair.id !== wallet.id),
+          )
+        }
+        onMode={(wallet, next) =>
+          setAccess((current) =>
+            current.map((pair) =>
+              pair.id === wallet.id
+                ? { ...pair, instant: next === "instant" }
+                : pair,
+            ),
+          )
+        }
+      />
+      <p className="type-meta text-aomi-muted flex items-start gap-1.5">
+        <Check className="mt-px size-3.5 shrink-0" />
+        It can always chat and read your wallets. Trades from your sign-in
+        wallets wait for you to sign.
+      </p>
+    </section>
+  );
+}

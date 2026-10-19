@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
 import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
-import type { AomiAccountWallet, AomiAgentRule } from "@aomi-labs/client";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
@@ -13,10 +12,6 @@ import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 import { Divider, IconButton, TextButton } from "./controls";
 import { SignsWithStrip } from "./signs-with";
-import {
-  AgentWalletGroup,
-  type AgentWalletHandlers,
-} from "./agent-wallet-group";
 import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
   addressSummary,
@@ -40,12 +35,8 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
   onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
-  /** Shows the account's agent wallets (signed-in accounts only). */
-  agentWallets?: AgentWalletHandlers & {
-    /** Undefined when the list failed to load. */
-    wallets?: readonly AomiAccountWallet[];
-    rule?: AomiAgentRule;
-  };
+  /** The agent wallets band at the bottom (signed-in accounts only). */
+  agentWallets?: ReactNode;
 };
 
 export function AccountManagement({
@@ -183,31 +174,16 @@ export function AccountManagement({
               onActivate={rowHandlers.onActivate}
               onAddWallet={onAddWallet}
             />
-            {agentWallets ? (
-              <AgentWalletGroup
-                rows={rows.filter((row) => row.kind === "agent")}
-                pending={pending}
-                onActivate={rowHandlers.onActivate}
-                {...agentWallets}
-              />
-            ) : null}
-            {wallets.length ? (
+            {wallets.length || logins.length ? (
               <>
                 <Divider
-                  title="Wallets"
-                  detail="Sign in by signing a message"
+                  title="Sign-in wallets"
+                  detail="You sign with these yourself"
                 />
                 <div className="divide-aomi-border divide-y">
                   {wallets.map((row) => (
                     <AddressRow key={row.key} row={row} {...handlers} />
                   ))}
-                </div>
-              </>
-            ) : null}
-            {logins.length ? (
-              <>
-                <Divider title="Sign-in wallets" detail="Privy and Para" />
-                <div className="divide-aomi-border divide-y">
                   {logins.map((group) => (
                     <LoginRows
                       key={group.key}
@@ -220,6 +196,7 @@ export function AccountManagement({
                 </div>
               </>
             ) : null}
+            {agentWallets}
           </div>
         ) : (
           <ListGroup>

@@ -393,13 +393,18 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   return null;
 }
 
-/** `GET /v1/account/wallets`, `…/:id/balance` and `/v1/account/agent-rule`. */
+/**
+ * `GET /v1/account/wallets`, `…/:id/balance`, `/v1/account/agent-rule` and
+ * the agent wallet list and balances.
+ */
 function isAgentReadableWalletPath(pathname: string, method: string): boolean {
   return (
     method.toUpperCase() === "GET" &&
     (pathname === "/v1/account/wallets" ||
       pathname === "/v1/account/agent-rule" ||
-      /^\/v1\/account\/wallets\/[^/]+\/balance$/.test(pathname))
+      pathname === "/v1/account/agent-wallets" ||
+      /^\/v1\/account\/wallets\/[^/]+\/balance$/.test(pathname) ||
+      /^\/v1\/account\/agent-wallets\/[^/]+\/balances$/.test(pathname))
   );
 }
 

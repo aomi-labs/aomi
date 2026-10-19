@@ -37,9 +37,10 @@ const wallet = (overrides: Partial<AomiAccountWallet>): AomiAccountWallet => ({
   custom_label: null,
   wallet_app: null,
   provider: null,
-  is_default: true,
+  group_id: "g-1",
+  name: "Agent wallet",
+  app: null,
   status: "ready",
-  merged: false,
   created_at: 1_760_529_600,
   ...overrides,
 });
@@ -58,7 +59,8 @@ const wallets = [
     kind: "browser",
     address: "0x4444444444444444444444444444444444444444",
     label: "Rabby",
-    is_default: false,
+    group_id: null,
+    name: null,
     status: "linked",
   }),
 ];

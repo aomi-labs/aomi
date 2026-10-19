@@ -529,6 +529,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
+    method: "GET",
+    path: "/v1/account/agent-wallets",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/v1/account/agent-wallets/:wallet_id/balances",
+    auth: ["account"],
+  },
+  {
     method: "PATCH",
     path: "/api/_internal/agent/sessions/:thread_id",
     auth: ["delegated"],
@@ -542,6 +552,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PATCH",
     path: "/api/threads/:thread_id",
     auth: ["account","thread"],
+  },
+  {
+    method: "PATCH",
+    path: "/v1/account/agent-wallets/:wallet_id",
+    auth: ["account"],
   },
   {
     method: "POST",
@@ -616,11 +631,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/account/onchain-policies/:provider/prepare",
-    auth: ["account"],
-  },
-  {
-    method: "POST",
-    path: "/api/account/providers/:provider/agent-wallet",
     auth: ["account"],
   },
   {
@@ -949,6 +959,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["account","thread"],
   },
   {
+    method: "POST",
+    path: "/v1/account/agent-wallets",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/v1/account/agent-wallets/:wallet_id/withdraw",
+    auth: ["account"],
+  },
+  {
     method: "PUT",
     path: "/api/account/transaction-safety",
     auth: ["account"],
@@ -987,5 +1007,10 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PUT",
     path: "/api/widget/v1/aa-accounts/:chain_id",
     auth: ["account","thread"],
+  },
+  {
+    method: "PUT",
+    path: "/v1/account/connections/:key/wallets",
+    auth: ["account"],
   },
 ] as const satisfies readonly AomiEndpointSpec[];

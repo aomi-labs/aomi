@@ -7,7 +7,7 @@ import type {
 
 /**
  * The account's wallets: every wallet the model can use, the balance of one,
- * and the account's agent wallet lock. Separate from `aomi.wallet`, which is this process's own
+ * and the account's pause-all over its agent wallets. Separate from `aomi.wallet`, which is this process's own
  * signer. OAuth clients need `agent:read`.
  */
 export class AomiWallets {
@@ -26,13 +26,13 @@ export class AomiWallets {
     return this.client.account.wallets.walletBalance(id, options);
   }
 
-  /** The account's lock: when locked, no agent wallet signs anything. */
+  /** The account's pause-all: when locked, no agent wallet signs anything. */
   agentRule(options: { signal?: AbortSignal } = {}): Promise<AomiAgentRule> {
     return this.client.account.wallets.agentRule(options);
   }
 
   /**
-   * Lock or unlock at the version that was read. Portal sessions only; other
+   * Pause or resume every agent wallet at the version that was read. Portal sessions only; other
    * callers get 403 `portal_session_required`.
    */
   setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule> {

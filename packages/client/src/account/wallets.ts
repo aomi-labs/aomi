@@ -1,25 +1,34 @@
 /**
  * The account's wallet list, agent wallets, balances and the thread's active
- * wallet (Agent Wallets v1, step 3).
+ * wallet.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/step3-contract.md §4–§5. Until the
- * generated agent API (packages/client/src/generated/agent-v1) is regenerated
- * from the step 3 backend, everything the frontend knows about these routes
- * lives in this one file:
- *   - `GET  /v1/account/wallets`              -> `AomiAccountWallet[]`
- *   - `POST /v1/account/wallets/agent`        -> `AomiAgentWalletsCreated`
- *   - `GET  /v1/account/wallets/:id/balance`  -> `AomiWalletBalance`
+ * `AomiAccountWallet` and `AomiWalletBalance` are the generated agent API
+ * schemas (`generated/agent-v1`). The rest is HAND-WRITTEN, matching
+ * notes/step3-contract.md §4–§5 and notes/rework-contract.md §5, because
+ * those routes are portal-session account routes outside the agent API spec:
  *   - `PUT  /api/thread/wallet`               -> `AomiThreadWallet`
  *   - `GET  /v1/account/agent-rule`           -> `AomiAgentRule`
  *   - `PUT  /v1/account/agent-rule`           <- `AomiAgentRule`
+ *   - the agent wallet routes in `./agent-wallets`
  *   - `UserState` fields `wallet_pick`, `wallet_presence`, `active_wallet`
  *     (`UserStateWalletFields`) and `EventPage.active_wallet`.
- * After `pnpm generate:agent-api`, alias the `UserState` fields and the
- * GET shapes to `components["schemas"]` (keeping these names). The paths,
- * error codes and parsing stay hand-written.
+ * The paths, error codes and parsing stay hand-written.
  */
 import { AomiApiError, apiErrorFields } from "../api-error";
 import { asRecord, stringValue } from "../internal/record";
+import {
+  agentWalletPaths,
+  parseAgentWallet,
+  parseAgentWalletBalances,
+  parseAgentWallets,
+  type AomiAgentWallet,
+  type AomiAgentWalletBalances,
+  type AomiAgentWalletCreate,
+  type AomiAgentWalletUpdate,
+  type AomiAgentWalletWithdraw,
+  type AomiAgentWallets,
+} from "./agent-wallets";
+import type { components } from "../generated/agent-v1/types";
 import type {
   AomiHttpMethod,
   AomiRequestOptions,
@@ -27,83 +36,29 @@ import type {
 } from "../types";
 
 /** `agent`: an Aomi agent wallet. `browser` / `embedded`: a linked wallet that asks in its own app. */
-export type AomiAccountWalletKind = "agent" | "browser" | "embedded";
+export type AomiAccountWalletKind = AomiAccountWallet["kind"];
 
 /** Agent wallets are `ready`; every other wallet is `linked`. */
-export type AomiAccountWalletStatus = "ready" | "linked";
+export type AomiAccountWalletStatus = AomiAccountWallet["status"];
 
 /**
- * The account's one signing rule. Locked: no agent wallet signs anything,
+ * The account's pause-all switch. Locked: no agent wallet signs anything,
  * Instant or approved. Writes carry the version that was read.
  */
 export type AomiAgentRule = { locked: boolean; version: number };
 
 /** One entry of `GET /v1/account/wallets`, in the server's fixed order. */
-export type AomiAccountWallet = {
-  /** `w_<public key id>`; stable across account merges. */
-  id: string;
-  kind: AomiAccountWalletKind;
-  family: AomiWalletFamily;
-  address: string;
-  /** The display name: the user's own name, else a server default. */
-  label: string;
-  /** The user's own name, when set. */
-  custom_label: string | null;
-  /** The wallet app a browser wallet was linked from, e.g. "Rabby". */
-  wallet_app: string | null;
-  provider: string | null;
-  /** The account's default agent wallet for its family. */
-  is_default: boolean;
-  status: AomiAccountWalletStatus;
-  /** Moved in by an account merge. */
-  merged: boolean;
-  /** Unix seconds. */
-  created_at: number | null;
-};
-
-export type AomiWalletAmount = { amount: string; usd: string | null };
-
-export type AomiWalletTokenBalance = {
-  symbol: string;
-  address: string;
-  amount: string;
-  usd: string | null;
-};
-
-export type AomiWalletChainBalance = {
-  /** EVM chain id as a string, or the Solana cluster. */
-  chain: string;
-  name: string;
-  native_symbol: string;
-  /** `indexed` (portfolio API) or `rpc`. */
-  source: "indexed" | "rpc" | (string & {});
-  native: AomiWalletAmount | null;
-  tokens: AomiWalletTokenBalance[];
-  /** `unavailable` when this chain could not be read; the rest still return. */
-  error: string | null;
-};
+export type AomiAccountWallet = components["schemas"]["AccountWallet"];
 
 /** `GET /v1/account/wallets/:id/balance`. Cached 30 s per wallet by the server. */
-export type AomiWalletBalance = {
-  id: string;
-  family: AomiWalletFamily;
-  address: string;
-  /** Unix seconds. */
-  as_of: number;
-  /** Sum of the known USD values, or null when none is known. */
-  total_usd: string | null;
-  chains: AomiWalletChainBalance[];
-};
+export type AomiWalletBalance = components["schemas"]["WalletBalance"];
 
-/** `POST /v1/account/wallets/agent`. Idempotent: a repeat has `created: []`. */
-export type AomiAgentWalletsCreated = {
-  /** The default agent wallet of each requested family that exists now. */
-  wallets: AomiAccountWallet[];
-  /** Ids created by this call. */
-  created: string[];
-  /** Families that failed at the provider; safe to retry. */
-  failed: { family: AomiWalletFamily; error: string }[];
-};
+/** One chain of a balance; `error` is `unavailable` when it could not be read. */
+export type AomiWalletChainBalance = AomiWalletBalance["chains"][number];
+
+export type AomiWalletTokenBalance = AomiWalletChainBalance["tokens"][number];
+
+export type AomiWalletAmount = NonNullable<AomiWalletChainBalance["native"]>;
 
 /** A thread's active wallet id per family. */
 export type AomiActiveWallet = Partial<Record<AomiWalletFamily, string>>;
@@ -136,6 +91,7 @@ export const WALLET_ERROR_CODES = {
   walletSwitchUnavailable: "wallet_switch_unavailable",
   labelTooLong: "label_too_long",
   agentWalletNotRemovable: "agent_wallet_not_removable",
+  agentWalletBusy: "agent_wallet_busy",
   threadBusy: "thread_busy",
   ruleVersionConflict: "rule_version_conflict",
   portalSessionRequired: "portal_session_required",
@@ -175,7 +131,6 @@ export function parseWalletRef(value: string): string | undefined {
 
 export const walletPaths = {
   list: "/v1/account/wallets",
-  agent: "/v1/account/wallets/agent",
   balance: (id: string) =>
     `/v1/account/wallets/${encodeURIComponent(id)}/balance`,
   agentRule: "/v1/account/agent-rule",
@@ -188,7 +143,7 @@ type RequestResponse = (
   options?: AomiRequestOptions,
 ) => Promise<Response>;
 
-/** The wallet list, agent wallet creation, balances and the thread switch. */
+/** The wallet list, agent wallets, balances and the thread switch. */
 export class AccountWalletsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
@@ -202,29 +157,6 @@ export class AccountWalletsTransport {
     return wallets.map(parseAccountWallet);
   }
 
-  /**
-   * Create the account's default EVM and SVM agent wallets where missing.
-   * Portal sessions only. Per-family provider failures come back in `failed`;
-   * the call throws only when every family failed.
-   */
-  async createAgentWallets(): Promise<AomiAgentWalletsCreated> {
-    const body = asRecord(await this.request("POST", walletPaths.agent));
-    if (!body) throw invalid("body must be an object");
-    return {
-      wallets: arrayOf(body.wallets, "wallets").map(parseAccountWallet),
-      created: arrayOf(body.created, "created").map((id) =>
-        requiredString(id, "created[]"),
-      ),
-      failed: arrayOf(body.failed, "failed").map((entry) => {
-        const record = asRecord(entry);
-        return {
-          family: family(record?.family),
-          error: requiredString(record?.error, "failed[].error"),
-        };
-      }),
-    };
-  }
-
   /** Native and token balances of one wallet, per chain. */
   async walletBalance(
     id: string,
@@ -235,7 +167,77 @@ export class AccountWalletsTransport {
     );
   }
 
-  /** The account's lock. No rule yet reads as unlocked, version 0. */
+  /** Every agent wallet, archived ones included, most recently used first. */
+  async agentWallets(
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiAgentWallets> {
+    return parseAgentWallets(
+      await this.request("GET", agentWalletPaths.list, options),
+    );
+  }
+
+  /**
+   * Create an agent wallet with both families unless `families` narrows it.
+   * The portal may use it at once (Ask); `connection_key` also allows that
+   * connection.
+   */
+  async createAgentWallet(
+    input: AomiAgentWalletCreate,
+  ): Promise<AomiAgentWallet> {
+    return parseAgentWallet(
+      await this.request("POST", agentWalletPaths.list, { body: input }),
+    );
+  }
+
+  /**
+   * Rename, pause or resume, archive or restore. Archiving a wallet with a
+   * trade in flight answers 409 `agent_wallet_busy`.
+   */
+  async updateAgentWallet(
+    id: string,
+    update: AomiAgentWalletUpdate,
+  ): Promise<AomiAgentWallet> {
+    return parseAgentWallet(
+      await this.request("PATCH", agentWalletPaths.wallet(id), {
+        body: update,
+      }),
+    );
+  }
+
+  /** One family's balances per network, for withdrawing. */
+  async agentWalletBalances(
+    id: string,
+    family: AomiWalletFamily,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiAgentWalletBalances> {
+    return parseAgentWalletBalances(
+      await this.request("GET", agentWalletPaths.balances(id), {
+        ...options,
+        query: { family },
+      }),
+    );
+  }
+
+  /**
+   * Move funds out to `to`, even while the wallet is paused or archived. The
+   * returned commit waits for approval: approve it with its `CommitHandle`.
+   */
+  async withdrawAgentWallet(
+    id: string,
+    input: AomiAgentWalletWithdraw,
+  ): Promise<{ ref: string }> {
+    const ref = stringValue(
+      asRecord(
+        await this.request("POST", agentWalletPaths.withdraw(id), {
+          body: input,
+        }),
+      )?.ref,
+    );
+    if (!ref) throw invalid("withdraw must return a ref");
+    return { ref };
+  }
+
+  /** The account's pause-all. No rule yet reads as running, version 0. */
   async agentRule(
     options: { signal?: AbortSignal } = {},
   ): Promise<AomiAgentRule> {
@@ -245,8 +247,8 @@ export class AccountWalletsTransport {
   }
 
   /**
-   * Lock or unlock at the version that was read. Portal sessions only; a
-   * newer rule answers 409 `rule_version_conflict`.
+   * Pause or resume every agent wallet at the version that was read. Portal
+   * sessions only; a newer rule answers 409 `rule_version_conflict`.
    */
   async setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule> {
     return parseAgentRule(
@@ -340,11 +342,14 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
     custom_label: stringValue(record.custom_label) ?? null,
     wallet_app: stringValue(record.wallet_app) ?? null,
     provider: stringValue(record.provider) ?? null,
-    is_default: record.is_default === true,
+    group_id: stringValue(record.group_id) ?? null,
+    name: stringValue(record.name) ?? null,
+    app:
+      stringValue(record.app) ??
+      stringValue(asRecord(record.app)?.label) ??
+      null,
     status,
-    merged: record.merged === true,
-    created_at:
-      typeof record.created_at === "number" ? record.created_at : null,
+    created_at: typeof record.created_at === "number" ? record.created_at : 0,
   };
 }
 
@@ -372,7 +377,7 @@ export function parseWalletBalance(value: unknown): AomiWalletBalance {
         chain: requiredString(chain.chain, "chain.chain"),
         name: stringValue(chain.name) ?? requiredString(chain.chain, "chain"),
         native_symbol: stringValue(chain.native_symbol) ?? "",
-        source: stringValue(chain.source) ?? "rpc",
+        source: chain.source === "indexed" ? "indexed" : "rpc",
         native: native
           ? {
               amount: stringValue(native.amount) ?? "0",
@@ -388,6 +393,10 @@ export function parseWalletBalance(value: unknown): AomiWalletBalance {
                   {
                     symbol,
                     address: stringValue(token.address) ?? "",
+                    decimals:
+                      typeof token.decimals === "number"
+                        ? token.decimals
+                        : null,
                     amount: stringValue(token.amount) ?? "0",
                     usd: stringValue(token.usd) ?? null,
                   },
@@ -395,7 +404,7 @@ export function parseWalletBalance(value: unknown): AomiWalletBalance {
               : [];
           },
         ),
-        error: stringValue(chain.error) ?? null,
+        error: stringValue(chain.error) ? "unavailable" : null,
       };
     }),
   };

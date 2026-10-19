@@ -1015,8 +1015,25 @@ describe("/v1/account/wallets forwarding", () => {
   const cookie = { cookie: "session=user" };
   it.each([
     ["GET", "/v1/account/wallets", routes.accountWallets.GET],
-    ["POST", "/v1/account/wallets/agent", routes.accountWallets.POST],
     ["GET", "/v1/account/wallets/w_12/balance", routes.accountWallets.GET],
+    ["GET", "/v1/account/agent-wallets", routes.accountWallets.GET],
+    ["POST", "/v1/account/agent-wallets", routes.accountWallets.POST],
+    ["PATCH", "/v1/account/agent-wallets/g-1", routes.accountWallets.PATCH],
+    [
+      "GET",
+      "/v1/account/agent-wallets/g-1/balances",
+      routes.accountWallets.GET,
+    ],
+    [
+      "POST",
+      "/v1/account/agent-wallets/g-1/withdraw",
+      routes.accountWallets.POST,
+    ],
+    [
+      "PUT",
+      "/v1/account/connections/oauth%3Aclaude/wallets",
+      routes.accountWallets.PUT,
+    ],
     ["GET", "/v1/account/agent-rule", routes.accountWallets.GET],
     ["PUT", "/v1/account/agent-rule", routes.accountWallets.PUT],
     [
@@ -1042,7 +1059,11 @@ describe("/v1/account/wallets forwarding", () => {
 
   it.each([
     ["POST", "/v1/account/wallets"],
-    ["GET", "/v1/account/wallets/agent"],
+    ["POST", "/v1/account/wallets/agent"],
+    ["PATCH", "/v1/account/agent-wallets"],
+    ["POST", "/v1/account/agent-wallets/g-1"],
+    ["GET", "/v1/account/agent-wallets/g-1/withdraw"],
+    ["GET", "/v1/account/connections/portal/wallets"],
     ["GET", "/v1/account/wallets/12/balance"],
     ["GET", "/v1/account/wallets/w_0/balance"],
     ["GET", "/v1/account/wallets/w_12/balance/extra"],
@@ -1075,9 +1096,9 @@ describe("/v1/account/wallets forwarding", () => {
     expect(balance.status).toBe(200);
     expect(upstreamCalls()).toHaveLength(2);
     const create = await routes.accountWallets.POST(
-      request("/v1/account/wallets/agent", { method: "POST", headers: auth }),
+      request("/v1/account/agent-wallets", { method: "POST", headers: auth }),
     );
-    expect(create.status).toBe(403);
+    expect(create.status).toBe(401);
     expect(upstreamCalls()).toHaveLength(2);
   });
 
@@ -1093,13 +1114,19 @@ describe("/v1/account/wallets forwarding", () => {
     async (credential) => {
       const { headers, origin } = CREDENTIALS[credential];
       const response = await routes.accountWallets.POST(
-        request("/v1/account/wallets/agent", {
+        request("/v1/account/agent-wallets", {
           method: "POST",
           headers,
           origin,
         }),
       );
-      expect(response.status).toBe(credential === "cookie user" ? 200 : 403);
+      expect(response.status).toBe(
+        credential === "cookie user"
+          ? 200
+          : credential === "OAuth user"
+            ? 401
+            : 403,
+      );
       if (credential === "cookie user") {
         expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
           "acct-user",
@@ -1561,6 +1588,28 @@ describe("scopes each agent API route asks for", () => {
       }),
     );
     expect(response.status).toBe(403);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("locks app MCP to its own path: another resource's token and bad names fail", async () => {
+    const borrowed = await routes.appMcp.POST(
+      request("/v1/apps/world/mcp", {
+        method: "POST",
+        headers: { authorization: "Bearer mcp.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(borrowed.status).toBe(401);
+    for (const path of ["/v1/apps/World/mcp", "/v1/apps/-x/mcp"]) {
+      const response = await routes.appMcp.POST(
+        request(path, {
+          method: "POST",
+          headers: { authorization: "Bearer mcp.user.jwt" },
+          body: "{}",
+        }),
+      );
+      expect(response.status).toBe(404);
+    }
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });

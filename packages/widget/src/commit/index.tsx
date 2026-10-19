@@ -13,7 +13,7 @@ const Panel = lazy(() =>
   })),
 );
 
-/** The `/sign/:ref` page's sheet: the review, then a tick, an expiry or the lock. */
+/** The `/sign/:ref` page's sheet: the review, then a tick, an expiry or a refusal. */
 export function CommitSignPanel(props: CommitSignPanelProps) {
   return (
     <Suspense fallback={null}>

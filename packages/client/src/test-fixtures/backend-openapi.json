@@ -869,7 +869,7 @@
                               ]
                             },
                             {
-                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
+                              "description": "Anonymous device \u2014 no DB record, metered in memory by client_id.",
                               "type": "string",
                               "enum": [
                                 "anon"
@@ -1878,23 +1878,6 @@
       }
     },
     "/api/account/authorization/commit": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/account/providers/{provider}/agent-wallet": {
       "post": {
         "responses": {
           "200": {
@@ -3887,6 +3870,106 @@
         "security": [],
         "x-aomi-auth": [
           "activation-or-wallet"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/balances": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/withdraw": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/connections/{key}/wallets": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
         ]
       }
     }

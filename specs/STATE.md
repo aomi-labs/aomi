@@ -20,6 +20,38 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-19 — WALLET ACCESS REWORK (FRONTEND): MANY AGENT WALLETS, PAIRS
+  (branch `feat/agent-wallets`; `notes/rework-contract.md` §5, §7-FE, §8).
+  Client: `client.account.wallets.agentWallets()` / `createAgentWallet` /
+  `updateAgentWallet` / `agentWalletBalances` / `withdrawAgentWallet`
+  (hand-written wire types in `account/agent-wallets.ts`); connections lose
+  `instant`, gain `application`, `ceiling`, `wallets` and
+  `setConnectionWallets(key, {wallets, application?, ceiling?})`;
+  `/v1/account/wallets` agent entries carry `group_id`, `name`, `app`
+  (`is_default` and `createAgentWallets` are gone); commit refusals
+  `commit_wallet_paused|archived|no_access` keep their extras as `details`.
+  Widget: Settings › Account = Profile, Wallets & access (Signs-with strip,
+  one "Sign-in wallets" band, "Agent wallets" band: 3 most recent + Show all
+  sheet with search and Pause all, Archived collapsed, ⋯ Details / Use in
+  chats / Withdraw… / Rename / Pause / Archive), Details sheet (QR via `uqr`,
+  networks, per-connection Ask/Instant), 3-step Withdraw sheet (approves the
+  ref at once); picker "New agent wallet" step; Connections ⋯ → Wallets…
+  sheet (app badge, ceiling); refusal cards on approvals and refused trace
+  steps. Removed: Lock/Unlock group, auto-create on read, Ask/Instant menu
+  items, the sign page's lock panel, `accountWalletsQuery`/`agentRuleQuery`.
+  Account/portal: connections list reads pairs, app and ceiling; agent rows
+  named after their wallet, archived ones hidden; `appMcp` OAuth resources
+  (`/v1/apps/<app>/mcp`) with metadata and a BFF proxy; consent writes pairs
+  after the grant (`mode=ask` → ceiling). App MCP resources register lazily
+  on authorize when their app is active (`server/oauth/app-mcp-resource.ts`).
+  Agent API types regenerated (AccountWallet/WalletBalance now generated;
+  Task API snapshot follows product-mono #1356). Consent sends
+  `app_wallet_instant` and never reports success when the pair write fails;
+  withdraw retries reuse the returned ref; archived wallets' pairs are kept
+  (marked) through full replacements. Pending: `update-backend-openapi.mjs`
+  points at a deleted backend export test (now `manager hosted_backend`) and
+  spawns raw cargo; the route fixtures were hand-updated for the rework only.
+
 2026-10-16 — AGENT WALLETS REDESIGN (FRONTEND): ONE RULE, CONNECTIONS, ONE
   POPUP (branch `feat/agent-wallets`; `notes/redesign-contract.md` §4).
   Client: `agentRule()` / `setAgentRule({locked, version})` replace the
@@ -57,7 +89,7 @@
   answer them as 409s. Widget: Social sign-in Telegram row, "Used by your
   Telegram bots" on the pinned extra wallet, Connected apps /link footer,
   merge-step copy. Fixtures: canonical schema gains `telegram_link_codes`;
-  `tests/fixtures/account-merge/20261017010000_telegram_link.sql` carries
+  `tests/fixtures/account-merge/20261019070000_telegram_link.sql` carries
   `merge_accounts` v3 (admission barrier, foreign-fence refusal, signed
   in-flight refusal, unsigned cancel as `commit_account_merged`, World
   handover conflict, fences lifted). Pending: align the fixture with the

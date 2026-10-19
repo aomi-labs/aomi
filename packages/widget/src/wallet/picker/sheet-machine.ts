@@ -18,6 +18,8 @@ export type SheetTarget = {
 export type SheetState =
   | { step: "closed" }
   | { step: "choose"; mode: SheetMode; error?: string }
+  /** Name a new agent wallet (from "Add a wallet"). */
+  | { step: "agent"; mode: SheetMode }
   /** Wallets with both chains (Phantom) ask which one first. */
   | { step: "chain"; mode: SheetMode; wallet: string; brand: string }
   | {
@@ -38,6 +40,7 @@ export type SheetState =
 
 export type SheetEvent =
   | { type: "open"; mode: SheetMode }
+  | { type: "agent" }
   | { type: "pick"; wallet: string; brand: string; families: WalletFamily[] }
   | { type: "connect"; brand: string; expected?: SheetTarget }
   | { type: "sign"; target: SheetTarget }
@@ -58,6 +61,8 @@ export function sheetReducer(state: SheetState, event: SheetEvent): SheetState {
   switch (event.type) {
     case "open":
       return { step: "choose", mode: event.mode };
+    case "agent":
+      return { step: "agent", mode: modeOf(state) };
     case "pick":
       // Picking a one-chain wallet goes straight to connect.
       return event.families.length > 1

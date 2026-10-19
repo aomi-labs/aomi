@@ -166,13 +166,15 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       });
     }
 
-    // The account's wallet list and balances: one funded default EVM agent
-    // wallet per account, so Settings renders the agent group; its lock and
-    // each connection's Ask/Instant.
+    // The account's wallet list and balances: one funded EVM agent wallet
+    // ("Trading") per account, so Settings renders the agent band; pause-all
+    // and each connection's label and wallet pairs.
     if (
       url.pathname.startsWith("/v1/account/wallets") ||
+      url.pathname.startsWith("/v1/account/agent-wallets") ||
       url.pathname === "/v1/account/agent-rule" ||
-      url.pathname.startsWith("/v1/account/connection-settings/")
+      url.pathname.startsWith("/v1/account/connection-settings/") ||
+      /^\/v1\/account\/connections\/[^/]+\/wallets$/.test(url.pathname)
     ) {
       const principal = verifyBearer(request, "aomi-backend");
       record(principal);
@@ -180,11 +182,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         return json(response, 401, { error: { code: "invalid_token" } });
       if (method === "GET" && url.pathname === "/v1/account/wallets")
         return json(response, 200, { wallets: [AGENT_WALLET] });
-      if (method === "POST" && url.pathname === "/v1/account/wallets/agent")
+      if (method === "GET" && url.pathname === "/v1/account/agent-wallets")
         return json(response, 200, {
-          wallets: [AGENT_WALLET],
-          created: [],
-          failed: [],
+          pause_all: rules.get(principal.sub)?.locked ?? false,
+          version: rules.get(principal.sub)?.version ?? 0,
+          wallets: [AGENT_GROUP],
         });
       if (
         method === "GET" &&
@@ -222,16 +224,16 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           Omit<ConnectionSetting, "key">
         >;
         const next = {
-          ...(settings.get(id) ?? {
-            key,
-            label: null,
-            instant: false,
-            last_used_at: null,
-          }),
+          ...(settings.get(id) ?? { key, label: null, last_used_at: null }),
           ...update,
         };
         settings.set(id, next);
         return json(response, 200, next);
+      }
+      if (method === "PUT" && url.pathname.endsWith("/wallets")) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        return json(response, 200, JSON.parse(await readBody(request)));
       }
       return json(response, 404, { error: "wallet_not_found" });
     }
@@ -345,18 +347,35 @@ const AGENT_WALLET = {
   custom_label: null,
   wallet_app: null,
   provider: "para",
-  is_default: true,
+  group_id: "6f1c2b8e-0000-4000-8000-000000000900",
+  name: "Trading",
+  app: null,
   status: "ready",
-  merged: false,
-  bound_app: null,
   created_at: 1_760_000_000,
 } as const;
+
+const AGENT_GROUP = {
+  id: AGENT_WALLET.group_id,
+  name: AGENT_WALLET.name,
+  paused: false,
+  archived_at: null,
+  app: null,
+  last_used_at: null,
+  created_at: AGENT_WALLET.created_at,
+  addresses: [
+    {
+      family: "evm",
+      address: AGENT_WALLET.address,
+      wallet_id: AGENT_WALLET.id,
+    },
+  ],
+  connections: [],
+};
 
 type AgentRule = { locked: boolean; version: number };
 type ConnectionSetting = {
   key: string;
   label: string | null;
-  instant: boolean;
   last_used_at: number | null;
 };
 

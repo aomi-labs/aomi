@@ -19,6 +19,8 @@ export {
   aomiOAuthResourcePolicies,
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
+  appMcpName,
+  appMcpResource,
   guestScopesForAomiResource,
   narrowScopesForAomiResource,
   isMcpDpopRequired,

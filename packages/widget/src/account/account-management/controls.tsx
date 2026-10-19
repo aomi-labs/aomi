@@ -275,12 +275,27 @@ export function titleCase(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-/** A section band inside the wallets card. */
-export function Divider({ title, detail }: { title: string; detail: string }) {
+/** A section band inside the wallets card, with an optional action at its end. */
+export function Divider({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
-      <span className="type-meta text-aomi-fg font-medium">{title}</span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+      <span className="type-meta text-aomi-fg shrink-0 font-medium">
+        {title}
+      </span>
+      <span className="type-meta text-aomi-muted min-w-0 truncate">
+        {detail}
+      </span>
+      {action ? (
+        <span className="-my-1.5 ml-auto self-center">{action}</span>
+      ) : null}
     </div>
   );
 }

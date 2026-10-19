@@ -86,6 +86,7 @@ export type AomiOAuthResourceKind =
   | "pipelineRest"
   | "agentMcp"
   | "pipelineMcp"
+  | "appMcp"
   | "accountRest";
 
 export type AomiOAuthResourcePolicy = {
@@ -193,15 +194,40 @@ export function aomiOAuthResourcePolicies(
   }));
 }
 
+/** An app's name as it appears in its MCP path, `/v1/apps/<name>/mcp`. */
+const APP_NAME = /^[a-z0-9][a-z0-9-_]{0,62}$/;
+
+/** The MCP resource locked to one app: the agent MCP with that app forced. */
+export function appMcpResource(
+  name: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return `${aomiOAuthResources(env).portalOrigin}/v1/apps/${name}/mcp`;
+}
+
+/** The app an app-locked MCP resource names; undefined for any other resource. */
+export function appMcpName(
+  resource: string,
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const prefix = `${aomiOAuthResources(env).portalOrigin}/v1/apps/`;
+  if (!resource.startsWith(prefix) || !resource.endsWith("/mcp")) return;
+  const name = resource.slice(prefix.length, -"/mcp".length);
+  return APP_NAME.test(name) ? name : undefined;
+}
+
 export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): AomiOAuthResourcePolicy | null {
-  return (
-    aomiOAuthResourcePolicies(env).find(
-      (policy) => policy.identifier === resource,
-    ) ?? null
-  );
+  const policies = aomiOAuthResourcePolicies(env);
+  const fixed = policies.find((policy) => policy.identifier === resource);
+  if (fixed) return fixed;
+  // Every app-locked MCP resource carries the agent MCP's scopes.
+  const agentMcp = policies.find((policy) => policy.kind === "agentMcp")!;
+  return appMcpName(resource, env)
+    ? { ...agentMcp, kind: "appMcp", identifier: resource }
+    : null;
 }
 
 export function guestScopesForAomiResource(

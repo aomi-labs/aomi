@@ -1611,7 +1611,13 @@ describe("approvals (agent wallet commits parked for the user)", () => {
     wallet_attempt: null,
     action: null,
     signing_mode: "auto",
-    approval: { state: "pending", client: "portal", expires_at: 1_760_530_200 },
+    approval: {
+      state: "pending",
+      client: "portal",
+      expires_at: 1_760_530_200,
+      approved_at: null,
+      approved_by: null,
+    },
     ...overrides,
   });
 
@@ -1706,7 +1712,13 @@ describe("approvals (agent wallet commits parked for the user)", () => {
     runtime.commits = [
       parked(0, 1, {
         state: "expired",
-        approval: { state: "expired", expires_at: 1 },
+        approval: {
+          state: "expired",
+          client: null,
+          expires_at: 1,
+          approved_at: null,
+          approved_by: null,
+        },
       }),
     ];
     render(<WalletReview />);

@@ -11,11 +11,7 @@ import { useShellTransport } from "./transport";
 import { skillCatalogQuery } from "../composer/capabilities/skill-catalog";
 import { packageCatalogQuery } from "@/library/use-package-catalog";
 import { accountProfileQuery } from "./account-overview";
-import {
-  accountWalletsQuery,
-  agentRuleQuery,
-  connectionsQuery,
-} from "./account-queries";
+import { agentWalletsQuery, connectionsQuery } from "./account-queries";
 import { accountSafetyQuery } from "./policy/transaction-safety-api";
 
 /**
@@ -38,8 +34,7 @@ export function DisplayPrefetch() {
             accountProfileQuery(request, userId),
             displayQueries.credits(api),
             packageCatalogQuery(api, request, userId),
-            accountWalletsQuery(client),
-            agentRuleQuery(client),
+            agentWalletsQuery(client),
             connectionsQuery(client),
             accountSafetyQuery(request),
           ]

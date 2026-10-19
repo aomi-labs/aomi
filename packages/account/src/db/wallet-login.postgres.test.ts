@@ -234,20 +234,28 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       [agentAddress, owner.userId, identity.rows[0].id, now],
     );
     const agentId = String(agentKey.rows[0].id);
+    const group = await pool.query(
+      `insert into agent_wallet_groups (user_id, name, created_at, updated_at)
+       values ($1, 'Trading', $2, $2)
+       returning id`,
+      [owner.userId, now],
+    );
+    const groupId = group.rows[0].id;
     await pool.query(
       `insert into agent_wallets
-         (user_id, chain_type, public_key_id, para_subject, status,
-          is_default, created_at, updated_at)
-       values ($1, 'evm', $2, $3, 'active', true, $4, $4)`,
-      [owner.userId, agentId, subject, now],
+         (user_id, group_id, chain_type, public_key_id, para_subject, status,
+          created_at, updated_at)
+       values ($1, $2, 'evm', $3, $4, 'active', $5, $5)`,
+      [owner.userId, groupId, agentId, subject, now],
     );
 
+    // The agent address is named after its agent wallet.
     const account = await service.getAccountResponseForBetterAuthSession({
       betterAuthUserId: owner.betterAuthUserId,
     });
     expect(
       account.wallets.find((entry) => entry.address === agentAddress),
-    ).toMatchObject({ id: agentId, kind: "agent" });
+    ).toMatchObject({ id: agentId, kind: "agent", label: "Trading" });
 
     // The agent wallet's Para identity is no login: the SIWE wallet is the last factor.
     const siwe = await pool.query(
@@ -314,9 +322,15 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       ],
     );
     await pool.query(
-      `insert into account_connections (user_id, key, instant, created_at, updated_at)
-       values ($1, 'telegram:77', true, 1, 1)`,
+      `insert into account_connections (user_id, key, created_at, updated_at)
+       values ($1, 'telegram:77', 1, 1)`,
       [owner.userId],
+    );
+    await pool.query(
+      `insert into connection_wallets
+         (user_id, connection_key, group_id, instant, created_at, updated_at)
+       values ($1, 'telegram:77', $2, true, 1, 1)`,
+      [owner.userId, groupId],
     );
     // Deleting the account keeps funds but revokes all signing authority.
     await service.deactivateAomiAccount({ userId: owner.userId });
@@ -335,9 +349,10 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       authorization_metadata: { reason: "account_deactivated" },
     });
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
+    // Pause all, and every pair back on Ask.
     const rule = await pool.query(
-      `select r.locked, c.instant from agent_wallet_rules r
-         join account_connections c on c.user_id = r.user_id where r.user_id = $1`,
+      `select r.locked, w.instant from agent_wallet_rules r
+         join connection_wallets w on w.user_id = r.user_id where r.user_id = $1`,
       [owner.userId],
     );
     expect(rule.rows).toEqual([{ locked: true, instant: false }]);

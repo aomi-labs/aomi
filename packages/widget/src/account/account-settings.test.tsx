@@ -122,7 +122,7 @@ describe("AccountSettings", () => {
     seedAccountOverview(null);
   });
 
-  it("shows one spinner until the agent wallet's reads answer", async () => {
+  it("shows one spinner until the agent wallets answer, and never creates one", async () => {
     walletKit.accountUser = { id: "acct-1" };
     const answer = stubAgentReads();
     await act(async () =>
@@ -131,21 +131,29 @@ describe("AccountSettings", () => {
     expect(screen.getByRole("status", { name: "Loading your account" }));
     expect(screen.queryByText("Wallets & access")).toBeNull();
 
-    // No agent wallet yet: the read creates the pair, then lists again.
-    await answer("/v1/account/wallets", { wallets: [] });
-    await answer("/v1/account/wallets/agent", {
+    await answer("/v1/account/agent-wallets", {
+      pause_all: true,
+      version: 2,
       wallets: [],
-      created: [],
-      failed: [],
     });
-    await answer("/v1/account/wallets", { wallets: [] });
-    expect(screen.getByRole("status", { name: "Loading your account" }));
-    await answer("/v1/account/agent-rule", { locked: true, version: 2 });
     expect(await screen.findByText("Wallets & access")).toBeInTheDocument();
     expect(
       screen.queryByRole("status", { name: "Loading your account" }),
     ).toBeNull();
-    expect(screen.getByText("Locked · nothing signs")).toBeInTheDocument();
+    expect(
+      screen.getByText("Hosted by Aomi · all paused, nothing signs"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("None yet. Create one with Add a wallet."),
+    ).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.map(([input, init]) => [
+          init?.method ?? "GET",
+          new URL(input.toString(), "https://portal.test").pathname,
+        ]),
+    ).toEqual([["GET", "/v1/account/agent-wallets"]]);
   });
 
   it("closes account settings before signing out and drops its errors", async () => {

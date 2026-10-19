@@ -11,6 +11,9 @@ const enabled = Boolean(
   connectionString && process.env.AOMI_TEST_DATABASE_DISPOSABLE === "1",
 );
 const origin = "http://localhost:3999";
+const TRADING = "6f1c2b8e-0000-4000-8000-000000000001";
+const HOODIT = "6f1c2b8e-0000-4000-8000-000000000002";
+const OLD = "6f1c2b8e-0000-4000-8000-000000000003";
 
 // skip-reason: Requires an explicitly disposable loopback PostgreSQL database; CI supplies it.
 describe.skipIf(!enabled)("account connections", () => {
@@ -137,12 +140,32 @@ describe.skipIf(!enabled)("account connections", () => {
               ('telegram:bot:555:dm:7', 'other'),
               ('telegram:bot:5550:dm:42', 'owner')`,
     );
-    // The owner renamed Claude, put it on Instant and used it last.
+    // The owner renamed Claude, let it trade from "Trading" without asking
+    // (an archived wallet's pair is kept, marked) and used it last. The side bot
+    // is locked to Hoodit, asks before every trade, and may use "Hoodit".
+    await pool.query(
+      `insert into applications (id, name, label) values (86, 'hoodit', 'Hoodit')`,
+    );
+    await pool.query(
+      `insert into agent_wallet_groups
+         (id, uid, user_id, name, archived_at, created_by_app, created_at, updated_at)
+       values (1, $1, 'owner', 'Trading', null, null, 1, 1),
+              (2, $2, 'owner', 'Hoodit', null, 86, 2, 2),
+              (3, $3, 'owner', 'Old', 5, null, 3, 3)`,
+      [TRADING, HOODIT, OLD],
+    );
     await pool.query(
       `insert into account_connections
-         (user_id, key, label, instant, last_used_at, created_at, updated_at)
-       values ('owner', 'oauth:claude', 'Laptop Claude', true, 1760409000, 1, 1),
-              ('owner', 'telegram:88', null, false, 1760408000, 1, 1)`,
+         (user_id, key, label, application_id, ceiling, last_used_at, created_at, updated_at)
+       values ('owner', 'oauth:claude', 'Laptop Claude', null, null, 1760409000, 1, 1),
+              ('owner', 'telegram:88', null, 86, 'ask', 1760408000, 1, 1)`,
+    );
+    await pool.query(
+      `insert into connection_wallets
+         (user_id, connection_key, group_id, instant, created_at, updated_at)
+       values ('owner', 'oauth:claude', 1, true, 1, 1),
+              ('owner', 'oauth:claude', 3, true, 1, 1),
+              ('owner', 'telegram:88', 2, false, 1, 1)`,
     );
     // Owner was linked from Hoodit, then a later code from the side bot was
     // only issued; "other" was linked from the side bot.
@@ -165,7 +188,9 @@ describe.skipIf(!enabled)("account connections", () => {
     kind: "portal",
     name: "Aomi",
     detail: null,
-    instant: false,
+    application: null,
+    ceiling: null,
+    wallets: [],
     last_used_at: null,
     connected_at: null,
     removable: false,
@@ -181,7 +206,9 @@ describe.skipIf(!enabled)("account connections", () => {
     kind,
     name,
     detail: null,
-    instant: false,
+    application: null,
+    ceiling: null,
+    wallets: [],
     last_used_at: null,
     connected_at: connected,
     removable: true,
@@ -196,7 +223,9 @@ describe.skipIf(!enabled)("account connections", () => {
     kind: "telegram",
     name,
     detail: "Telegram @arixon",
-    instant: false,
+    application: null,
+    ceiling: null,
+    wallets: [],
     last_used_at: null,
     connected_at: null,
     removable: true,
@@ -208,10 +237,21 @@ describe.skipIf(!enabled)("account connections", () => {
       connections: [
         portal,
         oauth("claude", "ai", "Laptop Claude", 1760400000, {
-          instant: true,
+          // The archived wallet's pair stays, marked, for a restore.
+          wallets: [
+            { id: TRADING, name: "Trading", instant: true, archived: false },
+            { id: OLD, name: "Old", instant: true, archived: true },
+          ],
           last_used_at: 1760409000,
         }),
-        bot("88", "Side bot", { last_used_at: 1760408000 }),
+        bot("88", "Side bot", {
+          application: { id: 86, name: "hoodit", label: "Hoodit" },
+          ceiling: "ask",
+          wallets: [
+            { id: HOODIT, name: "Hoodit", instant: false, archived: false },
+          ],
+          last_used_at: 1760408000,
+        }),
         oauth("partner", "app", "Partner app", 1760400100),
         oauth("cli", "cli", "Aomi CLI", 1760400200),
         oauth("codex", "ai", "codex", 1760400300),
@@ -251,6 +291,11 @@ describe.skipIf(!enabled)("account connections", () => {
       `select key from account_connections where user_id = 'owner' order by key`,
     );
     expect(settings.rows).toEqual([{ key: "telegram:88" }]);
+    // Its pairs went with it.
+    const pairs = await pool.query(
+      `select connection_key from connection_wallets where user_id = 'owner'`,
+    );
+    expect(pairs.rows).toEqual([{ connection_key: "telegram:88" }]);
     expect(
       await connections.revokeOAuthConnection({
         userId: "owner",

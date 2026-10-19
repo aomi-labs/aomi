@@ -9,6 +9,7 @@ import { buildWalletChoices, type WalletChoice } from "./wallet-options";
 import type { SheetMode } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";
 import type { SheetPurpose } from "./wallet-picker-context";
+import { AomiMark } from "@/ui/aomi-mark";
 import {
   BrandMark,
   ChoiceRow,
@@ -57,6 +58,8 @@ export function ChooseStep({
         connect: () => kit.connectSocial?.(option.id) ?? Promise.resolve(),
         preload: undefined,
       }));
+  // Adding to a signed-in account can also create a wallet Aomi hosts.
+  const agent = mode === "add" && !kit.accountGuest;
   const detected = choices.filter((choice) => choice.section === "detected");
   const more = choices.filter((choice) => choice.section === "more");
   const walletRow = (choice: WalletChoice) => (
@@ -76,7 +79,9 @@ export function ChooseStep({
         description={
           mode === "sign-in"
             ? "Your chats follow your account on any device."
-            : "Connect another wallet to this account."
+            : agent
+              ? "Create one Aomi hosts, or connect one you own"
+              : "Connect another wallet to this account."
         }
         onClose={flow.close}
       />
@@ -92,6 +97,20 @@ export function ChooseStep({
         ) : null}
         {error || flow.error || kit.accountError ? (
           <SheetAlert>{error ?? flow.error ?? kit.accountError}</SheetAlert>
+        ) : null}
+        {agent ? (
+          <ListGroup>
+            <ChoiceRow
+              leading={
+                <span className="flex size-8 shrink-0 items-center justify-center">
+                  <AomiMark size={18} className="text-aomi-fg" />
+                </span>
+              }
+              title="New agent wallet"
+              description="Hosted by Aomi · EVM + Solana · no extension"
+              onClick={flow.newAgentWallet}
+            />
+          </ListGroup>
         ) : null}
         {social.length ? (
           <section className="flex flex-col gap-2">

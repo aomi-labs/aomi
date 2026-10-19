@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { shortAddress, type AomiAgentRule } from "@aomi-labs/client";
+import { shortAddress } from "@aomi-labs/client";
 import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { AccountManagement } from "@/account/account-management/account-management";
-import { accountWalletsQuery, agentRuleQuery } from "@/account/account-queries";
+import { agentWalletsQuery } from "@/account/account-queries";
+import { AgentWalletsSection } from "@/account/agent-wallets/agent-wallets-section";
 import { providerName } from "@/account/account-management/wallet-model";
 import {
   providerEmailDisplayHint,
@@ -23,12 +24,8 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const { client } = useShellTransport();
   const cache = useAomiDisplayCache();
   const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
-  const walletList = useDisplayQuery({
-    ...accountWalletsQuery(client),
-    enabled: signedIn,
-  });
-  const ruleQuery = useDisplayQuery({
-    ...agentRuleQuery(client),
+  const agentQuery = useDisplayQuery({
+    ...agentWalletsQuery(client),
     enabled: signedIn,
   });
   const pendingRef = useRef(false);
@@ -62,10 +59,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
       if (refresh && cache)
         await Promise.all(
           (["profile", "account-wallets"] as const).map((resource) =>
-            cache.client.invalidateQueries({
-              queryKey: cache.key(resource),
-              exact: true,
-            }),
+            cache.client.invalidateQueries({ queryKey: cache.key(resource) }),
           ),
         );
       return true;
@@ -80,19 +74,14 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     }
   };
 
-  const saveRule = (rule: AomiAgentRule) => {
-    if (cache) cache.client.setQueryData(cache.key("agent-rule"), rule);
-    else void ruleQuery.refetch();
-  };
-  const rule = ruleQuery.data;
   const disconnect = adapter.disconnect;
   const unlinkWallet = adapter.unlinkLinkedWallet;
   const unlinkLogin = adapter.unlinkLinkedAccount;
   const renameWallet = adapter.updateLinkedWallet;
   const activateWallet = adapter.activateWallet;
 
-  // One spinner until the agent wallet's reads answer, then everything at once.
-  if (signedIn && (walletList.isPending || ruleQuery.isPending))
+  // One spinner until the agent wallets answer, then everything at once.
+  if (signedIn && agentQuery.isPending)
     return <LoadingPane label="Loading your account" />;
 
   return (
@@ -198,58 +187,34 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
             : undefined
         }
         agentWallets={
-          signedIn
-            ? {
-                wallets: walletList.data,
-                rule,
-                onLock: rule
-                  ? (locked) =>
+          signedIn ? (
+            <AgentWalletsSection
+              rows={adapter.wallets}
+              pending={pending}
+              onActivate={
+                activateWallet
+                  ? (row) =>
                       void run(
-                        "agent:lock",
+                        `activate:${row.key}`,
+                        () => activateWallet(row.key),
+                        false,
+                      )
+                  : undefined
+              }
+              onUse={
+                activateWallet
+                  ? (rows) =>
+                      void run(
+                        `activate:${rows[0]?.key}`,
                         async () => {
-                          try {
-                            saveRule(
-                              await client.account.wallets.setAgentRule({
-                                locked,
-                                version: rule.version,
-                              }),
-                            );
-                          } catch (cause) {
-                            void ruleQuery.refetch();
-                            throw (cause as { code?: unknown }).code ===
-                              "rule_version_conflict"
-                              ? new Error(
-                                  "Your agent wallet changed in another tab. Try again.",
-                                )
-                              : cause;
-                          }
+                          for (const row of rows) await activateWallet(row.key);
                         },
                         false,
                       )
-                  : undefined,
-                onRename: renameWallet
-                  ? (label) =>
-                      run("agent:rename", () =>
-                        Promise.all(
-                          adapter.wallets
-                            .filter((row) =>
-                              walletList.data?.some(
-                                (wallet) =>
-                                  wallet.is_default &&
-                                  wallet.id === `w_${row.linkedWalletId}`,
-                              ),
-                            )
-                            .map((row) =>
-                              renameWallet({
-                                walletId: row.linkedWalletId!,
-                                label,
-                              }),
-                            ),
-                        ),
-                      )
-                  : undefined,
+                  : undefined
               }
-            : undefined
+            />
+          ) : undefined
         }
         onSignOut={() => {
           // Close first so the panel never renders the signed-out account;

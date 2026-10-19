@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Clock, Lock, Send, Wallet } from "lucide-react";
+import { Clock, Send, Wallet } from "lucide-react";
 import {
   CommitStaleError,
   isTerminalCommit,
@@ -19,14 +19,14 @@ import {
   type CommitRefView,
   type ThreadOrigin,
 } from "@aomi-labs/client";
-import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { useShellTransport } from "@/account/transport";
-import { agentRuleQuery, connectionsQuery } from "@/account/account-queries";
+import { connectionsQuery } from "@/account/account-queries";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { CommitTransactions } from "./commit-transactions";
@@ -110,7 +110,7 @@ export type CommitSignPanelProps = {
 
 /**
  * The sign page's sheet for one commit: the review, then a tick, an expiry
- * or the lock. Asks for exactly the commit's signer, then signs through the
+ * or a refusal. Asks for exactly the commit's signer, then signs through the
  * handle; an agent-wallet commit only needs Approve.
  */
 export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
@@ -119,14 +119,9 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   const wallet = useAomiWalletKit();
   const capabilities = useCommitCapabilities();
   const { client } = useShellTransport();
-  const cache = useAomiDisplayCache();
   const connections = useDisplayQuery(connectionsQuery(client));
   const view = handle.view;
   const parkedOrSigning = view.signing_mode === "auto";
-  const rule = useDisplayQuery({
-    ...agentRuleQuery(client),
-    enabled: parkedOrSigning,
-  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const review = handle.review;
@@ -258,38 +253,6 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
       backButton(false),
     );
   if (terminal) return done(lifecycle.label, goBack, null, backButton(false));
-  if (view.state === "awaiting_approval" && rule.data?.locked)
-    return done(
-      "Your agent wallet is locked",
-      "Unlock it to approve this trade.",
-      <Lock className="text-aomi-muted size-12" strokeWidth={1.5} />,
-      <>
-        <AomiButton
-          variant="primary"
-          className="h-10 w-full"
-          disabled={busy}
-          onClick={() =>
-            void run(async () => {
-              const next = await client.account.wallets.setAgentRule({
-                locked: false,
-                version: rule.data!.version,
-              });
-              if (cache)
-                cache.client.setQueryData(cache.key("agent-rule"), next);
-              else await rule.refetch();
-            })
-          }
-        >
-          Unlock
-        </AomiButton>
-        {error ? (
-          <p role="alert" className="type-meta text-aomi-danger">
-            {error}
-          </p>
-        ) : null}
-      </>,
-    );
-
   return (
     <AomiSheet backdrop={false}>
       <SheetHeader
@@ -317,11 +280,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
         ) : null}
         {parkedOrSigning ? (
           <Suspense fallback={null}>
-            <CommitApprovePanel
-              handle={handle}
-              signing={inFlight}
-              onDenied={() => void rule.refetch()}
-            />
+            <CommitApprovePanel handle={handle} signing={inFlight} />
           </Suspense>
         ) : null}
         {awaitingWallet && !connected ? (

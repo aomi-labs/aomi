@@ -1,4 +1,4 @@
-import { aomiOAuthResources } from "../better-auth/oauth-policy";
+import { aomiOAuthResources, appMcpName } from "../better-auth/oauth-policy";
 import {
   deleteOAuthConnection,
   deleteTelegramConnectionSettings,
@@ -16,8 +16,9 @@ import { unlinkAuthIdentity } from "./account-service";
  *   DELETE /v1/account/connections/oauth/:client_id -> { revoked: true }
  *   DELETE /v1/account/connections/telegram         -> { revoked: true }
  * The client mirrors them in packages/client/src/account/connections.ts.
- * Ask/Instant and labels are written by the backend
- * (`PUT /v1/account/connection-settings/:key`); this only reads them.
+ * Labels and wallet pairs are written by the backend
+ * (`PUT /v1/account/connection-settings/:key`,
+ * `PUT /v1/account/connections/:key/wallets`); this only reads them.
  */
 
 export type ConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
@@ -30,7 +31,15 @@ export type AccountConnection = {
   name: string;
   /** `Telegram @user` for a bot; null otherwise. */
   detail: string | null;
-  instant: boolean;
+  /** The app this connection is locked to; null when it is open. */
+  application: { id: number; name: string; label: string } | null;
+  /** `ask`: never Instant. */
+  ceiling: "ask" | null;
+  /**
+   * The agent wallets it may use, each Ask unless `instant`. An archived
+   * wallet's pair is kept (marked) so it comes back on restore.
+   */
+  wallets: { id: string; name: string; instant: boolean; archived: boolean }[];
   /** Unix seconds. */
   last_used_at: number | null;
   /** Unix seconds of the oldest consent or refresh token. */
@@ -97,7 +106,9 @@ export async function listAccountConnections(
       key,
       kind,
       name: setting?.label ?? name,
-      instant: setting?.instant ?? false,
+      application: setting?.application ?? null,
+      ceiling: setting?.ceiling ?? null,
+      wallets: setting?.wallets ?? [],
       last_used_at: setting?.lastUsedAt ?? null,
       ...rest,
     };
@@ -109,7 +120,9 @@ export async function listAccountConnections(
     ...oauthRows(oauth, resources.agentRest).map(([client, ...rest]) =>
       connection(
         `oauth:${client.clientId}`,
-        client.resources.some((resource) => mcp.has(resource))
+        client.resources.some(
+          (resource) => mcp.has(resource) || appMcpName(resource),
+        )
           ? "ai"
           : isCliClient(client.name)
             ? "cli"

@@ -141,6 +141,11 @@ export const COMMIT_REF_ERROR_CODES = {
   approvalForbidden: "commit_approval_forbidden",
   notAwaitingApproval: "commit_not_awaiting_approval",
   expired: "commit_expired",
+  /** The agent wallet (or every agent wallet) is paused. */
+  walletPaused: "commit_wallet_paused",
+  walletArchived: "commit_wallet_archived",
+  /** The connection that asked has no access to this agent wallet. */
+  walletNoAccess: "commit_wallet_no_access",
 } as const;
 
 /** The ref does not exist or belongs to another account (never a 403). */
@@ -231,8 +236,9 @@ export class CommitNotAwaitingApprovalError extends AomiApiError {
 
 /**
  * Typed error for a failed `/v1/commits` response. The backend answers
- * `{code, status}`; api-server (OAuth clients) wraps it as
- * `{error: {code, message, details}}`. Both map by status and code. The
+ * `{code, status}` (a wallet refusal adds `wallet_id`, `wallet_name` and
+ * `connection_key`, kept as `details`); api-server (OAuth clients) wraps it
+ * as `{error: {code, message, details}}`. Both map by status and code. The
  * message keeps the `HTTP <status>` prefix CommitController uses to tell a
  * definite rejection from an ambiguous one.
  */
@@ -279,6 +285,6 @@ export function commitRefError(
     message,
     undefined,
     fields.requestId,
-    fields.details,
+    fields.details ?? (fields.code ? undefined : asRecord(body)),
   );
 }

@@ -514,11 +514,13 @@ export async function listWalletsForUser(
     `select pk.*,
             ap.provider as wallet_provider,
             ap.provider_metadata as wallet_provider_metadata,
-            aw.id as agent_wallet_id
+            aw.id as agent_wallet_id,
+            awg.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
        ${AGENT_WALLET_JOIN}
-      where pk.user_id = $1
+      -- Archived agent wallets are hidden from every wallet list.
+      where pk.user_id = $1 and awg.archived_at is null
       order by pk.is_primary desc, pk.created_at asc`,
     [userId],
   );
@@ -682,7 +684,7 @@ export async function denyAgentWalletsForUser(input: {
     [input.userId],
   );
   await input.db.query(
-    `update account_connections set instant = false,
+    `update connection_wallets set instant = false,
         updated_at = extract(epoch from now())::bigint
       where user_id = $1 and instant`,
     [input.userId],
@@ -742,7 +744,8 @@ export async function findWalletById(
     `select pk.*,
             ap.provider as wallet_provider,
             ap.provider_metadata as wallet_provider_metadata,
-            aw.id as agent_wallet_id
+            aw.id as agent_wallet_id,
+            awg.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
        ${AGENT_WALLET_JOIN}
@@ -1100,7 +1103,11 @@ export async function listOAuthConnections(
   }));
 }
 
-/** The account's own connection settings: label, Ask/Instant and last use. */
+/**
+ * The account's own connection settings: label, last use, the app it is
+ * locked to, its ceiling, and the agent wallets it may use. Pairs of archived
+ * wallets come back marked, so a full replacement keeps them for a restore.
+ */
 export async function listConnectionSettings(
   userId: AomiUserId,
   db: Db = getPool(),
@@ -1108,20 +1115,60 @@ export async function listConnectionSettings(
   {
     key: string;
     label: string | null;
-    instant: boolean;
     lastUsedAt: number | null;
+    application: { id: number; name: string; label: string } | null;
+    ceiling: "ask" | null;
+    wallets: {
+      id: string;
+      name: string;
+      instant: boolean;
+      archived: boolean;
+    }[];
   }[]
 > {
   const result = await db.query(
-    `select key, label, instant, last_used_at from account_connections
-      where user_id = $1`,
+    `select c.key, c.label, c.last_used_at, c.ceiling,
+            a.id as app_id, a.name as app_name, a.label as app_label,
+            coalesce((
+              select json_agg(json_build_object(
+                       'id', g.uid::text, 'name', g.name, 'instant', w.instant,
+                       'archived', g.archived_at is not null)
+                     order by g.created_at, g.id)
+                from connection_wallets w
+                join agent_wallet_groups g on g.id = w.group_id
+               where w.user_id = c.user_id and w.connection_key = c.key),
+              '[]'::json) as wallets
+       from account_connections c
+       left join applications a on a.id = c.application_id
+      where c.user_id = $1`,
     [userId],
   );
   return result.rows.map((row) => ({
     key: String(row.key),
     label: optionalString(row.label),
-    instant: row.instant === true,
     lastUsedAt: row.last_used_at == null ? null : Number(row.last_used_at),
+    application:
+      row.app_id == null
+        ? null
+        : {
+            id: Number(row.app_id),
+            name: String(row.app_name),
+            label: optionalString(row.app_label) ?? String(row.app_name),
+          },
+    ceiling: row.ceiling === "ask" ? "ask" : null,
+    wallets: (
+      row.wallets as {
+        id: string;
+        name: string;
+        instant: boolean;
+        archived: boolean;
+      }[]
+    ).map(({ id, name, instant, archived }) => ({
+      id,
+      name,
+      instant: instant === true,
+      archived: archived === true,
+    })),
   }));
 }
 
@@ -1369,11 +1416,13 @@ function mapIdentity(row: Row): DbAomiAuthIdentity {
 }
 
 /**
- * An active `agent_wallets` row makes a key an agent wallet. Provider-managed
- * keys without one (World handover keys) keep their provider mapping.
+ * An active `agent_wallets` row makes a key an agent wallet, named after its
+ * agent wallet. Provider-managed keys without one (World handover keys) keep
+ * their provider mapping.
  */
 const AGENT_WALLET_JOIN = `left join agent_wallets aw
-         on aw.public_key_id = pk.id and aw.status = 'active'`;
+         on aw.public_key_id = pk.id and aw.status = 'active'
+       left join agent_wallet_groups awg on awg.id = aw.group_id`;
 
 function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));
@@ -1396,7 +1445,9 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     provider: provider ? publicProvider(provider) : null,
     providerWalletId: null,
     linkedVia: provider ? publicProvider(provider) : "import",
-    label: optionalString(walletMetadata.display_label),
+    label: agent
+      ? optionalString(row.agent_wallet_name)
+      : optionalString(walletMetadata.display_label),
     walletApp: optionalString(walletMetadata.wallet_app),
     displayMetadata: walletMetadata,
     verifiedAt: secondsToDate(row.created_at),

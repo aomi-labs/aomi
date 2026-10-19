@@ -219,6 +219,16 @@ BEGIN
     DELETE FROM agent_wallet_rules
      WHERE user_id = source_user_id
        AND EXISTS (SELECT 1 FROM agent_wallet_rules WHERE user_id = target_user_id);
+    -- A connection both accounts have keeps the target's row; the source's
+    -- agent wallet pairs move onto it first (the target's pair wins a real
+    -- conflict), so deleting the source row loses none.
+    INSERT INTO connection_wallets (user_id, connection_key, group_id, instant, created_at, updated_at)
+    SELECT target_user_id, p.connection_key, p.group_id, p.instant, p.created_at, now_s
+      FROM connection_wallets p
+     WHERE p.user_id = source_user_id
+       AND EXISTS (SELECT 1 FROM account_connections t
+                   WHERE t.user_id = target_user_id AND t.key = p.connection_key)
+    ON CONFLICT DO NOTHING;
     DELETE FROM account_connections s
      WHERE s.user_id = source_user_id
        AND EXISTS (SELECT 1 FROM account_connections t
@@ -277,9 +287,7 @@ BEGIN
     UPDATE thread_agent_events
        SET action_owner_subject = CASE WHEN action_owner_subject = source_user_id THEN target_user_id ELSE 'account:' || target_user_id END
      WHERE action_owner_subject IN (source_user_id, 'account:' || source_user_id);
-    UPDATE task_preparation_limits
-       SET owner_subject = CASE WHEN owner_subject = source_user_id THEN target_user_id ELSE 'account:' || target_user_id END
-     WHERE owner_subject IN (source_user_id, 'account:' || source_user_id);
+    -- Task jobs are wallet-payer bound and are not account-owned.
 
     SET CONSTRAINTS public_keys_auth_provider_same_user_fk,
                     operating_accounts_owner_same_user_fk,

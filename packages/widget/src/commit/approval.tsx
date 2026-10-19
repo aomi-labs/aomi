@@ -20,6 +20,8 @@ import { AomiButton } from "@/ui/aomi/button";
 import { useAomiWalletKit } from "@/wallet/context";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { useApprovalAuthority } from "./approval-authority";
+import { walletRefusalOf, type WalletRefusal } from "./wallet-refusal";
+import { WalletRefusalCard } from "./wallet-refusal-card";
 
 export const APPROVAL_NOTE =
   "Aomi signs with your agent wallet after you approve.";
@@ -40,16 +42,18 @@ function approvalError(error: unknown): string {
   if (error instanceof CommitExpiredError)
     return "Expired · nothing was signed";
   if (error instanceof AomiApiError)
-    return error.code === "commit_signing_denied"
-      ? "Your agent wallet is locked. Unlock it in Settings → Account."
-      : "Couldn't approve right now. Try again.";
+    return "Couldn't approve right now. Try again.";
   return error instanceof Error ? error.message : "The request failed";
 }
 
-/** Runs one approve or reject at a time and keeps its error line. */
+/**
+ * Runs one approve or reject at a time and keeps its error line, or the
+ * refusal card when the agent wallet may not sign (paused, archived, no access).
+ */
 function useApprovalStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [refusal, setRefusal] = useState<WalletRefusal | null>(null);
   const [changed, setChanged] = useState(false);
   const run = async (
     step: () => Promise<unknown>,
@@ -58,6 +62,7 @@ function useApprovalStep() {
     if (busy) return;
     setBusy(true);
     setError(undefined);
+    setRefusal(null);
     setChanged(false);
     try {
       await step();
@@ -67,12 +72,14 @@ function useApprovalStep() {
         caught.code === "commit_gas_stale"
       )
         setChanged(true);
-      if (!onError?.(caught)) setError(approvalError(caught));
+      const refused = walletRefusalOf(caught);
+      if (refused) setRefusal(refused);
+      else if (!onError?.(caught)) setError(approvalError(caught));
     } finally {
       setBusy(false);
     }
   };
-  return { busy, error, changed, run };
+  return { busy, error, refusal, changed, run };
 }
 
 /**
@@ -86,7 +93,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
   const authority = useApprovalAuthority();
   const [forbidden, setForbidden] = useState(false);
   const [signUrl, setSignUrl] = useState<string>();
-  const { busy, error, changed, run } = useApprovalStep();
+  const { busy, error, refusal, changed, run } = useApprovalStep();
   const id = commit.commit_id;
   const linkOnly = !authority || forbidden;
   useEffect(() => {
@@ -113,39 +120,42 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
       />
     );
   return (
-    <TransactionReview
-      review={{
-        id,
-        revision: commit.review?.revision ?? commit.version,
-        request,
-      }}
-      supportedChains={supportedChains}
-      approving={busy}
-      approveLabel={linkOnly ? "Approve on Aomi" : approveLabel(commit)}
-      approveHref={linkOnly ? signUrl : undefined}
-      approveDisabled={linkOnly}
-      note={APPROVAL_NOTE}
-      status={error}
-      statusIsError={Boolean(error)}
-      onApprove={() =>
-        void run(
-          () =>
-            commitController.approve(id, {
-              expectedVersion: commit.version,
-              expectedReviewDigest: commit.review?.digest ?? "",
-            }),
-          (caught) => {
-            if (caught instanceof CommitApprovalForbiddenError) {
-              setForbidden(true);
-              return true;
-            }
-            if (caught instanceof CommitStaleError)
-              void commitController.refresh(id).catch(() => undefined);
-          },
-        )
-      }
-      onReject={() => void run(() => commitController.reject(id))}
-    />
+    <>
+      <TransactionReview
+        review={{
+          id,
+          revision: commit.review?.revision ?? commit.version,
+          request,
+        }}
+        supportedChains={supportedChains}
+        approving={busy}
+        approveLabel={linkOnly ? "Approve on Aomi" : approveLabel(commit)}
+        approveHref={linkOnly ? signUrl : undefined}
+        approveDisabled={linkOnly}
+        note={APPROVAL_NOTE}
+        status={error}
+        statusIsError={Boolean(error)}
+        onApprove={() =>
+          void run(
+            () =>
+              commitController.approve(id, {
+                expectedVersion: commit.version,
+                expectedReviewDigest: commit.review?.digest ?? "",
+              }),
+            (caught) => {
+              if (caught instanceof CommitApprovalForbiddenError) {
+                setForbidden(true);
+                return true;
+              }
+              if (caught instanceof CommitStaleError)
+                void commitController.refresh(id).catch(() => undefined);
+            },
+          )
+        }
+        onReject={() => void run(() => commitController.reject(id))}
+      />
+      {refusal ? <WalletRefusalCard refusal={refusal} /> : null}
+    </>
   );
 }
 
@@ -262,17 +272,14 @@ export function ScheduledApproval({ refs }: { refs: readonly string[] }) {
 export function CommitApprovePanel({
   handle,
   signing = false,
-  onDenied,
 }: {
   handle: CommitHandle;
   signing?: boolean;
-  /** The account is locked: no agent wallet may sign. */
-  onDenied?: () => void;
 }) {
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   const { supportedChains } = useAomiWalletKit();
-  const { busy, error, changed, run } = useApprovalStep();
+  const { busy, error, refusal, changed, run } = useApprovalStep();
   const view = handle.view;
   const review = handle.review;
   if (changed) return <ChangedApproval commit={view} />;
@@ -294,27 +301,25 @@ export function CommitApprovePanel({
       caught instanceof CommitExpiredError
     )
       void handle.refresh().catch(() => undefined);
-    if (
-      caught instanceof AomiApiError &&
-      caught.code === "commit_signing_denied"
-    )
-      onDenied?.();
   };
   return (
-    <TransactionReview
-      review={{
-        id: view.commit_id,
-        revision: view.review?.revision ?? view.version,
-        request: review,
-      }}
-      supportedChains={supportedChains}
-      approving={busy || signing}
-      approveLabel={approveLabel(view)}
-      note={APPROVAL_NOTE}
-      status={error}
-      statusIsError={Boolean(error)}
-      onApprove={() => void run(() => handle.approve(), refresh)}
-      onReject={() => void run(() => handle.reject(), refresh)}
-    />
+    <>
+      <TransactionReview
+        review={{
+          id: view.commit_id,
+          revision: view.review?.revision ?? view.version,
+          request: review,
+        }}
+        supportedChains={supportedChains}
+        approving={busy || signing}
+        approveLabel={approveLabel(view)}
+        note={APPROVAL_NOTE}
+        status={error}
+        statusIsError={Boolean(error)}
+        onApprove={() => void run(() => handle.approve(), refresh)}
+        onReject={() => void run(() => handle.reject(), refresh)}
+      />
+      {refusal ? <WalletRefusalCard refusal={refusal} /> : null}
+    </>
   );
 }

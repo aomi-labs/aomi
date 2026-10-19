@@ -1,5 +1,5 @@
 -- Prerequisites for the unmodified account-merge migration below and the
--- step 5 `merge_accounts` v3 (20261017010000_telegram_link.sql).
+-- step 5 `merge_accounts` v3 (20261019070000_telegram_link.sql).
 -- The account graph comes from tests/e2e/fixtures/canonical-account-schema.sql.
 -- Wallet tables/constraints are copied from product-mono's
 -- 20260825010000_public_key_swig_bindings.sql; other tables retain the columns
@@ -110,12 +110,6 @@ create table if not exists threads (
   user_id text not null references users(id)
 );
 
-create table applications (
-  id bigserial primary key,
-  name text not null,
-  label text
-);
-
 create table user_credits_records (
   id bigserial primary key,
   account_id text not null references users(id),
@@ -185,6 +179,7 @@ create table x402_attempts (principal_kind text, principal_id text);
 create table llm_usage_events (subject_kind text, subject_id text);
 create table thread_agent_requests (owner_subject text);
 create table thread_agent_events (action_owner_subject text);
+-- Read by 20261007000000_account_merge.sql; v3 no longer moves it.
 create table task_preparation_limits (owner_subject text);
 
 -- Commit Service rows: only the columns merge_accounts v3 reads and writes.
@@ -212,45 +207,43 @@ create unique index bot_handover_tokens_one_live_per_user_per_bot_uidx
   on bot_handover_tokens (bot_registration_id, claimed_user_id)
   where state in ('claimed', 'active') and owner_address is not null;
 
--- From 20261015050000_agent_wallets.sql: when both accounts have a default
--- for the family, the active wallet with the older key stays the default.
-create function agent_wallets_merge_default()
+-- From 20261019040000_agent_wallets.sql: when both accounts link the same
+-- app, the link to the older wallet stays; the other wallet becomes
+-- "<name> (2)" with no link.
+create function app_wallet_links_merge()
 returns trigger
 language plpgsql
 as $$
 declare
-  other agent_wallets%rowtype;
-  new_key_at bigint;
-  other_key_at bigint;
+  other app_wallet_links%rowtype;
+  loser bigint;
 begin
-  if new.user_id is distinct from old.user_id then
-    new.merged_at := extract(epoch from now())::bigint;
-    new.updated_at := new.merged_at;
-    if new.is_default then
-      select * into other from agent_wallets w
-       where w.user_id = new.user_id
-         and w.chain_type = new.chain_type
-         and w.is_default
-         and w.id <> new.id;
-      if found then
-        select created_at into new_key_at from public_keys where id = new.public_key_id;
-        select created_at into other_key_at from public_keys where id = other.public_key_id;
-        if other.status <> 'active'
-           or (new.status = 'active'
-               and (new_key_at, new.public_key_id) < (other_key_at, other.public_key_id)) then
-          update agent_wallets
-             set is_default = false, updated_at = new.updated_at
-           where id = other.id;
-        else
-          new.is_default := false;
-        end if;
-      end if;
-    end if;
+  if new.user_id is not distinct from old.user_id then
+    return new;
   end if;
+  select * into other from app_wallet_links
+   where user_id = new.user_id and application_id = new.application_id;
+  if not found then
+    return new;
+  end if;
+  select g.id into loser from agent_wallet_groups g
+   where g.id in (new.group_id, other.group_id)
+   order by g.created_at desc, g.id desc
+   limit 1;
+  update agent_wallet_groups
+     set name = left(name, 56) || ' (2)', updated_at = extract(epoch from now())::bigint
+   where id = loser;
+  if loser = new.group_id then
+    delete from app_wallet_links
+     where user_id = old.user_id and application_id = old.application_id;
+    return null;
+  end if;
+  delete from app_wallet_links
+   where user_id = other.user_id and application_id = other.application_id;
   return new;
 end;
 $$;
 
-create trigger agent_wallets_merge_default
-  before update of user_id on agent_wallets
-  for each row execute function agent_wallets_merge_default();
+create trigger app_wallet_links_merge
+  before update of user_id on app_wallet_links
+  for each row execute function app_wallet_links_merge();

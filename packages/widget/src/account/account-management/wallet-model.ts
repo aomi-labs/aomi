@@ -34,9 +34,11 @@ export const appName = (row: WalletRow) => {
 
 /**
  * The row title: the user's own name for the address (with the app name
- * muted beside it), else the wallet app ("Rabby", "Privy").
+ * muted beside it), else the wallet app ("Rabby", "Privy"). An agent
+ * address carries its agent wallet's name alone.
  */
 export function rowTitle(row: WalletRow): { title: string; app?: string } {
+  if (row.label && row.kind === "agent") return { title: row.label };
   if (row.label) return { title: row.label, app: appName(row) };
   return { title: appName(row) };
 }

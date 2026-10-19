@@ -480,6 +480,7 @@ export function useSheetFlow(
         close();
       },
       back: () => dispatch({ type: "back" }),
+      newAgentWallet: () => dispatch({ type: "agent" }),
       pick,
       pickChain,
       pickSocial,
