@@ -58,7 +58,6 @@ export class ClientSession {
   private applicationId?: number | string | null;
   private getUserState?: SessionOptions["getUserState"];
   private inferenceFunding?: SessionOptions["inferenceFunding"];
-  private apiKey?: string;
   private clientId: string;
   private logger?: { debug: (...args: unknown[]) => void };
   private cursor?: string;
@@ -160,7 +159,6 @@ export class ClientSession {
     });
     this.getUserState = sessionOptions?.getUserState;
     this.inferenceFunding = sessionOptions?.inferenceFunding;
-    this.apiKey = sessionOptions?.apiKey;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
     this.logger = sessionOptions?.logger;
     this.commits = new CommitController(
@@ -411,7 +409,6 @@ export class ClientSession {
     this.clientId = options.clientId ?? this.clientId;
     this.getUserState = options.getUserState;
     this.inferenceFunding = options.inferenceFunding;
-    this.apiKey = options.apiKey;
     if (options.actions) this.actions.setCapabilities(options.actions);
     if (options.commits) this.commits.setCapabilities(options.commits);
   }
@@ -534,7 +531,7 @@ export class ClientSession {
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
             sinceSequence: this.events.at(-1)?.sequence ?? 0,
             inferenceFunding: this.inferenceFunding,
-            apiKey: this.apiKey,
+            apiKey: options.apiKey,
           };
     this.startOperation = operation;
     this.terminalDrainUntil = undefined;

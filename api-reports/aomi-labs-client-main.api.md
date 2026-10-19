@@ -2898,6 +2898,7 @@ export function secretNamesFrom(response: AomiListSecretsResponse): string[];
 export type SendOptions = {
     regenerate?: string;
     edit?: string;
+    apiKey?: string;
 };
 
 // @public (undocumented)
@@ -2951,7 +2952,6 @@ export type SessionOptions = {
     applicationId?: number | string | null;
     getUserState?: () => UserState | undefined;
     inferenceFunding?: AomiInferenceFundingSource;
-    apiKey?: string;
     clientId?: string;
     logger?: {
         debug: (...args: unknown[]) => void;
@@ -2969,7 +2969,6 @@ export type SessionRuntimeOptions = {
     app?: string;
     model?: string | null;
     applicationId?: number | string | null;
-    apiKey?: string;
     clientId?: string;
     getUserState?: () => UserState | undefined;
     inferenceFunding?: AomiInferenceFundingSource;

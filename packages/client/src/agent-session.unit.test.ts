@@ -673,7 +673,7 @@ describe("ClientSession Agent transport", () => {
   });
 });
 
-it("sends per-session app keys only in headers and clears them on public target selection", async () => {
+it("sends a message's app key only in its header and never on later messages", async () => {
   const calls: RequestInit[] = [];
   const api = new AomiClient({
     baseUrl: "https://portal.example",
@@ -692,14 +692,10 @@ it("sends per-session app keys only in headers and clears them on public target 
   const session = new Session(api, {
     sessionId: "keys",
     target: { mode: "direct", applicationId: 7 },
-    apiKey: "key-one",
   });
-  await session.sendAsync("one");
-  session.syncRuntimeOptions({
-    target: { mode: "direct", applicationId: 8 },
-    apiKey: "key-two",
-  });
-  await session.sendAsync("two");
+  await session.sendAsync("one", { apiKey: "key-one" });
+  session.syncRuntimeOptions({ target: { mode: "direct", applicationId: 8 } });
+  await session.sendAsync("two", { apiKey: "key-two" });
   session.syncRuntimeOptions({ target: { mode: "auto" } });
   await session.sendAsync("public");
   expect(

@@ -119,7 +119,7 @@ export function useRuntimeOrchestrator(
   );
 
   const getSession = useCallback(
-    (threadId: string, text?: string): ClientSession => {
+    (threadId: string): ClientSession => {
       const runtime = optionsRef.current;
       const getUserState = () =>
         UserStateValue.withExt(
@@ -127,10 +127,8 @@ export function useRuntimeOrchestrator(
           "client_type",
           CLIENT_TYPE_WEB_UI,
         );
-      const target = runtime.getTarget();
       const sessionOptions = {
-        target,
-        apiKey: runtime.getAppKey?.(target, text),
+        target: runtime.getTarget(),
         model: runtime.getModel?.(),
         clientId: runtime.getClientId?.(),
         getUserState,
@@ -284,9 +282,14 @@ export function useRuntimeOrchestrator(
         throw new Error(
           "This conversation hasn't loaded yet. Load it again, then send your message.",
         );
-      const session = getSession(threadId, text);
+      const session = getSession(threadId);
       const firstTurn = !session.getSnapshot().turnId;
-      await session.sendAsync(text, sendOptions);
+      // Resolved per message: a mention's key never outlives the message.
+      const apiKey = optionsRef.current.getAppKey?.(
+        optionsRef.current.getTarget(),
+        text,
+      );
+      await session.sendAsync(text, { ...sendOptions, apiKey });
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
       optionsRef.current.onSendSuccess?.(threadId);

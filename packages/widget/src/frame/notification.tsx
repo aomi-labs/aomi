@@ -41,6 +41,7 @@ function NotificationToast({
   dismissNotification: (id: string) => void;
 }) {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
+  const [keyAdded, setKeyAdded] = useState(false);
   useEffect(() => {
     const duration = notification.duration ?? 6000;
     if (!Number.isFinite(duration)) return;
@@ -54,8 +55,13 @@ function NotificationToast({
     <>
       <AddPrivateAppDialog
         open={keyDialogOpen}
-        onOpenChange={setKeyDialogOpen}
+        onOpenChange={(open) => {
+          setKeyDialogOpen(open);
+          // The notice has done its job once the key is in.
+          if (!open && keyAdded) dismissNotification(notification.id);
+        }}
         target={notification.appKeyTarget}
+        onAdded={() => setKeyAdded(true)}
       />
       <div className="border-aomi-border bg-aomi-surface text-aomi-fg group relative flex w-full min-w-0 items-start gap-2.5 rounded-xl border p-3 shadow-lg">
         <NotificationIcon type={notification.type} />

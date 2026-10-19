@@ -129,9 +129,13 @@ function PrivateAppForm({
           "This app isn’t ready yet. Ask its builder to check its deployment, then try again.",
         );
       if (!active.current) return;
-      const existing = privateApps.apps.some(
-        (saved) => String(saved.applicationId) === String(app.applicationId),
-      );
+      const existing =
+        privateApps.apps.some(
+          (saved) => String(saved.applicationId) === String(app.applicationId),
+        ) ||
+        (account?.user.application_ids ?? []).some(
+          (id) => String(id) === String(app.applicationId),
+        );
       if (account?.user.user_id) {
         const result = await installApp(
           app.applicationId,
@@ -178,6 +182,7 @@ function PrivateAppForm({
           : "Enter the key the app's builder shared with you."
       }
       confirmLabel={added ? "Done" : "Add app"}
+      cancelLabel={added ? null : undefined}
       busy={busy}
       busyLabel="Adding app…"
       closeOnConfirm={false}

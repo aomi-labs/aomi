@@ -19,7 +19,8 @@ export type ConfirmDialogOptions = {
   /** Extra body below the description (a summary card, an address…). */
   children?: ReactNode;
   confirmLabel?: string;
-  cancelLabel?: string;
+  /** `null` drops Cancel, for a finished state with a single way out. */
+  cancelLabel?: string | null;
   /** `danger` fills the confirm button red; use it for irreversible actions. */
   tone?: "default" | "danger";
 };
@@ -84,11 +85,13 @@ export function ConfirmDialog({
           ) : null}
           {children ? <div className="mt-4">{children}</div> : null}
           <div className="mt-5 flex justify-end gap-2">
-            <Dialog.Close asChild>
-              <AomiButton variant="ghost" disabled={busy}>
-                {cancelLabel}
-              </AomiButton>
-            </Dialog.Close>
+            {cancelLabel !== null && (
+              <Dialog.Close asChild>
+                <AomiButton variant="ghost" disabled={busy}>
+                  {cancelLabel}
+                </AomiButton>
+              </Dialog.Close>
+            )}
             <AomiButton
               variant={tone === "danger" ? "danger-fill" : "primary"}
               disabled={busy}
