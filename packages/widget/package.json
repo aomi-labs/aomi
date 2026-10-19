@@ -2,6 +2,12 @@
   "name": "@aomi-labs/widget",
   "version": "3.1.7",
   "description": "Embeddable Aomi chat UI and wallet provider islands.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aomi-labs/aomi.git",
+    "directory": "packages/widget"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

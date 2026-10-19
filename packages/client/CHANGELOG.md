@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.4
+
+- Publish under the MIT license, with a `repository` link so npm can show build provenance.
+
 ## 0.10.3
 
 - Read simulation step evidence under `result` as well as `execution`, so passed batches no longer render as failed with zero gas.

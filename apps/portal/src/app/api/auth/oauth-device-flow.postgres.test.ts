@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const baseDatabaseUrl = process.env.AOMI_AUTH_TEST_DATABASE_URL?.trim();
 // Its own database, not a schema in the shared one: other suites introspect
@@ -48,9 +48,23 @@ describePostgres("production Better Auth OAuth device route", () => {
   afterAll(async () => {
     try {
       await pool?.end();
-      await admin?.query(
-        `drop database if exists "${databaseName}" with (force)`,
-      );
+      if (admin) {
+        // pg Pool.end() removes idle clients before their sockets finish closing.
+        // FORCE can terminate those sockets mid-shutdown and emit an unhandled
+        // 57P01 error after the tests have passed. Wait for graceful shutdown.
+        const databaseAdmin = admin;
+        await vi.waitFor(
+          async () => {
+            const result = await databaseAdmin.query<{ count: number }>(
+              "select count(*)::int as count from pg_stat_activity where datname = $1",
+              [databaseName],
+            );
+            expect(result.rows[0].count).toBe(0);
+          },
+          { timeout: 5_000 },
+        );
+        await admin.query(`drop database if exists "${databaseName}"`);
+      }
     } finally {
       try {
         await admin?.end();

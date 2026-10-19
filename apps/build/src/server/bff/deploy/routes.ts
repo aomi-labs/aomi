@@ -1221,3 +1221,54 @@ export async function requiredSecretsRoute(req: Request) {
     }).response;
   }
 }
+
+// GET  /api/bff/deployments/app-key?applicationId=  -> { appKey | null }
+// POST /api/bff/deployments/app-key; JSON: { applicationId } -> { appKey }
+// The key a builder shares so others can use a private application in Chat.
+// GET shows the current key; POST issues a new one and revokes the old. The
+// manager proves the signed-in builder owns the application's Project.
+export async function appKeyRoute(req: Request) {
+  const regenerate = req.method === "POST";
+  const auth = await authorize(req, { write: regenerate });
+  if ("response" in auth) return auth.response;
+  const { session } = auth;
+
+  const applicationId = regenerate
+    ? ((await req.json().catch(() => ({}))) as Record<string, unknown>)
+        .applicationId
+    : Number(new URL(req.url).searchParams.get("applicationId"));
+  if (!isValidApplicationId(applicationId)) {
+    return NextResponse.json(
+      { error: "invalid `applicationId`" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const client = await backendClient();
+    const input = {
+      githubUserId: session.githubUserId,
+      applicationId,
+      actor: session.githubLogin,
+    };
+    const appKey = regenerate
+      ? await client.regenerateBuilderAppKey(input)
+      : await client.getBuilderAppKey(input);
+    return NextResponse.json(
+      { appKey },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (err) {
+    if (err instanceof BackendError && err.status === 404) {
+      return NextResponse.json(
+        { error: "application not found for this user" },
+        { status: 404 },
+      );
+    }
+    return buildFailures.handle({
+      source: "launch",
+      error: err,
+      context: deployErrorContext(req, "deployment.app_key"),
+    }).response;
+  }
+}

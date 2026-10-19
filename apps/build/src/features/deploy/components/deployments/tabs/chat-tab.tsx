@@ -5,6 +5,7 @@ import { ExternalLink, MessageSquare } from "lucide-react";
 import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { chatAppUrl } from "@/lib/chat-url";
+import { AppKeyPanel } from "../app-key-panel";
 import { EmptyPanel } from "../ui/state-panels";
 import { projectSdk } from "../sdk-compatibility";
 
@@ -63,6 +64,13 @@ export function ChatTab({ detail }: { detail: Detail }) {
     locked: true,
     applicationId: lifecycle.chatApplicationId,
   });
+  // A private app answers only requests carrying its key; its builder manages
+  // and shares that key here.
+  const chatApplication = source.apps.find(
+    (app) => app.id === lifecycle.chatApplicationId,
+  );
+  const privateApplication =
+    chatApplication && !chatApplication.isPublic ? chatApplication : null;
 
   return (
     <div className="space-y-3 p-4">
@@ -83,6 +91,12 @@ export function ChatTab({ detail }: { detail: Detail }) {
           <ExternalLink className="size-3.5" aria-hidden />
         </a>
       </div>
+      {privateApplication && (
+        <AppKeyPanel
+          applicationId={privateApplication.id}
+          appName={privateApplication.name}
+        />
+      )}
       <iframe
         src={url}
         title={`Chat with ${lifecycle.chatApp}`}

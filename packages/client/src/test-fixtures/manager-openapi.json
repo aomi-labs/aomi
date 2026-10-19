@@ -509,6 +509,30 @@
         ]
       }
     },
+    "/api/integrations/github-app/builder/applications/{application_id}/app-key": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/builder/applications/{application_id}/detail": {
       "get": {
         "responses": {

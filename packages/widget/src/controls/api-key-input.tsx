@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FC } from "react";
+import { memo, useState, type FC } from "react";
 import { KeyIcon, CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useApiKey, cn } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
@@ -24,15 +24,35 @@ export type ApiKeyInputProps = {
 
 export const ApiKeyInput: FC<ApiKeyInputProps> = ({
   className,
-  title = "Aomi API Key",
-  description = "Enter your API key to authenticate with Aomi services.",
+  title = "App key",
+  description = "Private Apps need a key. Enter the one the App's builder shared with you.",
 }) => {
+  // The control context changes during every turn; only the key matters here.
   const { state, actions } = useApiKey();
+  return (
+    <ApiKeyDialog
+      className={className}
+      title={title}
+      description={description}
+      hasApiKey={Boolean(state.apiKey)}
+      setApiKey={actions.setApiKey}
+    />
+  );
+};
+
+const ApiKeyDialog = memo(function ApiKeyDialog({
+  className,
+  title,
+  description,
+  hasApiKey,
+  setApiKey,
+}: ApiKeyInputProps & {
+  hasApiKey: boolean;
+  setApiKey: (apiKey: string | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [showKey, setShowKey] = useState(false);
-
-  const hasApiKey = Boolean(state.apiKey);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -41,7 +61,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
           variant="ghost"
           size="icon"
           className={cn("relative rounded-full", className)}
-          aria-label={hasApiKey ? "API key configured" : "Set API key"}
+          aria-label={hasApiKey ? "App key configured" : "Set App key"}
         >
           <KeyIcon className={cn("h-4 w-4", hasApiKey && "text-green-500")} />
         </Button>
@@ -54,13 +74,13 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="api-key" className="mb-2">
-              API Key
+              App key
             </Label>
             <div className="relative">
               <Input
                 id="api-key"
                 type={showKey ? "text" : "password"}
-                placeholder={hasApiKey ? "********" : "Enter your API key"}
+                placeholder={hasApiKey ? "********" : "Enter the App key"}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 className="rounded-full pr-10"
@@ -71,7 +91,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={() => setShowKey(!showKey)}
-                aria-label={showKey ? "Hide API key" : "Show API key"}
+                aria-label={showKey ? "Hide App key" : "Show App key"}
               >
                 {showKey ? (
                   <EyeIcon className="h-4 w-4" />
@@ -83,7 +103,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
             {hasApiKey && (
               <p className="text-muted-foreground text-xs">
                 <CheckIcon className="mr-1 inline h-3 w-3 text-green-500" />
-                API key is configured
+                App key is configured
               </p>
             )}
           </div>
@@ -94,7 +114,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
               variant="outline"
               className="rounded-full"
               onClick={() => {
-                actions.setApiKey(null);
+                setApiKey(null);
                 setInputValue("");
               }}
             >
@@ -105,7 +125,7 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
             className="rounded-full"
             onClick={() => {
               if (inputValue.trim()) {
-                actions.setApiKey(inputValue.trim());
+                setApiKey(inputValue.trim());
                 setOpen(false);
                 setInputValue("");
               }
@@ -118,4 +138,4 @@ export const ApiKeyInput: FC<ApiKeyInputProps> = ({
       </DialogContent>
     </Dialog>
   );
-};
+});
