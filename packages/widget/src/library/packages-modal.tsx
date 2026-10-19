@@ -159,7 +159,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (privateAppOpen || event.defaultPrevented) return;
+      if (privateAppOpen) return;
       if (event.key === "Escape") {
         onClose();
         return;
