@@ -209,224 +209,219 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         : (catalogError ?? skillsError);
 
   return (
-    <>
-      <AddPrivateAppDialog
-        open={privateAppOpen}
-        onOpenChange={setPrivateAppOpen}
-        onAdded={() => {
-          retryApps();
-          setView("installed");
-          setQuery("");
-        }}
-      />
-      <ModalShell
-        labelledBy="library-title"
-        dismissLabel="Dismiss library"
-        closeLabel="Close library"
-        onClose={onClose}
-        inspector
+    <ModalShell
+      labelledBy="library-title"
+      dismissLabel="Dismiss library"
+      closeLabel="Close library"
+      onClose={onClose}
+      inspector
+    >
+      <ModalSidebar
+        title="Library"
+        titleId="library-title"
+        icon={Library}
+        className={mobileDetailOpen ? "max-md:hidden" : undefined}
       >
-        <ModalSidebar
-          title="Library"
-          titleId="library-title"
-          icon={Library}
-          className={mobileDetailOpen ? "max-md:hidden" : undefined}
-        >
-          <ModalNav label="Library sections" className="mt-2 md:mt-3">
-            {NAV_ITEMS.map((item) => (
+        <ModalNav label="Library sections" className="mt-2 md:mt-3">
+          {NAV_ITEMS.map((item) => (
+            <ModalNavItem
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              active={view === item.id}
+              onClick={() => {
+                setView(item.id);
+                setSelectedKey(null);
+              }}
+              count={
+                loading
+                  ? "loading"
+                  : item.id === "discover"
+                    ? allEntries.length
+                    : item.id === "installed"
+                      ? appEntries.filter(
+                          (entry) =>
+                            entry.kind === "app" &&
+                            installedIds.has(packageIdentityKey(entry.item)),
+                        ).length
+                      : item.id === "apps"
+                        ? appEntries.length
+                        : skillEntries.length
+              }
+            />
+          ))}
+        </ModalNav>
+        <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
+          <span className="type-eyebrow text-aomi-muted hidden px-2.5 md:block">
+            Categories
+          </span>
+          <ModalNav label="Library categories" className="mt-2">
+            {CATEGORIES.map((category) => (
               <ModalNavItem
-                key={item.id}
-                label={item.label}
-                icon={item.icon}
-                active={view === item.id}
+                key={category.id}
+                label={category.label}
+                icon={category.icon}
+                active={view === category.id}
                 onClick={() => {
-                  setView(item.id);
+                  setView(category.id);
                   setSelectedKey(null);
                 }}
-                count={
-                  loading
-                    ? "loading"
-                    : item.id === "discover"
-                      ? allEntries.length
-                      : item.id === "installed"
-                        ? appEntries.filter(
-                            (entry) =>
-                              entry.kind === "app" &&
-                              installedIds.has(packageIdentityKey(entry.item)),
-                          ).length
-                        : item.id === "apps"
-                          ? appEntries.length
-                          : skillEntries.length
-                }
+                count={loading ? "loading" : categoryCounts.get(category.id)}
               />
             ))}
           </ModalNav>
-          <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
-            <span className="type-eyebrow text-aomi-muted hidden px-2.5 md:block">
-              Categories
-            </span>
-            <ModalNav label="Library categories" className="mt-2">
-              {CATEGORIES.map((category) => (
-                <ModalNavItem
-                  key={category.id}
-                  label={category.label}
-                  icon={category.icon}
-                  active={view === category.id}
-                  onClick={() => {
-                    setView(category.id);
-                    setSelectedKey(null);
-                  }}
-                  count={loading ? "loading" : categoryCounts.get(category.id)}
-                />
-              ))}
-            </ModalNav>
-          </div>
-        </ModalSidebar>
-
-        <main
-          className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
-        >
-          <SearchField
-            onAddPrivateApp={() => setPrivateAppOpen(true)}
-            query={query}
-            onQueryChange={(next) => {
-              setQuery(next);
-              setSelectedKey(null);
-            }}
-            searchRef={searchRef}
-          />
-          {actionError ? (
-            <p
-              role="alert"
-              className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2"
-            >
-              {actionError}
-            </p>
-          ) : null}
-          <SectionHeader
-            as="h2"
-            title={listTitle}
-            count={loading ? undefined : visible.length}
-            className="mt-4 px-1"
-          />
-          <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
-            {loadError ? (
-              <div className="type-meta flex min-h-44 flex-col items-center justify-center gap-3 text-center">
-                <p className="text-aomi-muted">{loadError}</p>
-                <AomiButton
-                  variant="primary"
-                  onClick={() => {
-                    retryApps();
-                    retrySkills();
-                  }}
-                >
-                  Retry
-                </AomiButton>
-              </div>
-            ) : loading ? (
-              <LoadingPane label="Loading library" className="h-full" />
-            ) : visible.length === 0 ? (
-              <EmptyList />
-            ) : (
-              <div className="space-y-0.5">
-                {visible.map((entry, index) => (
-                  <div key={selectionKey(entry)}>
-                    {!selectionIsOfficial(entry) &&
-                    (index === 0 || selectionIsOfficial(visible[index - 1])) ? (
-                      <div className="border-aomi-border type-eyebrow text-aomi-muted mt-3 border-t px-2 pt-3">
-                        Community apps
-                      </div>
-                    ) : null}
-                    <CatalogRow
-                      selection={entry}
-                      selected={
-                        activeSelection
-                          ? selectionKey(activeSelection) ===
-                            selectionKey(entry)
-                          : false
-                      }
-                      installed={
-                        entry.kind === "app" &&
-                        installedIds.has(packageIdentityKey(entry.item))
-                      }
-                      busy={
-                        entry.kind === "app" &&
-                        busyId === packageIdentityKey(entry.item)
-                      }
-                      disabled={!installedReady || busyId !== null}
-                      hostChainIds={hostChainIds}
-                      onSelect={() => {
-                        setSelectedKey(selectionKey(entry));
-                        setMobileDetailOpen(true);
-                      }}
-                      onInstall={() =>
-                        entry.kind === "app" && entry.item.secrets.length > 0
-                          ? (() => {
-                              setSelectedKey(selectionKey(entry));
-                              setMobileDetailOpen(true);
-                            })()
-                          : entry.kind === "app" && void install(entry.item)
-                      }
-                      onTry={() =>
-                        entry.kind === "skill" && trySkill(entry.item)
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-
-        <div
-          className={
-            mobileDetailOpen
-              ? "bg-aomi-raised absolute inset-0 z-10 flex min-h-0 flex-col md:static md:z-auto"
-              : "hidden min-h-0 md:flex md:flex-col"
-          }
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setMobileDetailOpen(false);
-              setDetailVisit((visit) => visit + 1);
-            }}
-            className="border-aomi-border type-control flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 md:hidden"
-          >
-            <ArrowLeft className="size-4" />
-            Back to library
-          </button>
-          {actionError && mobileDetailOpen ? (
-            <p
-              role="alert"
-              className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-4 mt-3 px-3 py-2 md:hidden"
-            >
-              {actionError}
-            </p>
-          ) : null}
-          {/* Below md the panel is a hidden overlay: mount it only once opened,
-            so it reads nothing for an app the user never looked at. */}
-          {desktop || mobileDetailOpen ? (
-            <LibraryDetailPanel
-              key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${detailVisit}`}
-              selection={loading ? null : activeSelection}
-              loading={loading}
-              installed={selectedInstalled}
-              installedReady={installedReady}
-              busy={
-                activeSelection?.kind === "app" &&
-                busyId === packageIdentityKey(activeSelection.item)
-              }
-              hostChainIds={hostChainIds}
-              accountUserId={accountUserId}
-              onInstall={install}
-              onUninstall={uninstall}
-              onTrySkill={trySkill}
-            />
-          ) : null}
         </div>
-      </ModalShell>
-    </>
+      </ModalSidebar>
+
+      <main
+        className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
+      >
+        <AddPrivateAppDialog
+          open={privateAppOpen}
+          onOpenChange={setPrivateAppOpen}
+          onAdded={() => {
+            retryApps();
+            setView("installed");
+            setQuery("");
+          }}
+        />
+        <SearchField
+          onAddPrivateApp={() => setPrivateAppOpen(true)}
+          query={query}
+          onQueryChange={(next) => {
+            setQuery(next);
+            setSelectedKey(null);
+          }}
+          searchRef={searchRef}
+        />
+        {actionError ? (
+          <p
+            role="alert"
+            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2"
+          >
+            {actionError}
+          </p>
+        ) : null}
+        <SectionHeader
+          as="h2"
+          title={listTitle}
+          count={loading ? undefined : visible.length}
+          className="mt-4 px-1"
+        />
+        <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
+          {loadError ? (
+            <div className="type-meta flex min-h-44 flex-col items-center justify-center gap-3 text-center">
+              <p className="text-aomi-muted">{loadError}</p>
+              <AomiButton
+                variant="primary"
+                onClick={() => {
+                  retryApps();
+                  retrySkills();
+                }}
+              >
+                Retry
+              </AomiButton>
+            </div>
+          ) : loading ? (
+            <LoadingPane label="Loading library" className="h-full" />
+          ) : visible.length === 0 ? (
+            <EmptyList />
+          ) : (
+            <div className="space-y-0.5">
+              {visible.map((entry, index) => (
+                <div key={selectionKey(entry)}>
+                  {!selectionIsOfficial(entry) &&
+                  (index === 0 || selectionIsOfficial(visible[index - 1])) ? (
+                    <div className="border-aomi-border type-eyebrow text-aomi-muted mt-3 border-t px-2 pt-3">
+                      Community apps
+                    </div>
+                  ) : null}
+                  <CatalogRow
+                    selection={entry}
+                    selected={
+                      activeSelection
+                        ? selectionKey(activeSelection) === selectionKey(entry)
+                        : false
+                    }
+                    installed={
+                      entry.kind === "app" &&
+                      installedIds.has(packageIdentityKey(entry.item))
+                    }
+                    busy={
+                      entry.kind === "app" &&
+                      busyId === packageIdentityKey(entry.item)
+                    }
+                    disabled={!installedReady || busyId !== null}
+                    hostChainIds={hostChainIds}
+                    onSelect={() => {
+                      setSelectedKey(selectionKey(entry));
+                      setMobileDetailOpen(true);
+                    }}
+                    onInstall={() =>
+                      entry.kind === "app" && entry.item.secrets.length > 0
+                        ? (() => {
+                            setSelectedKey(selectionKey(entry));
+                            setMobileDetailOpen(true);
+                          })()
+                        : entry.kind === "app" && void install(entry.item)
+                    }
+                    onTry={() => entry.kind === "skill" && trySkill(entry.item)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <div
+        className={
+          mobileDetailOpen
+            ? "bg-aomi-raised absolute inset-0 z-10 flex min-h-0 flex-col md:static md:z-auto"
+            : "hidden min-h-0 md:flex md:flex-col"
+        }
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setMobileDetailOpen(false);
+            setDetailVisit((visit) => visit + 1);
+          }}
+          className="border-aomi-border type-control flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 md:hidden"
+        >
+          <ArrowLeft className="size-4" />
+          Back to library
+        </button>
+        {actionError && mobileDetailOpen ? (
+          <p
+            role="alert"
+            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-4 mt-3 px-3 py-2 md:hidden"
+          >
+            {actionError}
+          </p>
+        ) : null}
+        {/* Below md the panel is a hidden overlay: mount it only once opened,
+            so it reads nothing for an app the user never looked at. */}
+        {desktop || mobileDetailOpen ? (
+          <LibraryDetailPanel
+            key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${detailVisit}`}
+            selection={loading ? null : activeSelection}
+            loading={loading}
+            installed={selectedInstalled}
+            installedReady={installedReady}
+            busy={
+              activeSelection?.kind === "app" &&
+              busyId === packageIdentityKey(activeSelection.item)
+            }
+            hostChainIds={hostChainIds}
+            accountUserId={accountUserId}
+            onInstall={install}
+            onUninstall={uninstall}
+            onTrySkill={trySkill}
+          />
+        ) : null}
+      </div>
+    </ModalShell>
   );
 }
 

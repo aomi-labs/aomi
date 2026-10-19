@@ -459,6 +459,7 @@ export class AgentTransport {
     start(intent: StartTurnIntent, options?: {
         idempotencyKey?: string;
         paymentSignature?: string;
+        apiKey?: string;
         inferenceFunding?: AomiInferenceFundingSource;
     }): Promise<EventPage>;
     // (undocumented)
@@ -2950,6 +2951,7 @@ export type SessionOptions = {
     applicationId?: number | string | null;
     getUserState?: () => UserState | undefined;
     inferenceFunding?: AomiInferenceFundingSource;
+    apiKey?: string;
     clientId?: string;
     logger?: {
         debug: (...args: unknown[]) => void;
@@ -2967,6 +2969,7 @@ export type SessionRuntimeOptions = {
     app?: string;
     model?: string | null;
     applicationId?: number | string | null;
+    apiKey?: string;
     clientId?: string;
     getUserState?: () => UserState | undefined;
     inferenceFunding?: AomiInferenceFundingSource;

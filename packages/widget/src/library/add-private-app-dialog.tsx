@@ -68,7 +68,10 @@ function PrivateAppForm({
   const pending = useRef<AbortController | null>(null);
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; pending.current?.abort(); };
+    return () => {
+      active.current = false;
+      pending.current?.abort();
+    };
   }, []);
 
   async function add() {

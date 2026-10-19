@@ -37,7 +37,9 @@ export class PrivateAppStore {
     this.publish();
   };
   remove = (id: number | string) => {
-    this.entries = this.entries.filter(({ app }) => String(app.applicationId) !== String(id));
+    this.entries = this.entries.filter(
+      ({ app }) => String(app.applicationId) !== String(id),
+    );
     this.storage?.setJson("privateApps", this.entries);
     this.publish();
   };
