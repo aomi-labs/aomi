@@ -1,5 +1,7 @@
 "use client";
 
+import { usePrivateApps } from "../control/private-apps";
+
 import {
   useCallback,
   useEffect,
@@ -15,6 +17,7 @@ import type {
   ThreadMessageLike,
 } from "@assistant-ui/react";
 
+import { AgentApiError } from "@aomi-labs/client";
 import type {
   ActionCapabilities,
   CommitCapabilities,
@@ -136,6 +139,7 @@ export function AomiRuntimeCore({
     getPreferredThreadControl,
     markControlSynced,
   } = useControl();
+  const privateApps = usePrivateApps();
   const displayCache = useAomiDisplayCache();
   const displayCacheRef = useRef(displayCache);
   displayCacheRef.current = displayCache;
@@ -172,6 +176,10 @@ export function AomiRuntimeCore({
     getUserState: userContext.getUserState,
     inferenceFunding: getControlState().inferenceFunding,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
+    getAppKey: (target) =>
+      target.mode === "direct" && target.applicationId != null
+        ? privateApps.getKey(target.applicationId)
+        : undefined,
     getModel: () => {
       const control = getCurrentThreadControl();
       return control.modelMode === "manual" ? control.model : null;
@@ -203,6 +211,23 @@ export function AomiRuntimeCore({
         Boolean(sessionManager.get(threadId)?.getSnapshot().isStartUncertain),
       );
       if (failure.forgetThread) forgetPersistedThread();
+      if (
+        error instanceof AgentApiError &&
+        (error.appAccessCode === "app_key_required" ||
+          error.appAccessCode === "app_key_not_scoped")
+      ) {
+        const control =
+          threadContextRef.current.getThreadMetadata(threadId)?.control;
+        const target = agentTarget?.mode === "direct" ? agentTarget : control;
+        failure.notice.appKeyTarget = {
+          app: target?.app ?? undefined,
+          applicationId:
+            target?.applicationId != null
+              ? Number(target.applicationId)
+              : undefined,
+        };
+        failure.notice.duration = Infinity;
+      }
       notificationContext.showNotification(failure.notice);
     },
   });

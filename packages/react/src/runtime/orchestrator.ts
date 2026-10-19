@@ -32,6 +32,7 @@ type OrchestratorOptions = {
   getUserState: () => UserState;
   getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
+  getAppKey?: (target: AgentTarget) => string | undefined;
   getClientId?: () => string | undefined;
   inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
@@ -126,8 +127,10 @@ export function useRuntimeOrchestrator(
           "client_type",
           CLIENT_TYPE_WEB_UI,
         );
+      const target = runtime.getTarget();
       const sessionOptions = {
-        target: runtime.getTarget(),
+        target,
+        apiKey: runtime.getAppKey?.(target),
         model: runtime.getModel?.(),
         clientId: runtime.getClientId?.(),
         getUserState,

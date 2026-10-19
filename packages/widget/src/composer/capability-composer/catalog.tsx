@@ -45,7 +45,7 @@ export function useCapabilityCatalog(): PickerItem[] {
           .filter(
             (app) =>
               app.name !== "orchestrator" &&
-              (!enabled || enabled.has(app.name)),
+              (!enabled || enabled.has(app.name) || (app.isPublic === false && app.isInstalled === true)),
           )
           .map((app) => {
             const info = resolveAppIdentity(app);

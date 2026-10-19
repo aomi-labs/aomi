@@ -82,8 +82,7 @@ function PortalComposer({
       sendDisabled={sendDisabled && !threadListError}
       opening={opening && !threadListError}
       controlBarProps={{
-        // Private Apps need the key their builder shares from Build.
-        hideApiKey: false,
+        hideApiKey: true,
         routing,
         enabledAppIds: enabledApps,
         initialAppTag: appTag,

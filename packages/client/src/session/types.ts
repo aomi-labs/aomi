@@ -80,6 +80,8 @@ export type SessionOptions = {
   getUserState?: () => UserState | undefined;
   /** Explicit account funding lane for inference execution. */
   inferenceFunding?: AomiInferenceFundingSource;
+  /** Credential for this exact session target; never serialized into chat intent. */
+  apiKey?: string;
   clientId?: string;
   logger?: { debug: (...args: unknown[]) => void };
   actions?: ActionCapabilities;
@@ -93,6 +95,8 @@ export type SessionRuntimeOptions = {
   model?: string | null;
   /** @deprecated Legacy Direct hosted-app selection. */
   applicationId?: number | string | null;
+  /** Credential for this exact session target; never serialized into chat intent. */
+  apiKey?: string;
   clientId?: string;
   getUserState?: () => UserState | undefined;
   inferenceFunding?: AomiInferenceFundingSource;
