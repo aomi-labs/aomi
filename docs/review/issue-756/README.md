@@ -4,6 +4,11 @@ Captured locally on 2026-10-19 using the production Portal build, at
 1440 × 1000 and 400 × 844. The disposable private app is **Treasury Assistant**
 (application 23). These are browser screenshots, with the key input masked.
 
+The later compact-button refinement uses **+ App** on desktop and mobile,
+preserving **Add private app** as the tooltip and accessible name. The two
+`*-compact-entry.png` captures come from the published Vercel preview at
+`3cc13e392`; the original local flow captures below remain unchanged.
+
 ## Verified
 
 Both desktop and mobile journeys passed:
@@ -61,11 +66,12 @@ compilation, while the standard profile completed both journeys in 1.3 minutes.
 
 ## Screenshots
 
-| State                    | Desktop                           | Mobile                            |
-| ------------------------ | --------------------------------- | --------------------------------- |
-| Library entry point      | [Library](portal-library.png)     | [Library](mobile-library.png)     |
-| Key dialog               | [Dialog](portal-dialog.png)       | [Dialog](mobile-dialog.png)       |
-| Invalid key              | [Error](portal-invalid-key.png)   | [Error](mobile-invalid-key.png)   |
-| Correct app added        | [Success](portal-added.png)       | [Success](mobile-added.png)       |
-| Installed app            | [Installed](portal-installed.png) | [Installed](mobile-installed.png) |
-| Controlled chat response | [Chat](portal-chat.png)           | [Chat](mobile-chat.png)           |
+| State                    | Desktop                             | Mobile                             |
+| ------------------------ | ----------------------------------- | ---------------------------------- |
+| Current compact entry    | [Desktop](portal-compact-entry.png) | [Mobile](mobile-compact-entry.png) |
+| Library entry point      | [Library](portal-library.png)       | [Library](mobile-library.png)      |
+| Key dialog               | [Dialog](portal-dialog.png)         | [Dialog](mobile-dialog.png)        |
+| Invalid key              | [Error](portal-invalid-key.png)     | [Error](mobile-invalid-key.png)    |
+| Correct app added        | [Success](portal-added.png)         | [Success](mobile-added.png)        |
+| Installed app            | [Installed](portal-installed.png)   | [Installed](mobile-installed.png)  |
+| Controlled chat response | [Chat](portal-chat.png)             | [Chat](mobile-chat.png)            |
