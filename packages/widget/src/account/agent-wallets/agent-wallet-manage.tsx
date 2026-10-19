@@ -1,0 +1,430 @@
+"use client";
+
+import { useContext, useState } from "react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowRight,
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Check,
+  Pause,
+  Pencil,
+  QrCode,
+  ShieldCheck,
+} from "lucide-react";
+import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
+import { useDisplayQuery } from "@aomi-labs/react";
+import { AomiSheet } from "@/ui/aomi/aomi-sheet";
+import { aomiButton } from "@/ui/aomi/button";
+import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
+import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { useRenameDialog } from "@/ui/aomi/rename-dialog";
+import { SectionHeader } from "@/ui/aomi/section-header";
+import { Segmented } from "@/ui/aomi/segmented";
+import { StatusPill } from "@/ui/aomi/status-pill";
+import { Switch } from "@/ui/aomi/switch";
+import { ActionRow } from "@/ui/aomi/action-row";
+import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
+import type { WalletFamily } from "@/wallet/types";
+import { useShellTransport } from "@/account/transport";
+import { connectionsQuery } from "@/account/account-queries";
+import { SettingsNavContext } from "@/account/settings-events";
+import {
+  BrandMark,
+  CopyButton,
+  copyText,
+} from "@/account/account-management/controls";
+import { AGENT_WALLET } from "@/account/account-management/wallet-model";
+import { ConnectionMark } from "@/account/connections/connection-mark";
+import { usedLabel } from "@/account/connections/connections-settings";
+import {
+  INSTANT_CONFIRM,
+  pairsWith,
+  type PairMode,
+} from "@/account/connections/connection-pairs";
+import { AddressQr } from "./address-qr";
+import {
+  EVM_NETWORKS,
+  familyName,
+  pairedConnections,
+} from "./agent-wallet-model";
+import { useRefreshWallets } from "./use-refresh-wallets";
+
+/**
+ * Account › agent wallet › Manage: its addresses behind one Receive row,
+ * which connections may use it (Ask or Instant each), then Withdraw, Rename
+ * and Pause as rows, and Archive alone at the bottom. Changes save at once.
+ */
+export function AgentWalletManage({
+  wallet,
+  pausedAll,
+  pending,
+  onClose,
+  onWithdraw,
+  onRename,
+  onPause,
+  onArchive,
+}: {
+  wallet: AomiAgentWallet;
+  pausedAll: boolean;
+  /** A wallet write is in flight. */
+  pending: boolean;
+  onClose: () => void;
+  onWithdraw: () => void;
+  onRename: (name: string) => Promise<boolean>;
+  onPause: (paused: boolean) => void;
+  onArchive: (archive: boolean) => void;
+}) {
+  const { client } = useShellTransport();
+  const connections = useDisplayQuery(connectionsQuery(client));
+  const refresh = useRefreshWallets();
+  const goTo = useContext(SettingsNavContext);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { rename, dialog: renameDialog } = useRenameDialog();
+  const [receive, setReceive] = useState<WalletFamily | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const archived = wallet.archived_at !== null;
+  const pairs = pairedConnections(wallet);
+  const addresses = wallet.addresses;
+
+  const setMode = async (key: string, label: string, mode: PairMode) => {
+    const connection = connections.data?.connections.find(
+      (row) => row.key === key,
+    );
+    if (!connection || saving) return;
+    if (
+      mode === "instant" &&
+      !(await confirm(INSTANT_CONFIRM(label, wallet.name)))
+    )
+      return;
+    setSaving(key);
+    setError(null);
+    try {
+      await client.account.connections.setConnectionWallets(key, {
+        wallets: pairsWith(connection, wallet.id, mode),
+      });
+      await refresh();
+    } catch {
+      setError("Couldn’t save that. Try again.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  // One address copies at once; with two, Receive lets you pick which.
+  const copy = () => {
+    if (addresses.length !== 1)
+      return setReceive(addresses[0]?.family ?? "evm");
+    void copyText(addresses[0].address).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  if (receive)
+    return (
+      <AomiSheet onClose={onClose}>
+        <ReceiveStep
+          wallet={wallet}
+          family={receive}
+          onFamily={setReceive}
+          onBack={() => setReceive(null)}
+          onClose={onClose}
+        />
+      </AomiSheet>
+    );
+
+  return (
+    <AomiSheet onClose={onClose}>
+      <SheetHeader
+        leading={
+          <BrandMark
+            brand={AGENT_WALLET}
+            dot={wallet.paused || pausedAll ? "off" : "on"}
+          />
+        }
+        title={wallet.name}
+        description={[
+          "Agent wallet",
+          wallet.app ? `created by ${wallet.app.label}` : null,
+          archived
+            ? "archived"
+            : wallet.last_used_at === null
+              ? "not used yet"
+              : usedLabel(wallet.last_used_at),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        onClose={onClose}
+      />
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        {addresses.length ? (
+          <ListGroup>
+            <div className="hover:bg-aomi-hover flex min-h-14 items-center gap-3 px-3.5 transition-colors">
+              <button
+                type="button"
+                onClick={() => setReceive(addresses[0].family)}
+                className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none"
+              >
+                <span className="text-aomi-muted flex size-8 shrink-0 items-center justify-center">
+                  <QrCode className="size-[18px]" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="type-row">Receive</span>
+                  <span className="type-address text-aomi-muted truncate">
+                    {addresses
+                      .map((entry) => shortAddress(entry.address))
+                      .join(" · ")}
+                    {addresses.length === 1 ? (
+                      <span className="font-sans">
+                        {" "}
+                        · {familyName(addresses[0].family)}
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={
+                  addresses.length === 1 ? "Copy address" : "Copy an address"
+                }
+                onClick={copy}
+                className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+              <ChevronRight className="text-aomi-muted size-4 shrink-0" />
+            </div>
+          </ListGroup>
+        ) : null}
+
+        <section className="flex flex-col gap-2">
+          <SectionHeader
+            title="Who can use it"
+            detail={`${pairs.length} ${pairs.length === 1 ? "connection" : "connections"}`}
+            action={
+              goTo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    goTo("connections");
+                  }}
+                  className="type-meta text-aomi-accent-strong hover:text-aomi-fg inline-flex items-center gap-1 rounded-[6px] px-1 py-0.5 font-medium outline-none focus-visible:ring-2"
+                >
+                  Manage in Connections
+                  <ArrowRight className="size-3.5" />
+                </button>
+              ) : undefined
+            }
+          />
+          {error ? <SheetAlert>{error}</SheetAlert> : null}
+          {pairs.length ? (
+            <ListGroup>
+              {pairs.map((pair) => {
+                const connection = connections.data?.connections.find(
+                  (row) => row.key === pair.key,
+                );
+                const locked = Boolean(connection?.ceiling);
+                return (
+                  <ListRow
+                    key={pair.key}
+                    data-pair={pair.key}
+                    leading={
+                      <ConnectionMark
+                        kind={connection?.kind ?? "app"}
+                        name={pair.label}
+                      />
+                    }
+                    title={pair.label}
+                    description={
+                      locked
+                        ? "Asks before every trade"
+                        : (connection?.telegram?.bot ?? connection?.detail)
+                    }
+                    trailing={
+                      <Segmented
+                        label={`${pair.label} mode`}
+                        size="sm"
+                        value={pair.instant && !locked ? "instant" : "ask"}
+                        disabled={!connection || saving !== null || archived}
+                        onChange={(mode) =>
+                          void setMode(pair.key, pair.label, mode)
+                        }
+                        options={[
+                          { value: "ask", label: "Ask" },
+                          {
+                            value: "instant",
+                            label: "Instant",
+                            disabled: locked,
+                          },
+                        ]}
+                      />
+                    }
+                  />
+                );
+              })}
+            </ListGroup>
+          ) : (
+            <p className="type-meta text-aomi-muted">
+              Only you, here in Aomi. Allow a connection in Connections, or when
+              a client asks.
+            </p>
+          )}
+        </section>
+
+        <ListGroup>
+          <ActionRow
+            icon={ArrowUpRight}
+            label="Withdraw"
+            step
+            onClick={onWithdraw}
+          />
+          {archived ? null : (
+            <ActionRow
+              icon={Pencil}
+              label="Rename"
+              step
+              onClick={() =>
+                rename({
+                  title: "Rename agent wallet",
+                  description:
+                    "Only you see this name. Apps and chats show it when they ask to use the wallet.",
+                  value: wallet.name,
+                  onSave: onRename,
+                })
+              }
+            />
+          )}
+          {archived ? null : (
+            <ListRow
+              leading={<Pause className="text-aomi-muted size-4 shrink-0" />}
+              title={<span className="text-[13.5px]">Pause</span>}
+              description="Nothing signs until you resume"
+              trailing={
+                <Switch
+                  aria-label={`Pause ${wallet.name}`}
+                  checked={wallet.paused}
+                  disabled={pending}
+                  onCheckedChange={onPause}
+                />
+              }
+            />
+          )}
+        </ListGroup>
+
+        <ListGroup>
+          {archived ? (
+            <ActionRow
+              icon={ArchiveRestore}
+              label="Restore"
+              onClick={() => onArchive(false)}
+            />
+          ) : (
+            <ActionRow
+              icon={Archive}
+              label="Archive"
+              danger
+              onClick={() => onArchive(true)}
+            />
+          )}
+        </ListGroup>
+      </div>
+      {confirmDialog}
+      {renameDialog}
+    </AomiSheet>
+  );
+}
+
+/** Receive: a tab per family (only with two), the QR, the address, its networks. */
+function ReceiveStep({
+  wallet,
+  family,
+  onFamily,
+  onBack,
+  onClose,
+}: {
+  wallet: AomiAgentWallet;
+  family: WalletFamily;
+  onFamily: (family: WalletFamily) => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const address = wallet.addresses.find((entry) => entry.family === family);
+  return (
+    <>
+      <SheetHeader
+        leading={
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={onBack}
+            className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+        }
+        title="Receive"
+        description={`${wallet.name} · send only on the networks listed`}
+        onClose={onClose}
+      />
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        {wallet.addresses.length > 1 ? (
+          <Segmented
+            label="Address family"
+            className="self-center"
+            value={family}
+            onChange={onFamily}
+            options={wallet.addresses.map((entry) => ({
+              value: entry.family,
+              label: familyName(entry.family),
+            }))}
+          />
+        ) : null}
+        {address ? (
+          <>
+            <div className="flex justify-center">
+              <AddressQr address={address.address} />
+            </div>
+            <ListGroup>
+              <ListRow
+                title={`${familyName(family)} address`}
+                description={address.address}
+                descriptionMono
+                trailing={
+                  <CopyButton
+                    value={address.address}
+                    label={`Copy ${familyName(family)} address`}
+                  />
+                }
+              />
+            </ListGroup>
+            <section className="flex flex-col gap-2">
+              <SectionHeader
+                title="Same address on"
+                detail={
+                  family === "evm" ? "every network Aomi supports" : undefined
+                }
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {(family === "evm" ? EVM_NETWORKS : ["Solana"]).map((name) => (
+                  <StatusPill key={name}>{name}</StatusPill>
+                ))}
+              </div>
+              <p className="type-meta text-aomi-muted flex items-start gap-1.5">
+                <ShieldCheck className="mt-px size-3.5 shrink-0" />
+                Only send assets on these networks.
+              </p>
+            </section>
+          </>
+        ) : null}
+      </div>
+    </>
+  );
+}

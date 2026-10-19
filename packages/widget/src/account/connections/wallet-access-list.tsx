@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
+import { AomiMark } from "@/ui/aomi-mark";
 import { Segmented } from "@/ui/aomi/segmented";
 import type { PairMode } from "./connection-pairs";
 
@@ -63,6 +64,7 @@ export function WalletAccessList({
             >
               {ticked ? <Check className="size-3" strokeWidth={3} /> : null}
             </button>
+            <AomiMark size={15} className="text-aomi-fg shrink-0" />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="type-row truncate">{wallet.name}</span>
               <span className="type-meta text-aomi-muted truncate">

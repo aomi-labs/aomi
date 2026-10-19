@@ -502,6 +502,7 @@ export type {
   AomiAccountConnection,
   AomiAccountConnections,
   AomiConnectionApp,
+  AomiConnectionTelegram,
   AomiConnectionKind,
   AomiConnectionSettings,
   AomiConnectionSettingsUpdate,

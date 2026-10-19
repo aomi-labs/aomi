@@ -1,5 +1,13 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { shortAddress } from "@aomi-labs/client";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AgentWalletsSection } from "./agent-wallets-section";
@@ -37,6 +45,7 @@ vi.mock("@aomi-labs/client", async (original) => ({
 
 const EVM = "0xae86000000000000000000000000000000009738";
 const SVM = "B4KZ1111111111111111111111111111111UJVo";
+const SOLO = "0x5010000000000000000000000000000000000c0d";
 
 const wallet = (id: string, name: string, extra: object = {}) => ({
   id,
@@ -71,14 +80,19 @@ const hoodit = wallet("g-hoodit", "Hoodit", {
 const extra = wallet("g-extra", "Extra");
 const old = wallet("g-old", "Old", { archived_at: 1_760_000_100 });
 
-const agentRow = (address: string, id: string, active = false): WalletRow =>
+const agentRow = (
+  address: string,
+  id: string,
+  active = false,
+  label = "Trading",
+): WalletRow =>
   ({
     key: `${address.startsWith("0x") ? "evm" : "svm"}:${address}`,
     family: address.startsWith("0x") ? "evm" : "svm",
     address,
     kind: "agent",
     state: "ready",
-    label: "Trading",
+    label,
     linkedWalletId: id,
     linked: true,
     connected: false,
@@ -126,17 +140,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-async function renderSection(onUse = vi.fn()) {
+async function renderSection(walletRows = rows) {
   await act(async () => {
     render(
       <div>
-        <AgentWalletsSection rows={rows} pending={null} onUse={onUse} />
+        <AgentWalletsSection rows={walletRows} pending={null} />
       </div>,
       { wrapper: AccountOverviewFixture },
     );
   });
   await screen.findByRole("button", { name: "Actions for Trading" });
-  return onUse;
 }
 const parent = (id: string) =>
   document.querySelector(`[data-agent-wallet="${id}"]`) as HTMLElement;
@@ -146,12 +159,17 @@ const menuOf = (name: string) => {
 };
 const names = (menu: HTMLElement) =>
   Array.from(menu.querySelectorAll('[role^="menuitem"]')).map(
-    (item) => item.querySelector("span")?.textContent,
+    (item) => item.textContent,
   );
+/** Opens a wallet's Manage sheet from its ⋯ menu. */
+const manage = async (name: string) => {
+  fireEvent.click(within(menuOf(name)).getByText("Manage"));
+  return screen.findByRole("dialog");
+};
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Agent wallets band", () => {
-  it("shows the three most recent with chips, today's EVM/SVM rows under the active one, then Show all and Archived", async () => {
+  it("shows the three most recent with chips, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
     await renderSection();
     expect(
       screen.getByText(
@@ -162,52 +180,94 @@ describe("Agent wallets band", () => {
       document.querySelectorAll("[data-agent-wallet]"),
     ).map((node) => node.getAttribute("data-agent-wallet"));
     expect(shown).toEqual(["g-trading", "g-world", "g-hoodit"]);
-    expect(within(parent("g-trading")).getByText(/1 connection$/)).toBeTruthy();
+    // Every parent reads "N addresses · last use"; no connection count.
+    expect(
+      within(parent("g-trading")).getByText(/^2 addresses · used /),
+    ).toBeTruthy();
+    expect(parent("g-trading")).not.toHaveTextContent(/connection/);
+    expect(
+      within(parent("g-world")).getByText("0 addresses · not used yet"),
+    ).toBeTruthy();
     expect(within(parent("g-world")).getByText("used by World")).toBeTruthy();
     expect(within(parent("g-hoodit")).getByText("Paused")).toBeTruthy();
     // The active wallet starts open, its SVM child row striped Active.
+    const toggle = within(parent("g-trading")).getByRole("button", {
+      name: "Hide Trading addresses",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     const active = parent("g-trading").querySelector("[data-active]")!;
     expect(active).toHaveTextContent("Trading");
     expect(within(active as HTMLElement).getByText("Active")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(parent("g-trading").querySelector("[data-wallet-row]")).toBeNull();
+    // Wallets without addresses have nothing to expand.
     expect(
-      screen.getByRole("button", { name: "Show all 4 agent wallets" }),
+      within(parent("g-world")).queryByRole("button", {
+        name: /^(Show|Hide) /,
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show all 4" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Actions for agent wallets" }),
+    ).toBeNull();
     expect(screen.queryByText("Old")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
-    expect(parent("g-old")).toHaveTextContent("Archived · 0 connections");
+    expect(parent("g-old")).toHaveTextContent("0 addresses · archived");
     for (const gone of ["$", "Export", "Use for an app", "Lock"])
       expect(screen.queryByText(gone)).toBeNull();
   });
 
-  it("offers Details, Use in chats, Withdraw, Rename, Pause and Archive; Restore when archived", async () => {
-    const onUse = await renderSection();
-    expect(names(menuOf("World"))).toEqual([
-      "Details",
-      "Withdraw…",
-      "Rename",
-      "Pause",
-      "Archive",
-    ]);
+  it("offers Manage, Rename, Pause and Archive; Restore when archived", async () => {
+    await renderSection();
+    const worldMenu = menuOf("World");
+    expect(names(worldMenu)).toEqual(["Manage", "Rename", "Pause", "Archive"]);
+    // Archive is destructive: last, after a separator.
+    expect(worldMenu.lastElementChild?.previousElementSibling).toHaveAttribute(
+      "role",
+      "separator",
+    );
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
     });
-    const tradingMenu = menuOf("Trading");
-    expect(names(tradingMenu)).toEqual([
-      "Details",
-      "Use in chats",
-      "Withdraw…",
+    expect(names(menuOf("Hoodit"))).toEqual([
+      "Manage",
+      "Rename",
+      "Resume",
+      "Archive",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
+    expect(names(menuOf("Old"))).toEqual(["Manage", "Restore"]);
+  });
+
+  it("renders a wallet with one address as that address row", async () => {
+    const solo = wallet("g-solo", "Solo", {
+      addresses: [{ family: "evm", address: SOLO, wallet_id: "w_14" }],
+    });
+    list.wallets = [trading, solo];
+    await renderSection([...rows, agentRow(SOLO, "14", false, "Solo")]);
+    const row = parent("g-solo");
+    expect(row.querySelectorAll("[data-wallet-row]")).toHaveLength(1);
+    expect(
+      within(row).queryByRole("button", { name: /^(Show|Hide) / }),
+    ).toBeNull();
+    expect(within(row).getByText("Solo")).toBeInTheDocument();
+    // Its ⋯ holds the wallet's actions around the address ones.
+    fireEvent.click(
+      within(row).getByRole("button", { name: /^Actions for Solo / }),
+    );
+    expect(names(screen.getByRole("menu"))).toEqual([
+      "Manage",
+      "Copy address",
+      "View on explorer",
       "Rename",
       "Pause",
       "Archive",
     ]);
-    fireEvent.click(within(tradingMenu).getByText("Use in chats"));
-    expect(onUse).toHaveBeenCalledWith([rows[0]]);
-    expect(names(menuOf("Hoodit"))).toContain("Resume");
-    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
-    expect(names(menuOf("Old"))).toEqual(["Details", "Withdraw…", "Restore"]);
   });
 
-  it("pauses one wallet, and pauses all from the band at the version read", async () => {
+  it("pauses one wallet, and pauses all from Show all at the version read", async () => {
     await renderSection();
     const pause = within(menuOf("World")).getByText("Pause");
     await act(async () => fireEvent.click(pause));
@@ -218,7 +278,12 @@ describe("Agent wallets band", () => {
         body: { paused: true },
       },
     ]);
-    const pauseAll = within(menuOf("agent wallets")).getByText("Pause all");
+    fireEvent.click(screen.getByRole("button", { name: "Show all 4" }));
+    const sheet = await screen.findByRole("dialog");
+    const pauseAll = within(sheet).getByRole("switch", {
+      name: "Pause all agent wallets",
+    });
+    expect(pauseAll).toHaveAttribute("aria-checked", "false");
     await act(async () => fireEvent.click(pauseAll));
     expect(writes().at(-1)).toEqual({
       method: "PUT",
@@ -227,12 +292,23 @@ describe("Agent wallets band", () => {
     });
   });
 
-  it("renames inline", async () => {
+  it("renames in a dialog", async () => {
     await renderSection();
     fireEvent.click(within(menuOf("World")).getByText("Rename"));
-    const input = screen.getByRole("textbox", { name: "Name for World" });
+    const dialog = await screen.findByRole("dialog", { name: "Rename agent wallet" });
+    const input = within(dialog).getByRole("textbox", { name: "Name" });
+    expect(input).toHaveValue("World");
+    const save = within(dialog).getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+    fireEvent.change(input, { target: { value: "   " } });
+    expect(save).toBeDisabled();
     fireEvent.change(input, { target: { value: "  Markets " } });
-    await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+    await act(async () => fireEvent.submit(input));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Rename agent wallet" }),
+      ).toBeNull(),
+    );
     expect(writes()).toEqual([
       {
         method: "PATCH",
@@ -285,21 +361,69 @@ describe("Agent wallets band", () => {
     );
   });
 
-  it("shows details: QR, the address, its networks and who can use it", async () => {
+  it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
     await renderSection();
-    fireEvent.click(within(menuOf("Trading")).getByText("Details"));
-    const sheet = await screen.findByRole("dialog");
-    expect(
-      within(sheet).getByRole("img", { name: `QR code for ${EVM}` }),
-    ).toBeInTheDocument();
-    expect(sheet).toHaveTextContent(EVM);
-    for (const network of ["Ethereum", "Base", "Robinhood Chain", "Arc"])
-      expect(within(sheet).getByText(network)).toBeInTheDocument();
-    expect(within(sheet).queryByText("Sepolia")).toBeNull();
+    const sheet = await manage("Trading");
+    // Who can use it, each with Ask/Instant; the portal is not listed.
+    expect(within(sheet).getByText("Who can use it")).toBeInTheDocument();
     expect(within(sheet).getByText("Claude Code")).toBeInTheDocument();
-    fireEvent.click(within(sheet).getByRole("radio", { name: "Solana" }));
-    expect(sheet).toHaveTextContent(SVM);
-    expect(within(sheet).queryByText("Base")).toBeNull();
+    expect(
+      within(sheet).getByRole("radiogroup", { name: "Claude Code mode" }),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText("Aomi")).toBeNull();
+    // Withdraw, Rename and a Pause switch, then Archive alone at the bottom.
+    const actions = within(sheet)
+      .getAllByRole("button")
+      .map((button) => button.textContent)
+      .filter((text) =>
+        ["Withdraw", "Rename", "Archive"].some((label) => text === label),
+      );
+    expect(actions).toEqual(["Withdraw", "Rename", "Archive"]);
+    expect(
+      within(sheet).getByRole("switch", { name: "Pause Trading" }),
+    ).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /Receive/ }));
+    const receive = await screen.findByRole("dialog");
+    expect(
+      within(receive).getByRole("img", { name: `QR code for ${EVM}` }),
+    ).toBeInTheDocument();
+    expect(receive).toHaveTextContent(EVM);
+    for (const network of ["Ethereum", "Base", "Robinhood Chain", "Arc"])
+      expect(within(receive).getByText(network)).toBeInTheDocument();
+    expect(within(receive).queryByText("Sepolia")).toBeNull();
+    fireEvent.click(within(receive).getByRole("radio", { name: "Solana" }));
+    expect(receive).toHaveTextContent(SVM);
+    expect(within(receive).queryByText("Base")).toBeNull();
+  });
+
+  it("shows no family tabs on Receive for a one-address wallet, and Restore alone when archived", async () => {
+    const solo = wallet("g-solo", "Solo", {
+      addresses: [{ family: "evm", address: SOLO, wallet_id: "w_14" }],
+    });
+    list.wallets = [trading, solo, old];
+    await renderSection([...rows, agentRow(SOLO, "14", false, "Solo")]);
+    fireEvent.click(
+      within(menuOf(`Solo ${shortAddress(SOLO)}`)).getByText("Manage"),
+    );
+    const sheet = await screen.findByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: /Receive/ }));
+    const receive = await screen.findByRole("dialog");
+    expect(receive).toHaveTextContent(SOLO);
+    expect(within(receive).queryByRole("radiogroup")).toBeNull();
+    fireEvent.click(
+      within(receive).getAllByRole("button", { name: "Close" })[0]!,
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
+    const archived = await manage("Old");
+    expect(
+      within(archived).getByRole("button", { name: "Restore" }),
+    ).toBeInTheDocument();
+    for (const gone of ["Rename", "Archive"])
+      expect(within(archived).queryByRole("button", { name: gone })).toBeNull();
+    expect(within(archived).queryByRole("switch")).toBeNull();
   });
 
   it("withdraws in three steps and approves the commit on the spot", async () => {
@@ -348,12 +472,11 @@ describe("Agent wallets band", () => {
         wrapper: AccountOverviewFixture,
       });
     });
+    await screen.findByRole("button", { name: "Actions for Trading" });
     fireEvent.click(
-      within(
-        await screen
-          .findByRole("button", { name: "Actions for Trading" })
-          .then(() => menuOf("Trading")),
-      ).getByText("Withdraw…"),
+      within(await manage("Trading")).getByRole("button", {
+        name: "Withdraw",
+      }),
     );
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("1 more network")).toBeInTheDocument();
@@ -432,7 +555,11 @@ describe("Agent wallets band", () => {
           : undefined;
     commit.approve.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await renderSection();
-    fireEvent.click(within(menuOf("Trading")).getByText("Withdraw…"));
+    fireEvent.click(
+      within(await manage("Trading")).getByRole("button", {
+        name: "Withdraw",
+      }),
+    );
     const sheet = await screen.findByRole("dialog");
     fireEvent.click(within(sheet).getByRole("radio", { name: "Solana" }));
     fireEvent.click(

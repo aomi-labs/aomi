@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { ConnectionsSettings, usedLabel } from "./connections-settings";
@@ -10,6 +17,7 @@ const connections = [
     kind: "portal",
     name: "Aomi",
     detail: null,
+    telegram: null,
     application: null,
     ceiling: null,
     wallets: [],
@@ -22,6 +30,7 @@ const connections = [
     kind: "telegram",
     name: "@HooditBot",
     detail: "Telegram @arixon",
+    telegram: { user: "@arixon", bot: "@HooditBot" },
     application: { id: 86, name: "hoodit", label: "Hoodit" },
     ceiling: null,
     wallets: [
@@ -34,10 +43,27 @@ const connections = [
     removable: true,
   },
   {
+    // Renamed by the user, open to any app.
+    key: "telegram:78",
+    kind: "telegram",
+    name: "Markets",
+    detail: "Telegram @arixon",
+    telegram: { user: "@arixon", bot: "@MarketsBot" },
+    application: null,
+    ceiling: null,
+    wallets: [
+      { id: "g-trading", name: "Trading", instant: false, archived: false },
+    ],
+    last_used_at: null,
+    connected_at: null,
+    removable: true,
+  },
+  {
     key: "oauth:c1",
     kind: "ai",
     name: "Claude",
     detail: null,
+    telegram: null,
     application: null,
     ceiling: "ask",
     wallets: [
@@ -111,11 +137,10 @@ const menuOf = (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Connections tab", () => {
-  it("lists each connection quietly: mark, name, app badge, Instant pill, wallets and last use", async () => {
+  it("lists each connection quietly: mark, name, Instant pill, wallets and last use", async () => {
     await renderTab();
-    expect(rowOf("portal")).toHaveTextContent("AomiThis website");
-    expect(rowOf("telegram:77")).toHaveTextContent(
-      "@HooditBotHooditInstantTelegram @arixon · 1 wallet · used 2 h ago",
+    expect(rowOf("portal")).toHaveTextContent(
+      "AomiThis website · all agent wallets",
     );
     expect(rowOf("oauth:c1")).toHaveTextContent(
       "ClaudeAI client · 1 wallet · used yesterday",
@@ -123,24 +148,67 @@ describe("Connections tab", () => {
     expect(within(rowOf("oauth:c1")).queryByText("Instant")).toBeNull();
   });
 
-  it("offers Wallets…, Rename and Remove in the ⋯ menu, never Ask/Instant", async () => {
+  it("groups Telegram bots under one Telegram row, each titled by its app or your name", async () => {
+    await renderTab();
+    const telegram = rowOf("telegram");
+    expect(telegram).toHaveTextContent("Telegram@arixon · 2 bots · 2 wallets");
+    const toggle = within(telegram).getByRole("button", {
+      name: "Hide Telegram bots",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // The bot is titled by its app, its @handle below; no app pill.
+    expect(rowOf("telegram:77")).toHaveTextContent(
+      "HooditInstant@HooditBot · 1 wallet · used 2 h ago",
+    );
+    expect(within(rowOf("telegram:77")).getAllByText("Hoodit")).toHaveLength(1);
+    // A bot you renamed keeps your name.
+    expect(rowOf("telegram:78")).toHaveTextContent(
+      "Markets@MarketsBot · 1 wallet",
+    );
+    fireEvent.click(toggle);
+    expect(rowOf("telegram:77")).toBeNull();
+    expect(
+      within(telegram).getByRole("button", { name: "Show Telegram bots" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("offers Manage, Rename and Disconnect in the ⋯ menu, never Ask/Instant", async () => {
     await renderTab();
     const names = (menu: HTMLElement) =>
       Array.from(menu.querySelectorAll('[role^="menuitem"]')).map(
-        (item) => item.querySelector("span")?.textContent,
+        (item) => item.textContent,
       );
-    expect(names(menuOf("Aomi"))).toEqual(["Wallets…"]);
-    fireEvent.keyDown(document.activeElement ?? document.body, {
-      key: "Escape",
-    });
-    expect(names(menuOf("Claude"))).toEqual(["Wallets…", "Rename", "Remove"]);
+    const close = () =>
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: "Escape",
+      });
+    expect(names(menuOf("Aomi"))).toEqual(["Manage"]);
+    close();
+    const claude = menuOf("Claude");
+    expect(names(claude)).toEqual(["Manage", "Rename", "Disconnect"]);
+    // Disconnect is destructive: last, after a separator.
+    expect(claude.lastElementChild?.previousElementSibling).toHaveAttribute(
+      "role",
+      "separator",
+    );
+    close();
+    // A bot is disconnected with Telegram as a whole.
+    expect(names(menuOf("@HooditBot"))).toEqual(["Manage", "Rename"]);
+    close();
+    expect(names(menuOf("Telegram"))).toEqual([
+      "Manage",
+      "Disconnect Telegram",
+    ]);
   });
 
-  it("edits one connection's wallets in the Wallets… sheet, Instant only after a confirm", async () => {
+  it("edits one connection's wallets in its Manage sheet", async () => {
     await renderTab();
-    fireEvent.click(within(menuOf("@HooditBot")).getByText("Wallets…"));
+    fireEvent.click(within(menuOf("@HooditBot")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
-    expect(sheet).toHaveTextContent("Telegram @arixon · locked to Hoodit");
+    expect(sheet).toHaveTextContent(
+      "Hoodit@HooditBot · Telegram bot · locked to Hoodit",
+    );
+    expect(within(sheet).getByText("Wallets it can use")).toBeInTheDocument();
     const trading = await within(sheet).findByRole("checkbox", {
       name: "Allow Trading",
     });
@@ -161,7 +229,7 @@ describe("Connections tab", () => {
 
   it("greys out Instant under a ceiling", async () => {
     await renderTab();
-    fireEvent.click(within(menuOf("Claude")).getByText("Wallets…"));
+    fireEvent.click(within(menuOf("Claude")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
     expect(
       await within(sheet).findByText(/asks before every trade/),
@@ -174,21 +242,30 @@ describe("Connections tab", () => {
     ).toBeDisabled();
   });
 
-  it("renames inline and removes an OAuth client after a confirm", async () => {
+  it("renames in a dialog and disconnects an OAuth client after a confirm", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("Claude")).getByText("Rename"));
-    const input = screen.getByRole("textbox", { name: "Name for Claude" });
+    const rename = await screen.findByRole("dialog", { name: "Rename connection" });
+    const input = within(rename).getByRole("textbox", { name: "Name" });
+    expect(input).toHaveValue("Claude");
     fireEvent.change(input, { target: { value: "  Laptop  " } });
-    await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
+    await act(async () => fireEvent.submit(input));
     expect(writes().at(-1)).toMatchObject({ body: { label: "Laptop" } });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Rename connection" }),
+      ).toBeNull(),
+    );
 
-    fireEvent.click(within(menuOf("Claude")).getByText("Remove"));
+    fireEvent.click(within(menuOf("Claude")).getByText("Disconnect"));
     const dialog = await screen.findByRole("alertdialog", {
-      name: "Remove Claude?",
+      name: "Disconnect Claude?",
     });
-    expect(dialog).toHaveTextContent("It has to connect again.");
+    expect(dialog).toHaveTextContent("has to connect again");
     await act(async () =>
-      fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "Disconnect" }),
+      ),
     );
     expect(writes().at(-1)).toMatchObject({
       method: "DELETE",
@@ -196,14 +273,39 @@ describe("Connections tab", () => {
     });
   });
 
-  it("unlinks Telegram after a confirm", async () => {
+  it("offers Rename and Disconnect as rows in the Manage sheet", async () => {
     await renderTab();
-    fireEvent.click(within(menuOf("@HooditBot")).getByText("Unlink Telegram"));
+    fireEvent.click(within(menuOf("Claude")).getByText("Manage"));
+    const sheet = await screen.findByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Rename" }));
+    expect(
+      screen.getByRole("dialog", { name: "Rename connection" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(within(menuOf("Claude")).getByText("Manage"));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Disconnect",
+      }),
+    );
+    expect(
+      await screen.findByRole("alertdialog", { name: "Disconnect Claude?" }),
+    ).toBeInTheDocument();
+  });
+
+  it("disconnects Telegram after a confirm", async () => {
+    await renderTab();
+    fireEvent.click(
+      within(menuOf("Telegram")).getByText("Disconnect Telegram"),
+    );
     const dialog = await screen.findByRole("alertdialog", {
-      name: "Unlink Telegram?",
+      name: "Disconnect Telegram?",
     });
     await act(async () =>
-      fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" })),
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "Disconnect" }),
+      ),
     );
     expect(writes().at(-1)).toMatchObject({
       method: "DELETE",

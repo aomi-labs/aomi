@@ -574,6 +574,7 @@ export type AomiAccountConnection = {
     kind: AomiConnectionKind;
     name: string;
     detail: string | null;
+    telegram: AomiConnectionTelegram | null;
     application: AomiConnectionApp | null;
     ceiling: "ask" | null;
     wallets: AomiConnectionWallet[];
@@ -1048,6 +1049,12 @@ export type AomiConnectionSettings = Pick<AomiAccountConnection, "key" | "last_u
 // @public
 export type AomiConnectionSettingsUpdate = {
     label?: string | null;
+};
+
+// @public (undocumented)
+export type AomiConnectionTelegram = {
+    user: string | null;
+    bot: string;
 };
 
 // @public

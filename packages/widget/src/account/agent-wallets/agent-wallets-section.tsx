@@ -13,15 +13,20 @@ import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
-import { ActionsMenu, Divider } from "@/account/account-management/controls";
+import { Divider } from "@/account/account-management/controls";
 import { AgentWalletRow, type AgentWalletActions } from "./agent-wallet-row";
 import { holdsFunds, shownWallets, walletRows } from "./agent-wallet-model";
 import { useRefreshWallets } from "./use-refresh-wallets";
 
 // Opened on demand, so they (and the QR encoder) load only then.
-const AgentWalletDetails = lazy(() =>
-  import("./agent-wallet-details").then((module) => ({
-    default: module.AgentWalletDetails,
+const AgentWalletManage = lazy(() =>
+  import("./agent-wallet-manage").then((module) => ({
+    default: module.AgentWalletManage,
+  })),
+);
+const AllAgentWallets = lazy(() =>
+  import("./all-agent-wallets").then((module) => ({
+    default: module.AllAgentWallets,
   })),
 );
 const AgentWalletWithdraw = lazy(() =>
@@ -31,7 +36,7 @@ const AgentWalletWithdraw = lazy(() =>
 );
 
 type Sheet =
-  | { kind: "details" | "withdraw"; wallet: AomiAgentWallet }
+  | { kind: "manage" | "withdraw"; wallet: AomiAgentWallet }
   | { kind: "all" }
   | { kind: "archive"; wallet: AomiAgentWallet; funded: boolean };
 
@@ -44,21 +49,19 @@ const ERRORS: Record<string, string> = {
 /**
  * Settings › Account › Agent wallets: the band at the bottom of Wallets &
  * access. The three most recently used wallets (the active one always in),
- * "Show all N" for the rest, and archived ones collapsed. Pause all lives on
- * the band's ⋯ and in the Show all sheet.
+ * "Show all N" in the band, and archived ones collapsed. Pause all lives in
+ * the Show all sheet.
  */
 export function AgentWalletsSection({
   rows,
   pending: kitPending,
   onActivate,
-  onUse,
 }: {
   /** The wallet kit's rows; agent rows carry Active and the pick. */
   rows: readonly WalletRow[];
   /** A wallet-kit step in flight (activating a row). */
   pending: string | null;
   onActivate?: (row: WalletRow) => void;
-  onUse?: (rows: WalletRow[]) => void;
 }) {
   const { client } = useShellTransport();
   const query = useDisplayQuery(agentWalletsQuery(client));
@@ -119,9 +122,7 @@ export function AgentWalletsSection({
   };
 
   const actions: AgentWalletActions = {
-    onDetails: (wallet) => setSheet({ kind: "details", wallet }),
-    onUse,
-    onWithdraw: (wallet) => setSheet({ kind: "withdraw", wallet }),
+    onManage: (wallet) => setSheet({ kind: "manage", wallet }),
     onRename: (wallet, name) => update(wallet, { name }),
     onPause: (wallet, paused) => void update(wallet, { paused }),
     onArchive: (wallet, archived) =>
@@ -170,32 +171,14 @@ export function AgentWalletsSection({
             : "Hosted by Aomi · it signs when a connection is allowed to"
         }
         action={
-          data.wallets.length ? (
-            <ActionsMenu
-              label="Actions for agent wallets"
-              disabled={pending !== null}
-              busy={busy === "agent:all"}
-              items={[
-                data.pause_all
-                  ? {
-                      label: "Resume all",
-                      onSelect: () => pauseAll(false, data),
-                    }
-                  : {
-                      label: "Pause all",
-                      detail: "Nothing signs until you resume",
-                      onSelect: () => pauseAll(true, data),
-                    },
-                ...(live.length
-                  ? [
-                      {
-                        label: `Show all ${live.length}`,
-                        onSelect: () => setSheet({ kind: "all" }),
-                      },
-                    ]
-                  : []),
-              ]}
-            />
+          live.length ? (
+            <button
+              type="button"
+              onClick={() => setSheet({ kind: "all" })}
+              className="type-meta text-aomi-accent-strong hover:text-aomi-fg rounded-[6px] px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2"
+            >
+              Show all {live.length}
+            </button>
           ) : undefined
         }
       />
@@ -205,15 +188,6 @@ export function AgentWalletsSection({
         </p>
       ) : null}
       {shown.map(row)}
-      {live.length > shown.length ? (
-        <button
-          type="button"
-          onClick={() => setSheet({ kind: "all" })}
-          className="border-aomi-border text-aomi-accent-strong hover:bg-aomi-hover type-control flex min-h-11 w-full items-center justify-center border-t outline-none transition-colors"
-        >
-          Show all {live.length} agent wallets
-        </button>
-      ) : null}
       {!live.length ? (
         <p className="type-control text-aomi-muted px-3.5 py-3">
           None yet. Create one with Add a wallet.
@@ -243,22 +217,26 @@ export function AgentWalletsSection({
         </>
       ) : null}
 
-      {sheet?.kind === "all" ? (
-        <AllAgentWallets
-          wallets={live}
-          pausedAll={data.pause_all}
-          busy={busy === "agent:all"}
-          onPauseAll={(paused) => pauseAll(paused, data)}
-          onClose={() => setSheet(null)}
-          renderRow={row}
-        />
-      ) : null}
       <Suspense fallback={null}>
-        {sheet?.kind === "details" && current ? (
-          <AgentWalletDetails
+        {sheet?.kind === "all" ? (
+          <AllAgentWallets
+            wallets={live}
+            pausedAll={data.pause_all}
+            busy={busy === "agent:all"}
+            onPauseAll={(paused) => pauseAll(paused, data)}
+            onClose={() => setSheet(null)}
+            renderRow={row}
+          />
+        ) : null}
+        {sheet?.kind === "manage" && current ? (
+          <AgentWalletManage
             wallet={current}
+            pausedAll={data.pause_all}
+            pending={pending !== null}
             onClose={() => setSheet(null)}
             onWithdraw={() => setSheet({ kind: "withdraw", wallet: current })}
+            onRename={(name) => actions.onRename(current, name)}
+            onPause={(paused) => actions.onPause(current, paused)}
             onArchive={(archive) => actions.onArchive(current, archive)}
           />
         ) : null}
@@ -301,78 +279,5 @@ export function AgentWalletsSection({
         </ConfirmDialog>
       ) : null}
     </div>
-  );
-}
-
-/** "Show all N": every unarchived wallet with search, and Pause all. */
-function AllAgentWallets({
-  wallets,
-  pausedAll,
-  busy,
-  onPauseAll,
-  onClose,
-  renderRow,
-}: {
-  wallets: readonly AomiAgentWallet[];
-  pausedAll: boolean;
-  busy: boolean;
-  onPauseAll: (paused: boolean) => void;
-  onClose: () => void;
-  renderRow: (wallet: AomiAgentWallet) => ReactNode;
-}) {
-  const [search, setSearch] = useState("");
-  const needle = search.trim().toLowerCase();
-  const matches = wallets.filter(
-    (wallet) =>
-      !needle ||
-      wallet.name.toLowerCase().includes(needle) ||
-      wallet.app?.label.toLowerCase().includes(needle) ||
-      wallet.addresses.some((address) =>
-        address.address.toLowerCase().includes(needle),
-      ),
-  );
-  return (
-    <AomiSheet onClose={onClose}>
-      <SheetHeader
-        title="Agent wallets"
-        description={`${wallets.length} wallets · most recently used first`}
-        onClose={onClose}
-      />
-      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-5 pb-5">
-        <ListGroup>
-          <ListRow
-            title="Pause all"
-            description="Nothing signs from any agent wallet until you resume"
-            trailing={
-              <Switch
-                aria-label="Pause all agent wallets"
-                checked={pausedAll}
-                disabled={busy}
-                onCheckedChange={onPauseAll}
-              />
-            }
-          />
-        </ListGroup>
-        <label className="border-aomi-border rounded-control focus-within:border-aomi-muted flex h-9 items-center gap-2 border px-3">
-          <Search className="text-aomi-muted size-4 shrink-0" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name, app or address"
-            aria-label="Search agent wallets"
-            className="type-control text-aomi-fg placeholder:text-aomi-muted min-w-0 flex-1 bg-transparent outline-none"
-          />
-        </label>
-        <div className="border-aomi-border bg-aomi-raised rounded-card overflow-hidden border">
-          {matches.length ? (
-            matches.map(renderRow)
-          ) : (
-            <p className="type-control text-aomi-muted px-3.5 py-3">
-              No agent wallet matches.
-            </p>
-          )}
-        </div>
-      </div>
-    </AomiSheet>
   );
 }

@@ -201,18 +201,6 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
                       )
                   : undefined
               }
-              onUse={
-                activateWallet
-                  ? (rows) =>
-                      void run(
-                        `activate:${rows[0]?.key}`,
-                        async () => {
-                          for (const row of rows) await activateWallet(row.key);
-                        },
-                        false,
-                      )
-                  : undefined
-              }
             />
           ) : undefined
         }

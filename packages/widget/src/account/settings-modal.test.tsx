@@ -93,7 +93,7 @@ describe("SettingsModal directory shell", () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(screen.getByText("Account content")).toBeTruthy();
+    expect(await screen.findByText("Account content")).toBeTruthy();
     expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));

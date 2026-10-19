@@ -413,18 +413,21 @@ const ThreadListItemMenu: FC<{
             Rename
           </button>
         )}
+        {onRename ? (
+          <div role="separator" className="bg-aomi-border mx-1 my-1 h-px" />
+        ) : null}
         <ThreadListItemPrimitive.Archive asChild>
           <button
             type="button"
             disabled={!saved}
             data-testid={testIds.archive}
-            className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-danger hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();
               onOpenChange(false);
             }}
           >
-            <ArchiveIcon className="text-aomi-muted size-4" />
+            <ArchiveIcon className="text-aomi-danger size-4" />
             Archive
           </button>
         </ThreadListItemPrimitive.Archive>

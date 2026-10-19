@@ -20,6 +20,28 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-19 — ACCOUNT & CONNECTIONS UI KIT (branch `feat/agent-wallets`).
+  One menu: `ActionsMenu` items are `{label, icon, danger?}` (no subtext, no
+  "…"), danger always last after a divider. Every rename is a dialog
+  (`useRenameDialog`, body lazy in `ui/aomi/rename-dialog-body.tsx`;
+  `ConfirmDialog` and it share `DialogFrame`). Expandable rows get an
+  `ExpandToggle` chevron gutter; a login or agent wallet with one address
+  renders as a single `AddressRow`; parents read `N addresses · state`.
+  Words: Manage, Make active, Rename, Sign out on this device, Archive,
+  Remove from account, Disconnect. Agent wallet: Details → `AgentWalletManage`
+  (Receive row → Receive step with family tabs only for two families, Who can
+  use it + "Manage in Connections" via `SettingsNavContext`, Withdraw / Rename
+  / Pause rows, Archive alone); band ⋯ gone ("Show all N" link, Pause all in
+  the lazy Show all sheet). Connections: Telegram bots grouped under one
+  Telegram row (bot title = app label unless renamed, @handle in subtext);
+  connections carry `telegram: {user, bot}`; Wallets… → `ConnectionManage`
+  with Rename / Disconnect rows. Add a wallet: "Agent wallet" section.
+  Thread ⋯: divider + red Archive. The Account tab now loads lazily like
+  Connections (host-composition 340,426 / 358,400 gzip). Families stay the
+  app's choice (`[wallets] families`); migrated Hoodit stays EVM-only.
+  Known, pre-existing: dev "setState while rendering" warning from
+  `useDisplayQuery` (react `display-cache.tsx:254`) under AgentWalletsSection.
+
 2026-10-19 — WALLET ACCESS REWORK (FRONTEND): MANY AGENT WALLETS, PAIRS
   (branch `feat/agent-wallets`; `notes/rework-contract.md` §5, §7-FE, §8).
   Client: `client.account.wallets.agentWallets()` / `createAgentWallet` /

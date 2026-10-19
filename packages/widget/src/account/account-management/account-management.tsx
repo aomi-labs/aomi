@@ -1,16 +1,23 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
-import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import { LogOut, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
+import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
-import { Divider, IconButton, TextButton } from "./controls";
+import {
+  ActionsMenu,
+  Divider,
+  TextButton,
+  copyText,
+  type MenuItem,
+} from "./controls";
 import { SignsWithStrip } from "./signs-with";
 import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
@@ -56,8 +63,7 @@ export function AccountManagement({
   agentWallets,
   ...rowHandlers
 }: AccountManagementProps) {
-  const [editingName, setEditingName] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const { rename, dialog } = useRenameDialog();
   const { wallets, logins } = walletSections(rows, unlinked, signInMethods);
   const handlers = { pending, ...rowHandlers };
   const visibleName = accountDisplayName(user, displayEmailHint);
@@ -67,45 +73,31 @@ export function AccountManagement({
       ? `${user.email} · ${walletSummary}`
       : walletSummary;
 
-  const saveName = async () => {
-    if (!onRenameAccount) return;
-    await onRenameAccount(displayName.trim());
-    setEditingName(false);
-  };
-
-  const cancelNameEdit = () => {
-    setDisplayName(user?.displayName ?? "");
-    setEditingName(false);
-  };
-
-  const renameActions = editingName ? (
-    <div className="flex items-center gap-1.5">
-      <IconButton
-        label="Save account name"
-        busy={pending === "account:rename"}
-        onClick={() => void saveName()}
-      >
-        <Check />
-      </IconButton>
-      <IconButton
-        label="Cancel account name edit"
-        disabled={pending === "account:rename"}
-        onClick={cancelNameEdit}
-      >
-        <X />
-      </IconButton>
-    </div>
-  ) : onRenameAccount ? (
-    <IconButton
-      label="Rename account"
-      onClick={() => {
-        setDisplayName(user?.displayName ?? "");
-        setEditingName(true);
-      }}
-    >
-      <Pencil />
-    </IconButton>
-  ) : null;
+  const profileItems: MenuItem[] = [];
+  if (onRenameAccount)
+    profileItems.push({
+      label: "Rename",
+      icon: Pencil,
+      onSelect: () =>
+        rename({
+          title: "Rename account",
+          description: "How your account appears in Aomi.",
+          value: user?.displayName ?? "",
+          placeholder: visibleName,
+          maxLength: 64,
+          allowEmpty: true,
+          onSave: async (name) => {
+            await onRenameAccount(name);
+          },
+        }),
+    });
+  const email = user?.email;
+  if (email)
+    profileItems.push({
+      label: "Copy email",
+      icon: Mail,
+      onSelect: () => copyText(email),
+    });
 
   return (
     <div className="flex flex-col gap-5">
@@ -123,26 +115,18 @@ export function AccountManagement({
         <ListGroup>
           <ListRow
             leading={<AccountAvatar seed={user?.id} size={32} />}
-            title={
-              editingName ? (
-                <input
-                  autoFocus
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void saveName();
-                    if (event.key === "Escape") cancelNameEdit();
-                  }}
-                  aria-label="Account display name"
-                  disabled={pending === "account:rename"}
-                  className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted type-row rounded-control h-7 w-full max-w-64 border px-2 outline-none transition-colors"
-                />
-              ) : (
-                visibleName
-              )
-            }
+            title={visibleName}
             description={accountDetail}
-            trailing={renameActions}
+            trailing={
+              profileItems.length ? (
+                <ActionsMenu
+                  label="Actions for your account"
+                  items={profileItems}
+                  disabled={pending !== null}
+                  busy={pending === "account:rename"}
+                />
+              ) : null
+            }
           />
         </ListGroup>
       </section>
@@ -246,6 +230,7 @@ export function AccountManagement({
           </ListGroup>
         </section>
       ) : null}
+      {dialog}
     </div>
   );
 }

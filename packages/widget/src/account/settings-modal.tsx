@@ -28,14 +28,18 @@ import {
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
 import { GeneralSettings } from "./general-settings";
-import { AccountSettings } from "./account-settings";
 import { UsageSettings } from "@/account/usage/usage-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
-import type { SettingsTab } from "./settings-events";
+import { SettingsNavContext, type SettingsTab } from "./settings-events";
 
-// Loads with the tab, off the host bundle.
+// Load with their tab, off the host bundle.
+const AccountSettings = lazy(() =>
+  import("./account-settings").then((module) => ({
+    default: module.AccountSettings,
+  })),
+);
 const ConnectionsSettings = lazy(() =>
   import("@/account/connections/connections-settings").then((module) => ({
     default: module.ConnectionsSettings,
@@ -229,7 +233,9 @@ export function SettingsModal({
                 onViewUsage={() => selectTab("usage")}
               />
             ) : id === "account" ? (
-              <AccountSettings onClose={onClose} />
+              <Suspense fallback={<LoadingPane label="Loading your account" />}>
+                <AccountSettings onClose={onClose} />
+              </Suspense>
             ) : id === "connections" ? (
               <Suspense fallback={<LoadingPane label="Loading connections" />}>
                 <ConnectionsSettings />
@@ -274,7 +280,9 @@ export function SettingsModal({
           description={activeNav.description}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          {renderContent()}
+          <SettingsNavContext.Provider value={accountOnly ? null : selectTab}>
+            {renderContent()}
+          </SettingsNavContext.Provider>
         </div>
       </section>
     </ModalShell>

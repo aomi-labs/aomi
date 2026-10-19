@@ -132,23 +132,28 @@ describe("Wallets & access", () => {
   it("shows the login's email, never a placeholder, on Privy", () => {
     const withEmail = { ...privyEvm, loginEmail: "aron@megyeri.eu" };
     const { unmount } = renderSettings([withEmail]);
-    const provider = document.querySelector("[data-wallet-provider=privy]")!;
-    // The login card names the email; its wallet row is "Privy", with the
-    // email after the address.
+    const provider = document.querySelector(
+      "[data-wallet-provider=privy]",
+    ) as HTMLElement;
+    // One address: the login is that address row, "Privy" with the email
+    // after the address, and nothing to expand.
     expect(
-      within(provider as HTMLElement).getByText("aron@megyeri.eu"),
-    ).toBeInTheDocument();
+      within(provider).queryByRole("button", { name: /Privy addresses/ }),
+    ).toBeNull();
+    expect(provider.querySelectorAll("[data-wallet-row]")).toHaveLength(1);
     expect(within(rowFor(withEmail)).getByText("Privy")).toBeInTheDocument();
     expect(rowFor(withEmail).textContent).toContain("· aron@megyeri.eu ·");
     unmount();
 
-    renderSettings([privyEvm], {
+    renderSettings([privyEvm, privySvm], {
       signInMethods: [
         { ...privy, email: undefined, displayLabel: "privy user" },
       ],
     });
-    expect(screen.queryByText("privy user")).not.toBeInTheDocument();
-    expect(screen.getByText("Signed in with Privy")).toBeInTheDocument();
+    expect(screen.queryByText(/privy user/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("2 addresses · signed in here"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
@@ -224,50 +229,62 @@ describe("Wallets & access", () => {
       .getAllByRole("menuitem")
       .map((item) => item.textContent);
     expect(items).toEqual([
-      "Use this walletOpens Rabby's account switch",
+      "Make active",
       "Rename",
       "Copy address",
       "View on explorer",
-      `Remove from account${shortAddress(trading.address)} stops signing you in`,
+      "Remove from account",
     ]);
+    // The destructive item sits alone after a separator.
+    const menu = screen.getByRole("menu");
+    expect(menu.lastElementChild?.previousElementSibling).toHaveAttribute(
+      "role",
+      "separator",
+    );
 
     openMenu(main, "Main");
     expect(
-      screen.getByRole("menuitem", { name: "Disconnect on this device" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual([
+      "Rename",
+      "Copy address",
+      "View on explorer",
+      "Sign out on this device",
+      "Remove from account",
+    ]);
     fireEvent.click(
-      screen.getByRole("menuitem", { name: /Remove from account/ }),
+      screen.getByRole("menuitem", { name: "Remove from account" }),
     );
     expect(onRemove).toHaveBeenCalledWith(main);
   });
 
-  it("renames inline: Enter saves, Escape cancels", async () => {
+  it("renames in a dialog: Cancel discards, Enter saves", async () => {
     const onRename = vi.fn(async () => true);
     renderSettings([main], { onRename });
     openMenu(main, "Main");
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const input = screen.getByRole("textbox", {
-      name: `Name for ${shortAddress(main.address)}`,
-    });
+    const dialog = await screen.findByRole("dialog", { name: "Rename wallet" });
+    const input = within(dialog).getByRole("textbox", { name: "Name" });
+    expect(input).toHaveValue("Main");
+    // Unchanged, there is nothing to save.
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "Savings" } });
-    fireEvent.keyDown(input, { key: "Escape" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(onRename).not.toHaveBeenCalled();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
 
     openMenu(main, "Main");
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const again = screen.getByRole("textbox", {
-      name: `Name for ${shortAddress(main.address)}`,
-    });
+    const again = await screen.findByRole("textbox", { name: "Name" });
     fireEvent.change(again, { target: { value: "Savings" } });
     await act(async () => {
-      fireEvent.keyDown(again, { key: "Enter" });
+      fireEvent.submit(again);
     });
     expect(onRename).toHaveBeenCalledWith(main, "Savings");
-    expect(screen.queryByRole("textbox", { name: /Name for/ })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("gives embedded wallets Use, Rename, Copy and View on explorer only", () => {
+  it("gives embedded wallets Make active, Rename, Copy and View on explorer only", () => {
     renderSettings([privyEvm, privySvm], {
       onRename: vi.fn(async () => true),
       onRemove: vi.fn(),
@@ -276,29 +293,33 @@ describe("Wallets & access", () => {
     openMenu(privyEvm, "Privy");
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual([
-      "Use this wallet",
-      "Rename",
-      "Copy address",
-      "View on explorer",
-    ]);
+    ).toEqual(["Make active", "Rename", "Copy address", "View on explorer"]);
   });
 
   it("offers sign-out and removal on the provider menu", () => {
     const onSignOutProvider = vi.fn();
     const onRemoveLogin = vi.fn();
     renderSettings([privyEvm, privySvm], { onSignOutProvider, onRemoveLogin });
-    expect(screen.getByText("aron@megyeri.eu")).toBeInTheDocument();
+    expect(
+      screen.getByText("2 addresses · signed in here · aron@megyeri.eu"),
+    ).toBeInTheDocument();
+    // Open while one of its addresses is Active; the chevron folds it.
+    const toggle = screen.getByRole("button", {
+      name: "Hide Privy addresses",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(rowFor(privySvm)).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(rowFor(privySvm)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show Privy addresses" }),
+    ).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: "Actions for Privy" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual([
-      "Sign out of Privy on this deviceStays in your account",
-      "Copy email",
-      "Remove Privy from accountIts 2 addresses are removed too",
-    ]);
+    ).toEqual(["Copy email", "Sign out on this device", "Remove from account"]);
     fireEvent.click(
-      screen.getByRole("menuitem", { name: /Sign out of Privy/ }),
+      screen.getByRole("menuitem", { name: "Sign out on this device" }),
     );
     expect(onSignOutProvider).toHaveBeenCalledTimes(1);
   });
@@ -310,18 +331,29 @@ describe("Wallets & access", () => {
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 
-  it("edits the account name in place", async () => {
+  it("renames the account from the profile menu", async () => {
     const onRenameAccount = vi.fn(async () => undefined);
-    renderSettings([], { onRenameAccount, signInMethods: [] });
-    fireEvent.click(screen.getByRole("button", { name: "Rename account" }));
-    const input = screen.getByRole("textbox", { name: "Account display name" });
+    renderSettings([], {
+      onRenameAccount,
+      signInMethods: [],
+      user: { id: "user-1", displayName: "Aron", email: "aron@megyeri.eu" },
+    });
+    expect(screen.queryByRole("button", { name: "Rename account" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for your account" }),
+    );
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Rename", "Copy email"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    const dialog = await screen.findByRole("dialog", { name: "Rename account" });
+    const input = within(dialog).getByRole("textbox", { name: "Name" });
     fireEvent.change(input, { target: { value: "Aron Aomi" } });
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Save account name" }),
-      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     });
     expect(onRenameAccount).toHaveBeenCalledWith("Aron Aomi");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("uses the verified email over a generated provider name", () => {

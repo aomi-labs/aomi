@@ -99,18 +99,24 @@ export function ChooseStep({
           <SheetAlert>{error ?? flow.error ?? kit.accountError}</SheetAlert>
         ) : null}
         {agent ? (
-          <ListGroup>
-            <ChoiceRow
-              leading={
-                <span className="flex size-8 shrink-0 items-center justify-center">
-                  <AomiMark size={18} className="text-aomi-fg" />
-                </span>
-              }
-              title="New agent wallet"
-              description="Hosted by Aomi · EVM + Solana · no extension"
-              onClick={flow.newAgentWallet}
-            />
-          </ListGroup>
+          <section className="flex flex-col gap-2">
+            <SectionHeader title="Agent wallet" detail="Hosted by Aomi" />
+            <ListGroup>
+              <ChoiceRow
+                leading={
+                  <span
+                    aria-hidden
+                    className="flex size-8 shrink-0 items-center justify-center"
+                  >
+                    <AomiMark size={20} className="text-aomi-fg" />
+                  </span>
+                }
+                title="New agent wallet"
+                description="EVM + Solana, no extension"
+                onClick={flow.newAgentWallet}
+              />
+            </ListGroup>
+          </section>
         ) : null}
         {social.length ? (
           <section className="flex flex-col gap-2">

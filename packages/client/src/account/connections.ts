@@ -25,6 +25,8 @@ export type AomiAccountConnection = {
   name: string;
   /** `Telegram @user` for a bot; null otherwise. */
   detail: string | null;
+  /** A Telegram bot's handles: the linked user (`@user`) and the bot (`@bot`). */
+  telegram: AomiConnectionTelegram | null;
   /** The app this connection is locked to; null when it is open. */
   application: AomiConnectionApp | null;
   /** `ask`: never Instant, whatever its wallets say. */
@@ -40,6 +42,8 @@ export type AomiAccountConnection = {
 };
 
 export type AomiConnectionApp = { id: number; name: string; label: string };
+
+export type AomiConnectionTelegram = { user: string | null; bot: string };
 
 /**
  * A pair: this connection may use agent wallet `id`. An archived wallet's
@@ -201,6 +205,7 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           kind,
           name: stringValue(row.name) ?? key,
           detail: stringValue(row.detail) ?? null,
+          telegram: telegramOf(row.telegram),
           application: appOf(row.application),
           ceiling: row.ceiling === "ask" ? "ask" : null,
           wallets: walletsOf(row.wallets),
@@ -211,6 +216,14 @@ export function parseConnections(value: unknown): AomiAccountConnections {
       ];
     }),
   };
+}
+
+function telegramOf(value: unknown): AomiConnectionTelegram | null {
+  const handles = asRecord(value);
+  const bot = stringValue(handles?.bot);
+  return handles && bot
+    ? { user: stringValue(handles.user) ?? null, bot }
+    : null;
 }
 
 function appOf(value: unknown): AomiConnectionApp | null {

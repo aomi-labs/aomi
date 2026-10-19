@@ -1,8 +1,18 @@
-import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  ChevronRight,
+  CircleCheck,
+  Copy,
+  ExternalLink,
+  LogOut,
+  Mail,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
+import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { explorerUrl } from "@/thread/explorer-links";
 import type { LinkedAuthAccount } from "@/wallet/account/types";
@@ -11,6 +21,8 @@ import {
   ActionsMenu,
   BrandMark,
   CopyButton,
+  ExpandToggle,
+  GutterSpacer,
   copyText,
   type MenuItem,
 } from "./controls";
@@ -43,21 +55,37 @@ export const addressExplorerUrl = (row: WalletRow) =>
     row.address,
   );
 
+/** Left edge of a top-level row: the gutter, then the logo. */
+const TOP = "pl-2";
+/** A child row's logo starts under its parent's name. */
+const CHILD = "pl-16";
+
 /**
  * One address. Clicking it makes it Active (or verifies it when it is not in
- * the account yet); a row that needs a step says which on hover.
+ * the account yet); a row that needs a step says which on hover. A wallet
+ * or login with a single address renders as one of these, passing its own
+ * `title` and `menu`.
  */
 export function AddressRow({
   row,
   nested = false,
+  title: titleNode,
+  menu,
   pending,
   onActivate,
   onVerify,
   onRename,
   onDisconnect,
   onRemove,
-}: WalletRowHandlers & { row: WalletRow; nested?: boolean }) {
-  const [draft, setDraft] = useState<string | null>(null);
+}: WalletRowHandlers & {
+  row: WalletRow;
+  nested?: boolean;
+  /** Replaces the title line (a single-address wallet shows its own name). */
+  title?: ReactNode;
+  /** Rewrites the ⋯ items, e.g. to add a wallet's or login's actions. */
+  menu?: (items: MenuItem[]) => MenuItem[];
+}) {
+  const { rename, dialog } = useRenameDialog();
   const short = shortAddress(row.address);
   const { title, app: titleApp } = rowTitle(row);
   const email = rowEmail(row);
@@ -67,46 +95,56 @@ export function AddressRow({
   const external = !nested;
   const app = appName(row);
 
-  const save = async () => {
-    if (draft === null || !onRename) return;
-    if (await onRename(row, draft.trim() || null)) setDraft(null);
-  };
-
   const items: MenuItem[] = [];
   if (row.linked && !row.active && onActivate)
     items.push({
-      label: "Use this wallet",
-      detail:
-        row.pendingStep === "switch"
-          ? `Opens ${app}'s account switch`
-          : row.pendingStep === "connect"
-            ? `Connects ${app}`
-            : undefined,
+      label: "Make active",
+      icon: CircleCheck,
       onSelect: () => onActivate(row),
     });
   if (row.linkedWalletId && onRename)
-    items.push({ label: "Rename", onSelect: () => setDraft(row.label ?? "") });
-  items.push({ label: "Copy address", onSelect: () => copyText(row.address) });
+    items.push({
+      label: "Rename",
+      icon: Pencil,
+      onSelect: () =>
+        rename({
+          title: "Rename wallet",
+          description: `Only you see this name. Leave it empty to show "${app}".`,
+          value: row.label ?? "",
+          placeholder: app,
+          allowEmpty: true,
+          onSave: (label) => onRename(row, label || null),
+        }),
+    });
+  items.push({
+    label: "Copy address",
+    icon: Copy,
+    onSelect: () => copyText(row.address),
+  });
   const explorer = addressExplorerUrl(row);
-  if (explorer) items.push({ label: "View on explorer", href: explorer });
-  const tail: MenuItem[] = [];
+  if (explorer)
+    items.push({
+      label: "View on explorer",
+      icon: ExternalLink,
+      href: explorer,
+    });
   if (
     external &&
     row.actions.some((action) => action.kind === "disconnect") &&
     onDisconnect
   )
-    tail.push({
-      label: "Disconnect on this device",
+    items.push({
+      label: "Sign out on this device",
+      icon: LogOut,
       onSelect: () => onDisconnect(row),
     });
   if (external && row.linkedWalletId && onRemove)
-    tail.push({
+    items.push({
       label: "Remove from account",
-      detail: `${short} stops signing you in`,
+      icon: Trash2,
       danger: true,
       onSelect: () => onRemove(row),
     });
-  if (tail.length) items.push("divider", ...tail);
 
   const click = !row.linked
     ? onVerify
@@ -121,21 +159,7 @@ export function AddressRow({
         dot={row.connected || row.kind === "agent" ? "on" : "off"}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        {draft !== null ? (
-          <input
-            autoFocus
-            value={draft}
-            placeholder={app}
-            aria-label={`Name for ${short}`}
-            disabled={busy}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void save();
-              if (event.key === "Escape") setDraft(null);
-            }}
-            className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted type-row rounded-control h-7 w-full max-w-56 border px-2 outline-none transition-colors"
-          />
-        ) : (
+        {titleNode ?? (
           <span className="type-row flex min-w-0 items-baseline gap-1.5">
             <span className="truncate">{title}</span>
             {titleApp ? (
@@ -155,7 +179,7 @@ export function AddressRow({
   );
   const mainClass = cn(
     "flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 pr-2 text-left outline-none",
-    nested ? "pl-10" : "pl-3.5",
+    nested && CHILD,
   );
 
   return (
@@ -164,6 +188,7 @@ export function AddressRow({
       data-active={row.active || undefined}
       className={cn(
         "group relative flex min-h-14 items-center transition-colors",
+        !nested && cn(TOP, "gap-3"),
         row.active
           ? "bg-aomi-success/[0.045]"
           : click &&
@@ -176,7 +201,8 @@ export function AddressRow({
           aria-hidden="true"
         />
       ) : null}
-      {click && draft === null ? (
+      {nested ? null : <GutterSpacer />}
+      {click ? (
         <button
           type="button"
           aria-label={
@@ -218,15 +244,19 @@ export function AddressRow({
         <CopyButton value={row.address} label={`Copy address ${row.address}`} />
         <ActionsMenu
           label={`Actions for ${title} ${short}`}
-          items={items}
+          items={menu ? menu(items) : items}
           disabled={locked}
         />
       </div>
+      {dialog}
     </div>
   );
 }
 
-/** A Para or Privy login, with its addresses nested under it. */
+/**
+ * A Para or Privy login. With several addresses it is a parent row that
+ * expands to them (open while one is Active); with one, it is that address.
+ */
 export function LoginRows({
   group,
   onSignOutProvider,
@@ -237,28 +267,31 @@ export function LoginRows({
   onSignOutProvider?: (group: LoginGroup) => void;
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
 }) {
+  // Open while it holds the active address, until you toggle it yourself.
+  const [toggled, setOpen] = useState<boolean | null>(null);
+  const open = toggled ?? group.rows.some((row) => row.active);
   const name = providerName(group.provider);
   const email = group.identity?.email;
-  const subtitle = loginSubtitle(group);
   const signedIn = group.rows.some((row) => row.connected);
   const count = group.rows.length;
   const items: MenuItem[] = [];
+  if (email)
+    items.push({
+      label: "Copy email",
+      icon: Mail,
+      onSelect: () => copyText(email),
+    });
   if (signedIn && onSignOutProvider)
     items.push({
-      label: `Sign out of ${name} on this device`,
-      detail: "Stays in your account",
+      label: "Sign out on this device",
+      icon: LogOut,
       onSelect: () => onSignOutProvider(group),
     });
-  if (email)
-    items.push({ label: "Copy email", onSelect: () => copyText(email) });
   if (group.identity && onRemoveLogin) {
-    if (items.length) items.push("divider");
     const identity = group.identity;
     items.push({
-      label: `Remove ${name} from account`,
-      detail: count
-        ? `Its ${count} ${count === 1 ? "address is" : "addresses are"} removed too`
-        : undefined,
+      label: "Remove from account",
+      icon: Trash2,
       danger: true,
       onSelect: () => onRemoveLogin(identity, group),
     });
@@ -267,14 +300,58 @@ export function LoginRows({
     handlers.pending === `provider:${group.key}` ||
     handlers.pending === `remove-login:${group.key}`;
 
+  // One address: the address row is the login, with the login's actions.
+  const only = count === 1 ? group.rows[0] : undefined;
+  if (only)
+    return (
+      <div data-wallet-provider={group.provider}>
+        <AddressRow
+          row={only}
+          {...handlers}
+          menu={(own) => [
+            ...own.filter(
+              (item) =>
+                !item.danger && item.label !== "Sign out on this device",
+            ),
+            ...items,
+          ]}
+        />
+      </div>
+    );
+
   return (
     <div data-wallet-provider={group.provider}>
-      <div className="flex min-h-14 items-center gap-3 py-3 pl-3.5 pr-3">
-        <BrandMark brand={group.provider} dot={signedIn ? "on" : "off"} />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="type-row truncate">{name}</span>
-          <span className="type-meta text-aomi-muted truncate">{subtitle}</span>
-        </div>
+      <div
+        className={cn(
+          "flex min-h-14 items-center gap-3 pr-3",
+          TOP,
+          count > 0 && "hover:bg-aomi-hover transition-colors",
+        )}
+      >
+        {count > 0 ? (
+          <ExpandToggle
+            open={open}
+            label={`${name} addresses`}
+            onToggle={() => setOpen(!open)}
+          />
+        ) : (
+          <GutterSpacer />
+        )}
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={count === 0}
+          onClick={() => setOpen(!open)}
+          className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none disabled:cursor-default"
+        >
+          <BrandMark brand={group.provider} dot={signedIn ? "on" : "off"} />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="type-row truncate">{name}</span>
+            <span className="type-meta text-aomi-muted truncate">
+              {loginSubtitle(group, signedIn)}
+            </span>
+          </span>
+        </button>
         {items.length ? (
           <ActionsMenu
             label={`Actions for ${name}`}
@@ -284,11 +361,13 @@ export function LoginRows({
           />
         ) : null}
       </div>
-      {group.rows.map((row) => (
-        <div key={row.key} className="border-aomi-border border-t">
-          <AddressRow row={row} nested {...handlers} />
-        </div>
-      ))}
+      {open
+        ? group.rows.map((row) => (
+            <div key={row.key} className="border-aomi-border border-t">
+              <AddressRow row={row} nested {...handlers} />
+            </div>
+          ))
+        : null}
     </div>
   );
 }

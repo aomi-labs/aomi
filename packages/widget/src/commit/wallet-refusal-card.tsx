@@ -8,12 +8,12 @@ import { AomiButton } from "@/ui/aomi/button";
 import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery, connectionsQuery } from "@/account/account-queries";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { ConnectionWalletsSheet } from "@/account/connections/connection-wallets-sheet";
+import { ConnectionManage } from "@/account/connections/connection-manage";
 import type { WalletRefusal } from "./wallet-refusal";
 
 /**
  * The card for a refused trade: paused (Resume), archived (Restore) or a
- * connection without access (Allow access → that connection's Wallets…
+ * connection without access (Allow access → that connection's Manage
  * sheet). Nothing was signed in any case.
  */
 export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
@@ -124,7 +124,7 @@ export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
         </AomiButton>
       )}
       {allowing && connection ? (
-        <ConnectionWalletsSheet
+        <ConnectionManage
           connection={connection}
           description="Tick the wallet it may use"
           onClose={() => setAllowing(false)}

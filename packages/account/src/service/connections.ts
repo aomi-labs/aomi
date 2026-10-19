@@ -31,6 +31,8 @@ export type AccountConnection = {
   name: string;
   /** `Telegram @user` for a bot; null otherwise. */
   detail: string | null;
+  /** A Telegram bot's handles: the linked user (`@user`) and the bot (`@bot`). */
+  telegram: { user: string | null; bot: string } | null;
   /** The app this connection is locked to; null when it is open. */
   application: { id: number; name: string; label: string } | null;
   /** `ask`: never Instant. */
@@ -54,7 +56,8 @@ export type AccountConnections = { connections: AccountConnection[] };
 /** The Aomi CLI names its clients `Aomi CLI · <machine>` (older ones `Aomi CLI`). */
 const CLI_CLIENT_NAME = "Aomi CLI";
 const isCliClient = (name: string | null) =>
-  name === CLI_CLIENT_NAME || Boolean(name?.startsWith(`${CLI_CLIENT_NAME} · `));
+  name === CLI_CLIENT_NAME ||
+  Boolean(name?.startsWith(`${CLI_CLIENT_NAME} · `));
 
 type OAuthClient = Awaited<ReturnType<typeof listOAuthConnections>>[number];
 
@@ -99,7 +102,10 @@ export async function listAccountConnections(
     key: string,
     kind: ConnectionKind,
     name: string,
-    rest: Pick<AccountConnection, "detail" | "connected_at" | "removable">,
+    rest: Pick<
+      AccountConnection,
+      "detail" | "telegram" | "connected_at" | "removable"
+    >,
   ): AccountConnection => {
     const setting = saved.get(key);
     return {
@@ -133,6 +139,7 @@ export async function listAccountConnections(
           : (client.name ?? client.clientId),
         {
           detail: null,
+          telegram: null,
           connected_at: Math.min(
             client.connectedAt,
             ...rest.map((other) => other.connectedAt),
@@ -151,6 +158,10 @@ export async function listAccountConnections(
           detail: telegram?.username
             ? `Telegram @${telegram.username}`
             : "Telegram",
+          telegram: {
+            user: telegram?.username ? `@${telegram.username}` : null,
+            bot: bot.label,
+          },
           connected_at: null,
           removable: true,
         }),
@@ -160,6 +171,7 @@ export async function listAccountConnections(
     connections: [
       connection("portal", "portal", "Aomi", {
         detail: null,
+        telegram: null,
         connected_at: null,
         removable: false,
       }),

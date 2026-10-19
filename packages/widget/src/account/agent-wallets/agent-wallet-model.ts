@@ -8,6 +8,7 @@ import {
 import type { WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { usedLabel } from "@/account/connections/connections-settings";
+import { addressCount } from "@/account/account-management/wallet-model";
 
 /** How many agent wallets the Account tab shows before "Show all". */
 export const SHOWN_AGENT_WALLETS = 3;
@@ -49,19 +50,18 @@ export function shownWallets(
 export const pairedConnections = (wallet: AomiAgentWallet) =>
   wallet.connections.filter((connection) => connection.key !== "portal");
 
-/** `used 2 min ago · 2 connections`. */
+/** `2 addresses · used 2 min ago`, the pattern every parent row uses. */
 export function walletSummary(
   wallet: AomiAgentWallet,
   now = Date.now(),
 ): string {
-  const count = pairedConnections(wallet).length;
   return [
+    addressCount(wallet.addresses.length),
     wallet.archived_at !== null
-      ? "Archived"
+      ? "archived"
       : wallet.last_used_at === null
-        ? "Not used yet"
+        ? "not used yet"
         : usedLabel(wallet.last_used_at, now),
-    `${count} ${count === 1 ? "connection" : "connections"}`,
   ].join(" · ");
 }
 

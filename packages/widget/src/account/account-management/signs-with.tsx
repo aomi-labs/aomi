@@ -171,6 +171,66 @@ function FamilySlot({
         )}
       </button>
     );
+  const groups = [
+    {
+      label: "Sign-in wallets",
+      rows: rows.filter((row) => row.kind !== "agent"),
+    },
+    {
+      label: "Agent wallets",
+      rows: rows.filter((row) => row.kind === "agent"),
+    },
+  ];
+  const option = (row: WalletRow) => {
+    const hint = pendingHint(row);
+    const { title, app } = rowTitle(row);
+    return (
+      <button
+        key={row.key}
+        type="button"
+        role="menuitemradio"
+        aria-checked={row.active}
+        onClick={() => {
+          setOpen(false);
+          if (!row.active) onActivate?.(row);
+        }}
+        className="hover:bg-aomi-hover focus:bg-aomi-hover group flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
+      >
+        <BrandMark
+          brand={appName(row)}
+          dot={ready(row) ? "on" : "off"}
+          size={15}
+          box={28}
+        />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="type-control flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate">{title}</span>
+            {app ? (
+              <span className="type-meta text-aomi-muted">{app}</span>
+            ) : null}
+          </span>
+          <span className="type-address text-aomi-muted truncate">
+            {shortAddress(row.address)}
+            {rowEmail(row) ? (
+              <span className="font-sans"> · {rowEmail(row)}</span>
+            ) : null}
+          </span>
+        </span>
+        {row.active ? (
+          <Check className="text-aomi-success size-4 shrink-0" />
+        ) : row.activating ? (
+          <PendingMark className="mx-px" />
+        ) : hint ? (
+          <span
+            data-hint
+            className="type-meta text-aomi-muted pointer-fine:inline hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+          >
+            {hint}
+          </span>
+        ) : null}
+      </button>
+    );
+  };
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -214,56 +274,16 @@ function FamilySlot({
         sideOffset={4}
         className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-[min(20rem,calc(100vw-2rem))] border p-1"
       >
-        {rows.map((row) => {
-          const hint = pendingHint(row);
-          const { title, app } = rowTitle(row);
-          return (
-            <button
-              key={row.key}
-              type="button"
-              role="menuitemradio"
-              aria-checked={row.active}
-              onClick={() => {
-                setOpen(false);
-                if (!row.active) onActivate?.(row);
-              }}
-              className="hover:bg-aomi-hover focus:bg-aomi-hover group flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
-            >
-              <BrandMark
-                brand={appName(row)}
-                dot={ready(row) ? "on" : "off"}
-                size={15}
-                box={28}
-              />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="type-control flex min-w-0 items-baseline gap-1.5">
-                  <span className="truncate">{title}</span>
-                  {app ? (
-                    <span className="type-meta text-aomi-muted">{app}</span>
-                  ) : null}
-                </span>
-                <span className="type-address text-aomi-muted truncate">
-                  {shortAddress(row.address)}
-                  {rowEmail(row) ? (
-                    <span className="font-sans"> · {rowEmail(row)}</span>
-                  ) : null}
-                </span>
-              </span>
-              {row.active ? (
-                <Check className="text-aomi-success size-4 shrink-0" />
-              ) : row.activating ? (
-                <PendingMark className="mx-px" />
-              ) : hint ? (
-                <span
-                  data-hint
-                  className="type-meta text-aomi-muted pointer-fine:inline hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-                >
-                  {hint}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+        {groups.map((group) =>
+          group.rows.length ? (
+            <div key={group.label} role="group" aria-label={group.label}>
+              <div className="type-meta text-aomi-muted px-2 pb-1 pt-1.5 font-medium">
+                {group.label}
+              </div>
+              {group.rows.map(option)}
+            </div>
+          ) : null,
+        )}
         {onAddWallet ? (
           <>
             <div role="separator" className="bg-aomi-border my-1 h-px" />

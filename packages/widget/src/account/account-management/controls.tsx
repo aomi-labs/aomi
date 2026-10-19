@@ -1,5 +1,13 @@
-import { Check, Copy, Ellipsis, Loader2, Wallet } from "lucide-react";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  Ellipsis,
+  Loader2,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
@@ -112,45 +120,21 @@ export function TextButton({
   );
 }
 
-export function IconButton({
-  children,
-  label,
-  busy = false,
-  disabled = false,
-  onClick,
-}: {
-  children: ReactNode;
+export type MenuItem = {
   label: string;
-  busy?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={busy || disabled}
-      onClick={onClick}
-      className={aomiButton({ variant: "ghost", size: "icon" })}
-    >
-      {busy ? <Loader2 className="animate-spin" /> : children}
-    </button>
-  );
-}
+  icon: LucideIcon;
+  /** Destructive: drawn red, always last, after a divider. */
+  danger?: boolean;
+  /** One of a choice; the chosen item is filled. */
+  checked?: boolean;
+  href?: string;
+  onSelect?: () => unknown;
+};
 
-export type MenuItem =
-  | {
-      label: string;
-      detail?: string;
-      danger?: boolean;
-      /** One of a choice; the chosen item is filled. */
-      checked?: boolean;
-      href?: string;
-      onSelect?: () => unknown;
-    }
-  | "divider";
-
-/** The ··· menu on a wallet or login row. */
+/**
+ * The ⋯ menu on a wallet, login or connection row: icon + label rows, with
+ * the destructive item last after a divider whatever order it was given in.
+ */
 export function ActionsMenu({
   label,
   items,
@@ -163,12 +147,55 @@ export function ActionsMenu({
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const itemClass = (danger?: boolean, checked?: boolean) =>
+  const safe = items.filter((item) => !item.danger);
+  const danger = items.filter((item) => item.danger);
+  const itemClass = (item: MenuItem) =>
     cn(
-      "hover:bg-aomi-hover focus:bg-aomi-hover flex w-full flex-col items-start gap-0.5 rounded-[8px] px-3 py-2 text-left outline-none",
-      danger ? "text-aomi-danger" : "text-aomi-fg",
-      checked && "bg-aomi-surface-2",
+      "hover:bg-aomi-hover focus:bg-aomi-hover flex min-h-[34px] w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
+      item.danger ? "text-aomi-danger" : "text-aomi-fg",
+      item.checked && "bg-aomi-surface-2",
     );
+  const row = (item: MenuItem) => {
+    const Icon = item.icon;
+    const body = (
+      <>
+        <Icon
+          className={cn(
+            "size-4 shrink-0",
+            item.danger ? "text-aomi-danger" : "text-aomi-muted",
+          )}
+        />
+        {item.label}
+      </>
+    );
+    return item.href ? (
+      <a
+        key={item.label}
+        role="menuitem"
+        href={item.href}
+        target="_blank"
+        rel="noreferrer"
+        className={itemClass(item)}
+        onClick={() => setOpen(false)}
+      >
+        {body}
+      </a>
+    ) : (
+      <button
+        key={item.label}
+        type="button"
+        role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+        aria-checked={item.checked}
+        className={itemClass(item)}
+        onClick={() => {
+          setOpen(false);
+          void item.onSelect?.();
+        }}
+      >
+        {body}
+      </button>
+    );
+  };
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -192,7 +219,8 @@ export function ActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-52 max-w-[calc(100vw-2rem)] border p-1"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-48 max-w-[calc(100vw-2rem)] border p-1"
+        onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
             return;
@@ -215,59 +243,55 @@ export function ActionsMenu({
           nodes[next]?.focus();
         }}
       >
-        {items.map((item, index) => {
-          if (item === "divider")
-            return (
-              <div
-                key={`divider:${index}`}
-                role="separator"
-                className="bg-aomi-border mx-1 my-1 h-px"
-              />
-            );
-          const body = (
-            <>
-              <span className="type-control">{item.label}</span>
-              {item.detail ? (
-                <span className="type-meta text-aomi-muted">{item.detail}</span>
-              ) : null}
-            </>
-          );
-          return (
-            <Fragment key={item.label}>
-              {item.href ? (
-                <a
-                  role="menuitem"
-                  href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={itemClass(item.danger)}
-                  onClick={() => setOpen(false)}
-                >
-                  {body}
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  role={
-                    item.checked === undefined ? "menuitem" : "menuitemradio"
-                  }
-                  aria-checked={item.checked}
-                  className={itemClass(item.danger, item.checked)}
-                  onClick={() => {
-                    setOpen(false);
-                    void item.onSelect?.();
-                  }}
-                >
-                  {body}
-                </button>
-              )}
-            </Fragment>
-          );
-        })}
+        {safe.map(row)}
+        {safe.length && danger.length ? (
+          <div role="separator" className="bg-aomi-border mx-1 my-1 h-px" />
+        ) : null}
+        {danger.map(row)}
       </PopoverContent>
     </Popover>
   );
 }
+
+/**
+ * The chevron in front of an expandable row's logo; it points down when
+ * open. `blank` keeps the gutter empty so logos line up across a list.
+ */
+export function ExpandToggle({
+  open,
+  label,
+  onToggle,
+}: {
+  open: boolean;
+  /** What it shows or hides, e.g. "Privy addresses". */
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-label={`${open ? "Hide" : "Show"} ${label}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 flex size-[18px] shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
+    >
+      <ChevronRight
+        className={cn(
+          "size-3.5 transition-transform motion-reduce:transition-none",
+          open && "rotate-90",
+        )}
+      />
+    </button>
+  );
+}
+
+/** The empty gutter of a row that doesn't expand, in a list where others do. */
+export const GutterSpacer = () => (
+  <span aria-hidden className="size-[18px] shrink-0" />
+);
 
 export function titleCase(value: string): string {
   return value

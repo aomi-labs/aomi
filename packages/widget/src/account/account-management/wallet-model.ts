@@ -49,15 +49,29 @@ export const rowEmail = (row: WalletRow) =>
     ? row.loginEmail
     : undefined;
 
-/** What a login card shows under its name: an email or another real identifier. */
+/** `2 addresses`, `1 address`. */
+export const addressCount = (count: number) =>
+  `${count} ${count === 1 ? "address" : "addresses"}`;
+
+/**
+ * Under a login's name, the pattern every parent row uses: `N addresses ·
+ * state`, then the email (or another real identifier) when there is one.
+ */
 export function loginSubtitle(
-  group: Pick<LoginGroup, "provider" | "identity">,
+  group: Pick<LoginGroup, "identity" | "rows">,
+  signedIn: boolean,
 ): string {
   const { email, displayLabel } = group.identity ?? {};
   const label = displayLabel?.trim();
-  if (email) return email;
-  if (label && !/^(privy|para) user$/i.test(label)) return label;
-  return `Signed in with ${providerName(group.provider)}`;
+  const who =
+    email ?? (label && !/^(privy|para) user$/i.test(label) ? label : null);
+  return [
+    addressCount(group.rows.length),
+    signedIn ? "signed in here" : "signed out here",
+    who,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** What clicking a row that needs a step will do, shown on hover. */

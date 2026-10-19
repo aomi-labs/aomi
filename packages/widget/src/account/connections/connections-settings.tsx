@@ -1,21 +1,34 @@
 "use client";
 
-import { lazy, Suspense, useState } from "react";
-import { Plus } from "lucide-react";
-import { useDisplayQuery } from "@aomi-labs/react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
+import {
+  Bot,
+  ChevronRight,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Unlink,
+} from "lucide-react";
+import { cn, useDisplayQuery } from "@aomi-labs/react";
 import type {
   AomiAccountConnection,
   AomiConnectionKind,
 } from "@aomi-labs/client";
+import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { ListGroup } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { StatusPill } from "@/ui/aomi/status-pill";
+import { ActionRow } from "@/ui/aomi/action-row";
+import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useShellTransport } from "@/account/transport";
 import {
   ActionsMenu,
+  ExpandToggle,
+  GutterSpacer,
   type MenuItem,
 } from "@/account/account-management/controls";
 import { connectionsQuery } from "@/account/account-queries";
@@ -23,9 +36,9 @@ import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
 
 // Opened from a row's menu, so it loads only then.
-const ConnectionWalletsSheet = lazy(() =>
-  import("./connection-wallets-sheet").then((module) => ({
-    default: module.ConnectionWalletsSheet,
+const ConnectionManage = lazy(() =>
+  import("./connection-manage").then((module) => ({
+    default: module.ConnectionManage,
   })),
 );
 
@@ -50,22 +63,49 @@ export function usedLabel(at: number, now = Date.now()): string {
   })}`;
 }
 
+const plural = (count: number, word: string) =>
+  `${count} ${count === 1 ? word : `${word}s`}`;
+
+const liveWallets = (row: AomiAccountConnection) =>
+  row.wallets.filter((wallet) => !wallet.archived);
+
+/**
+ * A Telegram bot's title: your own name for it, else the app it is locked
+ * to, else its @handle.
+ */
+export function botTitle(row: AomiAccountConnection): string {
+  const handle = row.telegram?.bot;
+  if (handle && row.name !== handle) return row.name;
+  return row.application?.label ?? row.name;
+}
+
 function description(row: AomiAccountConnection): string {
   const used = row.last_used_at === null ? null : usedLabel(row.last_used_at);
-  const live = row.wallets.filter((wallet) => !wallet.archived).length;
-  const wallets =
-    row.kind === "portal"
-      ? null
-      : `${live} ${live === 1 ? "wallet" : "wallets"}`;
-  return [row.detail ?? KIND_LABEL[row.kind], wallets, used]
+  if (row.kind === "portal")
+    return [KIND_LABEL.portal, "all agent wallets"].join(" · ");
+  const handle =
+    row.kind === "telegram" && row.telegram?.bot !== botTitle(row)
+      ? row.telegram?.bot
+      : null;
+  return [
+    handle ??
+      (row.kind === "telegram" ? null : (row.detail ?? KIND_LABEL[row.kind])),
+    plural(liveWallets(row).length, "wallet"),
+    used,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
 
-/** `AI client · locked to World · connected Oct 16`, under a Wallets… sheet's title. */
+/** `@hyperlabai_bot · Telegram bot · locked to Hoodit`, under a Manage sheet's title. */
 function sheetDescription(row: AomiAccountConnection): string {
   return [
-    row.detail ?? KIND_LABEL[row.kind],
+    row.kind === "telegram" && row.telegram?.bot !== botTitle(row)
+      ? row.telegram?.bot
+      : null,
+    row.kind === "telegram"
+      ? "Telegram bot"
+      : (row.detail ?? KIND_LABEL[row.kind]),
     row.kind === "portal"
       ? null
       : row.application
@@ -82,97 +122,216 @@ function sheetDescription(row: AomiAccountConnection): string {
     .join(" · ");
 }
 
-/** Settings › Connections: who uses the account, and which wallets each may use. */
+/**
+ * Settings › Connections: who uses the account, and which wallets each may
+ * use. Telegram is linked once for the account, so its bots sit under one
+ * Telegram row.
+ */
 export function ConnectionsSettings() {
   const { client } = useShellTransport();
   const query = useDisplayQuery(connectionsQuery(client));
   const { confirm, dialog } = useConfirmDialog();
+  const { rename, dialog: renameDialog } = useRenameDialog();
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [walletsOf, setWalletsOf] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [managing, setManaging] = useState<string | null>(null);
+  const [telegramOpen, setTelegramOpen] = useState(true);
+  const [telegramSheet, setTelegramSheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (query.isPending) return <LoadingPane label="Loading connections" />;
   const rows = query.data?.connections ?? [];
+  const bots = rows.filter((row) => row.kind === "telegram");
 
   const run = async (key: string, action: () => Promise<unknown>) => {
-    if (pending) return;
+    if (pending) return false;
     setPending(key);
     setError(null);
     try {
       await action();
       await query.refetch();
+      return true;
     } catch (cause) {
       setError(
         (cause as { code?: string }).code === "cannot_unlink_last_login_factor"
           ? "Telegram is your only way to sign in. Add another sign-in first."
           : "Couldn’t save that. Try again.",
       );
+      return false;
     } finally {
       setPending(null);
     }
   };
   const settings = client.account.connections;
-  const rename = (row: AomiAccountConnection) =>
-    run(row.key, async () => {
-      await settings.setConnectionSettings(row.key, {
-        label: draft.trim() || null,
-      });
-      setRenaming(null);
+  const startRename = (row: AomiAccountConnection) => {
+    setManaging(null);
+    rename({
+      title: "Rename connection",
+      description: "Only you see this name.",
+      value: row.name,
+      maxLength: 40,
+      onSave: (name) =>
+        run(row.key, () =>
+          settings.setConnectionSettings(row.key, { label: name || null }),
+        ),
     });
+  };
   const remove = async (row: AomiAccountConnection) => {
-    const telegram = row.kind === "telegram";
+    setManaging(null);
     if (
       !(await confirm({
-        title: telegram ? "Unlink Telegram?" : `Remove ${row.name}?`,
-        description: telegram
-          ? "The bots stop using this account. Your chats stay here; the next message on Telegram starts fresh."
-          : "It has to connect again.",
-        confirmLabel: telegram ? "Unlink" : "Remove",
+        title: `Disconnect ${row.name}?`,
+        description:
+          "It stops using your account and has to connect again to come back.",
+        confirmLabel: "Disconnect",
         tone: "danger",
       }))
     )
       return;
     await run(row.key, () =>
-      telegram
-        ? settings.disconnectTelegram()
-        : settings.disconnectOAuth(row.key.slice("oauth:".length)),
+      settings.disconnectOAuth(row.key.slice("oauth:".length)),
     );
   };
-
-  const startRename = (row: AomiAccountConnection) => {
-    setWalletsOf(null);
-    setDraft(row.name);
-    setRenaming(row.key);
+  const disconnectTelegram = async () => {
+    setTelegramSheet(false);
+    if (
+      !(await confirm({
+        title: "Disconnect Telegram?",
+        description:
+          "Every bot stops using this account. Your chats stay here; the next message on Telegram starts fresh.",
+        confirmLabel: "Disconnect",
+        tone: "danger",
+      }))
+    )
+      return;
+    await run("telegram", () => settings.disconnectTelegram());
   };
+
+  const manage = (row: AomiAccountConnection): MenuItem => ({
+    label: "Manage",
+    icon: SlidersHorizontal,
+    onSelect: () => setManaging(row.key),
+  });
   const menu = (row: AomiAccountConnection): MenuItem[] => {
-    const items: MenuItem[] = [
-      {
-        label: "Wallets…",
-        detail: "Which agent wallets it may use",
-        onSelect: () => setWalletsOf(row.key),
-      },
-    ];
+    const items = [manage(row)];
     if (row.kind === "portal") return items;
-    items.push("divider", {
+    items.push({
       label: "Rename",
+      icon: Pencil,
       onSelect: () => startRename(row),
     });
-    if (row.removable)
-      items.push("divider", {
-        label: row.kind === "telegram" ? "Unlink Telegram" : "Remove",
-        detail:
-          row.kind === "telegram"
-            ? "The bots stop using this account"
-            : `${row.name} has to connect again`,
+    if (row.removable && row.kind !== "telegram")
+      items.push({
+        label: "Disconnect",
+        icon: Unlink,
         danger: true,
-        onSelect: () => remove(row),
+        onSelect: () => void remove(row),
       });
     return items;
   };
-  const sheetRow = rows.find((row) => row.key === walletsOf);
+  const managed = rows.find((row) => row.key === managing);
+
+  const connectionRow = (row: AomiAccountConnection, nested = false) => (
+    <Row
+      key={row.key}
+      data-connection={row.key}
+      nested={nested}
+      leading={
+        row.kind === "telegram" ? (
+          <span
+            aria-hidden
+            className="text-aomi-muted flex size-8 shrink-0 items-center justify-center"
+          >
+            <Bot className="size-[18px]" />
+          </span>
+        ) : (
+          <ConnectionMark kind={row.kind} name={row.name} />
+        )
+      }
+      title={
+        <>
+          <span className="truncate">
+            {row.kind === "telegram" ? botTitle(row) : row.name}
+          </span>
+          {row.application && row.kind !== "telegram" ? (
+            <StatusPill tone="warning">{row.application.label}</StatusPill>
+          ) : null}
+          {row.wallets.some((wallet) => wallet.instant && !wallet.archived) ? (
+            <StatusPill tone="accent">Instant</StatusPill>
+          ) : null}
+        </>
+      }
+      description={description(row)}
+      trailing={
+        <ActionsMenu
+          label={`Actions for ${row.name}`}
+          items={menu(row)}
+          disabled={pending !== null}
+          busy={pending === row.key}
+        />
+      }
+    />
+  );
+
+  const telegramUser = bots.find((row) => row.telegram?.user)?.telegram?.user;
+  const telegramWallets = new Set(
+    bots.flatMap((row) => liveWallets(row).map((wallet) => wallet.id)),
+  ).size;
+  const telegramGroup = bots.length ? (
+    <div key="telegram" data-connection="telegram">
+      <Row
+        expand={
+          <ExpandToggle
+            open={telegramOpen}
+            label="Telegram bots"
+            onToggle={() => setTelegramOpen((value) => !value)}
+          />
+        }
+        onClick={() => setTelegramOpen((value) => !value)}
+        leading={<ConnectionMark kind="telegram" name="Telegram" />}
+        title={<span className="truncate">Telegram</span>}
+        description={[
+          telegramUser,
+          plural(bots.length, "bot"),
+          plural(telegramWallets, "wallet"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        trailing={
+          <ActionsMenu
+            label="Actions for Telegram"
+            disabled={pending !== null}
+            busy={pending === "telegram"}
+            items={[
+              {
+                label: "Manage",
+                icon: SlidersHorizontal,
+                onSelect: () => setTelegramSheet(true),
+              },
+              ...(bots.some((row) => row.removable)
+                ? [
+                    {
+                      label: "Disconnect Telegram",
+                      icon: Unlink,
+                      danger: true,
+                      onSelect: () => void disconnectTelegram(),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        }
+      />
+      {telegramOpen ? bots.map((row) => connectionRow(row, true)) : null}
+    </div>
+  ) : null;
+
+  // Telegram's group sits where its most recently used bot would.
+  const list: ReactNode[] = [];
+  for (const row of rows) {
+    if (row.kind !== "telegram") list.push(connectionRow(row));
+    else if (row === bots[0]) list.push(telegramGroup);
+  }
 
   return (
     <section className="flex flex-col gap-2">
@@ -195,84 +354,185 @@ export function ConnectionsSettings() {
           {error ?? "Couldn’t load your connections."}
         </p>
       ) : null}
-      <ListGroup>
-        {rows.map((row) => (
-          <ListRow
-            key={row.key}
-            data-connection={row.key}
-            leading={<ConnectionMark kind={row.kind} name={row.name} />}
-            title={
-              renaming === row.key ? (
-                <input
-                  autoFocus
-                  value={draft}
-                  maxLength={40}
-                  aria-label={`Name for ${row.name}`}
-                  disabled={pending === row.key}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void rename(row);
-                    if (event.key === "Escape") setRenaming(null);
-                  }}
-                  className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted type-row rounded-control h-7 w-full max-w-56 border px-2 outline-none transition-colors"
-                />
-              ) : (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{row.name}</span>
-                  {row.application ? (
-                    <StatusPill tone="warning">
-                      {row.application.label}
-                    </StatusPill>
-                  ) : null}
-                  {row.wallets.some(
-                    (wallet) => wallet.instant && !wallet.archived,
-                  ) ? (
-                    <StatusPill tone="accent">Instant</StatusPill>
-                  ) : null}
-                </span>
-              )
-            }
-            description={description(row)}
-            trailing={
-              <ActionsMenu
-                label={`Actions for ${row.name}`}
-                items={menu(row)}
-                disabled={pending !== null}
-                busy={pending === row.key}
-              />
-            }
-          />
-        ))}
-      </ListGroup>
+      <ListGroup>{list}</ListGroup>
       {rows.every((row) => row.kind === "portal") ? (
         <p className="type-meta text-aomi-muted px-0.5">
           Use Aomi from Claude, your terminal or Telegram.
         </p>
       ) : null}
       {adding ? <ConnectAppSheet onClose={() => setAdding(false)} /> : null}
+      {telegramSheet ? (
+        <TelegramSheet
+          user={telegramUser ?? null}
+          bots={bots}
+          onClose={() => setTelegramSheet(false)}
+          onBot={(row) => {
+            setTelegramSheet(false);
+            setManaging(row.key);
+          }}
+          onDisconnect={
+            bots.some((row) => row.removable)
+              ? () => void disconnectTelegram()
+              : undefined
+          }
+        />
+      ) : null}
       <Suspense fallback={null}>
-        {sheetRow ? (
-          <ConnectionWalletsSheet
-            connection={sheetRow}
-            description={sheetDescription(sheetRow)}
-            onClose={() => setWalletsOf(null)}
+        {managed ? (
+          <ConnectionManage
+            connection={managed}
+            title={
+              managed.kind === "telegram" ? botTitle(managed) : managed.name
+            }
+            description={sheetDescription(managed)}
+            onClose={() => setManaging(null)}
             onRename={
-              sheetRow.kind === "portal"
-                ? undefined
-                : () => startRename(sheetRow)
+              managed.kind === "portal" ? undefined : () => startRename(managed)
             }
             onRemove={
-              sheetRow.removable
-                ? () => {
-                    setWalletsOf(null);
-                    void remove(sheetRow);
-                  }
+              managed.removable && managed.kind !== "telegram"
+                ? () => void remove(managed)
                 : undefined
             }
           />
         ) : null}
       </Suspense>
       {dialog}
+      {renameDialog}
     </section>
+  );
+}
+
+/** One connection row; a gutter in front so marks line up with Telegram's chevron. */
+function Row({
+  expand,
+  nested = false,
+  leading,
+  title,
+  description,
+  trailing,
+  onClick,
+  ...props
+}: {
+  expand?: ReactNode;
+  nested?: boolean;
+  leading: ReactNode;
+  title: ReactNode;
+  description: string;
+  trailing: ReactNode;
+  onClick?: () => void;
+  "data-connection"?: string;
+}) {
+  const body = (
+    <>
+      {leading}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="type-row flex min-w-0 items-center gap-1.5">
+          {title}
+        </span>
+        <span className="type-meta text-aomi-muted truncate">
+          {description}
+        </span>
+      </span>
+    </>
+  );
+  return (
+    <div
+      {...props}
+      className={cn(
+        "flex min-h-14 items-center gap-3 pr-3",
+        nested ? "border-aomi-border border-t pl-16" : "pl-2",
+        onClick && "hover:bg-aomi-hover transition-colors",
+      )}
+    >
+      {nested ? null : (expand ?? <GutterSpacer />)}
+      {onClick ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={onClick}
+          className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none"
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3 py-3">
+          {body}
+        </div>
+      )}
+      {trailing}
+    </div>
+  );
+}
+
+/** Telegram › Manage: the linked account, its bots, and Disconnect. */
+function TelegramSheet({
+  user,
+  bots,
+  onClose,
+  onBot,
+  onDisconnect,
+}: {
+  user: string | null;
+  bots: AomiAccountConnection[];
+  onClose: () => void;
+  onBot: (row: AomiAccountConnection) => void;
+  onDisconnect?: () => void;
+}) {
+  return (
+    <AomiSheet onClose={onClose}>
+      <SheetHeader
+        leading={<ConnectionMark kind="telegram" name="Telegram" />}
+        title="Telegram"
+        description={[user, "linked to this account"]
+          .filter(Boolean)
+          .join(" · ")}
+        onClose={onClose}
+      />
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        <section className="flex flex-col gap-2">
+          <SectionHeader
+            title="Bots"
+            detail="Each bot uses only the wallets you allow it"
+          />
+          <ListGroup>
+            {bots.map((row) => (
+              <button
+                key={row.key}
+                type="button"
+                onClick={() => onBot(row)}
+                className="hover:bg-aomi-hover flex min-h-14 w-full items-center gap-3 px-3.5 py-3 text-left outline-none transition-colors"
+              >
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="type-row flex items-center gap-1.5">
+                    <span className="truncate">{botTitle(row)}</span>
+                    {row.wallets.some(
+                      (wallet) => wallet.instant && !wallet.archived,
+                    ) ? (
+                      <StatusPill tone="accent">Instant</StatusPill>
+                    ) : null}
+                  </span>
+                  <span className="type-meta text-aomi-muted truncate">
+                    {description(row)}
+                  </span>
+                </span>
+                <ChevronRight className="text-aomi-muted size-4 shrink-0" />
+              </button>
+            ))}
+          </ListGroup>
+        </section>
+        {onDisconnect ? (
+          <ListGroup>
+            <ActionRow
+              icon={Unlink}
+              label="Disconnect Telegram"
+              description="Every bot stops using this account"
+              danger
+              onClick={onDisconnect}
+            />
+          </ListGroup>
+        ) : null}
+      </div>
+    </AomiSheet>
   );
 }
