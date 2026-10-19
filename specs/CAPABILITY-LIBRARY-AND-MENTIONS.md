@@ -20,8 +20,9 @@ that document remains valid.
 
 ## Private app onboarding (issue #756)
 
-Portal exposes **Add private app** beside Library search, with a compact labelled
-button on mobile. The shared dialog accepts the builder's App key, validates it
+Portal exposes a compact **+ App** button beside Library search on desktop and
+mobile, with **Add private app** as its tooltip and accessible label. The shared
+dialog accepts the builder's App key, validates it
 through `GET /api/thread/apps?resolve_key=true` with `Aomi-App-Key`, and requires
 one private application with a stable ID. Account installation sends the same
 header to `POST /api/account/apps/:id`; no raw key is stored by installation.

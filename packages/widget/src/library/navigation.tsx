@@ -43,12 +43,12 @@ export function SearchField({
       </label>
       <AomiButton
         onClick={onAddPrivateApp}
-        className="h-10 max-sm:w-10 max-sm:px-0"
+        className="h-10"
         aria-label="Add private app"
         title="Add private app"
       >
         <Plus className="size-4" />
-        <span className="max-sm:hidden">Add private app</span>
+        <span>App</span>
       </AomiButton>
     </div>
   );
