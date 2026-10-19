@@ -178,7 +178,11 @@ export function AomiRuntimeCore({
     inferenceFunding: getControlState().inferenceFunding,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
     getAppKey: (target, text) =>
-      privateAppKey(target, text, privateApps.getKey),
+      privateAppKey(target, text, privateApps.getKey, (id) =>
+        getControlState().appDescriptors.some(
+          (app) => app.isPublic === false && String(app.applicationId) === id,
+        ),
+      ),
     getModel: () => {
       const control = getCurrentThreadControl();
       return control.modelMode === "manual" ? control.model : null;
@@ -215,16 +219,26 @@ export function AomiRuntimeCore({
         (error.appAccessCode === "app_key_required" ||
           error.appAccessCode === "app_key_not_scoped")
       ) {
+        // Only a Direct target names the app. Auto threads keep the last
+        // Direct app in control, so scoping to it could reject the right key.
         const control =
           threadContextRef.current.getThreadMetadata(threadId)?.control;
-        const target = agentTarget?.mode === "direct" ? agentTarget : control;
-        failure.notice.appKeyTarget = {
-          app: target?.app ?? undefined,
-          applicationId:
-            target?.applicationId != null
-              ? Number(target.applicationId)
-              : undefined,
-        };
+        const target =
+          agentTarget?.mode === "direct"
+            ? agentTarget
+            : !agentTarget && control?.agentMode === "direct"
+              ? control
+              : undefined;
+        failure.notice.appKeyTarget =
+          target?.app || target?.applicationId != null
+            ? {
+                app: target.app ?? undefined,
+                applicationId:
+                  target.applicationId != null
+                    ? Number(target.applicationId)
+                    : undefined,
+              }
+            : {};
         failure.notice.duration = Infinity;
       }
       notificationContext.showNotification(failure.notice);

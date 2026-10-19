@@ -213,11 +213,11 @@ function PrivateAppForm({
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          {target && (
+          {(target?.app || target?.applicationId != null) && (
             <div className="border-aomi-border bg-aomi-surface rounded-control flex items-center gap-2.5 border px-3 py-2.5">
               <KeyRound className="text-aomi-muted size-4" />
               <span className="type-control truncate">
-                {target.app || `App #${target.applicationId}`}
+                {target?.app || `App #${target?.applicationId}`}
               </span>
             </div>
           )}

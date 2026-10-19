@@ -34,3 +34,12 @@ it("rejects two private apps instead of choosing an unrelated credential", () =>
     "Choose one private app per message",
   );
 });
+it("still asks for one app when a second private mention has no stored key", () => {
+  const isPrivate = (id: string) => id === "9";
+  expect(() =>
+    privateAppKey({ mode: "auto" }, message(7, 9), getKey, isPrivate),
+  ).toThrow("Choose one private app per message");
+  expect(
+    privateAppKey({ mode: "auto" }, message(7, 10), getKey, isPrivate),
+  ).toBe("one");
+});

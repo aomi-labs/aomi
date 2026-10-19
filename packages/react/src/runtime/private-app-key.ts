@@ -6,6 +6,7 @@ export function privateAppKey(
   target: AgentTarget,
   text: string | undefined,
   getKey: (id: string | number) => string | undefined,
+  isPrivate: (id: string) => boolean = () => false,
 ): string | undefined {
   if (target.mode === "direct")
     return target.applicationId != null
@@ -18,10 +19,14 @@ export function privateAppKey(
       )
       .map((hint) => hint.id.slice("application:".length)),
   );
-  const keys = [...ids].map(getKey).filter((key) => key !== undefined);
-  if (keys.length > 1)
+  // Count private mentions, not stored keys: a second private app without a
+  // key must still stop the send rather than ride on the first app's key.
+  const privateIds = [...ids].filter(
+    (id) => getKey(id) !== undefined || isPrivate(id),
+  );
+  if (privateIds.length > 1)
     throw new Error(
       "Choose one private app per message so its key can be used.",
     );
-  return keys[0];
+  return privateIds[0] === undefined ? undefined : getKey(privateIds[0]);
 }
