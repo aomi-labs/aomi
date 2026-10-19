@@ -32,7 +32,7 @@ type OrchestratorOptions = {
   getUserState: () => UserState;
   getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
-  getAppKey?: (target: AgentTarget) => string | undefined;
+  getAppKey?: (target: AgentTarget, text?: string) => string | undefined;
   getClientId?: () => string | undefined;
   inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
@@ -119,7 +119,7 @@ export function useRuntimeOrchestrator(
   );
 
   const getSession = useCallback(
-    (threadId: string): ClientSession => {
+    (threadId: string, text?: string): ClientSession => {
       const runtime = optionsRef.current;
       const getUserState = () =>
         UserStateValue.withExt(
@@ -130,7 +130,7 @@ export function useRuntimeOrchestrator(
       const target = runtime.getTarget();
       const sessionOptions = {
         target,
-        apiKey: runtime.getAppKey?.(target),
+        apiKey: runtime.getAppKey?.(target, text),
         model: runtime.getModel?.(),
         clientId: runtime.getClientId?.(),
         getUserState,
@@ -284,7 +284,7 @@ export function useRuntimeOrchestrator(
         throw new Error(
           "This conversation hasn't loaded yet. Load it again, then send your message.",
         );
-      const session = getSession(threadId);
+      const session = getSession(threadId, text);
       const firstTurn = !session.getSnapshot().turnId;
       await session.sendAsync(text, sendOptions);
       if (sessionManager.get(threadId) !== session) return;

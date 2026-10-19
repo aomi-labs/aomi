@@ -56,6 +56,7 @@ import {
   type ChatBoundaryValue,
 } from "./assistant-runtime-boundary";
 import { describeSendFailure } from "./send-error-notices";
+import { privateAppKey } from "./private-app-key";
 import { accountChange, type RuntimeOwner } from "./account-change";
 import {
   hasConversation,
@@ -176,10 +177,8 @@ export function AomiRuntimeCore({
     getUserState: userContext.getUserState,
     inferenceFunding: getControlState().inferenceFunding,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
-    getAppKey: (target) =>
-      target.mode === "direct" && target.applicationId != null
-        ? privateApps.getKey(target.applicationId)
-        : undefined,
+    getAppKey: (target, text) =>
+      privateAppKey(target, text, privateApps.getKey),
     getModel: () => {
       const control = getCurrentThreadControl();
       return control.modelMode === "manual" ? control.model : null;
