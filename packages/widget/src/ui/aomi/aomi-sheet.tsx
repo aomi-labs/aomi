@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { cn } from "@aomi-labs/react";
 import { ModalBackdrop } from "@/ui/modal-backdrop";
 import { useWidgetOverlay } from "@/ui/widget-scope";
+import { InSheetContext } from "./sheet-depth";
 
 /**
  * The wallet popup's card: every Aomi popup and standalone page (connect,
@@ -59,7 +60,7 @@ export function AomiSheet({
             <ModalBackdrop aria-label="Close" onClick={onClose} />
           ) : null}
           <div className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-shell shadow-modal animate-in zoom-in-95 fade-in-0 pointer-events-auto relative z-10 flex max-h-[min(720px,92vh)] w-full max-w-[400px] flex-col overflow-hidden border text-left duration-200">
-            {children}
+            <InSheetContext.Provider value>{children}</InSheetContext.Provider>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

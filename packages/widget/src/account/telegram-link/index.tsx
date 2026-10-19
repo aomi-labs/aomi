@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import type { TelegramLinkPanelProps } from "./telegram-link-panel";
 
 export type { TelegramLinkPanelProps } from "./telegram-link-panel";
@@ -16,7 +17,9 @@ const Panel = lazy(() =>
 /** The `/link/telegram` page's sheet: Link Telegram @x?, then Linked. */
 export function TelegramLinkPanel(props: TelegramLinkPanelProps) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={<LoadingPane label="Loading" className="absolute inset-0" />}
+    >
       <Panel {...props} />
     </Suspense>
   );

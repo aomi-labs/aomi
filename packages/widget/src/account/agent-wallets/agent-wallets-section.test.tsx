@@ -206,12 +206,20 @@ describe("Agent wallets band", () => {
         name: /^(Show|Hide) /,
       }),
     ).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Show all 4" }),
-    ).toBeInTheDocument();
+    // The rest open in place, under the three; no sheet and no band menu.
+    const all = screen.getByRole("button", {
+      name: "Show all 4 agent wallets",
+    });
+    expect(all).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(all);
+    expect(document.querySelectorAll("[data-agent-wallet]")).toHaveLength(4);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(document.querySelectorAll("[data-agent-wallet]")).toHaveLength(3);
     expect(
       screen.queryByRole("button", { name: "Actions for agent wallets" }),
     ).toBeNull();
+    expect(screen.queryByText("Pause all")).toBeNull();
     expect(screen.queryByText("Old")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
     expect(parent("g-old")).toHaveTextContent("0 addresses · archived");
@@ -267,7 +275,7 @@ describe("Agent wallets band", () => {
     ]);
   });
 
-  it("pauses one wallet, and pauses all from Show all at the version read", async () => {
+  it("pauses one wallet; Resume all shows only while everything is paused", async () => {
     await renderSection();
     const pause = within(menuOf("World")).getByText("Pause");
     await act(async () => fireEvent.click(pause));
@@ -278,24 +286,31 @@ describe("Agent wallets band", () => {
         body: { paused: true },
       },
     ]);
-    fireEvent.click(screen.getByRole("button", { name: "Show all 4" }));
-    const sheet = await screen.findByRole("dialog");
-    const pauseAll = within(sheet).getByRole("switch", {
-      name: "Pause all agent wallets",
-    });
-    expect(pauseAll).toHaveAttribute("aria-checked", "false");
-    await act(async () => fireEvent.click(pauseAll));
+    expect(screen.queryByRole("button", { name: "Resume all" })).toBeNull();
+  });
+
+  it("resumes everything at the version read when all wallets were paused", async () => {
+    list.pause_all = true;
+    await renderSection();
+    expect(
+      screen.getByText("Hosted by Aomi · all paused, nothing signs"),
+    ).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Resume all" })),
+    );
     expect(writes().at(-1)).toEqual({
       method: "PUT",
       path: "/v1/account/agent-rule",
-      body: { locked: true, version: 4 },
+      body: { locked: false, version: 4 },
     });
   });
 
   it("renames in a dialog", async () => {
     await renderSection();
     fireEvent.click(within(menuOf("World")).getByText("Rename"));
-    const dialog = await screen.findByRole("dialog", { name: "Rename agent wallet" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Rename agent wallet",
+    });
     const input = within(dialog).getByRole("textbox", { name: "Name" });
     expect(input).toHaveValue("World");
     const save = within(dialog).getByRole("button", { name: "Save" });

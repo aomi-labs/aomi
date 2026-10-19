@@ -424,6 +424,12 @@ export type LinkedAuthAccount = {
     lastSeenAt?: number;
 };
 
+// @public
+export function LoadingPane(input: {
+    label: string;
+    className?: string;
+}): JSX.Element;
+
 // @public (undocumented)
 export function MatrixTable(input: {
     month: MonthlyStatement;

@@ -50,6 +50,7 @@ export {
 } from "./wallet/picker/wallet-picker-context";
 export { WalletPicker } from "./wallet/picker/wallet-picker";
 export { AomiSheet } from "./ui/aomi/aomi-sheet";
+export { LoadingPane } from "./ui/aomi/loading-pane";
 export { AomiButton } from "./ui/aomi/button";
 export {
   FootnoteLink,

@@ -11,6 +11,7 @@ import {
   AomiSheet,
   CommitSignPanel,
   getBackendUrl,
+  LoadingPane,
   SheetHeader,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
@@ -41,7 +42,7 @@ const home = () => window.location.assign("/");
 /** `/sign/:ref`: the wallet picker if needed, then the commit's review sheet. */
 export function SignCommitClient({ commitRef }: { commitRef: string }) {
   return (
-    <StandalonePage purpose={{ text: "To review a trade" }}>
+    <StandalonePage needsWallet purpose={{ text: "To review a trade" }}>
       <Review commitRef={commitRef} />
     </StandalonePage>
   );
@@ -86,7 +87,13 @@ function Review({ commitRef }: { commitRef: string }) {
     };
   }, [commitRef]);
 
-  if (state.kind === "loading") return null;
+  if (state.kind === "loading")
+    return (
+      <LoadingPane
+        label="Loading the transaction"
+        className="absolute inset-0"
+      />
+    );
   if (state.kind === "ready")
     return <CommitSignPanel handle={state.handle} onClose={home} />;
   return (

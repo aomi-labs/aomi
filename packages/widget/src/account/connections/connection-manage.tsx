@@ -16,7 +16,7 @@ import { agentWalletsQuery } from "@/account/account-queries";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
 import { INSTANT_CONFIRM, pairsWith, type PairMode } from "./connection-pairs";
 import { ConnectionMark } from "./connection-mark";
-import { WalletAccessList } from "./wallet-access-list";
+import { WalletAccessList, type WalletAccess } from "./wallet-access-list";
 
 /**
  * Connections › ⋯ › Manage: which agent wallets one connection may use, Ask
@@ -44,6 +44,7 @@ export function ConnectionManage({
   const refresh = useRefreshWallets();
   const { confirm, dialog } = useConfirmDialog();
   const [pending, setPending] = useState(false);
+  const [shown, setShown] = useState<WalletAccess[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const portal = connection.kind === "portal";
   const ceiling = connection.ceiling === "ask";
@@ -57,16 +58,20 @@ export function ConnectionManage({
       !(await confirm(INSTANT_CONFIRM(title, wallet.name)))
     )
       return;
+    const wallets = pairsWith(connection, wallet.id, mode);
+    // The tick and switch move at once; the server catches up behind them.
+    setShown(wallets.map(({ id, instant }) => ({ id, instant })));
     setPending(true);
     setError(null);
     try {
       await client.account.connections.setConnectionWallets(connection.key, {
-        wallets: pairsWith(connection, wallet.id, mode),
+        wallets,
       });
       await refresh();
     } catch {
       setError("Couldn’t save that. Try again.");
     } finally {
+      setShown(null);
       setPending(false);
     }
   };
@@ -97,10 +102,9 @@ export function ConnectionManage({
           ) : live.length ? (
             <WalletAccessList
               wallets={live}
-              access={connection.wallets}
+              access={shown ?? connection.wallets}
               ceiling={ceiling}
               fixed={portal}
-              disabled={pending}
               onTick={(wallet, ticked) =>
                 void save(wallet, ticked ? "ask" : null)
               }

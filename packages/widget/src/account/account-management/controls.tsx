@@ -310,7 +310,10 @@ export function Divider({
   action?: ReactNode;
 }) {
   return (
-    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
+    <div
+      data-band
+      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5"
+    >
       <span className="type-meta text-aomi-fg shrink-0 font-medium">
         {title}
       </span>

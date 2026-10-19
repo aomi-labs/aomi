@@ -16,7 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
-import { useDisplayQuery } from "@aomi-labs/react";
+import { cn, useDisplayQuery } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
@@ -39,7 +39,10 @@ import {
 } from "@/account/account-management/controls";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
 import { ConnectionMark } from "@/account/connections/connection-mark";
-import { usedLabel } from "@/account/connections/connections-settings";
+import {
+  botTitle,
+  usedLabel,
+} from "@/account/connections/connections-settings";
 import {
   INSTANT_CONFIRM,
   pairsWith,
@@ -86,6 +89,7 @@ export function AgentWalletManage({
   const { rename, dialog: renameDialog } = useRenameDialog();
   const [receive, setReceive] = useState<WalletFamily | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [modes, setModes] = useState<Record<string, PairMode>>({});
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const archived = wallet.archived_at !== null;
@@ -96,12 +100,14 @@ export function AgentWalletManage({
     const connection = connections.data?.connections.find(
       (row) => row.key === key,
     );
-    if (!connection || saving) return;
+    if (!connection || saving === key) return;
     if (
       mode === "instant" &&
       !(await confirm(INSTANT_CONFIRM(label, wallet.name)))
     )
       return;
+    // The switch moves at once; the server catches up behind it.
+    setModes((current) => ({ ...current, [key]: mode }));
     setSaving(key);
     setError(null);
     try {
@@ -112,6 +118,7 @@ export function AgentWalletManage({
     } catch {
       setError("Couldn’t save that. Try again.");
     } finally {
+      setModes(({ [key]: _, ...rest }) => rest);
       setSaving(null);
     }
   };
@@ -165,11 +172,13 @@ export function AgentWalletManage({
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
         {addresses.length ? (
           <ListGroup>
-            <div className="hover:bg-aomi-hover flex min-h-14 items-center gap-3 px-3.5 transition-colors">
+            <div className="hover:bg-aomi-hover has-[[data-row-main]:focus-visible]:ring-aomi-accent-strong/40 relative flex min-h-14 items-center gap-3 px-3.5 transition-colors has-[[data-row-main]:focus-visible]:ring-2 has-[[data-row-main]:focus-visible]:ring-inset">
+              {/* The whole row opens Receive; only Copy sits above it. */}
               <button
                 type="button"
+                data-row-main
                 onClick={() => setReceive(addresses[0].family)}
-                className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none"
+                className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
               >
                 <span className="text-aomi-muted flex size-8 shrink-0 items-center justify-center">
                   <QrCode className="size-[18px]" />
@@ -195,11 +204,17 @@ export function AgentWalletManage({
                   addresses.length === 1 ? "Copy address" : "Copy an address"
                 }
                 onClick={copy}
-                className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+                className={cn(
+                  aomiButton({ variant: "ghost", size: "icon-sm" }),
+                  "relative z-10",
+                )}
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
               </button>
-              <ChevronRight className="text-aomi-muted size-4 shrink-0" />
+              <ChevronRight
+                aria-hidden
+                className="text-aomi-muted pointer-events-none size-4 shrink-0"
+              />
             </div>
           </ListGroup>
         ) : null}
@@ -232,6 +247,11 @@ export function AgentWalletManage({
                   (row) => row.key === pair.key,
                 );
                 const locked = Boolean(connection?.ceiling);
+                const title =
+                  connection?.kind === "telegram"
+                    ? botTitle(connection)
+                    : pair.label;
+                const handle = connection?.telegram?.bot;
                 return (
                   <ListRow
                     key={pair.key}
@@ -242,21 +262,26 @@ export function AgentWalletManage({
                         name={pair.label}
                       />
                     }
-                    title={pair.label}
+                    title={title}
                     description={
                       locked
                         ? "Asks before every trade"
-                        : (connection?.telegram?.bot ?? connection?.detail)
+                        : connection?.kind === "telegram"
+                          ? handle && handle !== title
+                            ? `${handle} · Telegram`
+                            : "Telegram"
+                          : connection?.detail
                     }
                     trailing={
                       <Segmented
                         label={`${pair.label} mode`}
                         size="sm"
-                        value={pair.instant && !locked ? "instant" : "ask"}
-                        disabled={!connection || saving !== null || archived}
-                        onChange={(mode) =>
-                          void setMode(pair.key, pair.label, mode)
+                        value={
+                          modes[pair.key] ??
+                          (pair.instant && !locked ? "instant" : "ask")
                         }
+                        disabled={!connection || archived}
+                        onChange={(mode) => void setMode(pair.key, title, mode)}
                         options={[
                           { value: "ask", label: "Ask" },
                           {

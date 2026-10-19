@@ -6,6 +6,7 @@ import { authClient } from "@aomi-labs/widget/browser-auth";
 import {
   ConnectionMark,
   FootnoteLink,
+  LoadingPane,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { useOAuthClientName } from "../oauth-client-name";
@@ -56,5 +57,5 @@ function resume(query: string) {
 /** Signed in: finish the authorize request. */
 function Resume({ query }: { query: string }) {
   useEffect(() => resume(query), [query]);
-  return null;
+  return <LoadingPane label="Continuing" className="absolute inset-0" />;
 }

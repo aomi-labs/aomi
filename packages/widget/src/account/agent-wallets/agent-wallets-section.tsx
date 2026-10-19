@@ -1,32 +1,28 @@
 "use client";
 
-import { lazy, Suspense, useState, type ReactNode } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { AomiAgentWallet, AomiAgentWallets } from "@aomi-labs/client";
 import { cn, useDisplayQuery } from "@aomi-labs/react";
-import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { AomiButton } from "@/ui/aomi/button";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { ListGroup, ListRow } from "@/ui/aomi/list-group";
-import { Switch } from "@/ui/aomi/switch";
-import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
 import { Divider } from "@/account/account-management/controls";
 import { AgentWalletRow, type AgentWalletActions } from "./agent-wallet-row";
-import { holdsFunds, shownWallets, walletRows } from "./agent-wallet-model";
+import {
+  SHOWN_AGENT_WALLETS,
+  holdsFunds,
+  shownWallets,
+  walletRows,
+} from "./agent-wallet-model";
 import { useRefreshWallets } from "./use-refresh-wallets";
 
 // Opened on demand, so they (and the QR encoder) load only then.
 const AgentWalletManage = lazy(() =>
   import("./agent-wallet-manage").then((module) => ({
     default: module.AgentWalletManage,
-  })),
-);
-const AllAgentWallets = lazy(() =>
-  import("./all-agent-wallets").then((module) => ({
-    default: module.AllAgentWallets,
   })),
 );
 const AgentWalletWithdraw = lazy(() =>
@@ -37,7 +33,6 @@ const AgentWalletWithdraw = lazy(() =>
 
 type Sheet =
   | { kind: "manage" | "withdraw"; wallet: AomiAgentWallet }
-  | { kind: "all" }
   | { kind: "archive"; wallet: AomiAgentWallet; funded: boolean };
 
 const ERRORS: Record<string, string> = {
@@ -49,8 +44,8 @@ const ERRORS: Record<string, string> = {
 /**
  * Settings › Account › Agent wallets: the band at the bottom of Wallets &
  * access. The three most recently used wallets (the active one always in),
- * "Show all N" in the band, and archived ones collapsed. Pause all lives in
- * the Show all sheet.
+ * "Show all N" under them to list the rest in place, and archived ones
+ * collapsed.
  */
 export function AgentWalletsSection({
   rows,
@@ -70,6 +65,7 @@ export function AgentWalletsSection({
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
   const data = query.data;
   const pending = busy ?? kitPending;
 
@@ -100,10 +96,10 @@ export function AgentWalletsSection({
     run(`agent:${wallet.id}`, () =>
       client.account.wallets.updateAgentWallet(wallet.id, change),
     );
-  const pauseAll = (paused: boolean, list: AomiAgentWallets) =>
+  const resumeAll = (list: AomiAgentWallets) =>
     void run("agent:all", () =>
       client.account.wallets.setAgentRule({
-        locked: paused,
+        locked: false,
         version: list.version,
       }),
     );
@@ -141,9 +137,11 @@ export function AgentWalletsSection({
 
   const live = data.wallets.filter((wallet) => wallet.archived_at === null);
   const archived = data.wallets.filter((wallet) => wallet.archived_at !== null);
-  const shown = shownWallets(live, (wallet) =>
-    walletRows(wallet, rows).some((row) => row.active),
-  );
+  const shown = allOpen
+    ? live
+    : shownWallets(live, (wallet) =>
+        walletRows(wallet, rows).some((row) => row.active),
+      );
   const row = (wallet: AomiAgentWallet) => (
     <AgentWalletRow
       key={wallet.id}
@@ -155,11 +153,10 @@ export function AgentWalletsSection({
       {...actions}
     />
   );
-  const current =
-    sheet && sheet.kind !== "all"
-      ? (data.wallets.find((wallet) => wallet.id === sheet.wallet.id) ??
-        sheet.wallet)
-      : undefined;
+  const current = sheet
+    ? (data.wallets.find((wallet) => wallet.id === sheet.wallet.id) ??
+      sheet.wallet)
+    : undefined;
 
   return (
     <div data-agent-wallets data-paused={data.pause_all || undefined}>
@@ -171,13 +168,15 @@ export function AgentWalletsSection({
             : "Hosted by Aomi · it signs when a connection is allowed to"
         }
         action={
-          live.length ? (
+          // Pause all is gone; an account still in that state can resume.
+          data.pause_all ? (
             <button
               type="button"
-              onClick={() => setSheet({ kind: "all" })}
-              className="type-meta text-aomi-accent-strong hover:text-aomi-fg rounded-[6px] px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2"
+              disabled={pending !== null}
+              onClick={() => resumeAll(data)}
+              className="type-meta text-aomi-accent-strong hover:text-aomi-fg rounded-[6px] px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2 disabled:opacity-50"
             >
-              Show all {live.length}
+              {busy === "agent:all" ? "Resuming…" : "Resume all"}
             </button>
           ) : undefined
         }
@@ -188,6 +187,16 @@ export function AgentWalletsSection({
         </p>
       ) : null}
       {shown.map(row)}
+      {live.length > SHOWN_AGENT_WALLETS ? (
+        <button
+          type="button"
+          aria-expanded={allOpen}
+          onClick={() => setAllOpen((open) => !open)}
+          className="border-aomi-border text-aomi-accent-strong hover:bg-aomi-hover type-control flex min-h-11 w-full items-center justify-center border-t font-medium outline-none transition-colors"
+        >
+          {allOpen ? "Show fewer" : `Show all ${live.length} agent wallets`}
+        </button>
+      ) : null}
       {!live.length ? (
         <p className="type-control text-aomi-muted px-3.5 py-3">
           None yet. Create one with Add a wallet.
@@ -218,16 +227,6 @@ export function AgentWalletsSection({
       ) : null}
 
       <Suspense fallback={null}>
-        {sheet?.kind === "all" ? (
-          <AllAgentWallets
-            wallets={live}
-            pausedAll={data.pause_all}
-            busy={busy === "agent:all"}
-            onPauseAll={(paused) => pauseAll(paused, data)}
-            onClose={() => setSheet(null)}
-            renderRow={row}
-          />
-        ) : null}
         {sheet?.kind === "manage" && current ? (
           <AgentWalletManage
             wallet={current}

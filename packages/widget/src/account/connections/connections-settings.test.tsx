@@ -245,7 +245,9 @@ describe("Connections tab", () => {
   it("renames in a dialog and disconnects an OAuth client after a confirm", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("Claude")).getByText("Rename"));
-    const rename = await screen.findByRole("dialog", { name: "Rename connection" });
+    const rename = await screen.findByRole("dialog", {
+      name: "Rename connection",
+    });
     const input = within(rename).getByRole("textbox", { name: "Name" });
     expect(input).toHaveValue("Claude");
     fireEvent.change(input, { target: { value: "  Laptop  " } });

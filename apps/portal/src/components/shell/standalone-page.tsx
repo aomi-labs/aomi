@@ -6,6 +6,7 @@ import {
   AomiButton,
   AomiLogo,
   AomiSheet,
+  LoadingPane,
   SheetFootnote,
   SheetHeader,
   useAomiWalletKit,
@@ -26,6 +27,8 @@ export function StandalonePage(props: {
   purpose: SheetPurpose;
   /** A guest session is enough for this page. */
   guest?: boolean;
+  /** The page signs with a wallet, so it waits for the providers to boot. */
+  needsWallet?: boolean;
   /** Under "Sign in" when the picker was closed signed out. */
   footnote?: ReactNode;
   children: ReactNode;
@@ -52,13 +55,19 @@ export function StandalonePage(props: {
 function Gate({
   purpose,
   guest = false,
+  needsWallet = false,
   footnote,
   children,
 }: Parameters<typeof StandalonePage>[0]) {
   const { accountUser, accountGuest, accountStatus, isReady } =
     useAomiWalletKit();
   const { open, openPicker } = useWalletPicker();
-  const restoring = isReady === false || accountStatus === "loading";
+  // A signed-in account is enough to show a page that doesn't sign; a
+  // signed-out visit waits for the wallet providers, so the picker opens on
+  // the real state.
+  const restoring =
+    accountStatus === "loading" ||
+    (isReady === false && (needsWallet || !accountUser));
   const signedIn = Boolean(accountUser && (guest || !accountGuest));
   // Opens once per sign-out; closing it leaves the Sign in sheet below. A new
   // opener or purpose alone never re-opens it.
@@ -67,7 +76,9 @@ function Gate({
     if (!restoring && !signedIn) openSignIn();
   }, [restoring, signedIn]);
 
-  if (restoring || open) return null;
+  if (open) return null;
+  if (restoring)
+    return <LoadingPane label="Loading" className="absolute inset-0" />;
   if (signedIn) return <>{children}</>;
   return (
     <AomiSheet backdrop={false}>

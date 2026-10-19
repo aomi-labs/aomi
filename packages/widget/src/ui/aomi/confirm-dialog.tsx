@@ -4,14 +4,17 @@ import { useWidgetOverlay } from "@/ui/widget-scope";
 
 import {
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { cn } from "@aomi-labs/react";
 
 import { AomiButton } from "./button";
+import { InSheetContext } from "./sheet-depth";
 
 export type ConfirmDialogOptions = {
   title: ReactNode;
@@ -125,6 +128,7 @@ export function DialogFrame({
   role?: "dialog" | "alertdialog";
 }) {
   const widgetContainer = useWidgetOverlay();
+  const stacked = useContext(InSheetContext);
   return (
     <Dialog.Root
       open={open}
@@ -134,7 +138,12 @@ export function DialogFrame({
       }}
     >
       <Dialog.Portal container={widgetContainer ?? container}>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[3px]" />
+        <Dialog.Overlay
+          className={cn(
+            "fixed inset-0 z-[80]",
+            stacked ? "bg-black/10" : "bg-black/40 backdrop-blur-[3px]",
+          )}
+        />
         <Dialog.Content
           role={role}
           // Radix wires aria-describedby to Description; opt out without one.

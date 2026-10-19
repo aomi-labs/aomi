@@ -148,7 +148,7 @@ export function AgentWalletRow({
       <div
         data-agent-wallet={wallet.id}
         data-paused={paused || undefined}
-        className="border-aomi-border border-t first:border-t-0"
+        className="border-aomi-border border-t [[data-band]+&]:border-t-0"
       >
         <AddressRow
           row={only}
@@ -169,7 +169,7 @@ export function AgentWalletRow({
     <div
       data-agent-wallet={wallet.id}
       data-paused={paused || undefined}
-      className="border-aomi-border border-t first:border-t-0"
+      className="border-aomi-border border-t [[data-band]+&]:border-t-0"
     >
       <div
         className={cn(

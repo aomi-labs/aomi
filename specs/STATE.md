@@ -39,6 +39,12 @@
   Thread ⋯: divider + red Archive. The Account tab now loads lazily like
   Connections (host-composition 340,426 / 358,400 gzip). Families stay the
   app's choice (`[wallets] families`); migrated Hoodit stays EVM-only.
+  Follow-up: "Show all" opens the rest inline (no sheet; Pause all gone,
+  "Resume all" only while `pause_all` is set); Ask/Instant flip at once
+  (optimistic) and dialogs over a sheet get a light dim (`InSheetContext`);
+  standalone pages show `LoadingPane` while restoring and a signed-in visit
+  no longer waits for the wallet providers (`needsWallet` keeps /sign
+  waiting).
   Known, pre-existing: dev "setState while rendering" warning from
   `useDisplayQuery` (react `display-cache.tsx:254`) under AgentWalletsSection.
 
