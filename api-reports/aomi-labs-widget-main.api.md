@@ -12,6 +12,7 @@ import { AomiClient } from '@aomi-labs/client';
 import * as aomiClient from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/react';
 import type { AomiConnectionKind } from '@aomi-labs/client';
+import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiInferenceFundingSource } from '@aomi-labs/react';
 import * as aomiReact from '@aomi-labs/react';

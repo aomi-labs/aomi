@@ -11,6 +11,7 @@ import {
   upstreamRecords,
 } from "./browser-contract-helpers";
 import { fixtureKeys } from "./fixture-wallets";
+import { installBrowserWallet } from "./hosted-wallet-fixture";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
 const keys = fixtureKeys;
@@ -279,8 +280,14 @@ test("a sign link is login-only and returns to its review after sign-in", async 
   await page.close();
 
   // Signed out, the sign page itself opens the wallet picker with its
-  // purpose; closed, it leaves a Sign in sheet that reopens it.
+  // purpose; closed, it leaves a Sign in sheet that reopens it. The wallet
+  // goes in before the page loads: sign-in below never navigates.
   const signedOut = await page.context().newPage();
+  await installBrowserWallet(signedOut, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    evmPrivateKeys: [keys.evm[0]!],
+  });
   await signedOut.goto(`${portalOrigin}/sign/${ref}`);
   const picker = signedOut.getByRole("dialog", { name: "Sign in to Aomi" });
   await expect(picker.getByText("To review a trade")).toBeVisible({
@@ -406,10 +413,13 @@ test("a portal session approves a parked agent-wallet commit on its sign page", 
     timeout: 30_000,
   });
 
-  const approve = (await upstreamRecords()).find(
-    (record) =>
-      record.method === "POST" && record.path === `/v1/commits/${ref}/approve`,
-  );
-  expect(approve?.principal?.sub).toBe(owner);
-  expect(approve?.principal?.auth_source).toBe("session");
+  // "Working…" shows as the request leaves; wait for the upstream to see it.
+  const approve = async () =>
+    (await upstreamRecords()).find(
+      (record) =>
+        record.method === "POST" &&
+        record.path === `/v1/commits/${ref}/approve`,
+    );
+  await expect.poll(async () => (await approve())?.principal?.sub).toBe(owner);
+  expect((await approve())?.principal?.auth_source).toBe("session");
 });

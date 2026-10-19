@@ -63,7 +63,7 @@ export { ConnectionMark } from "./account/connections/connection-mark";
 export {
   ConsentWallets,
   type ConsentWalletsProps,
-} from "./account/connections/consent-wallets";
+} from "./account/connections/consent-wallets-loader";
 export { accountDisplayName } from "./wallet/account-presentation";
 export {
   DualWalletBar,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useEffectEvent, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AomiButton,
@@ -60,10 +60,11 @@ function Gate({
   const { open, openPicker } = useWalletPicker();
   const restoring = isReady === false || accountStatus === "loading";
   const signedIn = Boolean(accountUser && (guest || !accountGuest));
+  // Opens once per sign-out; closing it leaves the Sign in sheet below. A new
+  // opener or purpose alone never re-opens it.
+  const openSignIn = useEffectEvent(() => openPicker({ purpose }));
   useEffect(() => {
-    if (!restoring && !signedIn) openPicker({ purpose });
-    // Opens once per sign-out; closing it leaves the Sign in sheet below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!restoring && !signedIn) openSignIn();
   }, [restoring, signedIn]);
 
   if (restoring || open) return null;

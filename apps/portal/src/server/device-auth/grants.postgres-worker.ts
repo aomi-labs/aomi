@@ -15,18 +15,23 @@ const codeChallenge = createHash("sha256")
   .update("worker-verifier")
   .digest("base64url");
 const redirectUri = "http://127.0.0.1:49152/callback";
-const service = createDeviceAuthGrantService({
-  secret,
-  store: createPostgresDeviceAuthRecordStore(
-    undefined,
-    undefined,
+const serviceWith = (ttlMs?: number) =>
+  createDeviceAuthGrantService({
+    secret,
+    store: createPostgresDeviceAuthRecordStore(
+      undefined,
+      undefined,
+      identifierPrefix,
+    ),
     identifierPrefix,
-  ),
-  identifierPrefix,
-  ttlMs: process.env.AOMI_DEVICE_AUTH_WORKER_TTL_MS
-    ? Number(process.env.AOMI_DEVICE_AUTH_WORKER_TTL_MS)
-    : undefined,
-});
+    ttlMs,
+  });
+const service = serviceWith();
+// A short TTL applies to the grant under test, never to the link intent the
+// grant is issued from (that would expire before it can be redeemed).
+const grantService = process.env.AOMI_DEVICE_AUTH_WORKER_TTL_MS
+  ? serviceWith(Number(process.env.AOMI_DEVICE_AUTH_WORKER_TTL_MS))
+  : service;
 
 async function main() {
   try {
@@ -38,7 +43,7 @@ async function main() {
         betterAuthUserId: "cross-process-user-fixture",
         provider: "para",
       });
-      const grant = await service.issueDeviceAuthLinkGrant({
+      const grant = await grantService.issueDeviceAuthLinkGrant({
         linkIntent: intent.id,
         state,
         redirectUri,

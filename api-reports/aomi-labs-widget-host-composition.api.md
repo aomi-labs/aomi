@@ -8,6 +8,7 @@ import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
+import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
@@ -37,6 +38,9 @@ import type { WalletEip712Payload } from '@aomi-labs/react';
 import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
 import type { WalletSolanaSignPayload } from '@aomi-labs/react';
 import type { WalletTxPayload } from '@aomi-labs/react';
+
+// @public
+export function accountDisplayName(user: AomiUserRef | undefined, displayEmailHint?: string): string;
 
 // @public @deprecated (undocumented)
 export function accountScopedFetch<T>(path: string, options?: RequestInit): Promise<T>;
@@ -335,6 +339,17 @@ export function ConnectionMark(input: {
     name: string;
     size?: number;
 }): JSX.Element;
+
+// @public
+export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
+
+// @public (undocumented)
+export type ConsentWalletsProps = {
+    client: AomiClient;
+    app?: string;
+    ceiling?: boolean;
+    onChange: (update: AomiConnectionWalletsUpdate) => void;
+};
 
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">): ReturnType<typeof createEvmPaymentClient> | undefined;

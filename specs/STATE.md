@@ -51,6 +51,12 @@
   (marked) through full replacements. Pending: `update-backend-openapi.mjs`
   points at a deleted backend export test (now `manager hosted_backend`) and
   spawns raw cargo; the route fixtures were hand-updated for the rework only.
+  CI (#752): lazy-loaded the agent wallet Details/Withdraw sheets, the
+  Wallets… sheet, the New agent wallet step and ConsentWallets to fit the
+  widget bundle budgets (host-composition 357,922/358,400 — tight); API
+  reports regenerated; browser contracts and the device-auth worker test
+  follow the branch's flows. Pending (ops): the retired `telegram` Vercel
+  projects now build on every change.
 
 2026-10-16 — AGENT WALLETS REDESIGN (FRONTEND): ONE RULE, CONNECTIONS, ONE
   POPUP (branch `feat/agent-wallets`; `notes/redesign-contract.md` §4).

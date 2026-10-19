@@ -49,13 +49,16 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     exact: true,
   });
   await expect(accountSettings).toBeVisible();
-  // The agent wallet group loads after the rest of Settings, with its balance.
+  // The agent wallets band sits at the bottom, with no balances on its rows.
   await expect(
-    accountSettings.locator("[data-agent-wallet] [data-balance]"),
-  ).toHaveText("$412.80");
+    accountSettings.locator(
+      '[data-agent-wallet] [aria-label="Actions for Trading"]',
+    ),
+  ).toBeVisible();
+  await expect(accountSettings.getByText("$412.80")).toHaveCount(0);
   await settleVisuals(page);
-  // The account-linking UI groups the active signer and linked wallets
-  // under Wallets & access, with the agent wallet first.
+  // Wallets & access: the Signs-with strip, the sign-in wallets you sign
+  // with yourself, then the agent wallets Aomi hosts.
   await expect(accountSettings).toHaveScreenshot(
     "account-settings.png",
     screenshot(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import type { AomiAgentWallet, AomiAgentWallets } from "@aomi-labs/client";
 import { cn, useDisplayQuery } from "@aomi-labs/react";
@@ -15,10 +15,20 @@ import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
 import { ActionsMenu, Divider } from "@/account/account-management/controls";
 import { AgentWalletRow, type AgentWalletActions } from "./agent-wallet-row";
-import { AgentWalletDetails } from "./agent-wallet-details";
-import { AgentWalletWithdraw } from "./agent-wallet-withdraw";
 import { holdsFunds, shownWallets, walletRows } from "./agent-wallet-model";
 import { useRefreshWallets } from "./use-refresh-wallets";
+
+// Opened on demand, so they (and the QR encoder) load only then.
+const AgentWalletDetails = lazy(() =>
+  import("./agent-wallet-details").then((module) => ({
+    default: module.AgentWalletDetails,
+  })),
+);
+const AgentWalletWithdraw = lazy(() =>
+  import("./agent-wallet-withdraw").then((module) => ({
+    default: module.AgentWalletWithdraw,
+  })),
+);
 
 type Sheet =
   | { kind: "details" | "withdraw"; wallet: AomiAgentWallet }
@@ -243,21 +253,23 @@ export function AgentWalletsSection({
           renderRow={row}
         />
       ) : null}
-      {sheet?.kind === "details" && current ? (
-        <AgentWalletDetails
-          wallet={current}
-          onClose={() => setSheet(null)}
-          onWithdraw={() => setSheet({ kind: "withdraw", wallet: current })}
-          onArchive={(archive) => actions.onArchive(current, archive)}
-        />
-      ) : null}
-      {sheet?.kind === "withdraw" && current ? (
-        <AgentWalletWithdraw
-          wallet={current}
-          rows={rows}
-          onClose={() => setSheet(null)}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {sheet?.kind === "details" && current ? (
+          <AgentWalletDetails
+            wallet={current}
+            onClose={() => setSheet(null)}
+            onWithdraw={() => setSheet({ kind: "withdraw", wallet: current })}
+            onArchive={(archive) => actions.onArchive(current, archive)}
+          />
+        ) : null}
+        {sheet?.kind === "withdraw" && current ? (
+          <AgentWalletWithdraw
+            wallet={current}
+            rows={rows}
+            onClose={() => setSheet(null)}
+          />
+        ) : null}
+      </Suspense>
       {sheet?.kind === "archive" ? (
         <ConfirmDialog
           open

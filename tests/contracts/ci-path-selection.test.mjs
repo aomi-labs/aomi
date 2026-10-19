@@ -37,17 +37,11 @@ test("Vercel builds only affected apps while preserving Portal and Build QA prev
   assert.equal(selectsVercelProject(portalChange, "portal"), true);
   assert.equal(selectsVercelProject(portalChange, "build"), true);
   assert.equal(selectsVercelProject(portalChange, "landing"), false);
-  assert.equal(selectsVercelProject(portalChange, "telegram"), false);
 
   const landingChange = ["apps/landing/content/docs/getting-started.mdx"];
   assert.equal(selectsVercelProject(landingChange, "landing"), true);
   assert.equal(selectsVercelProject(landingChange, "portal"), false);
   assert.equal(selectsVercelProject(landingChange, "build"), false);
-  assert.equal(selectsVercelProject(landingChange, "telegram"), false);
-
-  const telegramChange = ["apps/telegram/src/app/page.tsx"];
-  assert.equal(selectsVercelProject(telegramChange, "telegram"), true);
-  assert.equal(selectsVercelProject(telegramChange, "landing"), false);
 });
 
 test("Vercel path selection fails broad for shared, global, empty and forced comparisons", () => {

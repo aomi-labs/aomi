@@ -174,7 +174,12 @@ describe("wallet sheet", () => {
       screen.getByText("Create one Aomi hosts, or connect one you own"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /New agent wallet/ }));
-    const name = screen.getByRole("textbox", { name: "Name" });
+    // The step loads on demand.
+    const name = await screen.findByRole(
+      "textbox",
+      { name: "Name" },
+      { timeout: 5000 },
+    );
     expect(name).toHaveValue("Agent wallet");
     fireEvent.change(name, { target: { value: " Trading " } });
     await act(async () =>

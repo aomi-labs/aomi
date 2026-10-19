@@ -1,13 +1,19 @@
 "use client";
 
-import { useContext, useEffect } from "react";
+import { lazy, Suspense, useContext, useEffect } from "react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { useWalletPicker } from "./wallet-picker-context";
 import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 import { ChooseStep } from "./choose-step";
 import { ChainStep, WalletStep } from "./wallet-step";
 import { MergeStep } from "./merge-step";
-import { NewAgentWalletStep } from "@/account/agent-wallets/new-agent-wallet";
+
+// Only "Add a wallet" opens it, so it loads only then.
+const NewAgentWalletStep = lazy(() =>
+  import("@/account/agent-wallets/new-agent-wallet").then((module) => ({
+    default: module.NewAgentWalletStep,
+  })),
+);
 
 /** The wallet sheet: sign in, add a wallet, verify, switch, merge. */
 export function WalletPicker({ backdrop }: { backdrop?: boolean } = {}) {
@@ -33,7 +39,9 @@ export function WalletPicker({ backdrop }: { backdrop?: boolean } = {}) {
       ) : sheet.step === "chain" ? (
         <ChainStep brand={sheet.brand} flow={flow} />
       ) : sheet.step === "agent" ? (
-        <NewAgentWalletStep onDone={flow.close} onClose={flow.close} />
+        <Suspense fallback={null}>
+          <NewAgentWalletStep onDone={flow.close} onClose={flow.close} />
+        </Suspense>
       ) : sheet.step === "merge" ? (
         <MergeStep sheet={sheet} flow={flow} />
       ) : (

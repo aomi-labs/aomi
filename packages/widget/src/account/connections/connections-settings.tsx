@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Plus } from "lucide-react";
 import { useDisplayQuery } from "@aomi-labs/react";
 import type {
@@ -21,7 +21,13 @@ import {
 import { connectionsQuery } from "@/account/account-queries";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
-import { ConnectionWalletsSheet } from "./connection-wallets-sheet";
+
+// Opened from a row's menu, so it loads only then.
+const ConnectionWalletsSheet = lazy(() =>
+  import("./connection-wallets-sheet").then((module) => ({
+    default: module.ConnectionWalletsSheet,
+  })),
+);
 
 const KIND_LABEL: Record<AomiConnectionKind, string> = {
   portal: "This website",
@@ -244,24 +250,28 @@ export function ConnectionsSettings() {
         </p>
       ) : null}
       {adding ? <ConnectAppSheet onClose={() => setAdding(false)} /> : null}
-      {sheetRow ? (
-        <ConnectionWalletsSheet
-          connection={sheetRow}
-          description={sheetDescription(sheetRow)}
-          onClose={() => setWalletsOf(null)}
-          onRename={
-            sheetRow.kind === "portal" ? undefined : () => startRename(sheetRow)
-          }
-          onRemove={
-            sheetRow.removable
-              ? () => {
-                  setWalletsOf(null);
-                  void remove(sheetRow);
-                }
-              : undefined
-          }
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {sheetRow ? (
+          <ConnectionWalletsSheet
+            connection={sheetRow}
+            description={sheetDescription(sheetRow)}
+            onClose={() => setWalletsOf(null)}
+            onRename={
+              sheetRow.kind === "portal"
+                ? undefined
+                : () => startRename(sheetRow)
+            }
+            onRemove={
+              sheetRow.removable
+                ? () => {
+                    setWalletsOf(null);
+                    void remove(sheetRow);
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+      </Suspense>
       {dialog}
     </section>
   );
