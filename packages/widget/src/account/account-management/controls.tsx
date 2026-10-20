@@ -283,7 +283,7 @@ export function ExpandToggle({
         event.stopPropagation();
         onToggle();
       }}
-      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-1.5 flex size-4 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
+      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
     >
       <ChevronRight
         className={cn(
@@ -296,11 +296,12 @@ export function ExpandToggle({
 }
 
 /**
- * A top-level row's left edge: the list's usual 14px, or for a row that
- * expands, a narrower edge with the chevron in it (6 + 16 + 6 = 28px to the
- * logo).
+ * A top-level row's left edge. Every logo starts at 26px; a row that
+ * expands draws its chevron in that gutter with an even 6px on each side
+ * (6 + 14 + 6), the rest leave it empty.
  */
-export const rowStart = (expands: boolean) => (expands ? "pl-1.5" : "pl-3.5");
+export const rowStart = (expands: boolean) =>
+  expands ? "pl-1.5" : "pl-[26px]";
 
 export function titleCase(value: string): string {
   return value
@@ -321,7 +322,7 @@ export function Divider({
   return (
     <div
       data-band
-      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5"
+      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[26px] pr-3.5"
     >
       <span className="type-meta text-aomi-fg shrink-0 font-medium">
         {title}
