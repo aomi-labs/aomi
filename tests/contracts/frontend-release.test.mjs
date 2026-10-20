@@ -8,7 +8,12 @@ import {
   validateRuntime,
   readRouting,
   observeRuntime,
+  qaRequirement,
+  scopedChanges,
+  surfaceScope,
 } from "../../scripts/frontend-release.mjs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 
 function fixture(surface) {
   const sha = "a".repeat(40),
@@ -538,4 +543,33 @@ test("QA receives the operation and the live deployment's source", async () => {
   await releaseSurface({ ...options, qa: (context) => ((seen = context), { status: "PASS" }) });
   assert.equal(seen.operation, "promote");
   assert.equal(seen.liveSha, "a".repeat(40));
+});
+
+test("QA risk follows the selected surface and its workspace dependencies", () => {
+  const dirs = execFileSync("git", ["ls-tree", "-d", "--name-only", "HEAD", "apps/", "packages/"], { encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
+  const read = (path) => (existsSync(path) ? readFileSync(path, "utf8") : null);
+  const portal = surfaceScope("portal", read, dirs);
+  const telegram = surfaceScope("telegram", read, dirs);
+  // Shared dependencies are transitive: widget -> react -> client.
+  for (const dir of ["apps/portal", "packages/widget", "packages/react", "packages/client", "packages/account", "packages/deploy"])
+    assert.ok(portal.has(dir), dir);
+  assert.ok(!portal.has("apps/telegram") && !portal.has("packages/smither"));
+  assert.ok(!telegram.has("packages/deploy"));
+  const changed = [
+    "apps/telegram/src/lib/telegram-auth.ts",
+    "packages/smither/src/session.ts",
+    "apps/build/src/app/api/route.ts",
+  ];
+  // Unrelated apps and packages the surface does not use never require authenticated QA.
+  assert.deepEqual(scopedChanges(changed, portal), []);
+  assert.equal(qaRequirement({ surface: "portal", operation: "promote", changed: scopedChanges(changed, portal) }).authenticated, false);
+  // A shared dependency or a root file is in scope for every surface that uses it.
+  const shared = ["packages/client/src/session.ts", "scripts/auth-fixture.mjs"];
+  assert.deepEqual(scopedChanges(shared, portal), shared);
+  assert.deepEqual(scopedChanges(shared, telegram), shared);
+  assert.equal(qaRequirement({ surface: "portal", operation: "promote", changed: scopedChanges(shared, portal) }).authenticated, true);
+  assert.equal(scopedChanges(["apps/telegram/src/lib/telegram-auth.ts"], telegram).length, 1);
+  assert.throws(() => surfaceScope("unknown", read, dirs), /no workspace/);
 });

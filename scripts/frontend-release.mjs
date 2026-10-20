@@ -39,6 +39,52 @@ const github = (path) =>
 export const SENSITIVE =
   /^(?:apps\/[^/]+\/src\/(?:server|middleware|proxy)|apps\/[^/]+\/src\/app\/(?:api|oauth)|packages\/(?:account|client)\/src|packages\/widget\/src\/(?:wallet|account)|packages\/deploy\/src\/bff)(?:\/|\.|$)|(?:^|[/._-])(?:auth|oauth|wallet|payment|x402|session|privy|signing)(?:[/._-]|$)/;
 
+/**
+ * Directories that can change what a surface serves: its app and the
+ * transitive closure of its workspace dependencies. `read(path)` returns a
+ * package.json text at the candidate source, or null when absent.
+ */
+export function surfaceScope(surface, read, dirs) {
+  const byName = new Map();
+  for (const dir of dirs) {
+    const text = read(`${dir}/package.json`);
+    if (text === null) continue;
+    const manifest = JSON.parse(text);
+    byName.set(manifest.name, {
+      dir,
+      deps: Object.keys({
+        ...manifest.dependencies,
+        ...manifest.devDependencies,
+        ...manifest.peerDependencies,
+      }),
+    });
+  }
+  const app = [...byName.values()].find((row) => row.dir === `apps/${surface}`);
+  assert(app, `${surface}: no workspace at apps/${surface}`);
+  const scope = new Set([app.dir]);
+  const pending = [...app.deps];
+  while (pending.length) {
+    const row = byName.get(pending.pop());
+    if (!row || scope.has(row.dir)) continue;
+    scope.add(row.dir);
+    pending.push(...row.deps);
+  }
+  return scope;
+}
+
+/**
+ * Changed paths that can affect this surface. Another app or a package the
+ * surface does not depend on is out of scope; root and shared files (lockfile,
+ * workspace config, scripts) stay in scope so they fail toward more QA.
+ */
+export function scopedChanges(changed, scope) {
+  return changed.filter((path) => {
+    if (!/^(?:apps|packages)\//.test(path)) return true;
+    const dir = path.split("/").slice(0, 2).join("/");
+    return scope.has(dir);
+  });
+}
+
 /** Which QA a routing change needs, decided by surface, operation and risk. */
 export function qaRequirement({ surface, operation, changed }) {
   if (surface === "landing")
@@ -591,9 +637,22 @@ export async function main() {
       const publicEvidence = read(resolve("frontend.yml", process.env.QA_RUN_ID), false);
       let changed = null;
       try {
-        changed = git("diff", "--name-only", liveSha, sha).split("\n").filter(Boolean);
+        const dirs = git("ls-tree", "-d", "--name-only", sha, "apps/", "packages/")
+          .split("\n")
+          .filter(Boolean);
+        const read = (path) => {
+          try {
+            return git("show", `${sha}:${path}`);
+          } catch {
+            return null;
+          }
+        };
+        changed = scopedChanges(
+          git("diff", "--name-only", liveSha, sha).split("\n").filter(Boolean),
+          surfaceScope(surface, read, dirs),
+        );
       } catch {
-        changed = null; // Unknown history fails closed below.
+        changed = null; // Unknown history or workspace graph fails closed below.
       }
       const need = qaRequirement({ surface, operation, changed });
       if (!need.authenticated)
