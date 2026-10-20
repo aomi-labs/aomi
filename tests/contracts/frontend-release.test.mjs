@@ -7,6 +7,7 @@ import {
   validateApproval,
   validateRuntime,
   readRouting,
+  observeRuntime,
 } from "../../scripts/frontend-release.mjs";
 
 function fixture(surface) {
@@ -311,5 +312,36 @@ test("Landing live demos require exact configuration proof too", () => {
     },
     deployment,
     "landing",
+  );
+});
+
+test("Landing release executes the immutable deployment configuration observation", async () => {
+  const deployment = {
+    url: "landing.vercel.app",
+    meta: { githubCommitSha: "a".repeat(40) },
+  };
+  let requests = 0;
+  const evidence = await observeRuntime(deployment, "landing", async (url) => {
+    requests++;
+    assert.equal(url, "https://landing.vercel.app/api/release");
+    return {
+      ok: true,
+      json: async () => ({
+        kind: "frontend_runtime",
+        source_sha: deployment.meta.githubCommitSha,
+        deployment_host: deployment.url,
+        server_api_origin: "https://api.aomi.dev",
+        browser_api_base: "/",
+      }),
+    };
+  });
+  assert.equal(requests, 1);
+  assert.equal(evidence.api_target_verification, "exact_deployment_runtime");
+  await assert.rejects(
+    observeRuntime(deployment, "landing", async () => ({
+      ok: false,
+      status: 404,
+    })),
+    /unavailable/,
   );
 });
