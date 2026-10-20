@@ -26,6 +26,11 @@ const AI_CLIENTS: App[] = [
   { name: "Claude", kind: "ai" },
   { name: "Codex", kind: "ai" },
   { name: "Cursor", kind: "ai" },
+  {
+    name: "Other MCP client",
+    kind: "ai",
+    description: "Any agent that speaks MCP",
+  },
 ];
 const MORE: App[] = [
   { name: "Telegram", kind: "telegram", description: "Any Aomi bot" },
@@ -139,11 +144,12 @@ export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
       </AomiSheet>
     );
 
+  const other = app.name === "Other MCP client";
   const screen =
     app.kind === "ai"
       ? {
-          title: `Connect ${app.name}`,
-          description: `Add one of Aomi's MCP servers in ${app.name}.`,
+          title: other ? "Connect an MCP client" : `Connect ${app.name}`,
+          description: `Add one of Aomi's MCP servers in ${other ? "your client" : app.name}.`,
           body: (
             <>
               <div className="flex w-full flex-col gap-3">
@@ -156,7 +162,7 @@ export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
           ),
           footnote: (
             <>
-              {app.name} opens Aomi to sign in. · {back}
+              {other ? "Your client" : app.name} opens Aomi to sign in. · {back}
             </>
           ),
         }

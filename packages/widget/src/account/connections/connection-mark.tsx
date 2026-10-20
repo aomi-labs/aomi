@@ -6,11 +6,15 @@ import { AomiMark } from "@/ui/aomi-mark";
 import {
   ClaudeMark,
   CursorMark,
+  McpMark,
   OpenAIMark,
   TelegramMark,
 } from "@/wallet/wallet-brands";
 
-/** A connection's mark: Aomi, Telegram, a known AI client, a terminal or code. */
+/**
+ * A connection's mark: Aomi, Telegram, a known AI client, any other MCP
+ * client, a terminal, or code for an app.
+ */
 export function ConnectionMark({
   kind,
   name,
@@ -33,6 +37,8 @@ export function ConnectionMark({
       <OpenAIMark size={size} className="text-aomi-fg" />
     ) : /cursor/i.test(name) ? (
       <CursorMark size={size} className="text-aomi-fg" />
+    ) : kind === "ai" ? (
+      <McpMark size={size - 2} className="text-aomi-fg" />
     ) : (
       <Code size={size - 2} className="text-aomi-fg" />
     );
