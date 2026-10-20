@@ -5,7 +5,7 @@ import {
   selectDeployment,
   successfulURL,
   resolve,
-} from "../.github/scripts/resolve-preview-urls.mjs";
+} from "../../.github/scripts/resolve-preview-urls.mjs";
 const sha = "a".repeat(40);
 test("only exact source/environment and latest deployment", () => {
   assert.equal(
