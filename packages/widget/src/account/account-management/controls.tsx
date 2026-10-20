@@ -301,8 +301,7 @@ export function ExpandToggle({
  * gaps you see then match: 8px + the chevron's own 5px before it, its 5px +
  * the 17px logo's 7.5px inset in its 32px box after it (about 13px each).
  */
-export const rowStart = (expands: boolean) =>
-  expands ? "pl-2" : "pl-[22px]";
+export const rowStart = (expands: boolean) => (expands ? "pl-2" : "pl-[22px]");
 
 export function titleCase(value: string): string {
   return value
@@ -326,7 +325,7 @@ export function Divider({
   return (
     <div
       data-band
-      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
+      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5 first:border-t-0"
     >
       <span className="type-meta text-aomi-fg shrink-0 font-medium">
         {title}

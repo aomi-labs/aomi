@@ -17,7 +17,7 @@ import type {
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { ListGroup } from "@/ui/aomi/list-group";
+import { ListGroup, listGroupClass } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -26,6 +26,7 @@ import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useShellTransport } from "@/account/transport";
 import {
   ActionsMenu,
+  Divider,
   ExpandToggle,
   rowStart,
   type MenuItem,
@@ -42,6 +43,30 @@ const ConnectionManage = lazy(() =>
     default: module.ConnectionManage,
   })),
 );
+
+/** The Connections card's bands, in order. */
+const BANDS: {
+  title: string;
+  detail: string;
+  kinds: readonly AomiConnectionKind[];
+}[] = [
+  { title: "Websites", detail: "Aomi in your browser", kinds: ["portal"] },
+  {
+    title: "Chat bots",
+    detail: "Bots you trade with in chat",
+    kinds: ["telegram"],
+  },
+  {
+    title: "AI assistants",
+    detail: "Claude, Cursor, pi and other MCP clients",
+    kinds: ["ai"],
+  },
+  {
+    title: "Terminal and apps",
+    detail: "The CLI, the SDK and apps you signed in to",
+    kinds: ["cli", "app"],
+  },
+];
 
 const KIND_LABEL: Record<AomiConnectionKind, string> = {
   portal: "This website",
@@ -328,12 +353,16 @@ export function ConnectionsSettings() {
     </div>
   ) : null;
 
-  // Telegram's group sits where its most recently used bot would.
-  const list: ReactNode[] = [];
-  for (const row of rows) {
-    if (row.kind !== "telegram") list.push(connectionRow(row));
-    else if (row === bots[0]) list.push(telegramGroup);
-  }
+  // Each band lists its connections most recent first; Telegram's group is
+  // the one row of Chat bots. A band with nothing in it is left out.
+  const bands = BANDS.map((band) => ({
+    ...band,
+    items: band.kinds.includes("telegram")
+      ? [telegramGroup].filter(Boolean)
+      : rows
+          .filter((row) => band.kinds.includes(row.kind))
+          .map((row) => connectionRow(row)),
+  })).filter((band) => band.items.length > 0);
 
   return (
     <section className="flex flex-col gap-2">
@@ -356,7 +385,14 @@ export function ConnectionsSettings() {
           {error ?? "Couldn’t load your connections."}
         </p>
       ) : null}
-      <ListGroup>{list}</ListGroup>
+      <div className={listGroupClass}>
+        {bands.map((band) => (
+          <div key={band.title} data-connection-band={band.title}>
+            <Divider title={band.title} detail={band.detail} />
+            <div className="divide-aomi-border divide-y">{band.items}</div>
+          </div>
+        ))}
+      </div>
       {rows.every((row) => row.kind === "portal") ? (
         <p className="type-meta text-aomi-muted px-0.5">
           Use Aomi from Claude, your terminal or Telegram.

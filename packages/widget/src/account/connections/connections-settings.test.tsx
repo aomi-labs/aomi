@@ -148,6 +148,18 @@ describe("Connections tab", () => {
     expect(within(rowOf("oauth:c1")).queryByText("Instant")).toBeNull();
   });
 
+  it("bands connections by kind and leaves out an empty band", async () => {
+    await renderTab();
+    const bands = [...document.querySelectorAll("[data-connection-band]")];
+    expect(
+      bands.map((band) => band.getAttribute("data-connection-band")),
+    ).toEqual(["Websites", "Chat bots", "AI assistants"]);
+    expect(bands[2]).toHaveTextContent(
+      "Claude, Cursor, pi and other MCP clients",
+    );
+    expect(within(bands[2] as HTMLElement).getByText("Claude")).toBeTruthy();
+  });
+
   it("groups Telegram bots under one Telegram row, each titled by its app or your name", async () => {
     await renderTab();
     const telegram = rowOf("telegram");
