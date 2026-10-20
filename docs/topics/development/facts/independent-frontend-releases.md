@@ -31,9 +31,13 @@ Still required: hosted selected-surface rehearsals, exact-deployment authenticat
 ## Verification
 
 - 10 OpenAPI route/compatibility regression tests passed.
-- 51 native contract/workflow tests passed, including four-surface independent operations and unrelated-alias invariance simulations.
+- 57 native contract/workflow tests passed, including four-surface independent operations and unrelated-alias invariance simulations.
 - Library TypeScript passed through aomi-dev after installing this checkout's pinned dependencies.
 - Workflow security policy, release-note guard and formatting passed.
 - No live Vercel mutation/read-back rehearsal or authenticated browser journey ran. No npm package was published.
 
 Shared integration checklist and backend readiness are maintained in product-mono `docs/topics/deployments/facts/phase1-implementation-status.md`; no Phase 1 completion is claimed.
+
+The live contract reads Backend `/api/openapi.json` and Manager `/api/manager/openapi.json` from the same target origin. Their actual documents are composed without dropping Manager requirements; conflicting auth definitions block. The first staging execution exposed 82 missing Manager requirements; after adding the backend provider implementation, staging remains BLOCKED by its undeployed Manager document (HTTP 404). Two local HTTP integration tests pass for separate providers/backend additions and missing Manager evidence. Backend endpoint/Worker changes are in product-mono #1385; browser evidence is in aomi-qa #6.
+
+Before a production-source PR can merge, its existing promotion-policy job now reads each active project's `autoAssignCustomDomains=false` setting using a read-only Vercel credential, after source/main/merge-tree checks and before dependency installation. Provider policy is checked again before and after a routing operation. A pre-mutation scalar record preserves the selected target and previous aliases if the provider operation is interrupted. The read-only credential's availability/permissions remain unverified; absence blocks this frontend policy, never backend RC.

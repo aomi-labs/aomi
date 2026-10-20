@@ -102,6 +102,16 @@ export function validateApproval(pr, deploymentSha, treeEqual, ancestor) {
   );
 }
 
+export async function verifyHeldProjects(api) {
+  for (const [surface, config] of Object.entries(surfaces)) {
+    const project = await api.get(`/v9/projects/${config.project}`);
+    assert(
+      project.autoAssignCustomDomains === false,
+      `${surface}: automatic production domain assignment must be disabled`,
+    );
+  }
+}
+
 export async function snapshot(api) {
   const result = {};
   for (const [surface, config] of Object.entries(surfaces)) {
@@ -138,6 +148,7 @@ export async function releaseSurface({
   contract,
   qa,
   mutate,
+  persist = () => {},
 }) {
   assert(surfaces[surface], "Unknown active surface");
   assert(["promote", "rollback"].includes(operation), "Unknown operation");
@@ -147,11 +158,7 @@ export async function releaseSurface({
   );
   const deployment = await api.get(`/v13/deployments/${deploymentId}`);
   const sha = validateDeployment(deployment, surface);
-  const project = await api.get(`/v9/projects/${surfaces[surface].project}`);
-  assert(
-    project.autoAssignCustomDomains === false,
-    "Disable automatic domain assignment before independent releases",
-  );
+  await verifyHeldProjects(api);
   await approve(sha);
   await contract(sha);
   const qaEvidence = await qa({ surface, deploymentId, sha });
@@ -162,7 +169,18 @@ export async function releaseSurface({
     validateDeployment(current, surface) === sha,
     "Deployment provenance changed",
   );
+  persist({
+    kind: "frontend_deployment_attempt",
+    surface,
+    source_sha: sha,
+    deployment_id: deploymentId,
+    operation,
+    aliases_before: before,
+    status: "MUTATION_PENDING",
+    recorded_at: new Date().toISOString(),
+  });
   await mutate(operation, deploymentId);
+  await verifyHeldProjects(api);
   const after = await snapshot(api);
   verifyRouting(before, after, surface, deploymentId);
   return {
@@ -329,6 +347,11 @@ export async function main() {
       );
       return { run_id: runId, repository: "aomi-labs/aomi-qa" };
     },
+    persist: (record) =>
+      writeFileSync(
+        "frontend-deployment.json",
+        JSON.stringify(record, null, 2) + "\n",
+      ),
     mutate: (action, id) =>
       execFileSync("vercel", [action, id, "--scope", "aomi-labs", "--yes"], {
         stdio: "inherit",

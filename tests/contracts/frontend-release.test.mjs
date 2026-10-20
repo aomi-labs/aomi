@@ -170,3 +170,34 @@ test("source approval cannot be replaced with main ancestry alone", () => {
     ),
   );
 });
+
+test("automatic assignment on any surface blocks a merge/release", async () => {
+  const { verifyHeldProjects } =
+    await import("../../scripts/frontend-release.mjs");
+  await verifyHeldProjects({
+    get: async () => ({ autoAssignCustomDomains: false }),
+  });
+  await assert.rejects(
+    verifyHeldProjects({
+      get: async (path) => ({
+        autoAssignCustomDomains: path.includes(surfaces.build.project),
+      }),
+    }),
+  );
+});
+test("a pending mutation record survives provider interruption", async () => {
+  const { options } = fixture("portal"),
+    records = [];
+  await assert.rejects(
+    releaseSurface({
+      ...options,
+      persist: (record) => records.push(record),
+      mutate: () => {
+        throw Error("interrupted");
+      },
+    }),
+  );
+  assert.equal(records[0].status, "MUTATION_PENDING");
+  assert.equal(records[0].surface, "portal");
+  assert.ok(records[0].aliases_before.portal);
+});

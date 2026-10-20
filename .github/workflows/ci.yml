@@ -486,6 +486,11 @@ jobs:
             exit 1
           }
 
+      - name: Require held builds before merging production source
+        env:
+          VERCEL_READONLY_TOKEN: ${{ secrets.VERCEL_READONLY_TOKEN }}
+        run: node scripts/frontend-build-policy.mjs
+
       - name: Enable corepack
         run: corepack enable
 

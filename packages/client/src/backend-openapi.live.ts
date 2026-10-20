@@ -1,5 +1,10 @@
 import { readFileSync } from "node:fs";
-import { expect, it } from "vitest";
+import { it } from "vitest";
+// @ts-expect-error The workflow helper is JavaScript shared with native Node tests.
+import {
+  fetchApiDocument,
+  mergeApiDocuments,
+} from "../../../scripts/live-api-contract.mjs";
 import consumerContract from "./test-fixtures/backend-openapi.json";
 import {
   expectLiveRouteContract,
@@ -13,12 +18,15 @@ it("keeps the client route manifest aligned with the explicitly selected live ba
     throw new Error(
       "AOMI_BACKEND_OPENAPI_URL is required for the live contract lane",
     );
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-  expect(response.ok).toBe(true);
-  expect(response.headers.get("content-type") ?? "").toContain(
-    "application/json",
-  );
-  const backend = (await response.json()) as OpenApiDocument;
+  const managerUrl = new URL("/api/manager/openapi.json", url).href;
+  const [backendDocument, managerDocument] = await Promise.all([
+    fetchApiDocument(url),
+    fetchApiDocument(managerUrl),
+  ]);
+  const backend = mergeApiDocuments(
+    backendDocument,
+    managerDocument,
+  ) as OpenApiDocument;
   const requirements = process.env.AOMI_CONSUMER_CONTRACT_FILE
     ? (JSON.parse(
         readFileSync(process.env.AOMI_CONSUMER_CONTRACT_FILE, "utf8"),
@@ -26,4 +34,4 @@ it("keeps the client route manifest aligned with the explicitly selected live ba
     : (consumerContract as OpenApiDocument);
   expectLiveRouteContract(backend, requirements);
   expectConsumerShapes(requirements, backend);
-}, 35_000);
+}, 65_000);
