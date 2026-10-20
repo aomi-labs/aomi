@@ -100,6 +100,9 @@ describe("forward", () => {
       );
       expect(headers.get("authorization")).toBe("Bearer minted");
       expect(headers.get("x-thread-id")).toBe("thread-1");
+      expect(headers.get("x-aomi-run-budget-microusd")).toBe(
+        policy === AGENT_API_HEADERS ? "50000000" : null,
+      );
     },
   );
 
