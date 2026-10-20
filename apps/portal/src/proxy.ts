@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers":
-      "Authorization, Content-Type, Aomi-App-Key, Last-Event-ID, DPoP, Idempotency-Key, Payment-Signature, X-Aomi-CSRF, X-Aomi-Inference-Funding, X-Request-Id, X-Session-Id, X-Thread-Id",
+      "Authorization, Content-Type, Aomi-App-Key, Last-Event-ID, DPoP, Idempotency-Key, Payment-Signature, X-Aomi-CSRF, X-Aomi-Inference-Funding, X-Aomi-Run-Budget-Microusd, X-Request-Id, X-Session-Id, X-Thread-Id",
     "Access-Control-Expose-Headers":
       "Payment-Required, Payment-Receipt, Payment-Response, X-Payment-Response, Retry-After, X-Request-Id",
     Vary: "Origin",
