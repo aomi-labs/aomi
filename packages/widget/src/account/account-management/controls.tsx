@@ -283,7 +283,7 @@ export function ExpandToggle({
         event.stopPropagation();
         onToggle();
       }}
-      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
+      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-3 flex size-3.5 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
     >
       <ChevronRight
         className={cn(
@@ -296,12 +296,13 @@ export function ExpandToggle({
 }
 
 /**
- * A top-level row's left edge. Every logo starts at 26px; a row that
- * expands draws its chevron in that gutter with an even 6px on each side
- * (6 + 14 + 6), the rest leave it empty.
+ * A top-level row's left edge. Every logo box starts at 22px; a row that
+ * expands draws its chevron in that gutter, its box against the logo's. The
+ * gaps you see then match: 8px + the chevron's own 5px before it, its 5px +
+ * the 17px logo's 7.5px inset in its 32px box after it (about 13px each).
  */
 export const rowStart = (expands: boolean) =>
-  expands ? "pl-1.5" : "pl-[26px]";
+  expands ? "pl-2" : "pl-[22px]";
 
 export function titleCase(value: string): string {
   return value
@@ -309,7 +310,10 @@ export function titleCase(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-/** A section band inside the wallets card, with an optional action at its end. */
+/**
+ * A section band inside the wallets card, with an optional action at its end.
+ * Its text lines up with the logos you see (a 22px box, 7.5px inset).
+ */
 export function Divider({
   title,
   detail,
@@ -322,7 +326,7 @@ export function Divider({
   return (
     <div
       data-band
-      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[26px] pr-3.5"
+      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
     >
       <span className="type-meta text-aomi-fg shrink-0 font-medium">
         {title}

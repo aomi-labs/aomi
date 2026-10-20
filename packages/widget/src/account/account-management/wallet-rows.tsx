@@ -57,9 +57,9 @@ export const addressExplorerUrl = (row: WalletRow) =>
 
 /**
  * A child row sits a step in from its parent: its logo box starts 16px right
- * of the parent's, which is at 26px ([`rowStart`]).
+ * of the parent's, which is at 22px ([`rowStart`]).
  */
-export const CHILD_INDENT = "pl-[42px]";
+export const CHILD_INDENT = "pl-[38px]";
 const CHILD = CHILD_INDENT;
 
 /**
