@@ -507,3 +507,35 @@ test("source approval is rechecked before routing and new failure prevents mutat
   );
   assert.equal(calls.length, 0);
 });
+
+test("authenticated QA is required only for security-sensitive promotions", async () => {
+  const { qaRequirement, SENSITIVE } = await import("../../scripts/frontend-release.mjs");
+  const promote = (surface, changed) => qaRequirement({ surface, operation: "promote", changed });
+  assert.equal(promote("portal", ["apps/portal/src/app/page.tsx", "docs/x.md"]).authenticated, false);
+  for (const path of [
+    "apps/portal/src/server/bff/proxy.ts",
+    "apps/build/src/app/api/release/route.ts",
+    "packages/widget/src/wallet/picker/list.tsx",
+    "packages/account/src/better-auth/client.ts",
+    "packages/client/src/session/store.ts",
+    "apps/telegram/src/hooks/use-privy-login.ts",
+  ]) {
+    assert.ok(SENSITIVE.test(path), path);
+    assert.deepEqual(promote("portal", [path]).sensitive, [path]);
+  }
+  // Unknown history fails closed; Landing and rollbacks never need it.
+  assert.equal(promote("build", null).authenticated, true);
+  assert.equal(promote("landing", ["packages/client/src/x.ts"]).authenticated, false);
+  assert.equal(
+    qaRequirement({ surface: "portal", operation: "rollback", changed: ["packages/client/src/x.ts"] }).authenticated,
+    false,
+  );
+});
+
+test("QA receives the operation and the live deployment's source", async () => {
+  const { options } = fixture("portal");
+  let seen;
+  await releaseSurface({ ...options, qa: (context) => ((seen = context), { status: "PASS" }) });
+  assert.equal(seen.operation, "promote");
+  assert.equal(seen.liveSha, "a".repeat(40));
+});

@@ -11,11 +11,11 @@ on:
         type: string
         required: true
       qa_run_id:
-        description: Successful deployment-bound aomi-qa frontend workflow run
+        description: Optional; defaults to the newest successful aomi-qa public smoke for this deployment
         type: string
-        required: true
+        required: false
       authenticated_qa_run_id:
-        description: Successful exact-deployment authenticated QA run; mandatory except Landing
+        description: Optional; authenticated QA is required only for auth, wallet, payment or BFF changes and defaults to the newest run for this deployment
         type: string
         required: false
       confirm:

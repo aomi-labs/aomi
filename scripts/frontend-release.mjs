@@ -34,6 +34,34 @@ const git = (...args) => run("git", args);
 const github = (path) =>
   JSON.parse(run("gh", ["api", `repos/aomi-labs/aomi/${path}`]));
 
+// Paths whose changes alter authentication, wallet signing, payment or the
+// BFF/server boundary. Only these require dedicated-account browser journeys.
+export const SENSITIVE =
+  /^(?:apps\/[^/]+\/src\/(?:server|middleware|proxy)|apps\/[^/]+\/src\/app\/(?:api|oauth)|packages\/(?:account|client)\/src|packages\/widget\/src\/(?:wallet|account)|packages\/deploy\/src\/bff)(?:\/|\.|$)|(?:^|[/._-])(?:auth|oauth|wallet|payment|x402|session|privy|signing)(?:[/._-]|$)/;
+
+/** Which QA a routing change needs, decided by surface, operation and risk. */
+export function qaRequirement({ surface, operation, changed }) {
+  if (surface === "landing")
+    return { authenticated: false, reason: "Landing has no authenticated surface" };
+  if (operation === "rollback")
+    return {
+      authenticated: false,
+      reason: "Rollback restores a previously served deployment; public smoke re-verifies it",
+    };
+  if (changed === null)
+    return {
+      authenticated: true,
+      sensitive: ["(unknown: the live deployment's source could not be compared)"],
+    };
+  const sensitive = changed.filter((path) => SENSITIVE.test(path));
+  if (sensitive.length === 0)
+    return {
+      authenticated: false,
+      reason: "No auth, wallet, payment or BFF path changed since the live deployment",
+    };
+  return { authenticated: true, sensitive };
+}
+
 export function validateQa(
   run,
   evidence,
@@ -87,11 +115,6 @@ export function validateQa(
         "session_persists_after_reload",
         "github_oauth_install_wizard",
         "project_observability_and_bot_identity",
-      ],
-      telegram: [
-        "telegram_identity",
-        "wallet_sign_reject_disconnect",
-        "streaming_chat_recovery",
       ],
     }[surface];
     const stories = evidence.stories;
@@ -363,7 +386,12 @@ export async function releaseSurface({
   await approve(sha);
   const runtimeEvidence = await runtime(deployment, surface);
   await contract(sha);
-  const qaEvidence = await qa({ surface, deploymentId, sha });
+  const live = Object.values((await snapshot(api))[surface])[0];
+  const liveSha =
+    live === deploymentId
+      ? sha
+      : (await api.get(`/v13/deployments/${live}`)).meta?.githubCommitSha;
+  const qaEvidence = await qa({ surface, deploymentId, sha, operation, liveSha });
   const before = await snapshot(api);
   // Check again immediately before mutation; a retry reads actual aliases.
   const current = await api.get(`/v13/deployments/${deploymentId}`);
@@ -497,7 +525,21 @@ export async function main() {
         git("worktree", "remove", "--force", target);
       }
     },
-    qa: async ({ surface, deploymentId, sha }) => {
+    qa: async ({ surface, deploymentId, sha, operation, liveSha }) => {
+      // The newest successful producer run for this exact deployment, unless
+      // the operator names one. The evidence is verified either way.
+      const resolve = (workflow, explicit) => {
+        if (explicit) return explicit;
+        const title = `${workflow === "frontend.yml" ? "Frontend QA" : "Frontend authenticated QA"} ${surface} ${deploymentId}`;
+        const runs = JSON.parse(
+          run("gh", [
+            "api",
+            `repos/aomi-labs/aomi-qa/actions/workflows/${workflow}/runs?event=workflow_dispatch&branch=main&status=success&per_page=100`,
+          ]),
+        ).workflow_runs.filter((row) => row.display_title === title);
+        assert(runs.length > 0, `No successful aomi-qa "${title}" run; dispatch aomi-qa ${workflow} for this deployment`);
+        return String(Math.max(...runs.map((row) => row.id)));
+      };
       const read = (runId, authenticated) => {
         assert(
           /^[1-9][0-9]*$/.test(runId ?? ""),
@@ -546,12 +588,31 @@ export async function main() {
         );
         return proof;
       };
-      const publicEvidence = read(process.env.QA_RUN_ID, false);
-      const authenticatedEvidence =
-        surface === "landing"
-          ? null
-          : read(process.env.AUTHENTICATED_QA_RUN_ID, true);
-      return { public: publicEvidence, authenticated: authenticatedEvidence };
+      const publicEvidence = read(resolve("frontend.yml", process.env.QA_RUN_ID), false);
+      let changed = null;
+      try {
+        changed = git("diff", "--name-only", liveSha, sha).split("\n").filter(Boolean);
+      } catch {
+        changed = null; // Unknown history fails closed below.
+      }
+      const need = qaRequirement({ surface, operation, changed });
+      if (!need.authenticated)
+        return {
+          public: publicEvidence,
+          authenticated: { status: "NOT_REQUIRED", reason: need.reason },
+        };
+      assert(
+        surface === "portal" || surface === "build",
+        `${surface}: security-sensitive change (${need.sensitive.join(", ")}) needs authenticated browser QA, and aomi-qa has no authenticated ${surface} producer yet`,
+      );
+      return {
+        public: publicEvidence,
+        authenticated: read(
+          resolve("frontend-authenticated.yml", process.env.AUTHENTICATED_QA_RUN_ID),
+          true,
+        ),
+        sensitive: need.sensitive,
+      };
     },
     persist: (record) =>
       writeFileSync(
