@@ -40,7 +40,7 @@ export type AomiAgentWallet = {
   paused: boolean;
   /** Unix seconds; archived wallets are hidden from chats and connections. */
   archived_at: number | null;
-  /** The app linked to it ("used by"); information only. */
+  /** The app that made it ("made in"); information only. */
   app: AomiAgentWalletApp | null;
   /** Unix seconds. */
   last_used_at: number | null;

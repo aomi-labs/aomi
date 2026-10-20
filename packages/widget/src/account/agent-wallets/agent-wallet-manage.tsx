@@ -51,7 +51,6 @@ import {
   pairsWith,
   type PairMode,
 } from "@/account/connections/connection-pairs";
-import { AppTile } from "@/account/account-management/labels";
 import { AddressQr } from "./address-qr";
 import {
   EVM_NETWORKS,
@@ -164,6 +163,7 @@ export function AgentWalletManage({
         title={wallet.name}
         description={[
           "Agent wallet",
+          wallet.app ? `made in ${wallet.app.label}` : null,
           archived
             ? "archived"
             : wallet.last_used_at === null
@@ -219,20 +219,6 @@ export function AgentWalletManage({
               />
             </div>
           </ListGroup>
-        ) : null}
-
-        {wallet.app ? (
-          <section className="flex flex-col gap-2">
-            <SectionHeader title="Used by" detail="1 app" />
-            <ListGroup>
-              <ListRow
-                data-used-by={wallet.app.name}
-                leading={<AppTile app={wallet.app} />}
-                title={wallet.app.label}
-                description="App · created this wallet and trades with it"
-              />
-            </ListGroup>
-          </section>
         ) : null}
 
         <section className="flex flex-col gap-2">

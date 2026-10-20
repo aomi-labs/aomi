@@ -5889,3 +5889,8 @@ Controls disabled while isProcessing === true
 - Bumped the account package patch version for its shipped budget JSON.
 - Local managed builds are blocked by disk headroom; PR CI is the test gate.
 - Scope is main only. This work does not promote production or publish npm.
+
+## 2026-10-20 — Wallets made in an app
+
+- The Manage sheet drops "Used by"; its header reads "Agent wallet · made in <app> · used …". `AomiAgentWallet.app` is the app that made the wallet.
+- Card groups keep their height inside scrolling sheets (`listGroupClass` `shrink-0`), so long Manage sheets scroll instead of clipping.
