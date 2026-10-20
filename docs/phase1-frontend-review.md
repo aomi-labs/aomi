@@ -17,7 +17,7 @@ Cecilia review:
 - `/api/release` binds the actual BFF origin and compiled browser API base to
   the immutable deployment hostname and source SHA. Telegram additionally
   verifies its Portal BFF's upstream. QA and routing operations repeat this
-  check independently. Public config contains no bearer or private env value.
+  check independently. Landing also requires runtime configuration proof for its live widget demos. Public config contains no bearer or private env value.
 - Alias propagation has a 30-second bound. Unrelated alias drift fails
   immediately. A pending operation is recorded before invoking Vercel. A retry
   after provider acceptance observes current aliases and avoids repeating a
@@ -33,7 +33,7 @@ passed at `8a22e29c8d41`. Resolution now observes Portal and Build together and
 allows 20 minutes, requiring the newest deployment status to be successful.
 It reports queue/publication failures and never substitutes another SHA.
 
-Continuation checks: 65 native contract/resolver tests passed. Portal, Build and
+Continuation checks: 66 native contract/resolver tests passed. Portal, Build and
 Telegram TypeScript passed after their workspace dependencies were built.
 Workflow policy and actionlint passed. Hosted auth/configuration/release/retry
 rehearsals are pending. Frontend production currently has only NPM_TOKEN in its

@@ -128,8 +128,6 @@ export function validateRuntime(observation, deployment, surface) {
 }
 
 export async function observeRuntime(deployment, surface, fetcher = fetch) {
-  if (surface === "landing")
-    return { api_target_verification: "no_backend_consumer" };
   assert(
     /^[a-z0-9-]+\.vercel\.app$/.test(deployment.url ?? ""),
     "Immutable deployment host required",
@@ -439,9 +437,7 @@ export async function main() {
           evidence.deployment_id === deploymentId &&
           evidence.source_sha === sha &&
           evidence.api_target === "https://api.aomi.dev" &&
-          ["exact_deployment_runtime", "no_backend_consumer"].includes(
-            evidence.api_target_verification,
-          ) &&
+          evidence.api_target_verification === "exact_deployment_runtime" &&
           evidence.status === "PASS" &&
           evidence.tests > 0,
         "Frontend QA does not cover this exact deployment and target",

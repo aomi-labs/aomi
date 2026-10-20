@@ -294,3 +294,22 @@ test("alias propagation is bounded and unrelated drift is immediately fatal", as
     /Unrelated alias/,
   );
 });
+
+test("Landing live demos require exact configuration proof too", () => {
+  const deployment = {
+    url: "landing.vercel.app",
+    meta: { githubCommitSha: "a".repeat(40) },
+  };
+  assert.throws(() => validateRuntime({}, deployment, "landing"));
+  validateRuntime(
+    {
+      kind: "frontend_runtime",
+      source_sha: deployment.meta.githubCommitSha,
+      deployment_host: deployment.url,
+      server_api_origin: "https://api.aomi.dev",
+      browser_api_base: "/",
+    },
+    deployment,
+    "landing",
+  );
+});
