@@ -5,6 +5,8 @@ import {
   releaseSurface,
   verifyRouting,
   validateApproval,
+  validateRuntime,
+  readRouting,
 } from "../../scripts/frontend-release.mjs";
 
 function fixture(surface) {
@@ -49,6 +51,7 @@ function fixture(surface) {
       },
       approve: () => {},
       contract: () => {},
+      runtime: () => ({ api_target_verification: "exact_deployment_runtime" }),
       qa: () => ({ status: "PASS" }),
       mutate: (operation, id) => {
         calls.push([operation, id]);
@@ -200,4 +203,94 @@ test("a pending mutation record survives provider interruption", async () => {
   assert.equal(records[0].status, "MUTATION_PENDING");
   assert.equal(records[0].surface, "portal");
   assert.ok(records[0].aliases_before.portal);
+});
+
+test("runtime proof binds actual upstream and compiled browser configuration to deployment", () => {
+  const deployment = {
+    url: "candidate.vercel.app",
+    meta: { githubCommitSha: "a".repeat(40) },
+  };
+  const observation = {
+    kind: "frontend_runtime",
+    source_sha: "a".repeat(40),
+    deployment_host: deployment.url,
+    server_api_origin: "https://api.aomi.dev",
+    browser_api_base: "/",
+  };
+  validateRuntime(observation, deployment, "portal");
+  for (const [key, value] of [
+    ["source_sha", "b".repeat(40)],
+    ["deployment_host", "alias.vercel.app"],
+    ["server_api_origin", "https://api-staging.aomi.dev"],
+    ["browser_api_base", "http://127.0.0.1:8080"],
+  ])
+    assert.throws(() =>
+      validateRuntime({ ...observation, [key]: value }, deployment, "portal"),
+    );
+  assert.throws(() =>
+    validateRuntime(
+      { ...observation, bff_origin: "https://other.example" },
+      deployment,
+      "telegram",
+    ),
+  );
+});
+test("unavailable runtime proof prevents mutation", async () => {
+  const { options, calls } = fixture("portal");
+  await assert.rejects(
+    releaseSurface({
+      ...options,
+      runtime: () => {
+        throw Error("unobserved configuration");
+      },
+    }),
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("provider interruption followed by retry observes aliases and avoids a second mutation", async () => {
+  const { options, calls } = fixture("portal");
+  const mutate = options.mutate;
+  await assert.rejects(
+    releaseSurface({
+      ...options,
+      mutate: (...args) => {
+        mutate(...args);
+        throw Error("connection lost after provider accepted");
+      },
+    }),
+  );
+  const result = await releaseSurface(options);
+  assert.equal(calls.length, 1);
+  assert.equal(result.routing_already_matches, true);
+});
+test("alias propagation is bounded and unrelated drift is immediately fatal", async () => {
+  const { options, state } = fixture("portal");
+  const before = Object.fromEntries(
+    Object.entries(surfaces).map(([surface, config]) => [
+      surface,
+      Object.fromEntries(
+        config.aliases.map((alias) => [alias, state[alias].deploymentId]),
+      ),
+    ]),
+  );
+  let waits = 0;
+  const after = await readRouting(options.api, before, "portal", "dpl_new", {
+    attempts: 3,
+    wait: async () => {
+      waits++;
+      options.mutate("promote", "dpl_new");
+    },
+  });
+  assert.equal(waits, 1);
+  verifyRouting(before, after, "portal", "dpl_new");
+  state[surfaces.build.aliases[0]].deploymentId = "dpl_conflict";
+  await assert.rejects(
+    readRouting(options.api, before, "portal", "dpl_new", {
+      wait: async () => {
+        throw Error("should not wait");
+      },
+    }),
+    /Unrelated alias/,
+  );
 });

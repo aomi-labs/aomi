@@ -47,6 +47,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AOMI_QA_READONLY_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SURFACE: ${{ inputs.surface }}
           DEPLOYMENT: ${{ inputs.deployment }}
           CONFIRM: ${{ inputs.confirm }}

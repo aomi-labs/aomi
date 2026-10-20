@@ -137,7 +137,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify trusted-baseline isolation
-        run: node --test tests/contracts/*.test.mjs
+        run: node --test tests/contracts/*.test.mjs scripts/resolve-preview-urls.test.mjs
 
       - name: Check protected consumers against candidate packages
         run: pnpm run test:contracts

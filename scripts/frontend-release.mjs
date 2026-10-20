@@ -102,6 +102,77 @@ export function validateApproval(pr, deploymentSha, treeEqual, ancestor) {
   );
 }
 
+export function validateRuntime(observation, deployment, surface) {
+  assert(
+    observation.kind === "frontend_runtime" &&
+      observation.source_sha === deployment.meta.githubCommitSha &&
+      observation.deployment_host === deployment.url,
+    "Runtime configuration is not from the exact deployment/source",
+  );
+  if (surface === "telegram") {
+    assert(
+      observation.bff_origin === "https://chat.aomi.dev",
+      "Telegram BFF target differs",
+    );
+  } else {
+    assert(
+      observation.server_api_origin === "https://api.aomi.dev",
+      "Deployed BFF targets another API",
+    );
+    const base = observation.browser_api_base;
+    assert(
+      base === "/" || base === "/api" || base === "https://api.aomi.dev",
+      "Browser API target is missing or differs",
+    );
+  }
+}
+
+export async function observeRuntime(deployment, surface, fetcher = fetch) {
+  if (surface === "landing")
+    return { api_target_verification: "no_backend_consumer" };
+  assert(
+    /^[a-z0-9-]+\.vercel\.app$/.test(deployment.url ?? ""),
+    "Immutable deployment host required",
+  );
+  const response = await fetcher(`https://${deployment.url}/api/release`, {
+    redirect: "error",
+    cache: "no-store",
+    signal: AbortSignal.timeout(30000),
+    headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? {
+          "x-vercel-protection-bypass":
+            process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+        }
+      : {},
+  });
+  assert(
+    response.ok,
+    `Exact deployment runtime configuration unavailable (${response.status})`,
+  );
+  const observation = await response.json();
+  validateRuntime(observation, deployment, surface);
+  // Telegram calls the canonical Portal BFF. Check that BFF's actual upstream
+  // too; the selected Telegram build alone cannot attest to another service.
+  if (surface === "telegram") {
+    const portal = await fetcher("https://chat.aomi.dev/api/release", {
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000),
+    });
+    assert(portal.ok, "Telegram Portal BFF configuration unavailable");
+    const target = await portal.json();
+    assert(
+      target.kind === "frontend_runtime" &&
+        target.server_api_origin === "https://api.aomi.dev",
+      "Telegram BFF targets another API",
+    );
+  }
+  return {
+    api_target_verification: "exact_deployment_runtime",
+    runtime: observation,
+  };
+}
+
 export async function verifyHeldProjects(api) {
   for (const [surface, config] of Object.entries(surfaces)) {
     const project = await api.get(`/v9/projects/${config.project}`);
@@ -139,6 +210,36 @@ export function verifyRouting(before, after, surface, deploymentId) {
   }
 }
 
+export async function readRouting(
+  api,
+  before,
+  surface,
+  deploymentId,
+  {
+    attempts = 7,
+    wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  } = {},
+) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const after = await snapshot(api);
+    // Another surface changing is a conflicting operation, never propagation.
+    for (const [name, aliases] of Object.entries(before)) {
+      if (name === surface) continue;
+      for (const [alias, id] of Object.entries(aliases))
+        assert(
+          after[name]?.[alias] === id,
+          `Unrelated alias changed: ${alias}`,
+        );
+    }
+    if (Object.values(after[surface]).every((id) => id === deploymentId))
+      return after;
+    if (attempt + 1 < attempts) await wait(5000);
+  }
+  throw Error(
+    "Selected aliases did not converge within 30 seconds; retain the pending record and inspect Vercel before retry",
+  );
+}
+
 export async function releaseSurface({
   surface,
   deploymentId,
@@ -149,6 +250,8 @@ export async function releaseSurface({
   qa,
   mutate,
   persist = () => {},
+  runtime = observeRuntime,
+  readback = readRouting,
 }) {
   assert(surfaces[surface], "Unknown active surface");
   assert(["promote", "rollback"].includes(operation), "Unknown operation");
@@ -160,6 +263,7 @@ export async function releaseSurface({
   const sha = validateDeployment(deployment, surface);
   await verifyHeldProjects(api);
   await approve(sha);
+  const runtimeEvidence = await runtime(deployment, surface);
   await contract(sha);
   const qaEvidence = await qa({ surface, deploymentId, sha });
   const before = await snapshot(api);
@@ -179,9 +283,12 @@ export async function releaseSurface({
     status: "MUTATION_PENDING",
     recorded_at: new Date().toISOString(),
   });
-  await mutate(operation, deploymentId);
+  const alreadyAssigned = Object.values(before[surface]).every(
+    (id) => id === deploymentId,
+  );
+  if (!alreadyAssigned) await mutate(operation, deploymentId);
   await verifyHeldProjects(api);
-  const after = await snapshot(api);
+  const after = await readback(api, before, surface, deploymentId);
   verifyRouting(before, after, surface, deploymentId);
   return {
     kind: "frontend_deployment",
@@ -192,8 +299,10 @@ export async function releaseSurface({
     operation,
     api_target: "https://api.aomi.dev",
     qa: qaEvidence,
+    configuration: runtimeEvidence,
     aliases_before: before,
     aliases_after: after,
+    routing_already_matches: alreadyAssigned,
     verified_at: new Date().toISOString(),
   };
 }
@@ -330,6 +439,9 @@ export async function main() {
           evidence.deployment_id === deploymentId &&
           evidence.source_sha === sha &&
           evidence.api_target === "https://api.aomi.dev" &&
+          ["exact_deployment_runtime", "no_backend_consumer"].includes(
+            evidence.api_target_verification,
+          ) &&
           evidence.status === "PASS" &&
           evidence.tests > 0,
         "Frontend QA does not cover this exact deployment and target",
