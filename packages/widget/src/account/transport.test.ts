@@ -78,3 +78,22 @@ describe("shared account transport", () => {
     expect(bearer).not.toHaveBeenCalled();
   });
 });
+
+it("validates a private key through thread discovery without requiring an account credential", async () => {
+  const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    Response.json([]),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const getBearer = vi.fn(async () => {
+    throw new Error("No account credential");
+  });
+  const transport = createShellTransport("https://api.example", getBearer);
+  const response = await transport.fetch("/api/thread/apps?resolve_key=true", {
+    headers: { "Aomi-App-Key": "disposable-key" },
+  });
+  expect(response.status).toBe(200);
+  expect(getBearer).not.toHaveBeenCalled();
+  expect(new Headers(fetch.mock.calls[0][1]?.headers).get("aomi-app-key")).toBe(
+    "disposable-key",
+  );
+});

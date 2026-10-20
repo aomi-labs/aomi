@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styles from "../../longform.module.css";
 
-const richBlockPattern = /(::task-api-(?:alice|quickstart|flow)::)/;
+const richBlockPattern = /(::task-api-(?:alice|quickstart)::)/;
 
 const taskSteps = [
   "The agent pays 0.01 USDC to prepare the intent; Alice’s address is simulation input.",
@@ -55,43 +55,6 @@ const quickstartSteps = [
     "Verify the bundle bytes, then separately review and sign with your execution wallet.",
   ],
 ];
-
-function TaskFlow() {
-  return (
-    <section
-      className={styles.taskExample}
-      aria-label="Two-purchase Task API flow"
-    >
-      <header className={styles.taskExampleHeader}>
-        <p>Two purchases · separate execution</p>
-        <h3>Intent → preparation → preview → bundle</h3>
-      </header>
-      <div className={styles.taskExampleCopy}>
-        <ol className={styles.taskSteps}>
-          <li>
-            POST /build → 402 for 0.01 USDC → same-body paid retry → 202 +
-            quoteId + private token
-          </li>
-          <li>
-            POST /{`{quoteId}`}/status + token → free progress or signed preview
-          </li>
-          <li>
-            POST /{`{quoteId}`}/result + token → 402 for 3% → same-body paid
-            retry → frozen bundle
-          </li>
-          <li>
-            Your wallet independently reviews, signs and submits. Zero outflow
-            skips retrieval payment.
-          </li>
-        </ol>
-        <p className={styles.taskFinePrint}>
-          All paths are under /v1/task. Keep the retrieval token private.
-          Neither service payment authorizes transaction execution.
-        </p>
-      </div>
-    </section>
-  );
-}
 
 function AliceExample() {
   return (
@@ -278,8 +241,6 @@ export function TaskApiResearchBody({
   components: Components;
 }) {
   return body.split(richBlockPattern).map((part, index) => {
-    if (part === "::task-api-flow::") return <TaskFlow key={part} />;
-
     if (part === "::task-api-alice::") {
       return <AliceExample key={part} />;
     }

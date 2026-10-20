@@ -12,7 +12,8 @@ const notificationState = vi.hoisted(() => ({
   dismissNotification: vi.fn(),
 }));
 
-vi.mock("@aomi-labs/react", () => ({
+vi.mock("@aomi-labs/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useNotification: () => notificationState,
 }));
 

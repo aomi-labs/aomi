@@ -60,9 +60,17 @@ Request `POST /v1/task/{quoteId}/result` with the retrieval token. While prepara
 
 Verify the delivered bytes against the signed preview, then independently review, sign and submit with your execution wallet. TaskClient returns unsigned bytes; it never broadcasts the bundle. Paying for preparation or retrieval does not authorize a transfer from the sender.
 
-::task-api-flow::
+![The agent purchases preparation for 0.01 USDC, polls for a free signed preview, and purchases the frozen unsigned bundle for 3% of simulated gross outgoing USDC. Circle Gateway accepts each service payment. The execution wallet separately signs and submits, and the app verifies the execution receipt. Zero outflow skips retrieval payment.](/research/introducing-the-aomi-task-api/figures/sequence.png)
 
-## A cent to prepare. A measured price to retrieve.
+## Example: Alice’s agent finds a dislocation
+
+Alice runs a trading agent across an order-book venue and Arc liquidity. The agent sees a firm bid for EURC on the order book while an Arc pool offers cheaper EURC inventory. It can reason about the opportunity, but it should not improvise transaction bytes with Alice’s money.
+
+Alice already holds EURC. Her agent sells 900 EURC into the firm bid for 990 USDC, then asks the Task API to replenish that inventory from the Arc pool—but only if it can buy at least 900 EURC for no more than 940.50 USDC through contracts Alice has approved.
+
+::task-api-alice::
+
+## A cent to prepare, variable price to retrieve transactions
 
 Preparation costs **0.01 USDC per attempt**. Retrieval costs **3% of simulated gross outgoing USDC**, rounded upward to the nearest micro-USDC. There is no $1 base fee. Incoming funds do not offset outgoing funds, and self-transfers are excluded.
 
@@ -77,29 +85,15 @@ Service fees are separate from the transfer amount and execution gas. The buyer 
 
 An unpaid frozen bundle has a five-minute purchase window. After an accepted purchase, retrieval remains available for 30 days. Free retrieval lasts 30 days from preparation acceptance. If an unpaid quote expires, preparing again is a new paid attempt.
 
-## Two purchases, one recoverable workflow
+## Recoverable workflow under two purchases
 
 Both purchases use x402 through Circle Gateway. The client keeps the URL, method and body unchanged within each payment handshake, saves each signed proof before sending it, and reuses that proof on retries. A payment identifier prevents accidental duplicate purchases; it does not grant access to the private result.
 
 TaskClient exposes `prepare()`, `status()`, `retrieve()` and `recover()`, plus `purchase()` to orchestrate the flow with bounded waiting. Separate preparation, retrieval and total spending caps bound service payments. Recovery reuses saved proofs without creating a new payment signature. Keep the private journal to recover after a timeout or restart.
 
-## What we have verified
-
-Local client-to-server acceptance completed both purchases with real Circle Gateway payments on **Arc testnet (5042002)**. Transfers of 0.01 and 0.02 USDC produced retrieval fees of 0.0003 and 0.0006 USDC. Restart and replay returned the same jobs and bundles without additional service debits.
-
-Circle Gateway acceptance and eventual onchain settlement are separate milestones. The service payments were [confirmed in an Arc testnet batch](https://testnet.arcscan.app/tx/0xb3cf37ed0320648f4ad4f8f78310149a10f942da929d8a0ff1b1e1f351c0b1ac). The generated execution bundles were never broadcast. Public staging paid-path validation remains outstanding; this evidence does not establish production readiness.
-
 ## The remaining trust boundary
 
 The signed preview binds the request, payer, price and frozen bundle hash. It lets the client check that the delivered bytes match what it inspected. It does not prove ownership of the sender wallet or make the simulation independently verifiable. Buyers still trust Aomi’s simulation infrastructure and must provision trusted attestation keys independently. Independently verifiable computation remains a future direction.
-
-## Example: Alice’s agent finds a dislocation
-
-Alice runs a trading agent across an order-book venue and Arc liquidity. The agent sees a firm bid for EURC on the order book while an Arc pool offers cheaper EURC inventory. It can reason about the opportunity, but it should not improvise transaction bytes with Alice’s money.
-
-Alice already holds EURC. Her agent sells 900 EURC into the firm bid for 990 USDC, then asks the Task API to replenish that inventory from the Arc pool—but only if it can buy at least 900 EURC for no more than 940.50 USDC through contracts Alice has approved.
-
-::task-api-alice::
 
 ## Agents buying from agents
 

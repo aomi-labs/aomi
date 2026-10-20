@@ -71,6 +71,7 @@ export class ClientSession {
     idempotencyKey: string;
     intent?: StartTurnIntent;
     inferenceFunding?: SessionOptions["inferenceFunding"];
+    apiKey?: string;
     sinceSequence: number;
     uncertain?: boolean;
     error?: unknown;
@@ -530,6 +531,7 @@ export class ClientSession {
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
             sinceSequence: this.events.at(-1)?.sequence ?? 0,
             inferenceFunding: this.inferenceFunding,
+            apiKey: options.apiKey,
           };
     this.startOperation = operation;
     this.terminalDrainUntil = undefined;
@@ -590,6 +592,7 @@ export class ClientSession {
         {
           idempotencyKey: operation.idempotencyKey,
           inferenceFunding: operation.inferenceFunding,
+          apiKey: operation.apiKey,
         },
       );
       if (this.timing && this.sentAt !== undefined)
@@ -714,6 +717,7 @@ export class ClientSession {
       {
         idempotencyKey: operation.idempotencyKey,
         inferenceFunding: operation.inferenceFunding,
+        apiKey: operation.apiKey,
       },
     );
     if (page.session_id !== this.sessionId || !page.started_turn_id)

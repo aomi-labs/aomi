@@ -3,6 +3,7 @@
 import {
   displayQueries,
   useDisplayQuery,
+  usePrivateApps,
   useAomiDisplayCache,
   type DisplayQuery,
 } from "@aomi-labs/react";
@@ -27,12 +28,25 @@ export function packageCatalogQuery(
 
 export function usePackageCatalog(accountUserId?: string) {
   const transport = useShellTransport();
+  const privateApps = usePrivateApps();
   const api = useAomiDisplayCache()?.apiClient;
   const query = useDisplayQuery(
     packageCatalogQuery(api, transport.json, accountUserId),
   );
   return {
-    catalog: query.data?.map(toCatalogPackage) ?? null,
+    catalog: query.data
+      ? [
+          ...query.data.filter(
+            (app) =>
+              !privateApps.apps.some(
+                (saved) =>
+                  app.applicationId != null &&
+                  String(saved.applicationId) === String(app.applicationId),
+              ),
+          ),
+          ...privateApps.apps,
+        ].map(toCatalogPackage)
+      : null,
     error: query.error ? explainPackageLoadError(query.error) : null,
     retry: () => {
       void query.refetch();
