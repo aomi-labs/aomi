@@ -34,6 +34,42 @@ const MORE: App[] = [
 ];
 
 const MCP_GUIDE = "https://aomi.dev/docs/guides/mcp";
+
+/** Aomi's two MCP servers: talk to its agent, or drive its tools yourself. */
+const MCP_SERVERS = [
+  {
+    title: "Agent MCP",
+    path: "/v1/agent/mcp",
+    detail:
+      "Chat with Aomi's agent. It picks the tools, stages trades and asks before signing.",
+  },
+  {
+    title: "Pipeline MCP",
+    path: "/v1/pipeline/mcp",
+    detail:
+      "Your client's own model searches and calls Aomi's tools directly. For agents that plan for themselves.",
+  },
+];
+
+function McpOption({
+  title,
+  path,
+  detail,
+}: {
+  title: string;
+  path: string;
+  detail: string;
+}) {
+  return (
+    <div className="border-aomi-border flex flex-col gap-2 rounded-[14px] border p-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="type-row">{title}</span>
+        <span className="type-meta text-aomi-muted">{detail}</span>
+      </div>
+      <CopyRow value={new URL(path, window.location.origin).href} />
+    </div>
+  );
+}
 const SDK_GUIDE = "https://aomi.dev/docs/reference/sdk";
 
 /** A value to paste somewhere else, with its copy button. */
@@ -107,12 +143,14 @@ export function ConnectAppSheet({ onClose }: { onClose: () => void }) {
     app.kind === "ai"
       ? {
           title: `Connect ${app.name}`,
-          description: `Add Aomi as an MCP server in ${app.name}.`,
+          description: `Add one of Aomi's MCP servers in ${app.name}.`,
           body: (
             <>
-              <CopyRow
-                value={new URL("/v1/agent/mcp", window.location.origin).href}
-              />
+              <div className="flex w-full flex-col gap-3">
+                {MCP_SERVERS.map((server) => (
+                  <McpOption key={server.path} {...server} />
+                ))}
+              </div>
               <GuideLink href={MCP_GUIDE}>Open the setup guide</GuideLink>
             </>
           ),
