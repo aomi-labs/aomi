@@ -270,11 +270,13 @@ const ThreadListItem: FC = () => {
               aria-hidden="true"
               className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
             />
+            <ThreadListItemTitle />
+            {/* At the row's end, always visible; the ⋯ that opens on hover
+                pushes it left as it widens. */}
             <ThreadOriginBadge
               origin={metadata?.origin}
               originApp={metadata?.originApp}
             />
-            <ThreadListItemTitle />
           </ThreadListItemPrimitive.Trigger>
           <ThreadListItemMenu
             open={menuOpen}
@@ -335,7 +337,7 @@ const ThreadListItemTitle: FC = () => {
   return (
     <span
       data-testid={testIds.threadItemTitle}
-      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block truncate text-sm transition-colors"
+      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block min-w-0 flex-1 truncate text-sm transition-colors"
     >
       <ThreadListItemPrimitive.Title fallback="New Chat" />
     </span>

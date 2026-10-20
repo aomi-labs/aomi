@@ -25,7 +25,10 @@ import { DEFAULT_CLI_BASE_URL } from "./client-factory";
 import { createCliPaymentFetch, type CliPaymentListener } from "./payment";
 import type { AomiOAuthTokenProvider } from "@aomi-labs/client";
 import { signInWithOAuthDevice } from "./oauth-device-auth";
-import { wrapFetchWithPublicApiAuthorization } from "@aomi-labs/client";
+import {
+  apiResource,
+  wrapFetchWithPublicApiAuthorization,
+} from "@aomi-labs/client";
 import {
   createGuestSessionProvider,
   type GuestSessionProvider,
@@ -651,7 +654,9 @@ export class CliSession {
       return undefined;
     }
     const pendingByResource = new Map<string, Promise<CliOAuthGrant>>();
-    return async ({ resource, scopes, forceRefresh }) => {
+    return async ({ resource: asked, scopes, forceRefresh }) => {
+      // Agent, Pipeline and Account share the one `/v1` sign-in.
+      const resource = apiResource(asked);
       let grant = this.state.oauthGrants?.[resource];
       if (!grant || !scopes.every((scope) => grant?.scopes.includes(scope))) {
         const expandedScopes = Array.from(

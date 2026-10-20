@@ -1,27 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  Aomi,
-  oauth,
-  type AomiOAuthGrant,
-  type AomiOAuthGrantStore,
-} from "./";
+import { Aomi, oauth, type AomiOAuthGrant, type AomiOAuthGrantStore } from "./";
 
 const baseUrl = "https://chat.aomi.dev";
 const issuer = `${baseUrl}/api/auth`;
 const clientId = "managed-public-client";
 
-function grant(
-  target: "agent" | "pipeline",
-  scopes: readonly string[],
-): AomiOAuthGrant {
+function grant(scopes: readonly string[]): AomiOAuthGrant {
   return {
     issuer,
     clientId,
-    accessToken: `${target}-access`,
-    refreshToken: `${target}-refresh`,
+    accessToken: "api-access",
+    refreshToken: "api-refresh",
     expiresAt: Date.now() + 60_000,
-    resource: `${baseUrl}/v1/${target}`,
+    resource: `${baseUrl}/v1`,
     scopes,
   };
 }
@@ -51,15 +43,13 @@ describe("Aomi auth facade", () => {
     });
   });
 
-  it("configures OAuth once and lazily reuses stored resource grants", async () => {
+  it("configures OAuth once and lazily reuses the stored /v1 grant", async () => {
+    // One `/v1` sign-in serves both Agent and Pipeline.
     const stored = [
-      grant("agent", [
+      grant([
         "agent:read",
         "agent:write",
         "agent:actions:resolve",
-        "offline_access",
-      ]),
-      grant("pipeline", [
         "pipeline:catalog",
         "pipeline:execute",
         "offline_access",
@@ -102,11 +92,13 @@ describe("Aomi auth facade", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(
       new Headers(fetchImpl.mock.calls[1]?.[1]?.headers).get("authorization"),
-    ).toBe("Bearer agent-access");
+    ).toBe("Bearer api-access");
 
     await aomi.auth.logout();
     expect(save).toHaveBeenLastCalledWith([]);
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    // One grant, one revocation.
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl.mock.calls[2]?.[0]).toBe(`${issuer}/oauth2/revoke`);
     await expect(aomi.auth.status()).resolves.toEqual({
       mode: "oauth",
       authorized: [],

@@ -76,42 +76,31 @@ export async function accountLoginCommand(
     return;
   }
 
-  const origin = new URL(cli.baseUrl).origin;
-  const grants = [
-    {
-      resource: `${origin}/v1/agent` as const,
-      scopes: ["agent:read", "agent:write", "offline_access"],
-    },
-    {
-      resource: `${origin}/v1/pipeline` as const,
-      scopes: ["pipeline:catalog", "offline_access"],
-    },
-    {
-      resource: `${origin}/v1/account` as const,
-      scopes: [
-        "account:apps:read",
-        "account:apps:write",
-        "account:credentials:read",
-        "account:credentials:write",
-        "offline_access",
-      ],
-    },
-  ];
-  for (const request of grants) {
-    const grant = await signInWithOAuthDevice({
-      baseUrl: cli.baseUrl,
-      resource: request.resource,
-      scopes: request.scopes,
-      // A re-login keeps this machine's client instead of registering another.
-      clientId: cli.oauthGrants[request.resource]?.clientId,
-    });
-    cli.setOAuthGrant(grant);
-  }
+  // One approval: Agent, Pipeline and Account share the `/v1` sign-in.
+  const resource = `${new URL(cli.baseUrl).origin}/v1` as const;
+  const grant = await signInWithOAuthDevice({
+    baseUrl: cli.baseUrl,
+    resource,
+    scopes: [
+      "agent:read",
+      "agent:write",
+      "pipeline:catalog",
+      "account:apps:read",
+      "account:apps:write",
+      "account:credentials:read",
+      "account:credentials:write",
+      "offline_access",
+    ],
+    // A re-login keeps this machine's client instead of registering another.
+    clientId: cli.oauthGrants[resource]?.clientId,
+  });
+  cli.clearOAuthGrants();
+  cli.setOAuthGrant(grant);
   if (config.json) {
     printJson({
       status: "signed_in",
       method: "oauth_device",
-      resources: grants.map((grant) => grant.resource),
+      resources: [grant.resource],
     });
   } else {
     console.log("Signed in with OAuth device authorization");

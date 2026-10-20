@@ -262,6 +262,7 @@ async function enforceAomiRegistration(
   } else if (
     requestedResources.length !== 1 ||
     ![
+      resources.apiRest,
       resources.agentRest,
       resources.pipelineRest,
       resources.accountRest,

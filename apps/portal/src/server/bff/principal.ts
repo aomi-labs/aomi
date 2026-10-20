@@ -3,6 +3,7 @@ import { getOrCreateAomiUserForBetterAuthSession } from "@aomi-labs/account/acco
 import {
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
+  acceptsAomiApiToken,
   auth,
   aomiOAuthResources,
   guestScopesForAomiResource,
@@ -216,7 +217,7 @@ async function oauthRequestPrincipal(
       // URL from Better Auth's base path, which separately published 1.7
       // peers can apply twice.
       jwksUrl: `${issuer}/jwks`,
-      verifyOptions: { audience: resource, issuer },
+      verifyOptions: { audience: audiences(resource), issuer },
       requiredScopes: [...requiredScopes],
       dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
     });
@@ -244,6 +245,16 @@ async function oauthRequestPrincipal(
   return principal;
 }
 
+/**
+ * The audiences a resource takes: its own, and for the three REST APIs also
+ * `/v1`, the one sign-in Aomi's CLI and SDK use. MCP servers take only theirs.
+ */
+function audiences(resource: string): string[] {
+  return acceptsAomiApiToken(resource)
+    ? [resource, aomiOAuthResources().apiRest]
+    : [resource];
+}
+
 /** The principal an OAuth access token's verified claims describe. */
 export async function oauthPrincipal(
   claims: JWTPayload,
@@ -254,7 +265,8 @@ export async function oauthPrincipal(
   if (
     typeof claims.sub !== "string" ||
     claims.iss !== aomiOAuthResources().authorizationServerIssuer ||
-    claims.aud !== resource ||
+    typeof claims.aud !== "string" ||
+    !audiences(resource).includes(claims.aud) ||
     typeof accountId !== "string" ||
     (principalClass !== "user" && principalClass !== "guest")
   )
@@ -263,9 +275,16 @@ export async function oauthPrincipal(
     betterAuthUserId: claims.sub,
   });
   if (account.id !== accountId) throw new PrincipalError(401, "invalid_token");
-  const scopes = String(claims.scope ?? "")
+  const granted = String(claims.scope ?? "")
     .split(/\s+/)
     .filter(Boolean);
+  // A `/v1` token carries every REST scope; this route only gets its own.
+  const scopes =
+    claims.aud === resource
+      ? granted
+      : granted.filter((scope) =>
+          policyFor(resource).grantableScopes.includes(scope),
+        );
   const guest = principalClass === "guest";
   if (
     guest &&

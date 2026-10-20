@@ -17,6 +17,7 @@ export {
   PIPELINE_SCOPES,
   PIPELINE_REST_SCOPES,
   aomiOAuthResourcePolicies,
+  acceptsAomiApiToken,
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
   appMcpName,

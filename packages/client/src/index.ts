@@ -138,6 +138,7 @@ export {
   ensureSvmWalletBoundVia,
   isUnboundWalletError,
   posterFromClient,
+  apiResource,
   createAomiOAuthGrantManager,
   createMemoryOAuthGrantStore,
   createOAuthTokenProvider,

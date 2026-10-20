@@ -52,6 +52,12 @@
   mark. Agent wallet Manage has a "Used by" `AppTile` row; a locked
   connection's sheet stays plain. Child rows indent `CHILD_INDENT` (logo
   under the parent's name); sheet action rows use a 32px icon box.
+  One sign-in for the CLI and SDK: the `/v1` OAuth resource (`apiRest`,
+  every REST scope) is accepted on /v1/agent, /v1/pipeline and /v1/account
+  (never MCP; `acceptsAomiApiToken`), narrowed to the route's scopes in the
+  BFF principal. `aomi account login` asks once (one device code); the SDK
+  grant manager maps REST resources onto `/v1` (`apiResource`) and widens one
+  grant. Thread rows show their origin icon at the end, before the ⋯.
   Known, pre-existing: dev "setState while rendering" warning from
   `useDisplayQuery` (react `display-cache.tsx:254`) under AgentWalletsSection.
 

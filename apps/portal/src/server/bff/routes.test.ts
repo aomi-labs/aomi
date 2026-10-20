@@ -71,6 +71,14 @@ const TOKENS: Record<
     scope: "mcp:agent agent:read agent:write",
     aud: `${PORTAL}/v1/agent/mcp`,
   },
+  // The CLI / SDK sign-in: one `/v1` token carrying every REST scope.
+  "api.user.jwt": {
+    sub: "user",
+    class: "user",
+    scope:
+      "agent:read agent:write pipeline:catalog account:apps:read account:credentials:write",
+    aud: `${PORTAL}/v1`,
+  },
 };
 
 function claimsFor(token: string) {
@@ -169,12 +177,16 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
       verifyAccessTokenRequest: async (
         request: Request,
         options: {
-          verifyOptions: { audience: string };
+          verifyOptions: { audience: string | string[] };
           requiredScopes: string[];
         },
       ) => {
         const claims = claimsFor(bearerToken(request) ?? "");
-        if (!claims || claims.aud !== options.verifyOptions.audience)
+        // As jose: the token's audience must be one of those accepted.
+        if (
+          !claims ||
+          ![options.verifyOptions.audience].flat().includes(claims.aud)
+        )
           throw Object.assign(new Error("bad token"), { status: 401 });
         const granted = claims.scope.split(" ");
         if (options.requiredScopes.some((scope) => !granted.includes(scope)))
@@ -1574,6 +1586,33 @@ describe("scopes each agent API route asks for", () => {
       }),
     );
     expect(upstreamCalls()[0].url).toBe("https://agent.example/v1/agent/mcp");
+  });
+
+  it("takes a /v1 token on REST, narrowed to the route's scopes, and never on MCP", async () => {
+    const rest = await routes.agent.POST(
+      request("/v1/agent/sessions", {
+        method: "POST",
+        headers: { authorization: "Bearer api.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(rest.status).toBe(200);
+    expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+      user,
+      // Only the route's own scope reaches the API; no pipeline or account.
+      expect.objectContaining({
+        scope: "agent:write",
+        resource: `${PORTAL}/v1/agent`,
+      }),
+    );
+    const mcp = await routes.agentMcp.POST(
+      request("/v1/agent/mcp", {
+        method: "POST",
+        headers: { authorization: "Bearer api.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(mcp.status).toBe(401);
   });
 
   it("refuses an MCP payment without payments:submit", async () => {
