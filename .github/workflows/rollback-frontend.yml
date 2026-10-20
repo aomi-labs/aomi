@@ -1,89 +1,60 @@
 name: Rollback Frontend Production
-
 on:
   workflow_dispatch:
     inputs:
-      portal_deployment:
-        description: Ledgered Portal deployment URL or ID
+      surface:
+        type: choice
+        options: [portal, build, landing, telegram]
         required: true
+      deployment:
+        description: Exact previous production dpl_ ID for this surface
         type: string
-      build_deployment:
-        description: Ledgered Build deployment URL or ID
         required: true
+      qa_run_id:
+        description: Successful deployment-bound aomi-qa frontend workflow run
         type: string
-      base_deployment:
-        description: Ledgered Base deployment URL or ID
         required: true
-        type: string
-      landing_deployment:
-        description: Ledgered Landing deployment URL or ID
-        required: true
-        type: string
-      telegram_deployment:
-        description: Ledgered Telegram deployment URL or ID
-        required: true
-        type: string
       confirm:
         description: Type ROLLBACK
-        required: true
         type: string
-
+        required: true
 permissions:
   contents: read
-
+  actions: read
 concurrency:
-  group: frontend-production-rollback
+  # Global alias read-back is also the unrelated-surface nonmutation proof.
+  # Promotion and rollback share this existing style of global routing lock.
+  group: frontend-production-routing
   cancel-in-progress: false
-
 jobs:
   rollback:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Validate rollback authorization
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --global vercel@58.11.0
+      - name: Verify reviewed source, target API and QA; roll back one surface and read aliases back
         env:
-          CONFIRM: ${{ inputs.confirm }}
-        run: test "$CONFIRM" = ROLLBACK
-
-      - name: Install pinned Vercel CLI
-        run: npm install --global vercel@58.11.0
-
-      - name: Restore each ledgered production deployment
-        env:
+          GH_TOKEN: ${{ secrets.AOMI_QA_READONLY_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PORTAL: ${{ inputs.portal_deployment }}
-          BUILD: ${{ inputs.build_deployment }}
-          BASE: ${{ inputs.base_deployment }}
-          LANDING: ${{ inputs.landing_deployment }}
-          TELEGRAM: ${{ inputs.telegram_deployment }}
-        run: |
-          set -euo pipefail
-          test -n "$VERCEL_TOKEN" || { echo "production VERCEL_TOKEN is required" >&2; exit 1; }
-          failures=()
-          declare -A deployments=(
-            [portal]="$PORTAL"
-            [build]="$BUILD"
-            [base]="$BASE"
-            [landing]="$LANDING"
-            [telegram]="$TELEGRAM"
-          )
-          {
-            echo "## Frontend production rollback"
-            echo
-            echo "| Surface | Deployment | Result |"
-            echo "|---|---|---|"
-          } >> "$GITHUB_STEP_SUMMARY"
-          for surface in portal build base landing telegram; do
-            deployment="${deployments[$surface]}"
-            if vercel rollback "$deployment" --yes --token="$VERCEL_TOKEN"; then
-              echo "| $surface | \`$deployment\` | restored |" >> "$GITHUB_STEP_SUMMARY"
-            else
-              failures+=("$surface")
-              echo "| $surface | \`$deployment\` | **failed** |" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          done
-          if [ "${#failures[@]}" -gt 0 ]; then
-            echo "Rollback is incomplete; failed surfaces: ${failures[*]}" >&2
-            exit 1
-          fi
-          echo "- All surfaces restored; run production smoke and record the resulting compatibility tuple." >> "$GITHUB_STEP_SUMMARY"
+          SURFACE: ${{ inputs.surface }}
+          DEPLOYMENT: ${{ inputs.deployment }}
+          CONFIRM: ${{ inputs.confirm }}
+          QA_RUN_ID: ${{ inputs.qa_run_id }}
+        run: node scripts/frontend-release.mjs rollback "$SURFACE" "$DEPLOYMENT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: frontend-deployment-${{ inputs.surface }}-${{ github.run_attempt }}
+          path: frontend-deployment.json
+          if-no-files-found: error
