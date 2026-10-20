@@ -56,3 +56,20 @@ not be inspected (403). Empty repository/environment inventories do not establis
 that inherited credentials are unavailable. Hosted authenticated coverage requires
 a dedicated exact-origin account fixture and approved source before any protection
 or session credential is sent.
+
+## Packed-consumer performance gate
+
+`tests/e2e/performance/ordinary-turn.spec.ts` keeps its 100 ms throttled
+long-task budget; CI has measured 101–113 ms. A local Chrome trace of the
+throttled turn shows the long task is one synchronous React render plus commit
+of the whole widget (about 45% render, 27% passive effects), not Playwright's
+own locator work. The `aomiRuntimeApi` context value in
+`packages/react/src/runtime/core.tsx` changes on every event (`snapshot.events`,
+`turnState`, thread metadata), so every `useAomiRuntime()` consumer re-renders,
+including the composer, model and safety selects and thread list, which read
+none of those fields.
+
+Proposed fix, for owner review: move event and turn state into a separate
+context and switch control-bar and composer consumers to narrow hooks. It
+changes the public SDK hook's update behavior, and local runs stay under budget
+so the gain is unverified; it is not part of this PR.
