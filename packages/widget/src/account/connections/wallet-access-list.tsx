@@ -10,7 +10,6 @@ import {
   AddressSummary,
   Mono,
   StateMeta,
-  withApp,
 } from "@/account/account-management/labels";
 import { familyTag } from "@/account/account-management/wallet-model";
 import type { PairMode } from "./connection-pairs";
@@ -123,7 +122,6 @@ function describeWallet(wallet: AomiAgentWallet): ReactNode {
           families={wallet.addresses.map((entry) => entry.family)}
         />
       )}
-      {withApp(wallet.app)}
     </>
   );
 }

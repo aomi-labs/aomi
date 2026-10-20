@@ -24,7 +24,6 @@ import { AGENT_WALLET } from "@/account/account-management/wallet-model";
 import {
   AddressSummary,
   StateMeta,
-  withApp,
 } from "@/account/account-management/labels";
 
 /** What a wallet's ⋯ menu and Manage sheet can do; a missing handler hides its item. */
@@ -143,7 +142,6 @@ export function AgentWalletRow({
         <AddressRow
           row={only}
           title={title}
-          detail={withApp(wallet.app)}
           trailing={state}
           dim={paused}
           pending={pending}
@@ -197,7 +195,6 @@ export function AgentWalletRow({
               <AddressSummary
                 families={wallet.addresses.map((entry) => entry.family)}
               />
-              {withApp(wallet.app)}
             </span>
           </span>
         </button>

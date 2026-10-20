@@ -6,12 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import type { WalletFamily } from "@/wallet/types";
 import { PendingMark } from "@/ui/aomi/status-pill";
-import { parseWalletRef } from "@aomi-labs/client";
-import { useDisplayQuery } from "@aomi-labs/react";
-import { useShellTransport } from "@/account/transport";
-import { agentWalletsQuery } from "@/account/account-queries";
 import { BrandMark } from "./controls";
-import { withApp } from "./labels";
 import { FamilyTag } from "./family-tag";
 import {
   appName,
@@ -40,24 +35,12 @@ export function SignsWithStrip({
   onActivate?: (row: WalletRow) => void;
   onAddWallet?: () => void;
 }) {
-  // Agent addresses carry their wallet's app in the picker, as in the list.
-  const { client } = useShellTransport();
-  const agentWallets = useDisplayQuery(agentWalletsQuery(client)).data;
-  const apps = new Map<string, { name: string; label: string }>();
-  for (const wallet of agentWallets?.wallets ?? []) {
-    if (!wallet.app) continue;
-    for (const address of wallet.addresses) {
-      const id = parseWalletRef(address.wallet_id);
-      if (id) apps.set(id, wallet.app);
-    }
-  }
   return (
     <div className="divide-aomi-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
       {familySlots(rows).map((slot) =>
         slot.current ? (
           <FamilySlot
             key={slot.family}
-            apps={apps}
             family={slot.family}
             rows={slot.rows}
             current={slot.current}
@@ -122,7 +105,6 @@ function EmptySlot({
 }
 
 function FamilySlot({
-  apps,
   family,
   rows,
   current,
@@ -130,7 +112,6 @@ function FamilySlot({
   onActivate,
   onAddWallet,
 }: {
-  apps: ReadonlyMap<string, { name: string; label: string }>;
   family: WalletFamily;
   rows: WalletRow[];
   current: WalletRow;
@@ -233,9 +214,6 @@ function FamilySlot({
             {rowEmail(row) ? (
               <span className="font-sans"> · {rowEmail(row)}</span>
             ) : null}
-            {withApp(
-              (row.linkedWalletId && apps.get(row.linkedWalletId)) || null,
-            )}
           </span>
         </span>
         {row.active ? (
