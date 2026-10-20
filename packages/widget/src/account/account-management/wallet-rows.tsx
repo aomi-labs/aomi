@@ -22,7 +22,7 @@ import {
   BrandMark,
   CopyButton,
   ExpandToggle,
-  GutterSpacer,
+  rowStart,
   copyText,
   type MenuItem,
 } from "./controls";
@@ -55,14 +55,11 @@ export const addressExplorerUrl = (row: WalletRow) =>
     row.address,
   );
 
-/** Left edge of a top-level row: the gutter, then the logo. */
-const TOP = "pl-2";
 /**
- * A child row's logo lines up with its parent's name: the parent's text
- * starts at pl-2 + gutter 18 + gap 12 + mark 32 + gap 12 = 82px, and a 17px
- * logo sits 7.5px inside its 32px box.
+ * A child row sits a step in from its parent: its logo box starts 16px right
+ * of the parent's (an expanding parent's logo is at 28px).
  */
-export const CHILD_INDENT = "pl-[74px]";
+export const CHILD_INDENT = "pl-[44px]";
 const CHILD = CHILD_INDENT;
 
 /**
@@ -204,7 +201,7 @@ export function AddressRow({
       data-active={row.active || undefined}
       className={cn(
         "group relative flex min-h-14 items-center transition-colors",
-        !nested && cn(TOP, "gap-3"),
+        !nested && cn(rowStart(false), "gap-3"),
         row.active
           ? "bg-aomi-success/[0.045]"
           : click &&
@@ -217,7 +214,6 @@ export function AddressRow({
           aria-hidden="true"
         />
       ) : null}
-      {nested ? null : <GutterSpacer />}
       {click ? (
         <button
           type="button"
@@ -341,7 +337,7 @@ export function LoginRows({
       <div
         className={cn(
           "flex min-h-14 items-center gap-3 pr-3",
-          TOP,
+          rowStart(count > 0),
           count > 0 && "hover:bg-aomi-hover transition-colors",
         )}
       >
@@ -351,9 +347,7 @@ export function LoginRows({
             label={`${name} addresses`}
             onToggle={() => setOpen(!open)}
           />
-        ) : (
-          <GutterSpacer />
-        )}
+        ) : null}
         <button
           type="button"
           tabIndex={-1}

@@ -27,7 +27,7 @@ import { useShellTransport } from "@/account/transport";
 import {
   ActionsMenu,
   ExpandToggle,
-  GutterSpacer,
+  rowStart,
   type MenuItem,
 } from "@/account/account-management/controls";
 import { connectionsQuery } from "@/account/account-queries";
@@ -443,11 +443,13 @@ function Row({
       {...props}
       className={cn(
         "flex min-h-14 items-center gap-3 pr-3",
-        nested ? cn("border-aomi-border border-t", CHILD_INDENT) : "pl-2",
+        nested
+          ? cn("border-aomi-border border-t", CHILD_INDENT)
+          : rowStart(Boolean(expand)),
         onClick && "hover:bg-aomi-hover transition-colors",
       )}
     >
-      {nested ? null : (expand ?? <GutterSpacer />)}
+      {nested ? null : expand}
       {onClick ? (
         <button
           type="button"

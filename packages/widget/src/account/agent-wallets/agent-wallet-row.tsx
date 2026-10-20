@@ -17,6 +17,7 @@ import {
   ActionsMenu,
   BrandMark,
   ExpandToggle,
+  rowStart,
   type MenuItem,
 } from "@/account/account-management/controls";
 import { AddressRow } from "@/account/account-management/wallet-rows";
@@ -164,7 +165,8 @@ export function AgentWalletRow({
     >
       <div
         className={cn(
-          "flex min-h-14 items-center gap-3 pl-2 pr-3 transition-colors",
+          "flex min-h-14 items-center gap-3 pr-3 transition-colors",
+          rowStart(toggle),
           toggle && "hover:bg-aomi-hover",
         )}
       >
@@ -174,9 +176,7 @@ export function AgentWalletRow({
             label={`${wallet.name} addresses`}
             onToggle={() => setOpen(!open)}
           />
-        ) : (
-          <span aria-hidden className="size-[18px] shrink-0" />
-        )}
+        ) : null}
         <button
           type="button"
           tabIndex={-1}

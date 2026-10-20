@@ -261,7 +261,8 @@ export function ActionsMenu({
 
 /**
  * The chevron in front of an expandable row's logo; it points down when
- * open. `blank` keeps the gutter empty so logos line up across a list.
+ * open. It sits in the row's edge ([`rowStart`]), so only rows that expand
+ * carry it and the rest start at the usual edge.
  */
 export function ExpandToggle({
   open,
@@ -282,7 +283,7 @@ export function ExpandToggle({
         event.stopPropagation();
         onToggle();
       }}
-      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 flex size-[18px] shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
+      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-1.5 flex size-4 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
     >
       <ChevronRight
         className={cn(
@@ -294,10 +295,12 @@ export function ExpandToggle({
   );
 }
 
-/** The empty gutter of a row that doesn't expand, in a list where others do. */
-export const GutterSpacer = () => (
-  <span aria-hidden className="size-[18px] shrink-0" />
-);
+/**
+ * A top-level row's left edge: the list's usual 14px, or for a row that
+ * expands, a narrower edge with the chevron in it (6 + 16 + 6 = 28px to the
+ * logo).
+ */
+export const rowStart = (expands: boolean) => (expands ? "pl-1.5" : "pl-3.5");
 
 export function titleCase(value: string): string {
   return value
