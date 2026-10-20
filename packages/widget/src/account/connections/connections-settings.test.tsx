@@ -158,6 +158,12 @@ describe("Connections tab", () => {
       "Claude, Cursor, pi and other MCP clients",
     );
     expect(within(bands[2] as HTMLElement).getByText("Claude")).toBeTruthy();
+    // Only the card's first band drops its top line (the card border is it).
+    expect(bands.map((band) => band.className.includes("border-t-0"))).toEqual([
+      true,
+      false,
+      false,
+    ]);
   });
 
   it("groups Telegram bots under one Telegram row, each titled by its app or your name", async () => {

@@ -386,8 +386,13 @@ export function ConnectionsSettings() {
         </p>
       ) : null}
       <div className={listGroupClass}>
-        {bands.map((band) => (
-          <div key={band.title} data-connection-band={band.title}>
+        {bands.map((band, index) => (
+          <div
+            key={band.title}
+            data-connection-band={band.title}
+            // The card's own border is the first band's top line.
+            className={cn(index === 0 && "[&>[data-band]]:border-t-0")}
+          >
             <Divider title={band.title} detail={band.detail} />
             <div className="divide-aomi-border divide-y">{band.items}</div>
           </div>
