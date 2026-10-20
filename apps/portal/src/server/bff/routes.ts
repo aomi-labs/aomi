@@ -377,6 +377,11 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     need: chat,
   },
   { path: /^\/api\/thread\/model$/, methods: ["POST"], need: chat },
+  {
+    path: /^\/api\/thread\/sim\/world$/,
+    methods: ["POST"],
+    need: { capability: "chat" },
+  },
   { path: /^\/api\/control\/apps$/, methods: ["GET"], need: chat },
   { path: /^\/api\/control\/models$/, methods: ["GET"], need: chat },
   { path: /^\/api\/control\/model$/, methods: ["POST"], need: chat },
