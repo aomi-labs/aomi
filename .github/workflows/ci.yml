@@ -365,6 +365,8 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run against the production Portal and packed consumers
+        env:
+          AOMI_PERF_PROFILE: "1"
         run: pnpm run test:browser:contracts
 
       - name: Upload sanitized diagnostics
@@ -429,6 +431,8 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run against the production Portal and packed consumers
+        env:
+          AOMI_PERF_PROFILE: "1"
         run: pnpm run test:browser:consumers
 
       - name: Upload sanitized diagnostics
