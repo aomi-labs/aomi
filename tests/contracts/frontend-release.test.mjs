@@ -345,3 +345,165 @@ test("Landing release executes the immutable deployment configuration observatio
     /unavailable/,
   );
 });
+
+test("QA authorization requires exact trusted attempt and complete authenticated stories", async () => {
+  const { validateQa } = await import("../../scripts/frontend-release.mjs");
+  const now = Date.parse("2026-10-20T12:00:00Z");
+  const run = {
+    id: 123,
+    run_attempt: 2,
+    path: ".github/workflows/frontend-authenticated.yml",
+    head_branch: "main",
+    event: "workflow_dispatch",
+    status: "completed",
+    conclusion: "success",
+    head_repository: { full_name: "aomi-labs/aomi-qa" },
+    run_started_at: "2026-10-20T11:55:00Z",
+    updated_at: "2026-10-20T11:59:00Z",
+  };
+  const evidence = {
+    kind: "frontend_authenticated_qa",
+    schema_version: 1,
+    surface: "portal",
+    deployment_id: "dpl_exact",
+    source_sha: "a".repeat(40),
+    api_target: "https://api.aomi.dev",
+    api_target_verification: "exact_deployment_runtime",
+    status: "PASS",
+    authenticated_journeys: "PASS",
+    github_run_id: "123",
+    github_run_attempt: "2",
+    observed_at: "2026-10-20T11:58:00Z",
+    stories: [
+      "authenticated_identity",
+      "session_persists_after_reload",
+      "oauth_login_logout",
+      "wallet_sign_reject_disconnect",
+      "streaming_chat_recovery",
+    ].map((story) => ({ story, verdict: "PASS" })),
+  };
+  const context = {
+    surface: "portal",
+    deploymentId: "dpl_exact",
+    sha: "a".repeat(40),
+    authenticated: true,
+    now,
+  };
+  assert.equal(validateQa(run, evidence, context).run_attempt, 2);
+  for (const patch of [
+    { github_run_attempt: "1" },
+    { github_run_id: "999" },
+    { source_sha: "b".repeat(40) },
+    { deployment_id: "dpl_other" },
+    { api_target: "https://api-staging.aomi.dev" },
+    { observed_at: "2026-10-20T11:54:00Z" },
+    { observed_at: "2026-10-20T12:01:00Z" },
+    { observed_at: "2026-10-18T11:58:00Z" },
+    { stories: [] },
+    { stories: evidence.stories.slice(0, 2) },
+    { authenticated_journeys: "BLOCKED" },
+    { stories: [...evidence.stories, evidence.stories[0]] },
+    {
+      stories: [
+        ...evidence.stories,
+        { story: "additional_safety", verdict: "BLOCKED" },
+      ],
+    },
+  ])
+    assert.throws(() => validateQa(run, { ...evidence, ...patch }, context));
+  for (const patch of [
+    { run_attempt: 1 },
+    { conclusion: "failure" },
+    { status: "in_progress" },
+    { head_branch: "unreviewed" },
+    { path: ".github/workflows/frontend.yml" },
+    { head_repository: { full_name: "fork/aomi-qa" } },
+  ])
+    assert.throws(() => validateQa({ ...run, ...patch }, evidence, context));
+});
+
+test("Landing public smoke remains independently authorized and cannot stand in for authenticated QA", async () => {
+  const { validateQa } = await import("../../scripts/frontend-release.mjs");
+  const run = {
+    id: 123,
+    run_attempt: 1,
+    path: ".github/workflows/frontend.yml",
+    head_branch: "main",
+    event: "workflow_dispatch",
+    status: "completed",
+    conclusion: "success",
+    head_repository: { full_name: "aomi-labs/aomi-qa" },
+    run_started_at: "2026-10-20T11:55:00Z",
+    updated_at: "2026-10-20T11:59:00Z",
+  };
+  const evidence = {
+    kind: "frontend_browser_qa",
+    schema_version: 1,
+    surface: "landing",
+    deployment_id: "dpl_exact",
+    source_sha: "a".repeat(40),
+    api_target: "https://api.aomi.dev",
+    api_target_verification: "exact_deployment_runtime",
+    status: "PASS",
+    github_run_id: "123",
+    github_run_attempt: "1",
+    observed_at: "2026-10-20T11:58:00Z",
+    scope: "public_surface_smoke",
+    tests: 3,
+    mutations_blocked: true,
+    authenticated_journeys: "NOT_RUN",
+  };
+  const context = {
+    surface: "landing",
+    deploymentId: "dpl_exact",
+    sha: "a".repeat(40),
+    now: Date.parse("2026-10-20T12:00:00Z"),
+  };
+  assert.equal(validateQa(run, evidence, context).run_id, "123");
+  assert.throws(() =>
+    validateQa(run, evidence, { ...context, authenticated: true }),
+  );
+  assert.throws(() => validateQa(run, { ...evidence, tests: 0 }, context));
+});
+
+test("new pending or failed GitHub checks supersede older favorable checks", async () => {
+  const { validateChecks } = await import("../../scripts/frontend-release.mjs");
+  const checks = ["Production Promotion Policy", "Frontend CI Passed"].map(
+    (name, id) => ({
+      id,
+      name,
+      app: { slug: "github-actions" },
+      status: "completed",
+      conclusion: "success",
+    }),
+  );
+  validateChecks(checks);
+  for (const status of ["queued", "in_progress", "completed"]) {
+    assert.throws(() =>
+      validateChecks([
+        ...checks,
+        { ...checks[0], id: 100, status, conclusion: "failure" },
+      ]),
+    );
+  }
+  assert.throws(() =>
+    validateChecks(
+      checks.map((row) => ({ ...row, app: { slug: "third-party" } })),
+    ),
+  );
+});
+
+test("source approval is rechecked before routing and new failure prevents mutation", async () => {
+  const { options, calls } = fixture("portal");
+  let approvals = 0;
+  await assert.rejects(
+    releaseSurface({
+      ...options,
+      approve: () => {
+        if (++approvals === 2) throw Error("new failed CI");
+      },
+    }),
+    /new failed CI/,
+  );
+  assert.equal(calls.length, 0);
+});

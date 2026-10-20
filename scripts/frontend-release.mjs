@@ -34,6 +34,105 @@ const git = (...args) => run("git", args);
 const github = (path) =>
   JSON.parse(run("gh", ["api", `repos/aomi-labs/aomi/${path}`]));
 
+export function validateQa(
+  run,
+  evidence,
+  { surface, deploymentId, sha, authenticated = false, now = Date.now() },
+) {
+  const workflow = authenticated
+    ? "frontend-authenticated.yml"
+    : "frontend.yml";
+  assert(
+    run.path === `.github/workflows/${workflow}` &&
+      run.head_branch === "main" &&
+      run.event === "workflow_dispatch" &&
+      run.status === "completed" &&
+      run.conclusion === "success" &&
+      run.head_repository?.full_name === "aomi-labs/aomi-qa" &&
+      Number.isSafeInteger(run.id) &&
+      Number.isSafeInteger(run.run_attempt) &&
+      run.run_attempt > 0,
+    "Untrusted frontend QA producer",
+  );
+  const observed = Date.parse(evidence.observed_at);
+  assert(
+    evidence.kind ===
+      (authenticated ? "frontend_authenticated_qa" : "frontend_browser_qa") &&
+      evidence.schema_version === 1 &&
+      evidence.surface === surface &&
+      evidence.deployment_id === deploymentId &&
+      evidence.source_sha === sha &&
+      evidence.api_target === "https://api.aomi.dev" &&
+      evidence.api_target_verification === "exact_deployment_runtime" &&
+      evidence.status === "PASS" &&
+      String(evidence.github_run_id) === String(run.id) &&
+      String(evidence.github_run_attempt) === String(run.run_attempt) &&
+      observed >= Date.parse(run.run_started_at) &&
+      observed <= Date.parse(run.updated_at) &&
+      now >= observed &&
+      now - observed <= 24 * 60 * 60 * 1000,
+    "Frontend QA does not cover this exact deployment, attempt and target, or is stale",
+  );
+  if (authenticated) {
+    const required = {
+      portal: [
+        "authenticated_identity",
+        "session_persists_after_reload",
+        "oauth_login_logout",
+        "wallet_sign_reject_disconnect",
+        "streaming_chat_recovery",
+      ],
+      build: [
+        "authenticated_identity",
+        "session_persists_after_reload",
+        "github_oauth_install_wizard",
+        "project_observability_and_bot_identity",
+      ],
+      telegram: [
+        "telegram_identity",
+        "wallet_sign_reject_disconnect",
+        "streaming_chat_recovery",
+      ],
+    }[surface];
+    const stories = evidence.stories;
+    assert(
+      required &&
+        evidence.authenticated_journeys === "PASS" &&
+        Array.isArray(stories) &&
+        stories.length > 0 &&
+        new Set(stories.map((row) => row.story)).size === stories.length &&
+        stories.every((row) => row.verdict === "PASS") &&
+        required.every((name) => stories.some((row) => row.story === name)),
+      "Complete authenticated journeys remain required; partial or public smoke cannot authorize routing",
+    );
+  } else {
+    assert(
+      evidence.scope === "public_surface_smoke" &&
+        Number.isSafeInteger(evidence.tests) &&
+        evidence.tests > 0 &&
+        evidence.mutations_blocked === true,
+      "Public browser smoke incomplete",
+    );
+  }
+  return {
+    run_id: String(run.id),
+    run_attempt: run.run_attempt,
+    repository: "aomi-labs/aomi-qa",
+  };
+}
+
+export function validateChecks(checks) {
+  for (const name of ["Production Promotion Policy", "Frontend CI Passed"]) {
+    const latest = checks
+      .filter((row) => row.name === name && row.app?.slug === "github-actions")
+      .sort((a, b) => b.id - a.id)[0];
+    assert(
+      latest?.conclusion === "success" && latest.status === "completed",
+      `Missing successful reviewed ${name}`,
+    );
+  }
+}
+
 export class Vercel {
   constructor(token) {
     assert(token, "VERCEL_TOKEN required");
@@ -45,6 +144,7 @@ export class Vercel {
       {
         headers: { Authorization: `Bearer ${this.token}` },
         signal: AbortSignal.timeout(30000),
+        redirect: "error",
       },
     );
     assert(response.ok, `Vercel observation failed: HTTP ${response.status}`);
@@ -271,6 +371,11 @@ export async function releaseSurface({
     validateDeployment(current, surface) === sha,
     "Deployment provenance changed",
   );
+  assert(
+    current.url === deployment.url,
+    "Immutable deployment hostname changed",
+  );
+  await approve(sha);
   persist({
     kind: "frontend_deployment_attempt",
     surface,
@@ -351,23 +456,16 @@ export async function main() {
       );
       // The original policy includes the prod-only hotfix divergence and exact
       // merge-tree checks. Require its GitHub Actions result, never a local flag.
-      const checks = github(
-        `commits/${pr.head.sha}/check-runs?per_page=100`,
-      ).check_runs;
-      for (const name of [
-        "Production Promotion Policy",
-        "Frontend CI Passed",
-      ]) {
-        const latest = checks
-          .filter(
-            (row) => row.name === name && row.app?.slug === "github-actions",
-          )
-          .sort((a, b) => b.id - a.id)[0];
-        assert(
-          latest?.conclusion === "success" && latest.status === "completed",
-          `Missing successful reviewed ${name}`,
+      const checks = [];
+      for (let page = 1; page <= 100; page++) {
+        const body = github(
+          `commits/${pr.head.sha}/check-runs?per_page=100&page=${page}`,
         );
+        checks.push(...body.check_runs);
+        if (checks.length >= body.total_count) break;
+        assert(page < 100, "Review check inventory truncated");
       }
+      validateChecks(checks);
     },
     contract: (sha) => {
       // Execute the selected deployment's committed requirements, including on
@@ -400,60 +498,60 @@ export async function main() {
       }
     },
     qa: async ({ surface, deploymentId, sha }) => {
-      const runId = process.env.QA_RUN_ID;
-      assert(
-        /^[1-9][0-9]*$/.test(runId ?? ""),
-        "Exact deployment-bound aomi-qa workflow run required",
-      );
-      const result = JSON.parse(
-        run("gh", ["api", `repos/aomi-labs/aomi-qa/actions/runs/${runId}`]),
-      );
-      assert(
-        result.path === ".github/workflows/frontend.yml" &&
-          result.head_branch === "main" &&
-          result.event === "workflow_dispatch" &&
-          result.status === "completed" &&
-          result.conclusion === "success" &&
-          result.head_repository?.full_name === "aomi-labs/aomi-qa",
-        "Untrusted frontend QA producer",
-      );
-      const directory = `${process.env.RUNNER_TEMP}/frontend-qa`;
-      run("gh", [
-        "run",
-        "download",
-        runId,
-        "--repo",
-        "aomi-labs/aomi-qa",
-        "--name",
-        "frontend-qa",
-        "--dir",
-        directory,
-      ]);
-      const evidence = JSON.parse(
-        readFileSync(`${directory}/frontend-qa.json`, "utf8"),
-      );
-      assert(
-        evidence.surface === surface &&
-          evidence.deployment_id === deploymentId &&
-          evidence.source_sha === sha &&
-          evidence.api_target === "https://api.aomi.dev" &&
-          evidence.api_target_verification === "exact_deployment_runtime" &&
-          evidence.status === "PASS" &&
-          evidence.tests > 0,
-        "Frontend QA does not cover this exact deployment and target",
-      );
-      if (surface !== "landing") {
+      const read = (runId, authenticated) => {
         assert(
-          evidence.authenticated_journeys === "PASS",
-          "Authenticated journeys for this exact deployment remain required; public smoke alone is insufficient",
+          /^[1-9][0-9]*$/.test(runId ?? ""),
+          "Exact deployment-bound QA run required",
         );
-      }
-      assert(
-        Date.now() - Date.parse(evidence.observed_at) >= 0 &&
-          Date.now() - Date.parse(evidence.observed_at) <= 24 * 60 * 60 * 1000,
-        "Frontend QA is stale or from the future",
-      );
-      return { run_id: runId, repository: "aomi-labs/aomi-qa" };
+        const result = JSON.parse(
+          run("gh", ["api", `repos/aomi-labs/aomi-qa/actions/runs/${runId}`]),
+        );
+        const directory = `${process.env.RUNNER_TEMP}/frontend-qa-${runId}-${result.run_attempt}`;
+        run("gh", [
+          "run",
+          "download",
+          runId,
+          "--repo",
+          "aomi-labs/aomi-qa",
+          "--name",
+          authenticated
+            ? `frontend-authenticated-qa-${result.run_attempt}`
+            : `frontend-qa-${result.run_attempt}`,
+          "--dir",
+          directory,
+        ]);
+        const evidence = JSON.parse(
+          readFileSync(
+            `${directory}/${authenticated ? "frontend-authenticated-qa" : "frontend-qa"}.json`,
+            "utf8",
+          ),
+        );
+        const proof = validateQa(result, evidence, {
+          surface,
+          deploymentId,
+          sha,
+          authenticated,
+        });
+        const current = JSON.parse(
+          run("gh", ["api", `repos/aomi-labs/aomi-qa/actions/runs/${runId}`]),
+        );
+        assert(
+          String(result.id) === runId &&
+            current.id === result.id &&
+            current.run_attempt === result.run_attempt &&
+            current.status === "completed" &&
+            current.conclusion === "success" &&
+            current.head_sha === result.head_sha,
+          "QA producer changed during evidence verification",
+        );
+        return proof;
+      };
+      const publicEvidence = read(process.env.QA_RUN_ID, false);
+      const authenticatedEvidence =
+        surface === "landing"
+          ? null
+          : read(process.env.AUTHENTICATED_QA_RUN_ID, true);
+      return { public: publicEvidence, authenticated: authenticatedEvidence };
     },
     persist: (record) =>
       writeFileSync(

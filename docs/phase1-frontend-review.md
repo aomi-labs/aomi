@@ -22,9 +22,16 @@ Cecilia review:
   immediately. A pending operation is recorded before invoking Vercel. A retry
   after provider acceptance observes current aliases and avoids repeating a
   completed mutation. Regressions cover these paths; live rehearsal is pending.
-- Public browser smoke never passes authenticated journeys. Portal, Build and
-  Telegram remain blocked until an authenticated deployment-bound suite exists
-  and runs. Landing may use its independent public coverage.
+- Promotion and rollback consume separate public `qa_run_id` and authenticated
+  `authenticated_qa_run_id` runs. Both must be successful reviewed-main producers
+  for the exact deployment/source/API target and latest workflow attempt; retained
+  evidence time must fall inside that attempt and be under24hours old. Portal,
+  Build and Telegram also require every mandatory authenticated story, with no
+  failed, blocked or duplicate stories. Current partial dedicated-session QA stays
+  BLOCKED. Landing retains independent public coverage.
+- Source approval and latest required checks are repeated immediately before
+  routing. Check pagination prevents an older green result hiding a newer failure.
+  Retrying QA uses per-attempt artifacts; producer changes during download block.
 
 The initial Preview E2E failure was a publication delay: the exact Portal SHA
 appeared at 07:11:50 UTC after the 07:10:48 deadline. Attempt 2 of run
@@ -43,3 +50,9 @@ or copy local credentials into GitHub.
 
 Full shared acceptance and cutover blockers remain in product-mono:
 `docs/topics/deployments/facts/phase1-implementation-status.md`.
+
+Continuation credential inventory is scoped: organization secret inheritance could
+not be inspected (403). Empty repository/environment inventories do not establish
+that inherited credentials are unavailable. Hosted authenticated coverage requires
+a dedicated exact-origin account fixture and approved source before any protection
+or session credential is sent.

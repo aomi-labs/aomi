@@ -14,6 +14,10 @@ on:
         description: Successful deployment-bound aomi-qa frontend workflow run
         type: string
         required: true
+      authenticated_qa_run_id:
+        description: Successful exact-deployment authenticated QA run; mandatory except Landing
+        type: string
+        required: false
       confirm:
         description: Type PROMOTE
         type: string
@@ -52,6 +56,7 @@ jobs:
           DEPLOYMENT: ${{ inputs.deployment }}
           CONFIRM: ${{ inputs.confirm }}
           QA_RUN_ID: ${{ inputs.qa_run_id }}
+          AUTHENTICATED_QA_RUN_ID: ${{ inputs.authenticated_qa_run_id }}
         run: node scripts/frontend-release.mjs promote "$SURFACE" "$DEPLOYMENT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
