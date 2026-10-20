@@ -672,3 +672,38 @@ describe("ClientSession Agent transport", () => {
     session.close();
   });
 });
+
+it("sends a message's app key only in its header and never on later messages", async () => {
+  const calls: RequestInit[] = [];
+  const api = new AomiClient({
+    baseUrl: "https://portal.example",
+    guest: false,
+    fetch: async (_url, init) => {
+      calls.push(init!);
+      const intent = JSON.parse(init!.body as string);
+      return Response.json({
+        session_id: intent.sessionId,
+        cursor: "",
+        events: [],
+        has_more: false,
+      });
+    },
+  });
+  const session = new Session(api, {
+    sessionId: "keys",
+    target: { mode: "direct", applicationId: 7 },
+  });
+  await session.sendAsync("one", { apiKey: "key-one" });
+  session.syncRuntimeOptions({ target: { mode: "direct", applicationId: 8 } });
+  await session.sendAsync("two", { apiKey: "key-two" });
+  session.syncRuntimeOptions({ target: { mode: "auto" } });
+  await session.sendAsync("public");
+  expect(
+    calls.map((call) => new Headers(call.headers).get("aomi-app-key")),
+  ).toEqual(["key-one", "key-two", null]);
+  expect(
+    calls.map((call) => JSON.parse(call.body as string).applicationId),
+  ).toEqual([7, 8, undefined]);
+  expect(calls.map((call) => call.body).join("")).not.toContain("key-one");
+  await session.close();
+});

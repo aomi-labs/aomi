@@ -1,5 +1,6 @@
 "use client";
 
+import { usePrivateApps } from "@aomi-labs/react";
 import { useShellTransport } from "@/account/transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library } from "lucide-react";
@@ -39,6 +40,7 @@ import {
   type LibraryView,
 } from "./model";
 import { CatalogRow } from "./catalog-row";
+import { AddPrivateAppDialog } from "./add-private-app-dialog";
 import { SearchField, EmptyList } from "./navigation";
 
 export { inferLibraryCategory } from "./model";
@@ -49,6 +51,7 @@ interface PackagesModalProps {
 
 export function PackagesModal({ onClose }: PackagesModalProps) {
   const transport = useShellTransport();
+  const privateApps = usePrivateApps();
   const { updateAccountApps } = useAccountOverviewStore();
   const walletKit = useAomiWalletKit();
   // The networks this host routes to (what the network showcase lists), not
@@ -71,6 +74,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     retry: retrySkills,
     loading: skillsLoading,
   } = useSkillCatalog(transport.json);
+  const [privateAppOpen, setPrivateAppOpen] = useState(false);
   const [view, setView] = useState<LibraryView>("discover");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -118,6 +122,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           ? [...new Set([...previousIds, applicationId])]
           : previousIds.filter((id) => id !== applicationId);
         updateAccountApps(accountUserId, result.apps, applicationIds);
+        if (!install) privateApps.remove(app.applicationId);
         retryApps();
         return true;
       } catch (cause) {
@@ -137,6 +142,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       retryApps,
       transport,
       updateAccountApps,
+      privateApps.remove,
     ],
   );
 
@@ -153,6 +159,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (privateAppOpen) return;
       if (event.key === "Escape") {
         onClose();
         return;
@@ -170,7 +177,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, privateAppOpen]);
 
   const {
     appEntries,
@@ -269,7 +276,17 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       <main
         className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
       >
+        <AddPrivateAppDialog
+          open={privateAppOpen}
+          onOpenChange={setPrivateAppOpen}
+          onAdded={() => {
+            retryApps();
+            setView("installed");
+            setQuery("");
+          }}
+        />
         <SearchField
+          onAddPrivateApp={() => setPrivateAppOpen(true)}
           query={query}
           onQueryChange={(next) => {
             setQuery(next);

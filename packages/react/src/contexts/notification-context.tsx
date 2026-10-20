@@ -27,6 +27,8 @@ export type Notification = {
    *   matters for routing. Don't bother passing those fields when firing it.
    */
   kind?: "payment_required";
+  /** Exact private app for the shared Library recovery dialog. */
+  appKeyTarget?: { app?: string; applicationId?: number };
   title: string;
   message?: string;
   duration?: number;
