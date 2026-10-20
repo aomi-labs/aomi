@@ -32,7 +32,6 @@ export type DisplayResource =
   | "transaction-safety"
   | "usage"
   | "account-wallets"
-  | "agent-rule"
   | "connections";
 
 /** The same for every caller: keyed without the account and cached at the edge. */
@@ -52,13 +51,11 @@ const STALE_TIME: Partial<Record<DisplayResource, number>> = {
   credits: MINUTE,
   "transaction-safety": 10 * MINUTE,
   "account-wallets": MINUTE,
-  "agent-rule": MINUTE,
   connections: MINUTE,
 };
 const REFRESH_ON_FOCUS: ReadonlySet<DisplayResource> = new Set([
   "profile",
   "account-wallets",
-  "agent-rule",
   "connections",
 ]);
 

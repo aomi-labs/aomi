@@ -52,8 +52,8 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const owners = new Map<string, string>();
   /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
   const commits = new Map<string, { owner: string; view: unknown }>();
-  /** Each account's lock over its agent wallets. */
-  const rules = new Map<string, AgentRule>();
+  /** Each account's pause all over its agent wallets. */
+  const pausedAll = new Map<string, boolean>();
   /** Each account's connection settings, by connection key. */
   const settings = new Map<string, ConnectionSetting>();
   const agents = new Map<string, FakeAgentBackend>();
@@ -88,7 +88,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       records.length = 0;
       owners.clear();
       commits.clear();
-      rules.clear();
+      pausedAll.clear();
       settings.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
@@ -172,7 +172,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     if (
       url.pathname.startsWith("/v1/account/wallets") ||
       url.pathname.startsWith("/v1/account/agent-wallets") ||
-      url.pathname === "/v1/account/agent-rule" ||
+      url.pathname === "/v1/account/pause-all" ||
       url.pathname.startsWith("/v1/account/connection-settings/") ||
       /^\/v1\/account\/connections\/[^/]+\/wallets$/.test(url.pathname)
     ) {
@@ -184,8 +184,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         return json(response, 200, { wallets: [AGENT_WALLET] });
       if (method === "GET" && url.pathname === "/v1/account/agent-wallets")
         return json(response, 200, {
-          pause_all: rules.get(principal.sub)?.locked ?? false,
-          version: rules.get(principal.sub)?.version ?? 0,
+          pause_all: pausedAll.get(principal.sub) ?? false,
           wallets: [AGENT_GROUP],
         });
       if (
@@ -198,19 +197,14 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         principal.auth_source === "session"
           ? null
           : json(response, 403, { error: "portal_session_required" });
-      if (url.pathname === "/v1/account/agent-rule") {
-        const rule = rules.get(principal.sub) ?? { locked: false, version: 0 };
-        if (method === "GET") return json(response, 200, rule);
-        if (method === "PUT") {
-          const refused = portalOnly();
-          if (refused) return refused;
-          const update = JSON.parse(await readBody(request)) as AgentRule;
-          if (update.version !== rule.version)
-            return json(response, 409, { error: "rule_version_conflict" });
-          const next = { locked: update.locked, version: rule.version + 1 };
-          rules.set(principal.sub, next);
-          return json(response, 200, next);
-        }
+      if (method === "PUT" && url.pathname === "/v1/account/pause-all") {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const { paused } = JSON.parse(await readBody(request)) as {
+          paused: boolean;
+        };
+        pausedAll.set(principal.sub, paused);
+        return json(response, 200, { pause_all: paused });
       }
       if (
         method === "PUT" &&
@@ -343,20 +337,18 @@ const AGENT_WALLET = {
   kind: "agent",
   family: "evm",
   address: "0x7a3f5e1d2c4b6a8901234567890abcdef012c41e",
-  label: "Agent wallet",
+  label: "Trading",
   custom_label: null,
-  wallet_app: null,
+  browser_app: null,
   provider: "para",
-  group_id: "6f1c2b8e-0000-4000-8000-000000000900",
-  name: "Trading",
-  app: null,
-  status: "ready",
   created_at: 1_760_000_000,
+  agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000900",
+  maker_app: null,
 } as const;
 
 const AGENT_GROUP = {
-  id: AGENT_WALLET.group_id,
-  name: AGENT_WALLET.name,
+  id: AGENT_WALLET.agent_wallet_id,
+  name: AGENT_WALLET.label,
   paused: false,
   archived_at: null,
   app: null,
@@ -372,7 +364,6 @@ const AGENT_GROUP = {
   connections: [],
 };
 
-type AgentRule = { locked: boolean; version: number };
 type ConnectionSetting = {
   key: string;
   label: string | null;

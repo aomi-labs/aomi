@@ -16,27 +16,51 @@ const commit = vi.hoisted(() => ({
   approve: vi.fn(async () => undefined),
   refs: [] as string[],
   state: "awaiting_approval",
+  /** A second transfer in the batch, or null for a single commit. */
+  second: null as string | null,
+  listeners: new Set<() => void>(),
 }));
 vi.mock("@aomi-labs/client", async (original) => ({
   ...(await original<typeof import("@aomi-labs/client")>()),
   AomiCommits: class {
     async get(ref: string) {
       commit.refs.push(ref);
-      const view = () => ({
-        state: commit.state,
-        transaction_url: "https://basescan.org/tx/0x1",
+      const member = (commit_id: string, state: string) => ({
+        commit_id,
+        state,
+        transaction_url: `https://basescan.org/tx/${commit_id}`,
       });
+      const batch = () => [
+        member(ref, commit.state),
+        ...(commit.second === null ? [] : [member(`${ref}-2`, commit.second)]),
+      ];
+      const terminal = (state: string) =>
+        ["confirmed", "failed", "rejected", "expired"].includes(state);
       return {
         ref,
         approve: async () => {
           await commit.approve();
           commit.state = "confirmed";
         },
-        refresh: async () => view(),
-        subscribe: () => () => undefined,
+        refresh: async () => batch()[0],
+        subscribe: (listener: () => void) => {
+          commit.listeners.add(listener);
+          return () => commit.listeners.delete(listener);
+        },
         close: () => undefined,
         get view() {
-          return view();
+          return batch()[0];
+        },
+        get batch() {
+          return batch();
+        },
+        get settled() {
+          const all = batch();
+          const done = all.every((view) => terminal(view.state));
+          const failed = done
+            ? all.find((view) => view.state !== "confirmed")
+            : undefined;
+          return { done, confirmed: done && !failed, failed, last: all.at(-1) };
         },
       };
     }
@@ -103,18 +127,19 @@ const agentRow = (
   }) as WalletRow;
 const rows = [agentRow(EVM, "12"), agentRow(SVM, "13", true)];
 
-let list: { pause_all: boolean; version: number; wallets: object[] };
+let list: { pause_all: boolean; wallets: object[] };
 let calls: { method: string; path: string; body: unknown }[] = [];
 let respond: (method: string, path: string) => Response | undefined;
 beforeEach(() => {
   calls = [];
   commit.state = "awaiting_approval";
+  commit.second = null;
+  commit.listeners.clear();
   commit.refs = [];
   commit.approve.mockReset();
   respond = () => undefined;
   list = {
     pause_all: false,
-    version: 4,
     wallets: [trading, world, hoodit, extra, old],
   };
   vi.stubGlobal(
@@ -134,7 +159,7 @@ beforeEach(() => {
       if (url.pathname.endsWith("/balances"))
         return Response.json({ networks: [] });
       if (method === "PATCH") return Response.json(trading);
-      return Response.json({ locked: true, version: 5 });
+      return Response.json({ pause_all: false });
     }),
   );
 });
@@ -286,7 +311,7 @@ describe("Agent wallets band", () => {
     expect(screen.queryByRole("button", { name: "Resume all" })).toBeNull();
   });
 
-  it("resumes everything at the version read when all wallets were paused", async () => {
+  it("resumes everything when all wallets were paused", async () => {
     list.pause_all = true;
     await renderSection();
     expect(
@@ -297,8 +322,8 @@ describe("Agent wallets band", () => {
     );
     expect(writes().at(-1)).toEqual({
       method: "PUT",
-      path: "/v1/account/agent-rule",
-      body: { locked: false, version: 4 },
+      path: "/v1/account/pause-all",
+      body: { paused: false },
     });
   });
 
@@ -520,6 +545,7 @@ describe("Agent wallets band", () => {
       within(sheet).getByRole("radio", { name: /MetaMask/ }),
     ).toHaveAttribute("aria-checked", "true");
     expect(sheet).toHaveTextContent("2 transfers on Base");
+    commit.second = "submitted";
     await act(async () =>
       fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })),
     );
@@ -538,7 +564,14 @@ describe("Agent wallets band", () => {
     });
     expect(commit.refs).toEqual(["c_1"]);
     expect(commit.approve).toHaveBeenCalledOnce();
+    // The USDC transfer confirmed, the ETH one is still on its way.
+    expect(await screen.findByText("Withdrawing…")).toBeInTheDocument();
+    act(() => {
+      commit.second = "confirmed";
+      commit.listeners.forEach((listener) => listener());
+    });
     expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
+    expect(screen.getByText("View transfer 2 on explorer")).toBeInTheDocument();
   });
 
   it("after an ambiguous failure, retries the same withdrawal and never posts another", async () => {

@@ -1,6 +1,5 @@
 import {
   Check,
-  ChevronRight,
   Copy,
   Ellipsis,
   Loader2,
@@ -71,7 +70,15 @@ export function BrandMark({
   );
 }
 
-export function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({
+  value,
+  label,
+  className,
+}: {
+  value: string;
+  label: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -83,7 +90,10 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       aria-label={copied ? "Copied" : label}
       title={value}
-      className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+      className={cn(
+        aomiButton({ variant: "ghost", size: "icon-sm" }),
+        className,
+      )}
       onClick={(event) => {
         event.stopPropagation();
         void copyText(value).then(() => setCopied(true));
@@ -256,42 +266,6 @@ export function ActionsMenu({
         {danger.map(row)}
       </PopoverContent>
     </Popover>
-  );
-}
-
-/**
- * The chevron in front of an expandable row's logo; it points down when
- * open. It sits in the row's edge ([`rowStart`]), so only rows that expand
- * carry it and the rest start at the usual edge.
- */
-export function ExpandToggle({
-  open,
-  label,
-  onToggle,
-}: {
-  open: boolean;
-  /** What it shows or hides, e.g. "Privy addresses". */
-  label: string;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-expanded={open}
-      aria-label={`${open ? "Hide" : "Show"} ${label}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle();
-      }}
-      className="text-aomi-muted hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 -mr-3 flex size-3.5 shrink-0 items-center justify-center rounded-[5px] outline-none focus-visible:ring-2"
-    >
-      <ChevronRight
-        className={cn(
-          "size-3.5 transition-transform motion-reduce:transition-none",
-          open && "rotate-90",
-        )}
-      />
-    </button>
   );
 }
 

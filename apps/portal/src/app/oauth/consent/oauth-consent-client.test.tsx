@@ -44,7 +44,10 @@ describe("OAuthConsentClient", () => {
   it("submits Better Auth's signed query instead of requiring a nonexistent consent code", async () => {
     render(<ConsentSheet name="Codex" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+    // Allow waits for the wallet list (here it fails, so nothing is written).
+    const allow = screen.getByRole("button", { name: "Allow" });
+    await waitFor(() => expect(allow).not.toBeDisabled());
+    fireEvent.click(allow);
 
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
@@ -76,7 +79,7 @@ describe("OAuthConsentClient", () => {
     expect(consentApp(null)).toBeUndefined();
   });
 
-  it("locks an app's client to its wallet under the link's ceiling, then writes the pairs after the grant", async () => {
+  it("locks an app's client to its wallet on an Ask-only link, then writes the pairs after the grant", async () => {
     const saved = mocks.search;
     mocks.search = saved
       .replace("%2Fv1%2Fagent%2Fmcp", "%2Fv1%2Fapps%2Fworld%2Fmcp")
@@ -89,7 +92,7 @@ describe("OAuthConsentClient", () => {
         if (init?.method === "PUT")
           writes.push({ url, body: JSON.parse(String(init.body)) });
         if (url.includes("/v1/account/agent-wallets"))
-          return Response.json({ pause_all: false, version: 1, wallets: [] });
+          return Response.json({ pause_all: false, wallets: [] });
         if (url.includes("/oauth2/consent"))
           return Response.json({ redirect: true, url: "https://codex.test" });
         return Response.json({ wallets: [] });
@@ -102,9 +105,7 @@ describe("OAuthConsentClient", () => {
         screen.getByText("Codex will use World with your Aomi account."),
       ).toBeInTheDocument();
       expect(await screen.findByText("Trade from")).toBeInTheDocument();
-      expect(
-        screen.getByText("used by World · created now if new"),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Created on approval/)).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Instant" })).toBeDisabled();
       expect(
         screen.getByText(/This link requires approval for every trade/),
@@ -119,14 +120,54 @@ describe("OAuthConsentClient", () => {
             body: {
               wallets: [],
               application: "world",
-              app_wallet_instant: false,
-              ceiling: "ask",
+              new_app_wallet: { instant: false },
+              ask_only: true,
             },
           },
         ]),
       );
     } finally {
       mocks.search = saved;
+    }
+  });
+
+  it("consenting again keeps the client's access and writes nothing when it is unchanged", async () => {
+    const writes: unknown[] = [];
+    const wallet = {
+      id: "6f0c1f2e-0000-4000-8000-000000000001",
+      name: "Trading",
+      paused: false,
+      archived_at: null,
+      app: null,
+      last_used_at: null,
+      created_at: 1,
+      addresses: [],
+      connections: [{ key: "oauth:codex-mcp", label: "Codex", instant: true }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "PUT") writes.push(JSON.parse(String(init.body)));
+        if (url.includes("/v1/account/agent-wallets"))
+          return Response.json({ pause_all: false, wallets: [wallet] });
+        return Response.json({ redirect: true, url: "https://codex.test" });
+      }),
+    );
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<ConsentSheet name="Codex" />);
+      expect(await screen.findByText("Trading")).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Instant" })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+      expect(
+        await screen.findByRole("heading", { name: "Codex is connected" }),
+      ).toBeInTheDocument();
+      expect(writes).toEqual([]);
+    } finally {
+      vi.useRealTimers();
     }
   });
 
@@ -146,7 +187,7 @@ describe("OAuthConsentClient", () => {
             ? Response.json({ error: "internal" }, { status: 500 })
             : Response.json({ wallets: [] });
         if (url.includes("/v1/account/agent-wallets"))
-          return Response.json({ pause_all: false, version: 1, wallets: [] });
+          return Response.json({ pause_all: false, wallets: [] });
         return Response.json({ redirect: true, url: "https://codex.test" });
       }),
     );

@@ -3,7 +3,10 @@
 import { lazy, Suspense } from "react";
 import type { ConsentWalletsProps } from "./consent-wallets";
 
-export type { ConsentWalletsProps } from "./consent-wallets";
+export type {
+  ConsentWalletsProps,
+  ConsentWalletsState,
+} from "./consent-wallets";
 
 // Only the OAuth consent page shows it, so it loads only there.
 const Wallets = lazy(() =>

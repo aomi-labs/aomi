@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { Lock, Pencil, ShieldCheck, Unlink } from "lucide-react";
 import type { AomiAccountConnection, AomiAgentWallet } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
-import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { ListGroup } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -13,10 +11,10 @@ import { ActionRow } from "@/ui/aomi/action-row";
 import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
-import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { INSTANT_CONFIRM, pairsWith, type PairMode } from "./connection-pairs";
+import type { PairMode } from "./connection-pairs";
+import { useAccessWrite } from "./use-access-write";
 import { ConnectionMark } from "./connection-mark";
-import { WalletAccessList, type WalletAccess } from "./wallet-access-list";
+import { WalletAccessList } from "./wallet-access-list";
 
 /**
  * Connections › ⋯ › Manage: which agent wallets one connection may use, Ask
@@ -41,40 +39,13 @@ export function ConnectionManage({
 }) {
   const { client } = useShellTransport();
   const wallets = useDisplayQuery(agentWalletsQuery(client));
-  const refresh = useRefreshWallets();
-  const { confirm, dialog } = useConfirmDialog();
-  const [pending, setPending] = useState(false);
-  const [shown, setShown] = useState<WalletAccess[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { write, saving, error, dialog } = useAccessWrite();
   const portal = connection.kind === "portal";
-  const ceiling = connection.ceiling === "ask";
+  const askOnly = connection.ask_only;
   const live =
     wallets.data?.wallets.filter((wallet) => wallet.archived_at === null) ?? [];
-
-  const save = async (wallet: AomiAgentWallet, mode: PairMode | null) => {
-    if (pending) return;
-    if (
-      mode === "instant" &&
-      !(await confirm(INSTANT_CONFIRM(title, wallet.name)))
-    )
-      return;
-    const wallets = pairsWith(connection, wallet.id, mode);
-    // The tick and switch move at once; the server catches up behind them.
-    setShown(wallets.map(({ id, instant }) => ({ id, instant })));
-    setPending(true);
-    setError(null);
-    try {
-      await client.account.connections.setConnectionWallets(connection.key, {
-        wallets,
-      });
-      await refresh();
-    } catch {
-      setError("Couldn’t save that. Try again.");
-    } finally {
-      setShown(null);
-      setPending(false);
-    }
-  };
+  const save = (wallet: AomiAgentWallet, mode: PairMode | null) =>
+    void write(connection, wallet, mode, title);
 
   return (
     <AomiSheet onClose={onClose}>
@@ -95,20 +66,18 @@ export function ConnectionManage({
           ) : live.length ? (
             <WalletAccessList
               wallets={live}
-              access={shown ?? connection.wallets}
-              ceiling={ceiling}
+              access={saving[connection.key] ?? connection.wallets}
+              askOnly={askOnly}
               fixed={portal}
-              onTick={(wallet, ticked) =>
-                void save(wallet, ticked ? "ask" : null)
-              }
-              onMode={(wallet, mode) => void save(wallet, mode)}
+              onTick={(wallet, ticked) => save(wallet, ticked ? "ask" : null)}
+              onMode={save}
             />
           ) : (
             <p className="type-meta text-aomi-muted">
               You have no agent wallets yet. Add one in Settings → Account.
             </p>
           )}
-          {ceiling ? (
+          {askOnly ? (
             <p className="type-meta text-aomi-muted flex items-start gap-1.5">
               <Lock className="mt-px size-3.5 shrink-0" />
               This connection asks before every trade. That was set when it

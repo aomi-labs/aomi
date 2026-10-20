@@ -49,9 +49,9 @@ export const rowEmail = (row: WalletRow) =>
     ? row.loginEmail
     : undefined;
 
-/** `2 addresses`, `1 address`. */
-export const addressCount = (count: number) =>
-  `${count} ${count === 1 ? "address" : "addresses"}`;
+/** `1 wallet`, `2 wallets`; `words` when the plural is not just an s. */
+export const plural = (count: number, word: string, words = `${word}s`) =>
+  `${count} ${count === 1 ? word : words}`;
 
 /** `EVM/SVM`, `EVM` or `SVM`: the families a set of addresses covers. */
 export const familyList = (families: readonly WalletFamily[]) =>
@@ -141,5 +141,5 @@ export function walletSections(
 export function addressSummary(rows: readonly WalletRow[]): string {
   const linked = rows.filter((row) => row.linked);
   const here = linked.filter((row) => row.connected).length;
-  return `${linked.length} ${linked.length === 1 ? "address" : "addresses"} · ${here} on this device`;
+  return `${plural(linked.length, "address", "addresses")} · ${here} on this device`;
 }

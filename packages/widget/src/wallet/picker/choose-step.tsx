@@ -5,6 +5,7 @@ import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { useAomiWalletKit } from "@/wallet/context";
 import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
+import { useApprovalAuthority } from "@/commit/approval-authority";
 import { buildWalletChoices, type WalletChoice } from "./wallet-options";
 import type { SheetMode } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";
@@ -31,6 +32,7 @@ export function ChooseStep({
   purpose?: SheetPurpose;
 }) {
   const kit = useAomiWalletKit();
+  const approvalAuthority = useApprovalAuthority();
   const hostOptions = useContext(WalletSignInOptionsContext);
   const choices = useMemo(() => buildWalletChoices(kit), [kit]);
   const linkedProviders = new Set(
@@ -58,8 +60,9 @@ export function ChooseStep({
         connect: () => kit.connectSocial?.(option.id) ?? Promise.resolve(),
         preload: undefined,
       }));
-  // Adding to a signed-in account can also create a wallet Aomi hosts.
-  const agent = mode === "add" && !kit.accountGuest;
+  // Adding to a signed-in account can also create a wallet Aomi hosts, from
+  // the portal only: an embed on a partner site can't create one.
+  const agent = mode === "add" && !kit.accountGuest && approvalAuthority;
   const detected = choices.filter((choice) => choice.section === "detected");
   const more = choices.filter((choice) => choice.section === "more");
   const walletRow = (choice: WalletChoice) => (

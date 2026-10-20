@@ -1053,8 +1053,7 @@ describe("/v1/account/wallets forwarding", () => {
       "/v1/account/connections/oauth%3Aclaude/wallets",
       routes.accountWallets.PUT,
     ],
-    ["GET", "/v1/account/agent-rule", routes.accountWallets.GET],
-    ["PUT", "/v1/account/agent-rule", routes.accountWallets.PUT],
+    ["PUT", "/v1/account/pause-all", routes.accountWallets.PUT],
     [
       "PUT",
       "/v1/account/connection-settings/oauth%3Aclaude",
@@ -1087,7 +1086,9 @@ describe("/v1/account/wallets forwarding", () => {
     ["GET", "/v1/account/wallets/w_0/balance"],
     ["GET", "/v1/account/wallets/w_12/balance/extra"],
     ["GET", "/v1/account/wallets/w_12/rule"],
-    ["POST", "/v1/account/agent-rule"],
+    ["GET", "/v1/account/pause-all"],
+    ["POST", "/v1/account/pause-all"],
+    ["GET", "/v1/account/agent-rule"],
     ["GET", "/v1/account/connection-settings/portal"],
     ["PUT", "/v1/account/connection-settings/a/b"],
     ["PUT", "/v1/account/wallets/w_12/balance"],
@@ -1158,19 +1159,6 @@ describe("/v1/account/wallets forwarding", () => {
     },
   );
 
-  it("lets an OAuth client read the agent rule with agent:read", async () => {
-    const response = await routes.accountWallets.GET(
-      request("/v1/account/agent-rule", {
-        headers: { authorization: "Bearer oauth.user.jwt" },
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(upstreamCalls()[0].url).toBe(
-      "https://backend.example/v1/account/agent-rule",
-    );
-    expect(mocks.mintAccountBearer).toHaveBeenCalledWith("acct-user");
-  });
-
   it.each([
     ["cookie user", 200],
     ["cookie guest", 403],
@@ -1180,15 +1168,15 @@ describe("/v1/account/wallets forwarding", () => {
     ["e2e cookie", 401],
     ["OAuth user", 401],
   ] as const)(
-    "locking admits only the portal session: %s",
+    "pause all admits only the portal session: %s",
     async (credential, status) => {
       const { headers, origin } = CREDENTIALS[credential];
       const response = await routes.accountWallets.PUT(
-        request("/v1/account/agent-rule", {
+        request("/v1/account/pause-all", {
           method: "PUT",
           headers,
           origin,
-          body: JSON.stringify({ locked: true, version: 3 }),
+          body: JSON.stringify({ paused: true }),
         }),
       );
       expect(response.status).toBe(status);

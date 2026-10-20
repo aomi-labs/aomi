@@ -20,21 +20,18 @@ const agent = {
   address: "0x7a3f00000000000000000000000000000000c41e",
   label: "Agent wallet",
   custom_label: null,
-  wallet_app: null,
+  browser_app: null,
   provider: "para",
-  group_id: "6f1c2b8e-0000-4000-8000-000000000001",
-  name: "Trading",
-  app: null,
-  status: "ready",
   created_at: 1_760_000_000,
+  agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000001",
+  maker_app: null,
 };
 const hoodit = {
   ...agent,
   id: "w_31",
   label: "Hoodit",
-  group_id: "6f1c2b8e-0000-4000-8000-000000000002",
-  name: "Hoodit",
-  app: "Hoodit",
+  agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000002",
+  maker_app: "Hoodit",
 };
 // The contract's example omits fields on non-agent entries.
 const privy = {
@@ -44,7 +41,6 @@ const privy = {
   address: "Dmf3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   label: "Privy",
   provider: "privy",
-  status: "linked",
 };
 const balance = {
   id: "w_12",
@@ -129,15 +125,14 @@ describe("account wallets", () => {
     expect(calls[0]!.headers.has("x-aomi-csrf")).toBe(false);
     expect(wallets.map((wallet) => wallet.id)).toEqual(["w_12", "w_31", "w_9"]);
     expect(wallets[0]).toEqual(agent satisfies AomiAccountWallet);
-    expect(wallets[1]).toMatchObject({ name: "Hoodit", app: "Hoodit" });
+    expect(wallets[1]).toMatchObject({ label: "Hoodit", maker_app: "Hoodit" });
     expect(wallets[2]).toEqual({
       ...privy,
       custom_label: null,
-      wallet_app: null,
-      group_id: null,
-      name: null,
-      app: null,
+      browser_app: null,
       created_at: 0,
+      agent_wallet_id: null,
+      maker_app: null,
     });
   });
 
@@ -245,7 +240,7 @@ describe("aomi.wallets", () => {
     });
     await authorized("https://chat.aomi.dev/v1/account/wallets");
     await authorized("https://chat.aomi.dev/v1/account/wallets/w_12/balance");
-    await authorized("https://chat.aomi.dev/v1/account/agent-rule");
+    await authorized("https://chat.aomi.dev/v1/account/agent-wallets");
     for (const call of oauth.mock.calls)
       expect(call[0]).toEqual({
         resource: "https://chat.aomi.dev/v1/agent",
@@ -288,7 +283,6 @@ describe("agent wallets", () => {
       "GET /v1/account/agent-wallets": () =>
         Response.json({
           pause_all: true,
-          version: 7,
           wallets: [trading, world],
         }),
       "POST /v1/account/agent-wallets": () => Response.json(trading),
@@ -321,7 +315,6 @@ describe("agent wallets", () => {
 
     const listed = await wallets.agentWallets();
     expect(listed.pause_all).toBe(true);
-    expect(listed.version).toBe(7);
     expect(listed.wallets[0]).toEqual(trading);
     expect(listed.wallets[1]).toMatchObject({
       archived_at: 1_760_000_200,
@@ -397,7 +390,7 @@ describe("commit wallet refusals", () => {
   it("keeps the backend's flat wallet fields as the error's details", () => {
     const body = {
       code: "commit_wallet_paused",
-      wallet_id: "g-1",
+      agent_wallet_id: "g-1",
       wallet_name: "Hoodit",
       connection_key: "telegram:77",
     };
@@ -407,53 +400,32 @@ describe("commit wallet refusals", () => {
     // api-server's nested shape keeps its own details.
     expect(
       commitRefError(403, "", {
-        error: { code: "commit_wallet_paused", details: { wallet_id: "g-2" } },
+        error: {
+          code: "commit_wallet_paused",
+          details: { agent_wallet_id: "g-2" },
+        },
       }).details,
-    ).toEqual({ wallet_id: "g-2" });
+    ).toEqual({ agent_wallet_id: "g-2" });
   });
 });
 
-describe("agent rule", () => {
-  it("reads the lock and writes it at the version read", async () => {
+describe("pause all", () => {
+  it("writes pause all with portal CSRF", async () => {
     const { fetch, calls } = backend({
-      "GET /v1/account/agent-rule": () =>
-        Response.json({ locked: false, version: 3 }),
-      "PUT /v1/account/agent-rule": () =>
-        Response.json({ locked: true, version: 4 }),
+      "PUT /v1/account/pause-all": () => Response.json({ pause_all: true }),
     });
     const aomi = new Aomi({
       baseUrl: "https://api.example",
       guest: false,
       fetch,
     });
-    expect(await aomi.wallets.agentRule()).toEqual({
-      locked: false,
-      version: 3,
-    });
-    const written = await aomi.wallets.setAgentRule({
-      locked: true,
-      version: 3,
-    });
+    expect(await aomi.wallets.pauseAll(true)).toEqual({ pause_all: true });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",
-      path: "/v1/account/agent-rule",
-      body: { locked: true, version: 3 },
+      path: "/v1/account/pause-all",
+      body: { paused: true },
     });
     expect(calls.at(-1)!.headers.get("x-aomi-csrf")).toBe("1");
-    expect(written).toEqual({ locked: true, version: 4 });
-  });
-
-  it("surfaces a stale write as rule_version_conflict", async () => {
-    const { client } = backend({
-      "PUT /v1/account/agent-rule": () =>
-        Response.json({ error: "rule_version_conflict" }, { status: 409 }),
-    });
-    await expect(
-      client.account.wallets.setAgentRule({ locked: false, version: 2 }),
-    ).rejects.toMatchObject({
-      status: 409,
-      code: WALLET_ERROR_CODES.ruleVersionConflict,
-    });
   });
 });
 
@@ -469,7 +441,7 @@ describe("connections", () => {
               name: "Aomi",
               detail: null,
               application: null,
-              ceiling: null,
+              ask_only: false,
               wallets: [],
               last_used_at: null,
               connected_at: null,
@@ -481,7 +453,7 @@ describe("connections", () => {
               name: "@HooditBot",
               detail: "Telegram @arixon",
               application: { id: 86, name: "hoodit", label: "Hoodit" },
-              ceiling: "ask",
+              ask_only: true,
               wallets: [
                 { id: "g-1", name: "Hoodit", instant: true, archived: true },
               ],
@@ -509,12 +481,12 @@ describe("connections", () => {
     expect(connections[1]).toMatchObject({
       detail: "Telegram @arixon",
       application: { id: 86, name: "hoodit", label: "Hoodit" },
-      ceiling: "ask",
+      ask_only: true,
       wallets: [{ id: "g-1", name: "Hoodit", instant: true, archived: true }],
     });
     expect(connections[2]).toMatchObject({
       application: null,
-      ceiling: null,
+      ask_only: false,
       wallets: [],
       last_used_at: null,
       removable: true,
@@ -533,9 +505,15 @@ describe("connections", () => {
     const update = {
       wallets: [{ id: "g-1", instant: false }],
       application: "world",
-      ceiling: "ask" as const,
+      new_app_wallet: { instant: false },
+      ask_only: true,
     };
-    await client.account.connections.setConnectionWallets("oauth:c1", update);
+    expect(
+      await client.account.connections.setConnectionWallets("oauth:c1", update),
+    ).toEqual({
+      ask_only: true,
+      wallets: [{ id: "g-1", name: "", instant: false, archived: false }],
+    });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",
       path: "/v1/account/connections/oauth%3Ac1/wallets",

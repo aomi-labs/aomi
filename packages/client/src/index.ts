@@ -469,8 +469,6 @@ export {
 export type {
   AomiAccountWallet,
   AomiAccountWalletKind,
-  AomiAgentRule,
-  AomiAccountWalletStatus,
   AomiActiveWallet,
   AomiThreadWallet,
   AomiWalletAmount,

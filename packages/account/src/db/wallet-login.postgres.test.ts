@@ -234,19 +234,18 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       [agentAddress, owner.userId, identity.rows[0].id, now],
     );
     const agentId = String(agentKey.rows[0].id);
-    const group = await pool.query(
-      `insert into agent_wallet_groups (user_id, name, created_at, updated_at)
-       values ($1, 'Trading', $2, $2)
+    const created = await pool.query(
+      `insert into agent_wallets (user_id, name, para_subject, created_at, updated_at)
+       values ($1, 'Trading', $2, $3, $3)
        returning id`,
-      [owner.userId, now],
+      [owner.userId, subject, now],
     );
-    const groupId = group.rows[0].id;
+    const agentWalletId = created.rows[0].id;
     await pool.query(
-      `insert into agent_wallets
-         (user_id, group_id, chain_type, public_key_id, para_subject, status,
-          created_at, updated_at)
-       values ($1, $2, 'evm', $3, $4, 'active', $5, $5)`,
-      [owner.userId, groupId, agentId, subject, now],
+      `insert into agent_wallet_keys
+         (agent_wallet_id, chain_type, user_id, public_key_id, created_at, updated_at)
+       values ($1, 'evm', $2, $3, $4, $4)`,
+      [agentWalletId, owner.userId, agentId, now],
     );
 
     // The agent address is named after its agent wallet.
@@ -327,10 +326,10 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       [owner.userId],
     );
     await pool.query(
-      `insert into connection_wallets
-         (user_id, connection_key, group_id, instant, created_at, updated_at)
+      `insert into wallet_access
+         (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
        values ($1, 'telegram:77', $2, true, 1, 1)`,
-      [owner.userId, groupId],
+      [owner.userId, agentWalletId],
     );
     // Deleting the account keeps funds but revokes all signing authority.
     await service.deactivateAomiAccount({ userId: owner.userId });
@@ -350,12 +349,12 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     });
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
     // Pause all, and every pair back on Ask.
-    const rule = await pool.query(
-      `select r.locked, w.instant from agent_wallet_rules r
-         join connection_wallets w on w.user_id = r.user_id where r.user_id = $1`,
+    const paused = await pool.query(
+      `select u.agents_paused, wa.instant from users u
+         join wallet_access wa on wa.user_id = u.id where u.id = $1`,
       [owner.userId],
     );
-    expect(rule.rows).toEqual([{ locked: true, instant: false }]);
+    expect(paused.rows).toEqual([{ agents_paused: true, instant: false }]);
     const grants = await pool.query(
       `select count(*)::int as count from signing_delegations where public_key_id=$1 and revoked_at is null`,
       [agentId],

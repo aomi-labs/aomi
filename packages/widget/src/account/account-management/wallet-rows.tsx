@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   ChevronRight,
   CircleCheck,
@@ -21,7 +21,6 @@ import {
   ActionsMenu,
   BrandMark,
   CopyButton,
-  ExpandToggle,
   rowStart,
   copyText,
   type MenuItem,
@@ -35,6 +34,7 @@ import {
   rowTitle,
   type LoginGroup,
 } from "./wallet-model";
+import { ExpandableRow } from "./expandable-row";
 import { AddressSummary } from "./labels";
 
 type RowHandler = (row: WalletRow) => void;
@@ -280,13 +280,9 @@ export function LoginRows({
   onSignOutProvider?: (group: LoginGroup) => void;
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
 }) {
-  // Open while it holds the active address, until you toggle it yourself.
-  const [toggled, setOpen] = useState<boolean | null>(null);
-  const open = toggled ?? group.rows.some((row) => row.active);
   const name = providerName(group.provider);
   const email = group.identity?.email;
   const signedIn = group.rows.some((row) => row.connected);
-  const count = group.rows.length;
   const items: MenuItem[] = [];
   if (email)
     items.push({
@@ -314,7 +310,7 @@ export function LoginRows({
     handlers.pending === `remove-login:${group.key}`;
 
   // One address: the address row is the login, with the login's actions.
-  const only = count === 1 ? group.rows[0] : undefined;
+  const only = group.rows.length === 1 ? group.rows[0] : undefined;
   if (only)
     return (
       <div data-wallet-provider={group.provider}>
@@ -334,51 +330,31 @@ export function LoginRows({
 
   return (
     <div data-wallet-provider={group.provider}>
-      <div
-        className={cn(
-          "flex min-h-14 items-center gap-3 pr-3",
-          rowStart(count > 0),
-          count > 0 && "hover:bg-aomi-hover transition-colors",
-        )}
-      >
-        {count > 0 ? (
-          <ExpandToggle
-            open={open}
-            label={`${name} addresses`}
-            onToggle={() => setOpen(!open)}
-          />
-        ) : null}
-        <button
-          type="button"
-          tabIndex={-1}
-          disabled={count === 0}
-          onClick={() => setOpen(!open)}
-          className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none disabled:cursor-default"
-        >
+      <ExpandableRow
+        label={`${name} addresses`}
+        defaultOpen={group.rows.some((row) => row.active)}
+        leading={
           <BrandMark brand={group.provider} dot={signedIn ? "on" : "off"} />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="type-row truncate">{name}</span>
-            <span className="type-meta text-aomi-muted truncate">
-              <AddressSummary families={group.rows.map((row) => row.family)} />
-            </span>
-          </span>
-        </button>
-        {items.length ? (
-          <ActionsMenu
-            label={`Actions for ${name}`}
-            items={items}
-            disabled={handlers.pending !== null}
-            busy={busy}
-          />
-        ) : null}
-      </div>
-      {open
-        ? group.rows.map((row) => (
-            <div key={row.key} className="border-aomi-border border-t">
-              <AddressRow row={row} nested {...handlers} />
-            </div>
-          ))
-        : null}
+        }
+        title={name}
+        description={
+          <AddressSummary families={group.rows.map((row) => row.family)} />
+        }
+        trailing={
+          items.length ? (
+            <ActionsMenu
+              label={`Actions for ${name}`}
+              items={items}
+              disabled={handlers.pending !== null}
+              busy={busy}
+            />
+          ) : null
+        }
+      >
+        {group.rows.map((row) => (
+          <AddressRow key={row.key} row={row} nested {...handlers} />
+        ))}
+      </ExpandableRow>
     </div>
   );
 }

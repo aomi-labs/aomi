@@ -304,6 +304,8 @@ const ORIGIN_BADGES: Partial<
   cron: { icon: ClockIcon, label: "Scheduled task" },
   mcp: { icon: PlugIcon, label: "Started over MCP" },
   api: { icon: PlugIcon, label: "Started over the API" },
+  // The general connection mark, not a Telegram one.
+  telegram: { icon: PlugIcon, label: "Started in Telegram" },
   cli: { icon: TerminalIcon, label: "Started from the CLI" },
   sdk: { icon: TerminalIcon, label: "Started from the SDK" },
 };
@@ -316,7 +318,7 @@ export const ThreadOriginBadge: FC<{
 }> = ({ origin, originApp }) => {
   const badge =
     (origin && ORIGIN_BADGES[origin]) ??
-    (originApp !== undefined && origin !== "telegram"
+    (originApp !== undefined
       ? { icon: LayoutGridIcon, label: "Chat inside an app" }
       : undefined);
   if (!badge) return null;

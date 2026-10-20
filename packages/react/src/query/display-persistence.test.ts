@@ -77,7 +77,6 @@ describe("what the display cache saves", () => {
       [{ id: "t", title: "Chat", archived: false, updatedAt: 1 }],
     ],
     ["models", ["model-a"], ["model-a"]],
-    ["agent-rule", { locked: true, version: 1 }, undefined],
     ["credits", { balance: 1 }, undefined],
   ] as const)("saves %s as %j", (resource, value, expected) => {
     expect(savedDisplayData(resource, value)).toEqual(expected);

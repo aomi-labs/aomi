@@ -175,7 +175,7 @@ beforeEach(() => {
         return Response.json(
           init?.method === "PATCH"
             ? wallet
-            : { pause_all: false, version: 7, wallets: [wallet] },
+            : { pause_all: false, wallets: [wallet] },
         );
       }
       return Response.json({
@@ -356,7 +356,7 @@ describe("CommitSignPanel · approvals", () => {
     const { handle } = await open(parked({ notify: "telegram:77:1234" }), {
       code: "commit_wallet_paused",
       status: 403,
-      wallet_id: "g-1",
+      agent_wallet_id: "g-1",
       wallet_name: "Hoodit",
       connection_key: "telegram:77",
     });

@@ -147,25 +147,26 @@ describe.skipIf(!enabled)("account connections", () => {
       `insert into applications (id, name, label) values (86, 'hoodit', 'Hoodit')`,
     );
     await pool.query(
-      `insert into agent_wallet_groups
-         (id, uid, user_id, name, archived_at, created_by_app, created_at, updated_at)
-       values (1, $1, 'owner', 'Trading', null, null, 1, 1),
-              (2, $2, 'owner', 'Hoodit', null, 86, 2, 2),
-              (3, $3, 'owner', 'Old', 5, null, 3, 3)`,
+      `insert into agent_wallets
+         (id, user_id, name, para_subject, archived_at, created_by_app, created_at, updated_at)
+       values ($1, 'owner', 'Trading', 'p-trading', null, null, 1, 1),
+              ($2, 'owner', 'Hoodit', 'p-hoodit', null, 86, 2, 2),
+              ($3, 'owner', 'Old', 'p-old', 5, null, 3, 3)`,
       [TRADING, HOODIT, OLD],
     );
     await pool.query(
       `insert into account_connections
-         (user_id, key, label, application_id, ceiling, last_used_at, created_at, updated_at)
-       values ('owner', 'oauth:claude', 'Laptop Claude', null, null, 1760409000, 1, 1),
-              ('owner', 'telegram:88', null, 86, 'ask', 1760408000, 1, 1)`,
+         (user_id, key, label, application_id, ask_only, last_used_at, created_at, updated_at)
+       values ('owner', 'oauth:claude', 'Laptop Claude', null, false, 1760409000, 1, 1),
+              ('owner', 'telegram:88', null, 86, true, 1760408000, 1, 1)`,
     );
     await pool.query(
-      `insert into connection_wallets
-         (user_id, connection_key, group_id, instant, created_at, updated_at)
-       values ('owner', 'oauth:claude', 1, true, 1, 1),
-              ('owner', 'oauth:claude', 3, true, 1, 1),
-              ('owner', 'telegram:88', 2, false, 1, 1)`,
+      `insert into wallet_access
+         (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
+       values ('owner', 'oauth:claude', $1, true, 1, 1),
+              ('owner', 'oauth:claude', $3, true, 1, 1),
+              ('owner', 'telegram:88', $2, false, 1, 1)`,
+      [TRADING, HOODIT, OLD],
     );
     // Owner was linked from Hoodit, then a later code from the side bot was
     // only issued; "other" was linked from the side bot.
@@ -189,7 +190,7 @@ describe.skipIf(!enabled)("account connections", () => {
     name: "Aomi",
     detail: null,
     application: null,
-    ceiling: null,
+    ask_only: false,
     wallets: [],
     last_used_at: null,
     connected_at: null,
@@ -207,7 +208,7 @@ describe.skipIf(!enabled)("account connections", () => {
     name,
     detail: null,
     application: null,
-    ceiling: null,
+    ask_only: false,
     wallets: [],
     last_used_at: null,
     connected_at: connected,
@@ -224,7 +225,7 @@ describe.skipIf(!enabled)("account connections", () => {
     name,
     detail: "Telegram @arixon",
     application: null,
-    ceiling: null,
+    ask_only: false,
     wallets: [],
     last_used_at: null,
     connected_at: null,
@@ -246,7 +247,7 @@ describe.skipIf(!enabled)("account connections", () => {
         }),
         bot("88", "Side bot", {
           application: { id: 86, name: "hoodit", label: "Hoodit" },
-          ceiling: "ask",
+          ask_only: true,
           wallets: [
             { id: HOODIT, name: "Hoodit", instant: false, archived: false },
           ],
@@ -293,7 +294,7 @@ describe.skipIf(!enabled)("account connections", () => {
     expect(settings.rows).toEqual([{ key: "telegram:88" }]);
     // Its pairs went with it.
     const pairs = await pool.query(
-      `select connection_key from connection_wallets where user_id = 'owner'`,
+      `select connection_key from wallet_access where user_id = 'owner'`,
     );
     expect(pairs.rows).toEqual([{ connection_key: "telegram:88" }]);
     expect(

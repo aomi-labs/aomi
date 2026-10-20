@@ -64,6 +64,7 @@ export { ConnectionMark } from "./account/connections/connection-mark";
 export {
   ConsentWallets,
   type ConsentWalletsProps,
+  type ConsentWalletsState,
 } from "./account/connections/consent-wallets-loader";
 export { accountDisplayName } from "./wallet/account-presentation";
 export {

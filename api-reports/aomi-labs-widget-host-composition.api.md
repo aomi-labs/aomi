@@ -346,9 +346,16 @@ export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
 // @public (undocumented)
 export type ConsentWalletsProps = {
     client: AomiClient;
+    connectionKey?: string;
     app?: string;
-    ceiling?: boolean;
-    onChange: (update: AomiConnectionWalletsUpdate) => void;
+    askOnly?: boolean;
+    onChange: (state: ConsentWalletsState) => void;
+};
+
+// @public
+export type ConsentWalletsState = {
+    ready: boolean;
+    update: AomiConnectionWalletsUpdate | null;
 };
 
 // @public (undocumented)

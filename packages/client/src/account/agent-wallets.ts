@@ -34,7 +34,7 @@ export type AomiAgentWalletConnection = {
 };
 
 export type AomiAgentWallet = {
-  /** The wallet's uid. */
+  /** The agent wallet id (a UUID). */
   id: string;
   name: string;
   paused: boolean;
@@ -52,12 +52,10 @@ export type AomiAgentWallet = {
 
 /**
  * Every agent wallet, archived ones included, most recently used first.
- * `pause_all` is the account-wide pause, written through the agent rule at
- * `version`.
+ * `pause_all` is the account-wide pause (`PUT /v1/account/pause-all`).
  */
 export type AomiAgentWallets = {
   pause_all: boolean;
-  version: number;
   wallets: AomiAgentWallet[];
 };
 
@@ -117,11 +115,9 @@ export const agentWalletPaths = {
 
 export function parseAgentWallets(value: unknown): AomiAgentWallets {
   const record = asRecord(value);
-  if (!record || typeof record.version !== "number")
-    throw invalid("agent wallets must carry a version");
+  if (!record) throw invalid("agent wallets must be an object");
   return {
     pause_all: record.pause_all === true,
-    version: record.version,
     wallets: list(record.wallets, "wallets").map(parseAgentWallet),
   };
 }

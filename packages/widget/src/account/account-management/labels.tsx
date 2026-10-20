@@ -3,7 +3,7 @@ import { LayoutGrid, Pause, Zap } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import type { WalletFamily } from "@/wallet/types";
 import { getAppIcon } from "@/icons/app-map";
-import { addressCount, familyList } from "./wallet-model";
+import { familyList, plural } from "./wallet-model";
 
 /**
  * The labels every wallet and connection row shares (Settings, sheets and
@@ -25,7 +25,7 @@ export function AddressSummary({
   const list = familyList(families);
   return (
     <>
-      {addressCount(families.length)}
+      {plural(families.length, "address", "addresses")}
       {list ? (
         <>
           {" · "}

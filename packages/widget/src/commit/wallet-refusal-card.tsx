@@ -12,8 +12,9 @@ import { ConnectionManage } from "@/account/connections/connection-manage";
 import type { WalletRefusal } from "./wallet-refusal";
 
 /**
- * The card for a refused trade: paused (Resume), archived (Restore) or a
- * connection without access (Allow access → that connection's Manage
+ * The card for a refused trade: paused (Resume the wallet, or Resume all when
+ * the whole account is paused; one never lifts the other), archived (Restore)
+ * or a connection without access (Allow access → that connection's Manage
  * sheet). Nothing was signed in any case.
  */
 export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
@@ -34,6 +35,9 @@ export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
   const connection = connections.data?.connections.find(
     (row) => row.key === refusal.connectionKey,
   );
+  // Pause all is lifted only by its own button, never by a wallet's Resume.
+  const allPaused =
+    refusal.kind === "paused" && wallets.data?.pause_all === true;
   if (dismissed) return null;
 
   const fix = async (list: AomiAgentWallets) => {
@@ -43,14 +47,11 @@ export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
         await client.account.wallets.updateAgentWallet(wallet.id, {
           archived: false,
         });
-      if (refusal.kind === "paused" && wallet?.paused)
+      if (refusal.kind === "paused" && list.pause_all)
+        await client.account.wallets.pauseAll(false);
+      else if (refusal.kind === "paused" && wallet?.paused)
         await client.account.wallets.updateAgentWallet(wallet.id, {
           paused: false,
-        });
-      if (refusal.kind === "paused" && list.pause_all)
-        await client.account.wallets.setAgentRule({
-          locked: false,
-          version: list.version,
         });
       await refresh();
       setState("done");
@@ -72,11 +73,17 @@ export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
             `${quoted} is archived`,
             "Nothing was signed. Restore the wallet to trade from it.",
           ]
-        : [
-            <Lock key="icon" className="text-aomi-danger size-4" />,
-            `${quoted} is paused`,
-            "Nothing was signed. Resume the wallet to trade from it.",
-          ];
+        : allPaused
+          ? [
+              <Lock key="icon" className="text-aomi-danger size-4" />,
+              "All agent wallets are paused",
+              "Nothing was signed. Resume all to trade again.",
+            ]
+          : [
+              <Lock key="icon" className="text-aomi-danger size-4" />,
+              `${quoted} is paused`,
+              "Nothing was signed. Resume the wallet to trade from it.",
+            ];
 
   return (
     <div
@@ -120,7 +127,11 @@ export function WalletRefusalCard({ refusal }: { refusal: WalletRefusal }) {
           disabled={!wallets.data || state === "busy"}
           onClick={() => wallets.data && void fix(wallets.data)}
         >
-          {refusal.kind === "archived" ? "Restore" : "Resume"}
+          {refusal.kind === "archived"
+            ? "Restore"
+            : allPaused
+              ? "Resume all"
+              : "Resume"}
         </AomiButton>
       )}
       {allowing && connection ? (

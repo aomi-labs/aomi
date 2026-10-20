@@ -253,6 +253,7 @@ describe("ThreadOriginBadge", () => {
     ["api", undefined, "Started over the API"],
     ["cli", undefined, "Started from the CLI"],
     ["sdk", undefined, "Started from the SDK"],
+    ["telegram", 7, "Started in Telegram"],
     ["portal", 7, "Chat inside an app"],
   ] as const)("marks %s (app %s) as %s", (origin, originApp, label) => {
     render(<ThreadOriginBadge origin={origin} originApp={originApp} />);
@@ -262,7 +263,6 @@ describe("ThreadOriginBadge", () => {
   it.each([
     ["portal", undefined],
     ["widget", undefined],
-    ["telegram", 7],
     [undefined, undefined],
   ] as const)("shows nothing for %s chats", (origin, originApp) => {
     const { container } = render(

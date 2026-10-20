@@ -27,13 +27,14 @@ import { useShellTransport } from "@/account/transport";
 import {
   ActionsMenu,
   Divider,
-  ExpandToggle,
   rowStart,
   type MenuItem,
 } from "@/account/account-management/controls";
 import { connectionsQuery } from "@/account/account-queries";
+import { ExpandableRow } from "@/account/account-management/expandable-row";
 import { CHILD_INDENT } from "@/account/account-management/wallet-rows";
 import { StateMeta, withApp } from "@/account/account-management/labels";
+import { plural } from "@/account/account-management/wallet-model";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
 
@@ -76,6 +77,13 @@ const KIND_LABEL: Record<AomiConnectionKind, string> = {
   telegram: "Telegram",
 };
 
+/** `Oct 15`. */
+const shortDate = (at: number) =>
+  new Date(at * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
 /** `used 2 h ago`, `used yesterday`, `used Oct 15`. */
 export function usedLabel(at: number, now = Date.now()): string {
   const seconds = Math.max(0, now / 1000 - at);
@@ -83,14 +91,8 @@ export function usedLabel(at: number, now = Date.now()): string {
   if (seconds < 3_600) return `used ${Math.floor(seconds / 60)} min ago`;
   if (seconds < 86_400) return `used ${Math.floor(seconds / 3_600)} h ago`;
   if (seconds < 172_800) return "used yesterday";
-  return `used ${new Date(at * 1000).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })}`;
+  return `used ${shortDate(at)}`;
 }
-
-const plural = (count: number, word: string) =>
-  `${count} ${count === 1 ? word : `${word}s`}`;
 
 const liveWallets = (row: AomiAccountConnection) =>
   row.wallets.filter((wallet) => !wallet.archived);
@@ -145,10 +147,7 @@ function sheetDescription(row: AomiAccountConnection): string {
       : (row.detail ?? KIND_LABEL[row.kind]),
     row.connected_at === null
       ? null
-      : `connected ${new Date(row.connected_at * 1000).toLocaleDateString(
-          "en-US",
-          { month: "short", day: "numeric" },
-        )}`,
+      : `connected ${shortDate(row.connected_at)}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -167,7 +166,6 @@ export function ConnectionsSettings() {
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [managing, setManaging] = useState<string | null>(null);
-  const [telegramOpen, setTelegramOpen] = useState(true);
   const [telegramSheet, setTelegramSheet] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -306,17 +304,11 @@ export function ConnectionsSettings() {
   ).size;
   const telegramGroup = bots.length ? (
     <div key="telegram" data-connection="telegram">
-      <Row
-        expand={
-          <ExpandToggle
-            open={telegramOpen}
-            label="Telegram bots"
-            onToggle={() => setTelegramOpen((value) => !value)}
-          />
-        }
-        onClick={() => setTelegramOpen((value) => !value)}
+      <ExpandableRow
+        label="Telegram bots"
+        defaultOpen
         leading={<ConnectionMark kind="telegram" name="Telegram" />}
-        title={<span className="truncate">Telegram</span>}
+        title="Telegram"
         description={[
           telegramUser,
           plural(bots.length, "bot"),
@@ -348,8 +340,9 @@ export function ConnectionsSettings() {
             ]}
           />
         }
-      />
-      {telegramOpen ? bots.map((row) => connectionRow(row, true)) : null}
+      >
+        {bots.map((row) => connectionRow(row, true))}
+      </ExpandableRow>
     </div>
   ) : null;
 
@@ -448,63 +441,39 @@ export function ConnectionsSettings() {
 
 /** One connection row; a gutter in front so marks line up with Telegram's chevron. */
 function Row({
-  expand,
   nested = false,
   leading,
   title,
   description,
   trailing,
-  onClick,
   ...props
 }: {
-  expand?: ReactNode;
   nested?: boolean;
   leading: ReactNode;
   title: ReactNode;
   description: ReactNode;
   trailing: ReactNode;
-  onClick?: () => void;
   "data-connection"?: string;
 }) {
-  const body = (
-    <>
-      {leading}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="type-row flex min-w-0 items-center gap-1.5">
-          {title}
-        </span>
-        <span className="type-meta text-aomi-muted truncate">
-          {description}
-        </span>
-      </span>
-    </>
-  );
   return (
     <div
       {...props}
       className={cn(
         "flex min-h-14 items-center gap-3 pr-3",
-        nested
-          ? cn("border-aomi-border border-t", CHILD_INDENT)
-          : rowStart(Boolean(expand)),
-        onClick && "hover:bg-aomi-hover transition-colors",
+        nested ? CHILD_INDENT : rowStart(false),
       )}
     >
-      {nested ? null : expand}
-      {onClick ? (
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={onClick}
-          className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none"
-        >
-          {body}
-        </button>
-      ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-3 py-3">
-          {body}
-        </div>
-      )}
+      <div className="flex min-w-0 flex-1 items-center gap-3 py-3">
+        {leading}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="type-row flex min-w-0 items-center gap-1.5">
+            {title}
+          </span>
+          <span className="type-meta text-aomi-muted truncate">
+            {description}
+          </span>
+        </span>
+      </div>
       {trailing}
     </div>
   );

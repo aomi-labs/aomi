@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import {
   AomiCommits,
-  isTerminalCommit,
   shortAddress,
   type AomiAgentWallet,
   type AomiAgentWalletBalances,
@@ -34,7 +33,11 @@ import type { WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { useShellTransport } from "@/account/transport";
 import { BrandMark } from "@/account/account-management/controls";
-import { appName, rowTitle } from "@/account/account-management/wallet-model";
+import {
+  appName,
+  plural,
+  rowTitle,
+} from "@/account/account-management/wallet-model";
 import { familyName } from "./agent-wallet-model";
 import { useRefreshWallets } from "./use-refresh-wallets";
 
@@ -249,7 +252,7 @@ function Networks({
         >
           <ListRow
             title={network.name}
-            description={`${network.assets.length} ${network.assets.length === 1 ? "asset" : "assets"}`}
+            description={plural(network.assets.length, "asset")}
             trailing={
               <>
                 <span className="type-meta text-aomi-muted tabular-nums">
@@ -266,7 +269,7 @@ function Networks({
           className="opacity-50"
           title={
             funded.length
-              ? `${rest.length} more ${rest.length === 1 ? "network" : "networks"}`
+              ? plural(rest.length, "more network")
               : "Nothing to withdraw"
           }
           description={rest
@@ -557,7 +560,7 @@ function Destination({
       </fieldset>
       <ListGroup>
         <ListRow
-          title={`${chosen.length} ${chosen.length === 1 ? "transfer" : "transfers"} on ${network.name}`}
+          title={`${plural(chosen.length, "transfer")} on ${network.name}`}
           description={chosen
             .map((pick) => `${pick.max ? "all" : pick.amount} ${pick.symbol}`)
             .join(" + ")}
@@ -624,7 +627,7 @@ function Choice({
   );
 }
 
-/** The approved withdrawal, followed until it lands. */
+/** The approved withdrawal, followed until every transfer in it lands. */
 function Sent({
   handle,
   network,
@@ -637,9 +640,9 @@ function Sent({
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   useEffect(() => () => handle.close(), [handle]);
-  const view = handle.view;
-  const done = isTerminalCommit(view);
-  const confirmed = view.state === "confirmed";
+  const { done, confirmed, failed } = handle.settled;
+  const transfers = handle.batch;
+  const sent = transfers.filter((view) => view.state === "confirmed").length;
   return (
     <>
       <SheetHeader
@@ -654,14 +657,18 @@ function Sent({
           confirmed
             ? `Sent on ${network.name}.`
             : done
-              ? "Nothing more will be sent. Try again from the wallet’s menu."
+              ? sent
+                ? `${sent} of ${transfers.length} transfers were sent; the rest weren’t. Try again from the wallet’s menu.`
+                : "Nothing more will be sent. Try again from the wallet’s menu."
               : `Aomi signs and sends it on ${network.name}.`
         }
         onClose={onClose}
       />
       <div
         data-commit-ref={handle.ref}
-        data-commit-state={view.state}
+        data-commit-state={
+          failed?.state ?? (done ? "confirmed" : handle.view.state)
+        }
         className="flex flex-col items-center gap-4 px-5 pb-5"
       >
         {confirmed ? (
@@ -672,16 +679,21 @@ function Sent({
         ) : !done ? (
           <WaitingButton>Sending…</WaitingButton>
         ) : null}
-        {view.transaction_url ? (
-          <a
-            href={view.transaction_url}
-            target="_blank"
-            rel="noreferrer"
-            className="type-meta text-aomi-muted hover:text-aomi-fg underline underline-offset-2"
-          >
-            View on explorer
-          </a>
-        ) : null}
+        {transfers.map((view, index) =>
+          view.transaction_url ? (
+            <a
+              key={view.commit_id}
+              href={view.transaction_url}
+              target="_blank"
+              rel="noreferrer"
+              className="type-meta text-aomi-muted hover:text-aomi-fg underline underline-offset-2"
+            >
+              {transfers.length > 1
+                ? `View transfer ${index + 1} on explorer`
+                : "View on explorer"}
+            </a>
+          ) : null,
+        )}
         {done ? (
           <AomiButton className="h-10 w-full" onClick={onClose}>
             Done

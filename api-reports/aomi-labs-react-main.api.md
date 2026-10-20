@@ -291,7 +291,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "account-apps" | "transaction-safety" | "usage" | "account-wallets" | "agent-rule" | "connections";
+export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "account-apps" | "transaction-safety" | "usage" | "account-wallets" | "connections";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;

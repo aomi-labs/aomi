@@ -1,5 +1,5 @@
 -- Prerequisites for the unmodified account-merge migration below and the
--- step 5 `merge_accounts` v3 (20261019070000_telegram_link.sql).
+-- step 5 `merge_accounts` v3 (20261020070000_telegram_link.sql).
 -- The account graph comes from tests/e2e/fixtures/canonical-account-schema.sql.
 -- Wallet tables/constraints are copied from product-mono's
 -- 20260825010000_public_key_swig_bindings.sql; other tables retain the columns
@@ -206,44 +206,3 @@ create table bot_handover_tokens (
 create unique index bot_handover_tokens_one_live_per_user_per_bot_uidx
   on bot_handover_tokens (bot_registration_id, claimed_user_id)
   where state in ('claimed', 'active') and owner_address is not null;
-
--- From 20261019040000_agent_wallets.sql: when both accounts link the same
--- app, the link to the older wallet stays; the other wallet becomes
--- "<name> (2)" with no link.
-create function app_wallet_links_merge()
-returns trigger
-language plpgsql
-as $$
-declare
-  other app_wallet_links%rowtype;
-  loser bigint;
-begin
-  if new.user_id is not distinct from old.user_id then
-    return new;
-  end if;
-  select * into other from app_wallet_links
-   where user_id = new.user_id and application_id = new.application_id;
-  if not found then
-    return new;
-  end if;
-  select g.id into loser from agent_wallet_groups g
-   where g.id in (new.group_id, other.group_id)
-   order by g.created_at desc, g.id desc
-   limit 1;
-  update agent_wallet_groups
-     set name = left(name, 56) || ' (2)', updated_at = extract(epoch from now())::bigint
-   where id = loser;
-  if loser = new.group_id then
-    delete from app_wallet_links
-     where user_id = old.user_id and application_id = old.application_id;
-    return null;
-  end if;
-  delete from app_wallet_links
-   where user_id = other.user_id and application_id = other.application_id;
-  return new;
-end;
-$$;
-
-create trigger app_wallet_links_merge
-  before update of user_id on app_wallet_links
-  for each row execute function app_wallet_links_merge();

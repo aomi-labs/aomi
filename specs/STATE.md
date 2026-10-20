@@ -2,6 +2,23 @@
 
 ## Last Updated
 
+2026-10-21 — AGENT WALLETS CLEANUP (FRONTEND; supersedes the 2026-10-16 and
+  2026-10-19 agent-wallet entries below). Branch `feat/agent-wallets` (#752),
+  paired with product-mono #1368. Wire: `/v1/account/wallets` items carry
+  `browser_app`, `agent_wallet_id`, `maker_app` (no `status`, `name`,
+  `wallet_app`, `group_id`, `app`); `agentWallets()` is `{pause_all, wallets}`;
+  `pauseAll(paused)` → `PUT /v1/account/pause-all` (agent-rule is gone);
+  connections carry `ask_only` and `setConnectionWallets(key, {wallets,
+  application?, new_app_wallet?, ask_only?})`; refusals name
+  `agent_wallet_id`. Consent pre-fills the client's current access, writes
+  nothing when unchanged, and Allow waits for the list. The refusal card's
+  Resume never lifts Pause all (its own "Resume all"). `aomi.commits.get`
+  loads the whole batch; `CommitHandle.batch` / `settled` drive withdraw, the
+  sign page and `aomi tx approve`, which works from a normal device login.
+  Embeds can't create agent wallets. Telegram chats show in the thread list
+  with the plug mark. Pending (ops): delete the retired `telegram` Vercel
+  projects (their previews stay ignored by `vercel-ignore-build`).
+
 2026-10-15 — PRIVATE PROJECT APP BUILD KEY (branch
   `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
   Build's Chat tab shows an "App key" panel for a private live app

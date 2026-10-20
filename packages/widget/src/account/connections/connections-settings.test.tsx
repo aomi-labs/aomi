@@ -19,7 +19,7 @@ const connections = [
     detail: null,
     telegram: null,
     application: null,
-    ceiling: null,
+    ask_only: false,
     wallets: [],
     last_used_at: null,
     connected_at: null,
@@ -32,7 +32,7 @@ const connections = [
     detail: "Telegram @arixon",
     telegram: { user: "@arixon", bot: "@HooditBot" },
     application: { id: 86, name: "hoodit", label: "Hoodit" },
-    ceiling: null,
+    ask_only: false,
     wallets: [
       { id: "g-hoodit", name: "Hoodit", instant: true, archived: false },
       // Archived: kept on every replace, never counted or shown.
@@ -50,7 +50,7 @@ const connections = [
     detail: "Telegram @arixon",
     telegram: { user: "@arixon", bot: "@MarketsBot" },
     application: null,
-    ceiling: null,
+    ask_only: false,
     wallets: [
       { id: "g-trading", name: "Trading", instant: false, archived: false },
     ],
@@ -65,7 +65,7 @@ const connections = [
     detail: null,
     telegram: null,
     application: null,
-    ceiling: "ask",
+    ask_only: true,
     wallets: [
       { id: "g-trading", name: "Trading", instant: false, archived: false },
     ],
@@ -113,7 +113,7 @@ beforeEach(() => {
         path === "/v1/account/connections"
           ? { connections }
           : path === "/v1/account/agent-wallets"
-            ? { pause_all: false, version: 1, wallets: agentWallets }
+            ? { pause_all: false, wallets: agentWallets }
             : {},
       );
     }),
@@ -243,7 +243,7 @@ describe("Connections tab", () => {
     });
   });
 
-  it("greys out Instant under a ceiling", async () => {
+  it("greys out Instant on an Ask-only connection", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("Claude")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");

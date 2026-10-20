@@ -185,7 +185,7 @@ async function toBackend(call: Call, path: string): Promise<Response> {
 }
 
 const WALLET_ID = "w_[1-9][0-9]*";
-const AGENT_RULE = /^\/v1\/account\/agent-rule$/;
+const PAUSE_ALL = /^\/v1\/account\/pause-all$/;
 const CONNECTION_SETTINGS = /^\/v1\/account\/connection-settings\/[^/]+$/;
 const CONNECTION_WALLETS = /^\/v1\/account\/connections\/[^/]+\/wallets$/;
 const AGENT_WALLETS = /^\/v1\/account\/agent-wallets$/;
@@ -202,7 +202,7 @@ const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
   { method: "POST", path: AGENT_WALLETS },
   { method: "PATCH", path: AGENT_WALLET },
   { method: "POST", path: AGENT_WALLET_WITHDRAW },
-  { method: "PUT", path: AGENT_RULE },
+  { method: "PUT", path: PAUSE_ALL },
   { method: "PUT", path: CONNECTION_SETTINGS },
   { method: "PUT", path: CONNECTION_WALLETS },
   { method: "POST", path: TELEGRAM_LINK },
@@ -554,8 +554,7 @@ export const ACCOUNT_WALLET_ROUTES: readonly {
   { path: AGENT_WALLET, method: "PATCH" },
   { path: AGENT_WALLET_BALANCES, method: "GET" },
   { path: AGENT_WALLET_WITHDRAW, method: "POST" },
-  { path: AGENT_RULE, method: "GET" },
-  { path: AGENT_RULE, method: "PUT" },
+  { path: PAUSE_ALL, method: "PUT" },
   { path: CONNECTION_SETTINGS, method: "PUT" },
   { path: CONNECTION_WALLETS, method: "PUT" },
 ];

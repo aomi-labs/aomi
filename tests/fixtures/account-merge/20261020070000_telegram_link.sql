@@ -119,6 +119,36 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.account_merge_commits(TEXT) FROM PUBLIC;
 
+-- One Telegram approval card per (commit, version, bot). The bot that sent a
+-- card is the only one that can approve through it.
+CREATE TABLE IF NOT EXISTS public.telegram_approval_cards (
+    -- CSPRNG, about 71 bits.
+    token          TEXT    PRIMARY KEY CHECK (token ~ '^[A-Za-z0-9]{12}$'),
+    user_id        TEXT    NOT NULL REFERENCES public.users(id),
+    -- The ref shown: the single commit, or batch member index 0.
+    commit_id      UUID    NOT NULL,
+    batch_id       TEXT,
+    -- commit_id's version when the card was rendered.
+    version        BIGINT  NOT NULL,
+    -- '' when the commit has no review.
+    review_digest  TEXT    NOT NULL,
+    -- platform_bot_id; the commit's notify is 'telegram:' || bot_id.
+    bot_id         TEXT    NOT NULL,
+    -- DM chat id, equal to the Telegram user id.
+    chat_id        BIGINT  NOT NULL,
+    message_id     INTEGER,
+    state          TEXT    NOT NULL DEFAULT 'sending'
+                   CHECK (state IN ('sending', 'open', 'approving', 'approved', 'cancelled',
+                                    'expired', 'stale', 'failed')),
+    -- The last commit state rendered into the message, to edit only on change.
+    rendered       TEXT,
+    created_at     BIGINT  NOT NULL,
+    updated_at     BIGINT  NOT NULL,
+    UNIQUE (commit_id, version, bot_id)
+);
+CREATE INDEX IF NOT EXISTS telegram_approval_cards_live ON public.telegram_approval_cards (bot_id, state)
+    WHERE state IN ('sending', 'open', 'approving', 'approved');
+
 DO $$
 DECLARE role_name TEXT;
 BEGIN
@@ -198,6 +228,8 @@ BEGIN
     WHERE id = source_user_id;
     UPDATE users t
        SET applications = ARRAY(SELECT DISTINCT unnest(t.applications || s.applications)),
+           -- A pause on either account survives the merge.
+           agents_paused = t.agents_paused OR s.agents_paused,
            updated_at = now_s
       FROM users s
      WHERE t.id = target_user_id AND s.id = source_user_id;
@@ -216,15 +248,12 @@ BEGIN
     DELETE FROM user_application_secrets WHERE user_id = source_user_id;
 
     -- Tables with a per-account unique key: the target's row wins.
-    DELETE FROM agent_wallet_rules
-     WHERE user_id = source_user_id
-       AND EXISTS (SELECT 1 FROM agent_wallet_rules WHERE user_id = target_user_id);
     -- A connection both accounts have keeps the target's row; the source's
-    -- agent wallet pairs move onto it first (the target's pair wins a real
+    -- wallet access moves onto it first (the target's row wins a real
     -- conflict), so deleting the source row loses none.
-    INSERT INTO connection_wallets (user_id, connection_key, group_id, instant, created_at, updated_at)
-    SELECT target_user_id, p.connection_key, p.group_id, p.instant, p.created_at, now_s
-      FROM connection_wallets p
+    INSERT INTO wallet_access (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
+    SELECT target_user_id, p.connection_key, p.agent_wallet_id, p.instant, p.created_at, now_s
+      FROM wallet_access p
      WHERE p.user_id = source_user_id
        AND EXISTS (SELECT 1 FROM account_connections t
                    WHERE t.user_id = target_user_id AND t.key = p.connection_key)

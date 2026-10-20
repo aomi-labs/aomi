@@ -160,6 +160,46 @@ describe("aomi.commits — thread-less commit refs", () => {
     expect(handle.view.state).toBe("expired");
   });
 
+  it("follows every member of a batch, not just the ref's", async () => {
+    const second = "5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f61";
+    const batch = (index: number) =>
+      ({
+        batch_id: "withdraw-1",
+        index,
+        ordered_commit_ids: [ref, second],
+      }) as unknown as CommitRefView["batch"];
+    const { aomi, calls } = backend({
+      [`GET /v1/commits/${ref}`]: () =>
+        Response.json(
+          view({ state: "confirmed", action: null, batch: batch(0) }),
+        ),
+      [`GET /v1/commits/${second}`]: () =>
+        Response.json(
+          view({
+            commit_id: second,
+            state: "failed",
+            action: null,
+            failure_code: "commit_reverted",
+            batch: batch(1),
+          }),
+        ),
+    });
+    const handle = await aomi.commits.get(ref);
+    handles.push(handle);
+
+    expect(calls.map((call) => call.path)).toEqual([
+      `/v1/commits/${ref}`,
+      `/v1/commits/${second}`,
+    ]);
+    expect(handle.batch.map((member) => member.state)).toEqual([
+      "confirmed",
+      "failed",
+    ]);
+    // The first transfer confirmed; the operation did not.
+    expect(handle.settled).toMatchObject({ done: true, confirmed: false });
+    expect(handle.settled.failed?.commit_id).toBe(second);
+  });
+
   it("signs at the reviewed version and digest, then broadcasts bound to the new version", async () => {
     const broadcasting = view({
       version: 4,

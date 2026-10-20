@@ -41,7 +41,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
     for (const migration of [
       "20261007000000_account_merge.sql",
-      "20261019070000_telegram_link.sql",
+      "20261020070000_telegram_link.sql",
     ])
       await db.query(readFileSync(new URL(migration, fixtureUrl), "utf8"));
   });
@@ -342,20 +342,21 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     expect(merged.rows[0].merged).toMatchObject({ cancelled: 1 });
   });
 
-  it("keeps both agent wallets; the older one keeps the app link", async () => {
+  it("keeps both agent wallets under their names, and either account's pause", async () => {
     const { target, source } = await accounts("wallets");
     const app = await db.query(
       "insert into applications (name, label) values ('hoodit', 'Hoodit') returning id",
     );
     const appId = app.rows[0].id;
     const wallet = async (user: string, createdAt: number) => {
-      const group = await db.query(
-        `insert into agent_wallet_groups (user_id, name, created_by_app, created_at, updated_at)
-         values ($1, 'Hoodit', $2, $3, $3)
+      const created = await db.query(
+        `insert into agent_wallets
+           (user_id, name, para_subject, created_by_app, created_at, updated_at)
+         values ($1, 'Hoodit', $2, $3, $4, $4)
          returning id`,
-        [user, appId, createdAt],
+        [user, `p-${user}`, appId, createdAt],
       );
-      const id = group.rows[0].id;
+      const id = created.rows[0].id;
       const key = await db.query(
         `insert into public_keys (chain_type, address, created_at, updated_at, user_id)
          values ('evm', $1, $2, $2, $3)
@@ -363,38 +364,40 @@ describe.skipIf(!enabled)("merge_accounts", () => {
         [`0x${randomUUID().replaceAll("-", "")}`, createdAt, user],
       );
       await db.query(
-        `insert into agent_wallets
-           (user_id, group_id, chain_type, public_key_id, para_subject, status,
-            created_at, updated_at)
-         values ($1, $2, 'evm', $3, $4, 'active', 1, 1)`,
-        [user, id, key.rows[0].id, `p-${user}`],
-      );
-      await db.query(
-        `insert into app_wallet_links (user_id, application_id, group_id, created_at)
-         values ($1, $2, $3, 1)`,
-        [user, appId, id],
+        `insert into agent_wallet_keys
+           (agent_wallet_id, chain_type, user_id, public_key_id, created_at, updated_at)
+         values ($1, 'evm', $2, $3, 1, 1)`,
+        [id, user, key.rows[0].id],
       );
       return id;
     };
-    const renamed = await wallet(target, 2);
-    const linked = await wallet(source, 1);
+    const kept = await wallet(target, 2);
+    const moved = await wallet(source, 1);
+    await db.query("update users set agents_paused = true where id = $1", [
+      source,
+    ]);
 
     await mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
 
-    const groups = await db.query(
-      `select id, user_id, name from agent_wallet_groups
-        where id = any($1) order by id`,
-      [[renamed, linked]],
+    const wallets = await db.query(
+      `select id, user_id, name from agent_wallets
+        where id = any($1) order by created_at`,
+      [[kept, moved]],
     );
-    expect(groups.rows).toEqual([
-      { id: renamed, user_id: target, name: "Hoodit (2)" },
-      { id: linked, user_id: target, name: "Hoodit" },
+    expect(wallets.rows).toEqual([
+      { id: moved, user_id: target, name: "Hoodit" },
+      { id: kept, user_id: target, name: "Hoodit" },
     ]);
-    const links = await db.query(
-      "select user_id, group_id from app_wallet_links where application_id = $1",
-      [appId],
+    const keys = await db.query(
+      "select user_id from agent_wallet_keys where agent_wallet_id = any($1)",
+      [[kept, moved]],
     );
-    expect(links.rows).toEqual([{ user_id: target, group_id: linked }]);
+    expect(keys.rows).toEqual([{ user_id: target }, { user_id: target }]);
+    const paused = await db.query(
+      "select agents_paused from users where id = $1",
+      [target],
+    );
+    expect(paused.rows).toEqual([{ agents_paused: true }]);
   });
 
   it("refuses a merge across a live link fence, and lifts the rest", async () => {

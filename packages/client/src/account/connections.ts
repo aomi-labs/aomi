@@ -9,7 +9,7 @@
  *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }` (portal)
  *   - `DELETE /v1/account/connections/telegram`         -> `{ revoked: true }` (portal)
  *   - `PUT    /v1/account/connection-settings/:key`     -> `AomiConnectionSettings` (backend)
- *   - `PUT    /v1/account/connections/:key/wallets`     -> `{ wallets }` (backend)
+ *   - `PUT    /v1/account/connections/:key/wallets`     -> `{ ask_only, wallets }` (backend)
  */
 import { asRecord, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
@@ -32,8 +32,8 @@ export type AomiAccountConnection = {
   telegram: AomiConnectionTelegram | null;
   /** The app this connection is locked to; null when it is open. */
   application: AomiConnectionApp | null;
-  /** `ask`: never Instant, whatever its wallets say. */
-  ceiling: "ask" | null;
+  /** Never Instant, whatever its wallets say. */
+  ask_only: boolean;
   /** The agent wallets it may use; each asks unless `instant`. */
   wallets: AomiConnectionWallet[];
   /** Unix seconds. */
@@ -76,15 +76,18 @@ export type AomiConnectionSettings = Pick<
 /**
  * Every agent wallet a connection may use; it replaces the pairs it had.
  * `application` (an app's name, from app-locked consent) locks the
- * connection to that app and adds the app's own wallet, creating it if
- * new. Under any ceiling, `instant` is stored as false.
+ * connection to that app. On an Ask-only connection, `instant` is stored
+ * as false.
  */
 export type AomiConnectionWalletsUpdate = {
   wallets: { id: string; instant: boolean }[];
   application?: string;
-  /** With `application`: the mode for the app's wallet, even one made now. */
-  app_wallet_instant?: boolean;
-  ceiling?: "ask";
+  /**
+   * With `application`: make the app's wallet now, in this mode, when none
+   * of `wallets` is one the app made.
+   */
+  new_app_wallet?: { instant: boolean };
+  ask_only?: boolean;
 };
 
 const KINDS: readonly AomiConnectionKind[] = [
@@ -146,11 +149,14 @@ export class AccountConnectionsTransport {
   async setConnectionWallets(
     key: string,
     update: AomiConnectionWalletsUpdate,
-  ): Promise<{ wallets: AomiConnectionWallet[] }> {
+  ): Promise<{ ask_only: boolean; wallets: AomiConnectionWallet[] }> {
     const record = asRecord(
       await this.request("PUT", connectionPaths.wallets(key), { body: update }),
     );
-    return { wallets: walletsOf(record?.wallets) };
+    return {
+      ask_only: record?.ask_only === true,
+      wallets: walletsOf(record?.wallets),
+    };
   }
 
   /**
@@ -210,7 +216,7 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           detail: stringValue(row.detail) ?? null,
           telegram: telegramOf(row.telegram),
           application: appOf(row.application),
-          ceiling: row.ceiling === "ask" ? "ask" : null,
+          ask_only: row.ask_only === true,
           wallets: walletsOf(row.wallets),
           last_used_at: unixOrNull(row.last_used_at),
           connected_at: unixOrNull(row.connected_at),

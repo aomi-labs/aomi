@@ -514,13 +514,13 @@ export async function listWalletsForUser(
     `select pk.*,
             ap.provider as wallet_provider,
             ap.provider_metadata as wallet_provider_metadata,
-            aw.id as agent_wallet_id,
-            awg.name as agent_wallet_name
+            aw.id::text as agent_wallet_id,
+            aw.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
        ${AGENT_WALLET_JOIN}
       -- Archived agent wallets are hidden from every wallet list.
-      where pk.user_id = $1 and awg.archived_at is null
+      where pk.user_id = $1 and aw.archived_at is null
       order by pk.is_primary desc, pk.created_at asc`,
     [userId],
   );
@@ -649,7 +649,7 @@ export async function denyAgentWalletsForUser(input: {
   // Stable ordering also keeps simultaneous revocations from deadlocking.
   const keys = await input.db.query(
     `select pk.id, pk.chain_type, pk.address from public_keys pk
-      join agent_wallets aw on aw.public_key_id = pk.id
+      join agent_wallet_keys awk on awk.public_key_id = pk.id
      where pk.user_id = $1 order by pk.chain_type, pk.address`,
     [input.userId],
   );
@@ -675,16 +675,12 @@ export async function denyAgentWalletsForUser(input: {
       [key.id],
     );
   }
-  // Lock the account and put every connection back on Ask.
+  // Pause all and put every connection back on Ask.
+  await input.db.query(`update users set agents_paused = true where id = $1`, [
+    input.userId,
+  ]);
   await input.db.query(
-    `insert into agent_wallet_rules (user_id, locked, version, updated_at)
-     values ($1, true, 1, extract(epoch from now())::bigint)
-     on conflict (user_id) do update set locked = true,
-       version = agent_wallet_rules.version + 1, updated_at = excluded.updated_at`,
-    [input.userId],
-  );
-  await input.db.query(
-    `update connection_wallets set instant = false,
+    `update wallet_access set instant = false,
         updated_at = extract(epoch from now())::bigint
       where user_id = $1 and instant`,
     [input.userId],
@@ -704,7 +700,8 @@ export async function revokeAllAuthIdentitiesForUser(input: {
         select id from auth_providers where user_id = $1
       )
         and not exists (
-          select 1 from agent_wallets aw where aw.public_key_id = public_keys.id
+          select 1 from agent_wallet_keys awk
+           where awk.public_key_id = public_keys.id
         )`,
     [input.userId],
   );
@@ -729,7 +726,8 @@ export async function revokeAllWalletsForUser(input: {
     `delete from public_keys
       where user_id = $1
         and not exists (
-          select 1 from agent_wallets aw where aw.public_key_id = public_keys.id
+          select 1 from agent_wallet_keys awk
+           where awk.public_key_id = public_keys.id
         )`,
     [input.userId],
   );
@@ -744,8 +742,8 @@ export async function findWalletById(
     `select pk.*,
             ap.provider as wallet_provider,
             ap.provider_metadata as wallet_provider_metadata,
-            aw.id as agent_wallet_id,
-            awg.name as agent_wallet_name
+            aw.id::text as agent_wallet_id,
+            aw.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
        ${AGENT_WALLET_JOIN}
@@ -1105,7 +1103,7 @@ export async function listOAuthConnections(
 
 /**
  * The account's own connection settings: label, last use, the app it is
- * locked to, its ceiling, and the agent wallets it may use. Pairs of archived
+ * locked to, whether it may only Ask, and the agent wallets it may use. Pairs of archived
  * wallets come back marked, so a full replacement keeps them for a restore.
  */
 export async function listConnectionSettings(
@@ -1117,7 +1115,7 @@ export async function listConnectionSettings(
     label: string | null;
     lastUsedAt: number | null;
     application: { id: number; name: string; label: string } | null;
-    ceiling: "ask" | null;
+    askOnly: boolean;
     wallets: {
       id: string;
       name: string;
@@ -1127,16 +1125,16 @@ export async function listConnectionSettings(
   }[]
 > {
   const result = await db.query(
-    `select c.key, c.label, c.last_used_at, c.ceiling,
+    `select c.key, c.label, c.last_used_at, c.ask_only,
             a.id as app_id, a.name as app_name, a.label as app_label,
             coalesce((
               select json_agg(json_build_object(
-                       'id', g.uid::text, 'name', g.name, 'instant', w.instant,
-                       'archived', g.archived_at is not null)
-                     order by g.created_at, g.id)
-                from connection_wallets w
-                join agent_wallet_groups g on g.id = w.group_id
-               where w.user_id = c.user_id and w.connection_key = c.key),
+                       'id', aw.id::text, 'name', aw.name, 'instant', wa.instant,
+                       'archived', aw.archived_at is not null)
+                     order by aw.created_at, aw.id)
+                from wallet_access wa
+                join agent_wallets aw on aw.id = wa.agent_wallet_id
+               where wa.user_id = c.user_id and wa.connection_key = c.key),
               '[]'::json) as wallets
        from account_connections c
        left join applications a on a.id = c.application_id
@@ -1155,7 +1153,7 @@ export async function listConnectionSettings(
             name: String(row.app_name),
             label: optionalString(row.app_label) ?? String(row.app_name),
           },
-    ceiling: row.ceiling === "ask" ? "ask" : null,
+    askOnly: row.ask_only === true,
     wallets: (
       row.wallets as {
         id: string;
@@ -1416,13 +1414,12 @@ function mapIdentity(row: Row): DbAomiAuthIdentity {
 }
 
 /**
- * An active `agent_wallets` row makes a key an agent wallet, named after its
+ * An `agent_wallet_keys` row makes a key an agent wallet, named after its
  * agent wallet. Provider-managed keys without one (World handover keys) keep
  * their provider mapping.
  */
-const AGENT_WALLET_JOIN = `left join agent_wallets aw
-         on aw.public_key_id = pk.id and aw.status = 'active'
-       left join agent_wallet_groups awg on awg.id = aw.group_id`;
+const AGENT_WALLET_JOIN = `left join agent_wallet_keys awk on awk.public_key_id = pk.id
+       left join agent_wallets aw on aw.id = awk.agent_wallet_id`;
 
 function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));

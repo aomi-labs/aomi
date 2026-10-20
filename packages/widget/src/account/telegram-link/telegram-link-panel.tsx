@@ -22,6 +22,7 @@ import {
   WaitingButton,
 } from "@/wallet/picker/sheet-parts";
 import { TelegramMark } from "@/wallet/wallet-brands";
+import { plural } from "@/account/account-management/wallet-model";
 
 export type TelegramLinkPanelProps = {
   /** A portal-session client; the link routes refuse every other credential. */
@@ -66,9 +67,6 @@ const FAILURES: Record<string, string> = {
   portal_session_required: "Sign in to Aomi to link Telegram.",
   rate_limited: "Too many tries. Wait a minute and try again.",
 };
-
-const plural = (count: number, word: string) =>
-  `${count} ${count === 1 ? word : `${word}s`}`;
 
 /** What a refused request means for the person on the page. */
 export function telegramLinkFailure(

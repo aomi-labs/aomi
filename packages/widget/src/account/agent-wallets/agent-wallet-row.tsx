@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   Archive,
   ArchiveRestore,
@@ -10,22 +10,17 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import type { AomiAgentWallet } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import {
   ActionsMenu,
   BrandMark,
-  ExpandToggle,
-  rowStart,
   type MenuItem,
 } from "@/account/account-management/controls";
+import { ExpandableRow } from "@/account/account-management/expandable-row";
 import { AddressRow } from "@/account/account-management/wallet-rows";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
-import {
-  AddressSummary,
-  StateMeta,
-} from "@/account/account-management/labels";
+import { AddressSummary, StateMeta } from "@/account/account-management/labels";
 
 /** What a wallet's ⋯ menu and Manage sheet can do; a missing handler hides its item. */
 export type AgentWalletActions = {
@@ -120,29 +115,24 @@ export function AgentWalletRow({
   pending: string | null;
   onActivate?: (row: WalletRow) => void;
 }) {
-  const active = rows.some((row) => row.active);
-  // Open while it holds the active address, until you toggle it yourself.
-  const [toggled, setOpen] = useState<boolean | null>(null);
-  const open = toggled ?? active;
   const { renameWallet, dialog } = useRenameWallet(actions.onRename);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
   const busy = pending === `agent:${wallet.id}`;
   const items = agentWalletItems(wallet, actions, () => renameWallet(wallet));
-  const title = <span className="type-row truncate">{wallet.name}</span>;
   const state = paused ? <StateMeta state="paused" /> : null;
 
   const only = rows.length === 1 ? rows[0] : undefined;
-  if (only)
-    return (
-      <div
-        data-agent-wallet={wallet.id}
-        data-paused={paused || undefined}
-        className="border-aomi-border border-t [[data-band]+&]:border-t-0"
-      >
+  return (
+    <div
+      data-agent-wallet={wallet.id}
+      data-paused={paused || undefined}
+      className="border-aomi-border border-t [[data-band]+&]:border-t-0"
+    >
+      {only ? (
         <AddressRow
           row={only}
-          title={title}
+          title={<span className="type-row truncate">{wallet.name}</span>}
           trailing={state}
           dim={paused}
           pending={pending}
@@ -152,72 +142,46 @@ export function AgentWalletRow({
             return [manage, ...own, ...rest];
           }}
         />
-        {dialog}
-      </div>
-    );
-
-  const toggle = rows.length > 0;
-  return (
-    <div
-      data-agent-wallet={wallet.id}
-      data-paused={paused || undefined}
-      className="border-aomi-border border-t [[data-band]+&]:border-t-0"
-    >
-      <div
-        className={cn(
-          "flex min-h-14 items-center gap-3 pr-3 transition-colors",
-          rowStart(toggle),
-          toggle && "hover:bg-aomi-hover",
-        )}
-      >
-        {toggle ? (
-          <ExpandToggle
-            open={open}
-            label={`${wallet.name} addresses`}
-            onToggle={() => setOpen(!open)}
-          />
-        ) : null}
-        <button
-          type="button"
-          tabIndex={-1}
-          disabled={!toggle}
-          onClick={() => setOpen(!open)}
-          className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none disabled:cursor-default"
+      ) : (
+        <ExpandableRow
+          label={`${wallet.name} addresses`}
+          defaultOpen={rows.some((row) => row.active)}
+          leading={
+            <BrandMark
+              brand={AGENT_WALLET}
+              dot={paused ? "off" : "on"}
+              dim={paused}
+            />
+          }
+          title={wallet.name}
+          description={
+            <AddressSummary
+              families={wallet.addresses.map((entry) => entry.family)}
+            />
+          }
+          trailing={
+            <>
+              {state}
+              <ActionsMenu
+                label={`Actions for ${wallet.name}`}
+                items={items}
+                disabled={pending !== null}
+                busy={busy}
+              />
+            </>
+          }
         >
-          <BrandMark
-            brand={AGENT_WALLET}
-            dot={paused ? "off" : "on"}
-            dim={paused}
-          />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {title}
-            <span className="type-meta text-aomi-muted truncate">
-              <AddressSummary
-                families={wallet.addresses.map((entry) => entry.family)}
-              />
-            </span>
-          </span>
-        </button>
-        {state}
-        <ActionsMenu
-          label={`Actions for ${wallet.name}`}
-          items={items}
-          disabled={pending !== null}
-          busy={busy}
-        />
-      </div>
-      {open
-        ? rows.map((row) => (
-            <div key={row.key} className="border-aomi-border border-t">
-              <AddressRow
-                row={row}
-                nested
-                pending={pending}
-                onActivate={archived ? undefined : onActivate}
-              />
-            </div>
-          ))
-        : null}
+          {rows.map((row) => (
+            <AddressRow
+              key={row.key}
+              row={row}
+              nested
+              pending={pending}
+              onActivate={archived ? undefined : onActivate}
+            />
+          ))}
+        </ExpandableRow>
+      )}
       {dialog}
     </div>
   );

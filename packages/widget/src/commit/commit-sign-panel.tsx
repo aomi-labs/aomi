@@ -135,10 +135,14 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   );
   const family = view.chain_family === "evm" ? "evm" : "svm";
   const connected = signerConnected(view, wallet.identity);
-  const terminal = isTerminalCommit(view);
+  // A batch (a two-asset withdraw, an ordered cohort) is done only when every
+  // member is; until then a finished first member still reads as in flight.
+  const settled = handle.settled;
+  const terminal = settled.done;
   const inFlight =
     !terminal &&
     (view.state === "submitted" ||
+      isTerminalCommit(view) ||
       lifecycle.phase === "signing" ||
       lifecycle.phase === "submitted");
   const awaitingWallet = Boolean(view.action) && !terminal && !parkedOrSigning;
@@ -221,10 +225,11 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
     </AomiSheet>
   );
 
-  if (view.state === "confirmed") {
-    const explorer = view.transaction_url ? (
+  if (settled.confirmed) {
+    const last = settled.last;
+    const explorer = last.transaction_url ? (
       <a
-        href={view.transaction_url}
+        href={last.transaction_url}
         target="_blank"
         rel="noreferrer"
         className="hover:text-aomi-fg underline underline-offset-2"
@@ -245,7 +250,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
       goBack ? explorer : backButton(true),
     );
   }
-  if (view.state === "expired")
+  if (terminal && (settled.failed ?? view).state === "expired")
     return done(
       "This request expired",
       goBack ?? "Nothing was signed. Ask again in the chat.",

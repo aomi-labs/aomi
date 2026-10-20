@@ -20,14 +20,8 @@ export function pairsWith(
     .filter((wallet) => wallet.id !== id)
     .map((wallet) => ({ id: wallet.id, instant: wallet.instant }));
   if (mode)
-    pairs.push({ id, instant: mode === "instant" && !connection.ceiling });
+    pairs.push({ id, instant: mode === "instant" && !connection.ask_only });
   return connection.kind === "portal"
     ? pairs.filter((pair) => pair.instant)
     : pairs;
 }
-
-export const INSTANT_CONFIRM = (client: string, wallet: string) => ({
-  title: "Sign without asking?",
-  description: `Trades from ${client} with "${wallet}" will sign without asking.`,
-  confirmLabel: "Turn on",
-});

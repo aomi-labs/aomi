@@ -16,15 +16,15 @@ const KINDS: Record<string, WalletRefusal["kind"]> = {
 
 // A quoted wallet name may hold `]`; the tag ends at the first bare one.
 const MARKER = /\[err\.type=(commit_wallet_[a-z_]+)((?:"[^"]*"|[^\]"])*)\]/;
-const FIELD = /(wallet_id|wallet_name|connection_key)=("[^"]*"|\S+)/g;
+const FIELD = /(agent_wallet_id|wallet_name|connection_key)=("[^"]*"|\S+)/g;
 
 const text = (value: unknown) =>
   typeof value === "string" && value ? value : undefined;
 
 /**
- * A refusal from an approve call (the error's code, with `{wallet_id,
+ * A refusal from an approve call (the error's code, with `{agent_wallet_id,
  * wallet_name, connection_key}` in its details) or from a tool's error text
- * (`[err.type=commit_wallet_paused wallet_id=… wallet_name="…"
+ * (`[err.type=commit_wallet_paused agent_wallet_id=… wallet_name="…"
  * connection_key=…]`). Anything else is not a wallet refusal.
  */
 export function walletRefusalOf(cause: unknown): WalletRefusal | null {
@@ -34,7 +34,7 @@ export function walletRefusalOf(cause: unknown): WalletRefusal | null {
     const details = (cause.details ?? {}) as Record<string, unknown>;
     return {
       kind,
-      walletId: text(details.wallet_id),
+      walletId: text(details.agent_wallet_id),
       walletName: text(details.wallet_name),
       connectionKey: text(details.connection_key),
     };
@@ -52,7 +52,7 @@ export function walletRefusalOf(cause: unknown): WalletRefusal | null {
   );
   return {
     kind,
-    walletId: text(fields.wallet_id),
+    walletId: text(fields.agent_wallet_id),
     walletName: text(fields.wallet_name),
     connectionKey: text(fields.connection_key),
   };

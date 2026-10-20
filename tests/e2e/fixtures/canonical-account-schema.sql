@@ -10,14 +10,13 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
---   20261019040000_agent_wallets.sql (agent_wallet_groups, agent_wallets,
---     agent_wallet_rules, app_wallet_links, account_connections and
---     connection_wallets; without the backfill, merge trigger and composite
---     foreign keys)
+--   20261020040000_agent_wallets.sql (agent_wallets, agent_wallet_keys,
+--     users.agents_paused, account_connections and wallet_access; without
+--     the backfill and the composite same-user foreign keys)
 --   applications: only the columns wallet lists and the connections route read
 --   threads and bot_registrations: only the columns the Telegram part of
 --     GET /v1/account/connections reads
---   20261019070000_telegram_link.sql (telegram_link_codes only: the
+--   20261020070000_telegram_link.sql (telegram_link_codes only: the
 --     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
@@ -31,6 +30,8 @@ create table if not exists users (
   tier text not null default 'free',
   status text not null default 'active',
   last_seen_at bigint,
+  -- Pause all: while set, no agent wallet of the account signs.
+  agents_paused boolean not null default false,
   created_at bigint not null default extract(epoch from now())::bigint,
   updated_at bigint not null default extract(epoch from now())::bigint
 );
@@ -97,80 +98,62 @@ create table if not exists applications (
   label text not null
 );
 
-create table if not exists agent_wallet_groups (
-  id bigserial primary key,
-  uid uuid not null default gen_random_uuid() unique,
+-- The wallet the user sees. No account has one by default.
+create table if not exists agent_wallets (
+  id uuid primary key default gen_random_uuid(),
   user_id text not null references users(id),
   name text not null check (length(name) between 1 and 60),
+  para_subject text not null unique,
   paused boolean not null default false,
   archived_at bigint,
   created_by_app bigint references applications(id),
   last_used_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
-  unique (id, user_id)
+  constraint agent_wallets_id_user_key unique (id, user_id)
 );
-create index if not exists agent_wallet_groups_user on agent_wallet_groups (user_id);
-
-create table if not exists agent_wallets (
-  id bigserial primary key,
-  user_id text not null references users(id),
-  group_id bigint not null,
-  chain_type text not null check (chain_type in ('evm', 'svm')),
-  public_key_id bigint unique,
-  para_subject text not null,
-  status text not null default 'provisioning'
-    check (status in ('provisioning', 'active')),
-  created_at bigint not null,
-  updated_at bigint not null,
-  unique (para_subject, chain_type),
-  unique (group_id, chain_type),
-  check (status <> 'active' or public_key_id is not null)
-);
-
 create index if not exists agent_wallets_user on agent_wallets (user_id);
 
--- Pause all, each connection's label, app lock, ceiling and last use, and
--- which agent wallets each connection may use.
-create table if not exists agent_wallet_rules (
-  user_id text primary key references users(id),
-  locked boolean not null default false,
-  version bigint not null default 0,
-  updated_at bigint not null
-);
-
-create table if not exists app_wallet_links (
+-- One row per family key of a wallet. `public_key_id` is NULL only while
+-- Para provisions the key.
+create table if not exists agent_wallet_keys (
+  agent_wallet_id uuid not null,
+  chain_type text not null check (chain_type in ('evm', 'svm')),
   user_id text not null references users(id),
-  application_id bigint not null references applications(id),
-  group_id bigint not null unique,
+  public_key_id bigint unique,
   created_at bigint not null,
-  primary key (user_id, application_id)
+  updated_at bigint not null,
+  primary key (agent_wallet_id, chain_type)
 );
+create index if not exists agent_wallet_keys_user on agent_wallet_keys (user_id);
 
+-- Each connection's label, app lock, Ask-only and last use, and which agent
+-- wallets each connection may use.
 create table if not exists account_connections (
   user_id text not null references users(id),
   key text not null
-    check (key ~ '^(portal|cli|oauth:[A-Za-z0-9._~-]{1,200}|telegram:[0-9]{1,20})$'),
+    check (key ~ '^(portal|cli|[a-z]+:[A-Za-z0-9._~-]{1,200})$'),
   label text,
   application_id bigint references applications(id),
-  ceiling text check (ceiling in ('ask')),
+  ask_only boolean not null default false,
   last_used_at bigint,
   created_at bigint not null,
   updated_at bigint not null,
   primary key (user_id, key)
 );
 
-create table if not exists connection_wallets (
+create table if not exists wallet_access (
   user_id text not null,
   connection_key text not null,
-  group_id bigint not null,
+  agent_wallet_id uuid not null,
   instant boolean not null default false,
   created_at bigint not null,
   updated_at bigint not null,
-  primary key (user_id, connection_key, group_id),
-  foreign key (user_id, connection_key)
+  primary key (user_id, connection_key, agent_wallet_id),
+  constraint wallet_access_connection_fk foreign key (user_id, connection_key)
     references account_connections (user_id, key) on update cascade on delete cascade
 );
+create index if not exists wallet_access_wallet on wallet_access (agent_wallet_id);
 
 create table if not exists threads (
   id text primary key,
@@ -190,7 +173,7 @@ create table if not exists bot_registrations (
   unique (platform, platform_bot_id)
 );
 
--- One-time Telegram `/link` codes (product-mono 20261019070000_telegram_link).
+-- One-time Telegram `/link` codes (product-mono 20261020070000_telegram_link).
 create table if not exists telegram_link_codes (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),

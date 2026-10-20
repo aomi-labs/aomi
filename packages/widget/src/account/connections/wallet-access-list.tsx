@@ -18,13 +18,13 @@ export type WalletAccess = { id: string; instant: boolean };
 
 /**
  * Agent wallets a connection may use: a tick per wallet and Ask/Instant for
- * a ticked one. Under a ceiling Instant is greyed out; a paused wallet can
+ * a ticked one. On an Ask-only connection Instant is greyed out; a paused wallet can
  * still be ticked but has no mode until it resumes.
  */
 export function WalletAccessList({
   wallets,
   access,
-  ceiling = false,
+  askOnly = false,
   /** The portal may always use every wallet: ticks are fixed on. */
   fixed = false,
   disabled = false,
@@ -34,7 +34,7 @@ export function WalletAccessList({
 }: {
   wallets: readonly AomiAgentWallet[];
   access: readonly WalletAccess[];
-  ceiling?: boolean;
+  askOnly?: boolean;
   fixed?: boolean;
   disabled?: boolean;
   /** The line under a wallet's name. */
@@ -89,12 +89,12 @@ export function WalletAccessList({
               <Segmented
                 label={`${wallet.name} mode`}
                 size="sm"
-                value={pair?.instant && !ceiling ? "instant" : "ask"}
+                value={pair?.instant && !askOnly ? "instant" : "ask"}
                 disabled={disabled || !ticked}
                 onChange={(mode) => onMode(wallet, mode)}
                 options={[
                   { value: "ask", label: "Ask" },
-                  { value: "instant", label: "Instant", disabled: ceiling },
+                  { value: "instant", label: "Instant", disabled: askOnly },
                 ]}
               />
             )}

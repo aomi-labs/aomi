@@ -79,6 +79,7 @@ export class AccountConnectionsTransport {
     }): Promise<AomiAccountConnections>;
     setConnectionSettings(key: string, update: AomiConnectionSettingsUpdate): Promise<AomiConnectionSettings>;
     setConnectionWallets(key: string, update: AomiConnectionWalletsUpdate): Promise<{
+        ask_only: boolean;
         wallets: AomiConnectionWallet[];
     }>;
 }
@@ -281,9 +282,6 @@ export class AccountTransport extends AccountGraphTransport {
 // @public
 export class AccountWalletsTransport {
     constructor(requestResponse: RequestResponse$7);
-    agentRule(options?: {
-        signal?: AbortSignal;
-    }): Promise<AomiAgentRule>;
     agentWalletBalances(id: string, family: AomiWalletFamily, options?: {
         signal?: AbortSignal;
     }): Promise<AomiAgentWalletBalances>;
@@ -294,7 +292,11 @@ export class AccountWalletsTransport {
     listWallets(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
-    setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule>;
+    pauseAll(paused: boolean, options?: {
+        signal?: AbortSignal;
+    }): Promise<{
+        pause_all: boolean;
+    }>;
     setThreadWallet(threadId: string, id: string): Promise<AomiThreadWallet>;
     updateAgentWallet(id: string, update: AomiAgentWalletUpdate): Promise<AomiAgentWallet>;
     walletBalance(id: string, options?: {
@@ -576,7 +578,7 @@ export type AomiAccountConnection = {
     detail: string | null;
     telegram: AomiConnectionTelegram | null;
     application: AomiConnectionApp | null;
-    ceiling: "ask" | null;
+    ask_only: boolean;
     wallets: AomiConnectionWallet[];
     last_used_at: number | null;
     connected_at: number | null;
@@ -619,9 +621,6 @@ export type AomiAccountWallet = components["schemas"]["AccountWallet"];
 export type AomiAccountWalletKind = AomiAccountWallet["kind"];
 
 // @public
-export type AomiAccountWalletStatus = AomiAccountWallet["status"];
-
-// @public
 export type AomiActiveWallet = Partial<Record<AomiWalletFamily, string>>;
 
 // @public (undocumented)
@@ -633,12 +632,6 @@ export class AomiAgent {
     // (undocumented)
     run(prompt: string, options?: AgentRunOptions): AgentRun;
 }
-
-// @public
-export type AomiAgentRule = {
-    locked: boolean;
-    version: number;
-};
 
 // @public (undocumented)
 export type AomiAgentWallet = {
@@ -707,7 +700,6 @@ export type AomiAgentWalletNetwork = {
 // @public
 export type AomiAgentWallets = {
     pause_all: boolean;
-    version: number;
     wallets: AomiAgentWallet[];
 };
 
@@ -882,6 +874,7 @@ export type AomiBrowserGrantOptions = {
     redirectUri: string;
     getWidgetBearer: () => Promise<string | null | undefined>;
     subject?: string;
+    scopes?: readonly string[];
     store?: AomiOAuthGrantStore;
     fetch?: typeof fetch;
     popup?: (url: string, target: string, features: string) => Window | null;
@@ -1072,8 +1065,10 @@ export type AomiConnectionWalletsUpdate = {
         instant: boolean;
     }[];
     application?: string;
-    app_wallet_instant?: boolean;
-    ceiling?: "ask";
+    new_app_wallet?: {
+        instant: boolean;
+    };
+    ask_only?: boolean;
 };
 
 // @public (undocumented)
@@ -1271,7 +1266,7 @@ export type AomiOAuthGrantStore = {
 };
 
 // @public (undocumented)
-export type AomiOAuthResource = `${string}/v1/agent` | `${string}/v1/pipeline` | `${string}/v1/account` | `${string}/v1/agent/mcp` | `${string}/v1/pipeline/mcp`;
+export type AomiOAuthResource = `${string}/v1` | `${string}/v1/agent` | `${string}/v1/pipeline` | `${string}/v1/account` | `${string}/v1/agent/mcp` | `${string}/v1/pipeline/mcp`;
 
 // @public (undocumented)
 export type AomiOAuthStrategy = {
@@ -1669,16 +1664,15 @@ export type AomiWalletFamily = "evm" | "svm";
 // @public
 export class AomiWallets {
     constructor(client: AomiClient);
-    agentRule(options?: {
-        signal?: AbortSignal;
-    }): Promise<AomiAgentRule>;
     balance(id: string, options?: {
         signal?: AbortSignal;
     }): Promise<AomiWalletBalance>;
     list(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
-    setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule>;
+    pauseAll(paused: boolean): Promise<{
+        pause_all: boolean;
+    }>;
 }
 
 // @public (undocumented)
@@ -1694,6 +1688,9 @@ export type ApiErrorFields = {
 
 // @public
 export function apiErrorFields(body: unknown): ApiErrorFields;
+
+// @public
+export function apiResource(resource: AomiOAuthResource): AomiOAuthResource;
 
 // @public (undocumented)
 export function appendFeeCallToPayload(payload: WalletTxPayload, fee: AomiSimulateFee, defaultChainId: number, options?: {
@@ -2062,6 +2059,7 @@ export class CommitExpiredError extends AomiApiError {
 export class CommitHandle {
     constructor(ref: string, controller: CommitController);
     approve(): Promise<CommitRefView>;
+    get batch(): CommitRefView[];
     canSign(signer?: CommitSigner): boolean;
     // (undocumented)
     close(): void;
@@ -2069,10 +2067,15 @@ export class CommitHandle {
     get recoveryRecord(): CommitRecoveryRecord | undefined;
     // (undocumented)
     readonly ref: string;
-    // (undocumented)
     refresh(): Promise<CommitRefView>;
     reject(): Promise<CommitRefView>;
     get review(): CommitReview | undefined;
+    get settled(): {
+        done: boolean;
+        confirmed: boolean;
+        failed?: CommitRefView;
+        last: CommitRefView;
+    };
     sign(signer?: CommitSigner, review?: CommitExecutionReview): Promise<CommitRefView>;
     get submissionPhase(): CommitSubmissionPhase | undefined;
     // (undocumented)
@@ -2241,6 +2244,7 @@ export function createAomiDeviceGrantManager(input: {
     portalBaseUrl: string;
     clientId: string;
     subject?: string;
+    scopes?: readonly string[];
     store?: AomiOAuthGrantStore;
     initial?: readonly AomiOAuthGrant[];
     fetch?: typeof fetch;
@@ -2258,6 +2262,7 @@ export function createAomiOAuthGrantManager(input: {
     issuer: string;
     clientId: string;
     subject?: string;
+    scopes?: readonly string[];
     initial?: readonly AomiOAuthGrant[];
     store?: AomiOAuthGrantStore;
     acquire?: (request: AomiOAuthTokenRequest) => Promise<AomiOAuthGrant | null>;
@@ -4201,7 +4206,6 @@ export const WALLET_ERROR_CODES: {
     readonly agentWalletNotRemovable: "agent_wallet_not_removable";
     readonly agentWalletBusy: "agent_wallet_busy";
     readonly threadBusy: "thread_busy";
-    readonly ruleVersionConflict: "rule_version_conflict";
     readonly portalSessionRequired: "portal_session_required";
 };
 
@@ -4251,7 +4255,7 @@ export type WalletEip712Payload = {
 export const walletPaths: {
     readonly list: "/v1/account/wallets";
     readonly balance: (id: string) => string;
-    readonly agentRule: "/v1/account/agent-rule";
+    readonly pauseAll: "/v1/account/pause-all";
     readonly threadWallet: "/api/thread/wallet";
 };
 

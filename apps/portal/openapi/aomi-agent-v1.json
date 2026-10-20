@@ -4024,7 +4024,7 @@
     "/v1/commits/{ref}/approve": {
       "post": {
         "operationId": "approveCommitRef",
-        "description": "Approve a commit that awaits approval, and its whole batch. OAuth clients always get 403 commit_approval_forbidden: only the owner's portal or CLI session, or their verified Telegram user, approves. 410 commit_expired when the approval window ended; nothing was signed.",
+        "description": "Approve a commit that awaits approval, and its whole batch. Only the owner's portal session, their CLI (its device login), or their verified Telegram user approves; other OAuth clients get 403 commit_approval_forbidden. 410 commit_expired when the approval window ended; nothing was signed.",
         "parameters": [
           {
             "name": "ref",
@@ -6553,7 +6553,7 @@
               "telegram",
               "cron"
             ],
-            "description": "Where the session was started. Portal-session listings omit telegram sessions."
+            "description": "Where the session was started."
           }
         }
       },
@@ -8640,7 +8640,7 @@
           },
           "can_approve": {
             "type": "boolean",
-            "description": "The commit awaits approval and this caller may approve it: only the owner's portal or CLI session."
+            "description": "The commit awaits approval and this caller may approve it: the owner's portal session or their CLI."
           }
         }
       },
@@ -8719,13 +8719,11 @@
           "address",
           "label",
           "custom_label",
-          "wallet_app",
+          "browser_app",
           "provider",
-          "status",
           "created_at",
-          "group_id",
-          "name",
-          "app"
+          "agent_wallet_id",
+          "maker_app"
         ],
         "properties": {
           "id": {
@@ -8751,30 +8749,23 @@
           "custom_label": {
             "type": ["string", "null"]
           },
-          "wallet_app": {
-            "type": ["string", "null"]
+          "browser_app": {
+            "type": ["string", "null"],
+            "description": "The browser wallet app (MetaMask, Rabby) that linked it."
           },
           "provider": {
             "type": ["string", "null"]
           },
-          "status": {
-            "type": "string",
-            "enum": ["ready", "linked"]
-          },
           "created_at": {
             "type": "integer"
           },
-          "group_id": {
+          "agent_wallet_id": {
             "type": ["string", "null"],
-            "description": "An agent wallet's id; its EVM and SVM keys share it."
+            "description": "The agent wallet this key belongs to; its EVM and SVM keys share it."
           },
-          "name": {
+          "maker_app": {
             "type": ["string", "null"],
-            "description": "An agent wallet's name."
-          },
-          "app": {
-            "type": ["string", "null"],
-            "description": "The app an agent wallet is used by."
+            "description": "The app that made the agent wallet."
           }
         }
       },

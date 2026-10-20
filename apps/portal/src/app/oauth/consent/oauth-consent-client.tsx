@@ -13,6 +13,7 @@ import {
   AomiSheet,
   ConnectionMark,
   ConsentWallets,
+  type ConsentWalletsState,
   FootnoteLink,
   SheetAlert,
   SheetFootnote,
@@ -124,12 +125,15 @@ export function ConsentSheet({ name }: { name: string }) {
   const [unsaved, setUnsaved] = useState<string | null>(null);
   const client = useMemo(() => createClient(), []);
   const app = consentApp(params.get("resource"));
-  const ceiling = params.get("mode") === "ask";
+  const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
-  // The pairs to write once the grant is made; consent itself never touches them.
+  // The access to write once the grant is made; consent itself never touches
+  // it. Allow waits until the current access has loaded into the list.
   const pairs = useRef<AomiConnectionWalletsUpdate | null>(null);
-  const keepPairs = useCallback((update: AomiConnectionWalletsUpdate) => {
-    pairs.current = update;
+  const [walletsReady, setWalletsReady] = useState(false);
+  const keepPairs = useCallback((state: ConsentWalletsState) => {
+    pairs.current = state.update;
+    setWalletsReady(state.ready);
   }, []);
 
   const decide = async (accept: boolean) => {
@@ -261,8 +265,9 @@ export function ConsentSheet({ name }: { name: string }) {
         {guest ? null : (
           <ConsentWallets
             client={client}
+            connectionKey={clientId ? `oauth:${clientId}` : undefined}
             app={app}
-            ceiling={ceiling}
+            askOnly={askOnly}
             onChange={keepPairs}
           />
         )}
@@ -275,7 +280,7 @@ export function ConsentSheet({ name }: { name: string }) {
           <AomiButton
             variant="primary"
             className="h-10 w-full"
-            disabled={pending}
+            disabled={pending || (!guest && !walletsReady)}
             onClick={() => void decide(true)}
           >
             Allow

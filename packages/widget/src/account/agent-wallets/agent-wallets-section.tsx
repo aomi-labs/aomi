@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { AomiAgentWallet, AomiAgentWallets } from "@aomi-labs/client";
+import type { AomiAgentWallet } from "@aomi-labs/client";
 import { cn, useDisplayQuery } from "@aomi-labs/react";
 import { AomiButton } from "@/ui/aomi/button";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
@@ -10,6 +10,7 @@ import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { useShellTransport } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
 import { Divider } from "@/account/account-management/controls";
+import { plural } from "@/account/account-management/wallet-model";
 import { AgentWalletRow, type AgentWalletActions } from "./agent-wallet-row";
 import {
   SHOWN_AGENT_WALLETS,
@@ -96,13 +97,8 @@ export function AgentWalletsSection({
     run(`agent:${wallet.id}`, () =>
       client.account.wallets.updateAgentWallet(wallet.id, change),
     );
-  const resumeAll = (list: AomiAgentWallets) =>
-    void run("agent:all", () =>
-      client.account.wallets.setAgentRule({
-        locked: false,
-        version: list.version,
-      }),
-    );
+  const resumeAll = () =>
+    void run("agent:all", () => client.account.wallets.pauseAll(false));
   const archive = async (wallet: AomiAgentWallet) => {
     if (pending) return;
     setBusy(`agent:${wallet.id}`);
@@ -173,7 +169,7 @@ export function AgentWalletsSection({
             <button
               type="button"
               disabled={pending !== null}
-              onClick={() => resumeAll(data)}
+              onClick={resumeAll}
               className="type-meta text-aomi-accent-strong hover:text-aomi-fg rounded-[6px] px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2 disabled:opacity-50"
             >
               {busy === "agent:all" ? "Resuming…" : "Resume all"}
@@ -212,8 +208,8 @@ export function AgentWalletsSection({
           >
             <span className="type-meta text-aomi-fg font-medium">Archived</span>
             <span className="type-meta text-aomi-muted truncate">
-              {archived.length} {archived.length === 1 ? "wallet" : "wallets"} ·
-              hidden from chats and connections
+              {plural(archived.length, "wallet")} · hidden from chats and
+              connections
             </span>
             <ChevronDown
               className={cn(

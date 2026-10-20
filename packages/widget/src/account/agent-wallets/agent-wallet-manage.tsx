@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  Check,
   Pause,
   Pencil,
   QrCode,
@@ -19,7 +18,6 @@ import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
 import { cn, useDisplayQuery } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
-import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -32,32 +30,24 @@ import type { WalletFamily } from "@/wallet/types";
 import { useShellTransport } from "@/account/transport";
 import { connectionsQuery } from "@/account/account-queries";
 import { SettingsNavContext } from "@/account/settings-events";
-import {
-  BrandMark,
-  CopyButton,
-  copyText,
-} from "@/account/account-management/controls";
+import { BrandMark, CopyButton } from "@/account/account-management/controls";
 import {
   AGENT_WALLET,
   familyTag,
+  plural,
 } from "@/account/account-management/wallet-model";
 import { ConnectionMark } from "@/account/connections/connection-mark";
 import {
   botTitle,
   usedLabel,
 } from "@/account/connections/connections-settings";
-import {
-  INSTANT_CONFIRM,
-  pairsWith,
-  type PairMode,
-} from "@/account/connections/connection-pairs";
+import { useAccessWrite } from "@/account/connections/use-access-write";
 import { AddressQr } from "./address-qr";
 import {
   EVM_NETWORKS,
   familyName,
   pairedConnections,
 } from "./agent-wallet-model";
-import { useRefreshWallets } from "./use-refresh-wallets";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
@@ -86,56 +76,14 @@ export function AgentWalletManage({
 }) {
   const { client } = useShellTransport();
   const connections = useDisplayQuery(connectionsQuery(client));
-  const refresh = useRefreshWallets();
   const goTo = useContext(SettingsNavContext);
-  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const { write, saving, error, dialog: confirmDialog } = useAccessWrite();
   const { rename, dialog: renameDialog } = useRenameDialog();
   const [receive, setReceive] = useState<WalletFamily | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [modes, setModes] = useState<Record<string, PairMode>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
   const pairs = pairedConnections(wallet);
   const addresses = wallet.addresses;
-
-  const setMode = async (key: string, label: string, mode: PairMode) => {
-    const connection = connections.data?.connections.find(
-      (row) => row.key === key,
-    );
-    if (!connection || saving === key) return;
-    if (
-      mode === "instant" &&
-      !(await confirm(INSTANT_CONFIRM(label, wallet.name)))
-    )
-      return;
-    // The switch moves at once; the server catches up behind it.
-    setModes((current) => ({ ...current, [key]: mode }));
-    setSaving(key);
-    setError(null);
-    try {
-      await client.account.connections.setConnectionWallets(key, {
-        wallets: pairsWith(connection, wallet.id, mode),
-      });
-      await refresh();
-    } catch {
-      setError("Couldn’t save that. Try again.");
-    } finally {
-      setModes(({ [key]: _, ...rest }) => rest);
-      setSaving(null);
-    }
-  };
-
-  // One address copies at once; with two, Receive lets you pick which.
-  const copy = () => {
-    if (addresses.length !== 1)
-      return setReceive(addresses[0]?.family ?? "evm");
-    void copyText(addresses[0].address).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    });
-  };
 
   if (receive)
     return (
@@ -200,19 +148,26 @@ export function AgentWalletManage({
                   </span>
                 </span>
               </button>
-              <button
-                type="button"
-                aria-label={
-                  addresses.length === 1 ? "Copy address" : "Copy an address"
-                }
-                onClick={copy}
-                className={cn(
-                  aomiButton({ variant: "ghost", size: "icon-sm" }),
-                  "relative z-10",
-                )}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
+              {/* One address copies at once; with two, Receive lets you pick which. */}
+              {addresses.length === 1 ? (
+                <CopyButton
+                  value={addresses[0].address}
+                  label="Copy address"
+                  className="relative z-10"
+                />
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Copy an address"
+                  onClick={() => setReceive(addresses[0].family)}
+                  className={cn(
+                    aomiButton({ variant: "ghost", size: "icon-sm" }),
+                    "relative z-10",
+                  )}
+                >
+                  <Copy size={14} />
+                </button>
+              )}
               <ChevronRight
                 aria-hidden
                 className="text-aomi-muted pointer-events-none size-4 shrink-0"
@@ -224,7 +179,7 @@ export function AgentWalletManage({
         <section className="flex flex-col gap-2">
           <SectionHeader
             title="Who can use it"
-            detail={`${pairs.length} ${pairs.length === 1 ? "connection" : "connections"}`}
+            detail={plural(pairs.length, "connection")}
             action={
               goTo ? (
                 <button
@@ -248,12 +203,16 @@ export function AgentWalletManage({
                 const connection = connections.data?.connections.find(
                   (row) => row.key === pair.key,
                 );
-                const locked = Boolean(connection?.ceiling);
+                const locked = Boolean(connection?.ask_only);
                 const title =
                   connection?.kind === "telegram"
                     ? botTitle(connection)
                     : pair.label;
                 const handle = connection?.telegram?.bot;
+                // A save in flight shows what it will hold.
+                const access =
+                  saving[pair.key]?.find((entry) => entry.id === wallet.id) ??
+                  pair;
                 return (
                   <ListRow
                     key={pair.key}
@@ -278,12 +237,12 @@ export function AgentWalletManage({
                       <Segmented
                         label={`${pair.label} mode`}
                         size="sm"
-                        value={
-                          modes[pair.key] ??
-                          (pair.instant && !locked ? "instant" : "ask")
-                        }
+                        value={access.instant && !locked ? "instant" : "ask"}
                         disabled={!connection || archived || paused}
-                        onChange={(mode) => void setMode(pair.key, title, mode)}
+                        onChange={(mode) =>
+                          connection &&
+                          void write(connection, wallet, mode, title)
+                        }
                         options={[
                           { value: "ask", label: "Ask" },
                           {

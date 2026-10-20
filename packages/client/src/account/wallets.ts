@@ -7,8 +7,7 @@
  * notes/step3-contract.md §4–§5 and notes/rework-contract.md §5, because
  * those routes are portal-session account routes outside the agent API spec:
  *   - `PUT  /api/thread/wallet`               -> `AomiThreadWallet`
- *   - `GET  /v1/account/agent-rule`           -> `AomiAgentRule`
- *   - `PUT  /v1/account/agent-rule`           <- `AomiAgentRule`
+ *   - `PUT  /v1/account/pause-all`            -> `{ pause_all }`
  *   - the agent wallet routes in `./agent-wallets`
  *   - `UserState` fields `wallet_pick`, `wallet_presence`, `active_wallet`
  *     (`UserStateWalletFields`) and `EventPage.active_wallet`.
@@ -37,15 +36,6 @@ import type {
 
 /** `agent`: an Aomi agent wallet. `browser` / `embedded`: a linked wallet that asks in its own app. */
 export type AomiAccountWalletKind = AomiAccountWallet["kind"];
-
-/** Agent wallets are `ready`; every other wallet is `linked`. */
-export type AomiAccountWalletStatus = AomiAccountWallet["status"];
-
-/**
- * The account's pause-all switch. Locked: no agent wallet signs anything,
- * Instant or approved. Writes carry the version that was read.
- */
-export type AomiAgentRule = { locked: boolean; version: number };
 
 /** One entry of `GET /v1/account/wallets`, in the server's fixed order. */
 export type AomiAccountWallet = components["schemas"]["AccountWallet"];
@@ -93,7 +83,6 @@ export const WALLET_ERROR_CODES = {
   agentWalletNotRemovable: "agent_wallet_not_removable",
   agentWalletBusy: "agent_wallet_busy",
   threadBusy: "thread_busy",
-  ruleVersionConflict: "rule_version_conflict",
   portalSessionRequired: "portal_session_required",
 } as const;
 
@@ -133,7 +122,7 @@ export const walletPaths = {
   list: "/v1/account/wallets",
   balance: (id: string) =>
     `/v1/account/wallets/${encodeURIComponent(id)}/balance`,
-  agentRule: "/v1/account/agent-rule",
+  pauseAll: "/v1/account/pause-all",
   threadWallet: "/api/thread/wallet",
 } as const;
 
@@ -237,25 +226,24 @@ export class AccountWalletsTransport {
     return { ref };
   }
 
-  /** The account's pause-all. No rule yet reads as running, version 0. */
-  async agentRule(
-    options: { signal?: AbortSignal } = {},
-  ): Promise<AomiAgentRule> {
-    return parseAgentRule(
-      await this.request("GET", walletPaths.agentRule, options),
-    );
-  }
-
   /**
-   * Pause or resume every agent wallet at the version that was read. Portal
-   * sessions only; a newer rule answers 409 `rule_version_conflict`.
+   * Pause or resume every agent wallet: none signs anything, Instant or
+   * approved. Portal sessions only. The agent wallet list carries the
+   * current value as `pause_all`.
    */
-  async setAgentRule(rule: AomiAgentRule): Promise<AomiAgentRule> {
-    return parseAgentRule(
-      await this.request("PUT", walletPaths.agentRule, {
-        body: { locked: rule.locked, version: rule.version },
+  async pauseAll(
+    paused: boolean,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<{ pause_all: boolean }> {
+    const record = asRecord(
+      await this.request("PUT", walletPaths.pauseAll, {
+        ...options,
+        body: { paused },
       }),
     );
+    if (typeof record?.pause_all !== "boolean")
+      throw invalid("pause all must carry pause_all");
+    return { pause_all: record.pause_all };
   }
 
   /** Make `id` the thread's active wallet for its family. */
@@ -330,9 +318,6 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
   const kind = requiredString(record.kind, "wallet.kind");
   if (kind !== "agent" && kind !== "browser" && kind !== "embedded")
     throw invalid(`unsupported wallet kind: ${kind}`);
-  const status = requiredString(record.status, "wallet.status");
-  if (status !== "ready" && status !== "linked")
-    throw invalid(`unsupported wallet status: ${status}`);
   return {
     id,
     kind,
@@ -340,24 +325,12 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
     address: requiredString(record.address, "wallet.address"),
     label: requiredString(record.label, "wallet.label"),
     custom_label: stringValue(record.custom_label) ?? null,
-    wallet_app: stringValue(record.wallet_app) ?? null,
+    browser_app: stringValue(record.browser_app) ?? null,
     provider: stringValue(record.provider) ?? null,
-    group_id: stringValue(record.group_id) ?? null,
-    name: stringValue(record.name) ?? null,
-    app:
-      stringValue(record.app) ??
-      stringValue(asRecord(record.app)?.label) ??
-      null,
-    status,
     created_at: typeof record.created_at === "number" ? record.created_at : 0,
+    agent_wallet_id: stringValue(record.agent_wallet_id) ?? null,
+    maker_app: stringValue(record.maker_app) ?? null,
   };
-}
-
-export function parseAgentRule(value: unknown): AomiAgentRule {
-  const record = asRecord(value);
-  if (!record || typeof record.version !== "number")
-    throw invalid("agent rule must carry a version");
-  return { locked: record.locked === true, version: record.version };
 }
 
 export function parseWalletBalance(value: unknown): AomiWalletBalance {

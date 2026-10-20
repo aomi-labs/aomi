@@ -230,7 +230,7 @@ describe("aomi tx approve", () => {
     [
       "forbidden",
       approveCode(403, "commit_approval_forbidden"),
-      "Approving needs a CLI login session: run `aomi account login`, or open https://chat.aomi.dev/sign/cmt_park.",
+      "Approving needs your Aomi login: run `aomi account login`, or open https://chat.aomi.dev/sign/cmt_park.",
     ],
     [
       "expired",
@@ -270,28 +270,47 @@ describe("aomi tx approve", () => {
     expect(mocks.question).not.toHaveBeenCalled();
   });
 
-  it("gives an OAuth-only session the login hint with the sign URL", async () => {
+  it("lets the backend decide: a device login without a session token approves", async () => {
     mocks.auth = undefined;
+    await txApproveCommand(
+      { secrets: {} },
+      "cmt_park",
+      { yes: true, noWait: true },
+      fast,
+    );
+    expect(approveBodies).toEqual([{ version: 2, review_digest: "digest-2" }]);
+  });
+
+  it("gives the login hint with the sign URL when this login cannot approve", async () => {
+    gets = [{ ...parked, can_approve: false }];
     await expect(
       txApproveCommand({ secrets: {} }, "cmt_park", { yes: true }, fast),
     ).rejects.toThrow(
-      "Approving needs a CLI login session: run `aomi account login`, or open https://chat.aomi.dev/sign/cmt_park.",
+      "Approving needs your Aomi login: run `aomi account login`, or open https://chat.aomi.dev/sign/cmt_park.",
     );
     expect(approveBodies).toEqual([]);
   });
 
-  it("still gives the login hint when an OAuth-only session cannot read the commit", async () => {
-    mocks.auth = undefined;
+  it("names a missing commit, and passes any other read failure through", async () => {
+    mocks.fetch.mockResolvedValue(
+      Response.json({ code: "commit_not_found", status: 404 }, { status: 404 }),
+    );
+    await expect(
+      txApproveCommand({ secrets: {} }, "cmt_park", { yes: true }, fast),
+    ).rejects.toThrow('Commit "cmt_park" was not found for this account.');
     mocks.fetch.mockResolvedValue(
       Response.json(
         { code: "commit_unauthorized", status: 401 },
         { status: 401 },
       ),
     );
-    await expect(
-      txApproveCommand({ secrets: {} }, "cmt_park", { yes: true }, fast),
-    ).rejects.toThrow(
-      /^Approving needs a CLI login session: run `aomi account login`\.$/,
-    );
+    const failure = await txApproveCommand(
+      { secrets: {} },
+      "cmt_park",
+      { yes: true },
+      fast,
+    ).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).not.toMatch(/Approving needs/);
   });
 });

@@ -236,7 +236,7 @@ export class CommitNotAwaitingApprovalError extends AomiApiError {
 
 /**
  * Typed error for a failed `/v1/commits` response. The backend answers
- * `{code, status}` (a wallet refusal adds `wallet_id`, `wallet_name` and
+ * `{code, status}` (a wallet refusal adds `agent_wallet_id`, `wallet_name` and
  * `connection_key`, kept as `details`); api-server (OAuth clients) wraps it
  * as `{error: {code, message, details}}`. Both map by status and code. The
  * message keeps the `HTTP <status>` prefix CommitController uses to tell a

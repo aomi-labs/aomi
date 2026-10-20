@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AomiApiError } from "@aomi-labs/client";
 import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
@@ -18,7 +18,7 @@ describe("walletRefusalOf", () => {
           undefined,
           {
             code: "commit_wallet_no_access",
-            wallet_id: "g-1",
+            agent_wallet_id: "g-1",
             wallet_name: "World",
             connection_key: "oauth:c1",
           },
@@ -37,7 +37,7 @@ describe("walletRefusalOf", () => {
 
   it("reads a tool error's marker, JSON-escaped or not", () => {
     const text =
-      'evm_commit_txs: "Hoodit" is paused [err.type=commit_wallet_paused wallet_id=g-2 wallet_name="Hoodit" connection_key=portal]';
+      'evm_commit_txs: "Hoodit" is paused [err.type=commit_wallet_paused agent_wallet_id=g-2 wallet_name="Hoodit" connection_key=portal]';
     const refusal = {
       kind: "paused",
       walletId: "g-2",
@@ -49,7 +49,7 @@ describe("walletRefusalOf", () => {
     // The backend's exact text (crates/tools commit_diagnostics::wallet_refusal).
     expect(
       walletRefusalOf(
-        "This connection can't use 'Main [EVM] wallet'. The user allows it in Aomi (Settings → Connections). Nothing was signed. [err.type=commit_wallet_no_access wallet_id=6f1c2b8e-0000-4000-8000-000000000001 wallet_name=\"Main [EVM] wallet\" connection_key=oauth:claude]",
+        "This connection can't use 'Main [EVM] wallet'. The user allows it in Aomi (Settings → Connections). Nothing was signed. [err.type=commit_wallet_no_access agent_wallet_id=6f1c2b8e-0000-4000-8000-000000000001 wallet_name=\"Main [EVM] wallet\" connection_key=oauth:claude]",
       ),
     ).toEqual({
       kind: "no_access",
@@ -60,7 +60,7 @@ describe("walletRefusalOf", () => {
     // Codex finding 17: a bare `]` inside the quoted name.
     expect(
       walletRefusalOf(
-        "'Trading ] Main' is paused. Nothing was signed. [err.type=commit_wallet_paused wallet_id=g-3 wallet_name=\"Trading ] Main\" connection_key=cli]",
+        "'Trading ] Main' is paused. Nothing was signed. [err.type=commit_wallet_paused agent_wallet_id=g-3 wallet_name=\"Trading ] Main\" connection_key=cli]",
       ),
     ).toEqual({
       kind: "paused",
@@ -79,9 +79,7 @@ describe("a refused trade in the trace", () => {
   beforeEach(() =>
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        Response.json({ pause_all: false, version: 1, wallets: [] }),
-      ),
+      vi.fn(async () => Response.json({ pause_all: false, wallets: [] })),
     ),
   );
   afterEach(() => vi.unstubAllGlobals());
@@ -92,7 +90,7 @@ describe("a refused trade in the trace", () => {
       <ToolStepRow
         interpretation={{ ...step, failed: true, outcome: "failed" }}
         detailText={JSON.stringify(
-          '[err.type=commit_wallet_paused wallet_id=g-2 wallet_name="Hoodit"]',
+          '[err.type=commit_wallet_paused agent_wallet_id=g-2 wallet_name="Hoodit"]',
         )}
         done
         active={false}
@@ -111,4 +109,58 @@ describe("a refused trade in the trace", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Resume" })).toBeInTheDocument();
   });
+
+  it("offers Resume all while the account is paused, and lifts only that", async () => {
+    const writes: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method =
+          init?.method ?? (input instanceof Request ? input.method : "GET");
+        if (method !== "GET")
+          writes.push(`${method} ${new URL(url, "http://x").pathname}`);
+        return Response.json({
+          pause_all: !writes.length,
+          wallets: [
+            {
+              id: "g-2",
+              name: "Hoodit",
+              paused: true,
+              archived_at: null,
+              app: null,
+              last_used_at: null,
+              created_at: 1,
+              addresses: [],
+              connections: [],
+            },
+          ],
+        });
+      }),
+    );
+    const step = interpretToolStep({ toolName: "evm_commit_txs" });
+    render(
+      <ToolStepRow
+        interpretation={{ ...step, failed: true, outcome: "failed" }}
+        detailText={JSON.stringify(
+          '[err.type=commit_wallet_paused agent_wallet_id=g-2 wallet_name="Hoodit"]',
+        )}
+        done
+        active={false}
+        animate={false}
+      />,
+      { wrapper: AccountOverviewFixture },
+    );
+    expect(
+      await screen.findByText(
+        "All agent wallets are paused",
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Resume all" }));
+    await screen.findByText("Done. Ask again to trade.");
+    // The wallet's own pause stays.
+    expect(writes).toEqual(["PUT /v1/account/pause-all"]);
+  }, 15_000);
 });

@@ -24,9 +24,9 @@ const DEFAULT_TIMING: TxApproveTiming = {
   timeoutMs: 120_000,
 };
 
-/** Only a CLI login (Better Auth session) may approve; OAuth grants and raw bearers may not. */
+/** The backend decides who approves; `view.can_approve` says whether this login may. */
 export function loginHint(signUrl?: string): string {
-  return `Approving needs a CLI login session: run \`aomi account login\`${signUrl ? `, or open ${signUrl}` : ""}.`;
+  return `Approving needs your Aomi login: run \`aomi account login\`${signUrl ? `, or open ${signUrl}` : ""}.`;
 }
 
 export function notAwaitingMessage(state: string): string {
@@ -55,17 +55,22 @@ function outcomeLine(view: CommitRefView): string {
   return `Still ${view.state}${tx ? ` · ${tx}` : ""}; run \`aomi tx show ${view.commit_id}\` to check.`;
 }
 
+/** Wait until every member of the batch is terminal, or the timeout. */
 async function waitForOutcome(
   handle: CommitHandle,
   timing: TxApproveTiming,
 ): Promise<CommitRefView> {
   const deadline = Date.now() + timing.timeoutMs;
-  let view = handle.view;
-  while (!isTerminalCommit(view) && Date.now() < deadline) {
+  while (!handle.settled.done && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, timing.intervalMs));
-    view = await handle.refresh();
+    await handle.refresh();
   }
-  return view;
+  const { done, failed, last } = handle.settled;
+  // The member that did not confirm, else the last one; a pending batch
+  // reports where its first unfinished member is.
+  return done
+    ? (failed ?? last)
+    : (handle.batch.find((view) => !isTerminalCommit(view)) ?? handle.view);
 }
 
 /** `aomi tx approve <ref>`: approve a parked agent-wallet commit, then follow it. */
@@ -80,7 +85,6 @@ export async function txApproveCommand(
   if (!cli)
     fatal("No active session. Run `aomi chat` or `aomi account login` first.");
   cli.mergeConfig(config);
-  const loggedIn = Boolean(cli.auth?.sessionToken);
   // With --json, stdout carries only the final view.
   const say = config.json ? console.error : console.log;
   const session = cli.createClientSession(config);
@@ -89,14 +93,12 @@ export async function txApproveCommand(
     try {
       handle = await new AomiCommits(session.client).get(ref);
     } catch (error) {
-      if (!loggedIn) fatal(loginHint());
       if (error instanceof CommitNotFoundError)
         fatal(`Commit "${ref}" was not found for this account.`);
       throw error;
     }
     try {
       const view = handle.view;
-      if (!loggedIn) fatal(loginHint(view.sign_url));
       if (view.state !== "awaiting_approval")
         fatal(notAwaitingMessage(view.state));
       if (view.can_approve === false) fatal(loginHint(view.sign_url));
