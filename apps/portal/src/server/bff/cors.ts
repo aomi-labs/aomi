@@ -32,6 +32,7 @@ export const openWidget = {
     "Idempotency-Key",
     "Payment-Signature",
     "X-Aomi-Inference-Funding",
+    "X-Aomi-Run-Budget-Microusd",
     "X-Aomi-CSRF",
     "X-Request-Id",
     "X-Session-Id",
