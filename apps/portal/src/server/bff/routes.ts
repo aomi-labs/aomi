@@ -724,7 +724,9 @@ export const routes = {
     "pipeline.mcp",
     () => resources().pipelineMcp,
     "mcp:pipeline",
-    ["mcp:pipeline", "pipeline:catalog", "offline_access"],
+    // Every tool scope the MCP serves: a client signs in once for what its
+    // tools/call needs (aomi_call_tool, aomi_run, aomi_wallets execute).
+    ["mcp:pipeline", "pipeline:catalog", "pipeline:execute", "offline_access"],
   ),
 
   account: bind({

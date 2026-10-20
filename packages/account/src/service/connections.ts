@@ -29,7 +29,10 @@ export type AccountConnection = {
   kind: ConnectionKind;
   /** The user's label, else the registered name, else `@bot`. */
   name: string;
-  /** `Telegram @user` for a bot; null otherwise. */
+  /**
+   * `Telegram @user` for a bot; `Agent MCP` or `Pipeline MCP` for an AI
+   * client (which MCP it signed in to); null otherwise.
+   */
   detail: string | null;
   /** A Telegram bot's handles: the linked user (`@user`) and the bot (`@bot`). */
   telegram: { user: string | null; bot: string } | null;
@@ -138,7 +141,14 @@ export async function listAccountConnections(
               CLI_CLIENT_NAME
           : (client.name ?? client.clientId),
         {
-          detail: null,
+          detail: client.resources.includes(resources.pipelineMcp)
+            ? "Pipeline MCP"
+            : client.resources.some(
+                  (resource) =>
+                    resource === resources.agentMcp || appMcpName(resource),
+                )
+              ? "Agent MCP"
+              : null,
           telegram: null,
           connected_at: Math.min(
             client.connectedAt,
