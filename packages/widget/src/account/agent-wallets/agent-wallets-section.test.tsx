@@ -169,7 +169,7 @@ const manage = async (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Agent wallets band", () => {
-  it("shows the three most recent with chips, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
+  it("shows the three most recent with app labels, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
     await renderSection();
     expect(
       screen.getByText(
@@ -180,15 +180,12 @@ describe("Agent wallets band", () => {
       document.querySelectorAll("[data-agent-wallet]"),
     ).map((node) => node.getAttribute("data-agent-wallet"));
     expect(shown).toEqual(["g-trading", "g-world", "g-hoodit"]);
-    // Every parent reads "N addresses · last use"; no connection count.
-    expect(
-      within(parent("g-trading")).getByText("2 addresses · EVM/SVM"),
-    ).toBeTruthy();
+    // Every parent reads "N addresses · EVM/SVM"; no connection count.
+    expect(parent("g-trading")).toHaveTextContent("2 addresses · EVM/SVM");
     expect(parent("g-trading")).not.toHaveTextContent(/connection/);
-    expect(
-      within(parent("g-world")).getByText("0 addresses"),
-    ).toBeTruthy();
-    expect(within(parent("g-world")).getByText("used by World")).toBeTruthy();
+    // The app sits in the grey line (no pill); Paused at the row's end.
+    expect(parent("g-world")).toHaveTextContent("0 addresses · World");
+    expect(within(parent("g-world")).queryByText("used by World")).toBeNull();
     expect(within(parent("g-hoodit")).getByText("Paused")).toBeTruthy();
     // The active wallet starts open, its SVM child row striped Active.
     const toggle = within(parent("g-trading")).getByRole("button", {

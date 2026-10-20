@@ -39,12 +39,15 @@ export function ActionRow({
         danger ? "text-aomi-danger" : "text-aomi-fg",
       )}
     >
-      <Icon
-        className={cn(
-          "size-4 shrink-0",
-          danger ? "text-aomi-danger" : "text-aomi-muted",
-        )}
-      />
+      {/* A 32px box, so labels line up with rows that lead with a mark. */}
+      <span className="flex size-8 shrink-0 items-center justify-center">
+        <Icon
+          className={cn(
+            "size-4",
+            danger ? "text-aomi-danger" : "text-aomi-muted",
+          )}
+        />
+      </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-[13.5px] font-medium leading-5">{label}</span>
         {description ? (

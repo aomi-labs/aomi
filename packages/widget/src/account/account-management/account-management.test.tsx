@@ -151,9 +151,10 @@ describe("Wallets & access", () => {
       ],
     });
     expect(screen.queryByText(/privy user/)).not.toBeInTheDocument();
+    // "EVM/SVM" is its own mono span, so read the row's whole text.
     expect(
-      screen.getByText("2 addresses · EVM/SVM"),
-    ).toBeInTheDocument();
+      document.querySelector('[data-wallet-provider="privy"]'),
+    ).toHaveTextContent("2 addresses · EVM/SVM");
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
@@ -300,9 +301,10 @@ describe("Wallets & access", () => {
     const onSignOutProvider = vi.fn();
     const onRemoveLogin = vi.fn();
     renderSettings([privyEvm, privySvm], { onSignOutProvider, onRemoveLogin });
+    // "EVM/SVM" is its own mono span, so read the row's whole text.
     expect(
-      screen.getByText("2 addresses · EVM/SVM"),
-    ).toBeInTheDocument();
+      document.querySelector('[data-wallet-provider="privy"]'),
+    ).toHaveTextContent("2 addresses · EVM/SVM");
     // Open while one of its addresses is Active; the chevron folds it.
     const toggle = screen.getByRole("button", {
       name: "Hide Privy addresses",
@@ -346,7 +348,9 @@ describe("Wallets & access", () => {
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual(["Rename", "Copy email"]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const dialog = await screen.findByRole("dialog", { name: "Rename account" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Rename account",
+    });
     const input = within(dialog).getByRole("textbox", { name: "Name" });
     fireEvent.change(input, { target: { value: "Aron Aomi" } });
     await act(async () => {

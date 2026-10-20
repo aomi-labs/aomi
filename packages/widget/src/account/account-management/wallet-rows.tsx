@@ -29,13 +29,13 @@ import {
 import {
   appName,
   familyTag,
-  parentSubtitle,
   pendingHint,
   providerName,
   rowEmail,
   rowTitle,
   type LoginGroup,
 } from "./wallet-model";
+import { AddressSummary } from "./labels";
 
 type RowHandler = (row: WalletRow) => void;
 
@@ -57,8 +57,13 @@ export const addressExplorerUrl = (row: WalletRow) =>
 
 /** Left edge of a top-level row: the gutter, then the logo. */
 const TOP = "pl-2";
-/** A child row's logo starts under its parent's name. */
-const CHILD = "pl-16";
+/**
+ * A child row's logo lines up with its parent's name: the parent's text
+ * starts at pl-2 + gutter 18 + gap 12 + mark 32 + gap 12 = 82px, and a 17px
+ * logo sits 7.5px inside its 32px box.
+ */
+export const CHILD_INDENT = "pl-[74px]";
+const CHILD = CHILD_INDENT;
 
 /**
  * One address. Clicking it makes it Active (or verifies it when it is not in
@@ -70,6 +75,9 @@ export function AddressRow({
   row,
   nested = false,
   title: titleNode,
+  detail,
+  trailing,
+  dim = false,
   menu,
   pending,
   onActivate,
@@ -82,6 +90,12 @@ export function AddressRow({
   nested?: boolean;
   /** Replaces the title line (a single-address wallet shows its own name). */
   title?: ReactNode;
+  /** After the address and family, e.g. the app it is used by. */
+  detail?: ReactNode;
+  /** Before the buttons, e.g. Paused. */
+  trailing?: ReactNode;
+  /** Greys the mark, e.g. a paused wallet. */
+  dim?: boolean;
   /** Rewrites the ⋯ items, e.g. to add a wallet's or login's actions. */
   menu?: (items: MenuItem[]) => MenuItem[];
 }) {
@@ -156,7 +170,8 @@ export function AddressRow({
     <>
       <BrandMark
         brand={app}
-        dot={row.connected || row.kind === "agent" ? "on" : "off"}
+        dim={dim}
+        dot={dim ? "off" : row.connected || row.kind === "agent" ? "on" : "off"}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
         {titleNode ?? (
@@ -173,6 +188,7 @@ export function AddressRow({
           {short}
           {email ? <span className="font-sans"> · {email}</span> : null} ·{" "}
           {familyTag(row.family)}
+          {detail}
         </span>
       </span>
     </>
@@ -219,6 +235,7 @@ export function AddressRow({
         <div className={mainClass}>{content}</div>
       )}
       <div className="flex shrink-0 items-center gap-1 pr-3">
+        {trailing ? <span className="mr-1">{trailing}</span> : null}
         {busy || row.activating ? (
           <PendingMark className="mx-2" />
         ) : row.active ? (
@@ -348,7 +365,7 @@ export function LoginRows({
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="type-row truncate">{name}</span>
             <span className="type-meta text-aomi-muted truncate">
-              {parentSubtitle(group.rows.map((row) => row.family))}
+              <AddressSummary families={group.rows.map((row) => row.family)} />
             </span>
           </span>
         </button>

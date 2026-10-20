@@ -10,6 +10,7 @@ import type {
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { titleCase } from "@/account/account-management/controls";
 import type { PairMode } from "./connection-pairs";
+import { AppLabel } from "@/account/account-management/labels";
 import { WalletAccessList, type WalletAccess } from "./wallet-access-list";
 
 export type ConsentWalletsProps = {
@@ -102,10 +103,16 @@ export function ConsentWallets({
           access={[{ id: row.id, instant: mode === "instant" }]}
           ceiling={ceiling}
           fixed
-          describe={() =>
+          // A new wallet has no address yet: it says so, with the app's label.
+          describe={
             appWallet
-              ? `used by ${label}`
-              : `used by ${label} · created now if new`
+              ? undefined
+              : () => (
+                  <>
+                    Created on approval ·{" "}
+                    <AppLabel app={{ name: app, label }} />
+                  </>
+                )
           }
           onMode={(_, next) => setMode(next)}
         />

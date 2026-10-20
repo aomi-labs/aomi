@@ -24,9 +24,12 @@ export function BrandMark({
   dot,
   size = 17,
   box = 32,
+  dim = false,
 }: {
   brand: string;
   dot?: "on" | "off";
+  /** Greyed out, e.g. a paused wallet. */
+  dim?: boolean;
   size?: number;
   box?: number;
 }) {
@@ -34,7 +37,10 @@ export function BrandMark({
   const key = agent ? null : resolveWalletBrandKey(brand);
   return (
     <span
-      className="relative flex shrink-0 items-center justify-center"
+      className={cn(
+        "relative flex shrink-0 items-center justify-center",
+        dim && "[&>svg]:opacity-40",
+      )}
       style={{ width: box, height: box }}
       data-wallet-brand={agent ? "agent" : (key ?? undefined)}
     >

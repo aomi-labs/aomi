@@ -60,12 +60,6 @@ export const familyList = (families: readonly WalletFamily[]) =>
     .map(familyTag)
     .join("/");
 
-/** Under a parent row's name: `2 addresses · EVM/SVM`. */
-export const parentSubtitle = (families: readonly WalletFamily[]) =>
-  [addressCount(families.length), familyList(families)]
-    .filter(Boolean)
-    .join(" · ");
-
 /** What clicking a row that needs a step will do, shown on hover. */
 export function pendingHint(row: WalletRow): string | null {
   if (row.pendingStep === "switch") return `Switch in ${appName(row)}`;

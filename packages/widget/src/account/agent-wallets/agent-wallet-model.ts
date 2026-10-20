@@ -7,7 +7,6 @@ import {
 } from "@aomi-labs/client";
 import type { WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { parentSubtitle } from "@/account/account-management/wallet-model";
 
 /** How many agent wallets the Account tab shows before "Show all". */
 export const SHOWN_AGENT_WALLETS = 3;
@@ -48,10 +47,6 @@ export function shownWallets(
 /** The connections that may use it, not counting the portal (it always may). */
 export const pairedConnections = (wallet: AomiAgentWallet) =>
   wallet.connections.filter((connection) => connection.key !== "portal");
-
-/** `2 addresses · EVM/SVM`, the pattern every parent row uses. */
-export const walletSummary = (wallet: AomiAgentWallet) =>
-  parentSubtitle(wallet.addresses.map((address) => address.family));
 
 /** The mainnets an EVM agent address works on, from the SDK's chain list. */
 export const EVM_NETWORKS: readonly string[] = SUPPORTED_CHAINS.filter(

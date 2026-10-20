@@ -156,9 +156,9 @@ describe("Connections tab", () => {
       name: "Hide Telegram bots",
     });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    // The bot is titled by its app, its @handle below; no app pill.
+    // The bot is titled by its app, its @handle below; Instant at the end.
     expect(rowOf("telegram:77")).toHaveTextContent(
-      "HooditInstant@HooditBot · 1 wallet · used 2 h ago",
+      "Hoodit@HooditBot · 1 wallet · used 2 h agoInstant",
     );
     expect(within(rowOf("telegram:77")).getAllByText("Hoodit")).toHaveLength(1);
     // A bot you renamed keeps your name.
@@ -205,9 +205,7 @@ describe("Connections tab", () => {
     await renderTab();
     fireEvent.click(within(menuOf("@HooditBot")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
-    expect(sheet).toHaveTextContent(
-      "Hoodit@HooditBot · Telegram bot · locked to Hoodit",
-    );
+    expect(sheet).toHaveTextContent("Hoodit@HooditBot · Telegram bot");
     expect(within(sheet).getByText("Wallets it can use")).toBeInTheDocument();
     const trading = await within(sheet).findByRole("checkbox", {
       name: "Allow Trading",

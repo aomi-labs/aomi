@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import {
   Archive,
   ArchiveRestore,
-  Lock,
   Pause,
   Pencil,
   Play,
@@ -13,7 +12,6 @@ import {
 import type { AomiAgentWallet } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
-import { StatusPill } from "@/ui/aomi/status-pill";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import {
   ActionsMenu,
@@ -23,7 +21,11 @@ import {
 } from "@/account/account-management/controls";
 import { AddressRow } from "@/account/account-management/wallet-rows";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
-import { walletSummary } from "./agent-wallet-model";
+import {
+  AddressSummary,
+  StateMeta,
+  withApp,
+} from "@/account/account-management/labels";
 
 /** What a wallet's ⋯ menu and Manage sheet can do; a missing handler hides its item. */
 export type AgentWalletActions = {
@@ -127,20 +129,8 @@ export function AgentWalletRow({
   const paused = wallet.paused || pausedAll;
   const busy = pending === `agent:${wallet.id}`;
   const items = agentWalletItems(wallet, actions, () => renameWallet(wallet));
-  const title = (
-    <span className="type-row flex min-w-0 flex-wrap items-center gap-1.5">
-      <span className="truncate">{wallet.name}</span>
-      {wallet.app ? (
-        <StatusPill tone="warning">used by {wallet.app.label}</StatusPill>
-      ) : null}
-      {wallet.paused ? (
-        <StatusPill tone="danger">
-          <Lock className="size-3" />
-          Paused
-        </StatusPill>
-      ) : null}
-    </span>
-  );
+  const title = <span className="type-row truncate">{wallet.name}</span>;
+  const state = paused ? <StateMeta state="paused" /> : null;
 
   const only = rows.length === 1 ? rows[0] : undefined;
   if (only)
@@ -153,6 +143,9 @@ export function AgentWalletRow({
         <AddressRow
           row={only}
           title={title}
+          detail={withApp(wallet.app)}
+          trailing={state}
+          dim={paused}
           pending={pending}
           onActivate={archived ? undefined : onActivate}
           menu={(own) => {
@@ -193,14 +186,22 @@ export function AgentWalletRow({
           onClick={() => setOpen(!open)}
           className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 text-left outline-none disabled:cursor-default"
         >
-          <BrandMark brand={AGENT_WALLET} dot={paused ? "off" : "on"} />
+          <BrandMark
+            brand={AGENT_WALLET}
+            dot={paused ? "off" : "on"}
+            dim={paused}
+          />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             {title}
             <span className="type-meta text-aomi-muted truncate">
-              {walletSummary(wallet)}
+              <AddressSummary
+                families={wallet.addresses.map((entry) => entry.family)}
+              />
+              {withApp(wallet.app)}
             </span>
           </span>
         </button>
+        {state}
         <ActionsMenu
           label={`Actions for ${wallet.name}`}
           items={items}

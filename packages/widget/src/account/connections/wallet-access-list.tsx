@@ -6,6 +6,13 @@ import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { AomiMark } from "@/ui/aomi-mark";
 import { Segmented } from "@/ui/aomi/segmented";
+import {
+  AddressSummary,
+  Mono,
+  StateMeta,
+  withApp,
+} from "@/account/account-management/labels";
+import { familyTag } from "@/account/account-management/wallet-model";
 import type { PairMode } from "./connection-pairs";
 
 export type WalletAccess = { id: string; instant: boolean };
@@ -64,14 +71,22 @@ export function WalletAccessList({
             >
               {ticked ? <Check className="size-3" strokeWidth={3} /> : null}
             </button>
-            <AomiMark size={15} className="text-aomi-fg shrink-0" />
+            <AomiMark
+              size={15}
+              className={cn(
+                "text-aomi-fg shrink-0",
+                wallet.paused && "opacity-40",
+              )}
+            />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="type-row truncate">{wallet.name}</span>
               <span className="type-meta text-aomi-muted truncate">
                 {describe(wallet)}
               </span>
             </span>
-            {wallet.paused ? null : (
+            {wallet.paused ? (
+              <StateMeta state="paused" />
+            ) : (
               <Segmented
                 label={`${wallet.name} mode`}
                 size="sm"
@@ -91,12 +106,24 @@ export function WalletAccessList({
   );
 }
 
-/** Paused, the app it is used by, or its first address. */
+/**
+ * One address: it and its family in mono; two: `2 addresses · EVM/SVM`. Then
+ * the app it is used by.
+ */
 function describeWallet(wallet: AomiAgentWallet): ReactNode {
-  if (wallet.paused) return "Paused";
-  if (wallet.app) return `used by ${wallet.app.label}`;
-  const address = wallet.addresses[0]?.address;
-  return address ? (
-    <span className="font-mono">{shortAddress(address)}</span>
-  ) : null;
+  const [only] = wallet.addresses;
+  return (
+    <>
+      {wallet.addresses.length === 1 && only ? (
+        <Mono>
+          {shortAddress(only.address)} · {familyTag(only.family)}
+        </Mono>
+      ) : (
+        <AddressSummary
+          families={wallet.addresses.map((entry) => entry.family)}
+        />
+      )}
+      {withApp(wallet.app)}
+    </>
+  );
 }

@@ -45,6 +45,13 @@
   standalone pages show `LoadingPane` while restoring and a signed-in visit
   no longer waits for the wallet providers (`needsWallet` keeps /sign
   waiting).
+  Labels (`account-management/labels.tsx`): no pills. Families are mono
+  (`Mono`, `AddressSummary`); an app sits in the grey line as its logo
+  (`getAppIcon(app.name)`, else `LayoutGrid`) + name (`AppLabel`/`withApp`);
+  Instant and Paused sit at the row's end (`StateMeta`), Paused greys the
+  mark. Agent wallet Manage has a "Used by" `AppTile` row; a locked
+  connection's sheet stays plain. Child rows indent `CHILD_INDENT` (logo
+  under the parent's name); sheet action rows use a 32px icon box.
   Known, pre-existing: dev "setState while rendering" warning from
   `useDisplayQuery` (react `display-cache.tsx:254`) under AgentWalletsSection.
 

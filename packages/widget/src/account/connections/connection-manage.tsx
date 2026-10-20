@@ -88,14 +88,7 @@ export function ConnectionManage({
       />
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
         <section className="flex flex-col gap-2">
-          <SectionHeader
-            title="Wallets it can use"
-            detail={
-              connection.application
-                ? `locked to ${connection.application.label}`
-                : undefined
-            }
-          />
+          <SectionHeader title="Wallets it can use" />
           {error ? <SheetAlert>{error}</SheetAlert> : null}
           {wallets.isPending ? (
             <LoadingPane label="Loading agent wallets" />

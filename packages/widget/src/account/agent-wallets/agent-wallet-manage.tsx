@@ -37,7 +37,10 @@ import {
   CopyButton,
   copyText,
 } from "@/account/account-management/controls";
-import { AGENT_WALLET } from "@/account/account-management/wallet-model";
+import {
+  AGENT_WALLET,
+  familyTag,
+} from "@/account/account-management/wallet-model";
 import { ConnectionMark } from "@/account/connections/connection-mark";
 import {
   botTitle,
@@ -48,6 +51,7 @@ import {
   pairsWith,
   type PairMode,
 } from "@/account/connections/connection-pairs";
+import { AppTile } from "@/account/account-management/labels";
 import { AddressQr } from "./address-qr";
 import {
   EVM_NETWORKS,
@@ -93,6 +97,7 @@ export function AgentWalletManage({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const archived = wallet.archived_at !== null;
+  const paused = wallet.paused || pausedAll;
   const pairs = pairedConnections(wallet);
   const addresses = wallet.addresses;
 
@@ -153,12 +158,12 @@ export function AgentWalletManage({
           <BrandMark
             brand={AGENT_WALLET}
             dot={wallet.paused || pausedAll ? "off" : "on"}
+            dim={wallet.paused || pausedAll}
           />
         }
         title={wallet.name}
         description={[
           "Agent wallet",
-          wallet.app ? `created by ${wallet.app.label}` : null,
           archived
             ? "archived"
             : wallet.last_used_at === null
@@ -189,12 +194,9 @@ export function AgentWalletManage({
                     {addresses
                       .map((entry) => shortAddress(entry.address))
                       .join(" · ")}
-                    {addresses.length === 1 ? (
-                      <span className="font-sans">
-                        {" "}
-                        · {familyName(addresses[0].family)}
-                      </span>
-                    ) : null}
+                    {addresses.length === 1
+                      ? ` · ${familyTag(addresses[0].family)}`
+                      : null}
                   </span>
                 </span>
               </button>
@@ -217,6 +219,20 @@ export function AgentWalletManage({
               />
             </div>
           </ListGroup>
+        ) : null}
+
+        {wallet.app ? (
+          <section className="flex flex-col gap-2">
+            <SectionHeader title="Used by" detail="1 app" />
+            <ListGroup>
+              <ListRow
+                data-used-by={wallet.app.name}
+                leading={<AppTile app={wallet.app} />}
+                title={wallet.app.label}
+                description="App · created this wallet and trades with it"
+              />
+            </ListGroup>
+          </section>
         ) : null}
 
         <section className="flex flex-col gap-2">
@@ -280,7 +296,7 @@ export function AgentWalletManage({
                           modes[pair.key] ??
                           (pair.instant && !locked ? "instant" : "ask")
                         }
-                        disabled={!connection || archived}
+                        disabled={!connection || archived || paused}
                         onChange={(mode) => void setMode(pair.key, title, mode)}
                         options={[
                           { value: "ask", label: "Ask" },
@@ -302,6 +318,12 @@ export function AgentWalletManage({
               a client asks.
             </p>
           )}
+          {paused && pairs.length ? (
+            <p className="type-meta text-aomi-muted flex items-start gap-1.5">
+              <Pause className="mt-px size-3.5 shrink-0" />
+              Paused: nothing signs, whatever these say, until you resume.
+            </p>
+          ) : null}
         </section>
 
         <ListGroup>
@@ -329,7 +351,11 @@ export function AgentWalletManage({
           )}
           {archived ? null : (
             <ListRow
-              leading={<Pause className="text-aomi-muted size-4 shrink-0" />}
+              leading={
+                <span className="flex size-8 shrink-0 items-center justify-center">
+                  <Pause className="text-aomi-muted size-4" />
+                </span>
+              }
               title={<span className="text-[13.5px]">Pause</span>}
               description="Nothing signs until you resume"
               trailing={

@@ -21,7 +21,6 @@ import { ListGroup } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { SectionHeader } from "@/ui/aomi/section-header";
-import { StatusPill } from "@/ui/aomi/status-pill";
 import { ActionRow } from "@/ui/aomi/action-row";
 import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useShellTransport } from "@/account/transport";
@@ -32,6 +31,8 @@ import {
   type MenuItem,
 } from "@/account/account-management/controls";
 import { connectionsQuery } from "@/account/account-queries";
+import { CHILD_INDENT } from "@/account/account-management/wallet-rows";
+import { StateMeta, withApp } from "@/account/account-management/labels";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
 
@@ -79,25 +80,36 @@ export function botTitle(row: AomiAccountConnection): string {
   return row.application?.label ?? row.name;
 }
 
-function description(row: AomiAccountConnection): string {
+/**
+ * `AI client · [app] Hoodit · 1 wallet · used 2 h ago`. A Telegram bot is
+ * titled by its app already, so its line starts with its @handle instead.
+ */
+function description(row: AomiAccountConnection): ReactNode {
   const used = row.last_used_at === null ? null : usedLabel(row.last_used_at);
   if (row.kind === "portal")
     return [KIND_LABEL.portal, "all agent wallets"].join(" · ");
+  const telegram = row.kind === "telegram";
   const handle =
-    row.kind === "telegram" && row.telegram?.bot !== botTitle(row)
-      ? row.telegram?.bot
-      : null;
-  return [
-    handle ??
-      (row.kind === "telegram" ? null : (row.detail ?? KIND_LABEL[row.kind])),
-    plural(liveWallets(row).length, "wallet"),
-    used,
-  ]
+    telegram && row.telegram?.bot !== botTitle(row) ? row.telegram?.bot : null;
+  const lead =
+    handle ?? (telegram ? null : (row.detail ?? KIND_LABEL[row.kind]));
+  const rest = [plural(liveWallets(row).length, "wallet"), used]
     .filter(Boolean)
     .join(" · ");
+  return (
+    <>
+      {lead ? `${lead}` : null}
+      {telegram ? null : withApp(row.application)}
+      {lead ? " · " : null}
+      {rest}
+    </>
+  );
 }
 
-/** `@hyperlabai_bot · Telegram bot · locked to Hoodit`, under a Manage sheet's title. */
+const isInstant = (row: AomiAccountConnection) =>
+  row.wallets.some((wallet) => wallet.instant && !wallet.archived);
+
+/** `@hyperlabai_bot · Telegram bot · connected Oct 16`, under a Manage sheet's title. */
 function sheetDescription(row: AomiAccountConnection): string {
   return [
     row.kind === "telegram" && row.telegram?.bot !== botTitle(row)
@@ -106,11 +118,6 @@ function sheetDescription(row: AomiAccountConnection): string {
     row.kind === "telegram"
       ? "Telegram bot"
       : (row.detail ?? KIND_LABEL[row.kind]),
-    row.kind === "portal"
-      ? null
-      : row.application
-        ? `locked to ${row.application.label}`
-        : "open",
     row.connected_at === null
       ? null
       : `connected ${new Date(row.connected_at * 1000).toLocaleDateString(
@@ -249,26 +256,21 @@ export function ConnectionsSettings() {
         )
       }
       title={
-        <>
-          <span className="truncate">
-            {row.kind === "telegram" ? botTitle(row) : row.name}
-          </span>
-          {row.application && row.kind !== "telegram" ? (
-            <StatusPill tone="warning">{row.application.label}</StatusPill>
-          ) : null}
-          {row.wallets.some((wallet) => wallet.instant && !wallet.archived) ? (
-            <StatusPill tone="accent">Instant</StatusPill>
-          ) : null}
-        </>
+        <span className="truncate">
+          {row.kind === "telegram" ? botTitle(row) : row.name}
+        </span>
       }
       description={description(row)}
       trailing={
-        <ActionsMenu
-          label={`Actions for ${row.name}`}
-          items={menu(row)}
-          disabled={pending !== null}
-          busy={pending === row.key}
-        />
+        <>
+          {isInstant(row) ? <StateMeta state="instant" /> : null}
+          <ActionsMenu
+            label={`Actions for ${row.name}`}
+            items={menu(row)}
+            disabled={pending !== null}
+            busy={pending === row.key}
+          />
+        </>
       }
     />
   );
@@ -418,7 +420,7 @@ function Row({
   nested?: boolean;
   leading: ReactNode;
   title: ReactNode;
-  description: string;
+  description: ReactNode;
   trailing: ReactNode;
   onClick?: () => void;
   "data-connection"?: string;
@@ -441,7 +443,7 @@ function Row({
       {...props}
       className={cn(
         "flex min-h-14 items-center gap-3 pr-3",
-        nested ? "border-aomi-border border-t pl-16" : "pl-2",
+        nested ? cn("border-aomi-border border-t", CHILD_INDENT) : "pl-2",
         onClick && "hover:bg-aomi-hover transition-colors",
       )}
     >
@@ -503,19 +505,19 @@ function TelegramSheet({
                 onClick={() => onBot(row)}
                 className="hover:bg-aomi-hover flex min-h-14 w-full items-center gap-3 px-3.5 py-3 text-left outline-none transition-colors"
               >
+                <span
+                  aria-hidden
+                  className="text-aomi-muted flex size-8 shrink-0 items-center justify-center"
+                >
+                  <Bot className="size-[18px]" />
+                </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="type-row flex items-center gap-1.5">
-                    <span className="truncate">{botTitle(row)}</span>
-                    {row.wallets.some(
-                      (wallet) => wallet.instant && !wallet.archived,
-                    ) ? (
-                      <StatusPill tone="accent">Instant</StatusPill>
-                    ) : null}
-                  </span>
+                  <span className="type-row truncate">{botTitle(row)}</span>
                   <span className="type-meta text-aomi-muted truncate">
                     {description(row)}
                   </span>
                 </span>
+                {isInstant(row) ? <StateMeta state="instant" /> : null}
                 <ChevronRight className="text-aomi-muted size-4 shrink-0" />
               </button>
             ))}
