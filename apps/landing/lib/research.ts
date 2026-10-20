@@ -29,7 +29,7 @@ export const posts: ResearchPost[] = [
     tag: "launch",
     subtitle:
       "Prepare an intent for 0.01 USDC, inspect a signed simulation preview, and retrieve an unsigned bundle for 3% of simulated outgoing USDC.",
-    cover: "/research/introducing-the-aomi-task-api/figures/two-purchases.svg",
+    cover: "/research/introducing-the-aomi-task-api/figures/architecture.png",
     readMinutes: 9,
     research: false,
     fileName: "introducing-the-aomi-task-api.md",
