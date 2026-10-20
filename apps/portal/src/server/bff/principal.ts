@@ -222,7 +222,10 @@ async function oauthRequestPrincipal(
       dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
     });
   } catch (error) {
-    const status = Number((error as { status?: unknown })?.status);
+    // Better Auth's APIError carries the number in `statusCode` and a name
+    // (`UNAUTHORIZED`) in `status`; jose errors carry neither.
+    const failure = error as { status?: unknown; statusCode?: unknown };
+    const status = Number(failure?.statusCode ?? failure?.status);
     const code = String((error as { code?: unknown })?.code ?? "");
     if (status !== 401 && status !== 403 && !/^ERR_(JWT|JWS|JOSE)/.test(code))
       throw error;

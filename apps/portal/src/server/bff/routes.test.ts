@@ -183,14 +183,21 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
       ) => {
         const claims = claimsFor(bearerToken(request) ?? "");
         // As jose: the token's audience must be one of those accepted.
+        // Failures are Better Auth APIErrors: a status name and statusCode.
         if (
           !claims ||
           ![options.verifyOptions.audience].flat().includes(claims.aud)
         )
-          throw Object.assign(new Error("bad token"), { status: 401 });
+          throw Object.assign(new Error("token expired"), {
+            status: "UNAUTHORIZED",
+            statusCode: 401,
+          });
         const granted = claims.scope.split(" ");
         if (options.requiredScopes.some((scope) => !granted.includes(scope)))
-          throw Object.assign(new Error("scope"), { status: 403 });
+          throw Object.assign(new Error("scope"), {
+            status: "FORBIDDEN",
+            statusCode: 403,
+          });
         return claims;
       },
     }),
