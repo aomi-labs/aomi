@@ -10,14 +10,6 @@ on:
         description: Exact held production dpl_ ID for this surface
         type: string
         required: true
-      qa_run_id:
-        description: Optional; defaults to the newest successful aomi-qa public smoke for this deployment
-        type: string
-        required: false
-      authenticated_qa_run_id:
-        description: Optional; authenticated QA is required only for auth, wallet, payment or BFF changes and defaults to the newest run for this deployment
-        type: string
-        required: false
       confirm:
         description: Type PROMOTE
         type: string
@@ -55,8 +47,6 @@ jobs:
           SURFACE: ${{ inputs.surface }}
           DEPLOYMENT: ${{ inputs.deployment }}
           CONFIRM: ${{ inputs.confirm }}
-          QA_RUN_ID: ${{ inputs.qa_run_id }}
-          AUTHENTICATED_QA_RUN_ID: ${{ inputs.authenticated_qa_run_id }}
         run: node scripts/frontend-release.mjs promote "$SURFACE" "$DEPLOYMENT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

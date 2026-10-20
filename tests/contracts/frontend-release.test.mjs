@@ -8,6 +8,7 @@ import {
   validateRuntime,
   readRouting,
   observeRuntime,
+  newestRun,
   qaRequirement,
   scopedChanges,
   surfaceScope,
@@ -572,4 +573,19 @@ test("QA risk follows the selected surface and its workspace dependencies", () =
   assert.equal(qaRequirement({ surface: "portal", operation: "promote", changed: scopedChanges(shared, portal) }).authenticated, true);
   assert.equal(scopedChanges(["apps/telegram/src/lib/telegram-auth.ts"], telegram).length, 1);
   assert.throws(() => surfaceScope("unknown", read, dirs), /no workspace/);
+});
+
+test("the newest QA run for a deployment is the only evidence", () => {
+  const title = "Frontend QA portal dpl_X";
+  const row = (id, status = "completed", conclusion = "success", t = title) => ({ id, status, conclusion, display_title: t });
+  assert.equal(newestRun([row(5), row(9), row(7), row(99, "completed", "success", "Frontend QA build dpl_X")], title, "frontend.yml"), "9");
+  for (const newer of [row(12, "completed", "failure"), row(12, "completed", "cancelled"), row(12, "in_progress", null), row(12, "queued", null)])
+    assert.throws(() => newestRun([row(9), newer], title, "frontend.yml"), /Newest aomi-qa/);
+  assert.throws(() => newestRun([], title, "frontend.yml"), /No aomi-qa/);
+});
+
+test("dependency changes in scope require authenticated QA", () => {
+  for (const path of ["pnpm-lock.yaml", "apps/portal/package.json", "packages/account/package.json", "pnpm-workspace.yaml", ".npmrc"])
+    assert.equal(qaRequirement({ surface: "portal", operation: "promote", changed: [path] }).authenticated, true, path);
+  assert.equal(qaRequirement({ surface: "portal", operation: "promote", changed: ["apps/portal/src/app/page.tsx", "README.md"] }).authenticated, false);
 });

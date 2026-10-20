@@ -85,6 +85,22 @@ export function scopedChanges(changed, scope) {
   });
 }
 
+/** The newest run with this exact title; it must have completed successfully. */
+export function newestRun(runs, title, workflow) {
+  const matching = runs.filter((row) => row.display_title === title);
+  assert(matching.length > 0, `No aomi-qa "${title}" run; dispatch aomi-qa ${workflow} for this deployment`);
+  const newest = matching.reduce((a, b) => (b.id > a.id ? b : a));
+  assert(
+    newest.status === "completed" && newest.conclusion === "success",
+    `Newest aomi-qa "${title}" run ${newest.id} is ${newest.status}/${newest.conclusion}; rerun QA for this deployment`,
+  );
+  return String(newest.id);
+}
+
+// Dependency resolution can change auth, wallet or payment code without any
+// sensitive filename changing, so in-scope manifests and the lockfile count.
+const DEPENDENCIES = /(?:^|\/)(?:package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|\.pnpmfile\.cjs)$/;
+
 /** Which QA a routing change needs, decided by surface, operation and risk. */
 export function qaRequirement({ surface, operation, changed }) {
   if (surface === "landing")
@@ -99,7 +115,7 @@ export function qaRequirement({ surface, operation, changed }) {
       authenticated: true,
       sensitive: ["(unknown: the live deployment's source could not be compared)"],
     };
-  const sensitive = changed.filter((path) => SENSITIVE.test(path));
+  const sensitive = changed.filter((path) => SENSITIVE.test(path) || DEPENDENCIES.test(path));
   if (sensitive.length === 0)
     return {
       authenticated: false,
@@ -572,19 +588,18 @@ export async function main() {
       }
     },
     qa: async ({ surface, deploymentId, sha, operation, liveSha }) => {
-      // The newest successful producer run for this exact deployment, unless
-      // the operator names one. The evidence is verified either way.
-      const resolve = (workflow, explicit) => {
-        if (explicit) return explicit;
+      // The newest producer run for this exact deployment, whatever its state:
+      // a newer queued, running or failed run is never bypassed by an older
+      // success, and operators cannot name an older run.
+      const resolve = (workflow) => {
         const title = `${workflow === "frontend.yml" ? "Frontend QA" : "Frontend authenticated QA"} ${surface} ${deploymentId}`;
         const runs = JSON.parse(
           run("gh", [
             "api",
-            `repos/aomi-labs/aomi-qa/actions/workflows/${workflow}/runs?event=workflow_dispatch&branch=main&status=success&per_page=100`,
+            `repos/aomi-labs/aomi-qa/actions/workflows/${workflow}/runs?event=workflow_dispatch&branch=main&per_page=100`,
           ]),
-        ).workflow_runs.filter((row) => row.display_title === title);
-        assert(runs.length > 0, `No successful aomi-qa "${title}" run; dispatch aomi-qa ${workflow} for this deployment`);
-        return String(Math.max(...runs.map((row) => row.id)));
+        ).workflow_runs;
+        return newestRun(runs, title, workflow);
       };
       const read = (runId, authenticated) => {
         assert(
@@ -634,7 +649,7 @@ export async function main() {
         );
         return proof;
       };
-      const publicEvidence = read(resolve("frontend.yml", process.env.QA_RUN_ID), false);
+      const publicEvidence = read(resolve("frontend.yml"), false);
       let changed = null;
       try {
         const dirs = git("ls-tree", "-d", "--name-only", sha, "apps/", "packages/")
@@ -667,7 +682,7 @@ export async function main() {
       return {
         public: publicEvidence,
         authenticated: read(
-          resolve("frontend-authenticated.yml", process.env.AUTHENTICATED_QA_RUN_ID),
+          resolve("frontend-authenticated.yml"),
           true,
         ),
         sensitive: need.sensitive,
