@@ -678,6 +678,18 @@ describe("CORS per family", () => {
     );
   });
 
+  it("allows the fuzzer's per-run budget header on agent chat", () => {
+    const response = routes.agent.OPTIONS(
+      request("/v1/agent/chat", {
+        method: "OPTIONS",
+        origin: PARTNER,
+        headers: { "access-control-request-headers": "authorization,content-type,x-aomi-run-budget-microusd" },
+      }),
+    );
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("x-aomi-run-budget-microusd");
+  });
+
   it("echoes the widget origin on responses and on readable auth errors", async () => {
     const ok = await routes.agent.POST(
       request("/v1/agent/x", {
