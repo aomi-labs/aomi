@@ -152,7 +152,7 @@ describe("Wallets & access", () => {
     });
     expect(screen.queryByText(/privy user/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("2 addresses · signed in here"),
+      screen.getByText("2 addresses · EVM/SVM"),
     ).toBeInTheDocument();
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
@@ -301,7 +301,7 @@ describe("Wallets & access", () => {
     const onRemoveLogin = vi.fn();
     renderSettings([privyEvm, privySvm], { onSignOutProvider, onRemoveLogin });
     expect(
-      screen.getByText("2 addresses · signed in here · aron@megyeri.eu"),
+      screen.getByText("2 addresses · EVM/SVM"),
     ).toBeInTheDocument();
     // Open while one of its addresses is Active; the chevron folds it.
     const toggle = screen.getByRole("button", {

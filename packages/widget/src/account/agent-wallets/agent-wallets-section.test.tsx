@@ -182,11 +182,11 @@ describe("Agent wallets band", () => {
     expect(shown).toEqual(["g-trading", "g-world", "g-hoodit"]);
     // Every parent reads "N addresses · last use"; no connection count.
     expect(
-      within(parent("g-trading")).getByText(/^2 addresses · used /),
+      within(parent("g-trading")).getByText("2 addresses · EVM/SVM"),
     ).toBeTruthy();
     expect(parent("g-trading")).not.toHaveTextContent(/connection/);
     expect(
-      within(parent("g-world")).getByText("0 addresses · not used yet"),
+      within(parent("g-world")).getByText("0 addresses"),
     ).toBeTruthy();
     expect(within(parent("g-world")).getByText("used by World")).toBeTruthy();
     expect(within(parent("g-hoodit")).getByText("Paused")).toBeTruthy();
@@ -222,7 +222,7 @@ describe("Agent wallets band", () => {
     expect(screen.queryByText("Pause all")).toBeNull();
     expect(screen.queryByText("Old")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
-    expect(parent("g-old")).toHaveTextContent("0 addresses · archived");
+    expect(parent("g-old")).toHaveTextContent("0 addresses");
     for (const gone of ["$", "Export", "Use for an app", "Lock"])
       expect(screen.queryByText(gone)).toBeNull();
   });

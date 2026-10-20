@@ -53,26 +53,18 @@ export const rowEmail = (row: WalletRow) =>
 export const addressCount = (count: number) =>
   `${count} ${count === 1 ? "address" : "addresses"}`;
 
-/**
- * Under a login's name, the pattern every parent row uses: `N addresses ·
- * state`, then the email (or another real identifier) when there is one.
- */
-export function loginSubtitle(
-  group: Pick<LoginGroup, "identity" | "rows">,
-  signedIn: boolean,
-): string {
-  const { email, displayLabel } = group.identity ?? {};
-  const label = displayLabel?.trim();
-  const who =
-    email ?? (label && !/^(privy|para) user$/i.test(label) ? label : null);
-  return [
-    addressCount(group.rows.length),
-    signedIn ? "signed in here" : "signed out here",
-    who,
-  ]
+/** `EVM/SVM`, `EVM` or `SVM`: the families a set of addresses covers. */
+export const familyList = (families: readonly WalletFamily[]) =>
+  (["evm", "svm"] as const)
+    .filter((family) => families.includes(family))
+    .map(familyTag)
+    .join("/");
+
+/** Under a parent row's name: `2 addresses · EVM/SVM`. */
+export const parentSubtitle = (families: readonly WalletFamily[]) =>
+  [addressCount(families.length), familyList(families)]
     .filter(Boolean)
     .join(" · ");
-}
 
 /** What clicking a row that needs a step will do, shown on hover. */
 export function pendingHint(row: WalletRow): string | null {

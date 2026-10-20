@@ -29,7 +29,7 @@ import {
 import {
   appName,
   familyTag,
-  loginSubtitle,
+  parentSubtitle,
   pendingHint,
   providerName,
   rowEmail,
@@ -348,7 +348,7 @@ export function LoginRows({
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="type-row truncate">{name}</span>
             <span className="type-meta text-aomi-muted truncate">
-              {loginSubtitle(group, signedIn)}
+              {parentSubtitle(group.rows.map((row) => row.family))}
             </span>
           </span>
         </button>
