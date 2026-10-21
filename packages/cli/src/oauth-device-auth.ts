@@ -25,34 +25,45 @@ export async function signInWithOAuthDevice(input: {
 }): Promise<AomiOAuthTokenSet & { clientId: string }> {
   const fetchImpl = input.fetch ?? fetch;
   const baseUrl = normalizeBaseUrl(input.baseUrl);
-  const client = input.clientId
+  const register = () =>
+    requestJson<RegistrationResponse>(
+      fetchImpl,
+      joinUrl(baseUrl, "/api/auth/oauth2/register"),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          // One name per machine: Settings shows its grants as one connection.
+          client_name: `Aomi CLI · ${hostname()}`,
+          token_endpoint_auth_method: "none",
+          grant_types: [DEVICE_GRANT, "refresh_token"],
+          resources: [input.resource],
+          scope: input.scopes.join(" "),
+        }),
+      },
+      "OAuth client registration",
+    );
+  const deviceCode = (clientId: string) =>
+    requestForm<DeviceCodeResponse>(
+      fetchImpl,
+      joinUrl(baseUrl, "/api/auth/device/code"),
+      {
+        client_id: clientId,
+        scope: input.scopes.join(" "),
+        resource: input.resource,
+      },
+    );
+  let client = input.clientId
     ? { client_id: input.clientId }
-    : await requestJson<RegistrationResponse>(
-        fetchImpl,
-        joinUrl(baseUrl, "/api/auth/oauth2/register"),
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            // One name per machine: Settings shows its grants as one connection.
-            client_name: `Aomi CLI · ${hostname()}`,
-            token_endpoint_auth_method: "none",
-            grant_types: [DEVICE_GRANT, "refresh_token"],
-            resources: [input.resource],
-            scope: input.scopes.join(" "),
-          }),
-        },
-        "OAuth client registration",
-      );
-  const code = await requestForm<DeviceCodeResponse>(
-    fetchImpl,
-    joinUrl(baseUrl, "/api/auth/device/code"),
-    {
-      client_id: client.client_id,
-      scope: input.scopes.join(" "),
-      resource: input.resource,
-    },
-  );
+    : await register();
+  // A saved client the server no longer knows (deleted, or a reset
+  // database) is registered again once.
+  const code = await deviceCode(client.client_id).catch(async (error) => {
+    if (!input.clientId || !String(error).includes("invalid_client"))
+      throw error;
+    client = await register();
+    return deviceCode(client.client_id);
+  });
   const verification = code.verification_uri_complete ?? code.verification_uri;
   console.log(`Open ${verification} and enter code ${code.user_code}`);
   await (input.openBrowser ?? openUrl)(verification);

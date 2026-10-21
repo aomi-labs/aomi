@@ -391,11 +391,6 @@ export function ConnectionsSettings() {
           </div>
         ))}
       </div>
-      {rows.every((row) => row.kind === "portal") ? (
-        <p className="type-meta text-aomi-muted px-0.5">
-          Use Aomi from Claude, your terminal or Telegram.
-        </p>
-      ) : null}
       {adding ? <ConnectAppSheet onClose={() => setAdding(false)} /> : null}
       {telegramSheet ? (
         <TelegramSheet
