@@ -129,7 +129,7 @@ export interface ServerTagsResult {
   serverTags: string[];
   sdkVersion: string;
   ffiVersion?: number | null;
-  ffiCapabilities?: string[];
+  ffiInterfaces?: string[];
 }
 
 export interface SdkVersionStatus {
