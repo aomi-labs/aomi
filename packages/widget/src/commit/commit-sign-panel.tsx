@@ -250,7 +250,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
       goBack ? explorer : backButton(true),
     );
   }
-  if (terminal && (settled.failed ?? view).state === "expired")
+  if (settled.failed?.state === "expired")
     return done(
       "This request expired",
       goBack ?? "Nothing was signed. Ask again in the chat.",

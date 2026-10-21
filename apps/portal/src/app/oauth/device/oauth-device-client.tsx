@@ -6,14 +6,16 @@ import { useSearchParams } from "next/navigation";
 import {
   AomiButton,
   AomiSheet,
+  CanApproveTrades,
   ConnectionMark,
   SheetHeader,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
+import { createPortalClient } from "../portal-client";
 
 type Step =
   | { step: "enter" }
-  | { step: "confirm"; code: string }
+  | { step: "confirm"; code: string; clientId?: string }
   | { step: "connected" }
   | { step: "denied" }
   | { step: "failed" };
@@ -39,15 +41,19 @@ export function OAuthDeviceClient() {
  * Read a code once: the read claims it for this signed-in browser, and Better
  * Auth allows only a few reads per code lifetime.
  */
-async function claim(code: string): Promise<boolean> {
+async function claim(code: string): Promise<{ clientId?: string } | null> {
   const response = await fetch(
     `/api/auth/device?${new URLSearchParams({ user_code: code })}`,
     { credentials: "include" },
   ).catch(() => null);
   const body = (await response?.json().catch(() => null)) as {
     status?: unknown;
+    client_id?: unknown;
   } | null;
-  return Boolean(response?.ok && body?.status === "pending");
+  if (!response?.ok || body?.status !== "pending") return null;
+  return {
+    clientId: typeof body.client_id === "string" ? body.client_id : undefined,
+  };
 }
 
 export function DeviceSheet() {
@@ -55,11 +61,14 @@ export function DeviceSheet() {
   const [state, setState] = useState<Step>({ step: "enter" });
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
+  // "Can approve trades" for the terminal: on unless unticked here.
+  const [approves, setApproves] = useState(true);
 
   const check = useCallback(async (code: string) => {
     setPending(true);
+    const claimed = await claim(code);
     setState(
-      (await claim(code)) ? { step: "confirm", code } : { step: "failed" },
+      claimed ? { step: "confirm", code, ...claimed } : { step: "failed" },
     );
     setPending(false);
   }, []);
@@ -70,7 +79,7 @@ export function DeviceSheet() {
     void check(initial);
   }, [check, initial]);
 
-  const decide = async (code: string, accept: boolean) => {
+  const decide = async (code: string, accept: boolean, clientId?: string) => {
     setPending(true);
     const ok = await fetch(`/api/auth/device/${accept ? "approve" : "deny"}`, {
       method: "POST",
@@ -80,6 +89,14 @@ export function DeviceSheet() {
     })
       .then((response) => response.ok)
       .catch(() => false);
+    // The choice is written once the login went through; a failure leaves the
+    // terminal on its default (approve on Aomi) and says nothing went wrong.
+    if (ok && accept && clientId)
+      await createPortalClient()
+        .account.connections.setConnectionSettings(`oauth:${clientId}`, {
+          approves,
+        })
+        .catch(() => undefined);
     setState(
       ok ? { step: accept ? "connected" : "denied" } : { step: "failed" },
     );
@@ -103,12 +120,23 @@ export function DeviceSheet() {
           >
             {state.code}
           </p>
+          {state.clientId ? (
+            <div className="w-full">
+              <CanApproveTrades
+                name="Terminal"
+                checked={approves}
+                here="Approve your waiting Ask trades with aomi tx approve"
+                disabled={pending}
+                onCheckedChange={setApproves}
+              />
+            </div>
+          ) : null}
           <div className="flex w-full flex-col gap-2">
             <AomiButton
               variant="primary"
               className="h-10 w-full"
               disabled={pending}
-              onClick={() => void decide(state.code, true)}
+              onClick={() => void decide(state.code, true, state.clientId)}
             >
               Connect
             </AomiButton>

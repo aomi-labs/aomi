@@ -42,11 +42,18 @@ describe("device code sheet", () => {
     expect(
       await screen.findByRole("heading", { name: "Terminal connected" }),
     ).toBeTruthy();
-    // Better Auth allows few reads per code: one read, then the decision.
+    // Better Auth allows few reads per code: one read, then the decision;
+    // "Can approve trades" is on by default for a terminal.
     expect(paths()).toEqual([
       "/api/auth/device?user_code=AOMI-1234",
       "/api/auth/device/approve",
+      expect.stringContaining(
+        "/v1/account/connection-settings/oauth%3Aaomi-cli",
+      ),
     ]);
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body).toBe(
+      JSON.stringify({ approves: true }),
+    );
   });
 
   it("denies when the code doesn't match", async () => {

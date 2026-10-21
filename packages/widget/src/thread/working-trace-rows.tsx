@@ -1,6 +1,6 @@
 "use client";
 
-import { type FC, lazy, memo, Suspense, useEffect, useRef } from "react";
+import { type FC, memo, useEffect, useRef } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import {
   BanIcon,
@@ -15,14 +15,6 @@ import { MarkdownText } from "./markdown-text";
 import type { InterpretedToolStep } from "@/thread/tool-interpreter/interpret";
 import { ToolChipView } from "./tool-chip";
 import { testIds } from "@/test-ids";
-import { walletRefusalOf } from "@/commit/wallet-refusal";
-
-// Only a refused trade needs it, so the account pieces load on demand.
-const WalletRefusalCard = lazy(() =>
-  import("@/commit/wallet-refusal-card").then((module) => ({
-    default: module.WalletRefusalCard,
-  })),
-);
 
 export { ToolChipView } from "./tool-chip";
 
@@ -112,11 +104,6 @@ export const ToolStepRow: FC<{
     (chip) => chip.key ?? chipKeys[visibleChips.indexOf(chip)],
   );
   const seenChipKeys = useRef(new Set(animate ? [] : chipKeys));
-  // A trade the agent wallet may not sign (paused, archived, no access).
-  const refusal =
-    done && outcome === "failed" && detailText !== undefined
-      ? walletRefusalOf(detailText)
-      : null;
   useEffect(() => {
     chipKeys.forEach((key) => seenChipKeys.current.add(key));
   });
@@ -190,14 +177,6 @@ export const ToolStepRow: FC<{
           ))}
         </div>
       )}
-
-      {refusal ? (
-        <div className="ml-[26px]">
-          <Suspense fallback={null}>
-            <WalletRefusalCard refusal={refusal} />
-          </Suspense>
-        </div>
-      ) : null}
 
       {open && hasDetail && (
         <div className="aui-working-step-detail mb-1.5 ml-[26px] mt-4 flex flex-col gap-1.5">

@@ -4,6 +4,8 @@ import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
 import { getChainInfo } from "@aomi-labs/react";
 import { FileSignature, Layers3 } from "lucide-react";
 import { STAGED_ACTION_ICON_REGISTRY } from "@/thread/tool-registry";
+import { getDefaultSvmNetworkLabel } from "@/wallet/catalog/svm-networks";
+import type { SvmCluster } from "@/wallet/types";
 
 export type Simulation = Extract<
   ActionRequest,
@@ -267,17 +269,13 @@ export function isZeroAddress(value: string | null | undefined): boolean {
   return Boolean(value && /^0x0{40}$/i.test(value));
 }
 
-const SOLANA_NETWORKS: Record<string, string> = {
-  "solana:mainnet": "Solana",
-  "solana:devnet": "Solana Devnet",
-  "solana:testnet": "Solana Testnet",
-};
-
 /** A Solana cluster's display name ("Solana", "Solana Devnet"), from any of
- * its spellings (`mainnet-beta`, `solana:mainnet`). */
+ * its spellings (`mainnet-beta`, `solana:mainnet`); a custom one as given. */
 export function solanaNetworkName(cluster: string | undefined): string {
   const normalized = normalizeSolanaCluster(cluster);
-  return (normalized && SOLANA_NETWORKS[normalized]) ?? cluster ?? "Solana";
+  return normalized?.startsWith("solana:")
+    ? getDefaultSvmNetworkLabel(normalized as SvmCluster)
+    : (cluster ?? "Solana");
 }
 
 export function balanceChangeNetwork(

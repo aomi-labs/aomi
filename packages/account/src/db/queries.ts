@@ -1116,6 +1116,8 @@ export async function listConnectionSettings(
     lastUsedAt: number | null;
     application: { id: number; name: string; label: string } | null;
     askOnly: boolean;
+    /** The owner's choice; null is the client's default. */
+    approves: boolean | null;
     wallets: {
       id: string;
       name: string;
@@ -1125,7 +1127,7 @@ export async function listConnectionSettings(
   }[]
 > {
   const result = await db.query(
-    `select c.key, c.label, c.last_used_at, c.ask_only,
+    `select c.key, c.label, c.last_used_at, c.ask_only, c.approves,
             a.id as app_id, a.name as app_name, a.label as app_label,
             coalesce((
               select json_agg(json_build_object(
@@ -1154,6 +1156,7 @@ export async function listConnectionSettings(
             label: optionalString(row.app_label) ?? String(row.app_name),
           },
     askOnly: row.ask_only === true,
+    approves: typeof row.approves === "boolean" ? row.approves : null,
     wallets: (
       row.wallets as {
         id: string;

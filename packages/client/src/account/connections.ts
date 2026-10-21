@@ -34,6 +34,12 @@ export type AomiAccountConnection = {
   application: AomiConnectionApp | null;
   /** Never Instant, whatever its wallets say. */
   ask_only: boolean;
+  /**
+   * May approve its own Ask trades ("Can approve trades"): the CLI's
+   * `aomi tx approve`, an AI client's `aomi_approve`, a bot's Approve card.
+   * Always true for the portal.
+   */
+  approves: boolean;
   /** The agent wallets it may use; each asks unless `instant`. */
   wallets: AomiConnectionWallet[];
   /** Unix seconds. */
@@ -66,11 +72,13 @@ export type AomiAccountConnections = { connections: AomiAccountConnection[] };
 export type AomiConnectionSettingsUpdate = {
   /** Trimmed, up to 40 characters; empty or null clears it. */
   label?: string | null;
+  /** May approve its own Ask trades. Not for the portal, which always does. */
+  approves?: boolean;
 };
 
 export type AomiConnectionSettings = Pick<
   AomiAccountConnection,
-  "key" | "last_used_at"
+  "key" | "last_used_at" | "approves"
 > & { label: string | null };
 
 /**
@@ -127,7 +135,7 @@ export class AccountConnectionsTransport {
     );
   }
 
-  /** The label of one connection. */
+  /** One connection's label and whether it may approve its own trades. */
   async setConnectionSettings(
     key: string,
     update: AomiConnectionSettingsUpdate,
@@ -141,6 +149,7 @@ export class AccountConnectionsTransport {
     return {
       key: stringValue(record.key) ?? key,
       label: stringValue(record.label) ?? null,
+      approves: record.approves === true,
       last_used_at: unixOrNull(record.last_used_at),
     };
   }
@@ -217,6 +226,7 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           telegram: telegramOf(row.telegram),
           application: appOf(row.application),
           ask_only: row.ask_only === true,
+          approves: row.approves === true,
           wallets: walletsOf(row.wallets),
           last_used_at: unixOrNull(row.last_used_at),
           connected_at: unixOrNull(row.connected_at),

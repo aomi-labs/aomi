@@ -380,33 +380,21 @@ export function selectActivity(
     }
   }
   for (const commit of commits) {
-    // An unbatched commit (a Solana agent-wallet Ask, a single trade) is its
-    // own source: its stage id is `<family>:<staged id>`.
-    const own = Number(commit.stage_id.split(":")[1]);
-    const sources =
-      commit.batch?.sources ??
-      (!Number.isInteger(own)
-        ? []
-        : [
-            {
-              thread_id: commit.thread_id,
-              chain_family: commit.chain_family,
-              chain_ref: commit.chain_ref,
-              stage_id: commit.stage_id,
-              source_id: own,
-            },
-          ]);
-    for (const source of sources) {
-      if (
-        source.thread_id !== commit.thread_id ||
-        source.chain_family !== commit.chain_family ||
-        source.chain_ref !== commit.chain_ref ||
-        source.stage_id !== commit.stage_id
-      )
-        continue;
+    // The staged ids a commit carries: its batch's own sources, else its stage
+    // id `<family>:<id>,<id>…` (a single commit, such as a Solana Ask).
+    const sourceIds = commit.batch
+      ? commit.batch.sources
+          .filter(
+            (source) =>
+              source.thread_id === commit.thread_id &&
+              source.chain_family === commit.chain_family &&
+              source.chain_ref === commit.chain_ref &&
+              source.stage_id === commit.stage_id,
+          )
+          .map((source) => source.source_id)
+      : (commit.stage_id.split(":")[1] ?? "").split(",").map(Number);
+    for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
-        const sourceId =
-          number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id);
         const chainRef =
           tx.family === "evm"
             ? tx.chainId == null
@@ -414,9 +402,10 @@ export function selectActivity(
               : String(tx.chainId)
             : tx.cluster;
         return (
-          tx.family === source.chain_family &&
-          sourceId === source.source_id &&
-          chainRef === source.chain_ref
+          tx.family === commit.chain_family &&
+          (number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id)) ===
+            sourceId &&
+          chainRef === commit.chain_ref
         );
       });
       if (match) {

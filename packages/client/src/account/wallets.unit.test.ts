@@ -466,7 +466,12 @@ describe("connections", () => {
           ],
         }),
       "PUT /v1/account/connection-settings/oauth%3Ac1": () =>
-        Response.json({ key: "oauth:c1", label: "Laptop", last_used_at: null }),
+        Response.json({
+          key: "oauth:c1",
+          label: "Laptop",
+          approves: false,
+          last_used_at: null,
+        }),
       "PUT /v1/account/connections/oauth%3Ac1/wallets": (body) =>
         Response.json(body),
       "DELETE /v1/account/connections/oauth/c1": () =>
@@ -496,7 +501,12 @@ describe("connections", () => {
       await client.account.connections.setConnectionSettings("oauth:c1", {
         label: "Laptop",
       }),
-    ).toEqual({ key: "oauth:c1", label: "Laptop", last_used_at: null });
+    ).toEqual({
+      key: "oauth:c1",
+      label: "Laptop",
+      approves: false,
+      last_used_at: null,
+    });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",
       body: { label: "Laptop" },

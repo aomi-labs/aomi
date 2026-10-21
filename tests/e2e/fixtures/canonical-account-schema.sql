@@ -136,6 +136,7 @@ create table if not exists account_connections (
   label text,
   application_id bigint references applications(id),
   ask_only boolean not null default false,
+  approves boolean,
   last_used_at bigint,
   created_at bigint not null,
   updated_at bigint not null,

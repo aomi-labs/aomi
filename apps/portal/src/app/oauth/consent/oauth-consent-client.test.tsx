@@ -17,6 +17,13 @@ vi.mock("@aomi-labs/widget/host-composition", async (original) => ({
 
 import { ConsentSheet, consentApp } from "./oauth-consent-client";
 
+/** Allow, once the wallets have loaded. */
+async function allowButton() {
+  const allow = screen.getByRole("button", { name: "Allow" });
+  await waitFor(() => expect(allow).toBeEnabled());
+  return allow;
+}
+
 describe("OAuthConsentClient", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -91,6 +98,8 @@ describe("OAuthConsentClient", () => {
         const url = String(input);
         if (init?.method === "PUT")
           writes.push({ url, body: JSON.parse(String(init.body)) });
+        if (url.endsWith("/v1/account/connections"))
+          return Response.json({ connections: [] });
         if (url.includes("/v1/account/agent-wallets"))
           return Response.json({ pause_all: false, wallets: [] });
         if (url.includes("/oauth2/consent"))
@@ -110,7 +119,10 @@ describe("OAuthConsentClient", () => {
       expect(
         screen.getByText(/This link requires approval for every trade/),
       ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+      fireEvent.click(
+        screen.getByRole("switch", { name: "Codex can approve trades" }),
+      );
+      fireEvent.click(await allowButton());
       await waitFor(() =>
         expect(writes).toEqual([
           {
@@ -123,6 +135,12 @@ describe("OAuthConsentClient", () => {
               new_app_wallet: { instant: false },
               ask_only: true,
             },
+          },
+          {
+            url: expect.stringContaining(
+              "/v1/account/connection-settings/oauth%3Acodex-mcp",
+            ),
+            body: { approves: true },
           },
         ]),
       );
@@ -149,6 +167,8 @@ describe("OAuthConsentClient", () => {
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         if (init?.method === "PUT") writes.push(JSON.parse(String(init.body)));
+        if (url.endsWith("/v1/account/connections"))
+          return Response.json({ connections: [] });
         if (url.includes("/v1/account/agent-wallets"))
           return Response.json({ pause_all: false, wallets: [wallet] });
         return Response.json({ redirect: true, url: "https://codex.test" });
@@ -161,7 +181,7 @@ describe("OAuthConsentClient", () => {
       render(<ConsentSheet name="Codex" />);
       expect(await screen.findByText("Trading")).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Instant" })).toBeChecked();
-      fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+      fireEvent.click(await allowButton());
       expect(
         await screen.findByRole("heading", { name: "Codex is connected" }),
       ).toBeInTheDocument();
@@ -186,6 +206,8 @@ describe("OAuthConsentClient", () => {
           return ++puts === 1
             ? Response.json({ error: "internal" }, { status: 500 })
             : Response.json({ wallets: [] });
+        if (url.endsWith("/v1/account/connections"))
+          return Response.json({ connections: [] });
         if (url.includes("/v1/account/agent-wallets"))
           return Response.json({ pause_all: false, wallets: [] });
         return Response.json({ redirect: true, url: "https://codex.test" });
@@ -196,7 +218,7 @@ describe("OAuthConsentClient", () => {
     try {
       render(<ConsentSheet name="Codex" />);
       await screen.findByText("Trade from");
-      fireEvent.click(screen.getByRole("button", { name: "Allow" }));
+      fireEvent.click(await allowButton());
       expect(
         await screen.findByText(
           "Codex is connected, but its wallet settings didn’t save. Set them in Settings → Connections.",

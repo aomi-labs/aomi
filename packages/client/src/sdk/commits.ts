@@ -48,7 +48,9 @@ export class CommitHandle {
   get batch(): CommitRefView[] {
     const ids = this.view.batch?.ordered_commit_ids ?? [this.ref];
     const views = this.controller.all() as CommitRefView[];
-    return ids.flatMap((id) => views.filter((view) => view.commit_id === id));
+    return ids.flatMap(
+      (id) => views.find((view) => view.commit_id === id) ?? [],
+    );
   }
 
   /**

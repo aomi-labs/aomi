@@ -105,9 +105,10 @@ export function ConsentWallets({
         : []
       : access.map((pair) => ({ ...pair, instant: instant(pair.instant) }));
     // Access to wallets not shown (archived, or not the app's) stays.
-    const kept = loaded.current.filter(
-      (pair) => !shown.some((s) => s.id === pair.id) && !visible(pair.id),
+    const visible = new Set(
+      app ? [appWallet?.id] : loaded.wallets.map((wallet) => wallet.id),
     );
+    const kept = loaded.current.filter((pair) => !visible.has(pair.id));
     const pairs = [...shown, ...kept];
     const same = (a: WalletAccess[], b: WalletAccess[]) =>
       a.length === b.length &&
@@ -133,14 +134,6 @@ export function ConsentWallets({
         ...(askOnly ? { ask_only: true } : {}),
       },
     };
-
-    function visible(id: string) {
-      return app
-        ? id === appWallet?.id
-        : loaded !== null &&
-            loaded !== "failed" &&
-            loaded.wallets.some((wallet) => wallet.id === id);
-    }
   }, [access, app, appWallet, askOnly, loaded, mode]);
   useEffect(() => onChange(state), [onChange, state]);
 

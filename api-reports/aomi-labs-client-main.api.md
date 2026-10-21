@@ -579,6 +579,7 @@ export type AomiAccountConnection = {
     telegram: AomiConnectionTelegram | null;
     application: AomiConnectionApp | null;
     ask_only: boolean;
+    approves: boolean;
     wallets: AomiConnectionWallet[];
     last_used_at: number | null;
     connected_at: number | null;
@@ -1035,13 +1036,14 @@ export type AomiConnectionApp = {
 export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
 
 // @public (undocumented)
-export type AomiConnectionSettings = Pick<AomiAccountConnection, "key" | "last_used_at"> & {
+export type AomiConnectionSettings = Pick<AomiAccountConnection, "key" | "last_used_at" | "approves"> & {
     label: string | null;
 };
 
 // @public
 export type AomiConnectionSettingsUpdate = {
     label?: string | null;
+    approves?: boolean;
 };
 
 // @public (undocumented)

@@ -148,36 +148,11 @@ async function open(
   return { handle, writes };
 }
 
-/** The page's own reads: the account's connections and its agent wallets. */
-const account = vi.hoisted(() => ({
-  writes: [] as unknown[],
-}));
+/** The page's own read: the account's connections. */
 beforeEach(() => {
-  account.writes = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = new URL(String(input), "https://portal.test").pathname;
-      if (path.startsWith("/v1/account/agent-wallets")) {
-        if (init?.method === "PATCH")
-          account.writes.push({ path, body: JSON.parse(String(init.body)) });
-        const wallet = {
-          id: "g-1",
-          name: "Hoodit",
-          paused: account.writes.length === 0,
-          archived_at: null,
-          app: null,
-          last_used_at: null,
-          created_at: 1,
-          addresses: [],
-          connections: [],
-        };
-        return Response.json(
-          init?.method === "PATCH"
-            ? wallet
-            : { pause_all: false, wallets: [wallet] },
-        );
-      }
+    vi.fn(async () => {
       return Response.json({
         connections: [
           {
@@ -352,27 +327,20 @@ describe("CommitSignPanel · approvals", () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
-  it("names the bot that asked, and offers Resume when its wallet is paused", async () => {
+  it("names the bot that asked, and says when its wallet is paused", async () => {
     const { handle } = await open(parked({ notify: "telegram:77:1234" }), {
       code: "commit_wallet_paused",
       status: 403,
-      agent_wallet_id: "g-1",
-      wallet_name: "Hoodit",
-      connection_key: "telegram:77",
     });
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
     expect(
       await screen.findByText(/^From @HooditBot · expires in/),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    expect(await screen.findByText('"Hoodit" is paused')).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: "Resume" }));
-    await waitFor(() =>
-      expect(account.writes).toEqual([
-        { path: "/v1/account/agent-wallets/g-1", body: { paused: false } },
-      ]),
-    );
-    expect(await screen.findByText("Done. Ask again to trade.")).toBeTruthy();
+    expect(
+      await screen.findByText("This wallet is paused. Nothing was signed."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
   });
 
   it("asks a session that cannot approve to sign in on Aomi", async () => {

@@ -41,6 +41,11 @@ export type AccountConnection = {
   /** Never Instant, whatever its wallets say. */
   ask_only: boolean;
   /**
+   * May approve its own Ask trades: the owner's choice, else the client's
+   * default (a Telegram bot's card yes, others no). Always true for the portal.
+   */
+  approves: boolean;
+  /**
    * The agent wallets it may use, each Ask unless `instant`. An archived
    * wallet's pair is kept (marked) so it comes back on restore.
    */
@@ -117,6 +122,7 @@ export async function listAccountConnections(
       name: setting?.label ?? name,
       application: setting?.application ?? null,
       ask_only: setting?.askOnly ?? false,
+      approves: key === "portal" || (setting?.approves ?? kind === "telegram"),
       wallets: setting?.wallets ?? [],
       last_used_at: setting?.lastUsedAt ?? null,
       ...rest,

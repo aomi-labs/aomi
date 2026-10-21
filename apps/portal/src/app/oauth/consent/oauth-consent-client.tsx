@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import {
-  AomiClient,
-  type AomiConnectionWalletsUpdate,
-} from "@aomi-labs/client";
+import type { AomiConnectionWalletsUpdate } from "@aomi-labs/client";
 import { authClient } from "@aomi-labs/widget/browser-auth";
 import {
   AomiButton,
   AomiSheet,
+  CanApproveTrades,
   ConnectionMark,
   ConsentWallets,
   type ConsentWalletsState,
@@ -20,11 +18,11 @@ import {
   SheetHeader,
   signOutAndDisconnect,
   accountDisplayName,
-  getBackendUrl,
   useAomiWalletKit,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { useOAuthClientName } from "../oauth-client-name";
+import { createPortalClient } from "../portal-client";
 import { oauthConsentRedirect } from "./consent-response";
 
 const CHAT = "Chat with Aomi and read your wallets";
@@ -75,16 +73,6 @@ export function consentApp(resource: string | null): string | undefined {
   }
 }
 
-/** Same-origin BFF: the Better Auth cookie is the credential. */
-function createClient(): AomiClient {
-  return new AomiClient({
-    baseUrl: getBackendUrl(),
-    guest: false,
-    fetch: (input, init) =>
-      fetch(input, { ...init, credentials: "same-origin", cache: "no-store" }),
-  });
-}
-
 /** Better Auth's consent page: Allow <Client>? in the wallet popup's sheet. */
 export function OAuthConsentClient() {
   const name = useOAuthClientName(useSearchParams());
@@ -123,7 +111,7 @@ export function ConsentSheet({ name }: { name: string }) {
   const [error, setError] = useState<string | null>(null);
   // The grant went through but the wallet settings did not: where to go next.
   const [unsaved, setUnsaved] = useState<string | null>(null);
-  const client = useMemo(() => createClient(), []);
+  const client = useMemo(() => createPortalClient(), []);
   const app = consentApp(params.get("resource"));
   const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
@@ -135,6 +123,29 @@ export function ConsentSheet({ name }: { name: string }) {
     pairs.current = state.update;
     setWalletsReady(state.ready);
   }, []);
+  // "Can approve trades": off unless the client already may; written after
+  // the grant only when it changes.
+  const connectionKey = clientId ? `oauth:${clientId}` : undefined;
+  const [approves, setApproves] = useState(false);
+  const approvedBefore = useRef(false);
+  useEffect(() => {
+    if (guest || !connectionKey) return;
+    let live = true;
+    client.account.connections.list().then(
+      ({ connections }) => {
+        const current =
+          connections.find((row) => row.key === connectionKey)?.approves ===
+          true;
+        if (!live) return;
+        approvedBefore.current = current;
+        setApproves(current);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [client, connectionKey, guest]);
 
   const decide = async (accept: boolean) => {
     if (!oauthQuery) return setError("This request is incomplete.");
@@ -170,15 +181,24 @@ export function ConsentSheet({ name }: { name: string }) {
    */
   const saveWallets = async (redirect: string) => {
     setPending(true);
-    const saved =
-      guest || !clientId || !pairs.current
-        ? true
-        : await client.account.connections
-            .setConnectionWallets(`oauth:${clientId}`, pairs.current)
-            .then(
-              () => true,
-              () => false,
-            );
+    const writes: Promise<unknown>[] = [];
+    if (!guest && connectionKey && pairs.current)
+      writes.push(
+        client.account.connections.setConnectionWallets(
+          connectionKey,
+          pairs.current,
+        ),
+      );
+    if (!guest && connectionKey && approves !== approvedBefore.current)
+      writes.push(
+        client.account.connections.setConnectionSettings(connectionKey, {
+          approves,
+        }),
+      );
+    const saved = await Promise.all(writes).then(
+      () => true,
+      () => false,
+    );
     setPending(false);
     if (!saved) return setUnsaved(redirect);
     setUnsaved(null);
@@ -265,11 +285,22 @@ export function ConsentSheet({ name }: { name: string }) {
         {guest ? null : (
           <ConsentWallets
             client={client}
-            connectionKey={clientId ? `oauth:${clientId}` : undefined}
+            connectionKey={connectionKey}
             app={app}
             askOnly={askOnly}
             onChange={keepPairs}
           />
+        )}
+        {guest ? null : (
+          <div className="w-full">
+            <CanApproveTrades
+              name={name}
+              checked={approves}
+              here={`${name} can approve your waiting Ask trades`}
+              disabled={pending}
+              onCheckedChange={setApproves}
+            />
+          </div>
         )}
         {error ? (
           <div className="w-full">

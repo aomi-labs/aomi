@@ -61,6 +61,7 @@ export {
 } from "./wallet/picker/sheet-parts";
 export { WidgetScope } from "./ui/widget-scope";
 export { ConnectionMark } from "./account/connections/connection-mark";
+export { CanApproveTrades } from "./account/connections/can-approve-trades";
 export {
   ConsentWallets,
   type ConsentWalletsProps,

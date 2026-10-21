@@ -161,6 +161,30 @@ describe("activity projection", () => {
       stage: "committed",
       commit: { commit_id: "sol-commit" },
     });
+    // Two staged instructions committed as one transaction: both cards follow it.
+    const second = tool(2, "svm_stage_ix", {
+      ix_ids: [2],
+      instructions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          description: "Transfer SOL back",
+          pending_ix_id: 2,
+          current_lifecycle: "queued",
+        },
+      ],
+    });
+    const both = selectActivity(
+      [solStage("turn-1"), second],
+      [],
+      [{ ...parked, stage_id: "svm:1,2", state: "confirmed" }],
+    );
+    expect(
+      both.transactions.map((card) => [card.label, card.commit?.state]),
+    ).toEqual([
+      ["Transfer SOL", "confirmed"],
+      ["Transfer SOL back", "confirmed"],
+    ]);
     const later = selectActivity(
       [
         solStage("turn-1"),

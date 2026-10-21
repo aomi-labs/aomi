@@ -155,7 +155,7 @@ export function TransactionCard({
   );
   const network = tx.chainId
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
-    : solanaNetworkName(tx.cluster ?? "mainnet-beta");
+    : solanaNetworkName(tx.cluster);
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
   const commitSigned =
     tx.commit?.state === "awaiting_broadcast" ||

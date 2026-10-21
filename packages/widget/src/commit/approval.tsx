@@ -20,8 +20,6 @@ import { AomiButton } from "@/ui/aomi/button";
 import { useAomiWalletKit } from "@/wallet/context";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { useApprovalAuthority } from "./approval-authority";
-import { walletRefusalOf, type WalletRefusal } from "./wallet-refusal";
-import { WalletRefusalCard } from "./wallet-refusal-card";
 
 export const APPROVAL_NOTE =
   "Aomi signs with your agent wallet after you approve.";
@@ -36,24 +34,28 @@ function approveLabel(commit: CommitView): string {
   return legs > 1 ? `Approve all ${legs}` : "Approve";
 }
 
+/** Why the agent wallet may not sign; Settings changes it. */
+const REFUSALS: Record<string, string> = {
+  commit_wallet_paused: "This wallet is paused. Nothing was signed.",
+  commit_wallet_archived: "This wallet is archived. Nothing was signed.",
+  commit_wallet_no_access:
+    "This connection can't use this wallet. Nothing was signed.",
+};
+
 function approvalError(error: unknown): string {
   if (error instanceof CommitStaleError)
     return "This request changed. Review it again.";
   if (error instanceof CommitExpiredError)
     return "Expired · nothing was signed";
   if (error instanceof AomiApiError)
-    return "Couldn't approve right now. Try again.";
+    return REFUSALS[error.code] ?? "Couldn't approve right now. Try again.";
   return error instanceof Error ? error.message : "The request failed";
 }
 
-/**
- * Runs one approve or reject at a time and keeps its error line, or the
- * refusal card when the agent wallet may not sign (paused, archived, no access).
- */
+/** Runs one approve or reject at a time and keeps its error line. */
 function useApprovalStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const [refusal, setRefusal] = useState<WalletRefusal | null>(null);
   const [changed, setChanged] = useState(false);
   const run = async (
     step: () => Promise<unknown>,
@@ -62,7 +64,6 @@ function useApprovalStep() {
     if (busy) return;
     setBusy(true);
     setError(undefined);
-    setRefusal(null);
     setChanged(false);
     try {
       await step();
@@ -72,14 +73,12 @@ function useApprovalStep() {
         caught.code === "commit_gas_stale"
       )
         setChanged(true);
-      const refused = walletRefusalOf(caught);
-      if (refused) setRefusal(refused);
-      else if (!onError?.(caught)) setError(approvalError(caught));
+      if (!onError?.(caught)) setError(approvalError(caught));
     } finally {
       setBusy(false);
     }
   };
-  return { busy, error, refusal, changed, run };
+  return { busy, error, changed, run };
 }
 
 /**
@@ -93,7 +92,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
   const authority = useApprovalAuthority();
   const [forbidden, setForbidden] = useState(false);
   const [signUrl, setSignUrl] = useState<string>();
-  const { busy, error, refusal, changed, run } = useApprovalStep();
+  const { busy, error, changed, run } = useApprovalStep();
   const id = commit.commit_id;
   const linkOnly = !authority || forbidden;
   useEffect(() => {
@@ -120,42 +119,39 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
       />
     );
   return (
-    <>
-      <TransactionReview
-        review={{
-          id,
-          revision: commit.review?.revision ?? commit.version,
-          request,
-        }}
-        supportedChains={supportedChains}
-        approving={busy}
-        approveLabel={linkOnly ? "Approve on Aomi" : approveLabel(commit)}
-        approveHref={linkOnly ? signUrl : undefined}
-        approveDisabled={linkOnly}
-        note={APPROVAL_NOTE}
-        status={error}
-        statusIsError={Boolean(error)}
-        onApprove={() =>
-          void run(
-            () =>
-              commitController.approve(id, {
-                expectedVersion: commit.version,
-                expectedReviewDigest: commit.review?.digest ?? "",
-              }),
-            (caught) => {
-              if (caught instanceof CommitApprovalForbiddenError) {
-                setForbidden(true);
-                return true;
-              }
-              if (caught instanceof CommitStaleError)
-                void commitController.refresh(id).catch(() => undefined);
-            },
-          )
-        }
-        onReject={() => void run(() => commitController.reject(id))}
-      />
-      {refusal ? <WalletRefusalCard refusal={refusal} /> : null}
-    </>
+    <TransactionReview
+      review={{
+        id,
+        revision: commit.review?.revision ?? commit.version,
+        request,
+      }}
+      supportedChains={supportedChains}
+      approving={busy}
+      approveLabel={linkOnly ? "Approve on Aomi" : approveLabel(commit)}
+      approveHref={linkOnly ? signUrl : undefined}
+      approveDisabled={linkOnly}
+      note={APPROVAL_NOTE}
+      status={error}
+      statusIsError={Boolean(error)}
+      onApprove={() =>
+        void run(
+          () =>
+            commitController.approve(id, {
+              expectedVersion: commit.version,
+              expectedReviewDigest: commit.review?.digest ?? "",
+            }),
+          (caught) => {
+            if (caught instanceof CommitApprovalForbiddenError) {
+              setForbidden(true);
+              return true;
+            }
+            if (caught instanceof CommitStaleError)
+              void commitController.refresh(id).catch(() => undefined);
+          },
+        )
+      }
+      onReject={() => void run(() => commitController.reject(id))}
+    />
   );
 }
 
@@ -251,7 +247,7 @@ export function CommitApprovePanel({
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   const { supportedChains } = useAomiWalletKit();
-  const { busy, error, refusal, changed, run } = useApprovalStep();
+  const { busy, error, changed, run } = useApprovalStep();
   const view = handle.view;
   const review = handle.review;
   if (changed) return <ChangedApproval commit={view} />;
@@ -275,23 +271,20 @@ export function CommitApprovePanel({
       void handle.refresh().catch(() => undefined);
   };
   return (
-    <>
-      <TransactionReview
-        review={{
-          id: view.commit_id,
-          revision: view.review?.revision ?? view.version,
-          request: review,
-        }}
-        supportedChains={supportedChains}
-        approving={busy || signing}
-        approveLabel={approveLabel(view)}
-        note={APPROVAL_NOTE}
-        status={error}
-        statusIsError={Boolean(error)}
-        onApprove={() => void run(() => handle.approve(), refresh)}
-        onReject={() => void run(() => handle.reject(), refresh)}
-      />
-      {refusal ? <WalletRefusalCard refusal={refusal} /> : null}
-    </>
+    <TransactionReview
+      review={{
+        id: view.commit_id,
+        revision: view.review?.revision ?? view.version,
+        request: review,
+      }}
+      supportedChains={supportedChains}
+      approving={busy || signing}
+      approveLabel={approveLabel(view)}
+      note={APPROVAL_NOTE}
+      status={error}
+      statusIsError={Boolean(error)}
+      onApprove={() => void run(() => handle.approve(), refresh)}
+      onReject={() => void run(() => handle.reject(), refresh)}
+    />
   );
 }

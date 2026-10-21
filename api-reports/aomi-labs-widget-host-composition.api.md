@@ -300,6 +300,15 @@ export function Button(input: React_2.ComponentProps<"button"> & VariantProps<ty
     asChild?: boolean;
 }): JSX.Element;
 
+// @public
+export function CanApproveTrades(input: {
+    name: string;
+    checked: boolean;
+    here: string;
+    disabled?: boolean;
+    onCheckedChange: (checked: boolean) => void;
+}): JSX.Element;
+
 // @public (undocumented)
 export const Card: React_2.ForwardRefExoticComponent<React_2.HTMLAttributes<HTMLDivElement> & React_2.RefAttributes<HTMLDivElement>>;
 
