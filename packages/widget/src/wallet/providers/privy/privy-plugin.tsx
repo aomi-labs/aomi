@@ -9,6 +9,7 @@ import {
 import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { buildPrivyClientConfig, toPrivyLoginMethods } from "./privy-auth";
 import { privySdk } from "./privy-sdk";
+import type { Chain } from "viem";
 import type { AuthConfig, ProvidersConfig } from "@/wallet/config/types";
 
 const PRIVY_BRAND_KEY = "privy";
@@ -25,16 +26,21 @@ function PrivyAuthLayer({
   auth,
   children,
   providers,
+  supportedChains,
 }: {
   auth?: AuthConfig;
   children: ReactNode;
   providers?: ProvidersConfig;
+  supportedChains?: readonly Chain[];
 }) {
   const enabled = isPrivyAuth(auth);
   const privy = providers?.privy === false ? undefined : providers?.privy;
   const appId = privy?.appId;
   // Depend on the methods, not the auth object, so a warm SDK keeps its config.
   const methods = enabled ? auth.methods : undefined;
+  // Privy's embedded wallet switches only to chains in its config; without
+  // the host's list it knows none of Aomi's own (Robinhood Chain, 4663).
+  const chainKey = supportedChains?.map((chain) => chain.id).join(",");
   const config = useMemo(
     () =>
       buildPrivyClientConfig({
@@ -44,8 +50,9 @@ function PrivyAuthLayer({
         // Privy WalletConnect client duplicates its Core and session storage.
         walletConnectEnabled: false,
         loginMethods: enabled ? toPrivyLoginMethods(methods) : undefined,
+        supportedChains: supportedChains?.length ? supportedChains : undefined,
       }),
-    [enabled, methods, privy?.appLogoUrl, privy?.appName],
+    [enabled, methods, privy?.appLogoUrl, privy?.appName, chainKey],
   );
 
   if (!enabled || !appId) {

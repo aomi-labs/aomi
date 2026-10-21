@@ -689,6 +689,7 @@ function ProviderShell({
 }) {
   const { id } = plugin;
   const { onFailure } = signIn;
+  const { supportedEvmChains } = useAomiWalletNetworkPreferences();
   const shellAuth = useMemo<AuthConfig>(
     () => (active && auth && auth.provider === id ? auth : { provider: id }),
     [active, auth, id],
@@ -701,6 +702,7 @@ function ProviderShell({
     plugin.wrap({
       auth: shellAuth,
       providers,
+      supportedChains: supportedEvmChains,
       onFailure: publishFailure,
       children,
     })

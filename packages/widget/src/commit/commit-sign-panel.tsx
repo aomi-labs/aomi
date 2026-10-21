@@ -314,9 +314,10 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
                         ) : (
                           <Wallet />
                         )}
-                        {signerRow?.brand === "Privy"
-                          ? "Sign in with Privy"
-                          : `Connect ${signerRow?.brand ?? "wallet"}`}
+                        {/* A wallet the account already has is only switched to. */}
+                        {signerRow
+                          ? `Use ${signerRow.brand ?? "this wallet"}`
+                          : "Connect wallet"}
                       </>
                     ),
                     disabled: busy || (!signerRow && !wallet.canConnect),

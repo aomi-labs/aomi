@@ -234,7 +234,7 @@ describe("CommitSignPanel", () => {
     const { handle } = await open(view());
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect MetaMask" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use MetaMask" }));
     await waitFor(() =>
       expect(kit.activateWallet).toHaveBeenCalledWith("evm:signer"),
     );
