@@ -30,7 +30,10 @@ export type MintedBearer = {
 export async function mintAccountBearer(
   accountId: string,
   role: string = "user",
-  principal?: Pick<DelegatedBearerContext, "auth_source" | "principal_class">,
+  principal?: Pick<
+    DelegatedBearerContext,
+    "auth_source" | "principal_class" | "client_id"
+  >,
 ): Promise<MintedBearer> {
   const { accessToken, expiresAt } = await portalService().mint({
     role,

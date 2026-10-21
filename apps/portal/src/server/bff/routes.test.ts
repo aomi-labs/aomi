@@ -912,17 +912,14 @@ describe("/v1/commits forwarding", () => {
         expect(
           (await handler(request(path, { method, headers, origin }))).status,
         ).toBe(200);
+      const claims = {
+        auth_source: source,
+        principal_class: principalClass,
+        ...(source === "oauth" ? { client_id: "client-1" } : {}),
+      };
       expect(mocks.mintAccountBearer.mock.calls).toEqual([
-        [
-          subject,
-          "user",
-          { auth_source: source, principal_class: principalClass },
-        ],
-        [
-          subject,
-          "user",
-          { auth_source: source, principal_class: principalClass },
-        ],
+        [subject, "user", claims],
+        [subject, "user", claims],
       ]);
     },
   );
@@ -931,6 +928,7 @@ describe("/v1/commits forwarding", () => {
     ["cookie user", "session"],
     ["e2e cookie", "session"],
     ["session bearer", "cli_session"],
+    ["OAuth user", "oauth"],
   ])("lets a %s approve", async (credential, source) => {
     const { headers, origin } = CREDENTIALS[credential];
     const response = await routes.commits.POST(
@@ -940,20 +938,20 @@ describe("/v1/commits forwarding", () => {
     expect(upstreamCalls()[0].url).toBe(
       "https://backend.example/v1/commits/cmt_1/approve",
     );
+    // An OAuth client is named so the backend can check its "Can approve
+    // trades".
     expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
       expect.any(String),
       "user",
-      { auth_source: source, principal_class: "user" },
+      {
+        auth_source: source,
+        principal_class: "user",
+        ...(source === "oauth" ? { client_id: "client-1" } : {}),
+      },
     );
   });
 
-  it.each([
-    "cookie guest",
-    "widget user",
-    "widget guest",
-    "OAuth user",
-    "OAuth guest",
-  ])(
+  it.each(["cookie guest", "widget user", "widget guest", "OAuth guest"])(
     "refuses approval from a %s without calling the backend",
     async (credential) => {
       const { headers, origin } = CREDENTIALS[credential];

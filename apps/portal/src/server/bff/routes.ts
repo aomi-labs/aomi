@@ -211,7 +211,8 @@ const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
 /**
  * What the backend learns about the caller besides the account: portal-only
  * writes carry the verified session, and every /v1/commits call names the
- * client it came through, which decides who may approve.
+ * client it came through (an OAuth client by id), which decides who may
+ * approve.
  */
 function delegatedClaims(
   principal: Principal,
@@ -225,6 +226,7 @@ function delegatedClaims(
   return {
     auth_source: authSource(principal),
     principal_class: principal.guest ? "guest" : "user",
+    ...(principal.kind === "oauth" ? { client_id: principal.clientId } : {}),
   } as const;
 }
 
@@ -506,14 +508,16 @@ export const COMMIT_REF_ROUTES: readonly {
 const APPROVE = new RegExp(`^/v1/commits/${COMMIT_REF}/approve$`);
 
 /**
- * Approving lets Aomi sign with the agent wallet, so only a signed-in portal
- * or CLI session may: never an embedded widget, an OAuth client or a guest.
+ * Approving lets Aomi sign with the agent wallet: never from an embedded
+ * widget or a guest. An OAuth client (the CLI, an AI or SDK app) reaches the
+ * backend, which lets it only with "Can approve trades".
  */
 function mayApprove(principal: Principal): boolean {
   return (
     (principal.kind === "cookie" ||
       principal.kind === "session_bearer" ||
-      principal.kind === "e2e") &&
+      principal.kind === "e2e" ||
+      principal.kind === "oauth") &&
     !principal.guest
   );
 }
