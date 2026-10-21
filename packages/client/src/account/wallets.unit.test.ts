@@ -264,7 +264,7 @@ describe("agent wallets", () => {
       { family: "evm", address: agent.address, wallet_id: "w_12" },
       { family: "svm", address: "B4KZ1111", wallet_id: "w_13" },
     ],
-    connections: [{ key: "oauth:c1", label: "Claude Code", instant: false }],
+    connections: [{ key: "oauth:c1", label: "Claude Code", lane: "aomi" }],
   };
   const world = {
     ...trading,
@@ -275,7 +275,7 @@ describe("agent wallets", () => {
     app: { id: 90, name: "world" },
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
-    connections: [{ key: "telegram:42", instant: true }],
+    connections: [{ key: "telegram:42", lane: "instant" }],
   };
 
   it("lists, creates, updates and withdraws with portal CSRF on writes", async () => {
@@ -320,7 +320,7 @@ describe("agent wallets", () => {
       archived_at: 1_760_000_200,
       app: { id: 90, name: "world", label: "world" },
       connections: [
-        { key: "telegram:42", label: "telegram:42", instant: true },
+        { key: "telegram:42", label: "telegram:42", lane: "instant" },
       ],
     });
 
@@ -455,7 +455,7 @@ describe("connections", () => {
               application: { id: 86, name: "hoodit", label: "Hoodit" },
               ask_only: true,
               wallets: [
-                { id: "g-1", name: "Hoodit", instant: true, archived: true },
+                { id: "g-1", name: "Hoodit", lane: "instant", archived: true },
               ],
               last_used_at: 1_760_400_000,
               connected_at: null,
@@ -469,7 +469,6 @@ describe("connections", () => {
         Response.json({
           key: "oauth:c1",
           label: "Laptop",
-          approves: false,
           last_used_at: null,
         }),
       "PUT /v1/account/connections/oauth%3Ac1/wallets": (body) =>
@@ -487,7 +486,7 @@ describe("connections", () => {
       detail: "Telegram @arixon",
       application: { id: 86, name: "hoodit", label: "Hoodit" },
       ask_only: true,
-      wallets: [{ id: "g-1", name: "Hoodit", instant: true, archived: true }],
+      wallets: [{ id: "g-1", name: "Hoodit", lane: "instant", archived: true }],
     });
     expect(connections[2]).toMatchObject({
       application: null,
@@ -504,7 +503,6 @@ describe("connections", () => {
     ).toEqual({
       key: "oauth:c1",
       label: "Laptop",
-      approves: false,
       last_used_at: null,
     });
     expect(calls.at(-1)).toMatchObject({
@@ -513,16 +511,16 @@ describe("connections", () => {
     });
 
     const update = {
-      wallets: [{ id: "g-1", instant: false }],
+      wallets: [{ id: "g-1", lane: "aomi" }],
       application: "world",
-      new_app_wallet: { instant: false },
+      new_app_wallet: { lane: "aomi" },
       ask_only: true,
     };
     expect(
       await client.account.connections.setConnectionWallets("oauth:c1", update),
     ).toEqual({
       ask_only: true,
-      wallets: [{ id: "g-1", name: "", instant: false, archived: false }],
+      wallets: [{ id: "g-1", name: "", lane: "aomi", archived: false }],
     });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",

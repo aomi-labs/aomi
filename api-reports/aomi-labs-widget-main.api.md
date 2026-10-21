@@ -6,7 +6,6 @@
 
 import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/react';
-import type { AomiAccountConnection } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
@@ -16,6 +15,7 @@ import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import { AomiInferenceFundingSource } from '@aomi-labs/react';
+import type { AomiLane } from '@aomi-labs/client';
 import * as aomiReact from '@aomi-labs/react';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';

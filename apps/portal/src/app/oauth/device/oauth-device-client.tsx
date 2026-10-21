@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
   AomiButton,
   AomiSheet,
-  CanApproveTrades,
   ConnectionMark,
+  ConsentWallets,
+  type ConsentWalletsState,
   SheetHeader,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
@@ -61,8 +62,12 @@ export function DeviceSheet() {
   const [state, setState] = useState<Step>({ step: "enter" });
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  // "Can approve trades" for the terminal: on unless unticked here.
-  const [approves, setApproves] = useState(true);
+  const client = useMemo(() => createPortalClient(), []);
+  // The terminal's lanes, written once the login went through.
+  const lanes = useRef<ConsentWalletsState>({ ready: false, update: null });
+  const keepLanes = useCallback((next: ConsentWalletsState) => {
+    lanes.current = next;
+  }, []);
 
   const check = useCallback(async (code: string) => {
     setPending(true);
@@ -89,13 +94,11 @@ export function DeviceSheet() {
     })
       .then((response) => response.ok)
       .catch(() => false);
-    // The choice is written once the login went through; a failure leaves the
-    // terminal on its default (approve on Aomi) and says nothing went wrong.
-    if (ok && accept && clientId)
-      await createPortalClient()
-        .account.connections.setConnectionSettings(`oauth:${clientId}`, {
-          approves,
-        })
+    // The lanes are written once the login went through; a failure leaves the
+    // terminal on its default (Ask on Aomi) and says nothing went wrong.
+    if (ok && accept && clientId && lanes.current.update)
+      await client.account.connections
+        .setConnectionWallets(`oauth:${clientId}`, lanes.current.update)
         .catch(() => undefined);
     setState(
       ok ? { step: accept ? "connected" : "denied" } : { step: "failed" },
@@ -121,15 +124,14 @@ export function DeviceSheet() {
             {state.code}
           </p>
           {state.clientId ? (
-            <div className="w-full">
-              <CanApproveTrades
-                name="Terminal"
-                kind="cli"
-                checked={approves}
-                disabled={pending}
-                onCheckedChange={setApproves}
-              />
-            </div>
+            <ConsentWallets
+              client={client}
+              connectionKey={`oauth:${state.clientId}`}
+              kind="cli"
+              name="terminal"
+              startLane="here"
+              onChange={keepLanes}
+            />
           ) : null}
           <div className="flex w-full flex-col gap-2">
             <AomiButton

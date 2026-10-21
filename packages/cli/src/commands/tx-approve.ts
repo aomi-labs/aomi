@@ -26,7 +26,7 @@ const DEFAULT_TIMING: TxApproveTiming = {
 
 /** The backend decides who approves; `view.can_approve` says whether this login may. */
 export function loginHint(signUrl?: string): string {
-  return `This terminal can't approve trades. Turn on "Can approve trades" for it in Aomi Settings › Connections${signUrl ? `, or approve at ${signUrl}` : ""}.`;
+  return `This terminal can't approve trades from this wallet. Set the wallet to "Ask in terminal" for it in Aomi Settings › Connections${signUrl ? `, or approve at ${signUrl}` : ""}.`;
 }
 
 export function notAwaitingMessage(state: string): string {

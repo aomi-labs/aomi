@@ -4,13 +4,13 @@
 
 ```ts
 
-import type { AomiAccountConnection } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
+import type { AomiLane } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
@@ -301,15 +301,6 @@ export function Button(input: React_2.ComponentProps<"button"> & VariantProps<ty
     asChild?: boolean;
 }): JSX.Element;
 
-// @public
-export function CanApproveTrades(input: {
-    name: string;
-    kind: Exclude<AomiAccountConnection["kind"], "portal">;
-    checked: boolean;
-    disabled?: boolean;
-    onCheckedChange: (checked: boolean) => void;
-}): JSX.Element;
-
 // @public (undocumented)
 export const Card: React_2.ForwardRefExoticComponent<React_2.HTMLAttributes<HTMLDivElement> & React_2.RefAttributes<HTMLDivElement>>;
 
@@ -357,6 +348,9 @@ export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
 export type ConsentWalletsProps = {
     client: AomiClient;
     connectionKey?: string;
+    kind?: AomiConnectionKind;
+    name?: string;
+    startLane?: AomiLane;
     app?: string;
     askOnly?: boolean;
     onChange: (state: ConsentWalletsState) => void;

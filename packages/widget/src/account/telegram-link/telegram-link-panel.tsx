@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  ConsentWallets,
+  type ConsentWalletsState,
+} from "@/account/connections/consent-wallets";
+import {
   useCallback,
   useEffect,
   useRef,
@@ -154,6 +158,11 @@ export function TelegramLinkPanel({
       : { step: "error", failure: { message: INVALID } },
   );
   const [slow, setSlow] = useState(false);
+  // The bot's lanes on this account's wallets, written once the link lands.
+  const lanes = useRef<ConsentWalletsState>({ ready: false, update: null });
+  const keepLanes = useCallback((state: ConsentWalletsState) => {
+    lanes.current = state;
+  }, []);
   const [cancelling, setCancelling] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -193,6 +202,11 @@ export function TelegramLinkPanel({
     try {
       const result =
         await client.account.telegramLink.confirmTelegramLink(code);
+      const bot = preview.telegram.linked_from;
+      if (bot && lanes.current.update)
+        await client.account.connections
+          .setConnectionWallets(`telegram:${bot.bot_id}`, lanes.current.update)
+          .catch(() => undefined);
       if (mounted.current) setState({ step: "linked", result, preview });
     } catch (error) {
       if (mounted.current)
@@ -288,6 +302,15 @@ export function TelegramLinkPanel({
                 </li>
               ))}
             </ul>
+            {state.preview.telegram.linked_from ? (
+              <ConsentWallets
+                client={client}
+                connectionKey={`telegram:${state.preview.telegram.linked_from.bot_id}`}
+                kind="telegram"
+                name={state.preview.telegram.linked_from.label}
+                onChange={keepLanes}
+              />
+            ) : null}
             <div className="flex w-full flex-col gap-2">
               {state.step === "linking" ? (
                 <WaitingButton>

@@ -1,27 +1,23 @@
 import type {
   AomiAccountConnection,
   AomiConnectionWalletsUpdate,
+  AomiLane,
 } from "@aomi-labs/client";
 
-export type PairMode = "ask" | "instant";
-
 /**
- * The full pair list a connection should hold once wallet `id` gets `mode`
- * (or loses access, with null); its other pairs stay as they are, archived
- * wallets' included, so a restore brings them back. The portal may always
- * use every wallet, so its list only stores Instant.
+ * The full lane list a connection should hold once wallet `id` gets `lane`;
+ * its other lanes stay as they are, archived wallets' included, so a
+ * restore brings them back.
  */
 export function pairsWith(
   connection: AomiAccountConnection,
   id: string,
-  mode: PairMode | null,
+  lane: AomiLane,
 ): AomiConnectionWalletsUpdate["wallets"] {
-  const pairs = connection.wallets
-    .filter((wallet) => wallet.id !== id)
-    .map((wallet) => ({ id: wallet.id, instant: wallet.instant }));
-  if (mode)
-    pairs.push({ id, instant: mode === "instant" && !connection.ask_only });
-  return connection.kind === "portal"
-    ? pairs.filter((pair) => pair.instant)
-    : pairs;
+  return [
+    ...connection.wallets
+      .filter((wallet) => wallet.id !== id)
+      .map((wallet) => ({ id: wallet.id, lane: wallet.lane })),
+    { id, lane: connection.ask_only ? "aomi" : lane },
+  ];
 }

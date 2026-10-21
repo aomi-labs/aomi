@@ -8,7 +8,6 @@ import { authClient } from "@aomi-labs/widget/browser-auth";
 import {
   AomiButton,
   AomiSheet,
-  CanApproveTrades,
   ConnectionMark,
   ConsentWallets,
   type ConsentWalletsState,
@@ -124,29 +123,7 @@ export function ConsentSheet({ name }: { name: string }) {
     pairs.current = state.update;
     setWalletsReady(state.ready);
   }, []);
-  // "Can approve trades": off unless the client already may; written after
-  // the grant only when it changes.
   const connectionKey = clientId ? `oauth:${clientId}` : undefined;
-  const [approves, setApproves] = useState(false);
-  const approvedBefore = useRef(false);
-  useEffect(() => {
-    if (guest || !connectionKey) return;
-    let live = true;
-    client.account.connections.list().then(
-      ({ connections }) => {
-        const current =
-          connections.find((row) => row.key === connectionKey)?.approves ===
-          true;
-        if (!live) return;
-        approvedBefore.current = current;
-        setApproves(current);
-      },
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [client, connectionKey, guest]);
 
   const decide = async (accept: boolean) => {
     if (!oauthQuery) return setError("This request is incomplete.");
@@ -189,12 +166,6 @@ export function ConsentSheet({ name }: { name: string }) {
           connectionKey,
           pairs.current,
         ),
-      );
-    if (!guest && connectionKey && approves !== approvedBefore.current)
-      writes.push(
-        client.account.connections.setConnectionSettings(connectionKey, {
-          approves,
-        }),
       );
     const saved = await Promise.all(writes).then(
       () => true,
@@ -287,21 +258,12 @@ export function ConsentSheet({ name }: { name: string }) {
           <ConsentWallets
             client={client}
             connectionKey={connectionKey}
+            kind={resource?.endsWith("/mcp") ? "ai" : "app"}
+            name={name}
             app={app}
             askOnly={askOnly}
             onChange={keepPairs}
           />
-        )}
-        {guest ? null : (
-          <div className="w-full">
-            <CanApproveTrades
-              name={name}
-              kind={resource?.endsWith("/mcp") ? "ai" : "app"}
-              checked={approves}
-              disabled={pending}
-              onCheckedChange={setApproves}
-            />
-          </div>
         )}
         {error ? (
           <div className="w-full">

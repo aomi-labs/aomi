@@ -8766,6 +8766,11 @@
           "maker_app": {
             "type": ["string", "null"],
             "description": "The app that made the agent wallet."
+          },
+          "lane": {
+            "type": "string",
+            "enum": ["aomi", "here", "instant"],
+            "description": "An agent wallet's lane for the caller's connection: aomi (the user approves its trades on Aomi), here (the caller approves its own trades), instant (they sign at once)."
           }
         }
       },

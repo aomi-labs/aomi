@@ -230,7 +230,7 @@ describe("aomi tx approve", () => {
     [
       "forbidden",
       approveCode(403, "commit_approval_forbidden"),
-      'This terminal can\'t approve trades. Turn on "Can approve trades" for it in Aomi Settings › Connections, or approve at https://chat.aomi.dev/sign/cmt_park.',
+      'This terminal can\'t approve trades from this wallet. Set the wallet to "Ask in terminal" for it in Aomi Settings › Connections, or approve at https://chat.aomi.dev/sign/cmt_park.',
     ],
     [
       "expired",
@@ -286,7 +286,7 @@ describe("aomi tx approve", () => {
     await expect(
       txApproveCommand({ secrets: {} }, "cmt_park", { yes: true }, fast),
     ).rejects.toThrow(
-      'This terminal can\'t approve trades. Turn on "Can approve trades" for it in Aomi Settings › Connections, or approve at https://chat.aomi.dev/sign/cmt_park.',
+      'This terminal can\'t approve trades from this wallet. Set the wallet to "Ask in terminal" for it in Aomi Settings › Connections, or approve at https://chat.aomi.dev/sign/cmt_park.',
     );
     expect(approveBodies).toEqual([]);
   });

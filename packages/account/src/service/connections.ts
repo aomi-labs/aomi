@@ -38,18 +38,19 @@ export type AccountConnection = {
   telegram: { user: string | null; bot: string } | null;
   /** The app this connection is locked to; null when it is open. */
   application: { id: number; name: string; label: string } | null;
-  /** Never Instant, whatever its wallets say. */
+  /** Always `aomi`, whatever its wallets say. */
   ask_only: boolean;
   /**
-   * May approve its own Ask trades: the owner's choice, else the client's
-   * default (a Telegram bot's card yes, others no). Always true for the portal.
+   * Its lanes set on agent wallets (`aomi`, `here`, `instant`); a wallet
+   * left out has the client's default. An archived wallet's lane is kept
+   * (marked) so it comes back on restore.
    */
-  approves: boolean;
-  /**
-   * The agent wallets it may use, each Ask unless `instant`. An archived
-   * wallet's pair is kept (marked) so it comes back on restore.
-   */
-  wallets: { id: string; name: string; instant: boolean; archived: boolean }[];
+  wallets: {
+    id: string;
+    name: string;
+    lane: "aomi" | "here" | "instant";
+    archived: boolean;
+  }[];
   /** Unix seconds. */
   last_used_at: number | null;
   /** Unix seconds of the oldest consent or refresh token. */
@@ -122,7 +123,6 @@ export async function listAccountConnections(
       name: setting?.label ?? name,
       application: setting?.application ?? null,
       ask_only: setting?.askOnly ?? false,
-      approves: key === "portal" || (setting?.approves ?? kind === "telegram"),
       wallets: setting?.wallets ?? [],
       last_used_at: setting?.lastUsedAt ?? null,
       ...rest,

@@ -34,9 +34,9 @@ const connections = [
     application: { id: 86, name: "hoodit", label: "Hoodit" },
     ask_only: false,
     wallets: [
-      { id: "g-hoodit", name: "Hoodit", instant: true, archived: false },
+      { id: "g-hoodit", name: "Hoodit", lane: "instant", archived: false },
       // Archived: kept on every replace, never counted or shown.
-      { id: "g-old", name: "Old", instant: true, archived: true },
+      { id: "g-old", name: "Old", lane: "instant", archived: true },
     ],
     last_used_at: NOW / 1000 - 2 * 3600,
     connected_at: null,
@@ -52,7 +52,7 @@ const connections = [
     application: null,
     ask_only: false,
     wallets: [
-      { id: "g-trading", name: "Trading", instant: false, archived: false },
+      { id: "g-trading", name: "Trading", lane: "here", archived: false },
     ],
     last_used_at: null,
     connected_at: null,
@@ -67,7 +67,7 @@ const connections = [
     application: null,
     ask_only: true,
     wallets: [
-      { id: "g-trading", name: "Trading", instant: false, archived: false },
+      { id: "g-trading", name: "Trading", lane: "aomi", archived: false },
     ],
     last_used_at: NOW / 1000 - 30 * 3600,
     connected_at: 1,
@@ -75,7 +75,11 @@ const connections = [
   },
 ];
 
-const agentWallet = (id: string, name: string) => ({
+const agentWallet = (
+  id: string,
+  name: string,
+  connections: { key: string; label: string; lane: string }[] = [],
+) => ({
   id,
   name,
   paused: false,
@@ -90,11 +94,16 @@ const agentWallet = (id: string, name: string) => ({
       wallet_id: "w_1",
     },
   ],
-  connections: [],
+  connections,
 });
 const agentWallets = [
-  agentWallet("g-trading", "Trading"),
-  agentWallet("g-hoodit", "Hoodit"),
+  agentWallet("g-trading", "Trading", [
+    { key: "telegram:78", label: "Markets", lane: "here" },
+    { key: "oauth:c1", label: "Claude", lane: "aomi" },
+  ]),
+  agentWallet("g-hoodit", "Hoodit", [
+    { key: "telegram:77", label: "Hoodit", lane: "instant" },
+  ]),
 ];
 
 let calls: { method: string; path: string; body: unknown }[] = [];
@@ -114,7 +123,9 @@ beforeEach(() => {
           ? { connections }
           : path === "/v1/account/agent-wallets"
             ? { pause_all: false, wallets: agentWallets }
-            : {},
+            : path === "/v1/account/wallets"
+              ? { wallets: [] }
+              : {},
       );
     }),
   );
@@ -137,14 +148,16 @@ const menuOf = (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Connections tab", () => {
-  it("lists each connection quietly: mark, name, Instant pill, wallets and last use", async () => {
+  it("lists each connection quietly: mark, name, Instant pill, Instant lanes and last use", async () => {
     await renderTab();
     expect(rowOf("portal")).toHaveTextContent(
       "AomiThis website · all agent wallets",
     );
+    // No Instant lane: no wallet count, just the last use.
     expect(rowOf("oauth:c1")).toHaveTextContent(
-      "ClaudeAI client · 1 wallet · used yesterday",
+      "ClaudeAI client · used yesterday",
     );
+    expect(rowOf("oauth:c1")).not.toHaveTextContent("wallet");
     expect(within(rowOf("oauth:c1")).queryByText("Instant")).toBeNull();
   });
 
@@ -169,20 +182,21 @@ describe("Connections tab", () => {
   it("groups Telegram bots under one Telegram row, each titled by its app or your name", async () => {
     await renderTab();
     const telegram = rowOf("telegram");
-    expect(telegram).toHaveTextContent("Telegram@arixon · 2 bots · 2 wallets");
+    expect(telegram).toHaveTextContent(
+      "Telegram@arixon · 2 bots · Instant on 1 wallet",
+    );
     const toggle = within(telegram).getByRole("button", {
       name: "Hide Telegram bots",
     });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     // The bot is titled by its app, its @handle below; Instant at the end.
     expect(rowOf("telegram:77")).toHaveTextContent(
-      "Hoodit@HooditBot · 1 wallet · used 2 h agoInstant",
+      "Hoodit@HooditBot · Instant on 1 wallet · used 2 h agoInstant",
     );
     expect(within(rowOf("telegram:77")).getAllByText("Hoodit")).toHaveLength(1);
     // A bot you renamed keeps your name.
-    expect(rowOf("telegram:78")).toHaveTextContent(
-      "Markets@MarketsBot · 1 wallet",
-    );
+    expect(rowOf("telegram:78")).toHaveTextContent("Markets@MarketsBot");
+    expect(rowOf("telegram:78")).not.toHaveTextContent("Instant");
     fireEvent.click(toggle);
     expect(rowOf("telegram:77")).toBeNull();
     expect(
@@ -219,43 +233,73 @@ describe("Connections tab", () => {
     ]);
   });
 
-  it("edits one connection's wallets in its Manage sheet", async () => {
+  it("edits one connection's lanes in its Manage sheet", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("@HooditBot")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
     expect(sheet).toHaveTextContent("Hoodit@HooditBot · Telegram bot");
-    expect(within(sheet).getByText("Wallets it can use")).toBeInTheDocument();
-    const trading = await within(sheet).findByRole("checkbox", {
-      name: "Allow Trading",
+    expect(
+      await within(sheet).findByText("Wallets it can use"),
+    ).toBeInTheDocument();
+    // No Approvals switch: the lane is the whole choice.
+    expect(within(sheet).queryByRole("switch")).toBeNull();
+    expect(
+      within(sheet).getByRole("combobox", { name: "Hoodit: Instant" }),
+    ).toBeInTheDocument();
+    // A wallet the bot has no row on uses its default: Ask in the bot.
+    const trading = within(sheet).getByRole("combobox", {
+      name: "Trading: Ask in Hoodit",
     });
-    expect(trading).toHaveAttribute("aria-checked", "false");
-    await act(async () => fireEvent.click(trading));
+    fireEvent.click(trading);
+    expect(
+      screen.getByRole("button", { name: /^Ask in Hoodit/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /^Ask on Aomi/ })),
+    );
     expect(writes().at(-1)).toEqual({
       method: "PUT",
       path: "/v1/account/connections/telegram%3A77/wallets",
       body: {
         wallets: [
-          { id: "g-hoodit", instant: true },
-          { id: "g-old", instant: true },
-          { id: "g-trading", instant: false },
+          { id: "g-hoodit", lane: "instant" },
+          { id: "g-old", lane: "instant" },
+          { id: "g-trading", lane: "aomi" },
+        ],
+      },
+    });
+
+    // Instant asks first.
+    await waitFor(() => expect(trading).not.toBeDisabled());
+    fireEvent.click(trading);
+    fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));
+    const confirm = await screen.findByRole("alertdialog", {
+      name: "Sign without asking?",
+    });
+    await act(async () =>
+      fireEvent.click(within(confirm).getByRole("button", { name: "Turn on" })),
+    );
+    expect(writes().at(-1)).toMatchObject({
+      method: "PUT",
+      body: {
+        wallets: [
+          { id: "g-hoodit", lane: "instant" },
+          { id: "g-old", lane: "instant" },
+          { id: "g-trading", lane: "instant" },
         ],
       },
     });
   });
 
-  it("greys out Instant on an Ask-only connection", async () => {
+  it("locks an Ask-only connection at Ask on Aomi", async () => {
     await renderTab();
     fireEvent.click(within(menuOf("Claude")).getByText("Manage"));
     const sheet = await screen.findByRole("dialog");
     expect(
       await within(sheet).findByText(/asks before every trade/),
     ).toBeInTheDocument();
-    const modes = within(sheet).getByRole("radiogroup", {
-      name: "Trading mode",
-    });
-    expect(
-      within(modes).getByRole("radio", { name: "Instant" }),
-    ).toBeDisabled();
+    expect(await within(sheet).findAllByText("Ask on Aomi")).toHaveLength(2);
+    expect(within(sheet).queryByRole("combobox")).toBeNull();
   });
 
   it("renames in a dialog and disconnects an OAuth client after a confirm", async () => {

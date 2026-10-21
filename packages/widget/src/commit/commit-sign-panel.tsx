@@ -22,7 +22,7 @@ import {
 import { useDisplayQuery } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
-import { SheetHeader } from "@/wallet/picker/sheet-parts";
+import { BrandMark, SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
 import { useShellTransport } from "@/account/transport";
@@ -288,31 +288,6 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
             <CommitApprovePanel handle={handle} signing={inFlight} />
           </Suspense>
         ) : null}
-        {awaitingWallet && !connected ? (
-          <div className="border-aomi-border bg-aomi-raised rounded-card mt-3 grid gap-3 border p-3">
-            <p className="type-meta">
-              Connect{" "}
-              <span title={view.signer} className="type-address">
-                {shortAddress(view.signer, { head: 8, tail: 6 })}
-              </span>{" "}
-              to review and sign this request.
-            </p>
-            <AomiButton
-              variant="secondary"
-              onClick={() =>
-                void run(async () => {
-                  if (signerRow && wallet.activateWallet)
-                    await wallet.activateWallet(signerRow.key);
-                  else await wallet.connect({ family });
-                })
-              }
-              disabled={busy || (!signerRow && !wallet.canConnect)}
-            >
-              <Wallet />
-              {signerRow ? "Switch to this wallet" : "Connect wallet"}
-            </AomiButton>
-          </div>
-        ) : null}
         {!parkedOrSigning && (awaitingWallet || inFlight) && review ? (
           <TransactionReview
             review={{
@@ -329,6 +304,31 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
               )
             }
             approveDisabled={!canSign}
+            connect={
+              awaitingWallet && !connected
+                ? {
+                    label: (
+                      <>
+                        {signerRow?.brand ? (
+                          <BrandMark brand={signerRow.brand} size={16} />
+                        ) : (
+                          <Wallet />
+                        )}
+                        {signerRow?.brand === "Privy"
+                          ? "Sign in with Privy"
+                          : `Connect ${signerRow?.brand ?? "wallet"}`}
+                      </>
+                    ),
+                    disabled: busy || (!signerRow && !wallet.canConnect),
+                    onClick: () =>
+                      void run(async () => {
+                        if (signerRow && wallet.activateWallet)
+                          await wallet.activateWallet(signerRow.key);
+                        else await wallet.connect({ family });
+                      }),
+                  }
+                : undefined
+            }
             status={error}
             statusIsError={Boolean(error)}
             recoveringExistingAttempt={Boolean(

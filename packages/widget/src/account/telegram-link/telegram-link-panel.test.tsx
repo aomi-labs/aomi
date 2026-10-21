@@ -43,9 +43,38 @@ const linked = {
   moved: { chats: 3, wallets: 2 },
 };
 
+const agentWallet = {
+  id: "g-trading",
+  name: "Trading",
+  paused: false,
+  archived_at: null,
+  app: null,
+  last_used_at: null,
+  created_at: 1,
+  addresses: [
+    {
+      family: "evm",
+      address: "0xae86000000000000000000000000000000009738",
+      wallet_id: "w_12",
+    },
+  ],
+  connections: [],
+};
+
 type Route = () => Response | Promise<Response>;
 
+/** The bot's wallet view reads the account's wallets; none by default. */
+const walletRoutes: Record<string, Route> = {
+  "agent-wallets": () => Response.json({ pause_all: false, wallets: [] }),
+  wallets: () => Response.json({ wallets: [] }),
+};
+
+/** The link flow's own requests, without the wallet view's. */
+const linkCalls = (calls: { path: string; body: unknown }[]) =>
+  calls.filter((call) => call.path.startsWith("/v1/account/link/"));
+
 function backend(routes: Record<string, Route | Route[]>) {
+  routes = { ...walletRoutes, ...routes };
   const calls: { path: string; body: unknown }[] = [];
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
@@ -92,9 +121,16 @@ afterEach(() => vi.useRealTimers());
 describe("TelegramLinkPanel", () => {
   it("asks to link with the account and what linking changes", async () => {
     const calls = await renderPanel({ preview: () => Response.json(preview) });
-    expect(calls).toEqual([
+    expect(linkCalls(calls)).toEqual([
       { path: "/v1/account/link/telegram/preview", body: { code } },
     ]);
+    // The bot's wallet view reads every wallet of the account.
+    expect(calls.map((call) => call.path)).toEqual(
+      expect.arrayContaining([
+        "/v1/account/agent-wallets",
+        "/v1/account/wallets",
+      ]),
+    );
     expect(
       screen.getByRole("heading", { name: "Link Telegram @arixon?" }),
     ).toBeTruthy();
@@ -136,15 +172,31 @@ describe("TelegramLinkPanel", () => {
     expect(screen.queryByText(/will be cancelled/)).toBeNull();
   });
 
-  it("links on confirm and sends you back to the bot", async () => {
+  it("links on confirm, saves the bot's lanes and sends you back to the bot", async () => {
     const calls = await renderPanel({
       preview: () => Response.json(preview),
       confirm: () => Response.json(linked),
+      "agent-wallets": () =>
+        Response.json({ pause_all: false, wallets: [agentWallet] }),
     });
+    // The bot starts on its default lane and can be moved before linking.
+    fireEvent.click(
+      await screen.findByRole("combobox", {
+        name: "Trading: Ask in @HooditBot",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));
+    expect(
+      screen.getByRole("combobox", { name: "Trading: Instant" }),
+    ).toBeTruthy();
     await click("Link");
-    expect(calls.at(-1)).toEqual({
+    expect(linkCalls(calls).at(-1)).toEqual({
       path: "/v1/account/link/telegram/confirm",
       body: { code },
+    });
+    expect(calls.at(-1)).toEqual({
+      path: "/v1/account/connections/telegram%3A7712345678/wallets",
+      body: { wallets: [{ id: "g-trading", lane: "instant" }] },
     });
     expect(screen.getByRole("heading", { name: "Linked" })).toBeTruthy();
     expect(screen.getByText("@HooditBot now uses this account.")).toBeTruthy();
@@ -262,7 +314,7 @@ describe("TelegramLinkPanel", () => {
     ).toBeTruthy();
     expect(screen.getByText("1 trade still being sent.")).toBeTruthy();
     await click("Try again");
-    expect(calls.map((call) => call.path.split("/").pop())).toEqual([
+    expect(linkCalls(calls).map((call) => call.path.split("/").pop())).toEqual([
       "preview",
       "confirm",
       "confirm",
@@ -279,7 +331,7 @@ describe("TelegramLinkPanel", () => {
     });
     expect(screen.getByText("Couldn’t reach Aomi. Try again.")).toBeTruthy();
     await click("Try again");
-    expect(calls).toHaveLength(2);
+    expect(linkCalls(calls)).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
   });
 

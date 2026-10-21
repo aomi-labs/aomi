@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility, shortAddress } from "@aomi-labs/client";
 import {
@@ -41,6 +41,7 @@ export function TransactionReview({
   approveDisabled = false,
   approveLabel,
   approveHref,
+  connect,
   note,
   rejectDisabled = false,
   status,
@@ -59,6 +60,8 @@ export function TransactionReview({
   approveLabel?: string;
   /** Approve happens elsewhere: the primary action opens this URL. */
   approveHref?: string;
+  /** The signer isn't connected: the primary action connects it first. */
+  connect?: { label: ReactNode; onClick: () => void; disabled?: boolean };
   /** One line above the actions, e.g. who signs after approval. */
   note?: string;
   rejectDisabled?: boolean;
@@ -258,6 +261,15 @@ export function TransactionReview({
                 {batchProgress.submitting ? "Submitting…" : "Submit all"}
               </button>
             </div>
+          ) : connect ? (
+            <AomiButton
+              variant="secondary"
+              className={reviewButtonClass}
+              onClick={connect.onClick}
+              disabled={approving || connect.disabled}
+            >
+              {connect.label}
+            </AomiButton>
           ) : approveHref ? (
             <a
               href={approveHref}

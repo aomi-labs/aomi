@@ -1,7 +1,7 @@
 /**
  * Connections: the portal, each OAuth client (AI clients over MCP, SDK apps,
- * the Aomi CLI) and each Telegram bot that uses the account, with the agent
- * wallets it may use (Ask or Instant each), its label and last use.
+ * the Aomi CLI) and each Telegram bot that uses the account, with its lane
+ * on each agent wallet, its label and last use.
  *
  * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2 and
  * notes/rework-contract.md §5:
@@ -14,6 +14,9 @@
 import { asRecord, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletError } from "./wallets";
+import { laneOf, type AomiLane } from "./lanes";
+
+export { defaultLane, laneOf, type AomiLane } from "./lanes";
 
 export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
 
@@ -32,15 +35,9 @@ export type AomiAccountConnection = {
   telegram: AomiConnectionTelegram | null;
   /** The app this connection is locked to; null when it is open. */
   application: AomiConnectionApp | null;
-  /** Never Instant, whatever its wallets say. */
+  /** Always `aomi`, whatever its wallets say. */
   ask_only: boolean;
-  /**
-   * May approve its own Ask trades ("Can approve trades"): the CLI's
-   * `aomi tx approve`, an AI client's `aomi_approve`, a bot's Approve card.
-   * Always true for the portal.
-   */
-  approves: boolean;
-  /** The agent wallets it may use; each asks unless `instant`. */
+  /** Its lanes set on agent wallets; a wallet left out has the default. */
   wallets: AomiConnectionWallet[];
   /** Unix seconds. */
   last_used_at: number | null;
@@ -55,13 +52,13 @@ export type AomiConnectionApp = { id: number; name: string; label: string };
 export type AomiConnectionTelegram = { user: string | null; bot: string };
 
 /**
- * A pair: this connection may use agent wallet `id`. An archived wallet's
- * pair is listed (and must be sent back on a replace) but grants nothing.
+ * The connection's lane on agent wallet `id`. An archived wallet's lane is
+ * listed (and must be sent back on a replace) but grants nothing.
  */
 export type AomiConnectionWallet = {
   id: string;
   name: string;
-  instant: boolean;
+  lane: AomiLane;
   archived: boolean;
 };
 
@@ -72,29 +69,27 @@ export type AomiAccountConnections = { connections: AomiAccountConnection[] };
 export type AomiConnectionSettingsUpdate = {
   /** Trimmed, up to 40 characters; empty or null clears it. */
   label?: string | null;
-  /** May approve its own Ask trades. Not for the portal, which always does. */
-  approves?: boolean;
 };
 
 export type AomiConnectionSettings = Pick<
   AomiAccountConnection,
-  "key" | "last_used_at" | "approves"
+  "key" | "last_used_at"
 > & { label: string | null };
 
 /**
- * Every agent wallet a connection may use; it replaces the pairs it had.
- * `application` (an app's name, from app-locked consent) locks the
- * connection to that app. On an Ask-only connection, `instant` is stored
- * as false.
+ * A connection's lanes on agent wallets; it replaces the lanes it had (a
+ * wallet left out goes back to the default). `application` (an app's name,
+ * from app-locked consent) locks the connection to that app. On an Ask-only
+ * connection every lane is stored as `aomi`.
  */
 export type AomiConnectionWalletsUpdate = {
-  wallets: { id: string; instant: boolean }[];
+  wallets: { id: string; lane: AomiLane }[];
   application?: string;
   /**
-   * With `application`: make the app's wallet now, in this mode, when none
+   * With `application`: make the app's wallet now, in this lane, when none
    * of `wallets` is one the app made.
    */
-  new_app_wallet?: { instant: boolean };
+  new_app_wallet?: { lane: AomiLane };
   ask_only?: boolean;
 };
 
@@ -149,7 +144,6 @@ export class AccountConnectionsTransport {
     return {
       key: stringValue(record.key) ?? key,
       label: stringValue(record.label) ?? null,
-      approves: record.approves === true,
       last_used_at: unixOrNull(record.last_used_at),
     };
   }
@@ -226,7 +220,6 @@ export function parseConnections(value: unknown): AomiAccountConnections {
           telegram: telegramOf(row.telegram),
           application: appOf(row.application),
           ask_only: row.ask_only === true,
-          approves: row.approves === true,
           wallets: walletsOf(row.wallets),
           last_used_at: unixOrNull(row.last_used_at),
           connected_at: unixOrNull(row.connected_at),
@@ -261,7 +254,7 @@ function walletsOf(value: unknown): AomiConnectionWallet[] {
           {
             id,
             name: stringValue(wallet?.name) ?? "",
-            instant: wallet?.instant === true,
+            lane: laneOf(wallet?.lane),
             archived: wallet?.archived === true,
           },
         ]

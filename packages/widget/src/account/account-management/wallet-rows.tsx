@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import {
   ChevronRight,
-  CircleCheck,
-  Copy,
-  ExternalLink,
   LogOut,
   Mail,
   Pencil,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { cn } from "@aomi-labs/react";
@@ -39,8 +37,12 @@ import { AddressSummary } from "./labels";
 
 type RowHandler = (row: WalletRow) => void;
 
+/** A sign-in wallet's Manage sheet: its name, app and addresses. */
+export type ManagedWallet = { name: string; brand: string; rows: WalletRow[] };
+
 export type WalletRowHandlers = {
   pending: string | null;
+  onManage?: (wallet: ManagedWallet) => void;
   onActivate?: RowHandler;
   onVerify?: () => void;
   onRename?: (row: WalletRow, label: string | null) => Promise<boolean>;
@@ -64,9 +66,10 @@ const CHILD = CHILD_INDENT;
 
 /**
  * One address. Clicking it makes it Active (or verifies it when it is not in
- * the account yet); a row that needs a step says which on hover. A wallet
- * or login with a single address renders as one of these, passing its own
- * `title` and `menu`.
+ * the account yet); a row that needs a step says which on hover. Under a
+ * wallet (`nested`) it only copies: the wallet's ⋯ holds the actions. A
+ * wallet or login with a single address renders as one of these, passing
+ * its own `title` and `menu`.
  */
 export function AddressRow({
   row,
@@ -77,6 +80,7 @@ export function AddressRow({
   dim = false,
   menu,
   pending,
+  onManage,
   onActivate,
   onVerify,
   onRename,
@@ -106,12 +110,14 @@ export function AddressRow({
   const external = !nested;
   const app = appName(row);
 
+  // The wallet's own short menu: Manage first; making it active and copying
+  // are the row and its copy button, the explorer is in Manage › Receive.
   const items: MenuItem[] = [];
-  if (row.linked && !row.active && onActivate)
+  if (external && row.kind !== "agent" && onManage)
     items.push({
-      label: "Make active",
-      icon: CircleCheck,
-      onSelect: () => onActivate(row),
+      label: "Manage",
+      icon: SlidersHorizontal,
+      onSelect: () => onManage({ name: title, brand: app, rows: [row] }),
     });
   if (row.linkedWalletId && onRename)
     items.push({
@@ -126,18 +132,6 @@ export function AddressRow({
           allowEmpty: true,
           onSave: (label) => onRename(row, label || null),
         }),
-    });
-  items.push({
-    label: "Copy address",
-    icon: Copy,
-    onSelect: () => copyText(row.address),
-  });
-  const explorer = addressExplorerUrl(row);
-  if (explorer)
-    items.push({
-      label: "View on explorer",
-      icon: ExternalLink,
-      href: explorer,
     });
   if (
     external &&
@@ -255,11 +249,13 @@ export function AddressRow({
           </span>
         ) : null}
         <CopyButton value={row.address} label={`Copy address ${row.address}`} />
-        <ActionsMenu
-          label={`Actions for ${title} ${short}`}
-          items={menu ? menu(items) : items}
-          disabled={locked}
-        />
+        {nested ? null : (
+          <ActionsMenu
+            label={`Actions for ${title} ${short}`}
+            items={menu ? menu(items) : items}
+            disabled={locked}
+          />
+        )}
       </div>
       {dialog}
     </div>
@@ -284,6 +280,13 @@ export function LoginRows({
   const email = group.identity?.email;
   const signedIn = group.rows.some((row) => row.connected);
   const items: MenuItem[] = [];
+  if (handlers.onManage)
+    items.push({
+      label: "Manage",
+      icon: SlidersHorizontal,
+      onSelect: () =>
+        handlers.onManage?.({ name, brand: name, rows: group.rows }),
+    });
   if (email)
     items.push({
       label: "Copy email",

@@ -675,14 +675,14 @@ export async function denyAgentWalletsForUser(input: {
       [key.id],
     );
   }
-  // Pause all and put every connection back on Ask.
+  // Pause all and put every connection back on Ask on Aomi.
   await input.db.query(`update users set agents_paused = true where id = $1`, [
     input.userId,
   ]);
   await input.db.query(
-    `update wallet_access set instant = false,
+    `update wallet_access set lane = 'aomi',
         updated_at = extract(epoch from now())::bigint
-      where user_id = $1 and instant`,
+      where user_id = $1 and lane <> 'aomi'`,
     [input.userId],
   );
 }
@@ -1116,22 +1116,20 @@ export async function listConnectionSettings(
     lastUsedAt: number | null;
     application: { id: number; name: string; label: string } | null;
     askOnly: boolean;
-    /** The owner's choice; null is the client's default. */
-    approves: boolean | null;
     wallets: {
       id: string;
       name: string;
-      instant: boolean;
+      lane: "aomi" | "here" | "instant";
       archived: boolean;
     }[];
   }[]
 > {
   const result = await db.query(
-    `select c.key, c.label, c.last_used_at, c.ask_only, c.approves,
+    `select c.key, c.label, c.last_used_at, c.ask_only,
             a.id as app_id, a.name as app_name, a.label as app_label,
             coalesce((
               select json_agg(json_build_object(
-                       'id', aw.id::text, 'name', aw.name, 'instant', wa.instant,
+                       'id', aw.id::text, 'name', aw.name, 'lane', wa.lane,
                        'archived', aw.archived_at is not null)
                      order by aw.created_at, aw.id)
                 from wallet_access wa
@@ -1156,18 +1154,17 @@ export async function listConnectionSettings(
             label: optionalString(row.app_label) ?? String(row.app_name),
           },
     askOnly: row.ask_only === true,
-    approves: typeof row.approves === "boolean" ? row.approves : null,
     wallets: (
       row.wallets as {
         id: string;
         name: string;
-        instant: boolean;
+        lane: string;
         archived: boolean;
       }[]
-    ).map(({ id, name, instant, archived }) => ({
+    ).map(({ id, name, lane, archived }) => ({
       id,
       name,
-      instant: instant === true,
+      lane: lane === "here" || lane === "instant" ? lane : "aomi",
       archived: archived === true,
     })),
   }));

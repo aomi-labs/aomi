@@ -220,7 +220,7 @@ describe("Wallets & access", () => {
     expect(onVerify).toHaveBeenCalledTimes(1);
   });
 
-  it("offers the address menu for an external wallet", async () => {
+  it("offers the wallet's short menu for an external wallet", async () => {
     const onRemove = vi.fn();
     const onDisconnect = vi.fn();
     const onRename = vi.fn(async () => true);
@@ -229,13 +229,9 @@ describe("Wallets & access", () => {
     const items = screen
       .getAllByRole("menuitem")
       .map((item) => item.textContent);
-    expect(items).toEqual([
-      "Make active",
-      "Rename",
-      "Copy address",
-      "View on explorer",
-      "Remove from account",
-    ]);
+    // Manage first; Make active is the row, Copy its button, the explorer
+    // lives in Manage › Receive.
+    expect(items).toEqual(["Manage", "Rename", "Remove from account"]);
     // The destructive item sits alone after a separator.
     const menu = screen.getByRole("menu");
     expect(menu.lastElementChild?.previousElementSibling).toHaveAttribute(
@@ -247,9 +243,8 @@ describe("Wallets & access", () => {
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual([
+      "Manage",
       "Rename",
-      "Copy address",
-      "View on explorer",
       "Sign out on this device",
       "Remove from account",
     ]);
@@ -285,16 +280,29 @@ describe("Wallets & access", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("gives embedded wallets Make active, Rename, Copy and View on explorer only", () => {
+  it("gives an address under a wallet only its copy button; clicking it makes it active", () => {
+    const onActivate = vi.fn();
     renderSettings([privyEvm, privySvm], {
+      onActivate,
       onRename: vi.fn(async () => true),
       onRemove: vi.fn(),
       onDisconnect: vi.fn(),
     });
-    openMenu(privyEvm, "Privy");
+    const child = rowFor(privyEvm);
     expect(
-      screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Make active", "Rename", "Copy address", "View on explorer"]);
+      within(child).queryByRole("button", { name: /^Actions for/ }),
+    ).toBeNull();
+    expect(
+      within(child).getByRole("button", {
+        name: `Copy address ${privyEvm.address}`,
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(child).getByRole("button", {
+        name: `Use Privy ${shortAddress(privyEvm.address)}`,
+      }),
+    );
+    expect(onActivate).toHaveBeenCalledWith(privyEvm);
   });
 
   it("offers sign-out and removal on the provider menu", () => {
@@ -319,7 +327,12 @@ describe("Wallets & access", () => {
     fireEvent.click(screen.getByRole("button", { name: "Actions for Privy" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Copy email", "Sign out on this device", "Remove from account"]);
+    ).toEqual([
+      "Manage",
+      "Copy email",
+      "Sign out on this device",
+      "Remove from account",
+    ]);
     fireEvent.click(
       screen.getByRole("menuitem", { name: "Sign out on this device" }),
     );

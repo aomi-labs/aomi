@@ -15,6 +15,7 @@
  */
 import { AomiApiError, apiErrorFields } from "../api-error";
 import { asRecord, stringValue } from "../internal/record";
+import { laneOf } from "./lanes";
 import {
   agentWalletPaths,
   parseAgentWallet,
@@ -330,6 +331,7 @@ export function parseAccountWallet(value: unknown): AomiAccountWallet {
     created_at: typeof record.created_at === "number" ? record.created_at : 0,
     agent_wallet_id: stringValue(record.agent_wallet_id) ?? null,
     maker_app: stringValue(record.maker_app) ?? null,
+    ...(record.lane === undefined ? {} : { lane: laneOf(record.lane) }),
   };
 }
 

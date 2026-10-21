@@ -90,8 +90,8 @@ const trading = wallet("g-trading", "Trading", {
     { family: "svm", address: SVM, wallet_id: "w_13" },
   ],
   connections: [
-    { key: "oauth:c1", label: "Claude Code", instant: false },
-    { key: "portal", label: "Aomi", instant: true },
+    { key: "oauth:c1", label: "Claude Code", lane: "aomi" },
+    { key: "portal", label: "Aomi", lane: "instant" },
   ],
 });
 const world = wallet("g-world", "World", {
@@ -103,6 +103,33 @@ const hoodit = wallet("g-hoodit", "Hoodit", {
 });
 const extra = wallet("g-extra", "Extra");
 const old = wallet("g-old", "Old", { archived_at: 1_760_000_100 });
+const connection = (key: string, kind: string, name: string, extra = {}) => ({
+  key,
+  kind,
+  name,
+  detail: null,
+  telegram: null,
+  application: null,
+  ask_only: false,
+  wallets: [],
+  last_used_at: null,
+  connected_at: null,
+  removable: kind !== "portal",
+  ...extra,
+});
+const connections = [
+  connection("portal", "portal", "Aomi", {
+    wallets: [
+      { id: "g-trading", name: "Trading", lane: "instant", archived: false },
+    ],
+  }),
+  connection("oauth:c1", "ai", "Claude Code", {
+    detail: "AI client",
+    wallets: [
+      { id: "g-trading", name: "Trading", lane: "aomi", archived: false },
+    ],
+  }),
+];
 
 const agentRow = (
   address: string,
@@ -156,6 +183,8 @@ beforeEach(() => {
       if (answer) return answer;
       if (url.pathname === "/v1/account/agent-wallets")
         return Response.json(list);
+      if (url.pathname === "/v1/account/connections")
+        return Response.json({ connections });
       if (url.pathname.endsWith("/balances"))
         return Response.json({ networks: [] });
       if (method === "PATCH") return Response.json(trading);
@@ -283,14 +312,13 @@ describe("Agent wallets band", () => {
       within(row).queryByRole("button", { name: /^(Show|Hide) / }),
     ).toBeNull();
     expect(within(row).getByText("Solo")).toBeInTheDocument();
-    // Its ⋯ holds the wallet's actions around the address ones.
+    // Its ⋯ is the wallet's own menu; copy stays on the row, the explorer
+    // lives in Manage › Receive.
     fireEvent.click(
       within(row).getByRole("button", { name: /^Actions for Solo / }),
     );
     expect(names(screen.getByRole("menu"))).toEqual([
       "Manage",
-      "Copy address",
-      "View on explorer",
       "Rename",
       "Pause",
       "Archive",
@@ -401,21 +429,33 @@ describe("Agent wallets band", () => {
   it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
     await renderSection();
     const sheet = await manage("Trading");
-    // Who can use it, each with Ask/Instant; the portal is not listed.
+    // Who can use it, each with its lane on this wallet; the portal is not
+    // listed.
     expect(within(sheet).getByText("Who can use it")).toBeInTheDocument();
-    expect(within(sheet).getByText("Claude Code")).toBeInTheDocument();
-    expect(
-      within(sheet).getByRole("radiogroup", { name: "Claude Code mode" }),
-    ).toBeInTheDocument();
+    expect(await within(sheet).findByText("Claude Code")).toBeInTheDocument();
+    const lane = within(sheet).getByRole("combobox", {
+      name: "Trading: Ask on Aomi",
+    });
     expect(within(sheet).queryByText("Aomi")).toBeNull();
-    // Withdraw, Rename and a Pause switch, then Archive alone at the bottom.
+    fireEvent.click(lane);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: /^Ask in Claude Code/ }),
+      ),
+    );
+    expect(writes().at(-1)).toEqual({
+      method: "PUT",
+      path: "/v1/account/connections/oauth%3Ac1/wallets",
+      body: { wallets: [{ id: "g-trading", lane: "here" }] },
+    });
+    // Send, Rename and a Pause switch, then Archive alone at the bottom.
     const actions = within(sheet)
       .getAllByRole("button")
       .map((button) => button.textContent)
       .filter((text) =>
-        ["Withdraw", "Rename", "Archive"].some((label) => text === label),
+        ["Send", "Rename", "Archive"].some((label) => text === label),
       );
-    expect(actions).toEqual(["Withdraw", "Rename", "Archive"]);
+    expect(actions).toEqual(["Send", "Rename", "Archive"]);
     expect(
       within(sheet).getByRole("switch", { name: "Pause Trading" }),
     ).toHaveAttribute("aria-checked", "false");
@@ -426,6 +466,9 @@ describe("Agent wallets band", () => {
       within(receive).getByRole("img", { name: `QR code for ${EVM}` }),
     ).toBeInTheDocument();
     expect(receive).toHaveTextContent(EVM);
+    expect(
+      within(receive).getByRole("link", { name: "View on explorer" }),
+    ).toHaveAttribute("href", expect.stringContaining(EVM));
     for (const network of ["Ethereum", "Base", "Robinhood Chain", "Arc"])
       expect(within(receive).getByText(network)).toBeInTheDocument();
     expect(within(receive).queryByText("Sepolia")).toBeNull();
@@ -512,7 +555,7 @@ describe("Agent wallets band", () => {
     await screen.findByRole("button", { name: "Actions for Trading" });
     fireEvent.click(
       within(await manage("Trading")).getByRole("button", {
-        name: "Withdraw",
+        name: "Send",
       }),
     );
     const sheet = await screen.findByRole("dialog");
@@ -602,7 +645,7 @@ describe("Agent wallets band", () => {
     await renderSection();
     fireEvent.click(
       within(await manage("Trading")).getByRole("button", {
-        name: "Withdraw",
+        name: "Send",
       }),
     );
     const sheet = await screen.findByRole("dialog");

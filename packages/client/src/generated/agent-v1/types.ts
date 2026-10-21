@@ -2784,6 +2784,11 @@ export interface components {
       agent_wallet_id: string | null;
       /** @description The app that made the agent wallet. */
       maker_app: string | null;
+      /**
+       * @description An agent wallet's lane for the caller's connection: aomi (the user approves its trades on Aomi), here (the caller approves its own trades), instant (they sign at once).
+       * @enum {string}
+       */
+      lane?: "aomi" | "here" | "instant";
     };
     WalletBalance: {
       /** @description w_<public key id>; stable across account merges. */

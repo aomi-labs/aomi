@@ -41,7 +41,8 @@ import {
   botTitle,
   usedLabel,
 } from "@/account/connections/connections-settings";
-import { useAccessWrite } from "@/account/connections/use-access-write";
+import { ConnectionLanes } from "@/account/connections/connection-lanes";
+import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
 import {
   EVM_NETWORKS,
@@ -51,8 +52,8 @@ import {
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * which connections may use it (Ask or Instant each), then Withdraw, Rename
- * and Pause as rows, and Archive alone at the bottom. Changes save at once.
+ * every connection with its lane on it, then Send, Rename and Pause as rows,
+ * and Archive alone at the bottom. Changes save at once.
  */
 export function AgentWalletManage({
   wallet,
@@ -75,14 +76,10 @@ export function AgentWalletManage({
   onArchive: (archive: boolean) => void;
 }) {
   const { client } = useShellTransport();
-  const connections = useDisplayQuery(connectionsQuery(client));
-  const goTo = useContext(SettingsNavContext);
-  const { write, saving, error, dialog: confirmDialog } = useAccessWrite();
   const { rename, dialog: renameDialog } = useRenameDialog();
   const [receive, setReceive] = useState<WalletFamily | null>(null);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
-  const pairs = pairedConnections(wallet);
   const addresses = wallet.addresses;
 
   if (receive)
@@ -176,105 +173,23 @@ export function AgentWalletManage({
           </ListGroup>
         ) : null}
 
-        <section className="flex flex-col gap-2">
-          <SectionHeader
-            title="Who can use it"
-            detail={plural(pairs.length, "connection")}
-            action={
-              goTo ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    goTo("connections");
-                  }}
-                  className="type-meta text-aomi-accent-strong hover:text-aomi-fg inline-flex items-center gap-1 rounded-[6px] px-1 py-0.5 font-medium outline-none focus-visible:ring-2"
-                >
-                  Manage in Connections
-                  <ArrowRight className="size-3.5" />
-                </button>
-              ) : undefined
-            }
-          />
-          {error ? <SheetAlert>{error}</SheetAlert> : null}
-          {pairs.length ? (
-            <ListGroup>
-              {pairs.map((pair) => {
-                const connection = connections.data?.connections.find(
-                  (row) => row.key === pair.key,
-                );
-                const locked = Boolean(connection?.ask_only);
-                const title =
-                  connection?.kind === "telegram"
-                    ? botTitle(connection)
-                    : pair.label;
-                const handle = connection?.telegram?.bot;
-                // A save in flight shows what it will hold.
-                const access =
-                  saving[pair.key]?.find((entry) => entry.id === wallet.id) ??
-                  pair;
-                return (
-                  <ListRow
-                    key={pair.key}
-                    data-pair={pair.key}
-                    leading={
-                      <ConnectionMark
-                        kind={connection?.kind ?? "app"}
-                        name={pair.label}
-                      />
-                    }
-                    title={title}
-                    description={
-                      locked
-                        ? "Asks before every trade"
-                        : connection?.kind === "telegram"
-                          ? handle && handle !== title
-                            ? `${handle} · Telegram`
-                            : "Telegram"
-                          : connection?.detail
-                    }
-                    trailing={
-                      <Segmented
-                        label={`${pair.label} mode`}
-                        size="sm"
-                        value={access.instant && !locked ? "instant" : "ask"}
-                        disabled={!connection || archived || paused}
-                        onChange={(mode) =>
-                          connection &&
-                          void write(connection, wallet, mode, title)
-                        }
-                        options={[
-                          { value: "ask", label: "Ask" },
-                          {
-                            value: "instant",
-                            label: "Instant",
-                            disabled: locked,
-                          },
-                        ]}
-                      />
-                    }
-                  />
-                );
-              })}
-            </ListGroup>
-          ) : (
-            <p className="type-meta text-aomi-muted">
-              Only you, here in Aomi. Allow a connection in Connections, or when
-              a client asks.
-            </p>
-          )}
-          {paused && pairs.length ? (
-            <p className="type-meta text-aomi-muted flex items-start gap-1.5">
-              <Pause className="mt-px size-3.5 shrink-0" />
-              Paused: nothing signs, whatever these say, until you resume.
-            </p>
-          ) : null}
-        </section>
+        <ConnectionLanes
+          agentWallet={archived ? undefined : wallet}
+          brand="Aomi"
+          disabled={paused}
+          onClose={onClose}
+        />
+        {paused ? (
+          <p className="type-meta text-aomi-muted -mt-2 flex items-start gap-1.5">
+            <Pause className="mt-px size-3.5 shrink-0" />
+            Paused: nothing signs, whatever these say, until you resume.
+          </p>
+        ) : null}
 
         <ListGroup>
           <ActionRow
             icon={ArrowUpRight}
-            label="Withdraw"
+            label="Send"
             step
             onClick={onWithdraw}
           />
@@ -332,27 +247,37 @@ export function AgentWalletManage({
           )}
         </ListGroup>
       </div>
-      {confirmDialog}
       {renameDialog}
     </AomiSheet>
   );
 }
 
 /** Receive: a tab per family (only with two), the QR, the address, its networks. */
-function ReceiveStep({
+/** One wallet's Receive step: its QR, address and networks, by family. */
+export function ReceiveStep({
   wallet,
   family,
   onFamily,
   onBack,
   onClose,
 }: {
-  wallet: AomiAgentWallet;
+  wallet: {
+    name: string;
+    addresses: readonly { family: WalletFamily; address: string }[];
+  };
   family: WalletFamily;
   onFamily: (family: WalletFamily) => void;
   onBack: () => void;
   onClose: () => void;
 }) {
   const address = wallet.addresses.find((entry) => entry.family === family);
+  const explorer = address
+    ? explorerUrl(
+        family === "evm" ? 1 : "mainnet-beta",
+        "address",
+        address.address,
+      )
+    : null;
   return (
     <>
       <SheetHeader
@@ -394,10 +319,26 @@ function ReceiveStep({
                 description={address.address}
                 descriptionMono
                 trailing={
-                  <CopyButton
-                    value={address.address}
-                    label={`Copy ${familyName(family)} address`}
-                  />
+                  <>
+                    <CopyButton
+                      value={address.address}
+                      label={`Copy ${familyName(family)} address`}
+                    />
+                    {explorer ? (
+                      <a
+                        href={explorer}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="View on explorer"
+                        className={aomiButton({
+                          variant: "ghost",
+                          size: "icon-sm",
+                        })}
+                      >
+                        <ArrowUpRight size={14} />
+                      </a>
+                    ) : null}
+                  </>
                 }
               />
             </ListGroup>

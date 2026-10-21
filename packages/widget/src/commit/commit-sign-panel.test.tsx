@@ -19,7 +19,12 @@ const signer = "0x1111111111111111111111111111111111111111";
 const ref = "cmt_panel";
 const kit = vi.hoisted(() => ({
   identity: { address: undefined as string | undefined },
-  wallets: [] as { key: string; family: string; address: string }[],
+  wallets: [] as {
+    key: string;
+    family: string;
+    address: string;
+    brand?: string;
+  }[],
   canConnect: true,
   connect: vi.fn(),
   activateWallet: vi.fn(),
@@ -213,11 +218,8 @@ describe("CommitSignPanel", () => {
     const { handle } = await open(view());
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
-    expect(screen.getByText(/to review and sign this request/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Submit/ })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    // The Submit slot connects the wallet first.
+    expect(screen.queryByRole("button", { name: /Submit/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
     await waitFor(() =>
       expect(kit.connect).toHaveBeenCalledWith({ family: "evm" }),
@@ -226,13 +228,13 @@ describe("CommitSignPanel", () => {
 
   it("switches to a linked signer instead of connecting a new wallet", async () => {
     kit.identity.address = undefined;
-    kit.wallets = [{ key: "evm:signer", family: "evm", address: signer }];
+    kit.wallets = [
+      { key: "evm:signer", family: "evm", address: signer, brand: "MetaMask" },
+    ];
     const { handle } = await open(view());
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Switch to this wallet" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Connect MetaMask" }));
     await waitFor(() =>
       expect(kit.activateWallet).toHaveBeenCalledWith("evm:signer"),
     );

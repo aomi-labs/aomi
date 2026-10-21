@@ -496,6 +496,7 @@ export { AomiWallets } from "./sdk/wallets";
 export {
   AccountConnectionsTransport,
   connectionPaths,
+  defaultLane,
 } from "./account/connections";
 export type {
   AomiAccountConnection,
@@ -507,6 +508,7 @@ export type {
   AomiConnectionSettingsUpdate,
   AomiConnectionWallet,
   AomiConnectionWalletsUpdate,
+  AomiLane,
 } from "./account/connections";
 export {
   AccountTelegramLinkTransport,

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
 import { LogOut, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { AccountAvatar } from "../account-avatar";
@@ -19,7 +19,13 @@ import {
   type MenuItem,
 } from "./controls";
 import { SignsWithStrip } from "./signs-with";
-import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
+import {
+  AddressRow,
+  LoginRows,
+  type ManagedWallet,
+  type WalletRowHandlers,
+} from "./wallet-rows";
+import { SignInWalletManage } from "./sign-in-wallet-manage";
 import {
   addressSummary,
   walletSections,
@@ -64,8 +70,9 @@ export function AccountManagement({
   ...rowHandlers
 }: AccountManagementProps) {
   const { rename, dialog } = useRenameDialog();
+  const [managing, setManaging] = useState<ManagedWallet | null>(null);
   const { wallets, logins } = walletSections(rows, unlinked, signInMethods);
-  const handlers = { pending, ...rowHandlers };
+  const handlers = { pending, onManage: setManaging, ...rowHandlers };
   const visibleName = accountDisplayName(user, displayEmailHint);
   const walletSummary = addressSummary(rows);
   const accountDetail =
@@ -231,6 +238,13 @@ export function AccountManagement({
         </section>
       ) : null}
       {dialog}
+      {managing ? (
+        <SignInWalletManage
+          wallet={managing}
+          onRename={rowHandlers.onRename}
+          onClose={() => setManaging(null)}
+        />
+      ) : null}
     </div>
   );
 }

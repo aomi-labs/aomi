@@ -108,8 +108,9 @@ export function botTitle(row: AomiAccountConnection): string {
 }
 
 /**
- * `AI client · [app] Hoodit · 1 wallet · used 2 h ago`. A Telegram bot is
- * titled by its app already, so its line starts with its @handle instead.
+ * `AI client · [app] Hoodit · Instant on 1 wallet · used 2 h ago`. A
+ * Telegram bot is titled by its app already, so its line starts with its
+ * @handle instead.
  */
 function description(row: AomiAccountConnection): ReactNode {
   const used = row.last_used_at === null ? null : usedLabel(row.last_used_at);
@@ -120,7 +121,13 @@ function description(row: AomiAccountConnection): ReactNode {
     telegram && row.telegram?.bot !== botTitle(row) ? row.telegram?.bot : null;
   const lead =
     handle ?? (telegram ? null : (row.detail ?? KIND_LABEL[row.kind]));
-  const rest = [plural(liveWallets(row).length, "wallet"), used]
+  const instant = liveWallets(row).filter(
+    (wallet) => wallet.lane === "instant",
+  ).length;
+  const rest = [
+    instant ? `Instant on ${plural(instant, "wallet")}` : null,
+    used,
+  ]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -134,7 +141,7 @@ function description(row: AomiAccountConnection): ReactNode {
 }
 
 const isInstant = (row: AomiAccountConnection) =>
-  row.wallets.some((wallet) => wallet.instant && !wallet.archived);
+  row.wallets.some((wallet) => wallet.lane === "instant" && !wallet.archived);
 
 /** `@hyperlabai_bot · Telegram bot · connected Oct 16`, under a Manage sheet's title. */
 function sheetDescription(row: AomiAccountConnection): string {
@@ -299,8 +306,13 @@ export function ConnectionsSettings() {
   );
 
   const telegramUser = bots.find((row) => row.telegram?.user)?.telegram?.user;
-  const telegramWallets = new Set(
-    bots.flatMap((row) => liveWallets(row).map((wallet) => wallet.id)),
+  // Every bot sees every wallet; the group counts the ones signing at once.
+  const telegramInstant = new Set(
+    bots.flatMap((row) =>
+      liveWallets(row)
+        .filter((wallet) => wallet.lane === "instant")
+        .map((wallet) => wallet.id),
+    ),
   ).size;
   const telegramGroup = bots.length ? (
     <div key="telegram" data-connection="telegram">
@@ -312,7 +324,9 @@ export function ConnectionsSettings() {
         description={[
           telegramUser,
           plural(bots.length, "bot"),
-          plural(telegramWallets, "wallet"),
+          telegramInstant
+            ? `Instant on ${plural(telegramInstant, "wallet")}`
+            : null,
         ]
           .filter(Boolean)
           .join(" · ")}

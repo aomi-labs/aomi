@@ -3,19 +3,18 @@
 import { useState } from "react";
 import type {
   AomiAccountConnection,
-  AomiAgentWallet,
   AomiConnectionWalletsUpdate,
+  AomiLane,
 } from "@aomi-labs/client";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { useShellTransport } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { pairsWith, type PairMode } from "./connection-pairs";
+import { pairsWith } from "./connection-pairs";
 
 /**
- * Gives an agent wallet `mode` on a connection, or takes its access away
- * with null; Instant asks first. While a connection saves, `saving[key]` is
- * the list it will hold, so ticks and switches move at once and the server
- * catches up behind them. Render `dialog`.
+ * Sets a connection's lane on an agent wallet; Instant asks first. While a
+ * connection saves, `saving[key]` is the list it will hold, so the picker
+ * moves at once and the server catches up behind it. Render `dialog`.
  */
 export function useAccessWrite() {
   const { client } = useShellTransport();
@@ -28,15 +27,15 @@ export function useAccessWrite() {
 
   const write = async (
     connection: AomiAccountConnection,
-    wallet: AomiAgentWallet,
-    mode: PairMode | null,
+    wallet: { id: string; name: string },
+    lane: AomiLane,
     /** The connection's name in the Instant prompt. */
     title: string,
   ) => {
     const { key } = connection;
     if (saving[key]) return;
     if (
-      mode === "instant" &&
+      lane === "instant" &&
       !(await confirm({
         title: "Sign without asking?",
         description: `Trades from ${title} with "${wallet.name}" will sign without asking.`,
@@ -44,7 +43,7 @@ export function useAccessWrite() {
       }))
     )
       return;
-    const wallets = pairsWith(connection, wallet.id, mode);
+    const wallets = pairsWith(connection, wallet.id, lane);
     setSaving((current) => ({ ...current, [key]: wallets }));
     setError(null);
     try {

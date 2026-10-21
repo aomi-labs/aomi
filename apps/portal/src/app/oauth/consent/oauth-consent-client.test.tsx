@@ -113,15 +113,15 @@ describe("OAuthConsentClient", () => {
       expect(
         screen.getByText("Codex will use World with your Aomi account."),
       ).toBeInTheDocument();
-      expect(await screen.findByText("Trade from")).toBeInTheDocument();
+      expect(await screen.findByText("Your wallets")).toBeInTheDocument();
+      expect(screen.getByText("Codex sees all")).toBeInTheDocument();
+      // The app's wallet, made on approval, is locked at Ask on Aomi.
       expect(screen.getByText(/Created on approval/)).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Instant" })).toBeDisabled();
+      expect(screen.getByText("Ask on Aomi")).toBeInTheDocument();
+      expect(screen.queryByRole("combobox")).toBeNull();
       expect(
-        screen.getByText(/This link requires approval for every trade/),
+        screen.getByText(/This link asks you to approve every trade on Aomi/),
       ).toBeInTheDocument();
-      fireEvent.click(
-        screen.getByRole("switch", { name: "Codex can approve trades" }),
-      );
       fireEvent.click(await allowButton());
       await waitFor(() =>
         expect(writes).toEqual([
@@ -132,15 +132,9 @@ describe("OAuthConsentClient", () => {
             body: {
               wallets: [],
               application: "world",
-              new_app_wallet: { instant: false },
+              new_app_wallet: { lane: "aomi" },
               ask_only: true,
             },
-          },
-          {
-            url: expect.stringContaining(
-              "/v1/account/connection-settings/oauth%3Acodex-mcp",
-            ),
-            body: { approves: true },
           },
         ]),
       );
@@ -160,7 +154,9 @@ describe("OAuthConsentClient", () => {
       last_used_at: null,
       created_at: 1,
       addresses: [],
-      connections: [{ key: "oauth:codex-mcp", label: "Codex", instant: true }],
+      connections: [
+        { key: "oauth:codex-mcp", label: "Codex", lane: "instant" },
+      ],
     };
     vi.stubGlobal(
       "fetch",
@@ -171,6 +167,8 @@ describe("OAuthConsentClient", () => {
           return Response.json({ connections: [] });
         if (url.includes("/v1/account/agent-wallets"))
           return Response.json({ pause_all: false, wallets: [wallet] });
+        if (url.includes("/v1/account/wallets"))
+          return Response.json({ wallets: [] });
         return Response.json({ redirect: true, url: "https://codex.test" });
       }),
     );
@@ -180,7 +178,10 @@ describe("OAuthConsentClient", () => {
     try {
       render(<ConsentSheet name="Codex" />);
       expect(await screen.findByText("Trading")).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Instant" })).toBeChecked();
+      // Its lane on the wallet pre-fills from what it has.
+      expect(
+        screen.getByRole("combobox", { name: "Trading: Instant" }),
+      ).toBeInTheDocument();
       fireEvent.click(await allowButton());
       expect(
         await screen.findByRole("heading", { name: "Codex is connected" }),
@@ -210,6 +211,8 @@ describe("OAuthConsentClient", () => {
           return Response.json({ connections: [] });
         if (url.includes("/v1/account/agent-wallets"))
           return Response.json({ pause_all: false, wallets: [] });
+        if (url.includes("/v1/account/wallets"))
+          return Response.json({ wallets: [] });
         return Response.json({ redirect: true, url: "https://codex.test" });
       }),
     );
@@ -217,7 +220,7 @@ describe("OAuthConsentClient", () => {
     vi.stubGlobal("location", { ...window.location, assign });
     try {
       render(<ConsentSheet name="Codex" />);
-      await screen.findByText("Trade from");
+      await screen.findByText("Your wallets");
       fireEvent.click(await allowButton());
       expect(
         await screen.findByText(
