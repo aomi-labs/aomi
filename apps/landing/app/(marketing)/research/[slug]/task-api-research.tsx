@@ -23,7 +23,7 @@ const outcomeRows = [
 
 const launchCapabilities = [
   "0.01 USDC paid preparation",
-  "Arc testnet paid E2E verified",
+  "Arc Mainnet payments verified on staging (20 Oct)",
   "Signed preview and frozen bundle hash",
   "Separate preparation and retrieval receipts",
   "Unsigned native-USDC transaction bundles",
@@ -145,7 +145,7 @@ const client = new TaskClient({
 
 const result = await client.purchase({
   intent: "Transfer 0.01 USDC to " + recipient,
-  chainId: 5042002, // Arc testnet
+  chainId: 5042, // Arc Mainnet; staging API
   sender,
   payer,
   constraints: {
@@ -201,7 +201,7 @@ function TaskQuickstart() {
         <div className={styles.taskPanel}>
           <header className={styles.taskPanelHeader}>
             <span>Integration walkthrough</span>
-            <span>Arc testnet</span>
+            <span>Arc Mainnet · staging</span>
           </header>
           <div className={styles.taskQuickstart}>
             <h3>From intent to execution</h3>
