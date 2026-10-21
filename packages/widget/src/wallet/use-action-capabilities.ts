@@ -199,8 +199,11 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
   return {
     address,
     broadcastTransaction: async (bytes, cluster) => {
+      // A commit names its cluster as Solana does (`mainnet-beta`); the
+      // wallet kit's networks use `solana:mainnet`.
+      const normalized = normalizeSolanaCluster(cluster);
       const network = wallet.supportedNetworks?.solana.find(
-        (network) => network.cluster === cluster,
+        (network) => network.cluster === normalized,
       );
       if (!network) throw new Error("Commit cluster is not configured");
       const connection = new SolanaConnection(network.rpcHttpUrl, "confirmed");
