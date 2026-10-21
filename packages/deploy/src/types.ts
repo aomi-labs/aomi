@@ -128,6 +128,8 @@ export interface RemoveAppSecretInput extends BearerOverride {
 export interface ServerTagsResult {
   serverTags: string[];
   sdkVersion: string;
+  ffiVersion?: number | null;
+  ffiCapabilities?: string[];
 }
 
 export interface SdkVersionStatus {
@@ -720,6 +722,7 @@ export interface ProjectApplicationManifest {
   path: string;
   name: string;
   sdkVersion: string | null;
+  ffiVersion?: number | null;
   target: string;
 }
 
@@ -753,6 +756,11 @@ export interface UserProject extends Project {
   sdkVersion?: string | null;
   /** All distinct SDK versions running across this project's live apps. */
   sdkVersions?: string[];
+  /** Verified contract of the live apps; independent of SDK release numbers. */
+  ffiVersion?: number | null;
+  ffiVersions?: number[];
+  requiredFfiVersion?: number | null;
+  ffiUnrecorded?: boolean;
 }
 
 /** One project's apps with live flags, from `GET /user/projects/:id/apps`

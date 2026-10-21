@@ -76,11 +76,23 @@ export function projectSdk(
   ];
   const declared = declaredVersions.length === 1 ? declaredVersions[0] : null;
   const requiredVersion = required || null;
-  const compatibility: SdkCompatibility = runtimeVersions.some(
+  const sdkVerdict: SdkCompatibility = runtimeVersions.some(
     (version) => sdkCompatibility(version, requiredVersion) === "outdated",
   )
     ? "outdated"
     : sdkCompatibility(runtime, requiredVersion);
+  const requiredFfi = source.requiredFfiVersion;
+  const ffiVersions = [...new Set([
+    ...(source.ffiVersions ?? []),
+    ...(source.ffiVersion != null ? [source.ffiVersion] : []),
+  ])];
+  const compatibility: SdkCompatibility = requiredFfi == null
+    ? sdkVerdict
+    : ffiVersions.some((version) => version !== requiredFfi)
+      ? "outdated"
+      : source.ffiUnrecorded || ffiVersions.length === 0
+        ? "unknown"
+        : "current";
   const outdated = compatibility === "outdated";
   const unrecorded = live && !mixed && runtime === null;
   const label = mixed
@@ -97,7 +109,13 @@ export function projectSdk(
   const requires = requiredVersion
     ? ` — backend requires ${requiredVersion}`
     : "";
-  const warning = outdated
+  const warning = requiredFfi != null
+    ? outdated
+      ? `App FFI ${ffiVersions.join(", ")} is incompatible with backend FFI ${requiredFfi}; rebuild for a supported FFI version.`
+      : compatibility === "unknown" && live
+        ? "Runtime FFI compatibility is unrecorded; redeploy to verify it."
+        : null
+    : outdated
     ? mixed || unrecorded
       ? `Live apps run SDK ${runtimeVersions.join(", ")}${requires}${unrecorded ? "; some runtime SDK records are missing" : ""}; redeploy to update.`
       : `Active application built with SDK ${runtime}${requires}; redeploy to update.`

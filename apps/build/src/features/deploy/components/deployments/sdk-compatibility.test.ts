@@ -37,6 +37,28 @@ function project(overrides: Partial<UserProject> = {}): UserProject {
 }
 
 describe("projectSdk", () => {
+  it("keeps an older SDK healthy when its verified FFI remains supported", () => {
+    const sdk = projectSdk(project({
+      sdkVersion: "5.1.1", sdkVersions: ["5.1.1"],
+      ffiVersion: 1, ffiVersions: [1], requiredFfiVersion: 1,
+    }), "6.0.0");
+    expect(sdk).toMatchObject({ compatibility: "current", outdated: false, warning: null });
+  });
+
+  it("allows mixed SDK releases sharing one verified FFI contract", () => {
+    const sdk = projectSdk(project({
+      sdkVersion: null, sdkVersions: ["5.1.1", "6.0.0"],
+      ffiVersion: 1, ffiVersions: [1], requiredFfiVersion: 1,
+    }), "6.0.0");
+    expect(sdk).toMatchObject({ compatibility: "current", outdated: false, warning: null });
+  });
+
+  it("does not treat matching SDK metadata as proof of FFI compatibility", () => {
+    expect(projectSdk(project({ sdkVersion: "6.0.0", requiredFfiVersion: 1 }), "6.0.0").compatibility).toBe("unknown");
+    expect(projectSdk(project({ sdkVersion: "6.0.0", requiredFfiVersion: 1, ffiVersions: [2] }), "6.0.0").compatibility).toBe("outdated");
+    expect(projectSdk(project({ requiredFfiVersion: 1, ffiVersions: [1], ffiUnrecorded: true }), "6.0.0").compatibility).toBe("unknown");
+  });
+
   it("reports the recorded runtime SDK and flags it outdated", () => {
     const sdk = projectSdk(project({ sdkVersion: "5.0.0" }), "5.1.0");
     expect(sdk).toMatchObject({

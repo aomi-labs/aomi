@@ -1189,6 +1189,10 @@ describe("BackendClient projects", () => {
               apps: [],
               sdk_version: null,
               sdk_versions: ["3.0.3", "3.0.4"],
+              ffi_version: 1,
+              ffi_versions: [1],
+              required_ffi_version: 1,
+              ffi_unrecorded: false,
             },
           ],
         }),
@@ -1198,6 +1202,12 @@ describe("BackendClient projects", () => {
     const [source] = await client().listUserProjects({ githubUserId: "42" });
     expect(source.sdkVersion).toBeNull();
     expect(source.sdkVersions).toEqual(["3.0.3", "3.0.4"]);
+    expect(source).toMatchObject({
+      ffiVersion: 1,
+      ffiVersions: [1],
+      requiredFfiVersion: 1,
+      ffiUnrecorded: false,
+    });
   });
 
   it("maps Manager's DB-backed required-secret declarations", async () => {

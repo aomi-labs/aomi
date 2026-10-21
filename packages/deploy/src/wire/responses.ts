@@ -453,6 +453,7 @@ export function camelUserProject(raw: unknown): UserProject {
               path: String(app.path ?? ""),
               name: String(app.name ?? ""),
               sdkVersion: app.sdk_version ?? app.sdkVersion ?? null,
+              ffiVersion: app.ffi_version ?? app.ffiVersion ?? null,
               target: String(app.target ?? ""),
             })),
           }
@@ -475,6 +476,18 @@ export function camelUserProject(raw: unknown): UserProject {
       project.latest_deployment ?? project.latestDeployment,
     ),
     sdkVersion: project.sdk_version ?? project.sdkVersion ?? null,
+    ffiVersion: project.ffi_version ?? project.ffiVersion ?? null,
+    requiredFfiVersion:
+      project.required_ffi_version ?? project.requiredFfiVersion ?? null,
+    ffiVersions: (
+      (project.ffi_versions ?? project.ffiVersions ?? []) as unknown[]
+    ).flatMap((version) =>
+      typeof version === "number" && Number.isInteger(version) && version > 0
+        ? [version]
+        : [],
+    ),
+    ffiUnrecorded:
+      project.ffi_unrecorded === true || project.ffiUnrecorded === true,
     sdkVersions: (
       (project.sdk_versions ?? project.sdkVersions ?? []) as unknown[]
     ).flatMap((version) =>
