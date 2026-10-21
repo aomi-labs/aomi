@@ -36,6 +36,7 @@ import {
   useSafePrivyIdentityToken,
   useSafePrivyModalOpen,
   useSafeSignTransaction,
+  useSafeSvmSignTransaction,
   useSafeSmartWallets,
   useSafeSvmWallets,
   useSafeWallets,
@@ -81,6 +82,7 @@ export function AomiPrivyPluginProvider({
   const { wallets: connectedWallets, ready: connectedWalletsReady } =
     useSafeWallets();
   const { signTransaction: signPrivyTransaction } = useSafeSignTransaction();
+  const svmSigner = useSafeSvmSignTransaction();
   const contextSvmWallet = useSafeSvmWallet();
   const [activeSolanaAddress, setActiveSolanaAddress] = useState<
     string | undefined
@@ -129,14 +131,30 @@ export function AomiPrivyPluginProvider({
   const activeSolanaWallet =
     solanaWallets.find((wallet) => wallet.address === activeSolanaAddress) ??
     solanaWallets[0];
+  const solanaRpcUrl = selectedSolanaNetwork?.rpcHttpUrl;
+  const signWithPrivy = useMemo(
+    () =>
+      svmSigner && solanaRpcUrl
+        ? async (transaction: unknown, address: string) => {
+            const { Connection } = await import("@solana/web3.js");
+            return svmSigner.signTransaction({
+              transaction: transaction as never,
+              connection: new Connection(solanaRpcUrl, "confirmed"),
+              address,
+            });
+          }
+        : undefined,
+    [solanaRpcUrl, svmSigner],
+  );
   const privySvmWallet = useMemo(
     () =>
       buildPrivySvmWalletState({
         wallet: activeSolanaWallet,
         wallets: solanaWallets,
         setActiveAddress: setActiveSolanaAddress,
+        signWithPrivy,
       }),
-    [activeSolanaWallet, solanaWallets],
+    [activeSolanaWallet, signWithPrivy, solanaWallets],
   );
   const svmWallet = useMergedSvmWallet(
     externalSvmWallet ?? contextSvmWallet,

@@ -80,6 +80,7 @@ vi.mock("./privy-auth", () => ({
     ],
   }),
   useSafeSignTransaction: () => ({ signTransaction: vi.fn() }),
+  useSafeSvmSignTransaction: () => null,
   pickPrivyEmbeddedEvmWallet: () =>
     fixture.hydrated
       ? {
