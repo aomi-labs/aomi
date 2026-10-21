@@ -155,7 +155,8 @@ export function LaneSelect({
         avoidCollisions
         collisionPadding={8}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className={controlMenuContentClass}
+        // Above the sheet it opens in, like the rows' ⋯ menus.
+        className={cn(controlMenuContentClass, "z-[90]")}
       >
         <ControlMenuTitle>Trades from {wallet}</ControlMenuTitle>
         <div className="space-y-0.5">

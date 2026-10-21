@@ -227,7 +227,7 @@ describe("Agent wallets band", () => {
     await renderSection();
     expect(
       screen.getByText(
-        "Hosted by Aomi · it signs when a connection is allowed to",
+        "Hosted by Aomi · each connection has a lane on it",
       ),
     ).toBeInTheDocument();
     const shown = Array.from(

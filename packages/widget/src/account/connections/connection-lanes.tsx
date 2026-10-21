@@ -22,8 +22,17 @@ import { FixedLane, LaneSelect, Pager, usePage } from "./wallet-view";
 const connectionTitle = (connection: AomiAccountConnection) =>
   connection.kind === "telegram" ? botTitle(connection) : connection.name;
 
+const KIND_LINE: Record<AomiAccountConnection["kind"], string> = {
+  portal: "Aomi",
+  ai: "AI client",
+  app: "App",
+  cli: "Terminal",
+  telegram: "Telegram",
+};
+
 const connectionLine = (connection: AomiAccountConnection) => {
-  if (connection.kind !== "telegram") return connection.detail ?? undefined;
+  if (connection.kind !== "telegram")
+    return connection.detail ?? KIND_LINE[connection.kind];
   const handle = connection.telegram?.bot;
   const title = connectionTitle(connection);
   return handle && handle !== title ? `${handle} · Telegram` : "Telegram";
