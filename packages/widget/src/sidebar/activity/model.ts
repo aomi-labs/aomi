@@ -282,29 +282,6 @@ export function selectActivity(
         }
       }
     }
-    // A commit tool names the staged ids each commit carries; the commit's
-    // live view then drives the card (an agent wallet's Ask included). The
-    // ids were staged in this turn or an earlier one.
-    const sources = record(result.commit_sources);
-    for (const [commitId, sourceIds] of Object.entries(sources ?? {})) {
-      const commit = commits.find((view) => view.commit_id === commitId);
-      for (const id of ids(sourceIds)) {
-        const item =
-          staged.get(`${event.turn_id}:${family}:${id}`) ??
-          [...staged.values()]
-            .filter(
-              (tx) =>
-                tx.family === family &&
-                (tx.sequence ?? 0) < event.sequence &&
-                (number(tx.raw.pending_tx_id) ??
-                  number(tx.raw.pending_ix_id)) === id,
-            )
-            .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-        if (!item) continue;
-        item.stage = "committed";
-        if (commit) item.commit = commit;
-      }
-    }
   }
   for (const action of pendingActions) {
     const previous = actions.get(action.id);
@@ -403,7 +380,23 @@ export function selectActivity(
     }
   }
   for (const commit of commits) {
-    for (const source of commit.batch?.sources ?? []) {
+    // An unbatched commit (a Solana agent-wallet Ask, a single trade) is its
+    // own source: its stage id is `<family>:<staged id>`.
+    const own = Number(commit.stage_id.split(":")[1]);
+    const sources =
+      commit.batch?.sources ??
+      (!Number.isInteger(own)
+        ? []
+        : [
+            {
+              thread_id: commit.thread_id,
+              chain_family: commit.chain_family,
+              chain_ref: commit.chain_ref,
+              stage_id: commit.stage_id,
+              source_id: own,
+            },
+          ]);
+    for (const source of sources) {
       if (
         source.thread_id !== commit.thread_id ||
         source.chain_family !== commit.chain_family ||

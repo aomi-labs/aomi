@@ -194,34 +194,6 @@ function ChangedApproval({
   );
 }
 
-/** An approval that ran out of time: nothing was signed; Retry asks again. */
-export function ExpiredApproval({ commit }: { commit: CommitView }) {
-  const { sendMessage, isRunning } = useAomiRuntime();
-  const [sent, setSent] = useState(false);
-  if (sent) return null;
-  return (
-    <div
-      role="status"
-      className="border-aomi-border bg-aomi-raised rounded-card type-meta mt-3 flex items-center justify-between gap-3 border p-3"
-    >
-      <span className="text-aomi-muted">Expired · nothing was signed</span>
-      <AomiButton
-        size="sm"
-        disabled={isRunning}
-        onClick={() => {
-          setSent(true);
-          void sendMessage(
-            retryText(commit.batch?.ordered_commit_ids[0] ?? commit.commit_id),
-          );
-        }}
-      >
-        <RotateCcw />
-        Retry
-      </AomiButton>
-    </div>
-  );
-}
-
 /**
  * A scheduled run of this chat parked a commit on its own hidden thread.
  * Review opens its sign page: in place on Aomi, in a new tab from an embed.

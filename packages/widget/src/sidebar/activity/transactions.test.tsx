@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { BaseIcon, SolanaIcon } from "@/icons/chain-icons";
 import type { ActivityTransaction } from "./model";
 import { TransactionCard } from "./transactions";
+import { balanceChangeNetwork } from "./presentation";
 
 function renderTransaction(overrides: Partial<ActivityTransaction>) {
   return render(
@@ -41,6 +42,17 @@ describe("transaction network chip", () => {
     expect(chip?.querySelector("svg")?.outerHTML).toBe(
       render(<SolanaIcon className="size-3 shrink-0" />).container.innerHTML,
     );
+  });
+
+  it("names a Solana balance change's network like the card does", () => {
+    const network = (cluster: string) =>
+      balanceChangeNetwork(
+        { asset: "native", amount: "1", cluster } as never,
+        { type: "execute_svm" } as never,
+      );
+    expect(network("mainnet-beta")).toBe("Solana");
+    expect(network("solana:mainnet")).toBe("Solana");
+    expect(network("devnet")).toBe("Solana Devnet");
   });
 
   it("keeps a custom SVM cluster visible beside the Solana mark", () => {

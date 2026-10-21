@@ -267,14 +267,25 @@ export function isZeroAddress(value: string | null | undefined): boolean {
   return Boolean(value && /^0x0{40}$/i.test(value));
 }
 
+const SOLANA_NETWORKS: Record<string, string> = {
+  "solana:mainnet": "Solana",
+  "solana:devnet": "Solana Devnet",
+  "solana:testnet": "Solana Testnet",
+};
+
+/** A Solana cluster's display name ("Solana", "Solana Devnet"), from any of
+ * its spellings (`mainnet-beta`, `solana:mainnet`). */
+export function solanaNetworkName(cluster: string | undefined): string {
+  const normalized = normalizeSolanaCluster(cluster);
+  return (normalized && SOLANA_NETWORKS[normalized]) ?? cluster ?? "Solana";
+}
+
 export function balanceChangeNetwork(
   change: BalanceChange,
   request: ActionRequest,
   supportedChains?: readonly SupportedChain[],
 ): string | undefined {
-  if (change.cluster) {
-    return normalizeSolanaCluster(change.cluster) ?? change.cluster;
-  }
+  if (change.cluster) return solanaNetworkName(change.cluster);
   const chainId = change.chainId ?? firstEvmChainId(request);
   if (!chainId) return undefined;
   return (

@@ -25,9 +25,6 @@ const approval = () => import("@/commit/approval");
 const ParkedReview = lazy(() =>
   approval().then((module) => ({ default: module.ParkedReview })),
 );
-const ExpiredApproval = lazy(() =>
-  approval().then((module) => ({ default: module.ExpiredApproval })),
-);
 
 /** One reviewed batch as it stood when Submit all was pressed. A commit that
  * was not batched stands alone under its own id. */
@@ -372,13 +369,9 @@ export function WalletReview() {
         }
       : undefined);
   // Parked for approval: Aomi signs after Approve, so no wallet step here.
-  // Once a parked commit expires, the newest one offers Retry.
-  const expired = commits.at(-1);
   const approval =
     liveCommit?.state === "awaiting_approval" ? (
       <ParkedReview key={liveCommit.commit_id} commit={liveCommit} />
-    ) : !liveCommit && !liveAction && expired?.approval?.state === "expired" ? (
-      <ExpiredApproval key={expired.commit_id} commit={expired} />
     ) : undefined;
   if (approval)
     return (

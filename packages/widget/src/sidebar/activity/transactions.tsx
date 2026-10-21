@@ -18,15 +18,9 @@ import type { ActivityTransaction } from "./model";
 import {
   focusRing,
   friendlyTransactionLabel,
+  solanaNetworkName,
   transactionSemantic,
 } from "./presentation";
-
-const svmNetworkNames: Record<string, string> = {
-  "mainnet-beta": "Solana",
-  mainnet: "Solana",
-  devnet: "Solana Devnet",
-  testnet: "Solana Testnet",
-};
 
 export function TransactionList({
   children,
@@ -159,10 +153,9 @@ export function TransactionCard({
           : Circle,
     [tx.family, tx.chainId],
   );
-  const cluster = tx.cluster?.replace(/^solana:/, "") ?? "mainnet-beta";
   const network = tx.chainId
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
-    : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
+    : solanaNetworkName(tx.cluster ?? "mainnet-beta");
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
   const commitSigned =
     tx.commit?.state === "awaiting_broadcast" ||

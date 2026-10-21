@@ -125,46 +125,56 @@ describe("activity projection", () => {
     ).toEqual(["commit-2", "commit-1"]);
   });
 
-  it("binds an unbatched commit through the commit tool's sources, also a later turn's", () => {
-    const solStage = tool(1, "svm_stage_tx", {
-      tx: {
-        payer: "So1",
-        cluster: "mainnet-beta",
-        description: "Transfer SOL",
-        pending_tx_id: 1,
-        current_lifecycle: "queued",
-      },
-    });
+  it("binds an unbatched commit by its own stage id, also a later turn's", () => {
+    // As svm_stage_ix reports it; the commit tool's model-facing result names
+    // no sources, so the commit's own stage id is the link.
+    const solStage = (turn: string) =>
+      tool(
+        1,
+        "svm_stage_ix",
+        {
+          ix_ids: [1],
+          instructions: [
+            {
+              payer: "So1",
+              cluster: "mainnet-beta",
+              description: "Transfer SOL",
+              pending_ix_id: 1,
+              current_lifecycle: "queued",
+            },
+          ],
+        },
+        turn,
+      );
     const parked = durableCommit(1, 0, {
       commit_id: "sol-commit",
       chain_family: "svm",
       chain_ref: "mainnet-beta",
       stage_id: "svm:1",
       broadcaster: "hosted",
-      state: "confirmed",
+      state: "awaiting_approval",
       batch: null,
     });
-    const commit = (sequence: number, turn: string) =>
-      tool(
-        sequence,
-        "svm_commit_txs",
+    const now = selectActivity([solStage("turn-1")], [], [parked]);
+    expect(now.transactions[0]).toMatchObject({
+      label: "Transfer SOL",
+      stage: "committed",
+      commit: { commit_id: "sol-commit" },
+    });
+    const later = selectActivity(
+      [
+        solStage("turn-1"),
         {
-          commits: [{ ...parked, state: "awaiting_approval" }],
-          commit_sources: { "sol-commit": [1] },
-        },
-        turn,
-      );
-    for (const [events, turn] of [
-      [[solStage, commit(2, "turn-1")], "turn-1"],
-      [[solStage, commit(2, "turn-2")], "turn-2"],
-    ] as const) {
-      const card = selectActivity([...events], [], [parked])[
-        turn === "turn-1" ? "transactions" : "history"
-      ].find((item) => item.label === "Transfer SOL");
-      // The live view drives the card, not the tool's snapshot.
-      expect(card?.stage).toBe("committed");
-      expect(card?.commit?.state).toBe("confirmed");
-    }
+          ...meta(9, "turn-2"),
+          type: "message",
+          sender: "user",
+          content: "next",
+        } as Event,
+      ],
+      [],
+      [{ ...parked, state: "confirmed" }],
+    );
+    expect(later.history[0].commit?.state).toBe("confirmed");
   });
 
   it("lists every tx a protocol staging tool staged, then marks them simulated", () => {

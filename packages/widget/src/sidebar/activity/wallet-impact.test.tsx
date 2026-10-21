@@ -179,12 +179,8 @@ describe("sidebar wallet disclosures", () => {
       payloads: [{ kind: "evm_personal", message: "0x1234" }],
       calls: [{ to: spender, data: "0x5678", value: "9" }],
     });
-    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
-      "0x1234",
-    );
-    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
-      "0x5678",
-    );
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent("0x1234");
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent("0x5678");
     view.unmount();
     review({
       type: "execute_evm",

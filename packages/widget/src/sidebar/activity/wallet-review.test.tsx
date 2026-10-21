@@ -1708,7 +1708,7 @@ describe("approvals (agent wallet commits parked for the user)", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("offers Retry once the approval window ends with nothing signed", async () => {
+  it("shows nothing once the approval window ends; the chat says it expired", async () => {
     runtime.commits = [
       parked(0, 1, {
         state: "expired",
@@ -1721,17 +1721,11 @@ describe("approvals (agent wallet commits parked for the user)", () => {
         },
       }),
     ];
-    render(<WalletReview />);
-    expect(
-      await screen.findByText("Expired · nothing was signed"),
-    ).toBeInTheDocument();
-    await act(async () =>
-      fireEvent.click(screen.getByRole("button", { name: "Retry" })),
-    );
-    expect(runtime.sendMessage).toHaveBeenCalledExactlyOnceWith(
-      "Retry the trade that expired (ref `5f0c2a1e`).",
-    );
+    const { container } = render(<WalletReview />);
+    await act(async () => undefined);
+    expect(screen.queryByText("Expired · nothing was signed")).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
   });
 
   it("points at a scheduled run's parked commit from the parent chat", async () => {
