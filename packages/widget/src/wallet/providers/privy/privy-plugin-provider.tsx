@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -132,19 +133,26 @@ export function AomiPrivyPluginProvider({
     solanaWallets.find((wallet) => wallet.address === activeSolanaAddress) ??
     solanaWallets[0];
   const solanaRpcUrl = selectedSolanaNetwork?.rpcHttpUrl;
+  // Privy's hook returns a new object every render; reading it through a ref
+  // keeps the wallet (and every commit check built on it) stable.
+  const svmSignerRef = useRef(svmSigner);
+  svmSignerRef.current = svmSigner;
+  const hasSvmSigner = Boolean(svmSigner);
   const signWithPrivy = useMemo(
     () =>
-      svmSigner && solanaRpcUrl
+      hasSvmSigner && solanaRpcUrl
         ? async (transaction: unknown, address: string) => {
+            const signer = svmSignerRef.current;
+            if (!signer) throw new Error("Privy Solana signing is unavailable");
             const { Connection } = await import("@solana/web3.js");
-            return svmSigner.signTransaction({
+            return signer.signTransaction({
               transaction: transaction as never,
               connection: new Connection(solanaRpcUrl, "confirmed"),
               address,
             });
           }
         : undefined,
-    [solanaRpcUrl, svmSigner],
+    [hasSvmSigner, solanaRpcUrl],
   );
   const privySvmWallet = useMemo(
     () =>

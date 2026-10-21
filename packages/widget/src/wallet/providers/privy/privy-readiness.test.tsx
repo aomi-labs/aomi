@@ -21,6 +21,11 @@ const fixture = vi.hoisted(() => ({
   smart: false,
   userEoa: true,
   svmSigning: true,
+  svmWallets: null as unknown[] | null,
+  svmSignHook: null as
+    | (() => { signTransaction: () => Promise<unknown> })
+    | null,
+  embeddedSvm: [] as Array<{ signTransaction?: unknown }>,
   identityToken: "signed-identity-token" as string | null,
   accessToken: vi.fn(async () => "signed-access-token"),
   smartSign: vi.fn().mockResolvedValue("0xsmart-signature"),
@@ -43,7 +48,10 @@ vi.mock("@/wallet/account/use-resolved-account-runtime", () => ({
   useResolvedAccountRuntime: () => undefined,
 }));
 vi.mock("@/wallet/network-preferences", () => ({
-  useAomiWalletNetworkPreferences: () => ({ supportedSolanaNetworks: [] }),
+  useAomiWalletNetworkPreferences: () => ({
+    supportedSolanaNetworks: [],
+    selectedSolanaNetwork: { rpcHttpUrl: "http://solana.test" },
+  }),
 }));
 vi.mock("@/wallet/providers/sources/embedded-session-source", () => ({
   useEmbeddedSessionSource: (...args: unknown[]) =>
@@ -71,7 +79,7 @@ vi.mock("./privy-auth", () => ({
   }),
   useSafeSvmWallets: () => ({
     ready: true,
-    wallets: [
+    wallets: fixture.svmWallets ?? [
       {
         address: "SolanaWallet",
         signMessage: fixture.svmSigning ? vi.fn() : undefined,
@@ -80,7 +88,7 @@ vi.mock("./privy-auth", () => ({
     ],
   }),
   useSafeSignTransaction: () => ({ signTransaction: vi.fn() }),
-  useSafeSvmSignTransaction: () => null,
+  useSafeSvmSignTransaction: () => fixture.svmSignHook?.() ?? null,
   pickPrivyEmbeddedEvmWallet: () =>
     fixture.hydrated
       ? {
@@ -114,7 +122,13 @@ vi.mock("@/wallet/runtime/evm/wallet-runtime", () => ({
 }));
 vi.mock("@/wallet/runtime/svm/wallet-runtime", () => ({
   useSafeSvmWallet: () => ({}),
-  useMergedSvmWallet: (_external: unknown, embedded: unknown) => embedded,
+  useMergedSvmWallet: (
+    _external: unknown,
+    embedded: { signTransaction?: unknown },
+  ) => {
+    fixture.embeddedSvm.push(embedded);
+    return embedded;
+  },
   useSvmWalletRuntime: () => ({ execution: {}, identity: () => ({}) }),
 }));
 
@@ -130,6 +144,9 @@ beforeEach(() => {
     smart: false,
     userEoa: true,
     svmSigning: true,
+    svmWallets: null,
+    svmSignHook: null,
+    embeddedSvm: [],
     identityToken: "signed-identity-token",
   });
   fixture.smartSend.mockReset().mockResolvedValue("0xsmart-tx");
@@ -234,6 +251,26 @@ describe("Privy signer readiness", () => {
     expect(execution.providerSettled?.("evm", "privy")).toBe(false);
     expect(execution.providerSettled?.("svm", "privy")).toBe(true);
     expect(execution.providerSettled?.("evm", "para")).toBe(false);
+  });
+  it("keeps the Solana wallet stable while Privy's sign hook churns", () => {
+    // Privy's Solana useSignTransaction returns a new object every render.
+    fixture.svmWallets = [
+      { address: "SolanaWallet", signTransaction: vi.fn() },
+    ];
+    fixture.svmSignHook = () => ({ signTransaction: vi.fn() });
+    const view = render(
+      <AomiPrivyPluginProvider supportedChains={[]}>
+        wallets
+      </AomiPrivyPluginProvider>,
+    );
+    view.rerender(
+      <AomiPrivyPluginProvider supportedChains={[]}>
+        wallets
+      </AomiPrivyPluginProvider>,
+    );
+    const [first, ...rest] = fixture.embeddedSvm;
+    expect(rest.length).toBeGreaterThan(0);
+    for (const later of rest) expect(later).toBe(first);
   });
   it("waits for Solana signing methods", () => {
     fixture.svmSigning = false;

@@ -109,6 +109,17 @@ export function TransactionReview({
       : request.type === "execute_evm"
         ? request.transactions.map((tx) => tx.from)
         : request.transactions.map((tx) => tx.payer);
+  // The simulation reports every account the transaction touches; the card
+  // shows what the signing wallet gains and loses (as Telegram does).
+  const ownChanges = (simulation?.balanceChanges ?? []).filter(
+    (change) =>
+      !change.account ||
+      signers.some((signer) =>
+        signer?.startsWith("0x")
+          ? signer.toLowerCase() === change.account!.toLowerCase()
+          : signer === change.account,
+      ),
+  );
   return (
     <section
       ref={reviewRef}
@@ -130,7 +141,7 @@ export function TransactionReview({
         <ImpactPanel
           key={`${review.id}-${review.revision}`}
           request={request}
-          balanceChanges={simulation?.balanceChanges ?? []}
+          balanceChanges={ownChanges}
           approvals={simulation?.approvals ?? []}
           supportedChains={supportedChains}
           showNetwork

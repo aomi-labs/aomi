@@ -167,6 +167,46 @@ describe("sidebar wallet disclosures", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows only the signing wallet's changes, not the recipient's", () => {
+    const change = (
+      account: string,
+      direction: "in" | "out",
+      amount: string,
+    ) => ({
+      account,
+      asset: "native",
+      amount,
+      direction,
+      symbol: "SOL",
+      decimals: 9,
+      cluster: "mainnet-beta",
+    });
+    review({
+      type: "execute_svm",
+      transactions: [
+        {
+          payer: "SolanaSigner",
+          cluster: "mainnet-beta",
+          version: "legacy",
+          instructions: [],
+          description: "Send SOL",
+          kind: "transfer",
+        },
+      ],
+      simulation: {
+        ...simulation(),
+        balanceChanges: [
+          change("SolanaSigner", "out", "100005000"),
+          change("SolanaRecipient", "in", "100000000"),
+        ],
+      },
+    });
+    const impact = screen.getByLabelText("Simulated wallet impact");
+    expect(impact).toHaveAttribute("data-change-count", "1");
+    expect(impact).toHaveTextContent("0.100005");
+    expect(impact).not.toHaveTextContent("+0.1");
+  });
+
   it("retains the full signing request and every warning in the sole review layout", () => {
     const view = review({
       type: "sign",
