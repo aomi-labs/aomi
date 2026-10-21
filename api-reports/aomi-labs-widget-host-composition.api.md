@@ -4,6 +4,7 @@
 
 ```ts
 
+import type { AomiAccountConnection } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
@@ -303,8 +304,8 @@ export function Button(input: React_2.ComponentProps<"button"> & VariantProps<ty
 // @public
 export function CanApproveTrades(input: {
     name: string;
+    kind: Exclude<AomiAccountConnection["kind"], "portal">;
     checked: boolean;
-    here: string;
     disabled?: boolean;
     onCheckedChange: (checked: boolean) => void;
 }): JSX.Element;

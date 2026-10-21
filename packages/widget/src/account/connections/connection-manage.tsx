@@ -20,14 +20,6 @@ import { ConnectionMark } from "./connection-mark";
 import { WalletAccessList } from "./wallet-access-list";
 
 /** Where a connection approves its own Ask trades, by kind. */
-const APPROVES_HERE: Record<AomiAccountConnection["kind"], string> = {
-  portal: "",
-  cli: "With aomi tx approve in your terminal",
-  ai: "With its aomi_approve tool; your AI app asks you first",
-  app: "From the app, for example with the SDK",
-  telegram: "With the Approve button in your chat with the bot",
-};
-
 /**
  * Connections › ⋯ › Manage: which agent wallets one connection may use, Ask
  * or Instant each, whether it may approve its own Ask trades, then Rename
@@ -103,7 +95,9 @@ export function ConnectionManage({
               : "Sign-in wallets always ask in the wallet, so they aren’t listed."}
           </p>
         </section>
-        {portal ? null : <Approvals connection={connection} />}
+        {connection.kind === "portal" ? null : (
+          <Approvals connection={connection} kind={connection.kind} />
+        )}
         {onRename ? (
           <ListGroup>
             <ActionRow icon={Pencil} label="Rename" step onClick={onRename} />
@@ -126,7 +120,13 @@ export function ConnectionManage({
 }
 
 /** "Can approve trades": off, Ask trades are approved on Aomi only. */
-function Approvals({ connection }: { connection: AomiAccountConnection }) {
+function Approvals({
+  connection,
+  kind,
+}: {
+  connection: AomiAccountConnection;
+  kind: Exclude<AomiAccountConnection["kind"], "portal">;
+}) {
   const { client } = useShellTransport();
   const refresh = useRefreshWallets();
   const [approves, setApproves] = useState(connection.approves);
@@ -151,7 +151,7 @@ function Approvals({ connection }: { connection: AomiAccountConnection }) {
       <CanApproveTrades
         name={connection.name}
         checked={approves}
-        here={APPROVES_HERE[connection.kind]}
+        kind={kind}
         onCheckedChange={(next) => void change(next)}
       />
     </section>

@@ -112,7 +112,8 @@ export function ConsentSheet({ name }: { name: string }) {
   // The grant went through but the wallet settings did not: where to go next.
   const [unsaved, setUnsaved] = useState<string | null>(null);
   const client = useMemo(() => createPortalClient(), []);
-  const app = consentApp(params.get("resource"));
+  const resource = params.get("resource");
+  const app = consentApp(resource);
   const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
   // The access to write once the grant is made; consent itself never touches
@@ -295,8 +296,8 @@ export function ConsentSheet({ name }: { name: string }) {
           <div className="w-full">
             <CanApproveTrades
               name={name}
+              kind={resource?.endsWith("/mcp") ? "ai" : "app"}
               checked={approves}
-              here={`${name} can approve your waiting Ask trades`}
               disabled={pending}
               onCheckedChange={setApproves}
             />

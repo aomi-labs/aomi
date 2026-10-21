@@ -124,8 +124,8 @@ export function DeviceSheet() {
             <div className="w-full">
               <CanApproveTrades
                 name="Terminal"
+                kind="cli"
                 checked={approves}
-                here="Approve your waiting Ask trades with aomi tx approve"
                 disabled={pending}
                 onCheckedChange={setApproves}
               />

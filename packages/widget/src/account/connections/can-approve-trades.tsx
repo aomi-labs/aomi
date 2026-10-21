@@ -1,8 +1,17 @@
 "use client";
 
 import { BadgeCheck } from "lucide-react";
+import type { AomiAccountConnection } from "@aomi-labs/client";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { Switch } from "@/ui/aomi/switch";
+
+/** How each kind of connection approves, shown while it may. */
+const APPROVES_WITH = {
+  cli: "With aomi tx approve",
+  ai: "With its aomi_approve tool",
+  app: "From the app or SDK",
+  telegram: "With the bot's Approve button",
+};
 
 /**
  * "Can approve trades": whether a connection may approve its own Ask trades
@@ -11,15 +20,14 @@ import { Switch } from "@/ui/aomi/switch";
  */
 export function CanApproveTrades({
   name,
+  kind,
   checked,
-  here,
   disabled,
   onCheckedChange,
 }: {
   name: string;
+  kind: Exclude<AomiAccountConnection["kind"], "portal">;
   checked: boolean;
-  /** How this kind of connection approves, shown while on. */
-  here: string;
   disabled?: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
@@ -32,7 +40,9 @@ export function CanApproveTrades({
           </span>
         }
         title={<span className="text-[13.5px]">Can approve trades</span>}
-        description={checked ? here : "Ask trades wait for you on Aomi"}
+        description={
+          checked ? APPROVES_WITH[kind] : "Ask trades wait for you on Aomi"
+        }
         trailing={
           <Switch
             aria-label={`${name} can approve trades`}
