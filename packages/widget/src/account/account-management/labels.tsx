@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { LayoutGrid, Pause, Zap } from "lucide-react";
+import { LayoutGrid, Pause } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import type { WalletFamily } from "@/wallet/types";
 import { getAppIcon } from "@/icons/app-map";
@@ -80,19 +80,12 @@ export const withApp = (app: { name: string; label: string } | null) =>
     </>
   ) : null;
 
-/** Instant or Paused at a row's end, before its buttons. */
-export function StateMeta({ state }: { state: "instant" | "paused" }) {
-  const instant = state === "instant";
-  const Icon = instant ? Zap : Pause;
+/** Paused at a row's end, before its buttons. */
+export function PausedMeta() {
   return (
-    <span
-      className={cn(
-        "type-meta inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium",
-        instant ? "text-aomi-accent-strong" : "text-aomi-danger",
-      )}
-    >
-      <Icon aria-hidden className="size-3.5" />
-      {instant ? "Instant" : "Paused"}
+    <span className="type-meta text-aomi-danger inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium">
+      <Pause aria-hidden className="size-3.5" />
+      Paused
     </span>
   );
 }

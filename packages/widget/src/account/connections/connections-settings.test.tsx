@@ -148,7 +148,7 @@ const menuOf = (name: string) => {
 const writes = () => calls.filter((call) => call.method !== "GET");
 
 describe("Connections tab", () => {
-  it("lists each connection quietly: mark, name, Instant pill, Instant lanes and last use", async () => {
+  it("lists each connection quietly: mark, name, Instant lanes and last use", async () => {
     await renderTab();
     expect(rowOf("portal")).toHaveTextContent(
       "AomiThis website · all agent wallets",
@@ -189,10 +189,11 @@ describe("Connections tab", () => {
       name: "Hide Telegram bots",
     });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    // The bot is titled by its app, its @handle below; Instant at the end.
+    // The bot is titled by its app, its @handle below; no Instant pill.
     expect(rowOf("telegram:77")).toHaveTextContent(
-      "Hoodit@HooditBot · Instant on 1 wallet · used 2 h agoInstant",
+      "Hoodit@HooditBot · Instant on 1 wallet · used 2 h ago",
     );
+    expect(within(rowOf("telegram:77")).queryByText("Instant")).toBeNull();
     expect(within(rowOf("telegram:77")).getAllByText("Hoodit")).toHaveLength(1);
     // A bot you renamed keeps your name.
     expect(rowOf("telegram:78")).toHaveTextContent("Markets@MarketsBot");

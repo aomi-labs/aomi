@@ -274,16 +274,20 @@ function FamilySlot({
         sideOffset={4}
         className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-[min(20rem,calc(100vw-2rem))] border p-1"
       >
-        {groups.map((group) =>
-          group.rows.length ? (
-            <div key={group.label} role="group" aria-label={group.label}>
-              <div className="type-meta text-aomi-muted px-2 pb-1 pt-1.5 font-medium">
-                {group.label}
+        {/* About three and a half rows, then the model picker's thin scrollbar; Add a
+            wallet stays pinned below. */}
+        <div className="aui-command-list max-h-[12.5rem] overflow-y-auto overflow-x-hidden overscroll-contain pr-1">
+          {groups.map((group) =>
+            group.rows.length ? (
+              <div key={group.label} role="group" aria-label={group.label}>
+                <div className="type-meta text-aomi-muted px-2 pb-1 pt-1.5 font-medium">
+                  {group.label}
+                </div>
+                {group.rows.map(option)}
               </div>
-              {group.rows.map(option)}
-            </div>
-          ) : null,
-        )}
+            ) : null,
+          )}
+        </div>
         {onAddWallet ? (
           <>
             <div role="separator" className="bg-aomi-border my-1 h-px" />

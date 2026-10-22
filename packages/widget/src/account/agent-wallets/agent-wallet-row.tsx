@@ -20,7 +20,10 @@ import {
 import { ExpandableRow } from "@/account/account-management/expandable-row";
 import { AddressRow } from "@/account/account-management/wallet-rows";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
-import { AddressSummary, StateMeta } from "@/account/account-management/labels";
+import {
+  AddressSummary,
+  PausedMeta,
+} from "@/account/account-management/labels";
 
 /** What a wallet's ⋯ menu and Manage sheet can do; a missing handler hides its item. */
 export type AgentWalletActions = {
@@ -120,7 +123,7 @@ export function AgentWalletRow({
   const paused = wallet.paused || pausedAll;
   const busy = pending === `agent:${wallet.id}`;
   const items = agentWalletItems(wallet, actions, () => renameWallet(wallet));
-  const state = paused ? <StateMeta state="paused" /> : null;
+  const state = paused ? <PausedMeta /> : null;
 
   const only = rows.length === 1 ? rows[0] : undefined;
   return (

@@ -33,7 +33,7 @@ import {
 import { connectionsQuery } from "@/account/account-queries";
 import { ExpandableRow } from "@/account/account-management/expandable-row";
 import { CHILD_INDENT } from "@/account/account-management/wallet-rows";
-import { StateMeta, withApp } from "@/account/account-management/labels";
+import { withApp } from "@/account/account-management/labels";
 import { plural } from "@/account/account-management/wallet-model";
 import { ConnectAppSheet } from "./connect-app-sheet";
 import { ConnectionMark } from "./connection-mark";
@@ -134,14 +134,11 @@ function description(row: AomiAccountConnection): ReactNode {
     <>
       {lead ? `${lead}` : null}
       {telegram ? null : withApp(row.application)}
-      {lead ? " · " : null}
+      {lead && rest ? " · " : null}
       {rest}
     </>
   );
 }
-
-const isInstant = (row: AomiAccountConnection) =>
-  row.wallets.some((wallet) => wallet.lane === "instant" && !wallet.archived);
 
 /** `@hyperlabai_bot · Telegram bot · connected Oct 16`, under a Manage sheet's title. */
 function sheetDescription(row: AomiAccountConnection): string {
@@ -293,7 +290,6 @@ export function ConnectionsSettings() {
       description={description(row)}
       trailing={
         <>
-          {isInstant(row) ? <StateMeta state="instant" /> : null}
           <ActionsMenu
             label={`Actions for ${row.name}`}
             items={menu(row)}
@@ -538,7 +534,6 @@ function TelegramSheet({
                     {description(row)}
                   </span>
                 </span>
-                {isInstant(row) ? <StateMeta state="instant" /> : null}
                 <ChevronRight className="text-aomi-muted size-4 shrink-0" />
               </button>
             ))}
