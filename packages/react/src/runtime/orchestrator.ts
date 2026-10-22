@@ -269,7 +269,12 @@ export function useRuntimeOrchestrator(
   );
 
   const sendOnce = useCallback(
-    async (text: string, threadId: string, sendOptions?: SendOptions) => {
+    async (
+      text: string,
+      threadId: string,
+      sendOptions?: SendOptions,
+      intent: "send" | "queue" = "send",
+    ) => {
       const submitted = getSession(threadId).getSnapshot();
       const targetTurnId = submitted.control
         ? submitted.control.active_turn_id
@@ -296,7 +301,8 @@ export function useRuntimeOrchestrator(
         optionsRef.current.getTarget(),
         text,
       );
-      if (targetTurnId && !sendOptions?.edit && !sendOptions?.regenerate) {
+      if (intent === "queue") await session.queue(text, { apiKey });
+      else if (targetTurnId && !sendOptions?.edit && !sendOptions?.regenerate) {
         if (submitted.capabilities?.turn_input !== 1)
           throw new AgentApiError(
             501,
@@ -372,14 +378,14 @@ export function useRuntimeOrchestrator(
 
   const queueMessage = useCallback(
     async (text: string, threadId: string) => {
-      const session = getSession(threadId);
-      const apiKey = optionsRef.current.getAppKey?.(
-        optionsRef.current.getTarget(),
-        text,
-      );
-      await session.queue(text, { apiKey });
+      const startedIn = generation.current;
+      try {
+        await sendOnce(text, threadId, undefined, "queue");
+      } catch (error) {
+        await reportFailure(threadId, error, startedIn);
+      }
     },
-    [getSession],
+    [reportFailure, sendOnce],
   );
 
   const currentSession = getSession(threads.currentThreadId);

@@ -169,3 +169,4 @@ export type { DisplayPersistence } from "./query/display-persistence";
 export { displayQueries } from "./query/queries";
 
 export { usePrivateApps } from "./control/private-apps";
+export { stripCapabilityHints } from "./runtime/capability-hints";

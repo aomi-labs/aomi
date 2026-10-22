@@ -5,13 +5,19 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
   useExternalStoreRuntime,
   useMessage,
+  useComposerRuntime,
+  type AppendMessage,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
 import {
@@ -23,7 +29,12 @@ import { AomiFrame } from "@/frame/aomi-frame";
 import { testIds } from "@/test-ids";
 import type { PendingInput } from "@aomi-labs/client";
 
-const work = vi.hoisted(() => ({ catalog: vi.fn(), row: vi.fn() }));
+const work = vi.hoisted(() => ({
+  catalog: vi.fn(),
+  row: vi.fn(),
+  blocked: false,
+  retainMentions: vi.fn(),
+}));
 vi.mock("@aomi-labs/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@aomi-labs/react")>();
   return {
@@ -65,12 +76,30 @@ vi.mock("@/composer/capability-composer/provider", () => ({
   CapabilityComposerProvider: ({ children }: { children: ReactNode }) =>
     children,
   useCapabilityComposer: () => ({
-    prepareSubmit: () => {},
+    prepareSubmit: (event: React.FormEvent) => {
+      if (work.blocked) event.preventDefault();
+    },
+    retainMentions: work.retainMentions,
     hintsEnabled: false,
   }),
 }));
 vi.mock("@/composer/capability-composer/input", () => ({
-  CapabilityMentionInput: () => <ComposerPrimitive.Input />,
+  CapabilityMentionInput: () => {
+    const composer = useComposerRuntime();
+    const text = useSyncExternalStore(
+      (notify) => composer.subscribe(notify),
+      () => composer.getState().text,
+    );
+    // Model the capability editor's controlled text, not Primitive.Input's
+    // separate editing-mode gate, which this rendering fixture does not use.
+    return (
+      <textarea
+        aria-label="Message input"
+        value={text}
+        onChange={(event) => composer.setText(event.target.value)}
+      />
+    );
+  },
 }));
 vi.mock("./working-trace", () => ({
   AssistantTurnParts: () => {
@@ -119,11 +148,13 @@ function Fixture({
   messages = history,
   loading = false,
   sendDisabled = false,
+  runConfig,
 }: {
   api: AomiRuntimeApi | null;
   messages?: ThreadMessageLike[];
   loading?: boolean;
   sendDisabled?: boolean;
+  runConfig?: AppendMessage["runConfig"];
 }) {
   const native = useExternalStoreRuntime({
     messages,
@@ -134,7 +165,8 @@ function Fixture({
   });
   useEffect(() => {
     native.thread.composer.setText("Ready draft");
-  }, [native]);
+    if (runConfig) native.thread.composer.setRunConfig(runConfig);
+  }, [native, runConfig]);
   const composer = useMemo(
     () => <AomiFrame.Composer sendDisabled={sendDisabled} />,
     [sendDisabled],
@@ -166,6 +198,8 @@ const originalScrollTo = Object.getOwnPropertyDescriptor(
 beforeEach(() => {
   work.catalog.mockClear();
   work.row.mockClear();
+  work.blocked = false;
+  work.retainMentions.mockClear();
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
     configurable: true,
     value() {},
@@ -183,6 +217,144 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 describe("thread rendering under live runtime updates", () => {
+  it("shows readable update and queue text without exposing or changing retained capability instructions", () => {
+    const instructions =
+      "\n\n<AOMI_UI_CAPABILITY_HINTS>\nPreferred execution chain ids: eip155:8453.\n</AOMI_UI_CAPABILITY_HINTS>";
+    const update: PendingInput = {
+      inputId: "update",
+      operation: "steer",
+      targetTurnId: "turn-1",
+      message: `Use Base${instructions}`,
+      status: "rejected",
+    };
+    const queued: PendingInput = {
+      inputId: "queue",
+      operation: "queue",
+      message: `Independent work${instructions}`,
+      status: "queued",
+      receipt: {
+        input_id: "queue",
+        turn_id: "queued-turn",
+        operation: "queue",
+        disposition: "queued",
+        input_revision: 1,
+        received_at: 1,
+        admitted_at: 1,
+        applied_at: null,
+      },
+    };
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: false,
+          supportsSteering: true,
+          turnState: "processing",
+          turnInputs: [update, queued],
+          turnControl: {
+            ...inputControl("turn-1"),
+            queued_turn_ids: ["queued-turn"],
+          },
+        })}
+      />,
+    );
+    expect(view.getByText("Use Base")).toBeVisible();
+    expect(view.getByText("Queued: Independent work")).toBeVisible();
+    expect(
+      view.queryByText(
+        /AOMI_UI_CAPABILITY_HINTS|Preferred execution chain ids/,
+      ),
+    ).toBeNull();
+    expect(update.message).toBe(`Use Base${instructions}`);
+    expect(queued.message).toBe(`Independent work${instructions}`);
+  });
+
+  it.each(["send", "update", "queue"] as const)(
+    "submits %s with the captured composer configuration and clears selections once",
+    async (operation) => {
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const queueMessage = vi.fn().mockResolvedValue(undefined);
+      const runConfig = {
+        custom: {
+          aomiCapabilityHints: {
+            capabilities: [{ kind: "chain", id: "eip155:8453" }],
+          },
+        },
+      };
+      const view = render(
+        <Fixture
+          runConfig={runConfig}
+          api={api({
+            isSubmitting: false,
+            supportsSteering: true,
+            turnState: operation === "send" ? "complete" : "processing",
+            turnControl: inputControl(operation === "send" ? null : "turn-1"),
+            sendMessage,
+            queueMessage,
+          })}
+        />,
+      );
+      const button = view.getByRole("button", {
+        name:
+          operation === "queue"
+            ? "Queue new request"
+            : operation === "update"
+              ? "Update current request"
+              : "Send message",
+      });
+      fireEvent.change(view.getByRole("textbox"), {
+        target: { value: "Ready draft" },
+      });
+      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
+      await waitFor(() => expect(button).toBeEnabled());
+      fireEvent.click(button);
+      const sent = operation === "queue" ? queueMessage : sendMessage;
+      await waitFor(() =>
+        expect(sent).toHaveBeenCalledWith("Ready draft", runConfig),
+      );
+      expect(sent).toHaveBeenCalledOnce();
+      expect(work.retainMentions).toHaveBeenCalledOnce();
+      expect(work.retainMentions).toHaveBeenCalledWith(new Set());
+      expect(view.getByRole("textbox")).toHaveValue("");
+    },
+  );
+
+  it.each(["update", "queue"] as const)(
+    "validates routing before a %s submission clears the draft or calls the runtime",
+    async (operation) => {
+      work.blocked = true;
+      const sendMessage = vi.fn();
+      const queueMessage = vi.fn();
+      const view = render(
+        <Fixture
+          api={api({
+            isSubmitting: false,
+            supportsSteering: true,
+            turnState: "processing",
+            turnControl: inputControl("turn-1"),
+            sendMessage,
+            queueMessage,
+          })}
+        />,
+      );
+      fireEvent.change(view.getByRole("textbox"), {
+        target: { value: "Ready draft" },
+      });
+      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
+      fireEvent.click(
+        view.getByRole("button", {
+          name:
+            operation === "queue"
+              ? "Queue new request"
+              : "Update current request",
+        }),
+      );
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(queueMessage).not.toHaveBeenCalled();
+      expect(work.retainMentions).not.toHaveBeenCalled();
+      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
+    },
+  );
+
   const inputControl = (active: string | null) => ({
     active_turn_id: active,
     accepted_input_revision: active ? 2 : 0,
@@ -264,7 +436,7 @@ describe("thread rendering under live runtime updates", () => {
       expect(view.getByText("Retained correction")).toBeVisible();
       fireEvent.submit(view.getByTestId(testIds.composer));
       await waitFor(() =>
-        expect(sendMessage).toHaveBeenCalledWith("Ready draft"),
+        expect(sendMessage).toHaveBeenCalledWith("Ready draft", {}),
       );
       expect(view.queryByText("Retained correction")).toBeNull();
       // An exact input retry gets a fresh failure snapshot, even with the same id.
@@ -306,7 +478,7 @@ describe("thread rendering under live runtime updates", () => {
     expect(view.getByText("Old rejected correction")).toBeVisible();
     fireEvent.click(view.getByRole("button", { name: "Queue new request" }));
     await waitFor(() =>
-      expect(queueMessage).toHaveBeenCalledWith("Ready draft"),
+      expect(queueMessage).toHaveBeenCalledWith("Ready draft", {}),
     );
     expect(view.queryByText("Old rejected correction")).toBeNull();
   });

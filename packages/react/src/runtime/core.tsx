@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type {
+  AppendMessage,
   ExternalStoreAdapter,
   ThreadMessageLike,
 } from "@assistant-ui/react";
@@ -48,7 +49,7 @@ import {
   projectAssistantMessages,
   projectRuntimeMessages,
 } from "./message-projection";
-import { messageActions } from "./message-actions";
+import { messageActions, submitComposerMessage } from "./message-actions";
 import { createChatViewStore } from "../state/chat-view-store";
 import {
   AssistantRuntimeBoundary,
@@ -505,6 +506,17 @@ export function AomiRuntimeCore({
       }),
     [orchestratorCancel, notificationContext, sessionManager],
   );
+  const restoreDraft = useCallback(
+    (text: string) => {
+      // A late failure belongs to its original chat and account, never the newly selected composer.
+      if (chatView.version() !== chatGeneration) return;
+      if (threadContextRef.current.currentThreadId === currentThreadId)
+        restoreComposerTextRef.current(text);
+      else if (!chatView.get(currentThreadId)?.draft)
+        chatView.patch(currentThreadId, { draft: text });
+    },
+    [chatView, chatGeneration, currentThreadId],
+  );
   const assistantAdapter: ExternalStoreAdapter<ThreadMessageLike> = {
     messages,
     isLoading: isThreadLoading,
@@ -513,14 +525,7 @@ export function AomiRuntimeCore({
       messages,
       send: (text, options) =>
         orchestratorSendMessage(text, currentThreadId, options),
-      restore: (text) => {
-        // The chats this failure belongs to were closed since.
-        if (chatView.version() !== chatGeneration) return;
-        // A late failure belongs to the originating chat, not the newly selected composer.
-        if (threadContextRef.current.currentThreadId === currentThreadId)
-          restoreComposerTextRef.current(text);
-        else chatView.patch(currentThreadId, { draft: text });
-      },
+      restore: restoreDraft,
       unavailable: (message) =>
         notificationContext.showNotification({
           type: "error",
@@ -538,17 +543,33 @@ export function AomiRuntimeCore({
   useEffect(() => () => chatView.clear(), [chatView]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      await orchestratorSendMessage(text, currentThreadId);
+    async (text: string, runConfig?: AppendMessage["runConfig"]) => {
+      const send = (prepared: string) =>
+        orchestratorSendMessage(prepared, currentThreadId);
+      if (runConfig)
+        await submitComposerMessage(
+          { content: text, runConfig },
+          send,
+          restoreDraft,
+        );
+      else await send(text);
     },
-    [orchestratorSendMessage, currentThreadId],
+    [orchestratorSendMessage, currentThreadId, restoreDraft],
   );
 
   const queueMessage = useCallback(
-    async (text: string) => {
-      await orchestratorQueueMessage(text, currentThreadId);
+    async (text: string, runConfig?: AppendMessage["runConfig"]) => {
+      const send = (prepared: string) =>
+        orchestratorQueueMessage(prepared, currentThreadId);
+      if (runConfig)
+        await submitComposerMessage(
+          { content: text, runConfig },
+          send,
+          restoreDraft,
+        );
+      else await send(text);
     },
-    [orchestratorQueueMessage, currentThreadId],
+    [orchestratorQueueMessage, currentThreadId, restoreDraft],
   );
 
   const cancelTurn = useCallback(

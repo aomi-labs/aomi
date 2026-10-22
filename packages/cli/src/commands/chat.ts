@@ -1,20 +1,6 @@
 import { CliSession } from "../cli-session";
-import {
-  DIM,
-  RESET,
-  YELLOW,
-  getToolNameFromEvent,
-  getToolResultFromEvent,
-  isAlwaysVisibleTool,
-  inlineToolResultFromMessage,
-  printNewAgentMessages,
-  printPaymentEvent,
-  printTaskActivity,
-  printTaskCompleted,
-  printTaskStarted,
-  printToolComplete,
-  printToolResultLine,
-} from "../output";
+import { printPaymentEvent } from "../output";
+import { createSessionRenderer } from "../session-renderer";
 import {
   applyRequestedModelIfPresent,
   ingestSecretsForSession,
@@ -25,7 +11,7 @@ import { parseSolanaKeypairSecret } from "../solana-signer";
 import type { SendOptions } from "@aomi-labs/client";
 import type { Session as ClientSession } from "@aomi-labs/client";
 import type { Event, MessageEvent } from "@aomi-labs/client";
-import { AgentApiError, isTerminalCommit } from "@aomi-labs/client";
+import { AgentApiError } from "@aomi-labs/client";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -117,9 +103,6 @@ export async function openInteractiveChat(config: CliConfig, verbose: boolean) {
   });
   let closed = false;
   let ready = false;
-  let printed = 0;
-  let sequence = 0;
-  const statuses = new Map<string, string>();
   let unsubscribe = () => {};
   let unobserve = () => {};
   const prepare = async (current: ClientSession, state: CliSession) => {
@@ -147,28 +130,9 @@ export async function openInteractiveChat(config: CliConfig, verbose: boolean) {
       current.close();
       return;
     }
-    printed = current
-      .getSnapshot()
-      .messages.filter((message) => message.sender === "agent").length;
-    sequence = current.getSnapshot().events.at(-1)?.sequence ?? 0;
-    statuses.clear();
+    const renderer = createSessionRenderer(current, verbose, "interactive");
     unsubscribe = current.subscribe(() => {
-      if (closed || current !== session) return;
-      const snapshot = current.getSnapshot();
-      for (const input of snapshot.inputs ?? []) {
-        if (statuses.get(input.inputId) === input.status) continue;
-        statuses.set(input.inputId, input.status);
-        console.log(`[${input.operation}: ${input.status}] ${input.message}`);
-      }
-      for (const event of snapshot.events) {
-        if (event.sequence <= sequence) continue;
-        sequence = event.sequence;
-        if (verbose && event.type === "tool_complete") printToolComplete(event);
-        if (event.type === "error") console.error(event.message);
-        if (event.type === "action" && event.state === "pending")
-          console.log(`Approval required: ${event.id}`);
-      }
-      printed = printNewAgentMessages(snapshot.messages, printed);
+      if (!closed && current === session) renderer.render();
     });
     unobserve = current.observe();
     ready = true;
@@ -286,80 +250,8 @@ export async function chatCommand(
   try {
     await ingestSecretsForSession(config, cli, session.client);
     await applyRequestedModelIfPresent(config, cli, session);
-    const previousActionIds = new Set(
-      session.actions.all().map((action) => action.id),
-    );
-    const previousCommitIds = new Set(
-      session.commits.all().map((commit) => commit.commit_id),
-    );
-    let printedAgentCount = 0;
-    let handledSequence = 0;
-    let thinkingPrinted = false;
-    const agentLabels = new Map<string, string>();
-    // One printed line per (turn, tool) pair, whichever wire shape lands
-    // first. Suppressing by turn alone silently drops a distinct tool's only
-    // trace whenever another tool in the turn used the other shape.
-    const seenToolPairs = new Set<string>();
-    const toolPairKey = (turnId: string, name: string) => `${turnId}::${name}`;
-    const render = () => {
-      const snapshot = session.getSnapshot();
-      if (
-        verbose &&
-        !thinkingPrinted &&
-        (snapshot.isSubmitting || snapshot.turnState === "processing")
-      ) {
-        thinkingPrinted = true;
-        console.log(`${DIM}⏳ Thinking…${RESET}`);
-      }
-      for (const event of snapshot.events) {
-        if (event.sequence <= handledSequence) continue;
-        handledSequence = event.sequence;
-        if (event.type === "tool_complete") {
-          const name = getToolNameFromEvent(event);
-          // Subagent lifecycles print through the task_* lines, not as tools.
-          if (name === "task") continue;
-          const turnId = event.turn_id ?? `event:${event.event_id}`;
-          const pair = toolPairKey(turnId, name);
-          const firstForPair = !seenToolPairs.has(pair);
-          seenToolPairs.add(pair);
-          if (firstForPair && (verbose || isAlwaysVisibleTool(name))) {
-            printToolComplete(event);
-          }
-        } else if (event.type === "message") {
-          const tool = inlineToolResultFromMessage(event);
-          if (tool) {
-            const pair = toolPairKey(tool.turnId, tool.name);
-            const firstForPair = !seenToolPairs.has(pair);
-            seenToolPairs.add(pair);
-            if (firstForPair && (verbose || isAlwaysVisibleTool(tool.name))) {
-              printToolResultLine(tool.name, tool.result);
-            }
-          } else if (verbose && event.sender === "notice") {
-            console.log(`${YELLOW}📢 ${event.content}${RESET}`);
-          }
-        } else if (verbose && event.type === "task_started") {
-          agentLabels.set(event.agent_id, event.label || event.agent_id);
-          printTaskStarted(event);
-        } else if (verbose && event.type === "task_activity") {
-          printTaskActivity(event);
-        } else if (verbose && event.type === "task_completed") {
-          printTaskCompleted(event, agentLabels.get(event.agent_id));
-          agentLabels.delete(event.agent_id);
-        } else if (verbose && event.type === "error") {
-          console.log(`\x1b[31m❌ ${event.message}${RESET}`);
-        }
-      }
-      if (verbose) {
-        printedAgentCount = printNewAgentMessages(
-          snapshot.messages,
-          printedAgentCount,
-        );
-      }
-    };
-    if (verbose) {
-      thinkingPrinted = true;
-      console.log(`${DIM}⏳ Thinking…${RESET}`);
-    }
+    const renderer = createSessionRenderer(session, verbose, "one-shot");
+    renderer.begin();
     if (branch.edit && branch.regenerate) fatal("Choose --edit or --rerun.");
     await session.sendAsync(message, branch);
     const boundary = printBoundaryForTurn(
@@ -367,77 +259,15 @@ export async function chatCommand(
       session.getSnapshot().messages,
       session.getSnapshot().turnId,
     );
-    handledSequence = boundary.handledSequence;
-    printedAgentCount = boundary.printedAgentCount;
-    const unsubscribe = session.subscribe(render);
-    render();
-    await waitForTurnStop(session);
-    render();
-    unsubscribe();
-
-    if (verbose) {
-      console.log(`${DIM}✅ Done${RESET}`);
-    }
-
-    const newActions = session.actions
-      .pending()
-      .filter((action) => !previousActionIds.has(action.id));
-    const newCommits = session.commits
-      .all()
-      .filter(
-        (commit) =>
-          !previousCommitIds.has(commit.commit_id) && !isTerminalCommit(commit),
-      );
-
-    for (const commit of newCommits) {
-      console.log(
-        `🔐 Commit awaiting ${commit.action?.kind ?? "confirmation"}: ${commit.commit_id} (${commit.chain_family.toUpperCase()}, ${commit.state})`,
-      );
-    }
-
-    for (const action of newActions) {
-      console.log(`⚡ Action awaiting response: ${action.id}`);
-      if (action.request.type === "execute_evm") {
-        console.log(
-          `   EVM transactions: ${action.request.transactions.length}`,
-        );
-      } else if (action.request.type === "execute_svm") {
-        console.log(
-          `   SVM transactions: ${action.request.transactions.length}`,
-        );
-      } else {
-        console.log(`   ${action.request.chainFamily.toUpperCase()} signature`);
-        if (action.request.description) {
-          console.log(`   ${action.request.description}`);
-        }
-      }
-    }
-
-    if (!verbose) {
-      const agentMessages = session
-        .getSnapshot()
-        .messages.filter((entry) => entry.sender === "agent");
-      const last = agentMessages[agentMessages.length - 1];
-
-      if (last?.content) {
-        console.log(last.content);
-      } else if (session.getSnapshot().turnState === "interrupted") {
-        console.log("(interrupted)");
-      } else if (newActions.length === 0 && newCommits.length === 0) {
-        console.log("(no response)");
-        fatal("Backend returned an empty agent message.");
-      }
-    }
-
-    if (newActions.length > 0 || newCommits.length > 0) {
-      console.log(
-        "\nRun `aomi tx list` to inspect commits and Actions, then `aomi tx sign <id>` or `aomi tx reject <id>`.",
-      );
-      if (newCommits.length > 0) {
-        console.log(
-          "For an external signer, export one exact review with `aomi tx export <id> --format commit`.",
-        );
-      }
+    renderer.setBoundary(boundary);
+    const unsubscribe = session.subscribe(renderer.render);
+    try {
+      renderer.render();
+      await waitForTurnStop(session);
+      renderer.render();
+      renderer.finish();
+    } finally {
+      unsubscribe();
     }
   } finally {
     session.close();

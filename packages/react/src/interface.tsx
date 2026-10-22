@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { ThreadMessageLike } from "@assistant-ui/react";
+import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 
 import type {
   Action,
@@ -104,13 +104,19 @@ export type AomiRuntimeApi = {
   isStopping?: boolean;
   /** Get messages for a thread (defaults to currentThreadId) */
   getMessages: (threadId?: string) => ThreadMessageLike[];
-  /** Send a message to the current thread */
-  sendMessage: (text: string) => Promise<void>;
+  /** Send a message; composer configuration includes hints and failed-draft recovery. */
+  sendMessage: (
+    text: string,
+    runConfig?: AppendMessage["runConfig"],
+  ) => Promise<void>;
   /** The host advertises durable steering and queue support. */
   supportsSteering?: boolean;
   turnInputs?: readonly PendingInput[];
   turnControl?: TurnControl;
-  queueMessage?: (text: string) => Promise<void>;
+  queueMessage?: (
+    text: string,
+    runConfig?: AppendMessage["runConfig"],
+  ) => Promise<void>;
   cancelTurn?: (turnId: string) => Promise<void>;
   /** Cancel the current generation */
   cancelGeneration: () => void;

@@ -24,6 +24,7 @@ import { AomiSecretSlot } from '@aomi-labs/client';
 import { AomiSimulateResponse } from '@aomi-labs/client';
 import { AomiUserAppSecrets } from '@aomi-labs/client';
 import { appendFeeCallToPayload } from '@aomi-labs/client';
+import { AppendMessage } from '@assistant-ui/react';
 import { appIdentityKey } from '@aomi-labs/client';
 import { ApplicationId } from '@aomi-labs/client';
 import { buildFeeAAWalletCall } from '@aomi-labs/client';
@@ -126,11 +127,11 @@ export type AomiRuntimeApi = {
     isStartUncertain?: boolean;
     isStopping?: boolean;
     getMessages: (threadId?: string) => ThreadMessageLike[];
-    sendMessage: (text: string) => Promise<void>;
+    sendMessage: (text: string, runConfig?: AppendMessage["runConfig"]) => Promise<void>;
     supportsSteering?: boolean;
     turnInputs?: readonly PendingInput[];
     turnControl?: TurnControl;
-    queueMessage?: (text: string) => Promise<void>;
+    queueMessage?: (text: string, runConfig?: AppendMessage["runConfig"]) => Promise<void>;
     cancelTurn?: (turnId: string) => Promise<void>;
     cancelGeneration: () => void;
     notifications: Notification_2[];
@@ -390,6 +391,9 @@ export { SponsorshipPaymasterServiceContext }
 
 // @public
 export type StoredByokKey = AomiByokKeyEntry;
+
+// @public
+export function stripCapabilityHints(text: string): string;
 
 // @public
 export const SUPPORTED_CHAINS: ChainInfo[];

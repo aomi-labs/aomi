@@ -28,6 +28,7 @@ import {
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useAuiState,
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
@@ -50,6 +51,7 @@ import {
   useOptionalAomiRuntime,
   useThreadContext,
   useThreadTaskRuns,
+  stripCapabilityHints,
 } from "@aomi-labs/react";
 import { AppIndicator } from "@/controls/app-indicator";
 import { useComposerControl } from "@/frame/aomi-frame";
@@ -392,7 +394,7 @@ const ThreadSuggestions: FC = () => {
  * placement and placeholder differ.
  */
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
-  const { prepareSubmit } = useCapabilityComposer();
+  const { prepareSubmit, retainMentions } = useCapabilityComposer();
   const { sendDisabled } = useComposerControl();
   const runtime = useOptionalAomiRuntime();
   const composer = useComposerRuntime();
@@ -414,46 +416,40 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
-    if (!event.defaultPrevented && composer.getState().text.trim())
-      inputSubmitted();
-    const active = runtime?.turnControl
-      ? Boolean(runtime.turnControl.active_turn_id)
-      : runtime?.turnState === "processing" ||
-        runtime?.turnState === "awaiting_action";
-    if (!event.defaultPrevented && active && runtime?.supportsSteering) {
+    if (event.defaultPrevented) return;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // Save a new chat's held safety level first so turn one runs under it.
+    if (safety?.hasHeld()) {
       event.preventDefault();
-      const text = composer.getState().text.trim();
-      if (!text) return;
-      const threadId = runtime.currentThreadId;
-      composer.setText("");
-      void runtime.sendMessage(text).catch((error: unknown) => {
-        if (
-          runtime.currentThreadId === threadId &&
-          !composer.getState().text.trim()
-        )
-          composer.setText(text);
-        runtime.showNotification({
-          type: "error",
-          title: "Update not accepted",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Your text has been kept for resubmission.",
-        });
+      // Another Enter during that save waits for it; only the first resubmits.
+      if (committing.current) return;
+      committing.current = true;
+      const form = event.currentTarget;
+      void safety.commitHeld().then((saved) => {
+        committing.current = false;
+        if (saved)
+          form.requestSubmit(
+            submitter instanceof HTMLButtonElement ? submitter : undefined,
+          );
       });
       return;
     }
-    if (event.defaultPrevented || !safety?.hasHeld()) return;
-    // Save a new chat's held safety level first so turn one runs under it.
+    if (!runtime) return;
     event.preventDefault();
-    // Another Enter during that save waits for it; only the first resubmits.
-    if (committing.current) return;
-    committing.current = true;
-    const form = event.currentTarget;
-    void safety.commitHeld().then((saved) => {
-      committing.current = false;
-      if (saved) form.requestSubmit();
-    });
+    const { text, runConfig } = composer.getState();
+    if (!text.trim()) return;
+    const queue =
+      submitter instanceof HTMLButtonElement &&
+      submitter.name === "aomi-input" &&
+      submitter.value === "queue";
+    const send = queue ? runtime.queueMessage : runtime.sendMessage;
+    if (!send) return;
+    inputSubmitted();
+    composer.setText("");
+    // Capture configuration before clearing chips; the runtime owns encoding,
+    // thread-bound recovery, notifications and exact active-turn admission.
+    retainMentions(new Set());
+    void send(text, runConfig ?? {}).catch(() => {});
   };
   return (
     <ComposerPrimitive.Root
@@ -465,7 +461,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
         placeholder={placeholder}
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
       />
-      <ComposerAction onInputSubmit={inputSubmitted} />
+      <ComposerAction />
       <TurnInputStatus dismissedFeedback={dismissedFeedback} />
       <ComposerSafetyStatus />
     </ComposerPrimitive.Root>
@@ -509,7 +505,9 @@ const TurnInputStatus: FC<{ dismissedFeedback: ReadonlySet<PendingInput> }> = ({
     <div className="text-aomi-muted px-4 pb-2 text-xs">
       {label && <p role="status">{label}</p>}
       {(latest?.status === "rejected" || latest?.status === "uncertain") && (
-        <p className="mt-1 break-words">{latest.message}</p>
+        <p className="mt-1 break-words">
+          {stripCapabilityHints(latest.message)}
+        </p>
       )}
       {queued.map((turnId) => {
         const input = inputs.find((item) => item.receipt?.turn_id === turnId);
@@ -518,7 +516,10 @@ const TurnInputStatus: FC<{ dismissedFeedback: ReadonlySet<PendingInput> }> = ({
             key={turnId}
             className="mt-2 flex items-center justify-between gap-2"
           >
-            <span>Queued: {input?.message ?? "New request"}</span>
+            <span>
+              Queued:{" "}
+              {input ? stripCapabilityHints(input.message) : "New request"}
+            </span>
             <button
               type="button"
               className="text-aomi-fg underline"
@@ -591,13 +592,11 @@ const CapabilityPickerButton: FC = () => {
   );
 };
 
-const ComposerAction: FC<{ onInputSubmit: () => void }> = ({
-  onInputSubmit,
-}) => {
+const ComposerAction: FC = () => {
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
-  const composer = useComposerRuntime();
   const nativeRunning = useThread((thread) => thread.isRunning);
+  const canSend = useAuiState((state) => state.composer.canSend);
   const active = aomiRuntime?.turnControl
     ? Boolean(aomiRuntime.turnControl.active_turn_id)
     : nativeRunning || aomiRuntime?.turnState === "awaiting_action";
@@ -611,6 +610,25 @@ const ComposerAction: FC<{ onInputSubmit: () => void }> = ({
   const { hostError, selectedApp } = useCapabilityComposer();
   const safety = useThreadSafety();
   const committingSafety = Boolean(safety?.pending && safety.busy);
+  const sendButton = (
+    <Button
+      type="submit"
+      variant="default"
+      size="icon"
+      data-testid={testIds.send}
+      className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+      aria-label="Send message"
+      disabled={
+        !canSend ||
+        Boolean(hostError) ||
+        committingSafety ||
+        Boolean(composerControl.sendDisabled)
+      }
+      title={hostError ?? undefined}
+    >
+      <ArrowUpIcon className="aui-composer-send-icon size-4" />
+    </Button>
+  );
 
   return (
     <div className="aui-composer-action-wrapper relative mx-1 mb-3 mt-2 flex min-h-[38px] items-center gap-1">
@@ -637,26 +655,14 @@ const ComposerAction: FC<{ onInputSubmit: () => void }> = ({
         {active && aomiRuntime?.supportsSteering && (
           <>
             <Button
-              type="button"
+              type="submit"
+              name="aomi-input"
+              value="queue"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                const text = composer.getState().text.trim();
-                if (!text || !aomiRuntime.queueMessage) return;
-                onInputSubmit();
-                composer.setText("");
-                void aomiRuntime.queueMessage(text).catch((error: unknown) => {
-                  if (!composer.getState().text.trim()) composer.setText(text);
-                  aomiRuntime.showNotification({
-                    type: "error",
-                    title: "Request not queued",
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : "Your text has been kept.",
-                  });
-                });
-              }}
+              disabled={
+                Boolean(hostError) || Boolean(composerControl.sendDisabled)
+              }
             >
               Queue new request
             </Button>
@@ -673,28 +679,14 @@ const ComposerAction: FC<{ onInputSubmit: () => void }> = ({
             </Button>
           </>
         )}
-        {!active && (
-          <>
+        {!active &&
+          (aomiRuntime ? (
+            sendButton
+          ) : (
             <ComposerPrimitive.Send asChild>
-              <Button
-                type="submit"
-                variant="default"
-                size="icon"
-                data-testid={testIds.send}
-                className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
-                aria-label="Send message"
-                disabled={
-                  Boolean(hostError) ||
-                  committingSafety ||
-                  Boolean(composerControl.sendDisabled)
-                }
-                title={hostError ?? undefined}
-              >
-                <ArrowUpIcon className="aui-composer-send-icon size-4" />
-              </Button>
+              {sendButton}
             </ComposerPrimitive.Send>
-          </>
-        )}
+          ))}
 
         {active && (
           <>
