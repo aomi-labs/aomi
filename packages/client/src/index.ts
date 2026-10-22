@@ -98,6 +98,10 @@ export type {
   ErrorEvent,
   Event,
   EventPage,
+  InputReceipt,
+  TurnControl,
+  TurnInputCapabilities,
+  SteerTurnIntent,
   InterruptIntent,
   MessageEvent,
   RespondToActionIntent,
@@ -322,6 +326,8 @@ export type {
   SessionSnapshot,
   SendOptions,
   SendResult,
+  SteerOptions,
+  PendingInput,
 } from "./session";
 
 // ======================================================================// Event Utilities

@@ -270,6 +270,13 @@ export function useRuntimeOrchestrator(
 
   const sendOnce = useCallback(
     async (text: string, threadId: string, sendOptions?: SendOptions) => {
+      const submitted = getSession(threadId).getSnapshot();
+      const targetTurnId = submitted.control
+        ? submitted.control.active_turn_id
+        : submitted.turnState === "processing" ||
+            submitted.turnState === "awaiting_action"
+          ? submitted.turnId
+          : undefined;
       // A history read already in flight (a restored chat loads before the
       // list confirms it) finishes first, so a send never lands before it.
       await loading.current.get(threadId)?.catch(() => undefined);
@@ -289,7 +296,16 @@ export function useRuntimeOrchestrator(
         optionsRef.current.getTarget(),
         text,
       );
-      await session.sendAsync(text, { ...sendOptions, apiKey });
+      if (targetTurnId && !sendOptions?.edit && !sendOptions?.regenerate) {
+        if (submitted.capabilities?.turn_input !== 1)
+          throw new AgentApiError(
+            501,
+            "steering_unsupported",
+            "Wait for the current generation to finish or stop it. This host does not support updates to running requests.",
+            false,
+          );
+        await session.steer(text, { targetTurnId });
+      } else await session.sendAsync(text, { ...sendOptions, apiKey });
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
       optionsRef.current.onSendSuccess?.(threadId);
@@ -354,12 +370,26 @@ export function useRuntimeOrchestrator(
     [sessionManager],
   );
 
+  const queueMessage = useCallback(
+    async (text: string, threadId: string) => {
+      const session = getSession(threadId);
+      const apiKey = optionsRef.current.getAppKey?.(
+        optionsRef.current.getTarget(),
+        text,
+      );
+      await session.queue(text, { apiKey });
+    },
+    [getSession],
+  );
+
   const currentSession = getSession(threads.currentThreadId);
   const snapshot = useSyncExternalStore(
     currentSession.subscribe,
     currentSession.getSnapshot,
     currentSession.getSnapshot,
   );
+
+  useEffect(() => currentSession.observe?.(), [currentSession]);
 
   useEffect(() => closeAllSessions, [closeAllSessions]);
 
@@ -374,6 +404,7 @@ export function useRuntimeOrchestrator(
     hasLoadFailed,
     retryLoad,
     sendMessage,
+    queueMessage,
     cancelGeneration,
     closeSession,
     closeAllSessions,

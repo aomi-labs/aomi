@@ -8,6 +8,7 @@ import type {
   Session,
   SessionPage,
   StartTurnIntent,
+  SteerTurnIntent,
   AomiInferenceFundingSource,
 } from "./types";
 
@@ -106,6 +107,21 @@ export class AgentTransport {
         wait: Math.min(Math.max(options.waitMs ?? 0, 0), 30_000),
       },
     });
+  }
+
+  steer(
+    sessionId: string,
+    intent: SteerTurnIntent,
+    inputId: string,
+  ): Promise<EventPage> {
+    return this.json(
+      "POST",
+      `/v1/agent/chat/${encodeURIComponent(sessionId)}/steer`,
+      {
+        headers: { "idempotency-key": inputId, ...threadHeaders(sessionId) },
+        body: intent,
+      },
+    );
   }
 
   async stream(

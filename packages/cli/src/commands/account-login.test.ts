@@ -169,7 +169,7 @@ describe("aomi account login", () => {
     const { accountLoginCommand } =
       await import("./account");
 
-    const nativeFetch = vi.fn(async (url: string | URL | Request) => {
+    const nativeFetch = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
       const target = String(url);
       if (target.endsWith("/api/auth/siwe/nonce")) {
         return {
@@ -286,7 +286,7 @@ describe("aomi account login", () => {
     const secret = bs58.encode(keypair.secretKey);
     const { accountLoginCommand } =
       await import("./account");
-    const nativeFetch = vi.fn(async (url: string | URL | Request) => {
+    const nativeFetch = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
       const target = String(url);
       if (target.endsWith("/api/auth/siws/nonce")) {
         return Response.json({

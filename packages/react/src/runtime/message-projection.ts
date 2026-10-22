@@ -453,11 +453,25 @@ export function projectAssistantMessages(
   const turnKeys = wireTurnKeys.map((turnKey) =>
     rootTurn(turnKey, continuationOwners),
   );
+  const inputRevisions = new Map<string, number>();
+  const segmentRoots = new Map<string, string>();
+  const segmentKeys = events.map((event, index) => {
+    const root = turnKeys[index]!;
+    const revision =
+      event.type === "message" && event.input_revision != null
+        ? event.input_revision
+        : (inputRevisions.get(root) ?? 1);
+    if (event.type === "message" && event.sender === "user")
+      inputRevisions.set(root, revision);
+    const segment = revision > 1 ? `${root}:input:${revision}` : root;
+    segmentRoots.set(segment, root);
+    return segment;
+  });
   // Inline transcript results and typed progress are revisions of the same
   // persisted call, even when a wallet callback has a different wire turn.
   // A tool name alone is not identity: repeated calls must remain distinct.
   const assistantTurn = (event: Event, index: number): AssistantProjection => {
-    const key = turnKeys[index]!;
+    const key = segmentKeys[index]!;
     const existing = assistantTurns.get(key);
     if (existing) return existing;
     const projection: AssistantProjection = {
@@ -534,7 +548,13 @@ export function projectAssistantMessages(
       const existingIndex = standaloneMessages.get(key);
       if (existingIndex === undefined) {
         if (projected.role === "user") {
-          projected = { ...projected, id: userMessageId(userMessageOrdinal++) };
+          const ordinal = userMessageOrdinal++;
+          projected = {
+            ...projected,
+            id: event.input_id
+              ? `input:${event.input_id}`
+              : userMessageId(ordinal),
+          };
         }
         standaloneMessages.set(key, output.length);
         output.push(projected);
@@ -580,7 +600,8 @@ export function projectAssistantMessages(
   return output
     .map((entry) => {
       if (!("parts" in entry)) return entry;
-      const root = entry.message.id.slice("turn:".length);
+      const segment = entry.message.id.slice("turn:".length);
+      const root = segmentRoots.get(segment) ?? segment;
       const callbackTurns = continuationTurnIds.get(root);
       const callbackTerminalStates = Object.fromEntries(
         (callbackTurns ?? []).flatMap((turnId) => {
@@ -646,6 +667,7 @@ export function projectRuntimeMessages(
   stoppedTurnId?: string,
   terminalTurns: SessionSnapshot["terminalTurns"] = [],
   pendingReplacesMessageKey?: string,
+  pendingInputs: SessionSnapshot["inputs"] = [],
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -698,6 +720,21 @@ export function projectRuntimeMessages(
     });
   }
   const projected = projectAssistantMessages(visible);
+  for (const input of pendingInputs ?? []) {
+    if (
+      input.operation !== "steer" ||
+      ["rejected", "uncertain"].includes(input.status) ||
+      projected.some((message) => message.id === `input:${input.inputId}`)
+    )
+      continue;
+    projected.push({
+      id: `input:${input.inputId}`,
+      role: "user",
+      content: [{ type: "text", text: input.message }],
+      createdAt: new Date(),
+      metadata: { custom: { aomiUserMessageKey: input.inputId } },
+    });
+  }
   if (pendingUserMessage === undefined) return projected;
   // Edit and Rerun replace the conversation from this user message onward.
   const replaced = projected.findIndex(

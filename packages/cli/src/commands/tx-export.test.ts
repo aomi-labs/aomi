@@ -53,6 +53,7 @@ function action(
       simulation: {
         status: "passed",
         balanceChanges: [],
+        approvals: [],
         warnings: [],
         fees: [],
         guards: [],
@@ -75,6 +76,7 @@ function svmAction(id: string): Action {
       simulation: {
         status: "passed",
         balanceChanges: [],
+        approvals: [],
         warnings: [],
         fees: [],
         guards: [],

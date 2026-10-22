@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliConfig } from "./types";
 
 const {
   chatCommandMock,
@@ -64,7 +65,7 @@ describe("CLI REPL command routing", () => {
 
   it("updates the current app when /app is used", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
       applicationId: "42",
@@ -120,7 +121,7 @@ describe("CLI REPL command routing", () => {
 
   it("routes /model list and /model <rig>", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
       secrets: {},
@@ -176,5 +177,28 @@ describe("CLI REPL command routing", () => {
         false,
       ),
     ).resolves.toBe("exit");
+  });
+});
+
+describe("interactive turn input routing", () => {
+  it("uses the persistent session for text, explicit queue, and targeted stop", async () => {
+    const { handleReplLine } = await import("./repl");
+    const config = { baseUrl: "https://example.test", secrets: {} };
+    const interaction = {
+      send: vi.fn().mockResolvedValue(undefined),
+      queue: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    await handleReplLine(config, "Use 5 instead", false, interaction);
+    await handleReplLine(
+      config,
+      "/queue Research another token",
+      false,
+      interaction,
+    );
+    await handleReplLine(config, "/stop queued-turn", false, interaction);
+    expect(interaction.send).toHaveBeenCalledWith("Use 5 instead");
+    expect(interaction.queue).toHaveBeenCalledWith("Research another token");
+    expect(interaction.cancel).toHaveBeenCalledWith("queued-turn");
   });
 });

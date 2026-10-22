@@ -25,7 +25,7 @@ import { parseSolanaKeypairSecret } from "../solana-signer";
 import type { SendOptions } from "@aomi-labs/client";
 import type { Session as ClientSession } from "@aomi-labs/client";
 import type { Event, MessageEvent } from "@aomi-labs/client";
-import { isTerminalCommit } from "@aomi-labs/client";
+import { AgentApiError, isTerminalCommit } from "@aomi-labs/client";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -81,6 +81,117 @@ export function printBoundaryForTurn(
       (message) => message.sender === "agent" && message.turn_id !== turnId,
     ).length,
   };
+}
+
+/** One session and renderer for the whole interactive conversation. */
+export async function openInteractiveChat(config: CliConfig, verbose: boolean) {
+  const cli = CliSession.loadOrCreate(config);
+  const session = cli.createClientSession(config, {
+    onPayment: printPaymentEvent,
+  });
+  await ingestSecretsForSession(config, cli, session.client);
+  await applyRequestedModelIfPresent(config, cli, session);
+  try {
+    await session.fetchCurrentState();
+  } catch (error) {
+    if (
+      !(
+        error instanceof AgentApiError &&
+        error.status === 404 &&
+        error.code === "session_not_found"
+      )
+    ) {
+      session.close();
+      throw error;
+    }
+  }
+  let printed = session
+    .getSnapshot()
+    .messages.filter((message) => message.sender === "agent").length;
+  let sequence = session.getSnapshot().events.at(-1)?.sequence ?? 0;
+  const statuses = new Map<string, string>();
+  const unsubscribe = session.subscribe(() => {
+    const snapshot = session.getSnapshot();
+    for (const input of snapshot.inputs ?? []) {
+      if (statuses.get(input.inputId) === input.status) continue;
+      statuses.set(input.inputId, input.status);
+      console.log(`[${input.operation}: ${input.status}] ${input.message}`);
+    }
+    for (const event of snapshot.events) {
+      if (event.sequence <= sequence) continue;
+      sequence = event.sequence;
+      if (verbose && event.type === "tool_complete") printToolComplete(event);
+      if (event.type === "error") console.error(event.message);
+      if (event.type === "action" && event.state === "pending")
+        console.log(`Approval required: ${event.id}`);
+    }
+    printed = printNewAgentMessages(snapshot.messages, printed);
+  });
+  const unobserve = session.observe();
+  return {
+    session,
+    send: async (text: string) => {
+      const snapshot = session.getSnapshot();
+      const active = snapshot.control
+        ? snapshot.control.active_turn_id
+        : snapshot.turnState === "processing" ||
+            snapshot.turnState === "awaiting_action"
+          ? snapshot.turnId
+          : undefined;
+      if (active) await session.steer(text, { targetTurnId: active });
+      else await session.sendAsync(text);
+    },
+    queue: async (text: string) => {
+      await session.queue(text);
+    },
+    cancel: async (turnId?: string) => {
+      if (turnId) await session.cancel({ targetTurnId: turnId });
+      else await session.interrupt();
+    },
+    sync: () =>
+      CliSession.loadOrCreate({
+        ...config,
+        freshSession: false,
+      }).syncClientSession(session, config),
+    close: () => {
+      unsubscribe();
+      unobserve();
+      session.close();
+    },
+  };
+}
+
+export async function turnInputCommand(
+  config: CliConfig,
+  message: string,
+  options: {
+    intent: "steer" | "queue";
+    inputId: string;
+    targetTurnId?: string;
+    expectedInputRevision?: number;
+  },
+): Promise<void> {
+  const cli = CliSession.loadOrCreate(config);
+  const session = cli.createClientSession(config, {
+    onPayment: printPaymentEvent,
+  });
+  try {
+    await ingestSecretsForSession(config, cli, session.client);
+    await session.fetchCurrentState();
+    const page =
+      options.intent === "steer"
+        ? await session.steer(message, options)
+        : await session.queue(message, { inputId: options.inputId });
+    console.log(
+      JSON.stringify({
+        sessionId: cli.sessionId,
+        input: page.input,
+        control: page.control,
+      }),
+    );
+  } finally {
+    session.close();
+  }
 }
 
 export async function chatCommand(

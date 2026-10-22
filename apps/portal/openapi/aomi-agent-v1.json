@@ -10,7 +10,10 @@
     "DELETE /v1/account/apps/{applicationId}/secrets",
     "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
     "DELETE /v1/agent/sessions/{sessionId}",
+    "GET /.well-known/agent.json",
     "GET /.well-known/api-catalog",
+    "GET /.well-known/jwks.json",
+    "GET /.well-known/x402",
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
@@ -55,6 +58,8 @@
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
+    "GET /v1/task/build",
+    "GET /v1/task/openapi.json",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/apps/{applicationId}",
     "POST /v1/account/apps/{applicationId}/secrets",
@@ -62,6 +67,7 @@
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
     "POST /v1/agent/chat/{sessionId}/interrupt",
+    "POST /v1/agent/chat/{sessionId}/steer",
     "POST /v1/agent/mcp",
     "POST /v1/pipeline/apps/{app}/operations/{operation}",
     "POST /v1/pipeline/evm/account",
@@ -87,10 +93,57 @@
     "POST /v1/pipeline/svm/stage",
     "POST /v1/pipeline/svm/token-holdings",
     "POST /v1/task/build",
+    "POST /v1/task/{quoteId}/result",
+    "POST /v1/task/{quoteId}/status",
     "PUT /v1/account/transaction-safety",
     "PUT /v1/account/transaction-safety/threads/{threadId}"
   ],
   "paths": {
+    "/.well-known/x402": {
+      "get": {
+        "operationId": "taskPaymentDiscovery",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Public Task payment endpoint discovery"
+          }
+        }
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "operationId": "taskManifest",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Public Task manifest using deployed payment terms"
+          },
+          "502": {
+            "description": "Invalid Task discovery configuration"
+          },
+          "503": {
+            "description": "Payment service unavailable"
+          }
+        }
+      }
+    },
+    "/v1/task/openapi.json": {
+      "get": {
+        "operationId": "taskOpenapi",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Task-only OpenAPI contract with deployed networks"
+          },
+          "502": {
+            "description": "Invalid Task discovery configuration"
+          },
+          "503": {
+            "description": "Payment service unavailable"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health",
@@ -2657,12 +2710,356 @@
         ]
       }
     },
+    "/.well-known/jwks.json": {
+      "get": {
+        "operationId": "signingJwks",
+        "summary": "Public signing keys for verifying Aomi API attestations",
+        "responses": {
+          "200": {
+            "description": "Ed25519 verification keys; contains no private key material",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["keys"],
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["kty", "crv", "alg", "kid", "x"],
+                        "properties": {
+                          "kty": {
+                            "const": "OKP"
+                          },
+                          "crv": {
+                            "const": "Ed25519"
+                          },
+                          "alg": {
+                            "const": "EdDSA"
+                          },
+                          "kid": {
+                            "type": "string"
+                          },
+                          "x": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/task/build": {
-      "post": {
-        "operationId": "buildTask",
+      "get": {
+        "operationId": "discoverTaskPayment",
         "security": [],
-        "description": "Wallet-native task preparation. Every request is bound to the exact canonical body by a short-lived EIP-712 TaskAuthorization; bearer credentials are rejected. smart_account_calls may include exact ordered calls that Aomi simulates directly with the authenticated wallet as msg.sender. EOA, ERC-1271 and ERC-6492 signatures are supported. Payment and final execution remain separate wallet signatures. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
+        "summary": "Read-only Task payment metadata",
+        "description": "Returns public instructions for the payable POST. A valid POST returns a body-bound x402 v2 Payment-Required challenge; a GET cannot buy preparation and does not advertise a payable challenge. No signature or authorization is required for this metadata.",
+        "responses": {
+          "200": {
+            "description": "Task payment metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "endpoint",
+                    "method",
+                    "paymentProtocol",
+                    "paymentScheme",
+                    "networks",
+                    "asset",
+                    "preparationPriceMicroUsdc",
+                    "retrievalPrice",
+                    "openapi",
+                    "exampleRequest",
+                    "paymentInstructions"
+                  ],
+                  "properties": {
+                    "endpoint": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "method": {
+                      "const": "POST"
+                    },
+                    "paymentProtocol": {
+                      "type": "string"
+                    },
+                    "paymentScheme": {
+                      "type": "string"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "asset": {
+                      "type": "string"
+                    },
+                    "preparationPriceMicroUsdc": {
+                      "type": "string"
+                    },
+                    "retrievalPrice": {
+                      "type": "string"
+                    },
+                    "openapi": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "exampleRequest": {
+                      "type": "object",
+                      "description": "Unsigned JSON body that reaches the body-bound preparation challenge on an enabled network."
+                    },
+                    "paymentInstructions": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "prepareTask",
+        "security": [],
+        "summary": "Purchase one preparation attempt for 0.01 USDC",
+        "description": "Validate intent, then pay the x402 challenge by retrying the same body. Returns a private job capability. Preparation attempts are non-refundable; no TaskAuthorization or execution signature is required.",
         "parameters": [
+          {
+            "in": "header",
+            "name": "Payment-Signature",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "scheme": "GatewayWalletBatched"
+              }
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["intent", "chainId", "sender"],
+                "properties": {
+                  "executionKind": {
+                    "enum": ["eoa_transactions", "smart_account_calls"],
+                    "default": "eoa_transactions"
+                  },
+                  "transactionSafetyMode": {
+                    "$ref": "#/components/schemas/TransactionSafetyMode",
+                    "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                  },
+                  "intent": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "chainId": {
+                    "type": "integer",
+                    "enum": [5042, 5042002]
+                  },
+                  "sender": {
+                    "type": "string"
+                  },
+                  "payer": {
+                    "type": "string"
+                  },
+                  "calls": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "default": [],
+                    "description": "Exact ordered inner calls. Allowed only with smart_account_calls; simulated without planner reconstruction.",
+                    "items": {
+                      "$ref": "#/components/schemas/TaskWalletCall"
+                    }
+                  },
+                  "constraints": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "maxOutgoingUsdcWei": {
+                        "type": "string",
+                        "pattern": "^[0-9]+$",
+                        "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
+                      },
+                      "maxGasUnits": {
+                        "type": "integer",
+                        "format": "uint64",
+                        "minimum": 0,
+                        "description": "Maximum simulated gas units across all actions."
+                      },
+                      "allowedTargets": {
+                        "type": "array",
+                        "default": [],
+                        "items": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{40}$"
+                        },
+                        "description": "If nonempty, every action target must be in this allowlist."
+                      },
+                      "minimumReceived": {
+                        "type": "array",
+                        "default": [],
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["asset", "amount"],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^[0-9]+$",
+                              "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Preparation payment pending or accepted; quoteId, retrievalToken, statusUrl, resultUrl, retryAfter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskJob"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "0.01 USDC preparation challenge",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; not charged"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/task/{quoteId}/status": {
+      "post": {
+        "operationId": "taskStatus",
+        "security": [],
+        "summary": "Free progress, terminal failure, or attested preview and 3% retrieval quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quoteId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["retrievalToken"],
+                "properties": {
+                  "retrievalToken": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Free progress, terminal failure, or attested preview and 3% retrieval quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskProgress"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Work or payment pending; retry existing job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskProgress"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown job or invalid capability"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/task/{quoteId}/result": {
+      "post": {
+        "operationId": "taskResult",
+        "security": [],
+        "summary": "Purchase frozen bundle for 3% of gross outgoing USDC; zero outflow is free. Repeat retrieval lasts 30 days",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quoteId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "in": "header",
             "name": "Payment-Signature",
@@ -2676,162 +3073,28 @@
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "intent",
-                      "chainId",
-                      "sender",
-                      "idempotencyKey",
-                      "authorization"
-                    ],
-                    "properties": {
-                      "executionKind": {
-                        "enum": ["eoa_transactions", "smart_account_calls"],
-                        "default": "eoa_transactions"
-                      },
-                      "transactionSafetyMode": {
-                        "$ref": "#/components/schemas/TransactionSafetyMode",
-                        "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
-                      },
-                      "intent": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 8000
-                      },
-                      "chainId": {
-                        "type": "integer",
-                        "enum": [5042, 5042002]
-                      },
-                      "sender": {
-                        "type": "string"
-                      },
-                      "payer": {
-                        "type": "string",
-                        "description": "Wallet paying for the Task artifact. When omitted on an initial request, the server materializes payer as the normalized sender address before canonicalization and signing; the EIP-712 payer field must therefore equal sender."
-                      },
-                      "calls": {
-                        "type": "array",
-                        "maxItems": 16,
-                        "default": [],
-                        "description": "Exact ordered inner calls. Allowed only with smart_account_calls; signed and simulated without planner reconstruction.",
-                        "items": {
-                          "$ref": "#/components/schemas/TaskWalletCall"
-                        }
-                      },
-                      "constraints": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                          "maxOutgoingUsdcWei": {
-                            "type": "string",
-                            "pattern": "^[0-9]+$",
-                            "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
-                          },
-                          "maxGasUnits": {
-                            "type": "integer",
-                            "format": "uint64",
-                            "minimum": 0,
-                            "description": "Maximum simulated gas units across all actions."
-                          },
-                          "allowedTargets": {
-                            "type": "array",
-                            "default": [],
-                            "items": {
-                              "type": "string",
-                              "pattern": "^0x[0-9a-fA-F]{40}$"
-                            },
-                            "description": "If nonempty, every action target must be in this allowlist."
-                          },
-                          "minimumReceived": {
-                            "type": "array",
-                            "default": [],
-                            "items": {
-                              "type": "object",
-                              "additionalProperties": false,
-                              "required": ["asset", "amount"],
-                              "properties": {
-                                "asset": {
-                                  "type": "string",
-                                  "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
-                                },
-                                "amount": {
-                                  "type": "string",
-                                  "pattern": "^[0-9]+$",
-                                  "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
-                                }
-                              }
-                            }
-                          }
-                        }
-                      },
-                      "idempotencyKey": {
-                        "type": "string",
-                        "maxLength": 160
-                      },
-                      "authorization": {
-                        "$ref": "#/components/schemas/TaskAuthorization"
-                      }
-                    }
-                  },
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["quoteId", "retrievalToken", "authorization"],
-                    "properties": {
-                      "quoteId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "retrievalToken": {
-                        "type": "string",
-                        "writeOnly": true
-                      },
-                      "authorization": {
-                        "allOf": [
-                          {
-                            "$ref": "#/components/schemas/TaskAuthorization"
-                          }
-                        ],
-                        "description": "Authorizes the exact canonical request stored with the quote, not this retrieval body. Reuse the original signature while it remains suitable, or refresh only issuedAt, expiresAt, and signature over the same stored requestHash, EIP-712 domain, typed fields, wallet, and idempotencyKey."
-                      }
-                    }
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["retrievalToken"],
+                "properties": {
+                  "retrievalToken": {
+                    "type": "string",
+                    "writeOnly": true
                   }
-                ]
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Exact frozen JSON artifact bytes (build, report and safe summary), released only after payment acceptance. smart_account_calls artifacts also expose the exact ordered walletCalls simulated with the authenticated wallet as msg.sender. This covers inner calls, not Circle's outer envelope or wallet policy. Payment-Response is returned when available; accepted is distinct from batch settlement.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["summary"],
-                  "properties": {
-                    "summary": {
-                      "$ref": "#/components/schemas/TaskSummary"
-                    },
-                    "walletCalls": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/TaskWalletCall"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Purchase frozen bundle for 3% of gross outgoing USDC; zero outflow is free. Repeat retrieval lasts 30 days"
           },
           "202": {
-            "description": "Payment submitted or ambiguous; retry the same quote/token for recovery. Artifact remains private."
+            "description": "Work or payment pending; retry existing job"
           },
           "402": {
-            "description": "Safe summary, pricing, quoteId, expiresAt, SHA-256 payloadHash, EdDSA attestation, retrievalToken and base64 Gateway paymentRequired. No build/calldata/full report.",
+            "description": "Attested preview and variable fee; pay by retrying identical request",
             "headers": {
               "Payment-Required": {
                 "schema": {
@@ -2842,23 +3105,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": ["summary"],
-                  "properties": {
-                    "summary": {
-                      "$ref": "#/components/schemas/TaskSummary"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TaskPreview"
                 }
               }
             }
           },
-          "409": {
-            "description": "Request key conflict, active preparation, or incompatible payment replay."
+          "404": {
+            "description": "Unknown job or invalid capability"
           },
           "default": {
             "$ref": "#/components/responses/Error"
           }
+        },
+        "x-payment-info": {
+          "price": {
+            "mode": "dynamic",
+            "currency": "USD",
+            "min": "0"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "scheme": "GatewayWalletBatched"
+              }
+            }
+          ]
         }
       }
     },
@@ -3403,6 +3674,58 @@
           }
         ]
       }
+    },
+    "/v1/agent/chat/{sessionId}/steer": {
+      "post": {
+        "operationId": "steerTurn",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnSteer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Durable input acknowledgement and current control state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Target completed or input revision changed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3596,6 +3919,10 @@
           "cursor": {
             "type": ["string", "null"],
             "description": "The caller's current event cursor. When supplied, the start page carries only events after it instead of the whole history; an expired cursor falls back to the full page rather than failing the accepted turn."
+          },
+          "intent": {
+            "enum": ["start", "queue"],
+            "description": "Independent turn admission. Omission means start; queue requires turn_input version 1."
           }
         }
       },
@@ -4315,6 +4642,15 @@
             "items": {
               "$ref": "#/components/schemas/CommitView"
             }
+          },
+          "input": {
+            "$ref": "#/components/schemas/InputReceipt"
+          },
+          "control": {
+            "$ref": "#/components/schemas/TurnControl"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/TurnInputCapabilities"
           }
         }
       },
@@ -4404,6 +4740,12 @@
           },
           {
             "$ref": "#/components/schemas/Action"
+          },
+          {
+            "$ref": "#/components/schemas/TurnInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/InputEffectClaimedEvent"
           }
         ],
         "discriminator": {
@@ -4423,7 +4765,9 @@
             "context_compacted": "#/components/schemas/ContextCompactedEvent",
             "tool_output_trimmed": "#/components/schemas/ToolOutputTrimmedEvent",
             "error": "#/components/schemas/ErrorEvent",
-            "action": "#/components/schemas/Action"
+            "action": "#/components/schemas/Action",
+            "input_effect_claimed": "#/components/schemas/InputEffectClaimedEvent",
+            "turn_input": "#/components/schemas/TurnInputEvent"
           }
         }
       },
@@ -4475,6 +4819,13 @@
               "tool_arguments": {},
               "is_streaming": {
                 "type": "boolean"
+              },
+              "input_id": {
+                "type": ["string", "null"]
+              },
+              "input_revision": {
+                "type": ["integer", "null"],
+                "minimum": 0
               }
             }
           }
@@ -4546,7 +4897,8 @@
                   "awaiting_action",
                   "complete",
                   "interrupted",
-                  "failed"
+                  "failed",
+                  "queued"
                 ]
               }
             }
@@ -5880,11 +6232,11 @@
           "query": {
             "type": ["string", "null"],
             "maxLength": 256,
-            "description": "Case-insensitive substring of token symbol, name or contract address."
+            "description": "Case-insensitive discovery substring of symbol/name/address, not token identity. Named-token answers must consult query_resolution and identity; an exact contract reads that candidate. Missing or filtered holdings do not establish a zero balance."
           },
           "min_usd_value": {
             "type": ["string", "null"],
-            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; pass \"0\" when small balances matter, such as checking gas."
+            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; set it to 0 when small balances matter, such as checking gas."
           },
           "include_unpriced": {
             "type": ["boolean", "null"],
@@ -5904,7 +6256,9 @@
           "total_matching",
           "next_cursor",
           "hidden",
-          "warnings"
+          "warnings",
+          "registry",
+          "query_resolution"
         ],
         "properties": {
           "chain_id": {
@@ -5918,12 +6272,15 @@
           },
           "hidden": {
             "type": "object",
-            "description": "Counts filtered out by min_usd_value or for lacking a price.",
+            "description": "Counts excluded by min_usd_value, missing prices or provider screening. Flagged contracts can be inspected with an exact contract query.",
             "properties": {
               "below_min_usd": {
                 "type": "integer"
               },
               "unpriced": {
+                "type": "integer"
+              },
+              "flagged": {
                 "type": "integer"
               }
             }
@@ -5948,12 +6305,21 @@
               "type": "string"
             }
           },
+          "registry": {
+            "type": "object",
+            "description": "LI.FI and Uniswap reference freshness and age; separate from balance/indexer completeness."
+          },
+          "query_resolution": {
+            "type": ["object", "null"],
+            "description": "Independent reference candidates, including contracts absent from this wallet page. Not balances. Preserve ambiguity; read exact contracts for zero/dust."
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
               "required": [
                 "token_address",
+                "identity",
                 "symbol",
                 "name",
                 "decimals",
@@ -5966,6 +6332,10 @@
               "properties": {
                 "token_address": {
                   "type": "string"
+                },
+                "identity": {
+                  "type": "object",
+                  "description": "screening (native/verified/flagged/unverified/unknown), registry_sources, provider assessments. Approval is not issuer identity; absence is not spam."
                 },
                 "symbol": {
                   "type": ["string", "null"]
@@ -6918,27 +7288,6 @@
           }
         }
       },
-      "TaskAuthorization": {
-        "type": "object",
-        "description": "Per-request EIP-712 authorization for both initial Task quote requests and quote-purchase recovery requests. Compute requestHash as keccak256(UTF-8(JCS(request without authorization))) using RFC 8785 canonical JSON after lowercasing EVM addresses, materializing documented defaults (including payer = sender when payer is omitted), encoding numeric quantities as decimal strings, and preserving call-array order. The EIP-712 domain is {name: 'Aomi Task API', version: '1', chainId: request.chainId, salt: keccak256('https://chat.aomi.dev/v1/task')}. The primary type is TaskAuthorization(string endpoint,bytes32 requestHash,uint256 chainId,address sender,address payer,string idempotencyKey,uint64 issuedAt,uint64 expiresAt), where endpoint is '/v1/task/build'. issuedAt and expiresAt are Unix seconds; expiresAt must be after issuedAt and no more than five minutes later, and issuedAt may be at most 30 seconds in the future. The recovered EOA, ERC-1271, or ERC-6492 signer must equal both sender and payer. Before a quote exists, a near-expiry authorization may be replaced only for the identical requestHash and idempotencyKey. After quote creation, purchase and recovery remain bound to the stored original requestHash, domain, typed fields, wallet, and idempotencyKey; clients may refresh only issuedAt, expiresAt, and signature over that same binding until quote expiry, and the authorization cannot authorize another request.",
-        "additionalProperties": false,
-        "required": ["issuedAt", "expiresAt", "signature"],
-        "properties": {
-          "issuedAt": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "signature": {
-            "type": "string",
-            "pattern": "^0x[0-9a-fA-F]+$",
-            "writeOnly": true
-          }
-        }
-      },
       "TaskSummary": {
         "type": "object",
         "additionalProperties": false,
@@ -6952,7 +7301,7 @@
           "source",
           "senderBinding",
           "requestHash",
-          "authorizationIdentity",
+          "payerIdentity",
           "actionCount",
           "outgoingUsdcWei"
         ],
@@ -7042,7 +7391,7 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
           },
-          "authorizationIdentity": {
+          "payerIdentity": {
             "type": "string"
           },
           "actionCount": {
@@ -7073,6 +7422,183 @@
             "pattern": "^[0-9]+$"
           }
         }
+      },
+      "X402PaymentRequirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scheme",
+          "network",
+          "asset",
+          "amount",
+          "payTo",
+          "maxTimeoutSeconds"
+        ],
+        "properties": {
+          "scheme": {
+            "const": "exact"
+          },
+          "maxTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "network": {
+            "type": "string",
+            "pattern": "^eip155:[0-9]+$"
+          },
+          "asset": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "payTo": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          }
+        }
+      },
+      "TaskJob": {
+        "type": "object",
+        "required": [
+          "quoteId",
+          "retrievalToken",
+          "statusUrl",
+          "resultUrl",
+          "status",
+          "retryAfter"
+        ],
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "retrievalToken": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "statusUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "resultUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "status": {
+            "enum": ["payment_pending", "preparing", "ready", "failed"]
+          },
+          "retryAfter": {
+            "type": "integer"
+          },
+          "error": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "TaskPreview": {
+        "type": "object",
+        "required": [
+          "status",
+          "quoteId",
+          "requestHash",
+          "request",
+          "summary",
+          "pricing",
+          "payloadHash",
+          "expiresAt",
+          "attestation",
+          "paymentRequired"
+        ],
+        "properties": {
+          "status": {
+            "const": "ready"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestHash": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "description": "Canonical normalized original request; integer quantities are decimal strings"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskSummary"
+          },
+          "pricing": {
+            "type": "object",
+            "required": [
+              "outgoing_usdc_wei",
+              "fee_microusd",
+              "preparation_fee_microusd"
+            ],
+            "properties": {
+              "outgoing_usdc_wei": {
+                "type": "string"
+              },
+              "fee_microusd": {
+                "type": "string"
+              },
+              "preparation_fee_microusd": {
+                "const": "10000"
+              }
+            }
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "attestation": {
+            "type": "string"
+          },
+          "paymentRequired": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "TaskProgress": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TaskPreview"
+          },
+          {
+            "type": "object",
+            "required": ["quoteId", "status"],
+            "properties": {
+              "quoteId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "enum": [
+                  "payment_pending",
+                  "preparing",
+                  "failed",
+                  "expired",
+                  "ready"
+                ]
+              },
+              "purchased": {
+                "type": "boolean",
+                "description": "Ready after an existing accepted retrieval; reuse the saved verified preview"
+              },
+              "error": {
+                "type": ["string", "null"]
+              },
+              "retryAfter": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
       },
       "TransactionSafetyMode": {
         "type": "string",
@@ -7337,6 +7863,206 @@
             "enum": ["pending", "passed", "failed", "unavailable"]
           }
         }
+      },
+      "TurnSteer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["turnId", "expectedInputRevision", "message"],
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "expectedInputRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          }
+        }
+      },
+      "InputReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_id",
+          "turn_id",
+          "operation",
+          "disposition",
+          "input_revision",
+          "received_at",
+          "admitted_at",
+          "applied_at"
+        ],
+        "properties": {
+          "input_id": {
+            "type": "string"
+          },
+          "turn_id": {
+            "type": "string"
+          },
+          "operation": {
+            "enum": ["start", "queue", "steer", "cancel"]
+          },
+          "disposition": {
+            "enum": ["accepted", "queued", "applied", "cancelled", "superseded"]
+          },
+          "input_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "received_at": {
+            "type": "integer"
+          },
+          "admitted_at": {
+            "type": "integer"
+          },
+          "applied_at": {
+            "type": ["integer", "null"]
+          }
+        }
+      },
+      "TurnControl": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "active_turn_id",
+          "accepted_input_revision",
+          "applied_input_revision",
+          "queued_turn_ids",
+          "event_sequence",
+          "stream_epoch"
+        ],
+        "properties": {
+          "active_turn_id": {
+            "type": ["string", "null"]
+          },
+          "accepted_input_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "applied_input_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queued_turn_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "event_sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stream_epoch": {
+            "type": "string"
+          }
+        }
+      },
+      "TurnInputCapabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["turn_input"],
+        "properties": {
+          "turn_input": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "InputEffectClaimedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "input_revision", "claim"],
+            "properties": {
+              "type": {
+                "const": "input_effect_claimed"
+              },
+              "input_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "claim": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "TurnInputEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "input_id": {
+                "type": "string"
+              },
+              "turn_id": {
+                "type": "string"
+              },
+              "operation": {
+                "enum": ["start", "queue", "steer", "cancel"]
+              },
+              "disposition": {
+                "enum": [
+                  "accepted",
+                  "queued",
+                  "applied",
+                  "cancelled",
+                  "superseded"
+                ]
+              },
+              "input_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "received_at": {
+                "type": "integer"
+              },
+              "admitted_at": {
+                "type": "integer"
+              },
+              "applied_at": {
+                "type": ["integer", "null"]
+              }
+            },
+            "required": [
+              "input_id",
+              "turn_id",
+              "operation",
+              "disposition",
+              "input_revision",
+              "received_at",
+              "admitted_at",
+              "applied_at"
+            ]
+          },
+          {
+            "type": "object",
+            "required": ["type", "message"],
+            "properties": {
+              "type": {
+                "const": "turn_input"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {

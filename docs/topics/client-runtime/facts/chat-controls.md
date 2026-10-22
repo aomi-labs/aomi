@@ -11,6 +11,31 @@ sources_of_truth:
 
 # Chat controls
 
+## Updating active requests
+
+Hosts advertise `capabilities.turn_input: 1` on authorized event pages. With
+that capability, ordinary composer text while one request is active updates
+that exact request. A request remains active while awaiting wallet approval.
+The secondary Queue action creates independent work; it waits until the
+foreground request finishes or is cancelled. Idle text starts a new request.
+Raw SDK `send()` remains an explicit new request and returns `turn_busy` when
+the host is busy; use `steer()` or `queue()` deliberately.
+
+Each update captures its session, turn, accepted input revision, text and one
+idempotency key at submission. Short admissions are serialized per target,
+independently of the long completion promise. Lost acknowledgements retain
+that identity for retry. A terminal target or revision conflict retains the
+draft for review; the client never sends it to another turn automatically.
+An unsupported host reports that limitation without converting Update or
+Queue into Send. Input receipts and accepted/applied revision watermarks
+recover through the existing event stream and history reads.
+
+An accepted correction invalidates unclaimed approvals from older revisions.
+Already-started effects and their receipts remain visible. Stop targets one
+exact turn, including queued work; it cannot undo an effect already started.
+
+## Editing completed conversation history
+
 Edit and Rerun work like a linear chat: they replace the conversation from a
 user message onward and continue it with a normal turn, with the same app,
 tools and signing rules as any other message. Edit sends the revised text with

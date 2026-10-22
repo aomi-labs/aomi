@@ -18,6 +18,7 @@ export async function createFakeAgentServer(
 ) {
   const backend = options.backend ?? new FakeAgentBackend();
   const streams = new Set<ServerResponse>();
+  let lostResponsePath: string | undefined;
   const server = createServer(async (request, response) => {
     const origin = request.headers.origin;
     // Loopback only. CORS may expose fake agent data, never auth.
@@ -64,6 +65,11 @@ export async function createFakeAgentServer(
         ),
         body: text ? JSON.parse(text) : undefined,
       });
+      if (lostResponsePath === path) {
+        lostResponsePath = undefined;
+        response.destroy();
+        return;
+      }
       sendFakeResponse(backend, result, response, streams);
     } catch {
       if (!response.headersSent)
@@ -85,6 +91,9 @@ export async function createFakeAgentServer(
   return {
     origin: `http://127.0.0.1:${address.port}`,
     backend,
+    loseNextResponse(path: string) {
+      lostResponsePath = path;
+    },
     async close() {
       for (const response of streams) response.end();
       server.closeAllConnections();

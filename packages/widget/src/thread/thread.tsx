@@ -393,11 +393,40 @@ const ThreadSuggestions: FC = () => {
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const { prepareSubmit } = useCapabilityComposer();
   const { sendDisabled } = useComposerControl();
+  const runtime = useOptionalAomiRuntime();
+  const composer = useComposerRuntime();
   const safety = useThreadSafety();
   const committing = useRef(false);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
+    const active = runtime?.turnControl
+      ? Boolean(runtime.turnControl.active_turn_id)
+      : runtime?.turnState === "processing" ||
+        runtime?.turnState === "awaiting_action";
+    if (!event.defaultPrevented && active && runtime?.supportsSteering) {
+      event.preventDefault();
+      const text = composer.getState().text.trim();
+      if (!text) return;
+      const threadId = runtime.currentThreadId;
+      composer.setText("");
+      void runtime.sendMessage(text).catch((error: unknown) => {
+        if (
+          runtime.currentThreadId === threadId &&
+          !composer.getState().text.trim()
+        )
+          composer.setText(text);
+        runtime.showNotification({
+          type: "error",
+          title: "Update not accepted",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Your text has been kept for resubmission.",
+        });
+      });
+      return;
+    }
     if (event.defaultPrevented || !safety?.hasHeld()) return;
     // Save a new chat's held safety level first so turn one runs under it.
     event.preventDefault();
@@ -421,8 +450,67 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
       />
       <ComposerAction />
+      <TurnInputStatus />
       <ComposerSafetyStatus />
     </ComposerPrimitive.Root>
+  );
+};
+
+const TurnInputStatus: FC = () => {
+  const runtime = useOptionalAomiRuntime();
+  const inputs = runtime?.turnInputs ?? [];
+  const latest = inputs.findLast((input) => input.operation === "steer");
+  const status = latest?.status;
+  const queued = runtime?.turnControl?.queued_turn_ids ?? [];
+  const label =
+    status === "sending"
+      ? "Sending update…"
+      : status === "accepted"
+        ? "Update accepted · waiting for the current step"
+        : status === "applied"
+          ? "Update applied"
+          : status === "uncertain"
+            ? "Update receipt unknown · check the conversation before retrying"
+            : status === "rejected"
+              ? "Update not accepted · your text is available to resend"
+              : status === "superseded" || status === "cancelled"
+                ? "Update was not applied"
+                : undefined;
+  if (!label && queued.length === 0) return null;
+  return (
+    <div className="text-aomi-muted px-4 pb-2 text-xs">
+      {label && <p role="status">{label}</p>}
+      {(latest?.status === "rejected" || latest?.status === "uncertain") && (
+        <p className="mt-1 break-words">{latest.message}</p>
+      )}
+      {queued.map((turnId) => {
+        const input = inputs.find((item) => item.receipt?.turn_id === turnId);
+        return (
+          <div
+            key={turnId}
+            className="mt-2 flex items-center justify-between gap-2"
+          >
+            <span>Queued: {input?.message ?? "New request"}</span>
+            <button
+              type="button"
+              className="text-aomi-fg underline"
+              onClick={() =>
+                void runtime?.cancelTurn?.(turnId).catch((error: unknown) =>
+                  runtime?.showNotification({
+                    type: "error",
+                    title: "Couldn’t cancel queued request",
+                    message:
+                      error instanceof Error ? error.message : "Try again.",
+                  }),
+                )
+              }
+            >
+              Cancel queued request
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
@@ -478,6 +566,11 @@ const CapabilityPickerButton: FC = () => {
 const ComposerAction: FC = () => {
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
+  const composer = useComposerRuntime();
+  const nativeRunning = useThread((thread) => thread.isRunning);
+  const active = aomiRuntime?.turnControl
+    ? Boolean(aomiRuntime.turnControl.active_turn_id)
+    : nativeRunning || aomiRuntime?.turnState === "awaiting_action";
   const controlBarProps = composerControl.controlBarProps ?? {};
   const hideModel = controlBarProps.hideModel ?? false;
   const hideSafety = controlBarProps.hideSafety ?? false;
@@ -510,60 +603,102 @@ const ComposerAction: FC = () => {
       {/* Spacer — only when no inline controls */}
       {!composerControl.enabled && <div className="flex-1" />}
 
-      <div className="shrink-0">
-        <ThreadPrimitive.If running={false}>
-          <ComposerPrimitive.Send asChild>
+      <div className="flex shrink-0 items-center gap-2">
+        {active && aomiRuntime?.supportsSteering && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const text = composer.getState().text.trim();
+                if (!text || !aomiRuntime.queueMessage) return;
+                composer.setText("");
+                void aomiRuntime.queueMessage(text).catch((error: unknown) => {
+                  if (!composer.getState().text.trim()) composer.setText(text);
+                  aomiRuntime.showNotification({
+                    type: "error",
+                    title: "Request not queued",
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "Your text has been kept.",
+                  });
+                });
+              }}
+            >
+              Queue new request
+            </Button>
             <Button
               type="submit"
               variant="default"
-              size="icon"
-              data-testid={testIds.send}
-              className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
-              aria-label="Send message"
+              size="sm"
+              aria-label="Update current request"
               disabled={
-                Boolean(hostError) ||
-                committingSafety ||
-                Boolean(composerControl.sendDisabled)
+                Boolean(hostError) || Boolean(composerControl.sendDisabled)
               }
-              title={hostError ?? undefined}
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4" />
+              Update current request
             </Button>
-          </ComposerPrimitive.Send>
-        </ThreadPrimitive.If>
+          </>
+        )}
+        {!active && (
+          <>
+            <ComposerPrimitive.Send asChild>
+              <Button
+                type="submit"
+                variant="default"
+                size="icon"
+                data-testid={testIds.send}
+                className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+                aria-label="Send message"
+                disabled={
+                  Boolean(hostError) ||
+                  committingSafety ||
+                  Boolean(composerControl.sendDisabled)
+                }
+                title={hostError ?? undefined}
+              >
+                <ArrowUpIcon className="aui-composer-send-icon size-4" />
+              </Button>
+            </ComposerPrimitive.Send>
+          </>
+        )}
 
-        <ThreadPrimitive.If running>
-          <ComposerPrimitive.Cancel asChild>
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              data-testid={testIds.stop}
-              className="aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5"
-              aria-label={
-                aomiRuntime?.isStopping
-                  ? "Stopping generation"
-                  : "Stop generating"
-              }
-              aria-busy={Boolean(aomiRuntime?.isStopping)}
-              disabled={Boolean(aomiRuntime?.isStopping)}
-              onClick={
-                aomiRuntime
-                  ? (event) => {
-                      event.preventDefault();
-                      aomiRuntime.cancelGeneration();
-                    }
-                  : undefined
-              }
-            >
-              {aomiRuntime?.isStopping ? (
-                <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
-              )}
-            </Button>
-          </ComposerPrimitive.Cancel>
-        </ThreadPrimitive.If>
+        {active && (
+          <>
+            <ComposerPrimitive.Cancel asChild>
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                data-testid={testIds.stop}
+                className="aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5"
+                aria-label={
+                  aomiRuntime?.isStopping
+                    ? "Stopping generation"
+                    : "Stop generating"
+                }
+                aria-busy={Boolean(aomiRuntime?.isStopping)}
+                disabled={Boolean(aomiRuntime?.isStopping)}
+                onClick={
+                  aomiRuntime
+                    ? (event) => {
+                        event.preventDefault();
+                        aomiRuntime.cancelGeneration();
+                      }
+                    : undefined
+                }
+              >
+                {aomiRuntime?.isStopping ? (
+                  <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+                )}
+              </Button>
+            </ComposerPrimitive.Cancel>
+          </>
+        )}
       </div>
     </div>
   );

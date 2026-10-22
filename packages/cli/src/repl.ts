@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { chatCommand } from "./commands/chat";
+import { chatCommand, openInteractiveChat } from "./commands/chat";
 import {
   modelsCommand,
   setAgentModeCommand,
@@ -35,6 +35,9 @@ function printReplHelp(): void {
   console.log("  /key <provider:key>    Set a BYOK provider key");
   console.log("  /key show              Show current BYOK provider key status");
   console.log("  /key clear             Clear all BYOK provider keys");
+  console.log("  /queue <text>          Queue an independent request");
+  console.log("  /stop [turn-id]        Cancel active or selected queued work");
+  console.log("  Text updates the current request while it is running.");
   console.log("  :exit                  Quit the CLI");
 }
 
@@ -102,6 +105,10 @@ export async function handleReplLine(
   config: CliConfig,
   line: string,
   showTool: boolean,
+  interaction?: Pick<
+    Awaited<ReturnType<typeof openInteractiveChat>>,
+    "send" | "queue" | "cancel"
+  >,
 ): Promise<"exit" | "continue"> {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -114,6 +121,18 @@ export async function handleReplLine(
 
   if (trimmed === "/heap") {
     printReplHelp();
+    return "continue";
+  }
+
+  if (trimmed === "/queue" || trimmed.startsWith("/queue ")) {
+    const text = trimmed.slice("/queue".length).trim();
+    if (!text || !interaction) fatal("Use /queue <text> in interactive mode");
+    await interaction.queue(text);
+    return "continue";
+  }
+  if (trimmed === "/stop" || trimmed.startsWith("/stop ")) {
+    if (!interaction) fatal("Use /stop [turn-id] in interactive mode");
+    await interaction.cancel(trimmed.slice("/stop".length).trim() || undefined);
     return "continue";
   }
 
@@ -161,7 +180,8 @@ export async function handleReplLine(
     return "continue";
   }
 
-  await chatCommand(config, trimmed, showTool);
+  if (interaction) await interaction.send(trimmed);
+  else await chatCommand(config, trimmed, showTool);
   return "continue";
 }
 
@@ -175,7 +195,7 @@ export async function runInteractiveCli(
     );
   }
 
-  CliSession.loadOrCreate(config);
+  const chat = await openInteractiveChat(config, options?.showTool === true);
 
   console.log("Interactive Aomi CLI ready.");
   console.log(
@@ -191,10 +211,12 @@ export async function runInteractiveCli(
           config,
           line,
           options?.showTool === true,
+          chat,
         );
         if (next === "exit") {
           break;
         }
+        chat.sync();
       } catch (err) {
         if (err instanceof CliExit) {
           continue;
@@ -204,6 +226,7 @@ export async function runInteractiveCli(
     }
   } finally {
     rl.close();
+    chat.close();
   }
 }
 

@@ -169,6 +169,7 @@ export function AomiRuntimeCore({
     hasLoadFailed,
     retryLoad,
     sendMessage: orchestratorSendMessage,
+    queueMessage: orchestratorQueueMessage,
     cancelGeneration: orchestratorCancel,
     closeSession,
     closeAllSessions,
@@ -431,6 +432,7 @@ export function AomiRuntimeCore({
         snapshot.stoppedTurnId,
         snapshot.terminalTurns,
         snapshot.pendingReplacesMessageKey,
+        snapshot.inputs,
       ),
     [
       snapshot.events,
@@ -439,6 +441,7 @@ export function AomiRuntimeCore({
       snapshot.stoppedTurnId,
       snapshot.terminalTurns,
       snapshot.pendingReplacesMessageKey,
+      snapshot.inputs,
     ],
   );
   const isRunning =
@@ -541,6 +544,20 @@ export function AomiRuntimeCore({
     [orchestratorSendMessage, currentThreadId],
   );
 
+  const queueMessage = useCallback(
+    async (text: string) => {
+      await orchestratorQueueMessage(text, currentThreadId);
+    },
+    [orchestratorQueueMessage, currentThreadId],
+  );
+
+  const cancelTurn = useCallback(
+    async (targetTurnId: string) => {
+      await currentSession.cancel({ targetTurnId });
+    },
+    [currentSession],
+  );
+
   const cancelGeneration = useCallback(() => {
     void cancelThreadGeneration(currentThreadId);
   }, [cancelThreadGeneration, currentThreadId]);
@@ -640,6 +657,11 @@ export function AomiRuntimeCore({
       isStopping: snapshot.isStopping ?? false,
       getMessages,
       sendMessage,
+      queueMessage,
+      cancelTurn,
+      supportsSteering: snapshot.capabilities?.turn_input === 1,
+      turnInputs: snapshot.inputs,
+      turnControl: snapshot.control,
       cancelGeneration,
 
       // Notification API
@@ -688,6 +710,11 @@ export function AomiRuntimeCore({
       snapshot.isStopping,
       getMessages,
       sendMessage,
+      queueMessage,
+      cancelTurn,
+      snapshot.capabilities,
+      snapshot.inputs,
+      snapshot.control,
       cancelGeneration,
       notificationContext,
       actions,

@@ -4,10 +4,10 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(83);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(91);
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
-      operationId: "buildTask",
+      operationId: "prepareTask",
       security: [],
     });
     expect(
@@ -17,23 +17,22 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(
       publicApi.components.securitySchemes.aomiOAuth["x-aomi-resources"],
     ).not.toHaveProperty("task");
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "RFC 8785 canonical JSON",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "TaskAuthorization(string endpoint,bytes32 requestHash",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "Unix seconds",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "payer = sender when payer is omitted",
+    expect(publicApi.components.schemas).not.toHaveProperty(
+      "TaskAuthorization",
     );
     expect(
       publicApi.paths["/v1/task/build"].post.requestBody.content[
         "application/json"
-      ].schema.oneOf[1].properties.authorization.description,
-    ).toContain("not this retrieval body");
+      ].schema,
+    ).toMatchObject({
+      additionalProperties: false,
+      required: ["intent", "chainId", "sender"],
+    });
+    expect(
+      publicApi.paths["/v1/task/build"].post.requestBody.content[
+        "application/json"
+      ].schema.properties,
+    ).not.toHaveProperty("authorization");
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(
       ([path, operations]) =>
@@ -71,6 +70,7 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       "POST /v1/agent/chat",
       "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
       "POST /v1/agent/chat/{sessionId}/interrupt",
+      "POST /v1/agent/chat/{sessionId}/steer",
       "POST /v1/agent/mcp",
     ]);
     for (const removed of ["chat", "state", "interrupt"].map(
@@ -81,6 +81,31 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(publicApi.paths["/v1/pipeline/mcp"].post.operationId).toBe(
       "pipelineMcp",
     );
+  });
+
+  it("binds steering to the canonical target revision and durable input receipts", () => {
+    expect(
+      publicApi.paths["/v1/agent/chat/{sessionId}/steer"].post,
+    ).toMatchObject({
+      operationId: "steerTurn",
+      security: [{ aomiOAuth: ["agent:write"] }],
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/TurnSteer" },
+          },
+        },
+      },
+    });
+    expect(publicApi.components.schemas.TurnSteer).toMatchObject({
+      additionalProperties: false,
+      required: ["turnId", "expectedInputRevision", "message"],
+    });
+    expect(publicApi.components.schemas.EventPage.properties).toMatchObject({
+      input: { $ref: "#/components/schemas/InputReceipt" },
+      control: { $ref: "#/components/schemas/TurnControl" },
+      capabilities: { $ref: "#/components/schemas/TurnInputCapabilities" },
+    });
   });
 
   it("binds public durable Pipeline continuations to execution scope and canonical reviews", () => {
@@ -127,6 +152,8 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
         { $ref: "#/components/schemas/MessageEvent" },
         { $ref: "#/components/schemas/TurnStateChangedEvent" },
         { $ref: "#/components/schemas/Action" },
+        { $ref: "#/components/schemas/TurnInputEvent" },
+        { $ref: "#/components/schemas/InputEffectClaimedEvent" },
       ]),
     });
     expect(schemas.ConcreteEvent.discriminator.mapping.action).toBe(

@@ -562,6 +562,20 @@ export class CliSession {
     return session;
   }
 
+  syncClientSession(session: ClientSession, config: Partial<CliConfig>): void {
+    session.syncRuntimeOptions({
+      target: this.resolveAgentTarget(config),
+      model: config.model ?? this.state.model,
+      clientId: this.state.clientId,
+      getUserState: () =>
+        buildCliUserState(this.state.publicKey, this.state.chainId, {
+          svmAddress: this.state.svmPublicKey,
+          svmCluster: this.resolvedSvmCluster(config.svmCluster),
+        }),
+      inferenceFunding: config.inferenceFunding,
+    });
+  }
+
   private resolveAgentTarget(config?: Partial<CliConfig>): AgentTarget {
     const requestedApp = config?.app ?? this.state.app;
     const requestedApplicationId =

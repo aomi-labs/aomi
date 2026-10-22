@@ -1,5 +1,10 @@
 import type { Session } from "@aomi-labs/client";
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 import type { Abi } from "viem";
 
 import { ActionReview } from "./action-review";
@@ -19,6 +24,7 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState<string>();
+  useEffect(() => session.observe(), [session]);
 
   // Durable messages, then the in-progress (streaming) reply for this turn.
   const committedKeys = new Set(snapshot.messages.map((m) => m.message_key));
@@ -36,10 +42,13 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
       !message.tool_result &&
       message.content.trim(),
   );
+  const active = snapshot.control
+    ? Boolean(snapshot.control.active_turn_id)
+    : snapshot.turnState === "processing" ||
+      snapshot.turnState === "awaiting_action";
   const busy =
     snapshot.isSubmitting ||
-    snapshot.turnState === "processing" ||
-    snapshot.actions.some((action) => action.state === "pending");
+    (active && snapshot.capabilities?.turn_input !== 1);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -49,11 +58,12 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
     setError(undefined);
     // send() resolves when the turn finishes. While the turn waits on an
     // Action, it stays open until the user approves or rejects below.
-    session
-      .send(text)
-      .catch((reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : String(reason)),
-      );
+    void (active ? session.steer(text) : session.sendAsync(text)).catch(
+      (reason: unknown) => {
+        setPrompt((draft) => draft || text);
+        setError(reason instanceof Error ? reason.message : String(reason));
+      },
+    );
   };
 
   return (
@@ -103,11 +113,40 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="e.g. Send 0.001 ETH to vitalik.eth"
-          disabled={busy}
         />
         <button type="submit" disabled={busy || !prompt.trim()}>
-          Send
+          {active ? "Update current request" : "Send"}
         </button>
+        {active && snapshot.capabilities?.turn_input === 1 && (
+          <button
+            type="button"
+            disabled={!prompt.trim()}
+            onClick={() => {
+              const text = prompt.trim();
+              setPrompt("");
+              void session.queue(text).catch((reason: unknown) => {
+                setPrompt((draft) => draft || text);
+                setError(
+                  reason instanceof Error ? reason.message : String(reason),
+                );
+              });
+            }}
+          >
+            Queue new request
+          </button>
+        )}
+        {active && (
+          <button
+            type="button"
+            onClick={() =>
+              void session
+                .interrupt()
+                .catch((reason: unknown) => setError(String(reason)))
+            }
+          >
+            Stop
+          </button>
+        )}
       </form>
     </section>
   );

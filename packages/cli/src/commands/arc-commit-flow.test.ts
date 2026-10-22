@@ -11,6 +11,7 @@ import {
   recoverTransactionAddress,
   verifyMessage,
   type Hex,
+  type TransactionSerialized,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { CommitView } from "@aomi-labs/client";
@@ -59,7 +60,7 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
         max_priority_fee_per_gas: "0",
       };
       let view: CommitView | undefined;
-      let signedBytes: Hex | undefined;
+      let signedBytes: TransactionSerialized | undefined;
       let broadcastBytes: Hex | undefined;
       let manualReports = 0;
       const apiPaths: string[] = [];

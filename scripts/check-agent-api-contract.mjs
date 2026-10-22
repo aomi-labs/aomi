@@ -68,6 +68,8 @@ const sourceRoots = [
 ];
 for (const relative of sourceRoots) {
   for (const file of sourceFiles(join(root, relative))) {
+    // Contract tests intentionally assert that retired wire vocabulary is absent.
+    if (/\.(?:test|spec)\.tsx?$/.test(file)) continue;
     const contents = readFileSync(file, "utf8");
     for (const [label, pattern] of forbiddenSources) {
       if (pattern.test(contents)) {

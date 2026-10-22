@@ -14,6 +14,8 @@ import type {
   Event,
   TurnState,
   UserState,
+  PendingInput,
+  TurnControl,
 } from "@aomi-labs/client";
 import type {
   TransactionSafetyTransport,
@@ -104,6 +106,12 @@ export type AomiRuntimeApi = {
   getMessages: (threadId?: string) => ThreadMessageLike[];
   /** Send a message to the current thread */
   sendMessage: (text: string) => Promise<void>;
+  /** The host advertises durable steering and queue support. */
+  supportsSteering?: boolean;
+  turnInputs?: readonly PendingInput[];
+  turnControl?: TurnControl;
+  queueMessage?: (text: string) => Promise<void>;
+  cancelTurn?: (turnId: string) => Promise<void>;
   /** Cancel the current generation */
   cancelGeneration: () => void;
 
