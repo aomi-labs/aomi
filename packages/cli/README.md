@@ -67,3 +67,68 @@ signature. Report prepared, simulated, signed, submitted and confirmed states
 separately. Close the payment only after verifying the successful receipt,
 token Transfer event and recipient balance change; a cross-chain payment also
 requires the destination receipt and spendable output token.
+
+## Operational funding and payment evidence
+
+`aomi tx preflight payment-intent.json` inspects the explicitly catalogued
+operational positions in that file. It reports destination payment terms,
+source token balances, native gas budget and token shortfall, then selects a
+funded operational source. Treasury, development and third-party positions are
+excluded. Check all known funded chains; one empty Ethereum balance does not
+establish a wallet shortfall. A different chain or token is `route_required`,
+with fees `unquoted`; obtain a fresh route and verify its minimum destination
+output before treating it as funding. Native gas values are base units; the
+budget uses estimated gas times twice the current gas price, not a guaranteed fee.
+
+Example input (addresses and RPC URLs must come from your approved catalog):
+
+```json
+{
+  "payment": {
+    "asset": {
+      "chainId": 1,
+      "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "decimals": 6
+    },
+    "recipient": "0x2222222222222222222222222222222222222222",
+    "amount": "1500"
+  },
+  "rpcUrl": "https://ethereum-rpc.publicnode.com",
+  "sources": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "role": "operational",
+      "asset": {
+        "chainId": 1,
+        "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "decimals": 6
+      },
+      "rpcUrl": "https://ethereum-rpc.publicnode.com"
+    }
+  ]
+}
+```
+
+After selection, save the approved source address as `payment.sender` in the
+same file. Retain this intent, the original session ID and the full Commit ID
+with the payment record. Keep credentials outside this file and protect RPC
+credentials if an endpoint requires them; reports omit RPC URLs.
+
+```sh
+aomi tx status <commit-id> --payment payment-intent.json
+```
+
+This command refreshes the existing durable Commit through `CommitController`
+and asks the SDK's `EvmPayment` to reconcile its review, simulation, transaction
+hash, canonical receipt, exact token Transfer and recipient balance delta.
+`canRequestSignature` stays false after a hash or outstanding wallet attempt
+exists. Reuse the same Commit after a timeout. The command never signs or sends.
+A successful receipt alone is not `payment_completed`; recipient verification
+must pass too. An unavailable historical balance or an outgoing payment in the
+same block leaves verification pending for manual reconciliation.
+
+This evidence reader supports one direct ERC-20 EOA transfer. Swaps, bridges,
+AA and batches require their own destination evidence; it cannot declare them
+paid. It adds a projection of the existing Commit, not a second execution or
+persistence mechanism. SDK consumers use `EvmPayment.preflight()` and
+`EvmPayment.status()` directly; CLI adapters own only file input and output.

@@ -1,5 +1,57 @@
 import { defineCommand } from "citty";
-import { globalArgs, buildCliConfig, getPositionals } from "./shared";
+import {
+  globalArgs,
+  buildCliConfig,
+  buildCliConnectionConfig,
+  getPositionals,
+} from "./shared";
+
+const txPreflightDef = defineCommand({
+  meta: {
+    name: "preflight",
+    description:
+      "Read operational funding across known EVM positions; never signs",
+  },
+  args: {
+    file: {
+      type: "positional",
+      required: true,
+      description: "Payment and known funding positions JSON",
+    },
+  },
+  async run({ args }) {
+    const { paymentPreflightCommand } = await import("../payment");
+    await paymentPreflightCommand(args.file);
+  },
+});
+const txStatusDef = defineCommand({
+  meta: {
+    name: "status",
+    description:
+      "Reconcile a direct ERC-20 payment Commit, receipt and recipient balance",
+  },
+  args: {
+    ...globalArgs,
+    commitId: {
+      type: "positional",
+      required: true,
+      description: "Exact durable Commit ID",
+    },
+    payment: {
+      type: "string",
+      required: true,
+      description: "Original payment JSON with destination RPC",
+    },
+  },
+  async run({ args }) {
+    const { paymentStatusCommand } = await import("../payment");
+    await paymentStatusCommand(
+      buildCliConnectionConfig(args),
+      args.commitId,
+      args.payment,
+    );
+  },
+});
 
 const txListDef = defineCommand({
   meta: { name: "list", description: "List session commits and Actions" },
@@ -139,6 +191,8 @@ const txRejectDef = defineCommand({
 export const txDef = defineCommand({
   meta: { name: "tx", description: "Transaction management" },
   subCommands: {
+    preflight: txPreflightDef,
+    status: txStatusDef,
     list: txListDef,
     simulate: txSimulateDef,
     export: txExportDef,

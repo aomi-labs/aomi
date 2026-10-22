@@ -21,7 +21,7 @@ describe("published CLI install gate", () => {
       .fn()
       .mockReturnValueOnce("")
       .mockReturnValueOnce("0.1.2\n")
-      .mockReturnValueOnce("export submit sign");
+      .mockReturnValueOnce("export submit sign preflight status");
     expect(() => checkPublishedCli({ root, run })).not.toThrow();
   });
 
@@ -58,7 +58,7 @@ describe("published CLI install gate", () => {
       .mockReturnValueOnce("0.1.2\n")
       .mockReturnValueOnce("Usage: aomi");
     expect(() => checkPublishedCli({ root, run })).toThrow(
-      "missing Commit export/submit commands",
+      "missing Commit/payment commands",
     );
   });
 });

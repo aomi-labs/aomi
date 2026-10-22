@@ -409,6 +409,7 @@ export type {
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
 export * from "./commit-lifecycle";
+export * from "./evm-payment";
 
 export {
   TransactionSafetyTransport,

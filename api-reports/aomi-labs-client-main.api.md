@@ -2005,6 +2005,76 @@ export interface EvmDirectInput extends PipelineExecutionScope {
 }
 
 // @public (undocumented)
+export type EvmFundingSnapshot = {
+    source: Omit<EvmFundingSource, "rpcUrl">;
+    state: "funded" | "insufficient_token" | "insufficient_gas" | "route_required" | "not_operational" | "unavailable";
+    blockNumber: string | null;
+    balance: string | null;
+    nativeBalance: string | null;
+    nativeGasBudget: string | null;
+    shortfall: string | null;
+};
+
+// @public (undocumented)
+export type EvmFundingSource = {
+    address: string;
+    role: "operational" | "treasury" | "development" | "third_party";
+    asset: EvmPaymentAsset;
+    rpcUrl: string;
+};
+
+// @public
+export class EvmPayment {
+    constructor(intent: EvmPaymentIntent, options: {
+        rpcUrl: string;
+        fetch?: typeof globalThis.fetch;
+    });
+    // (undocumented)
+    readonly intent: Readonly<EvmPaymentIntent>;
+    preflight(candidates: readonly EvmFundingSource[]): Promise<EvmPaymentFunding>;
+    status(commit: CommitView): Promise<EvmPaymentStatus>;
+}
+
+// @public (undocumented)
+export type EvmPaymentAsset = {
+    chainId: number;
+    token: string;
+    decimals: number;
+};
+
+// @public (undocumented)
+export type EvmPaymentFunding = {
+    payment: EvmPaymentIntent;
+    sources: EvmFundingSnapshot[];
+    selected: EvmFundingSnapshot["source"] | null;
+    routeFees: "not_applicable" | "unquoted";
+};
+
+// @public (undocumented)
+export type EvmPaymentIntent = {
+    asset: EvmPaymentAsset;
+    sender?: string;
+    recipient: string;
+    amount: string;
+};
+
+// @public (undocumented)
+export type EvmPaymentStatus = {
+    commitId: string;
+    commitState: CommitView["state"];
+    phase: "awaiting_signature" | "signed" | "submitted" | "payment_completed" | "verification_pending" | "verification_failed" | "failed" | "rejected" | "expired";
+    simulation: string;
+    transactionId: string | null;
+    canRequestSignature: boolean;
+    receipt: "unknown" | "pending" | "confirmed" | "reverted";
+    recipient: "unverified" | "verified";
+    balanceBefore: string | null;
+    balanceAfter: string | null;
+    balanceDelta: string | null;
+    reason?: string;
+};
+
+// @public (undocumented)
 export class EvmPipelineTransport {
     constructor(requestResponse: RequestResponse$2);
     // (undocumented)

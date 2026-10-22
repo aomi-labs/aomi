@@ -45,8 +45,12 @@ export function checkPublishedCli({
         `Installed CLI reported ${installed}; expected ${version}`,
       );
     const help = run(binary, ["tx", "--help"], options);
-    if (!help.includes("export") || !help.includes("submit"))
-      throw new Error("Installed CLI is missing Commit export/submit commands");
+    if (
+      !["export", "submit", "preflight", "status"].every((command) =>
+        help.includes(command),
+      )
+    )
+      throw new Error("Installed CLI is missing Commit/payment commands");
     console.log(
       `Public clean install passed: ${name}@${version} (--version, tx --help)`,
     );
