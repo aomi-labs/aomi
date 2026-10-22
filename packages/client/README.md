@@ -388,6 +388,8 @@ ABI and compares chain, contract, function, arguments (by ABI encoding, so
 `bigint` and address or bytes casing compare exactly as the contract sees
 them) and value. It also requires simulation to have passed.
 
+> Security warning: Do not paste a raw `PRIVATE_KEY` into shared logs or CI environment variables. For local development, keep secrets in a local `.env` that never leaves your machine; for deployments, use your cloud host’s secret manager.
+
 ```ts
 import {
   Aomi,
