@@ -1,0 +1,20 @@
+{
+  "name": "@aomi-labs/skills",
+  "version": "0.0.1",
+  "description": "Official Aomi skills meta-package (name reservation). See README for details.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aomi-labs/skills.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aomi-labs/skills/issues"
+  },
+  "homepage": "https://github.com/aomi-labs/skills#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "README.md"
+  ]
+}
