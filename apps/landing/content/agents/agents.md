@@ -24,7 +24,7 @@ Read prices, balances, build/sign transfers, swaps, stakes, lends, bridges.
 
 **Install once:**
 ```bash
-npx skills add @aomi-labs/skills
+npx skills add aomi-labs/skills
 npm install -g @aomi-labs/client
 ```
 
@@ -78,7 +78,7 @@ Take an OpenAPI spec, an SDK, or a repo with a service interface, and turn it in
 
 **Install once:**
 ```bash
-npx skills add @aomi-labs/skills
+npx skills add aomi-labs/skills
 ```
 
 **Then build:** the [`aomi-build` skill](https://github.com/aomi-labs/skills/blob/main/aomi-build/SKILL.md) scaffolds the standard Aomi SDK file split (`lib.rs`, `client.rs`, `tool.rs`) from the source material. It encodes the tool-design rules you should follow even without the skill (see below).

@@ -87,7 +87,7 @@ export default function AgentsBuildPage() {
 
           <h2>Skills</h2>
           <p>
-            Install skills with <code>npx skills add @aomi-labs/skills</code>.
+            Install skills with <code>npx skills add aomi-labs/skills</code>.
           </p>
           <p>Use the canonical build workflow from the Aomi skills repo.</p>
           <p>

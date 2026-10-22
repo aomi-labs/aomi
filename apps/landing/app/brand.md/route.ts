@@ -6,7 +6,7 @@ const FALLBACK = `# aomi
 
 > Aomi Labs builds the native harness on blockchains.
 
-Aomi turns natural language into real on-chain execution against arbitrary protocols and smart contracts, on any chain, from any wallet. Non-custodial (keys never leave the user), type-checked at compile time, simulated before signing, with account abstraction built in. Also a cloud host for agentic applications — trading bots, prediction-market agents, DeFi assistants — plus a React widget, Telegram & Discord integrations, a Rust SDK, and installable agent skills (\`npx skills add @aomi-labs/skills\`). x402 pricing and MPP settlement come out of the box.
+Aomi turns natural language into real on-chain execution against arbitrary protocols and smart contracts, on any chain, from any wallet. Non-custodial (keys never leave the user), type-checked at compile time, simulated before signing, with account abstraction built in. Also a cloud host for agentic applications — trading bots, prediction-market agents, DeFi assistants — plus a React widget, Telegram & Discord integrations, a Rust SDK, and installable agent skills (\`npx skills add aomi-labs/skills\`). x402 pricing and MPP settlement come out of the box.
 
 - Docs: https://aomi.dev/docs (machine index: https://aomi.dev/llms.txt)
 - Live product: https://chat.aomi.dev

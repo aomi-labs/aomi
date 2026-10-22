@@ -19,7 +19,7 @@ const setupContent = {
     eyebrow: "Install in your coding agent",
     title: "Give the agent the workflow before the tools.",
     body: "One skills repository installs the Transact and Build instruction sets. Transact then calls the local Aomi CLI for account and signing operations.",
-    code: "npx skills add @aomi-labs/skills",
+    code: "npx skills add aomi-labs/skills",
     facts: [
       "Installs aomi-transact",
       "Installs aomi-build",

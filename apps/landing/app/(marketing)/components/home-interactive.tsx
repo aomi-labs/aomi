@@ -18,7 +18,7 @@ const installers = [
   {
     id: "skills",
     label: "Skills",
-    command: "npx skills add @aomi-labs/skills",
+    command: "npx skills add aomi-labs/skills",
     icon: Clipboard,
   },
   {

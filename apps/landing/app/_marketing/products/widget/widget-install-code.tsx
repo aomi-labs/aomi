@@ -67,7 +67,7 @@ aomi account login --provider privy
 aomi account login --wallet
 
 aomi wallet current --json`,
-  MCP: `npx skills add @aomi-labs/skills
+  MCP: `npx skills add aomi-labs/skills
 codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp
 codex mcp login aomi-agent
 

@@ -143,8 +143,6 @@ creates a durable balance for subsequent usage.
 For the runnable top-up example, use a short-lived signed-in account bearer and
 a funded throwaway EVM development wallet:
 
-> Security warning: Never export a raw `AOMI_PRIVATE_KEY` into shared logs or CI. Keep it in a local `.env` for development and use your cloud host’s secret manager in production.
-
 ```sh
 AOMI_BASE_URL=http://localhost:3000 \
 AOMI_ACCOUNT_BEARER="$AOMI_ACCOUNT_BEARER" \
@@ -175,8 +173,6 @@ authorized account to inspect that deployment's catalog. The standalone
 ## Optional local wallet
 
 Use a funded throwaway development key on the configured chain:
-
-> Security warning: Treat `AOMI_PRIVATE_KEY` as a secret. Prefer local `.env` files for dev and a secrets manager in production. Do not paste the key into prompts or logs.
 
 ```sh
 AOMI_PRIVATE_KEY=0xYOUR_DEVELOPMENT_PRIVATE_KEY \

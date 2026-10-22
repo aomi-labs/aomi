@@ -110,7 +110,7 @@ environment or credentials.
 Use an isolated state directory for each take. From a source checkout, use
 `node packages/cli/dist/bin.js` in place of `aomi` below.
 
-> Security warning: Do not paste a raw `PRIVATE_KEY` into shared logs or CI. For local demos, source it from a private `.env`; in production, use a secrets manager.
+> Keep `PRIVATE_KEY` out of prompts, recordings, logs, and version control. Use a throwaway development wallet for this demo.
 
 ```bash
 export AOMI_STATE_DIR="$(mktemp -d /tmp/aomi-mcp-demo.XXXXXX)"

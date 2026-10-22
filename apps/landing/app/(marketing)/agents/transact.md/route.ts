@@ -23,7 +23,7 @@ source: https://aomi.dev/agents/transact.md
 
 This page is for an AI agent that has been told something like *"swap 1 ETH for USDC"* or *"send 0.1 ETH to vitalik.eth"*. Read it once — it contains the full operating procedure for the \`aomi\` CLI, including signing, simulation, sessions, and troubleshooting.
 
-> If the agent has access to the canonical \`aomi-transact\` skill at [github.com/aomi-labs/skills](https://github.com/aomi-labs/skills/tree/main/aomi-transact), prefer that — same content, kept in sync. To install: \`npx skills add @aomi-labs/skills\`.
+> If the agent has access to the canonical \`aomi-transact\` skill at [github.com/aomi-labs/skills](https://github.com/aomi-labs/skills/tree/main/aomi-transact), prefer that — same content, kept in sync. To install: \`npx skills add aomi-labs/skills\`.
 
 ## Install the CLI
 
