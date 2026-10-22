@@ -1,0 +1,56 @@
+name: Promote Frontend Surface
+on:
+  workflow_dispatch:
+    inputs:
+      surface:
+        type: choice
+        options: [portal, build, landing, telegram]
+        required: true
+      deployment:
+        description: Exact held production dpl_ ID for this surface
+        type: string
+        required: true
+      confirm:
+        description: Type PROMOTE
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  # Global alias read-back is also the unrelated-surface nonmutation proof.
+  # Promotion and rollback share this existing style of global routing lock.
+  group: frontend-production-routing
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --global vercel@58.11.0
+      - name: Verify reviewed source, target API and QA; promote one surface and read aliases back
+        env:
+          GH_TOKEN: ${{ secrets.AOMI_QA_READONLY_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          SURFACE: ${{ inputs.surface }}
+          DEPLOYMENT: ${{ inputs.deployment }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: node scripts/frontend-release.mjs promote "$SURFACE" "$DEPLOYMENT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: frontend-deployment-${{ inputs.surface }}-${{ github.run_attempt }}
+          path: frontend-deployment.json
+          if-no-files-found: error

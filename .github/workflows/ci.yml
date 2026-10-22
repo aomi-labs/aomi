@@ -365,6 +365,8 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run against the production Portal and packed consumers
+        env:
+          AOMI_PERF_PROFILE: "1"
         run: pnpm run test:browser:contracts
 
       - name: Upload sanitized diagnostics
@@ -429,6 +431,8 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run against the production Portal and packed consumers
+        env:
+          AOMI_PERF_PROFILE: "1"
         run: pnpm run test:browser:consumers
 
       - name: Upload sanitized diagnostics
@@ -485,6 +489,11 @@ jobs:
             echo "The resulting prod merge tree differs from the soaked release candidate" >&2
             exit 1
           }
+
+      - name: Require held builds before merging production source
+        env:
+          VERCEL_READONLY_TOKEN: ${{ secrets.VERCEL_READONLY_TOKEN }}
+        run: node scripts/frontend-build-policy.mjs
 
       - name: Enable corepack
         run: corepack enable
