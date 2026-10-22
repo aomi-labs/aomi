@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.6
+
+- Report the origin and route for failed guest sign-in, with Portal/BFF recovery guidance for backend-origin 404s and no credential-bearing URL details.
+
 ## 0.10.4
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.

@@ -1,4 +1,5 @@
 import { defineCommand } from "citty";
+import { globalArgs } from "./shared";
 
 const configSetBackendDef = defineCommand({
   meta: { name: "set-backend", description: "Persist the backend base URL" },
@@ -16,11 +17,22 @@ const configSetBackendDef = defineCommand({
 });
 
 const configCurrentDef = defineCommand({
-  meta: { name: "current", description: "Show the configured backend URL" },
-  args: {},
-  async run() {
+  meta: {
+    name: "current",
+    description: "Show the effective connection origin and its source",
+  },
+  args: { ...globalArgs },
+  async run({ args }) {
     const { currentBackendCommand } = await import("../control");
-    currentBackendCommand();
+    // Connection inspection needs no signing key or account credential.
+    currentBackendCommand({
+      baseUrl:
+        typeof args["backend-url"] === "string"
+          ? args["backend-url"]
+          : undefined,
+      json: args.json === true,
+      verbose: args.verbose === true,
+    });
   },
 });
 

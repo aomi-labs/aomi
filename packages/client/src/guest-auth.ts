@@ -173,21 +173,19 @@ async function requestAnonymousSession(
   onIdentity?: (identity: string | null) => void,
 ) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
-  const authEndpoint = `${normalizedBase}/api/auth/sign-in/anonymous`;
-  const response = await fetchImpl(
+  const authPath =
     runtime === "cross-origin-browser"
-      ? `${normalizedBase}/api/auth/widget/guest`
-      : authEndpoint,
-    {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: "{}",
-      credentials: runtime === "same-origin-browser" ? "include" : "omit",
+      ? "/api/auth/widget/guest"
+      : "/api/auth/sign-in/anonymous";
+  const response = await fetchImpl(`${normalizedBase}${authPath}`, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
     },
-  );
+    body: "{}",
+    credentials: runtime === "same-origin-browser" ? "include" : "omit",
+  });
   if (
     response.status === 409 &&
     (await responseCode(response)) === "session_exists"
@@ -205,7 +203,7 @@ async function requestAnonymousSession(
     return null;
   }
   if (!response.ok) {
-    throw new Error(`Aomi guest sign-in failed with HTTP ${response.status}`);
+    throw guestConnectionError(response.status, baseUrl, authPath);
   }
   const body = await response.json().catch(() => null);
   if (runtime !== "server") onIdentity?.(stringProperty(body?.user, "id"));
@@ -217,6 +215,37 @@ async function requestAnonymousSession(
         response.headers.get("set-auth-token"));
   if (!token) throw new Error("Aomi guest sign-in returned no bearer session");
   return token;
+}
+
+function guestConnectionError(
+  status: number,
+  baseUrl: string,
+  authPath: string,
+) {
+  // Report only the origin and our fixed route, never URL credentials, custom
+  // path segments, query strings, response bodies or authentication headers.
+  let origin = "the configured origin";
+  try {
+    origin = new URL(
+      baseUrl,
+      typeof location === "undefined" ? undefined : location.origin,
+    ).origin;
+  } catch {
+    // A custom fetch can accept a base URL the URL parser does not recognize.
+  }
+  const message = `Aomi guest sign-in failed with HTTP ${status} at ${origin} (${authPath}).`;
+  if (status !== 404) return new Error(message);
+  const portal =
+    origin === "https://api.aomi.dev"
+      ? "https://chat.aomi.dev"
+      : origin === "https://api-staging.aomi.dev"
+        ? "https://chat-staging.aomi.dev"
+        : null;
+  return new Error(
+    portal
+      ? `${message} This is a backend origin; guest sign-in requires the Portal/BFF at ${portal}. Check baseUrl (CLI: --backend-url or AOMI_BACKEND_URL).`
+      : `${message} Check that baseUrl points to the Portal/BFF (CLI: --backend-url or AOMI_BACKEND_URL).`,
+  );
 }
 
 function stringProperty(value: unknown, property: string): string | null {

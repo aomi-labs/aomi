@@ -71,6 +71,12 @@ jobs:
           NPM_CONFIG_PROVENANCE: "true"
         run: |
           node scripts/publish-package-if-needed.mjs packages/client
+          if [[ -f packages/cli/package.json ]]; then
+            node scripts/publish-package-if-needed.mjs packages/cli
+            # Use main's checker against this frozen candidate's manifest.
+            git show origin/main:scripts/check-published-cli.mjs > "$RUNNER_TEMP/check-published-cli.mjs"
+            node "$RUNNER_TEMP/check-published-cli.mjs"
+          fi
           node scripts/publish-package-if-needed.mjs packages/deploy
           node scripts/publish-package-if-needed.mjs packages/react
           # A frozen candidate can predate the widget package-directory move.

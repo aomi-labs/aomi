@@ -1,5 +1,11 @@
 # @aomi-labs/cli
 
+## 0.1.2
+
+- Report the effective connection origin and its configuration source with `aomi config current`, without exposing credentials or requiring a signing key.
+- Document operational-wallet funding checks, Portal/BFF configuration and the current durable Commit signing and receipt-verification flow.
+- Validate clean CLI installation alongside the client migration shim and after package publication.
+
 ## 0.1.1
 
 - Read simulation step evidence under `result` as well as `execution`, so passed batches no longer render as failed with zero gas.

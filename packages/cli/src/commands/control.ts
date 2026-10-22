@@ -5,6 +5,8 @@ import { printDataFileLocation, printJson } from "../output";
 import type { CliConfig } from "../types";
 import { fatal } from "../errors";
 import { isTerminalCommit } from "@aomi-labs/client";
+import { DEFAULT_CLI_BASE_URL } from "../client-factory";
+import { readActiveBackendUrl } from "../state";
 
 export async function statusCommand(config: CliConfig): Promise<void> {
   const cli = CliSession.load();
@@ -197,15 +199,38 @@ export function currentChainCommand(config: CliConfig = { secrets: {} }): void {
   printDataFileLocation({ verbose: config.verbose });
 }
 
-export function currentBackendCommand(): void {
-  const cli = CliSession.load();
-  if (!cli) {
-    console.log("No active session");
-    printDataFileLocation();
-    return;
+export function currentBackendCommand(
+  config: Pick<CliConfig, "baseUrl" | "json" | "verbose"> = {},
+): void {
+  const environment = process.env.AOMI_BACKEND_URL;
+  const saved =
+    config.baseUrl === undefined && environment === undefined
+      ? readActiveBackendUrl()
+      : undefined;
+  const baseUrl =
+    config.baseUrl ?? environment ?? saved ?? DEFAULT_CLI_BASE_URL;
+  const source =
+    config.baseUrl !== undefined
+      ? "--backend-url"
+      : environment !== undefined
+        ? "AOMI_BACKEND_URL"
+        : saved !== undefined
+          ? "session"
+          : "default";
+  let origin: string;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    fatal(
+      `Invalid backend URL from ${source}. Set a Portal/BFF origin with --backend-url or AOMI_BACKEND_URL.`,
+    );
   }
-  console.log(cli.baseUrl);
-  printDataFileLocation();
+  if (config.json) printJson({ origin, source });
+  else {
+    console.log(origin);
+    console.log(`Source: ${source}`);
+    printDataFileLocation({ verbose: config.verbose });
+  }
 }
 
 export function currentWalletCommand(

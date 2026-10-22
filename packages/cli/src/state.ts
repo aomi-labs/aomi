@@ -356,6 +356,14 @@ export function getActiveStateFilePath(): string | null {
   return active ? toSessionFilePath(active.localId) : null;
 }
 
+/** Inspect the connection without initializing storage or repairing session state. */
+export function readActiveBackendUrl(): string | undefined {
+  const localId = readActiveLocalId();
+  return localId === null
+    ? undefined
+    : readStoredSession(toSessionFilePath(localId))?.baseUrl;
+}
+
 export function listStoredSessions(): StoredSessionRecord[] {
   return readAllStoredSessions().map(toStoredSessionRecord);
 }

@@ -13,6 +13,69 @@ const session = (anonymous = false) => ({
   user: { id: "user-existing", isAnonymous: anonymous },
 });
 
+describe("guest connection diagnostics", () => {
+  it.each([
+    ["api.aomi.dev", "chat.aomi.dev"],
+    ["api-staging.aomi.dev", "chat-staging.aomi.dev"],
+  ])(
+    "explains a raw backend 404 on %s without retrying elsewhere",
+    async (backend, portal) => {
+      vi.stubGlobal("location", undefined);
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(new Response(null, { status: 404 }));
+      const guest = createGuestSessionProvider({
+        baseUrl: `https://${backend}`,
+        fetch,
+      });
+
+      await expect(guest()).rejects.toThrow(
+        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl (CLI: --backend-url or AOMI_BACKEND_URL).`,
+      );
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(String(fetch.mock.calls[0]?.[0])).toBe(
+        `https://${backend}/api/auth/sign-in/anonymous`,
+      );
+    },
+  );
+
+  it("redacts credentials, query strings and response bodies from connection errors", async () => {
+    vi.stubGlobal("location", undefined);
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://user:password@custom.example/private?token=secret",
+      fetch: async () => new Response("private response", { status: 404 }),
+    });
+
+    await expect(guest()).rejects.toThrow(
+      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/sign-in\/anonymous\)\. Check that baseUrl points to the Portal\/BFF \(CLI: --backend-url or AOMI_BACKEND_URL\)\.$/,
+    );
+  });
+
+  it("does not diagnose an authorization refusal as a missing route", async () => {
+    vi.stubGlobal("location", undefined);
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://api-staging.aomi.dev",
+      fetch: async () => new Response(null, { status: 403 }),
+    });
+
+    await expect(guest()).rejects.toThrow(
+      "Aomi guest sign-in failed with HTTP 403 at https://api-staging.aomi.dev (/api/auth/sign-in/anonymous).",
+    );
+  });
+
+  it("reports the widget route for a cross-origin browser failure", async () => {
+    vi.stubGlobal("location", { origin: "https://vendor.example" });
+    const guest = createGuestSessionProvider({
+      baseUrl: origin,
+      fetch: async () => new Response(null, { status: 404 }),
+    });
+
+    await expect(guest()).rejects.toThrow(
+      "HTTP 404 at https://chat.aomi.dev (/api/auth/widget/guest).",
+    );
+  });
+});
+
 describe("interactive guest preparation", () => {
   it("refuses to resend a chat request under a renewed guest", async () => {
     vi.stubGlobal("location", { origin: "https://vendor.example" });
