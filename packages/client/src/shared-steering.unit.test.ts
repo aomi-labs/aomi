@@ -81,7 +81,7 @@ function answer(sequence: number, turn_id: string): Event {
     is_streaming: false,
   };
 }
-async function setup() {
+async function setup({ hydrate = true } = {}) {
   const client = new AomiClient({
     baseUrl: "https://example.test",
     fetch: vi.fn(),
@@ -104,11 +104,74 @@ async function setup() {
   const steer = vi.spyOn(client.agent, "steer");
   const session = new Session(client, { sessionId: "steering-session" });
   sessions.push(session);
-  await session.sync();
+  if (hydrate) await session.sync();
   return { session, client, poll, start, steer, frames };
 }
 
 describe("shared turn input admission", () => {
+  it.each([false, true])(
+    "binds an early follow-up to its pending Start, even when it finishes=%s",
+    async (finished) => {
+      const { session, start, steer } = await setup({ hydrate: false });
+      let acknowledge!: (value: EventPage) => void;
+      start.mockReturnValueOnce(
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        }),
+      );
+      const initial = session.sendAsync("Original request");
+      await Promise.resolve();
+      expect(session.getSnapshot().isSubmitting).toBe(true);
+      if (finished)
+        steer.mockRejectedValueOnce(
+          new AgentApiError(409, "target_terminal", "Request finished", false),
+        );
+      else
+        steer.mockImplementationOnce(async (_id, _intent, inputId) =>
+          page({
+            input: { ...receipt(inputId, 2), turn_id: "pending-root" },
+            control: control(2, "pending-root"),
+          }),
+        );
+      const followUp = session.steer("Use 5 instead", { inputId: "early" });
+      const result = finished
+        ? expect(followUp).rejects.toMatchObject({ code: "target_terminal" })
+        : expect(followUp).resolves.toMatchObject({
+            input: { turn_id: "pending-root" },
+          });
+      expect(steer).not.toHaveBeenCalled();
+      acknowledge(
+        page({
+          started_turn_id: "pending-root",
+          input: {
+            ...receipt(start.mock.calls[0]![1]!.idempotencyKey!, 1),
+            operation: "start",
+            turn_id: "pending-root",
+          },
+          control: control(1, finished ? "newer-root" : "pending-root"),
+          events: finished
+            ? [
+                state(1, "pending-root", "complete"),
+                state(2, "newer-root", "processing"),
+              ]
+            : [state(1, "pending-root", "processing")],
+        }),
+      );
+      await initial;
+      await result;
+      expect(start).toHaveBeenCalledOnce();
+      expect(steer).toHaveBeenCalledExactlyOnceWith(
+        "steering-session",
+        {
+          turnId: "pending-root",
+          expectedInputRevision: 1,
+          message: "Use 5 instead",
+        },
+        "early",
+      );
+    },
+  );
+
   it("serializes rapid corrections by their own acknowledgements without waiting for completion", async () => {
     const { session, steer, start } = await setup();
     let resolveFirst!: (value: EventPage) => void;

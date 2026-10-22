@@ -302,15 +302,24 @@ export function useRuntimeOrchestrator(
         text,
       );
       if (intent === "queue") await session.queue(text, { apiKey });
-      else if (targetTurnId && !sendOptions?.edit && !sendOptions?.regenerate) {
-        if (submitted.capabilities?.turn_input !== 1)
+      else if (
+        (targetTurnId || submitted.isSubmitting) &&
+        !sendOptions?.edit &&
+        !sendOptions?.regenerate
+      ) {
+        if (!submitted.isSubmitting && submitted.capabilities?.turn_input !== 1)
           throw new AgentApiError(
             501,
             "steering_unsupported",
             "Wait for the current generation to finish or stop it. This host does not support updates to running requests.",
             false,
           );
-        await session.steer(text, { targetTurnId });
+        await session.steer(
+          text,
+          !submitted.isSubmitting && targetTurnId
+            ? { targetTurnId }
+            : undefined,
+        );
       } else await session.sendAsync(text, { ...sendOptions, apiKey });
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
@@ -338,6 +347,12 @@ export function useRuntimeOrchestrator(
   const sendMessage = useCallback(
     async (text: string, threadId: string, sendOptions?: SendOptions) => {
       const startedIn = generation.current;
+      const submitted = getSession(threadId).getSnapshot();
+      const followUp =
+        submitted.isSubmitting ||
+        (submitted.control
+          ? Boolean(submitted.control.active_turn_id)
+          : isTurnActive(submitted));
       try {
         await sendOnce(text, threadId, sendOptions);
         return;
@@ -345,6 +360,7 @@ export function useRuntimeOrchestrator(
         const guestExpired =
           error instanceof AgentApiError &&
           error.isGuestIdentityChanged &&
+          !followUp &&
           !sendOptions?.edit &&
           !sendOptions?.regenerate &&
           startedIn === generation.current &&
@@ -366,7 +382,7 @@ export function useRuntimeOrchestrator(
         await reportFailure(freshThreadId, error, retriedIn);
       }
     },
-    [closeAllSessions, reportFailure, sendOnce],
+    [closeAllSessions, getSession, reportFailure, sendOnce],
   );
 
   const cancelGeneration = useCallback(

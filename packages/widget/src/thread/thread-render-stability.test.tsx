@@ -217,62 +217,53 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 describe("thread rendering under live runtime updates", () => {
-  it("shows readable update and queue text without exposing or changing retained capability instructions", () => {
-    const instructions =
-      "\n\n<AOMI_UI_CAPABILITY_HINTS>\nPreferred execution chain ids: eip155:8453.\n</AOMI_UI_CAPABILITY_HINTS>";
-    const update: PendingInput = {
+  const inputControl = (active: string | null) => ({
+    active_turn_id: active,
+    accepted_input_revision: active ? 2 : 0,
+    applied_input_revision: active ? 2 : 0,
+    queued_turn_ids: [],
+    event_sequence: 10,
+    stream_epoch: "status-epoch",
+  });
+
+  it("keeps the existing controls neutral even when the SDK has input receipts or queued work", () => {
+    const retained: PendingInput = {
       inputId: "update",
       operation: "steer",
       targetTurnId: "turn-1",
-      message: `Use Base${instructions}`,
+      message: "Private retained draft",
       status: "rejected",
-    };
-    const queued: PendingInput = {
-      inputId: "queue",
-      operation: "queue",
-      message: `Independent work${instructions}`,
-      status: "queued",
-      receipt: {
-        input_id: "queue",
-        turn_id: "queued-turn",
-        operation: "queue",
-        disposition: "queued",
-        input_revision: 1,
-        received_at: 1,
-        admitted_at: 1,
-        applied_at: null,
-      },
     };
     const view = render(
       <Fixture
         api={api({
           isSubmitting: false,
-          supportsSteering: true,
           turnState: "processing",
-          turnInputs: [update, queued],
+          supportsSteering: true,
+          turnInputs: [retained],
           turnControl: {
             ...inputControl("turn-1"),
-            queued_turn_ids: ["queued-turn"],
+            queued_turn_ids: ["sdk-queue"],
           },
         })}
       />,
     );
-    expect(view.getByText("Use Base")).toBeVisible();
-    expect(view.getByText("Queued: Independent work")).toBeVisible();
     expect(
-      view.queryByText(
-        /AOMI_UI_CAPABILITY_HINTS|Preferred execution chain ids/,
-      ),
+      view.queryByRole("button", { name: /Queue|Update current/ }),
     ).toBeNull();
-    expect(update.message).toBe(`Use Base${instructions}`);
-    expect(queued.message).toBe(`Independent work${instructions}`);
+    expect(
+      view.queryByText(/Update (accepted|applied|not accepted)|Queued:/),
+    ).toBeNull();
+    expect(view.queryByText(retained.message)).toBeNull();
+    expect(view.getByRole("button", { name: "Send message" })).toBeVisible();
+    expect(retained.message).toBe("Private retained draft");
   });
 
-  it.each(["send", "update", "queue"] as const)(
-    "submits %s with the captured composer configuration and clears selections once",
-    async (operation) => {
+  it.each([false, true])(
+    "uses ordinary Send with captured capabilities while active=%s",
+    async (active) => {
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const queueMessage = vi.fn().mockResolvedValue(undefined);
+      const queueMessage = vi.fn();
       const runConfig = {
         custom: {
           aomiCapabilityHints: {
@@ -286,201 +277,68 @@ describe("thread rendering under live runtime updates", () => {
           api={api({
             isSubmitting: false,
             supportsSteering: true,
-            turnState: operation === "send" ? "complete" : "processing",
-            turnControl: inputControl(operation === "send" ? null : "turn-1"),
+            turnState: active ? "processing" : "complete",
+            turnControl: inputControl(active ? "turn-1" : null),
             sendMessage,
             queueMessage,
           })}
         />,
       );
-      const button = view.getByRole("button", {
-        name:
-          operation === "queue"
-            ? "Queue new request"
-            : operation === "update"
-              ? "Update current request"
-              : "Send message",
-      });
-      fireEvent.change(view.getByRole("textbox"), {
-        target: { value: "Ready draft" },
-      });
-      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
+      const button = view.getByRole("button", { name: "Send message" });
       await waitFor(() => expect(button).toBeEnabled());
       fireEvent.click(button);
-      const sent = operation === "queue" ? queueMessage : sendMessage;
       await waitFor(() =>
-        expect(sent).toHaveBeenCalledWith("Ready draft", runConfig),
+        expect(sendMessage).toHaveBeenCalledExactlyOnceWith(
+          "Ready draft",
+          runConfig,
+        ),
       );
-      expect(sent).toHaveBeenCalledOnce();
-      expect(work.retainMentions).toHaveBeenCalledOnce();
-      expect(work.retainMentions).toHaveBeenCalledWith(new Set());
+      expect(queueMessage).not.toHaveBeenCalled();
+      expect(work.retainMentions).toHaveBeenCalledExactlyOnceWith(new Set());
       expect(view.getByRole("textbox")).toHaveValue("");
     },
   );
 
-  it.each(["update", "queue"] as const)(
-    "validates routing before a %s submission clears the draft or calls the runtime",
-    async (operation) => {
+  it.each([false, true])(
+    "validates routing before ordinary Send while active=%s",
+    async (active) => {
       work.blocked = true;
       const sendMessage = vi.fn();
-      const queueMessage = vi.fn();
       const view = render(
         <Fixture
           api={api({
             isSubmitting: false,
-            supportsSteering: true,
-            turnState: "processing",
-            turnControl: inputControl("turn-1"),
+            turnState: active ? "processing" : "complete",
+            turnControl: inputControl(active ? "turn-1" : null),
             sendMessage,
-            queueMessage,
           })}
         />,
       );
-      fireEvent.change(view.getByRole("textbox"), {
-        target: { value: "Ready draft" },
-      });
-      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
-      fireEvent.click(
-        view.getByRole("button", {
-          name:
-            operation === "queue"
-              ? "Queue new request"
-              : "Update current request",
-        }),
-      );
+      fireEvent.click(view.getByRole("button", { name: "Send message" }));
       expect(sendMessage).not.toHaveBeenCalled();
-      expect(queueMessage).not.toHaveBeenCalled();
       expect(work.retainMentions).not.toHaveBeenCalled();
       expect(view.getByRole("textbox")).toHaveValue("Ready draft");
     },
   );
 
-  const inputControl = (active: string | null) => ({
-    active_turn_id: active,
-    accepted_input_revision: active ? 2 : 0,
-    applied_input_revision: active ? 2 : 0,
-    queued_turn_ids: [],
-    event_sequence: 10,
-    stream_epoch: "status-epoch",
-  });
-
-  it.each([
-    ["sending", "Sending update…"],
-    ["accepted", "Update accepted · waiting for the current step"],
-    ["applied", "Update applied"],
-  ] as const)(
-    "scopes %s update feedback to its active root",
-    (status, label) => {
-      const input: PendingInput = {
-        inputId: "update",
-        targetTurnId: "turn-1",
-        operation: "steer",
-        message: "Use Base",
-        status,
-      };
-      const state = {
-        isSubmitting: false,
-        supportsSteering: true,
-        turnState: "processing" as const,
-        turnInputs: [input],
-      };
-      const view = render(
-        <Fixture
-          api={api({ ...state, turnControl: inputControl("turn-1") })}
-        />,
-      );
-      expect(view.getByText(label)).toBeVisible();
-      view.rerender(
-        <Fixture
-          api={api({
-            ...state,
-            turnState: "complete",
-            turnControl: inputControl(null),
-          })}
-        />,
-      );
-      expect(view.queryByText(label)).toBeNull();
-      view.rerender(
-        <Fixture
-          api={api({ ...state, turnControl: inputControl("turn-2") })}
-        />,
-      );
-      expect(view.queryByText(label)).toBeNull();
-    },
-  );
-
-  it.each(["rejected", "uncertain"] as const)(
-    "keeps a %s draft until the next composer submission and shows a new failure",
-    async (status) => {
-      const input: PendingInput = {
-        inputId: "update",
-        targetTurnId: "turn-1",
-        operation: "steer",
-        message: "Retained correction",
-        status,
-      };
-      const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const state = {
-        isSubmitting: false,
-        supportsSteering: true,
-        currentThreadId: "thread-1",
-        turnState: "processing" as const,
-        turnInputs: [input],
-        sendMessage,
-      };
-      const view = render(
-        <Fixture
-          api={api({ ...state, turnControl: inputControl("turn-2") })}
-        />,
-      );
-      expect(view.getByText("Retained correction")).toBeVisible();
-      fireEvent.submit(view.getByTestId(testIds.composer));
-      await waitFor(() =>
-        expect(sendMessage).toHaveBeenCalledWith("Ready draft", {}),
-      );
-      expect(view.queryByText("Retained correction")).toBeNull();
-      // An exact input retry gets a fresh failure snapshot, even with the same id.
-      view.rerender(
-        <Fixture
-          api={api({
-            ...state,
-            turnInputs: [{ ...input, error: new Error("New attempt failed") }],
-            turnControl: inputControl("turn-2"),
-          })}
-        />,
-      );
-      expect(view.getByText("Retained correction")).toBeVisible();
-    },
-  );
-
-  it("dismisses an old retained correction when independent work is queued", async () => {
-    const queueMessage = vi.fn().mockResolvedValue(undefined);
+  it("keeps Stop in its existing position until a follow-up is ready to send", () => {
     const view = render(
       <Fixture
         api={api({
           isSubmitting: false,
-          supportsSteering: true,
           turnState: "processing",
           turnControl: inputControl("turn-1"),
-          queueMessage,
-          turnInputs: [
-            {
-              inputId: "rejected",
-              targetTurnId: "turn-1",
-              operation: "steer",
-              message: "Old rejected correction",
-              status: "rejected",
-            },
-          ],
         })}
       />,
     );
-    expect(view.getByText("Old rejected correction")).toBeVisible();
-    fireEvent.click(view.getByRole("button", { name: "Queue new request" }));
-    await waitFor(() =>
-      expect(queueMessage).toHaveBeenCalledWith("Ready draft", {}),
-    );
-    expect(view.queryByText("Old rejected correction")).toBeNull();
+    fireEvent.change(view.getByRole("textbox"), { target: { value: "" } });
+    expect(view.getByRole("button", { name: "Stop generating" })).toBeVisible();
+    expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
+    fireEvent.change(view.getByRole("textbox"), {
+      target: { value: "Continue on Base" },
+    });
+    expect(view.getByRole("button", { name: "Send message" })).toBeEnabled();
+    expect(view.queryByRole("button", { name: "Stop generating" })).toBeNull();
   });
 
   it("keeps catalog/provider work stable on unrelated event/status snapshots while native messages still update", async () => {

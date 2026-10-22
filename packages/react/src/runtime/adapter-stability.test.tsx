@@ -6,6 +6,7 @@ import {
 } from "@assistant-ui/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AomiClient, Event, EventPage } from "@aomi-labs/client";
+import { AgentApiError } from "@aomi-labs/client";
 import { AomiRuntimeProvider } from "./aomi-runtime";
 import {
   AomiChatBoundary,
@@ -153,6 +154,97 @@ describe("Core's native message converter", () => {
       },
     },
   };
+
+  it("continues the initial request when ordinary Send arrives before its acknowledgement", async () => {
+    const h = setup();
+    let acknowledge!: (page: EventPage) => void;
+    h.start.mockReturnValueOnce(
+      new Promise((resolve) => {
+        acknowledge = resolve;
+      }),
+    );
+    const steer = vi
+      .spyOn(h.client.agent, "steer")
+      .mockImplementationOnce(async (_id, _intent, inputId) =>
+        h.page([], {
+          capabilities: { turn_input: 1 },
+          control: control(2),
+          input: {
+            input_id: inputId,
+            turn_id: "turn-1",
+            operation: "steer",
+            disposition: "accepted",
+            input_revision: 2,
+            received_at: 2,
+            admitted_at: 2,
+            applied_at: null,
+          },
+        }),
+      );
+    let initial!: Promise<void>;
+    act(() => {
+      initial = h.api.sendMessage("Initial request");
+    });
+    await waitFor(() => expect(h.start).toHaveBeenCalledOnce());
+    let followUp!: Promise<void>;
+    act(() => {
+      followUp = h.api.sendMessage("Use 5 instead", runConfig);
+    });
+    expect(steer).not.toHaveBeenCalled();
+    await act(async () => {
+      acknowledge(
+        h.page(
+          [{ ...meta(1), type: "turn_state_changed", state: "processing" }],
+          {
+            capabilities: { turn_input: 1 },
+            control: control(),
+            started_turn_id: "turn-1",
+          },
+        ),
+      );
+      await Promise.all([initial, followUp]);
+    });
+    expect(h.start).toHaveBeenCalledOnce();
+    expect(steer).toHaveBeenCalledOnce();
+    expect(steer.mock.calls[0]?.[1]).toMatchObject({
+      turnId: "turn-1",
+      expectedInputRevision: 1,
+    });
+    expect(steer.mock.calls[0]?.[1].message).toContain("Use 5 instead");
+    expect(steer.mock.calls[0]?.[1].message).toContain(
+      "Preferred execution chain ids: eip155:8453.",
+    );
+  });
+
+  it("preserves a follow-up if its guest identity changes instead of starting work in a fresh conversation", async () => {
+    const h = setup();
+    h.start.mockResolvedValueOnce(
+      h.page(
+        [{ ...meta(1), type: "turn_state_changed", state: "processing" }],
+        {
+          started_turn_id: "turn-1",
+          capabilities: { turn_input: 1 },
+          control: control(),
+        },
+      ),
+    );
+    await act(() => h.api.sendMessage("Initial request"));
+    const threadId = h.api.currentThreadId;
+    vi.spyOn(h.client.agent, "steer").mockRejectedValueOnce(
+      AgentApiError.guestIdentityChanged(),
+    );
+    await act(async () => {
+      await expect(
+        h.api.sendMessage("Keep this follow-up", runConfig),
+      ).rejects.toMatchObject({ isGuestIdentityChanged: true });
+    });
+    expect(h.start).toHaveBeenCalledOnce();
+    expect(h.api.currentThreadId).toBe(threadId);
+    expect(h.native.thread.composer.getState().text).toBe(
+      "Keep this follow-up",
+    );
+    expect(h.api.notifications).toHaveLength(1);
+  });
 
   it.each(["send", "update", "queue"] as const)(
     "prepares composer capability selections for %s without waiting for model completion",

@@ -393,9 +393,6 @@ export { SponsorshipPaymasterServiceContext }
 export type StoredByokKey = AomiByokKeyEntry;
 
 // @public
-export function stripCapabilityHints(text: string): string;
-
-// @public
 export const SUPPORTED_CHAINS: ChainInfo[];
 
 // @public (undocumented)

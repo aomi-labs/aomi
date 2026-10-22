@@ -298,14 +298,26 @@ export class ClientSession {
 
   /** Append a correction to the exact running turn; never falls back to Send. */
   async steer(message: string, options: SteerOptions = {}): Promise<EventPage> {
+    this.assertInputOwner();
+    // A follow-up can arrive while Start is still being acknowledged. Join
+    // that admission and retain its identity, even if newer work begins.
+    const pending =
+      !options.targetTurnId && this.isSubmitting
+        ? this.activeSubmission?.promise
+        : undefined;
+    const admitted = pending ? await pending : undefined;
     this.assertTurnInputs();
+    const text = message.trim();
+    if (!text) return Promise.reject(new TypeError("message is required"));
+    const admittedTurn = admitted?.started_turn_id ?? admitted?.input?.turn_id;
+    if (pending && !admittedTurn)
+      throw new TypeError("The initial request did not identify its turn");
     const targetTurnId =
       options.targetTurnId ??
+      admittedTurn ??
       (this.control ? this.control.active_turn_id : this.turnId);
     if (!targetTurnId)
       return Promise.reject(new TypeError("A target turn is required"));
-    const text = message.trim();
-    if (!text) return Promise.reject(new TypeError("message is required"));
     const inputId =
       options.inputId ??
       [...this.inputs.values()].find(
@@ -321,7 +333,7 @@ export class ClientSession {
       options.expectedInputRevision ??
       (this.control?.active_turn_id === targetTurnId
         ? this.control.accepted_input_revision
-        : 0);
+        : (admitted?.input?.input_revision ?? 0));
     let intent: SteerTurnIntent | undefined;
     const admission = this.admitInput(
       {

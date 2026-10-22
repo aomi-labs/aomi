@@ -455,6 +455,10 @@ export function projectAssistantMessages(
   );
   const inputRevisions = new Map<string, number>();
   const segmentRoots = new Map<string, string>();
+  const segmentStarts = new Map<string, number>();
+  const segmentEnds = new Map<string, number>();
+  const latestSegments = new Map<string, string>();
+  const continuedRoots = new Set<string>();
   const segmentKeys = events.map((event, index) => {
     const root = turnKeys[index]!;
     const revision =
@@ -465,6 +469,18 @@ export function projectAssistantMessages(
       inputRevisions.set(root, revision);
     const segment = revision > 1 ? `${root}:input:${revision}` : root;
     segmentRoots.set(segment, root);
+    if (!segmentStarts.has(segment))
+      segmentStarts.set(segment, parseTimestamp(event.occurred_at));
+    if (!latestSegments.has(root)) latestSegments.set(root, segment);
+    if (event.type === "message" && event.sender === "user") {
+      const previous = latestSegments.get(root)!;
+      if (previous !== segment) {
+        segmentEnds.set(previous, parseTimestamp(event.occurred_at));
+        continuedRoots.add(root);
+      }
+      if (revision > 1) continuedRoots.add(root);
+      latestSegments.set(root, segment);
+    }
     return segment;
   });
   // Inline transcript results and typed progress are revisions of the same
@@ -489,22 +505,36 @@ export function projectAssistantMessages(
     output.push(projection);
     return projection;
   };
+  // A completion after a follow-up still belongs to the trace that started
+  // its call. New calls belong below the follow-up message.
+  const toolOwners = new Map<string, AssistantProjection>();
+  const toolTurn = (event: Event, index: number, call: string) => {
+    const key = `${turnKeys[index]}:${call}`;
+    let projection = toolOwners.get(key);
+    if (!projection) {
+      projection = assistantTurn(event, index);
+      toolOwners.set(key, projection);
+    }
+    return projection;
+  };
 
   for (const [index, event] of events.entries()) {
     if (event.type === "message") {
       if (event.sender === "system") continue;
       if (event.sender === "agent") {
-        const projection = assistantTurn(event, index);
         const key = event.message_key ?? event.event_id;
         const toolResult = inlineToolResult(event);
         if (toolResult) {
+          const call = event.tool_call_id ?? `inline:${key}`;
+          const projection = toolTurn(event, index, call);
           upsertPart(
             projection,
             projection.toolParts,
-            event.tool_call_id ?? `inline:${key}`,
+            call,
             inlineToolPart(toolResult, key, event.tool_call_id),
           );
         } else {
+          const projection = assistantTurn(event, index);
           const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             continuationOwners.has(event.turn_id ?? "") &&
@@ -565,6 +595,8 @@ export function projectAssistantMessages(
             ? { ...projected, id: previous.id }
             : projected;
       }
+      if (event.sender === "user" && continuedRoots.has(turnKeys[index]!))
+        assistantTurn(event, index);
       continue;
     }
 
@@ -573,7 +605,7 @@ export function projectAssistantMessages(
       event.type === "context_compacted" ||
       event.type === "tool_output_trimmed"
     ) {
-      const projection = assistantTurn(event, index);
+      const projection = toolTurn(event, index, contextKey(event));
       upsertPart(
         projection,
         projection.toolParts,
@@ -587,7 +619,7 @@ export function projectAssistantMessages(
       (event.type === "tool_update" || event.type === "tool_complete") &&
       event.tool_name !== "task"
     ) {
-      const projection = assistantTurn(event, index);
+      const projection = toolTurn(event, index, event.call_id ?? event.id);
       upsertPart(
         projection,
         projection.toolParts,
@@ -602,6 +634,7 @@ export function projectAssistantMessages(
       if (!("parts" in entry)) return entry;
       const segment = entry.message.id.slice("turn:".length);
       const root = segmentRoots.get(segment) ?? segment;
+      const continued = continuedRoots.has(root);
       const callbackTurns = continuationTurnIds.get(root);
       const callbackTerminalStates = Object.fromEntries(
         (callbackTurns ?? []).flatMap((turnId) => {
@@ -614,7 +647,8 @@ export function projectAssistantMessages(
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
-        ...(entry.finalAnswerStartIndex !== undefined ||
+        ...(continued ||
+        entry.finalAnswerStartIndex !== undefined ||
         callbackTurns ||
         entry.responseMessageKey ||
         noticeCodes.has(root) ||
@@ -622,6 +656,15 @@ export function projectAssistantMessages(
           ? {
               metadata: {
                 custom: {
+                  ...(continued
+                    ? {
+                        aomiTraceSegment: true,
+                        aomiTraceClosed: latestSegments.get(root) !== segment,
+                        aomiTurnId: root,
+                        aomiTraceStartedAt: segmentStarts.get(segment),
+                        aomiTraceEndedAt: segmentEnds.get(segment),
+                      }
+                    : {}),
                   ...(terminalTurns.has(root)
                     ? { aomiTurnState: terminalTurns.get(root)!.state }
                     : {}),
@@ -648,7 +691,9 @@ export function projectAssistantMessages(
     })
     .filter(
       (message) =>
-        typeof message.content === "string" || message.content.length > 0,
+        typeof message.content === "string" ||
+        message.content.length > 0 ||
+        Boolean(message.metadata?.custom?.aomiTraceSegment),
     );
 }
 
@@ -727,10 +772,43 @@ export function projectRuntimeMessages(
       projected.some((message) => message.id === `input:${input.inputId}`)
     )
       continue;
+    const previousIndex = projected.findLastIndex(
+      (message) =>
+        message.role === "assistant" &&
+        (message.id === `turn:${input.targetTurnId}` ||
+          message.metadata?.custom?.aomiTurnId === input.targetTurnId),
+    );
+    if (previousIndex >= 0) {
+      const previous = projected[previousIndex]!;
+      projected[previousIndex] = {
+        ...previous,
+        metadata: {
+          ...previous.metadata,
+          custom: {
+            ...previous.metadata?.custom,
+            aomiTraceSegment: true,
+            aomiTraceClosed: true,
+          },
+        },
+      };
+    } else if (input.targetTurnId) {
+      projected.push({
+        id: `turn:${input.targetTurnId}`,
+        role: "assistant",
+        content: [],
+        metadata: {
+          custom: {
+            aomiTraceSegment: true,
+            aomiTraceClosed: true,
+            aomiTurnId: input.targetTurnId,
+          },
+        },
+      });
+    }
     projected.push({
       id: `input:${input.inputId}`,
       role: "user",
-      content: [{ type: "text", text: input.message }],
+      content: [{ type: "text", text: stripCapabilityHints(input.message) }],
       createdAt: new Date(),
       metadata: { custom: { aomiUserMessageKey: input.inputId } },
     });

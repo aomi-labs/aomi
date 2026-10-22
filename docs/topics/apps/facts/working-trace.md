@@ -20,6 +20,12 @@ selects an interpreter. The interpreter reads execution facts from the tool's
 own arguments and result; the presenter owns the visible title, icon, chip order,
 and state marker. Portal and embedded widgets consume the same implementation.
 
+An ordinary message sent while work is active continues that request. The earlier
+working trace remains above the new user message, and subsequent work appears in
+a new trace below it. Results from calls already started remain with their
+original trace. The composer uses its existing Send and Stop controls; Queue and
+update acknowledgements are not part of the Portal or embedded widget UI.
+
 ## Transaction lifecycle
 
 EVM and Solana stage, simulate, and commit rows share the slot order:

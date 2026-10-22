@@ -200,9 +200,15 @@ export async function sendPrompt(
     ).toBeVisible({ timeout: 30_000 });
   }
   if (options.expectComposerReady !== false) {
-    await expect(
-      page.getByRole("button", { name: "Send message" }),
-    ).toBeEnabled({ timeout: 30_000 });
+    const send = page.getByRole("button", { name: "Send message" });
+    await expect(send).toBeVisible({ timeout: 30_000 });
+    await expect(input).toBeEmpty();
+    await expect(send).toBeDisabled();
+    // Readiness means another draft can be sent; an empty composer cannot.
+    await input.fill("Next request readiness check");
+    await expect(send).toBeEnabled();
+    await input.fill("");
+    await expect(send).toBeDisabled();
   }
   return response;
 }

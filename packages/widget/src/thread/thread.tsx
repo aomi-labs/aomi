@@ -32,7 +32,6 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
-import type { PendingInput } from "@aomi-labs/client";
 import { memo, useEffect, useRef, useState } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
@@ -51,7 +50,6 @@ import {
   useOptionalAomiRuntime,
   useThreadContext,
   useThreadTaskRuns,
-  stripCapabilityHints,
 } from "@aomi-labs/react";
 import { AppIndicator } from "@/controls/app-indicator";
 import { useComposerControl } from "@/frame/aomi-frame";
@@ -72,6 +70,7 @@ import { PaymentRequiredGate } from "@/controls/payment-required-gate";
 import { CapabilityMessageText } from "./capability-message-text";
 import {
   useThread,
+  useComposer,
   useComposerRuntime,
   useMessage,
   useThreadRuntime,
@@ -400,19 +399,6 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const composer = useComposerRuntime();
   const safety = useThreadSafety();
   const committing = useRef(false);
-  // Retrying the same identity produces a new view, so a new failure remains
-  // visible after feedback from the previous attempt was dismissed.
-  const [dismissedFeedback, setDismissedFeedback] = useState<
-    ReadonlySet<PendingInput>
-  >(() => new Set());
-  const inputSubmitted = () => {
-    const feedback =
-      runtime?.turnInputs?.filter(
-        (input) => input.status === "rejected" || input.status === "uncertain",
-      ) ?? [];
-    if (feedback.length)
-      setDismissedFeedback((previous) => new Set([...previous, ...feedback]));
-  };
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
@@ -438,13 +424,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
     event.preventDefault();
     const { text, runConfig } = composer.getState();
     if (!text.trim()) return;
-    const queue =
-      submitter instanceof HTMLButtonElement &&
-      submitter.name === "aomi-input" &&
-      submitter.value === "queue";
-    const send = queue ? runtime.queueMessage : runtime.sendMessage;
-    if (!send) return;
-    inputSubmitted();
+    const send = runtime.sendMessage;
     composer.setText("");
     // Capture configuration before clearing chips; the runtime owns encoding,
     // thread-bound recovery, notifications and exact active-turn admission.
@@ -462,84 +442,8 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
       />
       <ComposerAction />
-      <TurnInputStatus dismissedFeedback={dismissedFeedback} />
       <ComposerSafetyStatus />
     </ComposerPrimitive.Root>
-  );
-};
-
-const TurnInputStatus: FC<{ dismissedFeedback: ReadonlySet<PendingInput> }> = ({
-  dismissedFeedback,
-}) => {
-  const runtime = useOptionalAomiRuntime();
-  const inputs = runtime?.turnInputs ?? [];
-  const candidate = inputs.findLast((input) => input.operation === "steer");
-  const feedback =
-    candidate?.status === "rejected" || candidate?.status === "uncertain";
-  const latest =
-    candidate &&
-    (feedback
-      ? !dismissedFeedback.has(candidate)
-      : Boolean(runtime?.turnControl?.active_turn_id) &&
-        candidate.targetTurnId === runtime?.turnControl?.active_turn_id)
-      ? candidate
-      : undefined;
-  const status = latest?.status;
-  const queued = runtime?.turnControl?.queued_turn_ids ?? [];
-  const label =
-    status === "sending"
-      ? "Sending update…"
-      : status === "accepted"
-        ? "Update accepted · waiting for the current step"
-        : status === "applied"
-          ? "Update applied"
-          : status === "uncertain"
-            ? "Update receipt unknown · check the conversation before retrying"
-            : status === "rejected"
-              ? "Update not accepted · your text is available to resend"
-              : status === "superseded" || status === "cancelled"
-                ? "Update was not applied"
-                : undefined;
-  if (!label && queued.length === 0) return null;
-  return (
-    <div className="text-aomi-muted px-4 pb-2 text-xs">
-      {label && <p role="status">{label}</p>}
-      {(latest?.status === "rejected" || latest?.status === "uncertain") && (
-        <p className="mt-1 break-words">
-          {stripCapabilityHints(latest.message)}
-        </p>
-      )}
-      {queued.map((turnId) => {
-        const input = inputs.find((item) => item.receipt?.turn_id === turnId);
-        return (
-          <div
-            key={turnId}
-            className="mt-2 flex items-center justify-between gap-2"
-          >
-            <span>
-              Queued:{" "}
-              {input ? stripCapabilityHints(input.message) : "New request"}
-            </span>
-            <button
-              type="button"
-              className="text-aomi-fg underline"
-              onClick={() =>
-                void runtime?.cancelTurn?.(turnId).catch((error: unknown) =>
-                  runtime?.showNotification({
-                    type: "error",
-                    title: "Couldn’t cancel queued request",
-                    message:
-                      error instanceof Error ? error.message : "Try again.",
-                  }),
-                )
-              }
-            >
-              Cancel queued request
-            </button>
-          </div>
-        );
-      })}
-    </div>
   );
 };
 
@@ -597,6 +501,7 @@ const ComposerAction: FC = () => {
   const aomiRuntime = useOptionalAomiRuntime();
   const nativeRunning = useThread((thread) => thread.isRunning);
   const canSend = useAuiState((state) => state.composer.canSend);
+  const hasText = useComposer((state) => Boolean(state.text.trim()));
   const active = aomiRuntime?.turnControl
     ? Boolean(aomiRuntime.turnControl.active_turn_id)
     : nativeRunning || aomiRuntime?.turnState === "awaiting_action";
@@ -619,7 +524,7 @@ const ComposerAction: FC = () => {
       className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
       aria-label="Send message"
       disabled={
-        !canSend ||
+        !(active ? hasText : canSend) ||
         Boolean(hostError) ||
         committingSafety ||
         Boolean(composerControl.sendDisabled)
@@ -652,34 +557,7 @@ const ComposerAction: FC = () => {
       {!composerControl.enabled && <div className="flex-1" />}
 
       <div className="flex shrink-0 items-center gap-2">
-        {active && aomiRuntime?.supportsSteering && (
-          <>
-            <Button
-              type="submit"
-              name="aomi-input"
-              value="queue"
-              variant="ghost"
-              size="sm"
-              disabled={
-                Boolean(hostError) || Boolean(composerControl.sendDisabled)
-              }
-            >
-              Queue new request
-            </Button>
-            <Button
-              type="submit"
-              variant="default"
-              size="sm"
-              aria-label="Update current request"
-              disabled={
-                Boolean(hostError) || Boolean(composerControl.sendDisabled)
-              }
-            >
-              Update current request
-            </Button>
-          </>
-        )}
-        {!active &&
+        {(!active || (aomiRuntime && hasText)) &&
           (aomiRuntime ? (
             sendButton
           ) : (
@@ -688,7 +566,7 @@ const ComposerAction: FC = () => {
             </ComposerPrimitive.Send>
           ))}
 
-        {active && (
+        {active && (!aomiRuntime || !hasText) && (
           <>
             <ComposerPrimitive.Cancel asChild>
               <Button
@@ -781,6 +659,7 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
         aomiNoticeKind?: string;
         aomiNoticeTitle?: string;
         aomiNoticeCode?: string;
+        aomiTraceSegment?: boolean;
       }
     | undefined;
   // Notices are runtime records, not model turns: a payment gate, or a turn
@@ -793,7 +672,8 @@ const AssistantMessageBody = memo(function AssistantMessageBody({
   const isErrorNotice = noticeKind === "error" && !isPausedNotice;
   const showLoadingDot =
     isEmpty && isRunning && isLast && isSending && !hasLiveTaskRun;
-  const showFinishedEmptyMessage = isEmpty && !isRunning;
+  const showFinishedEmptyMessage =
+    isEmpty && !isRunning && !notice?.aomiTraceSegment;
 
   return (
     <MessagePrimitive.Root asChild>
