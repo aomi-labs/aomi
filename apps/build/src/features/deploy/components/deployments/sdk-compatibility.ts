@@ -1,7 +1,19 @@
 import type { UserProject } from "@aomi-labs/deploy";
 
-export type SdkCompatibility = "current" | "outdated" | "unknown";
+/**
+ * `current`: the live release runs the backend's contract on the backend's
+ * SDK. `outdated`: SDK drift — the release still loads (its FFI matches) but
+ * was built with another SDK; redeploy to update. `incompatible`: the runtime
+ * refuses to load it (FFI missing, unverified, or not the host's); it must be
+ * rebuilt. `unknown`: nothing live, or nothing recorded.
+ */
+export type SdkCompatibility =
+  | "current"
+  | "outdated"
+  | "incompatible"
+  | "unknown";
 
+/** Bare SDK equality, for deployment rows that carry only a stamp. */
 export function sdkCompatibility(
   stamped?: string | null,
   required?: string | null,
@@ -10,11 +22,16 @@ export function sdkCompatibility(
   return stamped === required ? "current" : "outdated";
 }
 
+/** Oldest SDK whose binaries the runtime verifies against FFI 1 (the legacy
+ *  table in `aomi_sdk::legacy_ffi_version`). Rebuild copy names it so an
+ *  operator is never told to match one exact SDK number. */
+const OLDEST_SUPPORTED_SDK_FOR_FFI_1 = "5.1.1";
+
 /**
  * The one SDK story for a project. The Projects index row and every project
  * page tab (Home, Chat, Settings) render from this, so they can never
- * disagree about which SDK the active application runs on or whether it is
- * outdated against the backend requirement.
+ * disagree about which SDK the active application runs on or whether it can
+ * run against the backend.
  */
 export type ProjectSdk = {
   /** SDK stamped on the active application's promotion record — what the
@@ -37,7 +54,22 @@ export type ProjectSdk = {
    *  mismatches still take precedence over an incomplete record. */
   unrecorded: boolean;
   compatibility: SdkCompatibility;
+  /** SDK drift on a loadable release: redeploy to update, chat still works.
+   *  Against a Manager without FFI metadata this is the old SDK-equality
+   *  verdict, and there it also blocks chat (that backend refuses mismatched
+   *  SDKs outright). */
   outdated: boolean;
+  /** The runtime cannot load the live release; it must be rebuilt. */
+  incompatible: boolean;
+  /** Whether the Chat tab and Chat card must refuse to open a session. */
+  chatBlocked: boolean;
+  /** How loudly to render `warning`: green/neutral, amber, or red. */
+  severity: "info" | "warning" | "error";
+  /** What to rebuild an incompatible release with, e.g. "a supported SDK
+   *  (5.1.1 or newer)". Never "match the backend's number": any SDK on the
+   *  backend's FFI loads, and the backend's own SDK is only one of them.
+   *  Null unless `incompatible`. */
+  rebuildWith: string | null;
   /** Badge text. */
   label: string;
   /** What the operator must know before trusting a Live card; null when the
@@ -82,18 +114,31 @@ export function projectSdk(
     ? "outdated"
     : sdkCompatibility(runtime, requiredVersion);
   const requiredFfi = source.requiredFfiVersion;
-  const ffiVersions = [...new Set([
-    ...(source.ffiVersions ?? []),
-    ...(source.ffiVersion != null ? [source.ffiVersion] : []),
-  ])];
-  const compatibility: SdkCompatibility = requiredFfi == null
-    ? sdkVerdict
-    : ffiVersions.some((version) => version !== requiredFfi)
-      ? "outdated"
-      : source.ffiUnrecorded || ffiVersions.length === 0
-        ? "unknown"
-        : "current";
+  const ffiVersions = [
+    ...new Set([
+      ...(source.ffiVersions ?? []),
+      ...(source.ffiVersion != null ? [source.ffiVersion] : []),
+    ]),
+  ];
+  const foreignFfi = ffiVersions.filter((version) => version !== requiredFfi);
+  const unverifiedSdk = source.ffiUnverifiedSdkVersions ?? [];
+  const compatibility: SdkCompatibility =
+    requiredFfi == null
+      ? sdkVerdict
+      : source.ffiIncompatible ||
+          foreignFfi.length > 0 ||
+          unverifiedSdk.length > 0
+        ? "incompatible"
+        : source.ffiUnrecorded || ffiVersions.length === 0
+          ? "unknown"
+          : sdkVerdict === "outdated"
+            ? "outdated"
+            : "current";
   const outdated = compatibility === "outdated";
+  const incompatible = compatibility === "incompatible";
+  // An FFI-aware backend loads any release on its contract, whatever the SDK;
+  // an older backend refuses every SDK but its own.
+  const chatBlocked = incompatible || (requiredFfi == null && outdated);
   const unrecorded = live && !mixed && runtime === null;
   const label = mixed
     ? "SDK mixed"
@@ -109,21 +154,53 @@ export function projectSdk(
   const requires = requiredVersion
     ? ` — backend requires ${requiredVersion}`
     : "";
-  const warning = requiredFfi != null
-    ? outdated
-      ? `App FFI ${ffiVersions.join(", ")} is incompatible with backend FFI ${requiredFfi}; rebuild for a supported FFI version.`
-      : compatibility === "unknown" && live
-        ? "Runtime FFI compatibility is unrecorded; redeploy to verify it."
-        : null
-    : outdated
-    ? mixed || unrecorded
+  const driftWarning =
+    mixed || unrecorded
       ? `Live apps run SDK ${runtimeVersions.join(", ")}${requires}${unrecorded ? "; some runtime SDK records are missing" : ""}; redeploy to update.`
-      : `Active application built with SDK ${runtime}${requires}; redeploy to update.`
-    : unrecorded
-      ? `Runtime SDK unrecorded for the active application${
-          declared ? ` (repository declares ${declared})` : ""
-        }${requires}. Redeploy to record it before trusting this deployment.`
-      : null;
+      : `Active application built with SDK ${runtime}${requires}; redeploy to update.`;
+  // The oldest SDK verified against FFI 1 is the legacy table's floor; for a
+  // later FFI the backend's own SDK is the only floor the UI knows.
+  const rebuildWith = incompatible
+    ? requiredFfi === 1 || requiredVersion
+      ? `a supported SDK (${requiredFfi === 1 ? OLDEST_SUPPORTED_SDK_FOR_FFI_1 : requiredVersion} or newer)`
+      : `an SDK on FFI ${requiredFfi}`
+    : null;
+  const incompatibleReasons = [
+    ...(unverifiedSdk.length > 0
+      ? [`SDK ${unverifiedSdk.join(", ")} has no verified FFI contract`]
+      : []),
+    ...(foreignFfi.length > 0
+      ? [
+          `app FFI ${foreignFfi.join(", ")} does not match backend FFI ${requiredFfi}`,
+        ]
+      : []),
+  ];
+  const warning = incompatible
+    ? `${
+        runtimeVersions.length === 1
+          ? `Active application built with SDK ${runtimeVersions[0]}`
+          : runtimeVersions.length > 1
+            ? `A live app (SDK ${runtimeVersions.join(", ")})`
+            : "Active application"
+      } cannot run on this backend${
+        incompatibleReasons.length > 0
+          ? ` (${incompatibleReasons.join("; ")})`
+          : ""
+      }; rebuild with ${rebuildWith} and redeploy.`
+    : requiredFfi != null
+      ? compatibility === "unknown" && live
+        ? "Runtime FFI compatibility is unrecorded; redeploy to verify it."
+        : outdated
+          ? driftWarning
+          : null
+      : outdated
+        ? driftWarning
+        : unrecorded
+          ? `Runtime SDK unrecorded for the active application${
+              declared ? ` (repository declares ${declared})` : ""
+            }${requires}. Redeploy to record it before trusting this deployment.`
+          : null;
+  const severity = incompatible ? "error" : warning ? "warning" : "info";
   return {
     runtime,
     runtimeVersions,
@@ -134,6 +211,10 @@ export function projectSdk(
     unrecorded,
     compatibility,
     outdated,
+    incompatible,
+    chatBlocked,
+    severity,
+    rebuildWith,
     label,
     warning,
   };

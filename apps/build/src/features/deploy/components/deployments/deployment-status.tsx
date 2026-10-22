@@ -4,7 +4,9 @@ export function DeploymentStatusDot({ state }: { state: string }) {
       ? "bg-warning"
       : state === "ready" || state === "live" || state === "recorded"
         ? "bg-positive"
-        : state === "failed" || state === "deactivated"
+        : state === "failed" ||
+            state === "deactivated" ||
+            state === "incompatible"
           ? "bg-destructive"
           : "bg-muted-foreground";
   return <span className={`size-2 rounded-full ${tone}`} />;
