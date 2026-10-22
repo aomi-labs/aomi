@@ -292,11 +292,11 @@ describe.skipIf(!enabled)("account connections", () => {
       `select key from account_connections where user_id = 'owner' order by key`,
     );
     expect(settings.rows).toEqual([{ key: "telegram:88" }]);
-    // Its pairs went with it.
-    const pairs = await pool.query(
+    // Its lanes went with it.
+    const lanes = await pool.query(
       `select connection_key from wallet_access where user_id = 'owner'`,
     );
-    expect(pairs.rows).toEqual([{ connection_key: "telegram:88" }]);
+    expect(lanes.rows).toEqual([{ connection_key: "telegram:88" }]);
     expect(
       await connections.revokeOAuthConnection({
         userId: "owner",

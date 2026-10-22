@@ -41,10 +41,8 @@ export function ConnectionManage({
   // A save in flight shows what it will hold.
   const pending = saving[connection.key];
   const lanes = {
-    ...(agents
-      ? lanesOf(agents, connection.key, connection.kind, connection.ask_only)
-      : {}),
-    ...Object.fromEntries(pending?.map((pair) => [pair.id, pair.lane]) ?? []),
+    ...(agents ? lanesOf(agents, connection.key, "aomi") : {}),
+    ...Object.fromEntries(pending?.map((item) => [item.id, item.lane]) ?? []),
   };
 
   return (

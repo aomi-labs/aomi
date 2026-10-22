@@ -1213,7 +1213,10 @@ export async function listTelegramIdentityIds(
   return result.rows.map((row) => String(row.id));
 }
 
-/** Drop the Ask/Instant settings and labels of every Telegram bot. */
+/**
+ * Drop every Telegram bot's label and, by cascade, its wallet lanes, which
+ * then read as the default lane.
+ */
 export async function deleteTelegramConnectionSettings(
   userId: AomiUserId,
   db: Db = getPool(),

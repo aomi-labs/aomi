@@ -392,7 +392,11 @@ export function selectActivity(
               source.stage_id === commit.stage_id,
           )
           .map((source) => source.source_id)
-      : (commit.stage_id.split(":")[1] ?? "").split(",").map(Number);
+      : (commit.stage_id.split(":")[1] ?? "")
+          .split(",")
+          .filter((part) => part !== "")
+          .map(Number)
+          .filter(Number.isInteger);
     for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
         const chainRef =

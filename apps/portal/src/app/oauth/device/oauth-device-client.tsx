@@ -8,8 +8,8 @@ import {
   AomiSheet,
   ConnectionMark,
   ConsentWallets,
-  type ConsentWalletsState,
   SheetHeader,
+  useConsentLanes,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { createPortalClient } from "../portal-client";
@@ -64,10 +64,7 @@ export function DeviceSheet() {
   const [pending, setPending] = useState(false);
   const client = useMemo(() => createPortalClient(), []);
   // The terminal's lanes, written once the login went through.
-  const lanes = useRef<ConsentWalletsState>({ ready: false, update: null });
-  const keepLanes = useCallback((next: ConsentWalletsState) => {
-    lanes.current = next;
-  }, []);
+  const lanes = useConsentLanes(client);
 
   const check = useCallback(async (code: string) => {
     setPending(true);
@@ -94,12 +91,8 @@ export function DeviceSheet() {
     })
       .then((response) => response.ok)
       .catch(() => false);
-    // The lanes are written once the login went through; a failure leaves the
-    // terminal on its default (Ask on Aomi) and says nothing went wrong.
-    if (ok && accept && clientId && lanes.current.update)
-      await client.account.connections
-        .setConnectionWallets(`oauth:${clientId}`, lanes.current.update)
-        .catch(() => undefined);
+    // A failed lane write leaves the terminal on its default lanes.
+    if (ok && accept && clientId) await lanes.save(`oauth:${clientId}`);
     setState(
       ok ? { step: accept ? "connected" : "denied" } : { step: "failed" },
     );
@@ -127,17 +120,16 @@ export function DeviceSheet() {
             <ConsentWallets
               client={client}
               connectionKey={`oauth:${state.clientId}`}
-              kind="cli"
               name="terminal"
               startLane="here"
-              onChange={keepLanes}
+              onChange={lanes.onChange}
             />
           ) : null}
           <div className="flex w-full flex-col gap-2">
             <AomiButton
               variant="primary"
               className="h-10 w-full"
-              disabled={pending}
+              disabled={pending || (Boolean(state.clientId) && !lanes.ready)}
               onClick={() => void decide(state.code, true, state.clientId)}
             >
               Connect

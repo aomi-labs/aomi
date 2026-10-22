@@ -12,9 +12,6 @@
  */
 export type SignerMode = "manual" | "auto" | "denied";
 
-/** The modes Settings can move a wallet to: Ask me or Locked. */
-export type SignerChoice = Exclude<SignerMode, "auto">;
-
 /**
  * How a wallet was proven and attached — the tidy provenance set that mirrors
  * the kernel's `auth_providers.provider`. Custody is *derived* from it:

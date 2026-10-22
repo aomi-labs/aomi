@@ -57,7 +57,7 @@ type LaneOption = {
  * The choices a connection has on an agent wallet. The portal is the owner:
  * it always approves, so it picks only between Ask and Instant.
  */
-export function laneOptions(client: string, portal = false): LaneOption[] {
+function laneOptions(client: string, portal = false): LaneOption[] {
   const instant: LaneOption = {
     id: "instant",
     label: "Instant",
@@ -186,9 +186,6 @@ export function LaneSelect({
             </button>
           ))}
         </div>
-        <div className="border-aomi-border text-aomi-muted mt-1.5 border-t px-2.5 pb-0.5 pt-2 text-[12px]">
-          Pause all stops every lane
-        </div>
       </PopoverContent>
     </Popover>
   );
@@ -297,10 +294,15 @@ const addressLine = (row: WalletViewRow) =>
 
 const KINDS = { agent: "Agent", "sign-in": "Sign-in" } as const;
 
+/** Rows a page in the wallet view and a wallet's "Who can use it". */
+export const PAGE_SIZE = 3;
+/** Wallet count past which the wallet view offers search. */
+const SEARCH_FROM = 5;
+
 /**
  * Every wallet the account has, as one connection sees it: search (past
- * `searchFrom` wallets), kind chips, `pageSize` rows a page, and each agent
- * wallet's lane picker. Wallets Aomi holds no key for show their fixed lane.
+ * five wallets), kind chips, three rows a page, and each agent wallet's lane
+ * picker. Wallets Aomi holds no key for show their fixed lane.
  */
 export function WalletView({
   rows,
@@ -312,8 +314,6 @@ export function WalletView({
   disabled = false,
   title = "Your wallets",
   detail,
-  pageSize = 3,
-  searchFrom = 5,
 }: {
   rows: readonly WalletViewRow[];
   /** The connection's name, for "Ask in <client>". */
@@ -326,12 +326,12 @@ export function WalletView({
   disabled?: boolean;
   title?: string;
   detail?: ReactNode;
-  pageSize?: number;
-  searchFrom?: number;
 }) {
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<WalletViewRow["kind"] | "all">("all");
+  const [picked, setKind] = useState<WalletViewRow["kind"] | "all">("all");
   const kinds = [...new Set(rows.map((row) => row.kind))];
+  // A chip whose kind is gone falls back to All.
+  const kind = picked !== "all" && kinds.includes(picked) ? picked : "all";
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter(
@@ -344,7 +344,7 @@ export function WalletView({
           )),
     );
   }, [kind, query, rows]);
-  const { page, setPage, shown } = usePage(matches, pageSize);
+  const { page, setPage, shown } = usePage(matches, PAGE_SIZE);
   return (
     <section className="flex w-full flex-col gap-2" data-wallet-view>
       <SectionHeader
@@ -354,13 +354,13 @@ export function WalletView({
         action={
           <Pager
             page={page}
-            pageSize={pageSize}
+            pageSize={PAGE_SIZE}
             total={matches.length}
             onPage={setPage}
           />
         }
       />
-      {rows.length > searchFrom ? (
+      {rows.length > SEARCH_FROM ? (
         <label className="bg-aomi-surface-2/55 flex h-8 items-center gap-[7px] rounded-lg px-2.5">
           <Search className="text-aomi-muted size-3.5 shrink-0" />
           <input
@@ -434,7 +434,7 @@ export function WalletView({
                 <LaneSelect
                   wallet={row.name}
                   client={client}
-                  lane={lanes[row.id] ?? (portal ? "here" : "aomi")}
+                  lane={lanes[row.id] ?? "aomi"}
                   portal={portal}
                   askOnly={askOnly}
                   disabled={disabled}

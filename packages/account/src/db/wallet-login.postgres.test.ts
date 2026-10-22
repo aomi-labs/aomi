@@ -348,7 +348,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       authorization_metadata: { reason: "account_deactivated" },
     });
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
-    // Pause all, and every pair back on Ask.
+    // Pause all, and every lane back on Aomi.
     const paused = await pool.query(
       `select u.agents_paused, wa.instant from users u
          join wallet_access wa on wa.user_id = u.id where u.id = $1`,

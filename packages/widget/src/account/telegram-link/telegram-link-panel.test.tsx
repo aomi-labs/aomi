@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AomiClient } from "@aomi-labs/client";
 import { TelegramLinkPanel } from "./telegram-link-panel";
@@ -113,8 +119,15 @@ async function renderPanel(
   return calls;
 }
 
-const click = (name: string) =>
-  act(async () => fireEvent.click(screen.getByRole("button", { name })));
+/** Click once the button is live: Link waits for the bot's wallet view. */
+const click = async (name: string) => {
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name }) as HTMLButtonElement).disabled,
+    ).toBe(false),
+  );
+  await act(async () => fireEvent.click(screen.getByRole("button", { name })));
+};
 
 afterEach(() => vi.useRealTimers());
 
@@ -213,8 +226,16 @@ describe("TelegramLinkPanel", () => {
       preview: () => Response.json(preview),
       confirm: () => new Promise<Response>((resolve) => (finish = resolve)),
     });
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Link" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
     vi.useFakeTimers();
-    await click("Link");
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Link" })),
+    );
     expect(
       (screen.getByRole("button", { name: "Linking…" }) as HTMLButtonElement)
         .disabled,

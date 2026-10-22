@@ -65,6 +65,7 @@ export {
   ConsentWallets,
   type ConsentWalletsProps,
   type ConsentWalletsState,
+  useConsentLanes,
 } from "./account/connections/consent-wallets-loader";
 export { accountDisplayName } from "./wallet/account-presentation";
 export {

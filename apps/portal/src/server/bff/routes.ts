@@ -510,7 +510,8 @@ const APPROVE = new RegExp(`^/v1/commits/${COMMIT_REF}/approve$`);
 /**
  * Approving lets Aomi sign with the agent wallet: never from an embedded
  * widget or a guest. An OAuth client (the CLI, an AI or SDK app) reaches the
- * backend, which lets it only with "Can approve trades".
+ * backend, which lets it approve only where its lane on the wallet is
+ * "Ask in <client>" (the `here` lane).
  */
 function mayApprove(principal: Principal): boolean {
   return (

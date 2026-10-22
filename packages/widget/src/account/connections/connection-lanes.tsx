@@ -2,22 +2,24 @@
 
 import { useContext } from "react";
 import { ArrowRight } from "lucide-react";
-import {
-  defaultLane,
-  type AomiAccountConnection,
-  type AomiLane,
-} from "@aomi-labs/client";
+import type { AomiAccountConnection, AomiLane } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { SheetAlert } from "@/wallet/picker/sheet-parts";
 import { useShellTransport } from "@/account/transport";
-import { connectionsQuery } from "@/account/account-queries";
+import { agentWalletsQuery, connectionsQuery } from "@/account/account-queries";
 import { SettingsNavContext } from "@/account/settings-events";
 import { ConnectionMark } from "./connection-mark";
 import { botTitle } from "./connections-settings";
 import { useAccessWrite } from "./use-access-write";
-import { FixedLane, LaneSelect, Pager, usePage } from "./wallet-view";
+import {
+  FixedLane,
+  LaneSelect,
+  PAGE_SIZE,
+  Pager,
+  usePage,
+} from "./wallet-view";
 
 const connectionTitle = (connection: AomiAccountConnection) =>
   connection.kind === "telegram" ? botTitle(connection) : connection.name;
@@ -59,33 +61,32 @@ export function ConnectionLanes({
 }) {
   const { client } = useShellTransport();
   const connections = useDisplayQuery(connectionsQuery(client));
+  const agents = useDisplayQuery(agentWalletsQuery(client));
   const goTo = useContext(SettingsNavContext);
   const { write, saving, error, dialog } = useAccessWrite();
   const rows = (connections.data?.connections ?? []).filter(
     (connection) => connection.kind !== "portal",
   );
-  const { page, setPage, shown } = usePage(rows, 3);
-  const laneOf = (connection: AomiAccountConnection): AomiLane => {
-    const pending = saving[connection.key]?.find(
-      (pair) => pair.id === agentWallet?.id,
-    );
-    if (pending) return pending.lane;
-    if (connection.ask_only) return "aomi";
-    return (
-      connection.wallets.find((pair) => pair.id === agentWallet?.id)?.lane ??
-      defaultLane(connection.kind)
-    );
-  };
+  const { page, setPage, shown } = usePage(rows, PAGE_SIZE);
+  const judged = agents.data?.wallets.find(
+    (wallet) => wallet.id === agentWallet?.id,
+  )?.connections;
+  // A save in flight shows what it will hold; else the server's lane.
+  const laneOf = (connection: AomiAccountConnection): AomiLane =>
+    saving[connection.key]?.find((entry) => entry.id === agentWallet?.id)
+      ?.lane ??
+    judged?.find((entry) => entry.key === connection.key)?.lane ??
+    "aomi";
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader
         title="Who can use it"
         count={rows.length}
         action={
-          rows.length > 3 ? (
+          rows.length > PAGE_SIZE ? (
             <Pager
               page={page}
-              pageSize={3}
+              pageSize={PAGE_SIZE}
               total={rows.length}
               onPage={setPage}
             />
@@ -112,7 +113,7 @@ export function ConnectionLanes({
             return (
               <ListRow
                 key={connection.key}
-                data-pair={connection.key}
+                data-connection-lane={connection.key}
                 leading={
                   <ConnectionMark
                     kind={connection.kind}

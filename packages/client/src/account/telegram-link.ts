@@ -1,9 +1,9 @@
 /**
- * Link a Telegram account to the signed-in portal account (Agent Wallets v1,
- * step 5). `/link` in an Aomi app bot mints a one-time code; the portal page
- * `/link/telegram?code=…` previews what moves and confirms the link.
+ * Link a Telegram account to the signed-in portal account. `/link` in an
+ * Aomi app bot mints a one-time code; the portal page `/link/telegram?code=…`
+ * previews what moves and confirms the link.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/step5-contract.md §3.6. The routes
+ * Hand-written wire types for `/v1/account/link/telegram/*`. The routes
  * are portal-session only (the BFF refuses every other credential), so they
  * are not part of the generated agent API and not exposed on `Aomi`:
  *   - `POST /v1/account/link/telegram/preview` -> `TelegramLinkPreview`

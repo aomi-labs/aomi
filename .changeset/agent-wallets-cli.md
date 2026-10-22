@@ -2,4 +2,4 @@
 "@aomi-labs/cli": minor
 ---
 
-`aomi tx show <ref>` and `aomi tx approve <ref>`: approving works from your normal `aomi account login` for wallets set to "Ask in terminal" (the default at sign-in) and waits until every transfer in the batch is done. `aomi wallets [use <id>]` lists and switches the chat's wallet.
+`aomi tx show <ref>` and `aomi tx approve <ref>`: approving works from your normal `aomi account login` for wallets where this terminal is set to "Ask in" (the default at sign-in) and waits until every transfer in the batch is done. `aomi wallets [use <id>]` lists and switches the chat's wallet.

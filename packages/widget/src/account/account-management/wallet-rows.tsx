@@ -12,7 +12,6 @@ import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
-import { explorerUrl } from "@/thread/explorer-links";
 import type { LinkedAuthAccount } from "@/wallet/account/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import {
@@ -50,19 +49,11 @@ export type WalletRowHandlers = {
   onRemove?: RowHandler;
 };
 
-export const addressExplorerUrl = (row: WalletRow) =>
-  explorerUrl(
-    row.family === "evm" ? (row.chainId ?? 1) : "mainnet-beta",
-    "address",
-    row.address,
-  );
-
 /**
  * A child row sits a step in from its parent: its logo box starts 16px right
  * of the parent's, which is at 22px ([`rowStart`]).
  */
 export const CHILD_INDENT = "pl-[38px]";
-const CHILD = CHILD_INDENT;
 
 /**
  * One address. Clicking it makes it Active (or verifies it when it is not in
@@ -186,7 +177,7 @@ export function AddressRow({
   );
   const mainClass = cn(
     "flex min-w-0 flex-1 items-center gap-3 self-stretch py-3 pr-2 text-left outline-none",
-    nested && CHILD,
+    nested && CHILD_INDENT,
   );
 
   return (
@@ -321,9 +312,12 @@ export function LoginRows({
           row={only}
           {...handlers}
           menu={(own) => [
+            // The login's own items replace the row's Manage and Sign out.
             ...own.filter(
               (item) =>
-                !item.danger && item.label !== "Sign out on this device",
+                !item.danger &&
+                item.label !== "Manage" &&
+                item.label !== "Sign out on this device",
             ),
             ...items,
           ]}

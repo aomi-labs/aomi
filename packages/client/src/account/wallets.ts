@@ -3,9 +3,8 @@
  * wallet.
  *
  * `AomiAccountWallet` and `AomiWalletBalance` are the generated agent API
- * schemas (`generated/agent-v1`). The rest is HAND-WRITTEN, matching
- * notes/step3-contract.md §4–§5 and notes/rework-contract.md §5, because
- * those routes are portal-session account routes outside the agent API spec:
+ * schemas (`generated/agent-v1`). The rest is hand-written wire types for
+ * portal-session account routes outside the agent API spec:
  *   - `PUT  /api/thread/wallet`               -> `AomiThreadWallet`
  *   - `PUT  /v1/account/pause-all`            -> `{ pause_all }`
  *   - the agent wallet routes in `./agent-wallets`
@@ -58,7 +57,7 @@ export type AomiActiveWallet = Partial<Record<AomiWalletFamily, string>>;
 export type AomiThreadWallet = { active_wallet: AomiActiveWallet };
 
 /**
- * Step 3 `UserState` fields. `wallet_pick` and `wallet_presence` go out with
+ * The wallet fields of `UserState`. `wallet_pick` and `wallet_presence` go out with
  * every turn; `active_wallet` comes back from the backend.
  */
 export type UserStateWalletFields = {
@@ -168,8 +167,8 @@ export class AccountWalletsTransport {
 
   /**
    * Create an agent wallet with both families unless `families` narrows it.
-   * The portal may use it at once (Ask); `connection_key` also allows that
-   * connection.
+   * The connection that creates it (`connection_key`, else the portal) starts
+   * with its default lane on it.
    */
   async createAgentWallet(
     input: AomiAgentWalletCreate,

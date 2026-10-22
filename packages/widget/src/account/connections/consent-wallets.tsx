@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Lock } from "lucide-react";
 import type {
   AomiClient,
-  AomiConnectionKind,
   AomiConnectionWalletsUpdate,
   AomiLane,
 } from "@aomi-labs/client";
@@ -12,7 +11,7 @@ import { titleCase } from "@/account/account-management/controls";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
 import { AppLabel } from "@/account/account-management/labels";
 import { WalletView, type WalletViewRow } from "./wallet-view";
-import { lanesOf, useWalletRows } from "./use-wallet-rows";
+import { knownLanes, lanesOf, useWalletRows } from "./use-wallet-rows";
 
 /**
  * What a sign-in page writes once access is granted: `ready` once the
@@ -30,11 +29,9 @@ export type ConsentWalletsProps = {
   client: AomiClient;
   /** The connection being set up, e.g. `oauth:<client id>`; its lanes pre-fill. */
   connectionKey?: string;
-  /** What it is, for its default lane. */
-  kind?: AomiConnectionKind;
   /** Its name, for "Ask in <name>". */
-  name?: string;
-  /** The lane for wallets it has none on yet (default: its kind's). */
+  name: string;
+  /** The lane on wallets the server has none for yet (default: Ask on Aomi). */
   startLane?: AomiLane;
   /** The app an app-locked client is for (its MCP path names it). */
   app?: string;
@@ -46,23 +43,30 @@ export type ConsentWalletsProps = {
 /**
  * The wallet view on a sign-in page (consent, the terminal, a Telegram link):
  * every wallet of the account with the lane this connection will have on
- * each agent wallet, pre-filled from what it has, so signing in again keeps
- * it. An app-locked client also gets the app's wallet, made on approval.
+ * each agent wallet, pre-filled from what the server says it has, so signing
+ * in again keeps it. An app-locked client also gets the app's wallet, made on
+ * approval.
  */
 export function ConsentWallets({
   client,
   connectionKey,
-  kind = "ai",
-  name = "This app",
-  startLane,
+  name,
+  startLane = "aomi",
   app,
   askOnly = false,
   onChange,
 }: ConsentWalletsProps) {
   const { rows, agents, failed } = useWalletRows(client);
+  const start = askOnly ? "aomi" : startLane;
+  // What the server holds; a connection it doesn't know yet holds nothing,
+  // so its shown lanes are written.
+  const known = useMemo(
+    () => (agents ? knownLanes(agents, connectionKey) : null),
+    [agents, connectionKey],
+  );
   const current = useMemo(
-    () => (agents ? lanesOf(agents, connectionKey, kind, askOnly) : null),
-    [agents, connectionKey, kind, askOnly],
+    () => (agents ? lanesOf(agents, connectionKey, start) : null),
+    [agents, connectionKey, start],
   );
   const appWallet = app
     ? agents?.find(
@@ -70,27 +74,25 @@ export function ConsentWallets({
       )
     : undefined;
   const pending = app && agents && !appWallet ? `app:${app}` : null;
-  const [chosen, setChosen] = useState<Record<string, AomiLane> | null>(null);
-  // The first load decides the starting lanes; later refreshes keep choices.
-  useEffect(() => {
-    if (!agents || !current || chosen) return;
-    const start = { ...current };
-    if (startLane && !askOnly)
-      for (const wallet of agents)
-        if (!wallet.connections.some((entry) => entry.key === connectionKey))
-          start[wallet.id] = startLane;
-    if (pending) start[pending] = askOnly ? "aomi" : (startLane ?? "aomi");
-    setChosen(start);
-  }, [agents, askOnly, chosen, connectionKey, current, pending, startLane]);
+  // Only what the user changed; the rest follows the server.
+  const [picked, setPicked] = useState<Record<string, AomiLane>>({});
+  const lanes = useMemo(
+    () => ({
+      ...current,
+      ...(pending ? { [pending]: start } : {}),
+      ...picked,
+    }),
+    [current, pending, picked, start],
+  );
 
   const state = useMemo<ConsentWalletsState>(() => {
     if (failed) return { ready: true, update: null };
-    if (!agents || !current || !chosen) return { ready: false, update: null };
+    if (!agents || !known) return { ready: false, update: null };
     const wallets = agents.map((wallet) => ({
       id: wallet.id,
-      lane: chosen[wallet.id] ?? current[wallet.id] ?? "aomi",
+      lane: lanes[wallet.id] ?? "aomi",
     }));
-    const changed = wallets.some((pair) => pair.lane !== current[pair.id]);
+    const changed = wallets.some((entry) => entry.lane !== known[entry.id]);
     if (!changed && !app && !askOnly) return { ready: true, update: null };
     return {
       ready: true,
@@ -100,17 +102,17 @@ export function ConsentWallets({
           ? {
               application: app,
               ...(pending
-                ? { new_app_wallet: { lane: chosen[pending] ?? "aomi" } }
+                ? { new_app_wallet: { lane: lanes[pending] ?? "aomi" } }
                 : {}),
             }
           : {}),
         ...(askOnly ? { ask_only: true } : {}),
       },
     };
-  }, [agents, app, askOnly, chosen, current, failed, pending]);
+  }, [agents, app, askOnly, failed, known, lanes, pending]);
   useEffect(() => onChange(state), [onChange, state]);
 
-  if (!rows || !chosen) return null;
+  if (!rows) return null;
   const label = app ? titleCase(app) : null;
   const shown: WalletViewRow[] = pending
     ? [
@@ -135,11 +137,11 @@ export function ConsentWallets({
       <WalletView
         rows={shown}
         client={name}
-        lanes={chosen}
+        lanes={lanes}
         askOnly={askOnly}
         detail={`${name} sees all`}
         onLane={(row, lane) =>
-          setChosen((previous) => ({ ...previous, [row.id]: lane }))
+          setPicked((previous) => ({ ...previous, [row.id]: lane }))
         }
       />
       {askOnly ? (

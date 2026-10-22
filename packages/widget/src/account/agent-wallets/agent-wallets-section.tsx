@@ -76,7 +76,7 @@ export function AgentWalletsSection({
     setError(null);
     try {
       await write();
-      await Promise.all([refresh(), query.refetch()]);
+      await refresh();
       return true;
     } catch (cause) {
       const code = (cause as { code?: string }).code ?? "";
@@ -164,7 +164,7 @@ export function AgentWalletsSection({
             : "Hosted by Aomi · each connection has a lane on it"
         }
         action={
-          // Pause all is gone; an account still in that state can resume.
+          // An account paused as a whole can still resume.
           data.pause_all ? (
             <button
               type="button"
@@ -229,7 +229,7 @@ export function AgentWalletsSection({
             pausedAll={data.pause_all}
             pending={pending !== null}
             onClose={() => setSheet(null)}
-            onWithdraw={() => setSheet({ kind: "withdraw", wallet: current })}
+            onSend={() => setSheet({ kind: "withdraw", wallet: current })}
             onRename={(name) => actions.onRename(current, name)}
             onPause={(paused) => actions.onPause(current, paused)}
             onArchive={(archive) => actions.onArchive(current, archive)}
@@ -259,7 +259,7 @@ export function AgentWalletsSection({
           {sheet.funded ? (
             <div className="rounded-control bg-aomi-surface-2 flex items-center justify-between gap-3 px-3 py-2.5">
               <span className="type-meta text-aomi-muted">
-                It still holds funds. Withdraw keeps working after you archive.
+                It still holds funds. Send keeps working after you archive.
               </span>
               <AomiButton
                 size="sm"
@@ -267,7 +267,7 @@ export function AgentWalletsSection({
                   setSheet({ kind: "withdraw", wallet: sheet.wallet })
                 }
               >
-                Withdraw first
+                Send first
               </AomiButton>
             </div>
           ) : null}

@@ -1,35 +1,27 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  defaultLane,
-  type AomiAccountWallet,
-  type AomiAgentWallet,
-  type AomiClient,
-  type AomiConnectionKind,
-  type AomiLane,
+import type {
+  AomiAccountWallet,
+  AomiAgentWallet,
+  AomiClient,
+  AomiLane,
 } from "@aomi-labs/client";
-import { useDisplayQuery, type DisplayQuery } from "@aomi-labs/react";
-import { agentWalletsQuery } from "@/account/account-queries";
+import { useDisplayQuery } from "@aomi-labs/react";
+import {
+  accountWalletsQuery,
+  agentWalletsQuery,
+} from "@/account/account-queries";
 import { AGENT_WALLET } from "@/account/account-management/wallet-model";
 import { titleCase } from "@/account/account-management/controls";
 import type { WalletViewRow } from "./wallet-view";
-
-/** Every wallet the account has, one entry per address. */
-export const accountWalletsQuery = (
-  client: AomiClient,
-): DisplayQuery<AomiAccountWallet[]> => ({
-  resource: "account-wallets",
-  parameters: ["all"],
-  fetcher: (signal) => client.account.wallets.listWallets({ signal }),
-});
 
 /**
  * The wallet view's rows: live agent wallets (newest use first, as the
  * server orders them), then each sign-in wallet with its EVM and SVM
  * addresses together.
  */
-export function walletRows(
+export function walletViewRows(
   agents: readonly AomiAgentWallet[],
   entries: readonly AomiAccountWallet[],
 ): WalletViewRow[] {
@@ -78,7 +70,7 @@ export function useWalletRows(client: AomiClient) {
   const rows = useMemo(
     () =>
       agents.data
-        ? walletRows(agents.data.wallets, entries.data ?? [])
+        ? walletViewRows(agents.data.wallets, entries.data ?? [])
         : undefined,
     [agents.data, entries.data],
   );
@@ -90,22 +82,29 @@ export function useWalletRows(client: AomiClient) {
   };
 }
 
-/**
- * Connection `key`'s lane on each agent wallet: the one it set, else its
- * kind's default; an Ask-only connection is `aomi` on every one.
- */
+/** Connection `key`'s lane on each agent wallet, as the server judges it. */
+export function knownLanes(
+  agents: readonly AomiAgentWallet[],
+  key: string | undefined,
+): Partial<Record<string, AomiLane>> {
+  return Object.fromEntries(
+    agents.flatMap((wallet) => {
+      const lane = wallet.connections.find(
+        (connection) => connection.key === key,
+      )?.lane;
+      return lane ? [[wallet.id, lane]] : [];
+    }),
+  );
+}
+
+/** [`knownLanes`], else `start` (a connection the server doesn't know yet). */
 export function lanesOf(
   agents: readonly AomiAgentWallet[],
   key: string | undefined,
-  kind: AomiConnectionKind,
-  askOnly = false,
+  start: AomiLane,
 ): Record<string, AomiLane> {
+  const known = knownLanes(agents, key);
   return Object.fromEntries(
-    agents.map((wallet) => {
-      const set = wallet.connections.find(
-        (connection) => connection.key === key,
-      )?.lane;
-      return [wallet.id, askOnly ? "aomi" : (set ?? defaultLane(kind))];
-    }),
+    agents.map((wallet) => [wallet.id, known[wallet.id] ?? start]),
   );
 }

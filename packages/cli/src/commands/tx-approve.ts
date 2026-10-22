@@ -25,8 +25,8 @@ const DEFAULT_TIMING: TxApproveTiming = {
 };
 
 /** The backend decides who approves; `view.can_approve` says whether this login may. */
-export function loginHint(signUrl?: string): string {
-  return `This terminal can't approve trades from this wallet. Set the wallet to "Ask in terminal" for it in Aomi Settings › Connections${signUrl ? `, or approve at ${signUrl}` : ""}.`;
+export function approveHint(signUrl?: string): string {
+  return `This terminal can't approve trades from this wallet. In Settings › Connections, set this terminal to "Ask in" on the wallet to approve here${signUrl ? `, or approve at ${signUrl}` : ""}.`;
 }
 
 export function notAwaitingMessage(state: string): string {
@@ -101,7 +101,7 @@ export async function txApproveCommand(
       const view = handle.view;
       if (view.state !== "awaiting_approval")
         fatal(notAwaitingMessage(view.state));
-      if (view.can_approve === false) fatal(loginHint(view.sign_url));
+      if (view.can_approve === false) fatal(approveHint(view.sign_url));
 
       say(formatCommitRef(view, handle.review));
       if (!options.yes) {
@@ -115,7 +115,7 @@ export async function txApproveCommand(
         approved = await handle.approve();
       } catch (error) {
         if (error instanceof CommitApprovalForbiddenError)
-          fatal(loginHint(view.sign_url));
+          fatal(approveHint(view.sign_url));
         if (error instanceof CommitExpiredError)
           fatal("Expired · nothing was signed");
         if (error instanceof CommitStaleError)

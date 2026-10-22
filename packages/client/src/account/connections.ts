@@ -3,8 +3,8 @@
  * the Aomi CLI) and each Telegram bot that uses the account, with its lane
  * on each agent wallet, its label and last use.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/redesign-contract.md §4.1–§4.2 and
- * notes/rework-contract.md §5:
+ * Hand-written wire types for the `/v1/account/connections` routes until the
+ * generated client covers them:
  *   - `GET    /v1/account/connections`                  -> `AomiAccountConnections` (portal)
  *   - `DELETE /v1/account/connections/oauth/:client_id` -> `{ revoked: true }` (portal)
  *   - `DELETE /v1/account/connections/telegram`         -> `{ revoked: true }` (portal)
@@ -16,7 +16,7 @@ import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletError } from "./wallets";
 import { laneOf, type AomiLane } from "./lanes";
 
-export { defaultLane, laneOf, type AomiLane } from "./lanes";
+export type { AomiLane } from "./lanes";
 
 export type AomiConnectionKind = "portal" | "ai" | "app" | "cli" | "telegram";
 
@@ -130,7 +130,7 @@ export class AccountConnectionsTransport {
     );
   }
 
-  /** One connection's label and whether it may approve its own trades. */
+  /** Set one connection's label. */
   async setConnectionSettings(
     key: string,
     update: AomiConnectionSettingsUpdate,

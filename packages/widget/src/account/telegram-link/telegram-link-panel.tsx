@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  ConsentWallets,
-  type ConsentWalletsState,
-} from "@/account/connections/consent-wallets";
+import { ConsentWallets } from "@/account/connections/consent-wallets";
+import { useConsentLanes } from "@/account/connections/consent-wallets-loader";
 import {
   useCallback,
   useEffect,
@@ -159,10 +157,7 @@ export function TelegramLinkPanel({
   );
   const [slow, setSlow] = useState(false);
   // The bot's lanes on this account's wallets, written once the link lands.
-  const lanes = useRef<ConsentWalletsState>({ ready: false, update: null });
-  const keepLanes = useCallback((state: ConsentWalletsState) => {
-    lanes.current = state;
-  }, []);
+  const lanes = useConsentLanes(client);
   const [cancelling, setCancelling] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -203,10 +198,7 @@ export function TelegramLinkPanel({
       const result =
         await client.account.telegramLink.confirmTelegramLink(code);
       const bot = preview.telegram.linked_from;
-      if (bot && lanes.current.update)
-        await client.account.connections
-          .setConnectionWallets(`telegram:${bot.bot_id}`, lanes.current.update)
-          .catch(() => undefined);
+      if (bot) await lanes.save(`telegram:${bot.bot_id}`);
       if (mounted.current) setState({ step: "linked", result, preview });
     } catch (error) {
       if (mounted.current)
@@ -306,9 +298,9 @@ export function TelegramLinkPanel({
               <ConsentWallets
                 client={client}
                 connectionKey={`telegram:${state.preview.telegram.linked_from.bot_id}`}
-                kind="telegram"
                 name={state.preview.telegram.linked_from.label}
-                onChange={keepLanes}
+                startLane="here"
+                onChange={lanes.onChange}
               />
             ) : null}
             <div className="flex w-full flex-col gap-2">
@@ -320,7 +312,11 @@ export function TelegramLinkPanel({
                 <AomiButton
                   variant="primary"
                   className="h-10 w-full"
-                  disabled={cancelling}
+                  disabled={
+                    cancelling ||
+                    (Boolean(state.preview.telegram.linked_from) &&
+                      !lanes.ready)
+                  }
                   onClick={() => void confirm(state.preview)}
                 >
                   Link

@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, CircleCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import type { AomiConnectionWalletsUpdate } from "@aomi-labs/client";
 import { authClient } from "@aomi-labs/widget/browser-auth";
 import {
   AomiButton,
   AomiSheet,
   ConnectionMark,
   ConsentWallets,
-  type ConsentWalletsState,
   FootnoteLink,
   SheetAlert,
   SheetFootnote,
@@ -18,6 +16,7 @@ import {
   signOutAndDisconnect,
   accountDisplayName,
   useAomiWalletKit,
+  useConsentLanes,
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { useOAuthClientName } from "../oauth-client-name";
@@ -115,14 +114,8 @@ export function ConsentSheet({ name }: { name: string }) {
   const app = consentApp(resource);
   const askOnly = params.get("mode") === "ask";
   const clientId = params.get("client_id");
-  // The access to write once the grant is made; consent itself never touches
-  // it. Allow waits until the current access has loaded into the list.
-  const pairs = useRef<AomiConnectionWalletsUpdate | null>(null);
-  const [walletsReady, setWalletsReady] = useState(false);
-  const keepPairs = useCallback((state: ConsentWalletsState) => {
-    pairs.current = state.update;
-    setWalletsReady(state.ready);
-  }, []);
+  // The lanes to write once the grant is made; Allow waits until they load.
+  const lanes = useConsentLanes(client);
   const connectionKey = clientId ? `oauth:${clientId}` : undefined;
 
   const decide = async (accept: boolean) => {
@@ -159,18 +152,8 @@ export function ConsentSheet({ name }: { name: string }) {
    */
   const saveWallets = async (redirect: string) => {
     setPending(true);
-    const writes: Promise<unknown>[] = [];
-    if (!guest && connectionKey && pairs.current)
-      writes.push(
-        client.account.connections.setConnectionWallets(
-          connectionKey,
-          pairs.current,
-        ),
-      );
-    const saved = await Promise.all(writes).then(
-      () => true,
-      () => false,
-    );
+    const saved =
+      guest || !connectionKey ? true : await lanes.save(connectionKey);
     setPending(false);
     if (!saved) return setUnsaved(redirect);
     setUnsaved(null);
@@ -258,11 +241,10 @@ export function ConsentSheet({ name }: { name: string }) {
           <ConsentWallets
             client={client}
             connectionKey={connectionKey}
-            kind={resource?.endsWith("/mcp") ? "ai" : "app"}
             name={name}
             app={app}
             askOnly={askOnly}
-            onChange={keepPairs}
+            onChange={lanes.onChange}
           />
         )}
         {error ? (
@@ -274,7 +256,7 @@ export function ConsentSheet({ name }: { name: string }) {
           <AomiButton
             variant="primary"
             className="h-10 w-full"
-            disabled={pending || (!guest && !walletsReady)}
+            disabled={pending || (!guest && !lanes.ready)}
             onClick={() => void decide(true)}
           >
             Allow

@@ -66,7 +66,7 @@ const ADDRESS: Record<WalletFamily, RegExp> = {
 const usd = (value: string | null) =>
   value === null ? undefined : `$${Number(value).toFixed(2)}`;
 
-/** Why a withdraw did not go out, in words the owner can act on. */
+/** Why a send did not go out, in words the owner can act on. */
 function withdrawError(cause: unknown): string {
   const code = (cause as { code?: string } | null)?.code;
   if (code === "insufficient_balance")
@@ -86,7 +86,7 @@ function pickError(pick: AssetPick): boolean {
 }
 
 /**
- * Withdraw in one sheet: a network (with its balances), the assets and how
+ * Send in one sheet: a network (with its balances), the assets and how
  * much of each, then where to. It works while the wallet is paused or
  * archived; the resulting commit is approved here at once.
  */
@@ -153,10 +153,7 @@ export function AgentWalletWithdraw({
     <AomiSheet onClose={onClose}>
       {state.step === "network" ? (
         <>
-          {header(
-            `Withdraw from "${wallet.name}"`,
-            "Step 1 of 3 · pick a network",
-          )}
+          {header(`Send from "${wallet.name}"`, "Step 1 of 3 · pick a network")}
           <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
             {families.length > 1 ? (
               <Segmented
@@ -270,7 +267,7 @@ function Networks({
           title={
             funded.length
               ? plural(rest.length, "more network")
-              : "Nothing to withdraw"
+              : "Nothing to send"
           }
           description={rest
             .map((network) =>
@@ -331,7 +328,7 @@ function Assets({
           >
             <input
               type="checkbox"
-              aria-label={`Withdraw ${pick.symbol}`}
+              aria-label={`Send ${pick.symbol}`}
               checked={pick.checked}
               onChange={(event) =>
                 set(index, { checked: event.target.checked })
@@ -374,7 +371,7 @@ function Assets({
       {nativeMax ? (
         <p className="type-meta text-aomi-muted flex items-start gap-1.5">
           <Fuel className="mt-px size-3.5 shrink-0" />
-          Max keeps enough of the native token for this withdrawal’s gas.
+          Max keeps enough of the native token for this send’s gas.
         </p>
       ) : null}
       <ListGroup>
@@ -450,8 +447,8 @@ function Destination({
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Once the withdraw exists, every retry approves or re-reads this one ref;
-  // nothing ever creates a second withdrawal.
+  // Once the send exists, every retry approves or re-reads this one ref;
+  // nothing ever creates a second send.
   const [ref, setRef] = useState<string | null>(null);
   const handle = useRef<CommitHandle | null>(null);
   useEffect(() => () => handle.current?.close(), []);
@@ -495,7 +492,7 @@ function Destination({
       onSent(current);
     } catch {
       // The approve or the read may have landed anyway: never claim nothing
-      // was sent; Try again re-reads and re-approves this same withdrawal.
+      // was sent; Try again re-reads and re-approves this same send.
       const state = await handle.current
         ?.refresh()
         .then((view) => view.state as string)
@@ -508,8 +505,8 @@ function Destination({
       }
       setError(
         state === "awaiting_approval"
-          ? "The withdrawal is waiting for your approval. Try again to approve it."
-          : "Couldn’t confirm the withdrawal. Try again to check it; it won’t be sent twice.",
+          ? "The send is waiting for your approval. Try again to approve it."
+          : "Couldn’t confirm the send. Try again to check it; it won’t be sent twice.",
       );
     }
   };
@@ -524,7 +521,7 @@ function Destination({
 
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
-      {/* Fixed once the withdrawal exists. */}
+      {/* Fixed once the send exists. */}
       <fieldset disabled={ref !== null} className="contents">
         <ListGroup role="radiogroup" aria-label="Destination">
           {own.map((row) => (
@@ -568,7 +565,7 @@ function Destination({
       </ListGroup>
       {error ? <SheetAlert>{error}</SheetAlert> : null}
       {busy ? (
-        <WaitingButton>Withdrawing…</WaitingButton>
+        <WaitingButton>Sending…</WaitingButton>
       ) : (
         <AomiButton
           variant="primary"
@@ -576,11 +573,11 @@ function Destination({
           disabled={!valid && !ref}
           onClick={() => void withdraw()}
         >
-          {ref ? "Try again" : "Withdraw"}
+          {ref ? "Try again" : "Send"}
         </AomiButton>
       )}
       <SheetFootnote>
-        You approve it here. It doesn’t wait on any connection’s Ask setting.
+        You approve it here. It doesn’t wait on any connection’s lane.
       </SheetFootnote>
     </div>
   );
@@ -627,7 +624,7 @@ function Choice({
   );
 }
 
-/** The approved withdrawal, followed until every transfer in it lands. */
+/** The approved send, followed until every transfer in it lands. */
 function Sent({
   handle,
   network,
@@ -647,11 +644,7 @@ function Sent({
     <>
       <SheetHeader
         title={
-          confirmed
-            ? "Withdrawn"
-            : done
-              ? "The withdrawal didn’t go through"
-              : "Withdrawing…"
+          confirmed ? "Sent" : done ? "The send didn’t go through" : "Sending…"
         }
         description={
           confirmed

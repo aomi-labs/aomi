@@ -348,8 +348,7 @@ export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
 export type ConsentWalletsProps = {
     client: AomiClient;
     connectionKey?: string;
-    kind?: AomiConnectionKind;
-    name?: string;
+    name: string;
     startLane?: AomiLane;
     app?: string;
     askOnly?: boolean;
@@ -672,6 +671,13 @@ export const useActivityPanel: () => ActivityPanelContextValue;
 
 // @public (undocumented)
 export function useAomiWalletKit(): AomiWalletKit;
+
+// @public
+export function useConsentLanes(client: AomiClient): {
+    onChange: (next: ConsentWalletsState) => void;
+    ready: boolean;
+    save: (key: string) => Promise<boolean>;
+};
 
 // @public (undocumented)
 export function useFullTestnet<T extends readonly [Chain, ...Chain[]]>(chains: T, config?: FullTestnetConfig): {

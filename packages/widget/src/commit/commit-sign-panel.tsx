@@ -13,14 +13,13 @@ import {
   CommitStaleError,
   isTerminalCommit,
   projectCommitLifecycle,
-  shortAddress,
   type AomiAccountConnection,
   type CommitHandle,
   type CommitRefView,
   type ThreadOrigin,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
-import { AomiButton, aomiButton } from "@/ui/aomi/button";
+import { aomiButton } from "@/ui/aomi/button";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { BrandMark, SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";

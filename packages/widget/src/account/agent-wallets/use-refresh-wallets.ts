@@ -5,7 +5,7 @@ import { useAomiDisplayCache } from "@aomi-labs/react";
 import { useAomiWalletKit } from "@/wallet/context";
 
 /**
- * After an agent wallet or pair write: the wallet lists (pause-all rides on
+ * After an agent wallet or lane write: the wallet lists (pause-all rides on
  * the agent list), the connections (they name their wallets), and the kit's
  * own rows.
  */

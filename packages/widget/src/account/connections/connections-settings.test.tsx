@@ -96,13 +96,20 @@ const agentWallet = (
   ],
   connections,
 });
+// The server judges every connection's lane on every wallet: a bot with no
+// row is `here`, an Ask-only client `aomi`.
 const agentWallets = [
   agentWallet("g-trading", "Trading", [
-    { key: "telegram:78", label: "Markets", lane: "here" },
     { key: "oauth:c1", label: "Claude", lane: "aomi" },
+    { key: "portal", label: "Aomi", lane: "here" },
+    { key: "telegram:77", label: "Hoodit", lane: "here" },
+    { key: "telegram:78", label: "Markets", lane: "here" },
   ]),
   agentWallet("g-hoodit", "Hoodit", [
+    { key: "oauth:c1", label: "Claude", lane: "aomi" },
+    { key: "portal", label: "Aomi", lane: "here" },
     { key: "telegram:77", label: "Hoodit", lane: "instant" },
+    { key: "telegram:78", label: "Markets", lane: "here" },
   ]),
 ];
 
@@ -247,7 +254,7 @@ describe("Connections tab", () => {
     expect(
       within(sheet).getByRole("combobox", { name: "Hoodit: Instant" }),
     ).toBeInTheDocument();
-    // A wallet the bot has no row on uses its default: Ask in the bot.
+    // A wallet the bot has no row on: the server says Ask in the bot.
     const trading = within(sheet).getByRole("combobox", {
       name: "Trading: Ask in Hoodit",
     });

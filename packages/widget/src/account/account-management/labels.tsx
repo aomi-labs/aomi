@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { LayoutGrid, Pause } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import type { WalletFamily } from "@/wallet/types";
 import { getAppIcon } from "@/icons/app-map";
 import { familyList, plural } from "./wallet-model";
@@ -8,7 +7,7 @@ import { familyList, plural } from "./wallet-model";
 /**
  * The labels every wallet and connection row shares (Settings, sheets and
  * pickers alike): families in the mono face, an app as its logo and name in
- * the grey line, and Instant / Paused as a word at the row's end.
+ * the grey line, and Paused as a word at the row's end.
  */
 
 /** `EVM`, `EVM/SVM`, an address: always the mono face. */

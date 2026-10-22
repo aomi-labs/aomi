@@ -44,10 +44,6 @@ export function shownWallets(
   return [...shown.slice(0, limit - 1), active];
 }
 
-/** The connections that may use it, not counting the portal (it always may). */
-export const pairedConnections = (wallet: AomiAgentWallet) =>
-  wallet.connections.filter((connection) => connection.key !== "portal");
-
 /** The mainnets an EVM agent address works on, from the SDK's chain list. */
 export const EVM_NETWORKS: readonly string[] = SUPPORTED_CHAINS.filter(
   (chain) => !CHAINS_BY_ID[chain.id]?.testnet && chain.id !== 31337,

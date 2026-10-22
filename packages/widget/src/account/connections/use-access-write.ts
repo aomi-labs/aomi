@@ -9,7 +9,7 @@ import type {
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { useShellTransport } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { pairsWith } from "./connection-pairs";
+import { lanesWith } from "./connection-pairs";
 
 /**
  * Sets a connection's lane on an agent wallet; Instant asks first. While a
@@ -43,7 +43,7 @@ export function useAccessWrite() {
       }))
     )
       return;
-    const wallets = pairsWith(connection, wallet.id, lane);
+    const wallets = lanesWith(connection, wallet.id, lane);
     setSaving((current) => ({ ...current, [key]: wallets }));
     setError(null);
     try {

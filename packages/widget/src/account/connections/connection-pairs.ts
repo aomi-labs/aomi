@@ -9,7 +9,7 @@ import type {
  * its other lanes stay as they are, archived wallets' included, so a
  * restore brings them back.
  */
-export function pairsWith(
+export function lanesWith(
   connection: AomiAccountConnection,
   id: string,
   lane: AomiLane,

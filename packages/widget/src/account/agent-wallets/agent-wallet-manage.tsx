@@ -1,10 +1,9 @@
 "use client";
 
-import { useContext, useState } from "react";
+import { useState } from "react";
 import {
   Archive,
   ArchiveRestore,
-  ArrowRight,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
@@ -15,7 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
-import { cn, useDisplayQuery } from "@aomi-labs/react";
+import { cn } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -25,30 +24,18 @@ import { Segmented } from "@/ui/aomi/segmented";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { Switch } from "@/ui/aomi/switch";
 import { ActionRow } from "@/ui/aomi/action-row";
-import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
+import { SheetHeader } from "@/wallet/picker/sheet-parts";
 import type { WalletFamily } from "@/wallet/types";
-import { useShellTransport } from "@/account/transport";
-import { connectionsQuery } from "@/account/account-queries";
-import { SettingsNavContext } from "@/account/settings-events";
 import { BrandMark, CopyButton } from "@/account/account-management/controls";
 import {
   AGENT_WALLET,
   familyTag,
-  plural,
 } from "@/account/account-management/wallet-model";
-import { ConnectionMark } from "@/account/connections/connection-mark";
-import {
-  botTitle,
-  usedLabel,
-} from "@/account/connections/connections-settings";
+import { usedLabel } from "@/account/connections/connections-settings";
 import { ConnectionLanes } from "@/account/connections/connection-lanes";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
-import {
-  EVM_NETWORKS,
-  familyName,
-  pairedConnections,
-} from "./agent-wallet-model";
+import { EVM_NETWORKS, familyName } from "./agent-wallet-model";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
@@ -60,7 +47,7 @@ export function AgentWalletManage({
   pausedAll,
   pending,
   onClose,
-  onWithdraw,
+  onSend,
   onRename,
   onPause,
   onArchive,
@@ -70,12 +57,11 @@ export function AgentWalletManage({
   /** A wallet write is in flight. */
   pending: boolean;
   onClose: () => void;
-  onWithdraw: () => void;
+  onSend: () => void;
   onRename: (name: string) => Promise<boolean>;
   onPause: (paused: boolean) => void;
   onArchive: (archive: boolean) => void;
 }) {
-  const { client } = useShellTransport();
   const { rename, dialog: renameDialog } = useRenameDialog();
   const [receive, setReceive] = useState<WalletFamily | null>(null);
   const archived = wallet.archived_at !== null;
@@ -187,12 +173,7 @@ export function AgentWalletManage({
         ) : null}
 
         <ListGroup>
-          <ActionRow
-            icon={ArrowUpRight}
-            label="Send"
-            step
-            onClick={onWithdraw}
-          />
+          <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />
           {archived ? null : (
             <ActionRow
               icon={Pencil}
@@ -253,7 +234,6 @@ export function AgentWalletManage({
 }
 
 /** Receive: a tab per family (only with two), the QR, the address, its networks. */
-/** One wallet's Receive step: its QR, address and networks, by family. */
 export function ReceiveStep({
   wallet,
   family,

@@ -168,7 +168,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
 
     // The account's wallet list and balances: one funded EVM agent wallet
     // ("Trading") per account, so Settings renders the agent band; pause-all
-    // and each connection's label and wallet pairs.
+    // and each connection's label and wallet lanes.
     if (
       url.pathname.startsWith("/v1/account/wallets") ||
       url.pathname.startsWith("/v1/account/agent-wallets") ||

@@ -16,12 +16,9 @@ import { useRefreshWallets } from "./use-refresh-wallets";
  * choice; apps create and name their own wallets when they need one.
  */
 export function NewAgentWalletStep({
-  connectionKey,
   onDone,
   onClose,
 }: {
-  /** Also let this connection use it (Ask), e.g. the chat that asked. */
-  connectionKey?: string;
   onDone: () => void;
   onClose: () => void;
 }) {
@@ -36,10 +33,7 @@ export function NewAgentWalletStep({
     setBusy(true);
     setError(null);
     try {
-      await client.account.wallets.createAgentWallet({
-        name: trimmed,
-        ...(connectionKey ? { connection_key: connectionKey } : {}),
-      });
+      await client.account.wallets.createAgentWallet({ name: trimmed });
       await refresh();
       onDone();
     } catch (cause) {
@@ -84,9 +78,8 @@ export function NewAgentWalletStep({
         </p>
         <p className="type-meta text-aomi-muted flex items-start gap-2">
           <Plug className="mt-px size-3.5 shrink-0" />
-          {connectionKey
-            ? "This chat can use it right away and asks before each trade."
-            : "No connection can use it until you allow one. Add it in Connections, or when a client asks."}
+          Every connection sees it and trades from it in its lane; set lanes in
+          Connections.
         </p>
         {error ? <SheetAlert>{error}</SheetAlert> : null}
         {busy ? (

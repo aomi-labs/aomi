@@ -938,8 +938,8 @@ describe("/v1/commits forwarding", () => {
     expect(upstreamCalls()[0].url).toBe(
       "https://backend.example/v1/commits/cmt_1/approve",
     );
-    // An OAuth client is named so the backend can check its "Can approve
-    // trades".
+    // An OAuth client is named so the backend can check its lane on the
+    // wallet is "Ask in <client>" (`here`).
     expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
       expect.any(String),
       "user",

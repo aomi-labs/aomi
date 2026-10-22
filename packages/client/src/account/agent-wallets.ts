@@ -3,9 +3,8 @@
  * created, renamed, paused, archived and restored from Settings, plus the
  * owner-only withdraw that works even while a wallet is paused or archived.
  *
- * HAND-WRITTEN WIRE TYPES, matching notes/rework-contract.md §5. Until the
- * generated agent API is regenerated from the rework backend, these are the
- * frontend's copy of:
+ * Hand-written wire types for `/v1/account/agent-wallets` until the generated
+ * client covers them:
  *   - `GET   /v1/account/agent-wallets`                   -> `AomiAgentWallets`
  *   - `POST  /v1/account/agent-wallets`                   -> `AomiAgentWallet`
  *   - `PATCH /v1/account/agent-wallets/:id`               -> `AomiAgentWallet`
@@ -63,8 +62,6 @@ export type AomiAgentWallets = {
 export type AomiAgentWalletCreate = {
   name: string;
   families?: AomiWalletFamily[];
-  /** Also allow this connection (Ask), e.g. the chat that asked for one. */
-  connection_key?: string;
 };
 
 /** Omitted fields keep their value. */

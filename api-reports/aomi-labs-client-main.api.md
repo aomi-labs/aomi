@@ -70,7 +70,7 @@ export class AccountChallengeBindingError extends Error {
 
 // @public
 export class AccountConnectionsTransport {
-    constructor(requestResponse: RequestResponse$7);
+    constructor(requestResponse: RequestResponse$2);
     disconnectOAuth(clientId: string): Promise<void>;
     disconnectTelegram(): Promise<void>;
     // (undocumented)
@@ -164,7 +164,7 @@ export type AccountGraphResponse = {
 
 // @public
 export class AccountGraphTransport {
-    constructor(transport: RequestResponse$2);
+    constructor(transport: RequestResponse$3);
     // (undocumented)
     deleteAccount(): Promise<AccountGraphDeleteResponse>;
     // (undocumented)
@@ -281,7 +281,7 @@ export class AccountTransport extends AccountGraphTransport {
 
 // @public
 export class AccountWalletsTransport {
-    constructor(requestResponse: RequestResponse$6);
+    constructor(requestResponse: RequestResponse$7);
     agentWalletBalances(id: string, family: AomiWalletFamily, options?: {
         signal?: AbortSignal;
     }): Promise<AomiAgentWalletBalances>;
@@ -501,7 +501,7 @@ export type AgentTarget = {
 
 // @public (undocumented)
 export class AgentTransport {
-    constructor(requestResponse: RequestResponse$5, defaultInferenceFunding?: AomiInferenceFundingSource | undefined);
+    constructor(requestResponse: RequestResponse$6, defaultInferenceFunding?: AomiInferenceFundingSource | undefined);
     // (undocumented)
     interrupt(sessionId: string, turnId: string, idempotencyKey?: string): Promise<EventPage>;
     // (undocumented)
@@ -685,7 +685,6 @@ export type AomiAgentWalletConnection = {
 export type AomiAgentWalletCreate = {
     name: string;
     families?: AomiWalletFamily[];
-    connection_key?: string;
 };
 
 // @public (undocumented)
@@ -2321,9 +2320,6 @@ export function createSiwsAccountAuthAdapter(input: {
     getSigner(): Promise<SiwsAccountSessionSigner>;
 }): AccountAuthAdapter;
 
-// @public
-export function defaultLane(kind: AomiConnectionKind): AomiLane;
-
 // @public (undocumented)
 export function discoverAomiAuthorizationServer(input: {
     portalBaseUrl: string;
@@ -2436,7 +2432,7 @@ export interface EvmDirectInput extends PipelineExecutionScope {
 
 // @public (undocumented)
 export class EvmPipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<EvmSimulatedBuild>;
     // (undocumented)
@@ -3007,7 +3003,7 @@ export type PipelineApprovalKind = PipelineApprovalChange["kind"];
 
 // @public (undocumented)
 export class PipelineAppsTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     get(app: string): PipelineOperationTransport;
     // (undocumented)
@@ -3139,7 +3135,7 @@ export interface PipelineOperationInvocation<Arguments extends Record<string, un
 
 // @public (undocumented)
 export class PipelineOperationTransport {
-    constructor(requestResponse: RequestResponse$3, scope: "apps" | "skills", owner: string);
+    constructor(requestResponse: RequestResponse$4, scope: "apps" | "skills", owner: string);
     // (undocumented)
     directory(): Promise<PipelineDirectory>;
     // (undocumented)
@@ -3169,7 +3165,7 @@ export type PipelineSimulationStatus = PipelineSimulation["status"];
 
 // @public (undocumented)
 export class PipelineSkillsTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     get(skill: string): PipelineSkillTransport;
     // (undocumented)
@@ -3178,14 +3174,14 @@ export class PipelineSkillsTransport {
 
 // @public (undocumented)
 export class PipelineSkillTransport extends PipelineOperationTransport {
-    constructor(skillRequestResponse: RequestResponse$3, skill: string);
+    constructor(skillRequestResponse: RequestResponse$4, skill: string);
     // (undocumented)
     instructions(): Promise<string>;
 }
 
 // @public
 export class PipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     app(name: string): PipelineOperationTransport;
     // (undocumented)
@@ -3776,7 +3772,7 @@ export interface SvmInstructionBatch {
 
 // @public (undocumented)
 export class SvmPipelineTransport {
-    constructor(requestResponse: RequestResponse$3);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<SvmSimulatedBuild>;
     // (undocumented)
@@ -4096,7 +4092,7 @@ export type TransactionSafetyProjection = Schemas$1["TransactionSafetyProjection
 
 // @public
 export class TransactionSafetyTransport {
-    constructor(requestResponse: RequestResponse$4);
+    constructor(requestResponse: RequestResponse$5);
     // (undocumented)
     getAccountDefault(): Promise<TransactionSafetyPolicy>;
     // (undocumented)

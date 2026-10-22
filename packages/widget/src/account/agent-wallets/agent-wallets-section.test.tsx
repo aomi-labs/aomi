@@ -226,9 +226,7 @@ describe("Agent wallets band", () => {
   it("shows the three most recent without app labels, the EVM/SVM rows under the active one, then Show all and Archived", async () => {
     await renderSection();
     expect(
-      screen.getByText(
-        "Hosted by Aomi · each connection has a lane on it",
-      ),
+      screen.getByText("Hosted by Aomi · each connection has a lane on it"),
     ).toBeInTheDocument();
     const shown = Array.from(
       document.querySelectorAll("[data-agent-wallet]"),
@@ -383,7 +381,7 @@ describe("Agent wallets band", () => {
     ]);
   });
 
-  it("offers Withdraw first when archiving a funded wallet, and explains a busy one", async () => {
+  it("offers Send first when archiving a funded wallet, and explains a busy one", async () => {
     respond = (method, path) =>
       path.endsWith("/balances")
         ? Response.json({
@@ -415,7 +413,7 @@ describe("Agent wallets band", () => {
     });
     expect(dialog).toHaveTextContent("It still holds funds.");
     expect(
-      within(dialog).getByRole("button", { name: "Withdraw first" }),
+      within(dialog).getByRole("button", { name: "Send first" }),
     ).toBeInTheDocument();
     await act(async () =>
       fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
@@ -562,9 +560,7 @@ describe("Agent wallets band", () => {
     expect(within(sheet).getByText("1 more network")).toBeInTheDocument();
     fireEvent.click(await within(sheet).findByText("Base"));
     expect(sheet).toHaveTextContent("Step 2 of 3");
-    fireEvent.click(
-      within(sheet).getByRole("checkbox", { name: "Withdraw USDC" }),
-    );
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: "Send USDC" }));
     fireEvent.change(
       within(sheet).getByRole("textbox", { name: "USDC amount" }),
       {
@@ -578,9 +574,7 @@ describe("Agent wallets band", () => {
         target: { value: "312.4" },
       },
     );
-    fireEvent.click(
-      within(sheet).getByRole("checkbox", { name: "Withdraw ETH" }),
-    );
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: "Send ETH" }));
     fireEvent.click(within(sheet).getAllByRole("button", { name: "Max" })[1]!);
     expect(sheet).toHaveTextContent("Max keeps enough of the native token");
     fireEvent.click(within(sheet).getByRole("button", { name: "Next" }));
@@ -590,7 +584,7 @@ describe("Agent wallets band", () => {
     expect(sheet).toHaveTextContent("2 transfers on Base");
     commit.second = "submitted";
     await act(async () =>
-      fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })),
+      fireEvent.click(within(sheet).getByRole("button", { name: "Send" })),
     );
     expect(writes().at(-1)).toEqual({
       method: "POST",
@@ -608,12 +602,14 @@ describe("Agent wallets band", () => {
     expect(commit.refs).toEqual(["c_1"]);
     expect(commit.approve).toHaveBeenCalledOnce();
     // The USDC transfer confirmed, the ETH one is still on its way.
-    expect(await screen.findByText("Withdrawing…")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sending…" }),
+    ).toBeInTheDocument();
     act(() => {
       commit.second = "confirmed";
       commit.listeners.forEach((listener) => listener());
     });
-    expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
+    expect(await screen.findByText("Sent")).toBeInTheDocument();
     expect(screen.getByText("View transfer 2 on explorer")).toBeInTheDocument();
   });
 
@@ -653,9 +649,7 @@ describe("Agent wallets band", () => {
     fireEvent.click(
       await within(sheet).findByRole("button", { name: /Solana.*1 asset/ }),
     );
-    fireEvent.click(
-      within(sheet).getByRole("checkbox", { name: "Withdraw SOL" }),
-    );
+    fireEvent.click(within(sheet).getByRole("checkbox", { name: "Send SOL" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Max" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Next" }));
     fireEvent.change(
@@ -663,7 +657,7 @@ describe("Agent wallets band", () => {
       { target: { value: SVM } },
     );
     await act(async () =>
-      fireEvent.click(within(sheet).getByRole("button", { name: "Withdraw" })),
+      fireEvent.click(within(sheet).getByRole("button", { name: "Send" })),
     );
     // Solana withdraws carry no chain id.
     expect(writes().at(-1)).toEqual({
@@ -677,7 +671,7 @@ describe("Agent wallets band", () => {
     });
     expect(
       await within(sheet).findByText(
-        "The withdrawal is waiting for your approval. Try again to approve it.",
+        "The send is waiting for your approval. Try again to approve it.",
       ),
     ).toBeInTheDocument();
     expect(sheet).not.toHaveTextContent("Nothing was sent");
@@ -689,6 +683,6 @@ describe("Agent wallets band", () => {
       writes().filter((call) => call.path.endsWith("/withdraw")),
     ).toHaveLength(1);
     expect(commit.refs).toEqual(["c_2"]);
-    expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
+    expect(await screen.findByText("Sent")).toBeInTheDocument();
   });
 });
