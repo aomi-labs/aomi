@@ -5676,3 +5676,16 @@ Controls disabled while isProcessing === true
 - Bumped the account package patch version for its shipped budget JSON.
 - Local managed builds are blocked by disk headroom; PR CI is the test gate.
 - Scope is main only. This work does not promote production or publish npm.
+
+## 2026-10-22 — NPM name defense and MCP docs
+
+- Added a publishable stub for `@aomi-labs/skills` under `npm-packages/aomi-labs-skills/` (no code; ready for `npm publish --access public`).
+- Added `npm-placeholders/` with empty, script-free placeholders for: `aomi`, `aomi-mcp`, `aomi-cli`, `aomi-sdk`, `aomi-skills`, `aomi-transact`. Included `npm-placeholders/PUBLISHING.md` with exact publish commands.
+- Fixed docs/UI to use `npx skills add @aomi-labs/skills` across Landing and brand fallback.
+- New docs page `docs/topics/security/official-install-paths.md` listing official packages, repos, and hosted MCP URLs; linked from `README.md`. Explicitly names `@aomi/*` and `@intentsolutionsio/aomi` as unofficial.
+- New design note `docs/topics/security/mcp-origin-verification.md` (scoping only): recommends pinned domains by default, OAuth resource verification, and optional SPKI pinning; no code changes.
+- Added warnings near examples that show raw `PRIVATE_KEY`/`AOMI_PRIVATE_KEY` usage (client README, headless examples, MCP signing demo) about using local `.env` and cloud secret managers. No behavior changes.
+
+Pending follow-ups:
+- After merge, publish `@aomi-labs/skills` and the six placeholders per `npm-placeholders/PUBLISHING.md`.
+- Consider implementing MCP origin checks per the design note (SDK default allowlist + CLI override guard + OAuth resource verification), behind an explicit unsafe override for local dev.
