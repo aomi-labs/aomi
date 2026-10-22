@@ -13,7 +13,7 @@ function textContent(content: ThreadMessageLike["content"]): string {
 
 /** Composer paths share hint encoding and raw-draft recovery. */
 export async function submitComposerMessage(
-  message: Pick<AppendMessage, "content" | "runConfig">,
+  message: Pick<ThreadMessageLike, "content"> & Pick<AppendMessage, "runConfig">,
   send: (text: string) => Promise<void>,
   restore: (text: string) => void,
 ): Promise<void> {
