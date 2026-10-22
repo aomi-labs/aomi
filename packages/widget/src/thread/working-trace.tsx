@@ -1150,7 +1150,9 @@ export const AssistantTurnParts: FC = () => {
   );
   return (
     <>
-      {(traceItems.length > 0 || closed) && (
+      {(traceItems.length > 0 ||
+        closed ||
+        (!live && trace?.aomiTraceSegment)) && (
         <WorkingTrace
           key="turn-trace"
           viewKey={messageId}

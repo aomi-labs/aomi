@@ -38,6 +38,7 @@ test("ordinary follow-ups stay in the conversation between working traces", asyn
     widget.replies.filter({ hasText: "Research with 5 on Base" }),
   ).toBeVisible();
   await expect(widget.stop).toBeHidden();
+  await expect(widget.page.locator(".aui-working-trace")).toHaveCount(2);
 });
 
 test("an update that loses the completion race remains in the composer", async ({

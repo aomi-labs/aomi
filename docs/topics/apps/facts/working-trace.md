@@ -23,7 +23,9 @@ and state marker. Portal and embedded widgets consume the same implementation.
 An ordinary message sent while work is active continues that request. The earlier
 working trace remains above the new user message, and subsequent work appears in
 a new trace below it. Results from calls already started remain with their
-original trace. The composer uses its existing Send and Stop controls; Queue and
+original trace. Both traces remain visible after completion and reload, including
+a text-only continuation; the final answer follows the second trace. The composer
+uses its existing Send and Stop controls; Queue and
 update acknowledgements are not part of the Portal or embedded widget UI.
 
 ## Transaction lifecycle

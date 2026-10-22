@@ -5,7 +5,7 @@ Rust backend, not mockups. The existing composer and controls are retained.
 There are no Queue/Update buttons or accepted/applied status messages.
 
 The first Send was acknowledged with root
-`turn_705dc8c520ac474496d58791804f8eb7`, revision 1. Ordinary Send during active
+`turn_139fa2a9a991812c3a440b12907cbb6a`, revision 1. Ordinary Send during active
 work admitted the follow-up on **that same root at revision 2**. One Start and
 one Steer were observed; no separate request or queue entry was created.
 
@@ -15,7 +15,7 @@ starts below it:
 ![Follow-up between the earlier and continuing working traces](portal-working.png)
 
 The answer follows the revised five-bullet request. Reload retained both
-assistant segments and sent no new mutations:
+working traces, including the text-only continuation, and sent no new mutations:
 
 ![Completed answer after reload](portal-completed.png)
 

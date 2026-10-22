@@ -362,6 +362,24 @@ it("closes the earlier working trace and continues below an ordinary follow-up",
     ),
   );
   expect(rows[0].querySelector(".aui-working-answer")).toBeNull();
+  expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(2);
+  expect(rows[1]).toHaveTextContent("Worked");
+  expect(
+    rows[1]
+      .querySelector(".aui-working-trace")
+      ?.compareDocumentPosition(rows[1].querySelector(".aui-working-answer")!),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+  view.unmount();
+  const reloaded = render(<Fixture />);
+  await waitFor(() =>
+    expect(
+      reloaded.container.querySelectorAll(".aui-working-trace"),
+    ).toHaveLength(2),
+  );
+  expect(screen.getAllByTestId("assistant-row")[1]).toHaveTextContent(
+    "Checking Base instead",
+  );
 });
 
 it("retains the earlier empty thinking trace when a follow-up arrives immediately", async () => {
