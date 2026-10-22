@@ -269,8 +269,25 @@ describe("durable payment reconciliation", () => {
       failure_code: null,
     };
     expect(await payment.status(view)).toMatchObject({
+      phase: "checking_submission",
       canRequestSignature: false,
     });
+  });
+  it("rejects conflicting hashes instead of selecting one transaction as paid", async () => {
+    const { payment, fetch } = fixture();
+    const view = commit();
+    view.wallet_attempt = {
+      attempt_id: "attempt-1",
+      transport: "browser_send",
+      state: "reported",
+      transaction_id: blockHash,
+      failure_code: null,
+    };
+    expect(await payment.status(view)).toMatchObject({
+      phase: "verification_failed",
+      canRequestSignature: false,
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
   it("requires the approved sender when reconciling a Commit", async () => {
     const { payment, fetch } = fixture();

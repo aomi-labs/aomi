@@ -219,7 +219,10 @@ export function currentBackendCommand(
           : "default";
   let origin: string;
   try {
-    origin = new URL(baseUrl).origin;
+    const url = new URL(baseUrl);
+    if (!["http:", "https:"].includes(url.protocol))
+      throw new Error("Invalid scheme");
+    origin = url.origin;
   } catch {
     fatal(
       `Invalid backend URL from ${source}. Set a Portal/BFF origin with --backend-url or AOMI_BACKEND_URL.`,

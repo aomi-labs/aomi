@@ -73,3 +73,13 @@ describe("effective CLI connection", () => {
     expect(log.mock.calls.flat().join(" ")).not.toContain("secret");
   });
 });
+
+it.each(["file:///tmp/backend", "data:text/plain,backend"])(
+  "rejects non-HTTP origins without exposing the URL: %s",
+  (baseUrl) => {
+    vi.stubEnv("AOMI_CLI_STRICT_EXIT", "1");
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => currentBackendCommand({ baseUrl, json: true })).toThrow();
+    expect(error.mock.calls.flat().join(" ")).not.toContain(baseUrl);
+  },
+);

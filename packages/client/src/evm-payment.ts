@@ -59,6 +59,7 @@ export type EvmPaymentStatus = {
     | "awaiting_signature"
     | "signed"
     | "submitted"
+    | "checking_submission"
     | "payment_completed"
     | "verification_pending"
     | "verification_failed"
@@ -338,7 +339,9 @@ export class EvmPayment {
             ? "submitted"
             : ["failed", "rejected", "expired"].includes(commit.state)
               ? (commit.state as "failed" | "rejected" | "expired")
-              : "awaiting_signature",
+              : commit.wallet_attempt
+                ? "checking_submission"
+                : "awaiting_signature",
       simulation:
         typeof simulation?.status === "string"
           ? simulation.status
@@ -351,6 +354,19 @@ export class EvmPayment {
       balanceAfter: null,
       balanceDelta: null,
     };
+    const knownHashes = [
+      commit.transaction_id,
+      commit.wallet_attempt?.transaction_id,
+      commit.action?.kind === "broadcast" ? commit.action.transaction_id : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+    if (new Set(knownHashes).size > 1)
+      return {
+        ...status,
+        phase: "verification_failed",
+        reason: "Commit contains conflicting transaction hashes",
+      };
     if (
       commit.chain_family !== "evm" ||
       commit.batch !== null ||
@@ -509,6 +525,14 @@ export class EvmPayment {
           reason:
             "Receipt succeeded; recipient balance increase is not yet verified",
         };
+      const latestCanonical = asRecord(
+        await this.rpc.read("eth_getBlockByNumber", [
+          receipt.blockNumber,
+          false,
+        ]),
+      );
+      if (latestCanonical?.hash !== receipt.blockHash)
+        throw new Error("Payment block changed during verification");
       return { ...status, phase: "payment_completed", recipient: "verified" };
     } catch {
       return {

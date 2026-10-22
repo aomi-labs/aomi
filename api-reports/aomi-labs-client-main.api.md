@@ -2062,7 +2062,7 @@ export type EvmPaymentIntent = {
 export type EvmPaymentStatus = {
     commitId: string;
     commitState: CommitView["state"];
-    phase: "awaiting_signature" | "signed" | "submitted" | "payment_completed" | "verification_pending" | "verification_failed" | "failed" | "rejected" | "expired";
+    phase: "awaiting_signature" | "signed" | "submitted" | "checking_submission" | "payment_completed" | "verification_pending" | "verification_failed" | "failed" | "rejected" | "expired";
     simulation: string;
     transactionId: string | null;
     canRequestSignature: boolean;

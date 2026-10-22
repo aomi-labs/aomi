@@ -349,11 +349,10 @@ function toStoredSessionRecord(
 }
 
 export function getActiveStateFilePath(): string | null {
-  const sessions = readAllStoredSessions();
   const activeLocalId = readActiveLocalId();
   if (activeLocalId === null) return null;
-  const active = sessions.find((session) => session.localId === activeLocalId);
-  return active ? toSessionFilePath(active.localId) : null;
+  const path = toSessionFilePath(activeLocalId);
+  return readStoredSession(path) ? path : null;
 }
 
 /** Inspect the connection without initializing storage or repairing session state. */
