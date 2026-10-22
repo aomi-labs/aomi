@@ -28,7 +28,7 @@ export const CONFIGURED_EVM_EXPLORERS: Record<number, Explorer> =
 // Keep aligned with product-mono `PUBLIC_EXPLORERS`.
 export const EVM_EXPLORERS: Record<number, Explorer> = {
   ...CONFIGURED_EVM_EXPLORERS,
-  4663: { name: "Robinhood Chain", base: "https://robinscan.io" },
+  4663: { name: "Robinhood Chain", base: "https://robin.etherscan.io" },
   46630: {
     name: "Robinhood Testnet",
     base: "https://explorer.testnet.chain.robinhood.com",

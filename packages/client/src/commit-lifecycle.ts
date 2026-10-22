@@ -8,6 +8,8 @@ import type {
 export type CommitPresentation = {
   phase:
     | "ready"
+    | "awaiting_approval"
+    | "signing"
     | "waiting_predecessor"
     | "unavailable"
     | "preparing"
@@ -100,7 +102,9 @@ export function projectCommitLifecycle(
             : "Wallet rejected the request"
         : view.wallet_attempt
           ? "Wallet request rejected"
-          : "Request rejected";
+          : view.approval?.state === "cancelled"
+            ? "Cancelled · nothing was signed"
+            : "Request rejected";
     return { phase: "rejected", label, transactionId };
   }
   if (view.state === "failed")
@@ -112,7 +116,16 @@ export function projectCommitLifecycle(
       transactionId,
     };
   if (view.state === "expired")
-    return { phase: "expired", label: "Request expired", transactionId };
+    return {
+      phase: "expired",
+      label:
+        view.approval?.state === "expired"
+          ? "Expired · nothing was signed"
+          : "Request expired",
+      transactionId,
+    };
+  if (view.state === "awaiting_approval")
+    return { phase: "awaiting_approval", label: "Waiting for your approval" };
   if (view.state === "submitted")
     return {
       phase: "submitted",
@@ -152,6 +165,9 @@ export function projectCommitLifecycle(
       label: "Wallet outcome unknown; check status before submitting again",
       transactionId,
     };
+  // Approved: Aomi signs with the agent wallet; nothing for the browser to do.
+  if (view.approval?.state === "approved" && view.state === "needs_signature")
+    return { phase: "signing", label: "Signing…" };
   if (!view.action && view.batch?.predecessor_commit_id)
     return {
       phase: "waiting_predecessor",

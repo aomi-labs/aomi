@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.2.9",
+  "version": "0.2.12",
   "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
@@ -14,7 +14,6 @@
     "./better-auth/env": "./src/better-auth/env.ts",
     "./better-auth/siwe": "./src/better-auth/siwe.ts",
     "./providers": "./src/providers/index.ts",
-    "./telegram": "./src/telegram.ts",
     "./observability": "./src/observability.ts",
     "./widget-auth": "./src/widget-auth/index.ts",
     "./forward": "./src/forward.ts",

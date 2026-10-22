@@ -40,6 +40,8 @@ export type AomiBrowserGrantOptions = {
   redirectUri: string;
   getWidgetBearer: () => Promise<string | null | undefined>;
   subject?: string;
+  /** Asked for at the first sign-in too, so one approval covers the app. */
+  scopes?: readonly string[];
   store?: AomiOAuthGrantStore;
   fetch?: typeof fetch;
   popup?: (url: string, target: string, features: string) => Window | null;
@@ -112,6 +114,8 @@ export async function createAomiDeviceGrantManager(input: {
   portalBaseUrl: string;
   clientId: string;
   subject?: string;
+  /** Asked for at the first sign-in too, so one approval covers the app. */
+  scopes?: readonly string[];
   store?: AomiOAuthGrantStore;
   initial?: readonly AomiOAuthGrant[];
   fetch?: typeof fetch;
@@ -143,6 +147,7 @@ export async function createAomiDeviceGrantManager(input: {
     issuer: metadata.issuer,
     clientId: input.clientId,
     subject: input.subject,
+    scopes: input.scopes,
     initial: input.initial,
     store: input.store,
     now: input.now,
@@ -201,6 +206,7 @@ export async function createAomiBrowserGrantManager(
     issuer: metadata.issuer,
     clientId: input.clientId,
     subject: input.subject,
+    scopes: input.scopes,
     store: input.store,
     now: input.now,
     acquire: async (request) => {

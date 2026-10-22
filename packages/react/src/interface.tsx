@@ -7,6 +7,7 @@ import type {
   Action,
   ActionAttempt,
   ActionResult,
+  AomiActiveWallet,
   CommitController,
   CommitView,
   AomiInferenceFundingSource,
@@ -78,8 +79,11 @@ export type AomiRuntimeApi = {
   isRemoteThread?: (threadId: string) => boolean;
   /** Get metadata for a specific thread */
   getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
-  /** Create a new thread and return its ID */
-  createThread: () => Promise<string>;
+  /**
+   * Create a new thread and return its ID. `draft` prefills its composer
+   * without sending.
+   */
+  createThread: (options?: { draft?: string }) => Promise<string>;
   /** Delete a thread by ID */
   deleteThread: (threadId: string) => Promise<void>;
   /** Rename a thread */
@@ -150,6 +154,10 @@ export type AomiRuntimeApi = {
   events: readonly Event[];
   /** State of the current turn, as the backend reports it. */
   turnState?: TurnState;
+  /** The open chat's active wallet id per family (`w_<id>`), once reported. */
+  activeWallet?: AomiActiveWallet;
+  /** Make a wallet (`w_<id>`) the open chat's active wallet for its family. */
+  setThreadWallet?: (id: string) => Promise<void>;
 };
 
 // =============================================================================

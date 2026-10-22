@@ -125,6 +125,82 @@ describe("activity projection", () => {
     ).toEqual(["commit-2", "commit-1"]);
   });
 
+  it("binds an unbatched commit by its own stage id, also a later turn's", () => {
+    // As svm_stage_ix reports it; the commit tool's model-facing result names
+    // no sources, so the commit's own stage id is the link.
+    const solStage = (turn: string) =>
+      tool(
+        1,
+        "svm_stage_ix",
+        {
+          ix_ids: [1],
+          instructions: [
+            {
+              payer: "So1",
+              cluster: "mainnet-beta",
+              description: "Transfer SOL",
+              pending_ix_id: 1,
+              current_lifecycle: "queued",
+            },
+          ],
+        },
+        turn,
+      );
+    const parked = durableCommit(1, 0, {
+      commit_id: "sol-commit",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      stage_id: "svm:1",
+      broadcaster: "hosted",
+      state: "awaiting_approval",
+      batch: null,
+    });
+    const now = selectActivity([solStage("turn-1")], [], [parked]);
+    expect(now.transactions[0]).toMatchObject({
+      label: "Transfer SOL",
+      stage: "committed",
+      commit: { commit_id: "sol-commit" },
+    });
+    // Two staged instructions committed as one transaction: both cards follow it.
+    const second = tool(2, "svm_stage_ix", {
+      ix_ids: [2],
+      instructions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          description: "Transfer SOL back",
+          pending_ix_id: 2,
+          current_lifecycle: "queued",
+        },
+      ],
+    });
+    const both = selectActivity(
+      [solStage("turn-1"), second],
+      [],
+      [{ ...parked, stage_id: "svm:1,2", state: "confirmed" }],
+    );
+    expect(
+      both.transactions.map((card) => [card.label, card.commit?.state]),
+    ).toEqual([
+      ["Transfer SOL", "confirmed"],
+      ["Transfer SOL back", "confirmed"],
+    ]);
+    const later = selectActivity(
+      [
+        solStage("turn-1"),
+        {
+          ...meta(9, "turn-2"),
+          type: "message",
+          sender: "user",
+          content: "next",
+        } as Event,
+      ],
+      [],
+      [{ ...parked, state: "confirmed" }],
+    );
+    expect(later.history[0].commit?.state).toBe("confirmed");
+  });
+
   it("lists every tx a protocol staging tool staged, then marks them simulated", () => {
     const record = (pending_tx_id: number, label: string) => ({
       pending_tx_id,

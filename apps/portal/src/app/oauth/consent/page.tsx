@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default function OAuthConsentPage() {
   return (
-    <Suspense fallback={<main className="p-6">Loading consent…</main>}>
+    <Suspense fallback={null}>
       <OAuthConsentClient />
     </Suspense>
   );

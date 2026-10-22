@@ -5,9 +5,12 @@ import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { useAomiWalletKit } from "@/wallet/context";
 import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
+import { useApprovalAuthority } from "@/commit/approval-authority";
 import { buildWalletChoices, type WalletChoice } from "./wallet-options";
 import type { SheetMode } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";
+import type { SheetPurpose } from "./wallet-picker-context";
+import { AomiMark } from "@/ui/aomi-mark";
 import {
   BrandMark,
   ChoiceRow,
@@ -21,12 +24,15 @@ export function ChooseStep({
   mode,
   error,
   flow,
+  purpose,
 }: {
   mode: SheetMode;
   error?: string;
   flow: SheetFlow;
+  purpose?: SheetPurpose;
 }) {
   const kit = useAomiWalletKit();
+  const approvalAuthority = useApprovalAuthority();
   const hostOptions = useContext(WalletSignInOptionsContext);
   const choices = useMemo(() => buildWalletChoices(kit), [kit]);
   const linkedProviders = new Set(
@@ -54,6 +60,9 @@ export function ChooseStep({
         connect: () => kit.connectSocial?.(option.id) ?? Promise.resolve(),
         preload: undefined,
       }));
+  // Adding to a signed-in account can also create a wallet Aomi hosts, from
+  // the portal only: an embed on a partner site can't create one.
+  const agent = mode === "add" && !kit.accountGuest && approvalAuthority;
   const detected = choices.filter((choice) => choice.section === "detected");
   const more = choices.filter((choice) => choice.section === "more");
   const walletRow = (choice: WalletChoice) => (
@@ -73,13 +82,44 @@ export function ChooseStep({
         description={
           mode === "sign-in"
             ? "Your chats follow your account on any device."
-            : "Connect another wallet to this account."
+            : agent
+              ? "Create one Aomi hosts, or connect one you own"
+              : "Connect another wallet to this account."
         }
         onClose={flow.close}
       />
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        {purpose ? (
+          <p
+            data-sheet-purpose
+            className="rounded-control bg-aomi-surface-2 type-meta text-aomi-muted flex items-center gap-2 px-2.5 py-1.5 [&_svg]:size-4 [&_svg]:shrink-0"
+          >
+            {purpose.icon}
+            {purpose.text}
+          </p>
+        ) : null}
         {error || flow.error || kit.accountError ? (
           <SheetAlert>{error ?? flow.error ?? kit.accountError}</SheetAlert>
+        ) : null}
+        {agent ? (
+          <section className="flex flex-col gap-2">
+            <SectionHeader title="Agent wallet" detail="Hosted by Aomi" />
+            <ListGroup>
+              <ChoiceRow
+                leading={
+                  <span
+                    aria-hidden
+                    className="flex size-8 shrink-0 items-center justify-center"
+                  >
+                    <AomiMark size={20} className="text-aomi-fg" />
+                  </span>
+                }
+                title="New agent wallet"
+                description="EVM + Solana, no extension"
+                onClick={flow.newAgentWallet}
+              />
+            </ListGroup>
+          </section>
         ) : null}
         {social.length ? (
           <section className="flex flex-col gap-2">

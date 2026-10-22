@@ -7,10 +7,13 @@ import {
   getAccountResponseForWidgetSession,
   issueWalletLinkNonce,
   linkVerifiedProviderIdentityForUser,
+  listAccountConnections,
   mergeAccountWithTicket,
   offerAccountMerge,
   renameAuthIdentity,
   renameWallet,
+  revokeOAuthConnection,
+  unlinkTelegramConnection,
   takeMergeSwitchTicket,
   unlinkAuthIdentity,
   unlinkWallet,
@@ -34,14 +37,16 @@ import {
   type SiwsCluster,
 } from "@aomi-labs/account/better-auth";
 import { revokeWidgetSession } from "@aomi-labs/account/widget-auth";
-import { BACKEND_API_HEADERS, forward } from "@aomi-labs/account/forward";
 import { recoverMessageAddress } from "viem";
 
 import { portalFailures } from "@/server/bff/failures";
 import { mintBearer } from "@/server/bff/http";
-import { PrincipalError, type Principal } from "@/server/bff/principal";
+import {
+  PrincipalError,
+  isPortalSession,
+  type Principal,
+} from "@/server/bff/principal";
 import type { Call } from "@/server/bff/routes";
-import { backendUrl } from "@/server/env";
 import { verifyWidgetProviderCredential } from "@/server/widget-auth/exchange";
 import { createCliSession, revokeSession } from "./cli-session";
 import { sessionUserSeed } from "./session";
@@ -179,6 +184,15 @@ export async function unlinkIdentity({
   return Response.json({ status: "revoked" });
 }
 
+/** A wallet's id in the path: the public key id, or the `w_<id>` the wallet list uses. */
+function walletId(param: unknown): string | null {
+  const match = /^(?:w_)?([1-9][0-9]{0,17})$/.exec(String(param));
+  return match ? match[1]! : null;
+}
+
+/** The longest name a wallet may have. */
+const WALLET_LABEL_MAX = 40;
+
 export async function renameAccountWallet({
   request,
   principal,
@@ -187,9 +201,16 @@ export async function renameAccountWallet({
   const current = account(principal);
   const input = await body<{ label?: string | null }>(request);
   if (!input || !("label" in input)) return error(400, "label_required");
+  const id = walletId(params.id);
+  if (!id) return error(404, "wallet_not_found");
+  if (
+    typeof input.label === "string" &&
+    [...input.label.trim()].length > WALLET_LABEL_MAX
+  )
+    return error(400, "label_too_long");
   const renamed = await renameWallet({
     userId: current.accountId,
-    walletId: String(params.id),
+    walletId: id,
     label: input.label ?? null,
   });
   if (!renamed) return error(404, "wallet_not_found");
@@ -201,13 +222,17 @@ export async function unlinkAccountWallet({
   params,
 }: Call): Promise<Response> {
   const current = account(principal);
+  const id = walletId(params.id);
+  if (!id) return error(404, "wallet_not_found");
   const result = await unlinkWallet({
     userId: current.accountId,
-    walletId: String(params.id),
+    walletId: id,
     betterAuthUserId:
       current.kind === "widget" ? null : current.betterAuthUserId,
   });
   if (result === "not_found") return error(404, "wallet_not_found");
+  if (result === "agent_wallet")
+    return error(409, "agent_wallet_not_removable");
   if (result === "last_factor")
     return error(409, "cannot_unlink_last_login_factor");
   return Response.json({ status: "revoked" });
@@ -266,6 +291,45 @@ export async function walletLinkNonce({
     domain: env.siweDomain,
     uri: env.betterAuthUrl,
   });
+}
+
+/** The OAuth clients and Telegram user connected to the account. */
+export async function listConnections({ principal }: Call): Promise<Response> {
+  return Response.json(
+    await listAccountConnections(account(principal).accountId),
+  );
+}
+
+/** Disconnect one OAuth client. Only a signed-in portal session may. */
+export async function disconnectOAuthConnection({
+  principal,
+  params,
+}: Call): Promise<Response> {
+  if (!isPortalSession(principal)) return error(403, "portal_session_required");
+  const clientId = String(params.client_id ?? "");
+  const revoked =
+    clientId.length > 0 &&
+    clientId.length <= 255 &&
+    (await revokeOAuthConnection({
+      userId: account(principal).accountId,
+      clientId,
+    }));
+  if (!revoked) return error(404, "connection_not_found");
+  return Response.json({ revoked: true });
+}
+
+/** Unlink Telegram from the account. Only a signed-in portal session may. */
+export async function disconnectTelegramConnection({
+  principal,
+}: Call): Promise<Response> {
+  if (!isPortalSession(principal)) return error(403, "portal_session_required");
+  const result = await unlinkTelegramConnection({
+    userId: account(principal).accountId,
+  });
+  if (result === "not_found") return error(404, "connection_not_found");
+  if (result === "last_factor")
+    return error(409, "cannot_unlink_last_login_factor");
+  return Response.json({ revoked: true });
 }
 
 /** Link a wallet to the signed-in account: SIWE for EVM, SIWS for SVM. */
@@ -389,6 +453,12 @@ export async function mergeAccount({
     return error(410, "merge_ticket_invalid");
   if (result.status === "payment_in_progress")
     return error(409, "account_merge_payment_in_progress");
+  if (result.status === "commits_in_flight")
+    return error(409, "account_merge_commits_in_flight");
+  if (result.status === "merge_in_progress")
+    return error(409, "account_merge_in_progress");
+  if (result.status === "handover_conflict")
+    return error(409, "account_merge_handover_conflict");
   return Response.json({
     moved: result.moved,
     account: await accountResponse(current),
@@ -524,33 +594,4 @@ export async function backendBearer({ principal }: Call): Promise<Response> {
     mintAccountBearer(principal.accountId),
   );
   return Response.json({ bearer, expires_at: expiresAt });
-}
-
-const DELEGATION_CALLBACK_FIELDS = {
-  privy: ["state", "access_token", "user_id"],
-  para: ["state", "para_jwt", "user_id"],
-} as const;
-
-/** Record a provider's signing delegation with the backend; the provider calls this, not a signed-in user. */
-export async function recordDelegation(
-  { request }: Call,
-  provider: "privy" | "para",
-): Promise<Response> {
-  const input = await body<Record<string, unknown>>(request.clone());
-  if (
-    !input ||
-    DELEGATION_CALLBACK_FIELDS[provider].some(
-      (field) => typeof input[field] !== "string",
-    ) ||
-    (provider === "privy" && !Array.isArray(input.wallets))
-  )
-    return error(400, `invalid_${provider}_callback`);
-  const upstream = await forward({
-    request,
-    url: new URL(`/api/auth/${provider}/callback`, backendUrl()),
-    policy: BACKEND_API_HEADERS,
-  });
-  if (!upstream.ok)
-    return error(upstream.status, `${provider}_delegation_rejected`);
-  return Response.json({ status: "connected" });
 }

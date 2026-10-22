@@ -3,6 +3,7 @@
 ## 0.8.5
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.
+- `ThreadMetadata.awaitingApproval` carries the refs a chat (or its scheduled runs) has waiting for approval, from live thread listings only.
 
 ## 0.8.2
 

@@ -4,10 +4,17 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(83);
-    expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(98);
+    // The two-purchase Task API (product-mono #1356): prepare, then status
+    // and result by quote.
+    for (const route of [
+      "POST /v1/task/build",
+      "POST /v1/task/{quoteId}/status",
+      "POST /v1/task/{quoteId}/result",
+    ])
+      expect(publicApi["x-aomi-route-manifest"]).toContain(route);
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
-      operationId: "buildTask",
+      operationId: "prepareTask",
       security: [],
     });
     expect(
@@ -17,23 +24,10 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(
       publicApi.components.securitySchemes.aomiOAuth["x-aomi-resources"],
     ).not.toHaveProperty("task");
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "RFC 8785 canonical JSON",
+    // The agent MCP locked to one app.
+    expect(publicApi.paths["/v1/apps/{app}/mcp"].post.operationId).toBe(
+      "appMcp",
     );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "TaskAuthorization(string endpoint,bytes32 requestHash",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "Unix seconds",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "payer = sender when payer is omitted",
-    );
-    expect(
-      publicApi.paths["/v1/task/build"].post.requestBody.content[
-        "application/json"
-      ].schema.oneOf[1].properties.authorization.description,
-    ).toContain("not this retrieval body");
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(
       ([path, operations]) =>
@@ -180,13 +174,16 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     }
   });
 
-  it("limits client UserState to connection, wallets, preferences, and extensions", () => {
+  it("limits client UserState to connection, wallets, wallet picks, preferences, and extensions", () => {
     expect(publicApi.components.schemas.UserState.properties).toEqual({
       connection: { $ref: "#/components/schemas/UserStateConnection" },
       evm: { $ref: "#/components/schemas/UserStateEvm" },
       svm: { $ref: "#/components/schemas/UserStateSvm" },
       preferences: { type: "object", additionalProperties: true },
       ext: { type: "object", additionalProperties: true },
+      wallet_pick: expect.objectContaining({ type: "object" }),
+      wallet_presence: expect.objectContaining({ type: "array" }),
+      active_wallet: { $ref: "#/components/schemas/ActiveWallet" },
     });
     expect(
       publicApi.components.schemas.UserStateConnection.additionalProperties,

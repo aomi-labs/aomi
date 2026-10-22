@@ -2,17 +2,30 @@
 
 import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
-import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import { LogOut, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
+import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { accountDisplayName } from "@/wallet/account-presentation";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
-import { IconButton, TextButton } from "./controls";
+import {
+  ActionsMenu,
+  Divider,
+  TextButton,
+  copyText,
+  type MenuItem,
+} from "./controls";
 import { SignsWithStrip } from "./signs-with";
-import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
+import {
+  AddressRow,
+  LoginRows,
+  type ManagedWallet,
+  type WalletRowHandlers,
+} from "./wallet-rows";
+import { SignInWalletManage } from "./sign-in-wallet-manage";
 import {
   addressSummary,
   walletSections,
@@ -35,6 +48,8 @@ type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
   onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
+  /** The agent wallets band at the bottom (signed-in accounts only). */
+  agentWallets?: ReactNode;
 };
 
 export function AccountManagement({
@@ -51,12 +66,13 @@ export function AccountManagement({
   onRemoveLogin,
   onSignOut,
   onDeleteAccount,
+  agentWallets,
   ...rowHandlers
 }: AccountManagementProps) {
-  const [editingName, setEditingName] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const { rename, dialog } = useRenameDialog();
+  const [managing, setManaging] = useState<ManagedWallet | null>(null);
   const { wallets, logins } = walletSections(rows, unlinked, signInMethods);
-  const handlers = { pending, ...rowHandlers };
+  const handlers = { pending, onManage: setManaging, ...rowHandlers };
   const visibleName = accountDisplayName(user, displayEmailHint);
   const walletSummary = addressSummary(rows);
   const accountDetail =
@@ -64,45 +80,31 @@ export function AccountManagement({
       ? `${user.email} · ${walletSummary}`
       : walletSummary;
 
-  const saveName = async () => {
-    if (!onRenameAccount) return;
-    await onRenameAccount(displayName.trim());
-    setEditingName(false);
-  };
-
-  const cancelNameEdit = () => {
-    setDisplayName(user?.displayName ?? "");
-    setEditingName(false);
-  };
-
-  const renameActions = editingName ? (
-    <div className="flex items-center gap-1.5">
-      <IconButton
-        label="Save account name"
-        busy={pending === "account:rename"}
-        onClick={() => void saveName()}
-      >
-        <Check />
-      </IconButton>
-      <IconButton
-        label="Cancel account name edit"
-        disabled={pending === "account:rename"}
-        onClick={cancelNameEdit}
-      >
-        <X />
-      </IconButton>
-    </div>
-  ) : onRenameAccount ? (
-    <IconButton
-      label="Rename account"
-      onClick={() => {
-        setDisplayName(user?.displayName ?? "");
-        setEditingName(true);
-      }}
-    >
-      <Pencil />
-    </IconButton>
-  ) : null;
+  const profileItems: MenuItem[] = [];
+  if (onRenameAccount)
+    profileItems.push({
+      label: "Rename",
+      icon: Pencil,
+      onSelect: () =>
+        rename({
+          title: "Rename account",
+          description: "How your account appears in Aomi.",
+          value: user?.displayName ?? "",
+          placeholder: visibleName,
+          maxLength: 64,
+          allowEmpty: true,
+          onSave: async (name) => {
+            await onRenameAccount(name);
+          },
+        }),
+    });
+  const email = user?.email;
+  if (email)
+    profileItems.push({
+      label: "Copy email",
+      icon: Mail,
+      onSelect: () => copyText(email),
+    });
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,26 +122,18 @@ export function AccountManagement({
         <ListGroup>
           <ListRow
             leading={<AccountAvatar seed={user?.id} size={32} />}
-            title={
-              editingName ? (
-                <input
-                  autoFocus
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void saveName();
-                    if (event.key === "Escape") cancelNameEdit();
-                  }}
-                  aria-label="Account display name"
-                  disabled={pending === "account:rename"}
-                  className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted type-row rounded-control h-7 w-full max-w-64 border px-2 outline-none transition-colors"
-                />
-              ) : (
-                visibleName
-              )
-            }
+            title={visibleName}
             description={accountDetail}
-            trailing={renameActions}
+            trailing={
+              profileItems.length ? (
+                <ActionsMenu
+                  label="Actions for your account"
+                  items={profileItems}
+                  disabled={pending !== null}
+                  busy={pending === "account:rename"}
+                />
+              ) : null
+            }
           />
         </ListGroup>
       </section>
@@ -163,7 +157,7 @@ export function AccountManagement({
           }
         />
 
-        {wallets.length || logins.length ? (
+        {wallets.length || logins.length || agentWallets ? (
           <div className={listGroupClass}>
             <SignsWithStrip
               rows={rows}
@@ -171,26 +165,16 @@ export function AccountManagement({
               onActivate={rowHandlers.onActivate}
               onAddWallet={onAddWallet}
             />
-            {wallets.length ? (
+            {wallets.length || logins.length ? (
               <>
                 <Divider
-                  title="Wallets"
-                  detail="Sign in by signing a message"
+                  title="Sign-in wallets"
+                  detail="You sign with these yourself"
                 />
                 <div className="divide-aomi-border divide-y">
                   {wallets.map((row) => (
                     <AddressRow key={row.key} row={row} {...handlers} />
                   ))}
-                </div>
-              </>
-            ) : null}
-            {logins.length ? (
-              <>
-                <Divider
-                  title="Social sign-in"
-                  detail="Privy and Para logins, with their wallets"
-                />
-                <div className="divide-aomi-border divide-y">
                   {logins.map((group) => (
                     <LoginRows
                       key={group.key}
@@ -203,6 +187,7 @@ export function AccountManagement({
                 </div>
               </>
             ) : null}
+            {agentWallets}
           </div>
         ) : (
           <ListGroup>
@@ -252,16 +237,14 @@ export function AccountManagement({
           </ListGroup>
         </section>
       ) : null}
-    </div>
-  );
-}
-
-/** A section band inside the wallets card. */
-function Divider({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
-      <span className="type-meta text-aomi-fg font-medium">{title}</span>
-      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+      {dialog}
+      {managing ? (
+        <SignInWalletManage
+          wallet={managing}
+          onRename={rowHandlers.onRename}
+          onClose={() => setManaging(null)}
+        />
+      ) : null}
     </div>
   );
 }

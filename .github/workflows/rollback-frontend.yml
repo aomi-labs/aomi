@@ -19,10 +19,6 @@ on:
         description: Ledgered Landing deployment URL or ID
         required: true
         type: string
-      telegram_deployment:
-        description: Ledgered Telegram deployment URL or ID
-        required: true
-        type: string
       confirm:
         description: Type ROLLBACK
         required: true
@@ -55,7 +51,6 @@ jobs:
           BUILD: ${{ inputs.build_deployment }}
           BASE: ${{ inputs.base_deployment }}
           LANDING: ${{ inputs.landing_deployment }}
-          TELEGRAM: ${{ inputs.telegram_deployment }}
         run: |
           set -euo pipefail
           test -n "$VERCEL_TOKEN" || { echo "production VERCEL_TOKEN is required" >&2; exit 1; }
@@ -65,7 +60,6 @@ jobs:
             [build]="$BUILD"
             [base]="$BASE"
             [landing]="$LANDING"
-            [telegram]="$TELEGRAM"
           )
           {
             echo "## Frontend production rollback"
@@ -73,7 +67,7 @@ jobs:
             echo "| Surface | Deployment | Result |"
             echo "|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for surface in portal build base landing telegram; do
+          for surface in portal build base landing; do
             deployment="${deployments[$surface]}"
             if vercel rollback "$deployment" --yes --token="$VERCEL_TOKEN"; then
               echo "| $surface | \`$deployment\` | restored |" >> "$GITHUB_STEP_SUMMARY"

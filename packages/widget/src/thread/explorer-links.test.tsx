@@ -35,7 +35,7 @@ const MATRIX = [
   [59144, "https://lineascan.build"],
   [59141, "https://sepolia.lineascan.build"],
   [4326, "https://mega.etherscan.io"],
-  [4663, "https://robinscan.io"],
+  [4663, "https://robin.etherscan.io"],
   [46630, "https://explorer.testnet.chain.robinhood.com"],
   [143, "https://monadscan.com"],
   [10143, "https://testnet.monadscan.com"],
@@ -133,8 +133,10 @@ describe("toolExplorerLinks", () => {
       }),
       toolCall(JSON.stringify({ cluster: "mainnet-beta", mint: MINT })),
     ]);
-    expect(links.get(ADDRESS)).toBe(`https://robinscan.io/address/${ADDRESS}`);
-    expect(links.get(TOKEN)).toBe(`https://robinscan.io/token/${TOKEN}`);
+    expect(links.get(ADDRESS)).toBe(
+      `https://robin.etherscan.io/address/${ADDRESS}`,
+    );
+    expect(links.get(TOKEN)).toBe(`https://robin.etherscan.io/token/${TOKEN}`);
     expect(links.get(MINT)).toBe(`https://solscan.io/token/${MINT}`);
   });
 
@@ -211,7 +213,7 @@ describe("MarkdownText explorer links", () => {
       name: `${ADDRESS} on Robinhood Chain explorer`,
     });
     expect(
-      container.querySelectorAll('a[href^="https://robinscan.io/"]'),
+      container.querySelectorAll('a[href^="https://robin.etherscan.io/"]'),
     ).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Original" })).toHaveAttribute(
       "href",

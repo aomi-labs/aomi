@@ -549,6 +549,9 @@ export function useSvmWalletRuntime({
     disconnect,
     selectAccount,
     selectNetwork,
+    selectAppNetwork: (networkId: string | number) => {
+      setSelectedNetworkId(String(networkId));
+    },
     execution,
   };
 }

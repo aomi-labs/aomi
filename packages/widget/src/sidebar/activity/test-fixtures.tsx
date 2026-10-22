@@ -17,6 +17,11 @@ const runtime = vi.hoisted(() => ({
   executeAction: vi.fn(),
   rejectAction: vi.fn(),
   showNotification: vi.fn(),
+  sendMessage: vi.fn(),
+  currentThreadId: "thread-1",
+  getThreadMetadata: vi.fn(
+    (_id: string): { awaitingApproval?: string[] } | undefined => undefined,
+  ),
 }));
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({

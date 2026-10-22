@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   e2eAccountId: vi.fn(),
   deleteSession: vi.fn(),
   createSession: vi.fn(),
+  listConnections: vi.fn(),
+  revokeConnection: vi.fn(),
+  consume: vi.fn(async () => ({ allowed: true, retryAfter: null })),
 }));
 
 // One table of credentials stands in for Better Auth, widget sessions and the
@@ -49,6 +52,7 @@ const TOKENS: Record<
   string,
   { sub: string; class: "user" | "guest"; scope: string; aud: string }
 > = {
+  // An old grant: custody:delegate is no longer granted, and never minted.
   "oauth.user.jwt": {
     sub: "user",
     class: "user",
@@ -66,6 +70,14 @@ const TOKENS: Record<
     class: "user",
     scope: "mcp:agent agent:read agent:write",
     aud: `${PORTAL}/v1/agent/mcp`,
+  },
+  // The CLI / SDK sign-in: one `/v1` token carrying every REST scope.
+  "api.user.jwt": {
+    sub: "user",
+    class: "user",
+    scope:
+      "agent:read agent:write pipeline:catalog account:apps:read account:credentials:write",
+    aud: `${PORTAL}/v1`,
   },
 };
 
@@ -88,6 +100,10 @@ function bearerToken(request: Request): string | undefined {
   return request.headers.get("authorization")?.split(/\s+/)[1];
 }
 
+vi.mock("@aomi-labs/account/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/rate-limit")>()),
+  accountRateLimitStorage: { consume: mocks.consume },
+}));
 vi.mock("@aomi-labs/account", () => ({
   mintAccountBearer: mocks.mintAccountBearer,
   mintAgentApiBearer: mocks.mintAgentApiBearer,
@@ -109,6 +125,8 @@ vi.mock("@aomi-labs/account/account", () => ({
     userId: string;
   }) => ({ user: { id: userId } }),
   updateAccountProfile: vi.fn(),
+  listAccountConnections: mocks.listConnections,
+  revokeOAuthConnection: mocks.revokeConnection,
   IdentityConflictError: class IdentityConflictError extends Error {},
 }));
 vi.mock("@aomi-labs/account/better-auth", async () => ({
@@ -159,16 +177,27 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
       verifyAccessTokenRequest: async (
         request: Request,
         options: {
-          verifyOptions: { audience: string };
+          verifyOptions: { audience: string | string[] };
           requiredScopes: string[];
         },
       ) => {
         const claims = claimsFor(bearerToken(request) ?? "");
-        if (!claims || claims.aud !== options.verifyOptions.audience)
-          throw Object.assign(new Error("bad token"), { status: 401 });
+        // As jose: the token's audience must be one of those accepted.
+        // Failures are Better Auth APIErrors: a status name and statusCode.
+        if (
+          !claims ||
+          ![options.verifyOptions.audience].flat().includes(claims.aud)
+        )
+          throw Object.assign(new Error("token expired"), {
+            status: "UNAUTHORIZED",
+            statusCode: 401,
+          });
         const granted = claims.scope.split(" ");
         if (options.requiredScopes.some((scope) => !granted.includes(scope)))
-          throw Object.assign(new Error("scope"), { status: 403 });
+          throw Object.assign(new Error("scope"), {
+            status: "FORBIDDEN",
+            statusCode: 403,
+          });
         return claims;
       },
     }),
@@ -285,7 +314,7 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
     "/api chat": [200, user],
     "/api settings": [200, user],
     "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, user, "user", "agent:write"],
     "/v1/account/credits": [200, user, "user", "account:credits:read"],
     "/v1/account": 200,
     "/v1/account/bearer": [200, user],
@@ -307,7 +336,7 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
     "/api chat": [200, user],
     "/api settings": [200, user],
     "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, user, "user", "agent:write"],
     "/v1/account/credits": [200, user, "user", "account:credits:read"],
     "/v1/account": 200,
     "/v1/account/bearer": [200, user],
@@ -318,7 +347,7 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
     "/api chat": [200, "acct-widget"],
     "/api settings": [200, "acct-widget"],
     "/api commit": [200, "acct-widget"],
-    "/v1/agent": [200, "acct-widget", "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, "acct-widget", "user", "agent:write"],
     "/v1/account/credits": [200, "acct-widget", "user", "account:credits:read"],
     "/v1/account": 200,
     "/v1/account/bearer": 403,
@@ -341,12 +370,12 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "OAuth user": {
     ...allStatus(401),
     "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, user, "user", "agent:write"],
   },
   "OAuth user, DPoP": {
     ...allStatus(401),
     "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, user, "user", "agent:write"],
   },
   "OAuth guest": {
     ...allStatus(401),
@@ -362,7 +391,7 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
     "/api chat": [200, "acct-e2e"],
     "/api settings": [200, "acct-e2e"],
     "/api commit": [200, "acct-e2e"],
-    "/v1/agent": [200, "acct-e2e", "user", "agent:write custody:delegate"],
+    "/v1/agent": [200, "acct-e2e", "user", "agent:write"],
     "/v1/account/credits": [200, "acct-e2e", "user", "account:credits:read"],
     // The E2E stand-in never served the portal's own account routes.
     "/v1/account": 200,
@@ -425,6 +454,11 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ token: "new-cli-token", expiresAt: new Date(0) });
   mocks.deleteSession.mockReset();
+  mocks.listConnections.mockReset();
+  mocks.revokeConnection.mockReset();
+  mocks.consume
+    .mockReset()
+    .mockResolvedValue({ allowed: true, retryAfter: null });
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -476,6 +510,28 @@ describe("principal × route family", () => {
         expect(call.headers.has("cookie")).toBe(false);
         if (!subject) expect(call.headers.has("authorization")).toBe(false);
       }
+    },
+  );
+
+  it.each([
+    ["cookie user", "session"],
+    ["e2e cookie", "session"],
+    ["widget user", "widget"],
+    ["widget guest", "widget"],
+    ["session bearer", "cli_session"],
+    ["OAuth user", "oauth"],
+  ])(
+    "names the client a %s authenticated through as %s",
+    async (credential, source) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.agent.POST(
+        request("/v1/agent/sessions", { method: "POST", headers, origin }),
+      );
+      expect(response.status).toBe(200);
+      expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ auth_source: source }),
+      );
     },
   );
 
@@ -814,6 +870,581 @@ describe("error mapping", () => {
   });
 });
 
+describe("/v1/commits forwarding", () => {
+  const cookie = { cookie: "session=user" };
+  it.each([
+    ["GET", "/v1/commits/cmt_1", routes.commits.GET],
+    ["POST", "/v1/commits/cmt_1/sign", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/broadcast", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/reject", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/attempts", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/attempts/att_2/report", routes.commits.POST],
+    ["POST", "/v1/commits/cmt_1/approve", routes.commits.POST],
+  ] as const)(
+    "%s %s reaches the backend as the account",
+    async (method, path, handler) => {
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(200);
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(`https://backend.example${path}`);
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+      expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+        "acct-user",
+        "user",
+        {
+          auth_source: "session",
+          principal_class: "user",
+        },
+      );
+    },
+  );
+
+  it.each([
+    ["cookie user", "acct-user", "session", "user"],
+    ["cookie guest", "acct-guest", "session", "guest"],
+    ["e2e cookie", "acct-e2e", "session", "user"],
+    ["session bearer", "acct-user", "cli_session", "user"],
+    ["widget user", "acct-widget", "widget", "user"],
+    ["widget guest", "acct-widget-guest", "widget", "guest"],
+    ["OAuth user", "acct-user", "oauth", "user"],
+    ["OAuth guest", "acct-guest", "oauth", "guest"],
+  ])(
+    "names the client a %s came through on every call",
+    async (credential, subject, source, principalClass) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      for (const [method, path, handler] of [
+        ["GET", "/v1/commits/cmt_1", routes.commits.GET],
+        ["POST", "/v1/commits/cmt_1/reject", routes.commits.POST],
+      ] as const)
+        expect(
+          (await handler(request(path, { method, headers, origin }))).status,
+        ).toBe(200);
+      const claims = {
+        auth_source: source,
+        principal_class: principalClass,
+        ...(source === "oauth" ? { client_id: "client-1" } : {}),
+      };
+      expect(mocks.mintAccountBearer.mock.calls).toEqual([
+        [subject, "user", claims],
+        [subject, "user", claims],
+      ]);
+    },
+  );
+
+  it.each([
+    ["cookie user", "session"],
+    ["e2e cookie", "session"],
+    ["session bearer", "cli_session"],
+    ["OAuth user", "oauth"],
+  ])("lets a %s approve", async (credential, source) => {
+    const { headers, origin } = CREDENTIALS[credential];
+    const response = await routes.commits.POST(
+      request("/v1/commits/cmt_1/approve", { method: "POST", headers, origin }),
+    );
+    expect(response.status).toBe(200);
+    expect(upstreamCalls()[0].url).toBe(
+      "https://backend.example/v1/commits/cmt_1/approve",
+    );
+    // An OAuth client is named so the backend can check its lane on the
+    // wallet is "Ask in <client>" (`here`).
+    expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+      expect.any(String),
+      "user",
+      {
+        auth_source: source,
+        principal_class: "user",
+        ...(source === "oauth" ? { client_id: "client-1" } : {}),
+      },
+    );
+  });
+
+  it.each(["cookie guest", "widget user", "widget guest", "OAuth guest"])(
+    "refuses approval from a %s without calling the backend",
+    async (credential) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.commits.POST(
+        request("/v1/commits/cmt_1/approve", {
+          method: "POST",
+          headers,
+          origin,
+        }),
+      );
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        code: "commit_approval_forbidden",
+        status: 403,
+      });
+      expect(mocks.fetch).not.toHaveBeenCalled();
+      expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
+    },
+  );
+
+  it("asks an OAuth client for agent:write before refusing approval", async () => {
+    const response = await routes.commits.POST(
+      request("/v1/commits/cmt_1/approve", {
+        method: "POST",
+        headers: { authorization: "Bearer oauth.guest.jwt" },
+      }),
+    );
+    expect(response.status).toBe(403);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["POST", "/v1/commits/cmt_1/manual"],
+    ["GET", "/v1/commits/cmt_1/approve"],
+    ["POST", "/v1/commits/cmt_1/approve/extra"],
+    ["GET", "/v1/commits/cmt_1/sign"],
+    ["POST", "/v1/commits/cmt_1"],
+    ["GET", "/v1/commits/../api/secrets"],
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      const handler =
+        method === "GET" ? routes.commits.GET : routes.commits.POST;
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(404);
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("asks an OAuth caller for agent:read / agent:write, like api-server", async () => {
+    const read = await routes.commits.GET(
+      request("/v1/commits/cmt_1", {
+        headers: { authorization: "Bearer oauth.user.jwt" },
+      }),
+    );
+    expect(read.status).toBe(200);
+    const write = await routes.commits.POST(
+      request("/v1/commits/cmt_1/reject", {
+        method: "POST",
+        headers: { authorization: "Bearer oauth.user.jwt" },
+      }),
+    );
+    expect(write.status).toBe(200);
+  });
+
+  it("requires a principal", async () => {
+    const response = await routes.commits.GET(
+      request("/v1/commits/cmt_1", { origin: PORTAL }),
+    );
+    expect(response.status).toBe(401);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("/v1/account/wallets forwarding", () => {
+  const cookie = { cookie: "session=user" };
+  it.each([
+    ["GET", "/v1/account/wallets", routes.accountWallets.GET],
+    ["GET", "/v1/account/wallets/w_12/balance", routes.accountWallets.GET],
+    ["GET", "/v1/account/agent-wallets", routes.accountWallets.GET],
+    ["POST", "/v1/account/agent-wallets", routes.accountWallets.POST],
+    ["PATCH", "/v1/account/agent-wallets/g-1", routes.accountWallets.PATCH],
+    [
+      "GET",
+      "/v1/account/agent-wallets/g-1/balances",
+      routes.accountWallets.GET,
+    ],
+    [
+      "POST",
+      "/v1/account/agent-wallets/g-1/withdraw",
+      routes.accountWallets.POST,
+    ],
+    [
+      "PUT",
+      "/v1/account/connections/oauth%3Aclaude/wallets",
+      routes.accountWallets.PUT,
+    ],
+    ["PUT", "/v1/account/pause-all", routes.accountWallets.PUT],
+    [
+      "PUT",
+      "/v1/account/connection-settings/oauth%3Aclaude",
+      routes.accountWallets.PUT,
+    ],
+  ] as const)(
+    "%s %s reaches the backend as the account",
+    async (method, path, handler) => {
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(200);
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(`https://backend.example${path}`);
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+    },
+  );
+
+  it.each([
+    ["POST", "/v1/account/wallets"],
+    ["POST", "/v1/account/wallets/agent"],
+    ["PATCH", "/v1/account/agent-wallets"],
+    ["POST", "/v1/account/agent-wallets/g-1"],
+    ["GET", "/v1/account/agent-wallets/g-1/withdraw"],
+    ["GET", "/v1/account/connections/portal/wallets"],
+    ["GET", "/v1/account/wallets/12/balance"],
+    ["GET", "/v1/account/wallets/w_0/balance"],
+    ["GET", "/v1/account/wallets/w_12/balance/extra"],
+    ["GET", "/v1/account/wallets/w_12/rule"],
+    ["GET", "/v1/account/pause-all"],
+    ["POST", "/v1/account/pause-all"],
+    ["GET", "/v1/account/agent-rule"],
+    ["GET", "/v1/account/connection-settings/portal"],
+    ["PUT", "/v1/account/connection-settings/a/b"],
+    ["PUT", "/v1/account/wallets/w_12/balance"],
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      const handler = routes.accountWallets[method];
+      const response = await handler(
+        request(path, { method, headers: cookie, origin: PORTAL }),
+      );
+      expect(response.status).toBe(404);
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("lets an OAuth client read with agent:read, but never create", async () => {
+    const auth = { authorization: "Bearer oauth.user.jwt" };
+    const list = await routes.accountWallets.GET(
+      request("/v1/account/wallets", { headers: auth }),
+    );
+    expect(list.status).toBe(200);
+    const balance = await routes.accountWallets.GET(
+      request("/v1/account/wallets/w_12/balance", { headers: auth }),
+    );
+    expect(balance.status).toBe(200);
+    expect(upstreamCalls()).toHaveLength(2);
+    const create = await routes.accountWallets.POST(
+      request("/v1/account/agent-wallets", { method: "POST", headers: auth }),
+    );
+    expect(create.status).toBe(401);
+    expect(upstreamCalls()).toHaveLength(2);
+  });
+
+  it.each([
+    "cookie guest",
+    "widget guest",
+    "widget user",
+    "session bearer",
+    "OAuth user",
+    "cookie user",
+  ])(
+    "agent creation admits only the portal session: %s",
+    async (credential) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.accountWallets.POST(
+        request("/v1/account/agent-wallets", {
+          method: "POST",
+          headers,
+          origin,
+        }),
+      );
+      expect(response.status).toBe(
+        credential === "cookie user"
+          ? 200
+          : credential === "OAuth user"
+            ? 401
+            : 403,
+      );
+      if (credential === "cookie user") {
+        expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+          "acct-user",
+          "user",
+          { auth_source: "session", principal_class: "user" },
+        );
+      } else {
+        expect(mocks.fetch).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it.each([
+    ["cookie user", 200],
+    ["cookie guest", 403],
+    ["widget user", 403],
+    ["widget guest", 403],
+    ["session bearer", 403],
+    ["e2e cookie", 401],
+    ["OAuth user", 401],
+  ] as const)(
+    "pause all admits only the portal session: %s",
+    async (credential, status) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.accountWallets.PUT(
+        request("/v1/account/pause-all", {
+          method: "PUT",
+          headers,
+          origin,
+          body: JSON.stringify({ paused: true }),
+        }),
+      );
+      expect(response.status).toBe(status);
+      if (status === 200) {
+        expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+          "acct-user",
+          "user",
+          { auth_source: "session", principal_class: "user" },
+        );
+      } else {
+        if (status === 403)
+          expect(await response.json()).toEqual({
+            error: "portal_session_required",
+          });
+        expect(mocks.fetch).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it("requires a principal", async () => {
+    const response = await routes.accountWallets.GET(
+      request("/v1/account/wallets", { origin: PORTAL }),
+    );
+    expect(response.status).toBe(401);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards the thread wallet switch like the thread safety level", async () => {
+    const response = await routes.backend.PUT(
+      request("/api/thread/wallet", {
+        method: "PUT",
+        headers: { ...cookie, "x-thread-id": "thread-1" },
+        origin: PORTAL,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const [call] = upstreamCalls();
+    expect(call.url).toBe("https://backend.example/api/thread/wallet");
+    expect(call.headers.get("x-thread-id")).toBe("thread-1");
+    const read = await routes.backend.GET(
+      request("/api/thread/wallet", { headers: cookie, origin: PORTAL }),
+    );
+    expect(read.status).toBe(404);
+  });
+});
+
+describe("/v1/account/connections", () => {
+  const CONNECTIONS = {
+    oauth: [
+      {
+        client_id: "client-1",
+        name: "Claude Code",
+        kind: "mcp",
+        connected_at: 1_760_400_000,
+      },
+    ],
+    telegram: {
+      username: "arixon",
+      bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
+    },
+  };
+  const disconnect = (credential: string, clientId = "client-1") => {
+    const { headers, origin } = CREDENTIALS[credential];
+    return routes.connection.DELETE(
+      request(`/v1/account/connections/oauth/${clientId}`, {
+        method: "DELETE",
+        headers,
+        origin,
+      }),
+      { params: Promise.resolve({ client_id: clientId }) },
+    );
+  };
+
+  it("lists the account's connections from the portal, not the backend", async () => {
+    mocks.listConnections.mockResolvedValue(CONNECTIONS);
+    const response = await routes.connections.GET(
+      request("/v1/account/connections", {
+        headers: { cookie: "session=user" },
+        origin: PORTAL,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(CONNECTIONS);
+    expect(mocks.listConnections).toHaveBeenCalledWith("acct-user");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["OAuth user", 401],
+    ["none", 401],
+  ] as const)(
+    "does not list connections for %s",
+    async (credential, status) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.connections.GET(
+        request("/v1/account/connections", { headers, origin }),
+      );
+      expect(response.status).toBe(status);
+      expect(mocks.listConnections).not.toHaveBeenCalled();
+    },
+  );
+
+  it("disconnects one OAuth client", async () => {
+    mocks.revokeConnection.mockResolvedValue(true);
+    const response = await disconnect("cookie user");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ revoked: true });
+    expect(mocks.revokeConnection).toHaveBeenCalledWith({
+      userId: "acct-user",
+      clientId: "client-1",
+    });
+  });
+
+  it("answers 404 for a client the account is not connected to", async () => {
+    mocks.revokeConnection.mockResolvedValue(false);
+    const response = await disconnect("cookie user", "client-x");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "connection_not_found" });
+  });
+
+  it.each([
+    ["cookie guest", 403],
+    ["session bearer", 403],
+    ["widget user", 403],
+    ["OAuth user", 401],
+  ] as const)(
+    "only a portal session disconnects: %s",
+    async (credential, status) => {
+      const response = await disconnect(credential);
+      expect(response.status).toBe(status);
+      if (status === 403)
+        expect(await response.json()).toEqual({
+          error: "portal_session_required",
+        });
+      expect(mocks.revokeConnection).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("/v1/account/link/telegram", () => {
+  const code = "A".repeat(43);
+  const post = (credential: string, action = "confirm") => {
+    const { headers, origin } = CREDENTIALS[credential];
+    return routes.telegramLink.POST(
+      request(`/v1/account/link/telegram/${action}`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        origin,
+        body: JSON.stringify({ code }),
+      }),
+    );
+  };
+
+  it.each(["preview", "confirm", "cancel"])(
+    "forwards %s for a portal session with the session claims",
+    async (action) => {
+      const response = await post("cookie user", action);
+      expect(response.status).toBe(200);
+      expect(mocks.consume).toHaveBeenCalledWith(
+        `telegram-link:${action}:acct-user`,
+        { window: 60, max: action === "preview" ? 20 : 5 },
+      );
+      const [call] = upstreamCalls();
+      expect(call.url).toBe(
+        `https://backend.example/v1/account/link/telegram/${action}`,
+      );
+      expect(call.headers.get("authorization")).toBe(
+        "Bearer account:acct-user",
+      );
+      expect(call.headers.has("cookie")).toBe(false);
+      expect(mocks.mintAccountBearer).toHaveBeenCalledWith(
+        "acct-user",
+        "user",
+        {
+          auth_source: "session",
+          principal_class: "user",
+        },
+      );
+      const [, init] = mocks.fetch.mock.calls[0]!;
+      expect(JSON.parse(await new Response(init.body).text())).toEqual({
+        code,
+      });
+    },
+  );
+
+  it.each([
+    ["cookie guest", 403],
+    ["widget user", 403],
+    ["widget guest", 403],
+    ["session bearer", 403],
+    ["e2e cookie", 401],
+    ["OAuth user", 401],
+    ["none", 401],
+  ] as const)("refuses %s", async (credential, status) => {
+    const response = await post(credential);
+    expect(response.status).toBe(status);
+    if (status === 403)
+      expect(await response.json()).toEqual({
+        error: "portal_session_required",
+      });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.consume).not.toHaveBeenCalled();
+  });
+
+  it("refuses a cross-site cookie write", async () => {
+    const response = await routes.telegramLink.POST(
+      request("/v1/account/link/telegram/confirm", {
+        method: "POST",
+        headers: { cookie: "session=user" },
+        origin: "https://evil.example",
+        body: JSON.stringify({ code }),
+      }),
+    );
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses an over-budget account before forwarding", async () => {
+    mocks.consume.mockResolvedValueOnce({ allowed: false, retryAfter: null });
+    const response = await post("cookie user");
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: "rate_limited" });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("passes the backend's refusal through unchanged", async () => {
+    mocks.fetch.mockResolvedValueOnce(
+      Response.json(
+        { error: "account_link_busy", in_flight: [{ id: "c-1" }] },
+        { status: 409 },
+      ),
+    );
+    const response = await post("cookie user");
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "account_link_busy",
+      in_flight: [{ id: "c-1" }],
+    });
+  });
+
+  it("has no other actions or methods", async () => {
+    const { headers, origin } = CREDENTIALS["cookie user"];
+    const response = await routes.telegramLink.POST(
+      request("/v1/account/link/telegram/unlink", {
+        method: "POST",
+        headers,
+        origin,
+      }),
+    );
+    expect(response.status).toBe(404);
+    expect(Object.keys(routes.telegramLink).sort()).toEqual([
+      "OPTIONS",
+      "POST",
+    ]);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe("/api forwarding", () => {
   it.each([
     [[], "/api/thread/apps"],
@@ -861,7 +1492,7 @@ describe("scopes each agent API route asks for", () => {
       "/v1/agent/sessions",
       routes.agent.POST,
       { "payment-signature": "x" },
-      "agent:write payments:submit custody:delegate",
+      "agent:write payments:submit",
     ],
     [
       "GET",
@@ -875,7 +1506,7 @@ describe("scopes each agent API route asks for", () => {
       "/v1/pipeline/evm/commits/c1",
       routes.pipeline.GET,
       {},
-      "pipeline:execute custody:delegate",
+      "pipeline:execute",
     ],
     [
       "POST",
@@ -962,6 +1593,33 @@ describe("scopes each agent API route asks for", () => {
     expect(upstreamCalls()[0].url).toBe("https://agent.example/v1/agent/mcp");
   });
 
+  it("takes a /v1 token on REST, narrowed to the route's scopes, and never on MCP", async () => {
+    const rest = await routes.agent.POST(
+      request("/v1/agent/sessions", {
+        method: "POST",
+        headers: { authorization: "Bearer api.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(rest.status).toBe(200);
+    expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+      user,
+      // Only the route's own scope reaches the API; no pipeline or account.
+      expect.objectContaining({
+        scope: "agent:write",
+        resource: `${PORTAL}/v1/agent`,
+      }),
+    );
+    const mcp = await routes.agentMcp.POST(
+      request("/v1/agent/mcp", {
+        method: "POST",
+        headers: { authorization: "Bearer api.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(mcp.status).toBe(401);
+  });
+
   it("refuses an MCP payment without payments:submit", async () => {
     const response = await routes.agentMcp.POST(
       request("/v1/agent/mcp", {
@@ -974,6 +1632,28 @@ describe("scopes each agent API route asks for", () => {
       }),
     );
     expect(response.status).toBe(403);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("locks app MCP to its own path: another resource's token and bad names fail", async () => {
+    const borrowed = await routes.appMcp.POST(
+      request("/v1/apps/world/mcp", {
+        method: "POST",
+        headers: { authorization: "Bearer mcp.user.jwt" },
+        body: "{}",
+      }),
+    );
+    expect(borrowed.status).toBe(401);
+    for (const path of ["/v1/apps/World/mcp", "/v1/apps/-x/mcp"]) {
+      const response = await routes.appMcp.POST(
+        request(path, {
+          method: "POST",
+          headers: { authorization: "Bearer mcp.user.jwt" },
+          body: "{}",
+        }),
+      );
+      expect(response.status).toBe(404);
+    }
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });

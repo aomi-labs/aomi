@@ -129,6 +129,19 @@ export function useSafeWallets(): WalletsHook {
   }
 }
 
+/** Privy's Solana transaction signing, which shows its confirmation modal. */
+export type SvmSignTransactionHook = ReturnType<
+  typeof import("@privy-io/react-auth/solana").useSignTransaction
+>;
+
+export function useSafeSvmSignTransaction(): SvmSignTransactionHook | null {
+  try {
+    return privySdk().solana.useSignTransaction();
+  } catch {
+    return null;
+  }
+}
+
 export function useSafeSignTransaction(): SignTransactionHook {
   try {
     return privySdk().auth.useSignTransaction();

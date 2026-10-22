@@ -57,6 +57,14 @@ function dropWalletBlocks(state: UserState): UserState {
     ...(state.preferences === undefined
       ? {}
       : { preferences: state.preferences }),
+    // Which wallet this device picked, and which are here, are device facts:
+    // a disconnect publishes its own update of them.
+    ...(state.wallet_pick === undefined
+      ? {}
+      : { wallet_pick: state.wallet_pick }),
+    ...(state.wallet_presence === undefined
+      ? {}
+      : { wallet_presence: state.wallet_presence }),
   };
 }
 

@@ -138,6 +138,7 @@ export {
   ensureSvmWalletBoundVia,
   isUnboundWalletError,
   posterFromClient,
+  apiResource,
   createAomiOAuthGrantManager,
   createMemoryOAuthGrantStore,
   createOAuthTokenProvider,
@@ -198,6 +199,28 @@ export type {
   AomiOAuthStrategy,
 } from "./sdk/auth";
 export { AomiAgent, AgentRun } from "./sdk/agent";
+export { AomiCommits, CommitHandle } from "./sdk/commits";
+export type { CommitSigner } from "./sdk/commits";
+export {
+  COMMIT_REF_ERROR_CODES,
+  CommitApprovalForbiddenError,
+  CommitExpiredError,
+  CommitNotAwaitingApprovalError,
+  CommitNotFoundError,
+  CommitStaleError,
+  commitRefPaths,
+} from "./commit-ref";
+export type {
+  CommitApprovalState,
+  CommitApprovalView,
+  CommitRefApproveRequest,
+  CommitRefBroadcastRequest,
+  CommitRefRejectRequest,
+  CommitRefSignRequest,
+  CommitRefView,
+  SessionOriginFields,
+  ThreadOrigin,
+} from "./commit-ref";
 export type {
   AgentRunEventMap,
   AgentRunOptions,
@@ -434,6 +457,73 @@ export type {
 } from "./expected-calls";
 
 export { AccountGraphTransport, AccountGraphApiError } from "./account/graph";
+export {
+  AccountWalletsTransport,
+  AomiWalletError,
+  WALLET_ERROR_CODES,
+  activeWalletOf,
+  parseWalletRef,
+  walletPaths,
+  walletRef,
+} from "./account/wallets";
+export type {
+  AomiAccountWallet,
+  AomiAccountWalletKind,
+  AomiActiveWallet,
+  AomiThreadWallet,
+  AomiWalletAmount,
+  AomiWalletBalance,
+  AomiWalletChainBalance,
+  AomiWalletErrorCode,
+  AomiWalletTokenBalance,
+  UserStateWalletFields,
+} from "./account/wallets";
+export { agentWalletPaths } from "./account/agent-wallets";
+export type {
+  AomiAgentWallet,
+  AomiAgentWalletAddress,
+  AomiAgentWalletApp,
+  AomiAgentWalletAsset,
+  AomiAgentWalletBalances,
+  AomiAgentWalletConnection,
+  AomiAgentWalletCreate,
+  AomiAgentWalletNetwork,
+  AomiAgentWalletUpdate,
+  AomiAgentWalletWithdraw,
+  AomiAgentWallets,
+} from "./account/agent-wallets";
+export { AomiWallets } from "./sdk/wallets";
+export {
+  AccountConnectionsTransport,
+  connectionPaths,
+} from "./account/connections";
+export type {
+  AomiAccountConnection,
+  AomiAccountConnections,
+  AomiConnectionApp,
+  AomiConnectionTelegram,
+  AomiConnectionKind,
+  AomiConnectionSettings,
+  AomiConnectionSettingsUpdate,
+  AomiConnectionWallet,
+  AomiConnectionWalletsUpdate,
+  AomiLane,
+} from "./account/connections";
+export {
+  AccountTelegramLinkTransport,
+  TELEGRAM_LINK_ERROR_CODES,
+  TelegramLinkError,
+  isTelegramLinkCode,
+  telegramLinkPaths,
+} from "./account/telegram-link";
+export type {
+  TelegramLinkBot,
+  TelegramLinkErrorCode,
+  TelegramLinkInFlight,
+  TelegramLinkPreview,
+  TelegramLinkResult,
+  TelegramLinkWalletMove,
+} from "./account/telegram-link";
 export type {
   AccountGraphUser,
   AccountGraphLinkedAccount,

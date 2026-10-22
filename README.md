@@ -56,7 +56,7 @@ wallet capabilities explicitly. See the package READMEs and the maintained
 
 ## Workspace
 
-`apps/` contains deployed hosts: Portal, Build, Landing and Telegram.
+`apps/` contains deployed hosts: Portal, Build and Landing.
 `examples/` contains Vite, Next.js and headless integrations. Shared code lives
 under `packages/`. Build owns the deployment UI; Portal retains its supported
 API routes and redirects deployment navigation to Build.

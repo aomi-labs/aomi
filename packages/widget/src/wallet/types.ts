@@ -62,7 +62,9 @@ export type WalletSource =
   | "coinbase"
   | "baseAccount"
   | "embedded"
-  | "stored";
+  | "stored"
+  /** An Aomi agent wallet: signs on the server, never in this browser. */
+  | "agent";
 
 export type AomiLoginMethod =
   | "google"
@@ -280,6 +282,7 @@ export type AomiWalletKit = {
   /** Canonical account-aware wallet state. Transport-only accounts stay above. */
   wallets: readonly WalletRow[];
   accountStatus?: AccountRuntimeStatus;
+  refreshAccount?: () => Promise<void>;
   accountError?: string;
   accountConflict?: AccountConflict;
   /** The current Portal session is temporary and must not own linked wallets. */

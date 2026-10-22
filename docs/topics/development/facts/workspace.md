@@ -23,7 +23,7 @@ sources_of_truth:
 - `packages/react` publishes `@aomi-labs/react`, the headless runtime and context layer.
 - `packages/client` publishes `@aomi-labs/client`, the platform-agnostic client plus the `aomi` CLI binary.
 - `packages/widget` publishes `@aomi-labs/widget`, the UI layer and shadcn-style registry surface.
-- `apps/landing`, `apps/base`, `apps/portal`, and `apps/telegram` are validation and integration apps that consume the workspace packages.
+- `apps/landing`, `apps/base`, and `apps/portal` are validation and integration apps that consume the workspace packages.
 
 ## Common Build Flows
 

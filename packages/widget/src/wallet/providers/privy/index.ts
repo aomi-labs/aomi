@@ -16,11 +16,6 @@ export {
   AomiPrivyProvider,
   type AomiPrivyProviderProps,
 } from "./privy-provider";
-export { PrivyDelegationProvider } from "./privy-delegation";
-export {
-  usePrivyDelegation,
-  type PrivyDelegationContextValue,
-} from "./privy-delegation-context";
 export { privyPlugin, registerAomiPrivyWalletProvider } from "./privy-plugin";
 export type { PrivyAuthOptions } from "@/frame/widget-auth";
 

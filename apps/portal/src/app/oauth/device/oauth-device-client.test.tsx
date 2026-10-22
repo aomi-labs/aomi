@@ -1,126 +1,101 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  search: "provider=para&user_code=AOMI-1234",
-  replace: vi.fn(),
-  useSession: vi.fn(),
-  wallet: {
-    connectSocial: vi.fn(),
-    getAccountCredential: vi.fn(),
-  },
-}));
+const mocks = vi.hoisted(() => ({ search: "user_code=aomi-1234" }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mocks.replace }),
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 
-vi.mock("@aomi-labs/widget/browser-auth", () => ({
-  authClient: { useSession: mocks.useSession },
-}));
+import { DeviceSheet } from "./oauth-device-client";
 
-vi.mock("@aomi-labs/widget/host-composition", () => ({
-  useAomiWalletKit: () => mocks.wallet,
-}));
+const pending = {
+  user_code: "AOMI-1234",
+  status: "pending",
+  client_id: "aomi-cli",
+};
+const trading = {
+  id: "g-trading",
+  name: "Trading",
+  paused: false,
+  archived_at: null,
+  app: null,
+  last_used_at: null,
+  created_at: 1,
+  addresses: [],
+  connections: [],
+};
+const paths = () => vi.mocked(fetch).mock.calls.map(([input]) => String(input));
 
-vi.mock("@/lib/device-auth-provider", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/device-auth-provider")>();
-  return { ...actual, providerConfigurationFailure: () => null };
-});
-
-import { OAuthDeviceClient } from "./oauth-device-client";
-
-describe("OAuthDeviceClient claim flow", () => {
+describe("device code sheet", () => {
   beforeEach(() => {
-    mocks.search = "provider=para&user_code=AOMI-1234";
-    mocks.replace.mockReset();
-    mocks.useSession.mockReturnValue({ data: { session: { id: "session" } } });
-    vi.stubGlobal("fetch", vi.fn());
+    mocks.search = "user_code=aomi-1234";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/auth/device?")) return Response.json(pending);
+        if (url.includes("/v1/account/agent-wallets"))
+          return Response.json({ pause_all: false, wallets: [trading] });
+        if (url.includes("/v1/account/wallets"))
+          return Response.json({ wallets: [] });
+        return Response.json({ success: true });
+      }),
+    );
   });
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("claims and displays a request before approving it", async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        Response.json({
-          user_code: "AOMI-1234",
-          status: "pending",
-          client_id: "aomi-cli",
-          scope: "agent:read offline_access",
-          resource: "https://portal.example/v1/agent",
-        }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          user_code: "AOMI-1234",
-          status: "pending",
-          client_id: "aomi-cli",
-          scope: "agent:read offline_access",
-          resource: "https://portal.example/v1/agent",
-        }),
-      )
-      .mockResolvedValueOnce(Response.json({ success: true }));
-
-    render(<OAuthDeviceClient />);
-
-    expect(await screen.findByText("aomi-cli")).toBeInTheDocument();
+  it("reads the code once, shows it, and approves on Connect", async () => {
+    render(<DeviceSheet />);
     expect(
-      screen.getByText("https://portal.example/v1/agent"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("agent:read, offline_access")).toBeInTheDocument();
+      await screen.findByRole("heading", { name: "Connect your terminal?" }),
+    ).toBeTruthy();
+    expect(screen.getByText("AOMI-1234")).toHaveAttribute("data-device-code");
+    // Every agent wallet starts at Ask in terminal.
+    expect(
+      await screen.findByRole("combobox", { name: "Trading: Ask in terminal" }),
+    ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Authorize device" }));
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
-
-    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain(
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(
+      await screen.findByRole("heading", { name: "Terminal connected" }),
+    ).toBeTruthy();
+    // Better Auth allows few reads per code: one read, then the decision.
+    expect(paths().filter((path) => path.startsWith("/api/auth/"))).toEqual([
       "/api/auth/device?user_code=AOMI-1234",
-    );
-    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain(
-      "/api/auth/device?user_code=AOMI-1234",
-    );
-    expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toBe(
       "/api/auth/device/approve",
+    ]);
+    // Then the terminal's lanes, once the login went through.
+    expect(paths().at(-1)).toEqual(
+      expect.stringContaining(
+        "/v1/account/connections/oauth%3Aaomi-cli/wallets",
+      ),
     );
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[1]).toMatchObject({
+      method: "PUT",
+      body: JSON.stringify({ wallets: [{ id: "g-trading", lane: "here" }] }),
+    });
   });
 
-  it("claims the request again immediately before denying it", async () => {
-    const pendingRequest = {
-      user_code: "AOMI-1234",
-      status: "pending",
-      client_id: "aomi-cli",
-      scope: "pipeline:catalog",
-      resource: "https://portal.example/v1/pipeline",
-    };
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(Response.json(pendingRequest))
-      .mockResolvedValueOnce(Response.json(pendingRequest))
-      .mockResolvedValueOnce(Response.json({ success: true }));
-
-    render(<OAuthDeviceClient />);
-    fireEvent.click(await screen.findByRole("button", { name: "Deny" }));
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
-
-    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain(
-      "/api/auth/device?user_code=AOMI-1234",
-    );
-    expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toBe(
-      "/api/auth/device/deny",
-    );
-  });
-
-  it("requires provider selection before mounting login controls", () => {
-    mocks.search = "user_code=AOMI-1234";
-    mocks.useSession.mockReturnValue({ data: null });
-    render(<OAuthDeviceClient />);
-
+  it("denies when the code doesn't match", async () => {
+    render(<DeviceSheet />);
     fireEvent.click(
-      screen.getByRole("button", { name: "Continue with Privy" }),
+      await screen.findByRole("button", { name: "It doesn’t match" }),
     );
-    expect(mocks.replace).toHaveBeenCalledWith(
-      expect.stringContaining("provider=privy"),
+    await waitFor(() => expect(paths().at(-1)).toBe("/api/auth/device/deny"));
+    expect(
+      await screen.findByRole("heading", { name: "Not connected" }),
+    ).toBeTruthy();
+  });
+
+  it("says a used or expired code doesn't work", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({ ...pending, status: "approved" }),
     );
+    render(<DeviceSheet />);
+    expect(
+      await screen.findByRole("heading", { name: "This code doesn’t work" }),
+    ).toBeTruthy();
   });
 });

@@ -1,6 +1,10 @@
 import "server-only";
 import { mintAccountBearer, mintAgentApiBearer } from "@aomi-labs/account";
-import { aomiOAuthResources, auth } from "@aomi-labs/account/better-auth";
+import {
+  aomiOAuthResourcePolicy,
+  aomiOAuthResources,
+  auth,
+} from "@aomi-labs/account/better-auth";
 import {
   AGENT_API_HEADERS,
   BACKEND_API_HEADERS,
@@ -8,6 +12,7 @@ import {
   forward,
 } from "@aomi-labs/account/forward";
 import { requireMcpAuth } from "@better-auth/mcp";
+import { accountRateLimitStorage } from "@aomi-labs/account/rate-limit";
 
 import * as account from "@/server/account/handlers";
 import * as deviceAuth from "@/server/device-auth/handlers";
@@ -27,7 +32,12 @@ import {
 import { authorize, policyFor, scopesOn, type Need } from "./capabilities";
 import { openWidget, publicRead } from "./cors";
 import { errorResponse, mintBearer } from "./http";
-import { oauthPrincipal, resolvePrincipal, type Principal } from "./principal";
+import {
+  isPortalSession,
+  oauthPrincipal,
+  resolvePrincipal,
+  type Principal,
+} from "./principal";
 import { publicCatalog } from "./public-catalog";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -151,8 +161,20 @@ async function toBackend(call: Call, path: string): Promise<Response> {
       url.searchParams.append("platform", platform);
   const accountId =
     "accountId" in call.principal ? call.principal.accountId : null;
+  const portalOnly = PORTAL_ONLY_WRITES.some(
+    (route) => route.method === call.request.method && route.path.test(path),
+  );
+  if (portalOnly && !isPortalSession(call.principal))
+    return Response.json({ error: "portal_session_required" }, { status: 403 });
+  const claims = delegatedClaims(call.principal, path, portalOnly);
   const bearer = accountId
-    ? (await mintBearer(() => mintAccountBearer(accountId))).bearer
+    ? (
+        await mintBearer(() =>
+          claims
+            ? mintAccountBearer(accountId, "user", claims)
+            : mintAccountBearer(accountId),
+        )
+      ).bearer
     : undefined;
   return forward({
     request: call.request,
@@ -160,6 +182,74 @@ async function toBackend(call: Call, path: string): Promise<Response> {
     policy: BACKEND_API_HEADERS,
     bearer,
   });
+}
+
+const WALLET_ID = "w_[1-9][0-9]*";
+const PAUSE_ALL = /^\/v1\/account\/pause-all$/;
+const CONNECTION_SETTINGS = /^\/v1\/account\/connection-settings\/[^/]+$/;
+const CONNECTION_WALLETS = /^\/v1\/account\/connections\/[^/]+\/wallets$/;
+const AGENT_WALLETS = /^\/v1\/account\/agent-wallets$/;
+const AGENT_WALLET = /^\/v1\/account\/agent-wallets\/[^/]+$/;
+const AGENT_WALLET_BALANCES = /^\/v1\/account\/agent-wallets\/[^/]+\/balances$/;
+const AGENT_WALLET_WITHDRAW = /^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/;
+
+/** Linking a Telegram account with a `/link` code (step 5). */
+const TELEGRAM_LINK =
+  /^\/v1\/account\/link\/telegram\/(?:preview|confirm|cancel)$/;
+
+/** Writes only a signed-in portal session may make; the backend checks it too. */
+const PORTAL_ONLY_WRITES: readonly { method: string; path: RegExp }[] = [
+  { method: "POST", path: AGENT_WALLETS },
+  { method: "PATCH", path: AGENT_WALLET },
+  { method: "POST", path: AGENT_WALLET_WITHDRAW },
+  { method: "PUT", path: PAUSE_ALL },
+  { method: "PUT", path: CONNECTION_SETTINGS },
+  { method: "PUT", path: CONNECTION_WALLETS },
+  { method: "POST", path: TELEGRAM_LINK },
+];
+
+/**
+ * What the backend learns about the caller besides the account: portal-only
+ * writes carry the verified session, and every /v1/commits call names the
+ * client it came through (an OAuth client by id), which decides who may
+ * approve.
+ */
+function delegatedClaims(
+  principal: Principal,
+  path: string,
+  portalOnly: boolean,
+) {
+  if (portalOnly)
+    return { auth_source: "session", principal_class: "user" } as const;
+  if (principal.kind === "none" || !path.startsWith("/v1/commits/"))
+    return undefined;
+  return {
+    auth_source: authSource(principal),
+    principal_class: principal.guest ? "guest" : "user",
+    ...(principal.kind === "oauth" ? { client_id: principal.clientId } : {}),
+  } as const;
+}
+
+/**
+ * Which client the caller authenticated through. The backend records it as a
+ * commit's initiator and notify target: portal cookie sessions are "session",
+ * embedded widgets "widget", the CLI's Better Auth session bearer
+ * "cli_session", and OAuth clients (MCP included) "oauth".
+ */
+export function authSource(
+  principal: Exclude<Principal, { kind: "none" }>,
+): "session" | "widget" | "cli_session" | "oauth" {
+  switch (principal.kind) {
+    case "oauth":
+      return "oauth";
+    case "widget":
+      return "widget";
+    case "session_bearer":
+      return "cli_session";
+    case "cookie":
+    case "e2e":
+      return "session";
+  }
 }
 
 /** Forward to the agent API with a bearer carrying exactly the authorized scopes. */
@@ -173,7 +263,7 @@ async function toAgentApi(call: Call, resource: string): Promise<Response> {
       scope: call.scopes.join(" "),
       resource,
       client_id: principal.kind === "oauth" ? principal.clientId : undefined,
-      auth_source: principal.kind === "oauth" ? "oauth" : "session",
+      auth_source: authSource(principal),
       principal_class: principal.guest ? "guest" : "user",
       grant_id: principal.kind === "oauth" ? principal.grantId : undefined,
       // A raw session token never enters an internal assertion; only the
@@ -350,6 +440,11 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     need: { capability: "safety_policy" },
   },
   {
+    path: /^\/api\/thread\/wallet$/,
+    methods: ["PUT"],
+    need: { capability: "safety_policy" },
+  },
+  {
     path: /^\/api\/account(\/.*)?$/,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     need: { capability: "settings" },
@@ -386,22 +481,55 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
   { path: /^\/api\/control\/models$/, methods: ["GET"], need: chat },
   { path: /^\/api\/control\/model$/, methods: ["POST"], need: chat },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
+];
+
+/** Thread-less commits by ref (`/v1/commits/:ref`). Same account authority
+ * and backend as /api/commits, without a thread header. */
+const COMMIT_REF = "[A-Za-z0-9_-]+";
+export const COMMIT_REF_ROUTES: readonly {
+  path: RegExp;
+  methods: readonly string[];
+}[] = [
+  { path: new RegExp(`^/v1/commits/${COMMIT_REF}$`), methods: ["GET"] },
   {
-    path: /^\/api\/widget\/v1\/execution-profile$/,
-    methods: ["GET"],
-    need: { capability: "managed_signing" },
-  },
-  {
-    path: /^\/api\/widget\/v1\/aa-accounts\/[^/]+$/,
-    methods: ["PUT"],
-    need: { capability: "managed_signing" },
-  },
-  {
-    path: /^\/api\/widget\/v1\/signing-requests\/sign%3A[^/]+$/i,
+    path: new RegExp(
+      `^/v1/commits/${COMMIT_REF}/(?:sign|broadcast|attempts|reject|approve)$`,
+    ),
     methods: ["POST"],
-    need: { capability: "managed_signing" },
+  },
+  {
+    path: new RegExp(
+      `^/v1/commits/${COMMIT_REF}/attempts/${COMMIT_REF}/report$`,
+    ),
+    methods: ["POST"],
   },
 ];
+
+const APPROVE = new RegExp(`^/v1/commits/${COMMIT_REF}/approve$`);
+
+/**
+ * Approving lets Aomi sign with the agent wallet: never from an embedded
+ * widget or a guest. An OAuth client (the CLI, an AI or SDK app) reaches the
+ * backend, which lets it approve only where its lane on the wallet is
+ * "Ask in <client>" (the `here` lane).
+ */
+function mayApprove(principal: Principal): boolean {
+  return (
+    (principal.kind === "cookie" ||
+      principal.kind === "session_bearer" ||
+      principal.kind === "e2e" ||
+      principal.kind === "oauth") &&
+    !principal.guest
+  );
+}
+
+function isCommitRefRoute(request: Request): boolean {
+  const { pathname } = new URL(request.url);
+  return COMMIT_REF_ROUTES.some(
+    (route) =>
+      route.path.test(pathname) && route.methods.includes(request.method),
+  );
+}
 
 function backendRoute(request: Request): BackendRoute | undefined {
   const { pathname } = new URL(request.url);
@@ -409,6 +537,43 @@ function backendRoute(request: Request): BackendRoute | undefined {
     (route) =>
       route.path.test(pathname) && route.methods.includes(request.method),
   );
+}
+
+/**
+ * The account's wallet list and balances, its agent wallets (create, rename,
+ * pause, archive, withdraw), pause-all, and each connection's label and
+ * agent wallets. Reads take the same scope api-server asks of OAuth clients;
+ * the writes are for a portal session only.
+ */
+export const ACCOUNT_WALLET_ROUTES: readonly {
+  path: RegExp;
+  method: "GET" | "POST" | "PUT" | "PATCH";
+}[] = [
+  { path: /^\/v1\/account\/wallets$/, method: "GET" },
+  {
+    path: new RegExp(`^/v1/account/wallets/${WALLET_ID}/balance$`),
+    method: "GET",
+  },
+  { path: AGENT_WALLETS, method: "GET" },
+  { path: AGENT_WALLETS, method: "POST" },
+  { path: AGENT_WALLET, method: "PATCH" },
+  { path: AGENT_WALLET_BALANCES, method: "GET" },
+  { path: AGENT_WALLET_WITHDRAW, method: "POST" },
+  { path: PAUSE_ALL, method: "PUT" },
+  { path: CONNECTION_SETTINGS, method: "PUT" },
+  { path: CONNECTION_WALLETS, method: "PUT" },
+];
+
+function accountWalletNeed(request: Request): Need | null {
+  const { pathname } = new URL(request.url);
+  const route = ACCOUNT_WALLET_ROUTES.find(
+    (candidate) =>
+      candidate.path.test(pathname) && candidate.method === request.method,
+  );
+  if (!route) return null;
+  return route.method === "GET"
+    ? { resource: resources().agentRest, scopes: ["agent:read"] }
+    : { capability: "account" };
 }
 
 const ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -426,6 +591,62 @@ export const routes = {
         : route.need;
     },
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+  }),
+
+  commits: bind({
+    operation: "commits.request",
+    methods: ["GET", "POST"],
+    // The same scopes api-server asks of OAuth clients on this family.
+    need: (request) =>
+      isCommitRefRoute(request)
+        ? {
+            resource: resources().agentRest,
+            scopes: [request.method === "GET" ? "agent:read" : "agent:write"],
+          }
+        : null,
+    handle: async (call) => {
+      const { pathname } = new URL(call.request.url);
+      if (APPROVE.test(pathname) && !mayApprove(call.principal))
+        return Response.json(
+          { code: "commit_approval_forbidden", status: 403 },
+          { status: 403 },
+        );
+      return toBackend(call, pathname);
+    },
+  }),
+
+  accountWallets: bind({
+    operation: "account.wallets",
+    methods: ["GET", "POST", "PUT", "PATCH"],
+    need: accountWalletNeed,
+    handle: (call) => toBackend(call, new URL(call.request.url).pathname),
+  }),
+
+  // Portal sessions only (PORTAL_ONLY_WRITES); the code goes in the body.
+  telegramLink: bind({
+    operation: "account.telegram_link",
+    methods: ["POST"],
+    need: (request) =>
+      TELEGRAM_LINK.test(new URL(request.url).pathname)
+        ? { capability: "account" }
+        : null,
+    handle: async (call) => {
+      const { pathname } = new URL(call.request.url);
+      const action = pathname.split("/").at(-1);
+      if (call.principal.kind !== "cookie" || call.principal.guest)
+        return Response.json(
+          { error: "portal_session_required" },
+          { status: 403 },
+        );
+      const result = await accountRateLimitStorage.consume(
+        `telegram-link:${action}:${call.principal.accountId}`,
+        { window: 60, max: action === "preview" ? 20 : 5 },
+      );
+      if (!result.allowed)
+        return Response.json({ error: "rate_limited" }, { status: 429 });
+      return toBackend(call, pathname);
+    },
+    cors: "none",
   }),
 
   agent: agentApi(
@@ -488,11 +709,28 @@ export const routes = {
     "agent:write",
     "offline_access",
   ]),
+  // `/v1/apps/<app>/mcp`: the agent MCP locked to one app. The token must be
+  // for exactly this path; api-server resolves the app (404 app_not_found).
+  appMcp: {
+    POST: (request: Request) => {
+      const resource = `${resources().portalOrigin}${new URL(request.url).pathname}`;
+      if (!aomiOAuthResourcePolicy(resource))
+        return Response.json({ error: "app_not_found" }, { status: 404 });
+      return mcp("app.mcp", () => resource, "mcp:agent", [
+        "mcp:agent",
+        "agent:read",
+        "agent:write",
+        "offline_access",
+      ]).POST(request);
+    },
+  },
   pipelineMcp: mcp(
     "pipeline.mcp",
     () => resources().pipelineMcp,
     "mcp:pipeline",
-    ["mcp:pipeline", "pipeline:catalog", "offline_access"],
+    // Every tool scope the MCP serves: a client signs in once for what its
+    // tools/call needs (aomi_call_tool, aomi_run, aomi_wallets execute).
+    ["mcp:pipeline", "pipeline:catalog", "pipeline:execute", "offline_access"],
   ),
 
   account: bind({
@@ -512,6 +750,24 @@ export const routes = {
     operation: "account.identity",
     need: { capability: "account" },
     handle: { PATCH: account.renameIdentity, DELETE: account.unlinkIdentity },
+    fallback: "widget_auth_failed",
+  }),
+  connections: bind({
+    operation: "account.connections",
+    need: { capability: "account" },
+    handle: { GET: account.listConnections },
+    fallback: "widget_auth_failed",
+  }),
+  connection: bind({
+    operation: "account.connection",
+    need: { capability: "account" },
+    handle: { DELETE: account.disconnectOAuthConnection },
+    fallback: "widget_auth_failed",
+  }),
+  telegramConnection: bind({
+    operation: "account.connection.telegram",
+    need: { capability: "account" },
+    handle: { DELETE: account.disconnectTelegramConnection },
     fallback: "widget_auth_failed",
   }),
   wallet: bind({
@@ -558,13 +814,6 @@ export const routes = {
     handle: { GET: account.backendBearer },
   }),
 
-  deviceGrant: bind({
-    operation: "device_auth.grant",
-    need: { capability: "device_login" },
-    handle: { POST: deviceAuth.grantDeviceLogin },
-    cors: "none",
-    fallback: "device_auth_failed",
-  }),
   deviceLinkIntent: bind({
     operation: "device_auth.link_intent",
     need: { capability: "device_login" },
@@ -600,20 +849,6 @@ export const routes = {
   siweVerify: widgetSignIn("widget.siwe.verify", widgetAuth.siweVerify),
   siwsNonce: widgetSignIn("widget.siws.nonce", widgetAuth.siwsNonce),
   siwsVerify: widgetSignIn("widget.siws.verify", widgetAuth.siwsVerify),
-  telegramCustomAuth: widgetSignIn(
-    "telegram.custom_auth",
-    widgetAuth.telegramCustomAuth,
-  ),
-  telegramExchange: widgetSignIn(
-    "telegram.exchange",
-    widgetAuth.exchangeTelegram,
-  ),
-  telegramCustomAuthKeys: bind({
-    operation: "telegram.custom_auth.jwks",
-    need: "public",
-    handle: { GET: widgetAuth.telegramCustomAuthKeys },
-    cors: "none",
-  }),
   widgetSession: bind({
     operation: "widget.session.revoke",
     need: "public",
@@ -627,22 +862,6 @@ export const routes = {
     handle: { POST: widgetAuth.issueOAuthBootstrap },
     fallback: "widget_auth_failed",
   }),
-
-  delegationBegin: (provider: "privy" | "para") =>
-    bind({
-      operation: `delegation.${provider}.begin`,
-      need: { capability: "account" },
-      handle: {
-        POST: (call) => toBackend(call, `/api/auth/${provider}/begin`),
-      },
-    }),
-  delegationCallback: (provider: "privy" | "para") =>
-    bind({
-      operation: `delegation.${provider}.callback`,
-      need: "public",
-      handle: { POST: (call) => account.recordDelegation(call, provider) },
-      cors: provider === "privy" ? "open_widget" : "none",
-    }),
 
   publicCatalog: {
     GET: async (

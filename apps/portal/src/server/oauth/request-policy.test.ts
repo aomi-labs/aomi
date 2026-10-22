@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   bindClientResource: vi.fn().mockResolvedValue("already_bound"),
+  registerAppMcpResource: vi.fn(),
 }));
 
 vi.mock("./client-resource-binding", () => ({
   bindAomiPublicClientResource: mocks.bindClientResource,
+}));
+vi.mock("./app-mcp-resource", () => ({
+  registerAppMcpResource: mocks.registerAppMcpResource,
 }));
 
 import {
@@ -103,6 +107,31 @@ describe("OAuth request policy", () => {
     );
   });
 
+  it("registers an app-locked MCP resource before binding, and refuses an unknown app", async () => {
+    const authorize = (resource: string) =>
+      enforceAomiOAuthRequestPolicy(
+        new Request(
+          `https://portal.example/api/auth/oauth2/authorize?${new URLSearchParams(
+            { resource, scope: "mcp:agent agent:write", client_id: "codex" },
+          )}`,
+        ),
+      );
+    const world = "https://portal.example/v1/apps/world/mcp";
+    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    await expectContinue(authorize(world));
+    expect(mocks.registerAppMcpResource).toHaveBeenCalledWith(world);
+    expect(
+      mocks.registerAppMcpResource.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.bindClientResource.mock.invocationCallOrder.at(-1)!);
+
+    mocks.registerAppMcpResource.mockResolvedValueOnce(false);
+    await expectReject(authorize("https://portal.example/v1/apps/gone/mcp"));
+    mocks.registerAppMcpResource.mockClear();
+    await expectReject(authorize("https://portal.example/v1/apps/World/mcp"));
+    await expectContinue(authorize("https://portal.example/v1/agent/mcp"));
+    expect(mocks.registerAppMcpResource).not.toHaveBeenCalled();
+  });
+
   it("allows a resource-bound refresh without repeating resource", async () => {
     await expectContinue(
       enforceAomiOAuthRequestPolicy(
@@ -134,6 +163,14 @@ describe("OAuth request policy", () => {
       register(`https://portal.example/${["agent", "mcp"].join("/")}`),
     );
     await expectReject(register("https://portal.example/v1/agent"));
+
+    // An active app's MCP is registered, then accepted; an unknown one is not.
+    const world = "https://portal.example/v1/apps/world/mcp";
+    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    await expectContinue(register(world));
+    expect(mocks.registerAppMcpResource).toHaveBeenLastCalledWith(world);
+    mocks.registerAppMcpResource.mockResolvedValueOnce(false);
+    await expectReject(register("https://portal.example/v1/apps/gone/mcp"));
   });
 
   it("accepts RFC 7591 registration that declares no resource", async () => {
@@ -327,7 +364,9 @@ describe("OAuth request policy", () => {
   // the request from AS metadata, not from the resource metadata and not from
   // the registration response, so it necessarily spans every resource plus the
   // OIDC scopes. Rejecting it made MCP login impossible; it must be narrowed to
-  // the one resource the request names.
+  // the one resource the request names. It was captured while
+  // custody:delegate was still advertised; a client that still asks for it
+  // gets it narrowed away.
   const CODEX_SCOPES =
     "agent:read agent:write agent:actions:resolve mcp:agent payments:submit " +
     "custody:delegate pipeline:catalog pipeline:execute mcp:pipeline openid " +
@@ -351,7 +390,6 @@ describe("OAuth request policy", () => {
         "agent:actions:resolve",
         "agent:read",
         "agent:write",
-        "custody:delegate",
         "mcp:agent",
         "offline_access",
         "payments:submit",
@@ -363,7 +401,6 @@ describe("OAuth request policy", () => {
     );
     expect(scopeOf(pipeline).sort()).toEqual(
       [
-        "custody:delegate",
         "mcp:pipeline",
         "offline_access",
         "payments:submit",

@@ -555,10 +555,23 @@ export function AomiRuntimeCore({
     [currentThreadId, sessionManager],
   );
 
-  const createThread = useCallback(async (): Promise<string> => {
-    await threadListAdapter.onSwitchToNewThread();
-    return threadContextRef.current.currentThreadId;
-  }, [threadListAdapter]);
+  const createThread = useCallback(
+    async (options?: { draft?: string }): Promise<string> => {
+      await threadListAdapter.onSwitchToNewThread();
+      const threadId = threadContextRef.current.currentThreadId;
+      const draft = options?.draft;
+      if (draft) {
+        // The new chat's boundary reads the stored draft when it mounts. One
+        // that mounted before the draft was stored takes it directly.
+        chatView.patch(threadId, { draft });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (threadContextRef.current.currentThreadId === threadId)
+          restoreComposerTextRef.current(draft);
+      }
+      return threadId;
+    },
+    [chatView, threadListAdapter],
+  );
 
   const deleteThread = useCallback(
     async (threadId: string) => {
@@ -598,6 +611,19 @@ export function AomiRuntimeCore({
       return response.result;
     },
     [getSession, sessionManager, currentThreadId],
+  );
+
+  const setThreadWallet = useCallback(
+    async (id: string) => {
+      const threadId = currentThreadId;
+      const session = sessionManager.get(threadId) ?? getSession(threadId);
+      const result = await aomiClient.account.wallets.setThreadWallet(
+        session.sessionId,
+        id,
+      );
+      session.setActiveWallet(result.active_wallet);
+    },
+    [aomiClient, currentThreadId, getSession, sessionManager],
   );
 
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
@@ -661,6 +687,8 @@ export function AomiRuntimeCore({
 
       events: snapshot.events,
       turnState: snapshot.turnState,
+      activeWallet: snapshot.activeWallet,
+      setThreadWallet,
     }),
     [
       userContext,
@@ -696,6 +724,8 @@ export function AomiRuntimeCore({
       snapshot.events,
       snapshot.commits,
       snapshot.turnState,
+      snapshot.activeWallet,
+      setThreadWallet,
     ],
   );
 

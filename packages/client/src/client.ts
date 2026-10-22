@@ -191,7 +191,11 @@ export function wrapFetchWithAccountBearer(
 }
 
 function isCommitPath(path: string): boolean {
-  return path === "/api/commits" || path.startsWith("/api/commits/");
+  return (
+    path === "/api/commits" ||
+    path.startsWith("/api/commits/") ||
+    path.startsWith("/v1/commits/")
+  );
 }
 
 export function wrapFetchWithPublicApiAuthorization(input: {
@@ -292,6 +296,17 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   const payment = new Headers(headers).has("payment-signature")
     ? ["payments:submit"]
     : [];
+  if (url.pathname.startsWith("/v1/commits/")) {
+    // api-server accepts agent:read / agent:write (or pipeline:execute) here.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: [
+        method.toUpperCase() === "GET" ? "agent:read" : "agent:write",
+        ...payment,
+      ],
+      method: method.toUpperCase(),
+    };
+  }
   if (isCommitPath(url.pathname)) {
     return {
       resource: `${origin}/v1/agent` as AomiOAuthResource,
@@ -331,6 +346,14 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       method: method.toUpperCase(),
     };
   }
+  if (isAgentReadableWalletPath(url.pathname, method)) {
+    // api-server serves the wallet list and balances on the agent resource.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:read", ...payment],
+      method: "GET",
+    };
+  }
   if (
     url.pathname === "/v1/account" ||
     url.pathname.startsWith("/v1/account/")
@@ -368,6 +391,20 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     };
   }
   return null;
+}
+
+/**
+ * `GET /v1/account/wallets`, `…/:id/balance` and the agent wallet list
+ * and balances.
+ */
+function isAgentReadableWalletPath(pathname: string, method: string): boolean {
+  return (
+    method.toUpperCase() === "GET" &&
+    (pathname === "/v1/account/wallets" ||
+      pathname === "/v1/account/agent-wallets" ||
+      /^\/v1\/account\/wallets\/[^/]+\/balance$/.test(pathname) ||
+      /^\/v1\/account\/agent-wallets\/[^/]+\/balances$/.test(pathname))
+  );
 }
 
 function absoluteBase(baseUrl: string): string {
@@ -913,20 +950,6 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiBeginAccountAuthResponse;
-  }
-
-  /**
-   * Start Privy's separate one-time delegated-signer consent. This is not a
-   * wallet-link operation and callers should label it as enabling Auto.
-   */
-  async beginPrivyDelegation(
-    sessionId: string,
-    options?: { application?: string; walletFamily?: AomiAuthWalletFamily },
-  ): Promise<AomiBeginAccountAuthResponse> {
-    return this.beginPrivyAuth(sessionId, {
-      ...options,
-      purpose: "delegate_signing",
-    });
   }
 
   /**

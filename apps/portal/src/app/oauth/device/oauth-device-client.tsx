@@ -1,351 +1,207 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "@aomi-labs/widget/browser-auth";
-import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CircleCheck } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import {
-  classifyProviderInitializationFailure,
-  normalizeDeviceAuthProvider,
-  providerConfigurationFailure,
-  providerFailureText,
-  type DeviceAuthProvider,
-} from "@/lib/device-auth-provider";
-import {
-  providerExchangeFailure,
-  waitForProviderCredential,
-} from "@/lib/device-auth-handoff";
+  AomiButton,
+  AomiSheet,
+  ConnectionMark,
+  ConsentWallets,
+  SheetHeader,
+  useConsentLanes,
+} from "@aomi-labs/widget/host-composition";
+import { StandalonePage } from "@/components/shell/standalone-page";
+import { createPortalClient } from "../portal-client";
 
-type DeviceVerification = {
-  user_code: string;
-  status: "pending" | "approved" | "denied";
-  client_id: string;
-  scope?: string;
-  resource?: string | string[];
-};
+type Step =
+  | { step: "enter" }
+  | { step: "confirm"; code: string; clientId?: string }
+  | { step: "connected" }
+  | { step: "denied" }
+  | { step: "failed" };
 
-const providerConfiguration = {
-  paraApiKey: process.env.NEXT_PUBLIC_PARA_API_KEY?.trim() ?? "",
-  paraEnvironment: process.env.NEXT_PUBLIC_PARA_ENVIRONMENT?.trim() ?? "",
-  privyAppId: process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "",
-};
+const home = () => window.location.assign("/");
+const normalized = (value: string) => value.trim().toUpperCase();
 
+/** `aomi account login`'s device code: the wallet picker if needed, then the code. */
 export function OAuthDeviceClient() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const provider = normalizeDeviceAuthProvider(params.get("provider"));
-  const wallet = useAomiWalletKit();
-  // The credential getter appears only after the provider reports
-  // authentication, which happens after `signIn` has already started. Read it
-  // through a ref so the running handoff sees the current wallet kit instead
-  // of the one captured at click time.
-  const walletRef = useRef(wallet);
-  useEffect(() => {
-    walletRef.current = wallet;
-  }, [wallet]);
-  const { data: session } = authClient.useSession();
-  const initialCode = params.get("user_code") ?? "";
-  const [code, setCode] = useState(initialCode);
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [verification, setVerification] = useState<DeviceVerification | null>(
-    null,
-  );
-  const initiallyVerified = useRef(false);
-
-  const verify = useCallback(async (): Promise<DeviceVerification | null> => {
-    const userCode = normalizedUserCode(code);
-    if (!userCode) {
-      setVerification(null);
-      setStatus("Enter the code shown by your CLI.");
-      return null;
-    }
-    setPending(true);
-    try {
-      const response = await fetch(
-        `/api/auth/device?${new URLSearchParams({ user_code: userCode })}`,
-        { credentials: "include" },
-      );
-      const body = (await response.json().catch(() => null)) as unknown;
-      const checked = parseDeviceVerification(body);
-      if (!response.ok || !checked || checked.status !== "pending") {
-        setVerification(null);
-        setStatus(
-          checked?.status === "approved" || checked?.status === "denied"
-            ? `This device request is already ${checked.status}.`
-            : `Device request verification failed (HTTP ${response.status}).`,
-        );
-        return null;
-      }
-      setVerification(checked);
-      setStatus(
-        "Review the client, resource, and permissions before continuing.",
-      );
-      return checked;
-    } catch {
-      setVerification(null);
-      setStatus("Device request verification could not be reached.");
-      return null;
-    } finally {
-      setPending(false);
-    }
-  }, [code]);
-
-  useEffect(() => {
-    if (!session?.session || !initialCode || initiallyVerified.current) return;
-    initiallyVerified.current = true;
-    void verify();
-  }, [initialCode, session?.session, verify]);
-
-  const signIn = useCallback(async () => {
-    if (!provider) return;
-    setPending(true);
-    try {
-      setStatus(`Finish signing in with ${providerLabel(provider)}.`);
-      await wallet.connectSocial?.("google");
-      // Para resolves as soon as its modal opens, so the budget here also
-      // covers the time the user spends inside the provider's login UI.
-      const credential = await waitForProviderCredential(
-        (options) =>
-          walletRef.current.getAccountCredential?.(options) ??
-          Promise.resolve(null),
-        { budgetMs: 180_000 },
-      );
-      const response = await fetch("/api/auth/aomi/provider/exchange", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(credential),
-      });
-      if (!response.ok) throw providerExchangeFailure(response.status);
-      window.location.reload();
-      return;
-    } catch (error) {
-      setStatus(
-        providerFailureText(
-          classifyProviderInitializationFailure(
-            provider,
-            error,
-            providerConfiguration,
-          ),
-        ),
-      );
-      setPending(false);
-    }
-  }, [provider, wallet]);
-
-  const decide = useCallback(
-    async (accept: boolean) => {
-      setPending(true);
-      // Better Auth claims the pending code for this authenticated browser in
-      // the verification GET. Repeat it immediately before either decision so
-      // approve/deny can never bypass ownership binding.
-      const checked = await verify();
-      if (!checked) return;
-      setPending(true);
-      try {
-        const response = await fetch(
-          `/api/auth/device/${accept ? "approve" : "deny"}`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ userCode: checked.user_code }),
-          },
-        );
-        setStatus(
-          response.ok
-            ? accept
-              ? "Device authorized. You can return to the CLI."
-              : "Device request denied."
-            : `Authorization failed (HTTP ${response.status}).`,
-        );
-        if (response.ok) setVerification(null);
-      } catch {
-        setStatus("The device authorization service could not be reached.");
-      } finally {
-        setPending(false);
-      }
-    },
-    [verify],
-  );
-
-  const configurationFailure = provider
-    ? providerConfigurationFailure(provider, providerConfiguration)
-    : null;
-
   return (
-    <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
-      <section className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold">Authorize Aomi CLI</h1>
-        <p className="text-muted-foreground mt-3 text-sm">
-          Confirm that the code shown by your CLI matches.
-        </p>
-        {!provider ? (
-          <div className="mt-6 grid gap-3">
-            <button
-              className="bg-foreground text-background h-11 rounded-md"
-              onClick={() => selectProvider(router, params, "privy")}
-              type="button"
-            >
-              Continue with Privy
-            </button>
-            <button
-              className="border-border h-11 rounded-md border"
-              onClick={() => selectProvider(router, params, "para")}
-              type="button"
-            >
-              Continue with Para
-            </button>
-          </div>
-        ) : configurationFailure ? (
-          <p className="text-muted-foreground mt-4 text-sm">
-            {providerFailureText(configurationFailure)}
-          </p>
-        ) : (
-          <>
-            <input
-              className="border-border mt-5 h-11 w-full rounded-md border px-3 font-mono uppercase"
-              value={code}
-              onChange={(event) => {
-                setCode(event.target.value);
-                setVerification(null);
-                setStatus(null);
-                initiallyVerified.current = true;
-              }}
-            />
-            {status ? (
-              <p className="text-muted-foreground mt-4 text-sm">{status}</p>
-            ) : null}
-            {session?.session ? (
-              verification ? (
-                <>
-                  <DeviceRequestDetails verification={verification} />
-                  <div className="mt-6 grid gap-3">
-                    <button
-                      disabled={pending}
-                      className="bg-foreground text-background h-11 rounded-md disabled:opacity-60"
-                      onClick={() => void decide(true)}
-                      type="button"
-                    >
-                      Authorize device
-                    </button>
-                    <button
-                      disabled={pending}
-                      className="border-border h-11 rounded-md border disabled:opacity-60"
-                      onClick={() => void decide(false)}
-                      type="button"
-                    >
-                      Deny
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <button
-                  disabled={pending || !code.trim()}
-                  className="bg-foreground text-background mt-6 h-11 w-full rounded-md disabled:opacity-60"
-                  onClick={() => void verify()}
-                  type="button"
-                >
-                  Review request
-                </button>
-              )
-            ) : (
-              <button
-                disabled={pending}
-                className="bg-foreground text-background mt-6 h-11 w-full rounded-md disabled:opacity-60"
-                onClick={() => void signIn()}
-                type="button"
-              >
-                Sign in with {provider === "para" ? "Para" : "Privy"}
-              </button>
-            )}
-          </>
-        )}
-      </section>
-    </main>
+    <StandalonePage
+      purpose={{
+        icon: <ConnectionMark kind="cli" name="Terminal" size={16} />,
+        text: "To connect your terminal",
+      }}
+    >
+      <DeviceSheet />
+    </StandalonePage>
   );
 }
 
-function DeviceRequestDetails({
-  verification,
-}: {
-  verification: DeviceVerification;
-}) {
-  const resources = Array.isArray(verification.resource)
-    ? verification.resource
-    : verification.resource
-      ? [verification.resource]
-      : [];
-  return (
-    <dl className="border-border mt-5 grid gap-3 rounded-md border p-4 text-sm">
-      <div>
-        <dt className="text-muted-foreground">Client</dt>
-        <dd className="mt-1 break-all font-mono">{verification.client_id}</dd>
-      </div>
-      {resources.length > 0 ? (
-        <div>
-          <dt className="text-muted-foreground">Resource</dt>
-          {resources.map((resource) => (
-            <dd className="mt-1 break-all font-mono" key={resource}>
-              {resource}
-            </dd>
-          ))}
-        </div>
-      ) : null}
-      <div>
-        <dt className="text-muted-foreground">Permissions</dt>
-        <dd className="mt-1 break-words">
-          {verification.scope?.split(/\s+/).filter(Boolean).join(", ") ||
-            "None requested"}
-        </dd>
-      </div>
-    </dl>
-  );
-}
-
-function parseDeviceVerification(value: unknown): DeviceVerification | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  if (
-    typeof record.user_code !== "string" ||
-    typeof record.client_id !== "string" ||
-    !["pending", "approved", "denied"].includes(String(record.status))
-  ) {
-    return null;
-  }
-  const resource = record.resource;
-  if (
-    resource !== undefined &&
-    typeof resource !== "string" &&
-    (!Array.isArray(resource) ||
-      !resource.every((entry) => typeof entry === "string"))
-  ) {
-    return null;
-  }
+/**
+ * Read a code once: the read claims it for this signed-in browser, and Better
+ * Auth allows only a few reads per code lifetime.
+ */
+async function claim(code: string): Promise<{ clientId?: string } | null> {
+  const response = await fetch(
+    `/api/auth/device?${new URLSearchParams({ user_code: code })}`,
+    { credentials: "include" },
+  ).catch(() => null);
+  const body = (await response?.json().catch(() => null)) as {
+    status?: unknown;
+    client_id?: unknown;
+  } | null;
+  if (!response?.ok || body?.status !== "pending") return null;
   return {
-    user_code: record.user_code,
-    status: record.status as DeviceVerification["status"],
-    client_id: record.client_id,
-    scope: typeof record.scope === "string" ? record.scope : undefined,
-    resource: resource as string | string[] | undefined,
+    clientId: typeof body.client_id === "string" ? body.client_id : undefined,
   };
 }
 
-function providerLabel(provider: DeviceAuthProvider): string {
-  return provider === "para" ? "Para" : "Privy";
-}
+export function DeviceSheet() {
+  const initial = normalized(useSearchParams().get("user_code") ?? "");
+  const [state, setState] = useState<Step>({ step: "enter" });
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState(false);
+  const client = useMemo(() => createPortalClient(), []);
+  // The terminal's lanes, written once the login went through.
+  const lanes = useConsentLanes(client);
 
-function normalizedUserCode(value: string): string {
-  return value.trim().toUpperCase();
-}
+  const check = useCallback(async (code: string) => {
+    setPending(true);
+    const claimed = await claim(code);
+    setState(
+      claimed ? { step: "confirm", code, ...claimed } : { step: "failed" },
+    );
+    setPending(false);
+  }, []);
+  const checked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initial || checked.current === initial) return;
+    checked.current = initial;
+    void check(initial);
+  }, [check, initial]);
 
-function selectProvider(
-  router: ReturnType<typeof useRouter>,
-  params: ReturnType<typeof useSearchParams>,
-  provider: DeviceAuthProvider,
-): void {
-  const next = new URLSearchParams(params.toString());
-  next.set("provider", provider);
-  router.replace(`/oauth/device?${next.toString()}`);
+  const decide = async (code: string, accept: boolean, clientId?: string) => {
+    setPending(true);
+    const ok = await fetch(`/api/auth/device/${accept ? "approve" : "deny"}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ userCode: code }),
+    })
+      .then((response) => response.ok)
+      .catch(() => false);
+    // A failed lane write leaves the terminal on its default lanes.
+    if (ok && accept && clientId) await lanes.save(`oauth:${clientId}`);
+    setState(
+      ok ? { step: accept ? "connected" : "denied" } : { step: "failed" },
+    );
+    setPending(false);
+  };
+
+  const mark = <ConnectionMark kind="cli" name="Terminal" size={36} />;
+  if (state.step === "confirm")
+    return (
+      <AomiSheet backdrop={false}>
+        <SheetHeader
+          title="Connect your terminal?"
+          description="Only continue if this matches the code in your terminal."
+          onClose={() => void decide(state.code, false)}
+        />
+        <div className="flex flex-col items-center gap-4 px-5 pb-5">
+          {mark}
+          <p
+            data-device-code
+            className="border-aomi-border rounded-card w-full border border-dashed p-3.5 text-center font-mono text-[22px] font-semibold leading-none tracking-[0.14em]"
+          >
+            {state.code}
+          </p>
+          {state.clientId ? (
+            <ConsentWallets
+              client={client}
+              connectionKey={`oauth:${state.clientId}`}
+              name="terminal"
+              startLane="here"
+              onChange={lanes.onChange}
+            />
+          ) : null}
+          <div className="flex w-full flex-col gap-2">
+            <AomiButton
+              variant="primary"
+              className="h-10 w-full"
+              disabled={pending || (Boolean(state.clientId) && !lanes.ready)}
+              onClick={() => void decide(state.code, true, state.clientId)}
+            >
+              Connect
+            </AomiButton>
+            <AomiButton
+              className="h-10 w-full"
+              disabled={pending}
+              onClick={() => void decide(state.code, false)}
+            >
+              It doesn’t match
+            </AomiButton>
+          </div>
+        </div>
+      </AomiSheet>
+    );
+  if (state.step === "enter")
+    return initial ? null : (
+      <AomiSheet backdrop={false}>
+        <SheetHeader
+          title="Connect your terminal"
+          description="Enter the code from your terminal."
+          onClose={home}
+        />
+        <form
+          className="flex flex-col gap-4 px-5 pb-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (draft.trim()) void check(normalized(draft));
+          }}
+        >
+          <input
+            autoFocus
+            value={draft}
+            aria-label="Code from your terminal"
+            onChange={(event) => setDraft(event.target.value)}
+            className="border-aomi-border bg-aomi-bg rounded-control h-10 w-full border px-3 text-center font-mono uppercase tracking-[0.14em] outline-none"
+          />
+          <AomiButton
+            type="submit"
+            variant="primary"
+            className="h-10 w-full"
+            disabled={pending || !draft.trim()}
+          >
+            Continue
+          </AomiButton>
+        </form>
+      </AomiSheet>
+    );
+  return (
+    <AomiSheet backdrop={false}>
+      <SheetHeader
+        {...(state.step === "connected"
+          ? {
+              title: "Terminal connected",
+              description: "Go back to your terminal. You can close this tab.",
+            }
+          : state.step === "denied"
+            ? { title: "Not connected", description: "You can close this tab." }
+            : {
+                title: "This code doesn’t work",
+                description: "Run aomi account login again in your terminal.",
+              })}
+        onClose={home}
+      />
+      {state.step === "connected" ? (
+        <div className="flex justify-center px-5 pb-5">
+          <CircleCheck
+            className="text-aomi-success size-12"
+            strokeWidth={1.5}
+          />
+        </div>
+      ) : null}
+    </AomiSheet>
+  );
 }

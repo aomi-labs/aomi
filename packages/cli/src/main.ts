@@ -107,6 +107,7 @@ function printRootHelp(): void {
   console.log("  app                          App management");
   console.log("  chain                        Chain information");
   console.log("  wallet                       Wallet configuration");
+  console.log("  wallets                      Account wallets");
   console.log(
     "  account                      Account login and link management",
   );

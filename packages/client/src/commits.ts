@@ -12,8 +12,19 @@ import {
   agentSchemas,
 } from "./generated/agent-v1/schemas";
 import { reviewEligibility } from "./commit-lifecycle";
+import {
+  COMMIT_REF_ERROR_CODES,
+  CommitStaleError,
+  commitRefError,
+  commitRefPaths,
+  type CommitRefApproveRequest,
+  type CommitRefView,
+  type CommitStep4Fields,
+} from "./commit-ref";
 
-export type CommitView = components["schemas"]["CommitView"];
+/** The generated view plus the hand-written step 4 fields (see commit-ref.ts). */
+export type CommitView = Omit<components["schemas"]["CommitView"], "state"> &
+  CommitStep4Fields;
 export type CommitState = CommitView["state"];
 export type CommitAction = NonNullable<CommitView["action"]>;
 export type SignableCommit = components["schemas"]["SignableCommit"];
@@ -380,6 +391,11 @@ export function commitCapabilities(
   };
 }
 
+/** Which commit routes a controller talks to. `ref` is the thread-less
+ * `/v1/commits/:ref` family: no X-Thread-Id, no thread ownership check, and
+ * every write names the version (and review digest) it was reviewed at. */
+export type CommitRouteFamily = "agent" | "pipeline" | "ref";
+
 /** A view cache, not another lifecycle. GET /commits is authoritative after
  * reconnects, lost responses, signing and external submissions. */
 export class CommitController {
@@ -414,13 +430,24 @@ export class CommitController {
     private client: AomiClient,
     readonly threadId: string,
     private capabilities: CommitCapabilities = {},
-    private readonly routeFamily: "agent" | "pipeline" = "agent",
+    private readonly routeFamily: CommitRouteFamily = "agent",
   ) {}
+  /** Thread-scoped families reject views from other threads; refs have none. */
+  private get threadBound(): boolean {
+    return this.routeFamily !== "ref";
+  }
+  /** Recovery records stay keyed by the commit's thread, so a ref handle and
+   * the chat sidebar reconcile the same wallet attempt. */
+  private scope(id: string): string {
+    return this.threadBound
+      ? this.threadId
+      : (this.views.get(id)?.thread_id ?? this.threadId);
+  }
   all = (): readonly CommitView[] => this.snapshot;
   submissionPhase = (id: string): CommitSubmissionPhase | undefined =>
     this.submissionPhases.get(id);
   recoveryRecord = (id: string): CommitRecoveryRecord | undefined =>
-    this.capabilities.recovery?.load(this.threadId, id);
+    this.capabilities.recovery?.load(this.scope(id), id);
   review = (id: string): CommitReview | undefined => {
     const view = this.views.get(id);
     return commitReview(view?.review?.request) ?? this.reviews.get(id);
@@ -477,7 +504,8 @@ export class CommitController {
     return { ...this.walletCapabilities, ...this.capabilities };
   }
   ingest(view: CommitView): void {
-    if (this.closed || view.thread_id !== this.threadId) return;
+    if (this.closed || (this.threadBound && view.thread_id !== this.threadId))
+      return;
     const existing = this.views.get(view.commit_id);
     if (this.store(view, false) !== existing) this.schedule();
   }
@@ -497,7 +525,7 @@ export class CommitController {
     if (view.wallet_attempt?.state === "mismatched") return false;
     if (this.newAttemptIneligible(view)) return false;
     const recovery = this.capabilities.recovery?.load(
-      this.threadId,
+      this.scope(view.commit_id),
       view.commit_id,
     );
     if (
@@ -534,9 +562,7 @@ export class CommitController {
     }
   }
   async refresh(id: string): Promise<CommitView> {
-    const view = await this.client.request<CommitView>("GET", this.path(id), {
-      sessionId: this.threadId,
-    });
+    const view = await this.send<CommitView>("GET", this.paths(id).view);
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
     const current = this.store(view);
@@ -596,7 +622,7 @@ export class CommitController {
         throw new Error(
           `Commit requires ${expected} signed payload${expected === 1 ? "" : "s"}`,
         );
-      return this.manual(id, { kind: "signed", payloads });
+      return this.manual(id, { kind: "signed", payloads }, view);
     });
   }
   /** Report a previously broadcast transaction after reviewing its exact ID. */
@@ -619,10 +645,11 @@ export class CommitController {
           throw new Error(
             "Broadcast transaction does not match the reviewed commit",
           );
-        return this.manual(id, {
-          kind: "broadcast",
-          transaction_id: transactionId,
-        });
+        return this.manual(
+          id,
+          { kind: "broadcast", transaction_id: transactionId },
+          view,
+        );
       },
       (view) => {
         if (view.state !== "submitted" && view.state !== "confirmed")
@@ -666,17 +693,111 @@ export class CommitController {
   async reject(id: string): Promise<CommitView> {
     return this.manual(id, { kind: "rejected" });
   }
+  /** The commit on the thread-less ref route, with its `sign_url` and
+   * whether this session may approve it (`can_approve`). Not cached. */
+  refView(id: string): Promise<CommitRefView> {
+    return this.sendRef<CommitRefView>("GET", commitRefPaths.view(id));
+  }
+  /**
+   * Approve a parked commit (`awaiting_approval`) at the reviewed version and
+   * review digest; Aomi then signs with the agent wallet. Always uses the
+   * thread-less ref route, so it also works for refs from other threads (a
+   * scheduled run). Approving one member approves the whole batch.
+   */
+  async approve(
+    id: string,
+    review?: CommitExecutionReview,
+  ): Promise<CommitRefView> {
+    if (this.closed) throw new Error("Commit session closed");
+    // Without an explicit review, approve exactly what this controller shows.
+    const basis = review
+      ? undefined
+      : (this.views.get(id) ??
+        (await this.sendRef<CommitView>("GET", commitRefPaths.view(id))));
+    const body: CommitRefApproveRequest = review
+      ? {
+          version: review.expectedVersion,
+          review_digest: review.expectedReviewDigest ?? "",
+        }
+      : { version: basis!.version, review_digest: basis!.review?.digest ?? "" };
+    const view = await this.sendRef<CommitRefView>(
+      "POST",
+      commitRefPaths.approve(id),
+      body,
+    );
+    if (view.commit_id !== id)
+      throw new Error("Commit response identity mismatch");
+    if (!this.threadBound || view.thread_id === this.threadId) {
+      this.store(view);
+      // The other members moved with this one; pick them up now.
+      for (const member of view.batch?.ordered_commit_ids ?? [])
+        if (member !== id && this.views.has(member))
+          void this.refresh(member).catch(() => undefined);
+      this.schedule();
+    }
+    return view;
+  }
   close(): void {
     this.closed = true;
     clearTimeout(this.timer);
     this.listeners.clear();
   }
-  private path(id: string): string {
+  private paths(id: string): {
+    view: string;
+    attempts: string;
+    report: (attemptId: string) => string;
+  } {
+    if (this.routeFamily === "ref")
+      return {
+        view: commitRefPaths.view(id),
+        attempts: commitRefPaths.attempts(id),
+        report: (attemptId) => commitRefPaths.report(id, attemptId),
+      };
     const root =
       this.routeFamily === "pipeline"
         ? "/v1/pipeline/evm/commits"
         : "/api/commits";
-    return `${root}/${encodeURIComponent(id)}`;
+    const view = `${root}/${encodeURIComponent(id)}`;
+    return {
+      view,
+      attempts: `${view}/wallet-attempts`,
+      report: (attemptId) =>
+        `${view}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
+    };
+  }
+  /** Thread families keep the legacy transport and its `HTTP <status>` errors;
+   * refs answer typed errors (CommitNotFoundError, CommitStaleError). */
+  private async send<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    if (this.threadBound)
+      return this.client.request<T>(method, path, {
+        sessionId: this.threadId,
+        ...(body === undefined ? {} : { body }),
+      });
+    return this.sendRef<T>(method, path, body);
+  }
+  private async sendRef<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const response = await this.client.requestResponse(method, path, {
+      ...(body === undefined ? {} : { body }),
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      let parsed: unknown = text;
+      try {
+        parsed = text ? JSON.parse(text) : undefined;
+      } catch {
+        // A non-JSON error body still maps by status.
+      }
+      throw commitRefError(response.status, response.statusText, parsed);
+    }
+    return (await response.json()) as T;
   }
   private newAttemptIneligible(view: CommitView): boolean {
     // A request ID saved before POST is not proof that an attempt was admitted.
@@ -697,7 +818,7 @@ export class CommitController {
     this.changed();
   }
   private store(view: CommitView, authoritative = true): CommitView {
-    if (view.thread_id !== this.threadId)
+    if (this.threadBound && view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
     const current = this.views.get(view.commit_id);
     if (current) {
@@ -715,20 +836,56 @@ export class CommitController {
     this.notifyListeners();
     return view;
   }
-  private async manual(id: string, body: CommitManual): Promise<CommitView> {
+  /** `basis` is the view the caller reviewed; ref writes bind its version
+   * (and review digest) so a changed commit answers 409 instead of applying. */
+  private async manual(
+    id: string,
+    body: CommitManual,
+    basis?: CommitView,
+  ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
     this.pending.set(id, body);
-    const view = await this.client.request<CommitView>(
-      "POST",
-      `${this.path(id)}/manual`,
-      { sessionId: this.threadId, body },
-    );
+    const view = this.threadBound
+      ? await this.send<CommitView>(
+          "POST",
+          `${this.paths(id).view}/manual`,
+          body,
+        )
+      : await this.manualByRef(
+          id,
+          body,
+          basis ?? this.views.get(id) ?? (await this.refresh(id)),
+        );
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
     this.pending.delete(id);
     const current = this.store(view);
     this.schedule();
     return current;
+  }
+  private manualByRef(
+    id: string,
+    body: CommitManual,
+    basis: CommitView,
+  ): Promise<CommitView> {
+    const version = basis.version;
+    const review_digest = basis.review?.digest ?? "";
+    switch (body.kind) {
+      case "signed":
+        return this.send("POST", commitRefPaths.sign(id), {
+          version,
+          review_digest,
+          payloads: body.payloads,
+        });
+      case "broadcast":
+        return this.send("POST", commitRefPaths.broadcast(id), {
+          version,
+          review_digest,
+          transaction_id: body.transaction_id,
+        });
+      case "rejected":
+        return this.send("POST", commitRefPaths.reject(id), { version });
+    }
   }
   private async perform(
     id: string,
@@ -749,7 +906,7 @@ export class CommitController {
         "Execution is blocked by the current reviewed eligibility",
       );
     const pending = this.pending.get(id);
-    if (pending) view = await this.manual(id, pending);
+    if (pending) view = await this.manual(id, pending, view);
     if (this.closed) throw new Error("Commit session closed");
     const browserSend = this.browserSendSelection(view);
     if (browserSend && this.canStartWalletSend()) {
@@ -760,7 +917,7 @@ export class CommitController {
         throw new Error("This wallet does not support sign-only commits");
       const payloads = await sign(view, view.action.payload);
       if (this.closed) throw new Error("Commit session closed");
-      view = await this.manual(id, { kind: "signed", payloads });
+      view = await this.manual(id, { kind: "signed", payloads }, view);
     }
     if (view.action?.kind === "broadcast") {
       const send =
@@ -779,7 +936,11 @@ export class CommitController {
       const hash = await send(view, view.action.signed_transaction);
       if (hash !== view.action.transaction_id)
         throw new Error("Broadcaster returned a different transaction");
-      view = await this.manual(id, { kind: "broadcast", transaction_id: hash });
+      view = await this.manual(
+        id,
+        { kind: "broadcast", transaction_id: hash },
+        view,
+      );
     }
     return view;
   }
@@ -787,17 +948,24 @@ export class CommitController {
     view: CommitView,
     review: CommitExecutionReview,
   ): void {
+    if (view.version !== review.expectedVersion)
+      throw new CommitStaleError(
+        COMMIT_REF_ERROR_CODES.versionConflict,
+        "Commit review changed; refresh and review it again",
+      );
     if (
-      view.version !== review.expectedVersion ||
-      (review.expectedReviewDigest !== undefined &&
-        view.review?.digest !== review.expectedReviewDigest)
+      review.expectedReviewDigest !== undefined &&
+      view.review?.digest !== review.expectedReviewDigest
     )
-      throw new Error("Commit review changed; refresh and review it again");
+      throw new CommitStaleError(
+        COMMIT_REF_ERROR_CODES.digestMismatch,
+        "Commit review changed; refresh and review it again",
+      );
   }
   private async recoverWalletOutcome(view: CommitView): Promise<CommitView> {
     const recovery = this.capabilities.recovery;
     const attempt = view.wallet_attempt;
-    const record = recovery?.load(this.threadId, view.commit_id);
+    const record = recovery?.load(this.scope(view.commit_id), view.commit_id);
     if (!recovery || !attempt || !record) return view;
     if (attempt.state === "mismatched") return view;
     const recovered =
@@ -805,7 +973,7 @@ export class CommitController {
         ? record
         : { ...record, attemptId: attempt.attempt_id };
     if (recovered !== record)
-      recovery.save(this.threadId, view.commit_id, recovered);
+      recovery.save(this.scope(view.commit_id), view.commit_id, recovered);
     if (!recovered.transactionId && !recovered.rejected) return view;
     return this.reportWalletOutcome(
       view.commit_id,
@@ -847,7 +1015,7 @@ export class CommitController {
     const recovery = this.capabilities.recovery;
     if (!send || !preflight || !recovery)
       throw new Error("This wallet does not support durable prepared sends");
-    let record = recovery.load(this.threadId, view.commit_id);
+    let record = recovery.load(this.scope(view.commit_id), view.commit_id);
     if (record?.attemptId) {
       if (record.transactionId || record.rejected)
         return this.reportWalletOutcome(
@@ -860,25 +1028,22 @@ export class CommitController {
     await preflight(view, selection.payload);
     if (this.closed) throw new Error("Commit session closed");
     record ??= { clientRequestId: crypto.randomUUID() };
-    recovery.save(this.threadId, view.commit_id, record);
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
     let attempt: CommitWalletAttemptView;
     try {
-      attempt = await this.client.request<CommitWalletAttemptView>(
+      attempt = await this.send<CommitWalletAttemptView>(
         "POST",
-        `${this.path(view.commit_id)}/wallet-attempts`,
+        this.paths(view.commit_id).attempts,
         {
-          sessionId: this.threadId,
-          body: {
-            version: view.version,
-            review_digest: selection.reviewDigest,
-            client_request_id: record.clientRequestId,
-            transport: "browser_send",
-          } satisfies CommitWalletAttemptRequest,
-        },
+          version: view.version,
+          review_digest: selection.reviewDigest,
+          client_request_id: record.clientRequestId,
+          transport: "browser_send",
+        } satisfies CommitWalletAttemptRequest,
       );
     } catch (error) {
       if (isDefiniteRequestFailure(error))
-        recovery.remove(this.threadId, view.commit_id);
+        recovery.remove(this.scope(view.commit_id), view.commit_id);
       throw error;
     }
     if (attempt.commit_id !== view.commit_id)
@@ -886,7 +1051,7 @@ export class CommitController {
     if (attempt.transport !== "browser_send")
       throw new Error("Wallet attempt transport mismatch");
     record = { ...record, attemptId: attempt.attempt_id };
-    recovery.save(this.threadId, view.commit_id, record);
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
     if (this.closed) throw new Error("Commit session closed");
     if (!attempt.may_invoke_wallet || !attempt.request)
       throw new Error("Wallet send outcome is being reconciled");
@@ -910,7 +1075,7 @@ export class CommitController {
       if (!isExplicitWalletRejection(error)) throw error;
       const rejection = walletRejection(rejectionPhase);
       record = { ...record, rejected: true, rejection };
-      recovery.save(this.threadId, view.commit_id, record);
+      recovery.save(this.scope(view.commit_id), view.commit_id, record);
       return this.reportWalletOutcome(
         view.commit_id,
         attempt.attempt_id,
@@ -919,7 +1084,7 @@ export class CommitController {
     }
     if (!transactionId) throw new Error("Wallet returned no transaction hash");
     record = { ...record, transactionId };
-    recovery.save(this.threadId, view.commit_id, record);
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
     return this.reportWalletOutcome(view.commit_id, attempt.attempt_id, {
       kind: "transaction",
       transaction_id: transactionId,
@@ -930,14 +1095,14 @@ export class CommitController {
     attemptId: string,
     outcome: CommitWalletAttemptOutcome,
   ): Promise<CommitView> {
-    const view = await this.client.request<CommitView>(
+    const view = await this.send<CommitView>(
       "POST",
-      `${this.path(commitId)}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
-      { sessionId: this.threadId, body: outcome },
+      this.paths(commitId).report(attemptId),
+      outcome,
     );
     if (view.commit_id !== commitId)
       throw new Error("Commit response identity mismatch");
-    this.capabilities.recovery?.remove(this.threadId, commitId);
+    this.capabilities.recovery?.remove(this.scope(commitId), commitId);
     const current = this.store(view);
     this.schedule();
     return current;

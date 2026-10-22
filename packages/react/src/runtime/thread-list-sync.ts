@@ -9,7 +9,11 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import type { AgentSession, AomiClient } from "@aomi-labs/client";
+import type {
+  AgentSession,
+  AomiClient,
+  SessionOriginFields,
+} from "@aomi-labs/client";
 import { UserState as UserStateHelpers } from "@aomi-labs/client";
 
 import { useThreadContext } from "../contexts/thread-context";
@@ -213,11 +217,13 @@ export function useThreadListSync({
     threadContextRef.current.setThreadMetadata((latest) => {
       const next = new Map(latest);
       for (const thread of cachedThreads) {
+        if (isTelegramThread(thread)) continue;
         next.set(thread.id, {
           title: isPlaceholderTitle(thread.title ?? "") ? "" : thread.title!,
           status: thread.archived ? "archived" : "regular",
           lastActiveAt: thread.updatedAt,
           control: latest.get(thread.id)?.control ?? initRemoteThreadControl(),
+          ...threadOrigin(thread),
         });
       }
       return next;
@@ -255,6 +261,10 @@ export function useThreadListSync({
                   typeof metadata.lastActiveAt === "number"
                     ? metadata.lastActiveAt
                     : Date.parse(metadata.lastActiveAt ?? "") || Date.now(),
+                ...(metadata.origin ? { origin: metadata.origin } : {}),
+                ...(metadata.originApp !== undefined
+                  ? { origin_app: metadata.originApp }
+                  : {}),
               },
             ]
           : [],
@@ -422,6 +432,9 @@ export function useThreadListSync({
       let maxChatNum = baseThreadCount;
 
       for (const thread of threadList) {
+        // The server keeps Telegram chats off the portal list; an older or
+        // shared listing must not surface them either.
+        if (isTelegramThread(thread)) continue;
         remoteThreadIds.add(thread.id);
         const rawTitle = thread.title ?? "";
         const title = isPlaceholderTitle(rawTitle) ? "" : rawTitle;
@@ -441,6 +454,8 @@ export function useThreadListSync({
           // target. Threads created in this client retain their exact local
           // control through existingControl and the commit-time merge.
           control: existingControl ?? initRemoteThreadControl(),
+          ...threadOrigin(thread),
+          ...threadAwaitingApproval(thread),
         });
 
         const match = title.match(/^Chat (\d+)$/);
@@ -617,4 +632,29 @@ export function useThreadListSync({
     threadListError,
     canLoadThreads,
   };
+}
+
+function isTelegramThread(thread: AgentSession): boolean {
+  return (thread as AgentSession & SessionOriginFields).origin === "telegram";
+}
+
+/** Optional step 2 `origin` / `origin_app`; older servers send neither. */
+function threadOrigin(
+  thread: AgentSession,
+): Pick<ThreadMetadata, "origin" | "originApp"> {
+  const { origin, origin_app } = thread as AgentSession & SessionOriginFields;
+  return {
+    ...(origin ? { origin } : {}),
+    ...(typeof origin_app === "number" ? { originApp: origin_app } : {}),
+  };
+}
+
+/** Step 4 refs waiting for approval; live listings only, never the cache. */
+function threadAwaitingApproval(
+  thread: AgentSession,
+): Pick<ThreadMetadata, "awaitingApproval"> {
+  const refs = (thread as AgentSession & SessionOriginFields).awaitingApproval;
+  return Array.isArray(refs) && refs.length > 0
+    ? { awaitingApproval: refs.filter((ref) => typeof ref === "string") }
+    : {};
 }

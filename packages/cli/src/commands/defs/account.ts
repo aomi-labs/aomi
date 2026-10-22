@@ -8,10 +8,6 @@ const accountLoginDef = defineCommand({
   },
   args: {
     ...globalArgs,
-    provider: {
-      type: "string",
-      description: 'Browser auth provider ("privy" or "para")',
-    },
     wallet: {
       type: "boolean",
       description: "Use native CLI SIWE with the configured EVM wallet",
@@ -22,13 +18,12 @@ const accountLoginDef = defineCommand({
     },
     "no-browser": {
       type: "boolean",
-      description: "Do not open provider auth; use native CLI SIWE",
+      description: "Do not open the browser; use native CLI SIWE",
     },
   },
   async run({ args }) {
     const { accountLoginCommand } = await import("../account");
     await accountLoginCommand(buildCliConfig(args), {
-      provider: typeof args.provider === "string" ? args.provider : undefined,
       wallet: args.wallet === true,
       solana: args.solana === true,
       noBrowser: args["no-browser"] === true,

@@ -30,10 +30,22 @@ export type AccountMergeOffer = {
   };
 };
 
+/** Why `merge_accounts` refused for now; each clears on its own. */
+export type AccountMergeBusy =
+  /** A reply on either account is still being billed. */
+  | "payment_in_progress"
+  /** The source has a signed trade still being sent. */
+  | "commits_in_flight"
+  /** A Telegram link is folding one of the accounts right now. */
+  | "merge_in_progress";
+
 export type AccountMergeResult =
   | { status: "merged"; moved: { chats: number; wallets: number } }
   | { status: "invalid_ticket" }
-  | { status: "payment_in_progress" };
+  | { status: "payment_in_progress" }
+  | { status: "commits_in_flight" }
+  | { status: "merge_in_progress" }
+  | { status: "handover_conflict" };
 
 /**
  * Offer to merge `sourceUserId` into the signed-in `targetUserId`. The caller
@@ -87,11 +99,18 @@ export async function mergeAccountWithTicket(input: {
         };
       });
     } catch (error) {
-      if (!isPaymentInProgress(error)) throw error;
+      if (
+        error instanceof Error &&
+        error.message.includes("account_merge_handover_conflict")
+      )
+        return { status: "handover_conflict" };
+      const busy = mergeBusy(error);
+      if (!busy) throw error;
       const remaining = deadline - Date.now();
-      if (remaining <= 0) return { status: "payment_in_progress" };
+      if (remaining <= 0) return { status: busy };
       // Rollback releases the account locks and restores the ticket before
-      // waiting for the payment worker to finish accounting the last reply.
+      // waiting for the payment worker to finish accounting the last reply,
+      // a trade to land, or a running link to finish.
       await new Promise((resolve) =>
         setTimeout(resolve, Math.min(500, remaining)),
       );
@@ -195,9 +214,14 @@ function formatCredits(microusd: number): string {
   });
 }
 
-function isPaymentInProgress(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes("account_merge_payment_in_progress")
-  );
+/** `merge_accounts` errors worth waiting out, by the status each returns. */
+const BUSY: readonly [string, AccountMergeBusy][] = [
+  ["account_merge_payment_in_progress", "payment_in_progress"],
+  ["account_merge_commits_in_flight", "commits_in_flight"],
+  ["account_merge_in_progress", "merge_in_progress"],
+];
+
+function mergeBusy(error: unknown): AccountMergeBusy | undefined {
+  if (!(error instanceof Error)) return undefined;
+  return BUSY.find(([code]) => error.message.includes(code))?.[1];
 }

@@ -27,7 +27,6 @@ export const AOMI_SCOPES = [
   "account:apps:write",
   "account:credentials:read",
   "account:credentials:write",
-  "custody:delegate",
   "openid",
   "profile",
   "email",
@@ -40,14 +39,12 @@ export const AGENT_SCOPES = [
   "agent:actions:resolve",
   "mcp:agent",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const PIPELINE_SCOPES = [
   "pipeline:catalog",
   "pipeline:execute",
   "mcp:pipeline",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const ACCOUNT_SCOPES = [
   "account:credits:read",
@@ -85,10 +82,12 @@ export const PIPELINE_REST_SCOPES = PIPELINE_SCOPES.filter(
 );
 
 export type AomiOAuthResourceKind =
+  | "apiRest"
   | "agentRest"
   | "pipelineRest"
   | "agentMcp"
   | "pipelineMcp"
+  | "appMcp"
   | "accountRest";
 
 export type AomiOAuthResourcePolicy = {
@@ -135,6 +134,7 @@ export function aomiOAuthResources(
     agentRest: `${portalOrigin}/v1/agent`,
     pipelineRest: `${portalOrigin}/v1/pipeline`,
     accountRest: `${portalOrigin}/v1/account`,
+    apiRest: `${portalOrigin}/v1`,
   } as const;
 }
 
@@ -144,6 +144,27 @@ export function aomiOAuthResourcePolicies(
   const resources = aomiOAuthResources(env);
   const dpopRequired = isMcpDpopRequired(env);
   const capabilities: readonly AomiOAuthResourceCapabilities[] = [
+    {
+      // One sign-in for Aomi's own CLI and SDK: every REST scope, accepted
+      // on /v1/agent, /v1/pipeline and /v1/account (never on an MCP server),
+      // and narrowed to the route's own scopes before it reaches the API.
+      kind: "apiRest",
+      identifier: resources.apiRest,
+      allowedScopes: unique([
+        ...AGENT_REST_SCOPES,
+        ...PIPELINE_REST_SCOPES,
+        ...ACCOUNT_SCOPES,
+      ]),
+      guestScopes: [
+        "agent:read",
+        "agent:write",
+        "agent:actions:resolve",
+        "pipeline:catalog",
+        "pipeline:execute",
+        "offline_access",
+      ],
+      dpopBoundAccessTokensRequired: false,
+    },
     {
       kind: "agentRest",
       identifier: resources.agentRest,
@@ -196,15 +217,56 @@ export function aomiOAuthResourcePolicies(
   }));
 }
 
+const unique = (scopes: readonly string[]) => [...new Set(scopes)];
+
+/**
+ * The resources a token for `/v1` (the one CLI and SDK sign-in) also opens:
+ * the three REST APIs. MCP servers only take their own exact token.
+ */
+export function acceptsAomiApiToken(
+  resource: string,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  const kind = aomiOAuthResourcePolicy(resource, env)?.kind;
+  return (
+    kind === "agentRest" || kind === "pipelineRest" || kind === "accountRest"
+  );
+}
+
+/** An app's name as it appears in its MCP path, `/v1/apps/<name>/mcp`. */
+const APP_NAME = /^[a-z0-9][a-z0-9-_]{0,62}$/;
+
+/** The MCP resource locked to one app: the agent MCP with that app forced. */
+export function appMcpResource(
+  name: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return `${aomiOAuthResources(env).portalOrigin}/v1/apps/${name}/mcp`;
+}
+
+/** The app an app-locked MCP resource names; undefined for any other resource. */
+export function appMcpName(
+  resource: string,
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const prefix = `${aomiOAuthResources(env).portalOrigin}/v1/apps/`;
+  if (!resource.startsWith(prefix) || !resource.endsWith("/mcp")) return;
+  const name = resource.slice(prefix.length, -"/mcp".length);
+  return APP_NAME.test(name) ? name : undefined;
+}
+
 export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): AomiOAuthResourcePolicy | null {
-  return (
-    aomiOAuthResourcePolicies(env).find(
-      (policy) => policy.identifier === resource,
-    ) ?? null
-  );
+  const policies = aomiOAuthResourcePolicies(env);
+  const fixed = policies.find((policy) => policy.identifier === resource);
+  if (fixed) return fixed;
+  // Every app-locked MCP resource carries the agent MCP's scopes.
+  const agentMcp = policies.find((policy) => policy.kind === "agentMcp")!;
+  return appMcpName(resource, env)
+    ? { ...agentMcp, kind: "appMcp", identifier: resource }
+    : null;
 }
 
 export function guestScopesForAomiResource(

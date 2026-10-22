@@ -9,6 +9,8 @@ import {
   useReducedMotion,
 } from "motion/react";
 import {
+  lazy,
+  Suspense,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -37,6 +39,12 @@ import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
 import { PHONE_QUERY, useActivityPanel } from "./activity-panel-context";
 
+const ScheduledApproval = lazy(() =>
+  import("@/commit/approval").then((module) => ({
+    default: module.ScheduledApproval,
+  })),
+);
+
 export function ActivitySidebar() {
   return <ActivitySidebarContent />;
 }
@@ -48,7 +56,13 @@ function ActivitySidebarContent() {
     actionAttempts,
     commits = [],
     commitController,
+    currentThreadId,
+    getThreadMetadata,
   } = useAomiRuntime();
+  // Refs a scheduled run of this chat parked on its own hidden thread.
+  const scheduled = (
+    getThreadMetadata?.(currentThreadId)?.awaitingApproval ?? []
+  ).filter((ref) => !commits.some((commit) => commit.commit_id === ref));
   const reduceMotion = useReducedMotion();
   const {
     open: panelOpen,
@@ -184,11 +198,13 @@ function ActivitySidebarContent() {
     activity.transactions.length ||
     activity.history.length ||
     pendingActions.length ||
-    commits.length,
+    commits.length ||
+    scheduled.length,
   );
+  const waiting = Boolean(pending || pendingCommit || scheduled.length);
   useEffect(() => {
-    setWorthShowing(hasActivity, Boolean(pending || pendingCommit));
-  }, [hasActivity, pending, pendingCommit, setWorthShowing]);
+    setWorthShowing(hasActivity, waiting);
+  }, [hasActivity, waiting, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   // A new wallet request reopens the sheet: it holds the only sign controls.
   // Key it like WalletReview picks its request: the live commit comes first.
@@ -197,9 +213,7 @@ function ActivitySidebarContent() {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
   const showRail = hasActivity && panelOpen;
-  const hasTransactions = Boolean(
-    transactions.length > 0 || pending || pendingCommit,
-  );
+  const hasTransactions = Boolean(transactions.length > 0 || waiting);
   const transactionContent = (
     <>
       <TransactionList
@@ -209,6 +223,11 @@ function ActivitySidebarContent() {
         {transactions.map((tx) => card(tx))}
       </TransactionList>
       <WalletReview />
+      {scheduled.length ? (
+        <Suspense fallback={null}>
+          <ScheduledApproval refs={scheduled} />
+        </Suspense>
+      ) : null}
     </>
   );
   const groups = (

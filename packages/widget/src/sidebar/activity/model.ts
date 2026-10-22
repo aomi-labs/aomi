@@ -21,9 +21,10 @@ export type ActivityTransaction = {
   commit?: CommitView;
 };
 
-/** Commits awaiting the wallet, in signing order: whole batches in the order
- * they were committed, each batch by its own leg index. A later batch (another
- * chain, say) never cuts in while an earlier batch still has legs to sign. */
+/** Commits awaiting the wallet or the user's approval, in signing order:
+ * whole batches in the order they were committed, each batch by its own leg
+ * index. A later batch (another chain, say) never cuts in while an earlier
+ * batch still has legs to sign. An approved commit is Aomi's to sign. */
 export function selectReviewQueue(
   commits: readonly CommitView[],
   review: ((commitId: string) => unknown) | undefined,
@@ -41,8 +42,10 @@ export function selectReviewQueue(
   return commits
     .filter(
       (commit) =>
-        (commit.state === "needs_signature" ||
-          commit.state === "awaiting_broadcast") &&
+        (commit.state === "awaiting_approval" ||
+          ((commit.state === "needs_signature" ||
+            commit.state === "awaiting_broadcast") &&
+            commit.approval?.state !== "approved")) &&
         review(commit.commit_id) !== undefined,
     )
     .sort(
@@ -377,17 +380,25 @@ export function selectActivity(
     }
   }
   for (const commit of commits) {
-    for (const source of commit.batch?.sources ?? []) {
-      if (
-        source.thread_id !== commit.thread_id ||
-        source.chain_family !== commit.chain_family ||
-        source.chain_ref !== commit.chain_ref ||
-        source.stage_id !== commit.stage_id
-      )
-        continue;
+    // The staged ids a commit carries: its batch's own sources, else its stage
+    // id `<family>:<id>,<id>…` (a single commit, such as a Solana Ask).
+    const sourceIds = commit.batch
+      ? commit.batch.sources
+          .filter(
+            (source) =>
+              source.thread_id === commit.thread_id &&
+              source.chain_family === commit.chain_family &&
+              source.chain_ref === commit.chain_ref &&
+              source.stage_id === commit.stage_id,
+          )
+          .map((source) => source.source_id)
+      : (commit.stage_id.split(":")[1] ?? "")
+          .split(",")
+          .filter((part) => part !== "")
+          .map(Number)
+          .filter(Number.isInteger);
+    for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
-        const sourceId =
-          number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id);
         const chainRef =
           tx.family === "evm"
             ? tx.chainId == null
@@ -395,9 +406,10 @@ export function selectActivity(
               : String(tx.chainId)
             : tx.cluster;
         return (
-          tx.family === source.chain_family &&
-          sourceId === source.source_id &&
-          chainRef === source.chain_ref
+          tx.family === commit.chain_family &&
+          (number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id)) ===
+            sourceId &&
+          chainRef === commit.chain_ref
         );
       });
       if (match) {

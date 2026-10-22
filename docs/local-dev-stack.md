@@ -114,7 +114,7 @@ exercise independent rollback with `AOMI_OAUTH_ISSUANCE_ENABLED`,
 `AOMI_PIPELINE_MCP_OAUTH_ENABLED`, and `AOMI_LEGACY_SESSION_AUTH_ENABLED`.
 Guest REST is available in every environment with the same resource scope ceiling.
 Guest Agent and Pipeline sessions can complete self-custodial work, while
-payment submission and delegated custody remain outside the guest scope ceiling.
+payment submission remains outside the guest scope ceiling.
 
 ## Product-Mono Notes
 

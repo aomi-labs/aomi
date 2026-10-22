@@ -1,8 +1,14 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility, shortAddress } from "@aomi-labs/client";
-import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
+import {
+  ExternalLink,
+  Wallet,
+  Fuel,
+  ShieldCheck,
+  ShieldQuestion,
+} from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { testIds } from "@/test-ids";
@@ -34,6 +40,9 @@ export function TransactionReview({
   approving = false,
   approveDisabled = false,
   approveLabel,
+  approveHref,
+  connect,
+  note,
   rejectDisabled = false,
   status,
   statusIsError = false,
@@ -49,6 +58,12 @@ export function TransactionReview({
   approving?: boolean;
   approveDisabled?: boolean;
   approveLabel?: string;
+  /** Approve happens elsewhere: the primary action opens this URL. */
+  approveHref?: string;
+  /** The signer isn't connected: the primary action connects it first. */
+  connect?: { label: ReactNode; onClick: () => void; disabled?: boolean };
+  /** One line above the actions, e.g. who signs after approval. */
+  note?: string;
   rejectDisabled?: boolean;
   status?: string;
   statusIsError?: boolean;
@@ -94,6 +109,17 @@ export function TransactionReview({
       : request.type === "execute_evm"
         ? request.transactions.map((tx) => tx.from)
         : request.transactions.map((tx) => tx.payer);
+  // The simulation reports every account the transaction touches; the card
+  // shows what the signing wallet gains and loses (as Telegram does).
+  const ownChanges = (simulation?.balanceChanges ?? []).filter(
+    (change) =>
+      !change.account ||
+      signers.some((signer) =>
+        signer?.startsWith("0x")
+          ? signer.toLowerCase() === change.account!.toLowerCase()
+          : signer === change.account,
+      ),
+  );
   return (
     <section
       ref={reviewRef}
@@ -115,7 +141,7 @@ export function TransactionReview({
         <ImpactPanel
           key={`${review.id}-${review.revision}`}
           request={request}
-          balanceChanges={simulation?.balanceChanges ?? []}
+          balanceChanges={ownChanges}
           approvals={simulation?.approvals ?? []}
           supportedChains={supportedChains}
           showNetwork
@@ -182,6 +208,9 @@ export function TransactionReview({
           {status}
         </p>
       )}
+      {note && !failed ? (
+        <p className="type-meta text-aomi-muted mt-3">{note}</p>
+      ) : null}
       {!failed && batchProgress && batchProgress.total > 1 ? (
         <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
           <Wallet className="size-3.5 shrink-0" />
@@ -243,6 +272,28 @@ export function TransactionReview({
                 {batchProgress.submitting ? "Submitting…" : "Submit all"}
               </button>
             </div>
+          ) : connect ? (
+            <AomiButton
+              variant="secondary"
+              className={reviewButtonClass}
+              onClick={connect.onClick}
+              disabled={approving || connect.disabled}
+            >
+              {connect.label}
+            </AomiButton>
+          ) : approveHref ? (
+            <a
+              href={approveHref}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                aomiButton({ variant: "primary" }),
+                reviewButtonClass,
+              )}
+            >
+              {approveLabel ?? "Approve on Aomi"}
+              <ExternalLink />
+            </a>
           ) : (
             <AomiButton
               variant="primary"

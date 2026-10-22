@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { AOMI_BOOTING_WALLET_KIT } from "@/wallet/context";
-import { type PrivyDelegationContextValue } from "@/wallet/providers/privy/privy-delegation-context";
 import type { AomiWalletKit } from "@/wallet/types";
 
 /** Longest a provider handover keeps the previous kit on screen. */
@@ -10,14 +9,8 @@ const HANDOVER_MAX_MS = 8_000;
 
 /** One store per mounted wallet kit. SDK trees publish; chat observes without reparenting. */
 export function createWalletAuthStore() {
-  const unavailable: PrivyDelegationContextValue = {
-    start: async () => {
-      throw new Error("Privy is not configured for this app.");
-    },
-  };
   let snapshot = {
     kit: AOMI_BOOTING_WALLET_KIT,
-    delegation: unavailable,
     /** Why the provider island could not start; shown inside the widget. */
     failure: null as string | null,
   };
@@ -74,10 +67,6 @@ export function createWalletAuthStore() {
       };
       show({ ...current, isSettling: true });
     },
-    publishDelegation(next: PrivyDelegationContextValue | null) {
-      snapshot = { ...snapshot, delegation: next ?? unavailable };
-      notify();
-    },
     publishFailure(failure: string | null) {
       if (failure) endHandover();
       if (snapshot.failure === failure) return;
@@ -89,9 +78,6 @@ export function createWalletAuthStore() {
 export type WalletAuthStore = ReturnType<typeof createWalletAuthStore>;
 export const WalletAuthPublisherContext = createContext<
   ((kit: AomiWalletKit) => void) | null
->(null);
-export const WalletDelegationPublisherContext = createContext<
-  ((value: PrivyDelegationContextValue | null) => void) | null
 >(null);
 export const useWalletAuthPublisher = () =>
   useContext(WalletAuthPublisherContext);
