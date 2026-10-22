@@ -20,7 +20,7 @@ source: https://aomi.dev/agents/build.md
 
 This page is for an AI agent that has been told something like *"build an Aomi app for our REST API at api.acme.com"*. Read it once — it contains the full build procedure, SDK patterns, and how to add a chat frontend on top.
 
-> If the agent has access to the canonical \`aomi-build\` skill at [github.com/aomi-labs/skills](https://github.com/aomi-labs/skills/tree/main/aomi-build), prefer that — same content, kept in sync. To install: \`npx skills add aomi-labs/skills\`.
+> If the agent has access to the canonical \`aomi-build\` skill at [github.com/aomi-labs/skills](https://github.com/aomi-labs/skills/tree/main/aomi-build), prefer that — same content, kept in sync. To install: \`npx skills add @aomi-labs/skills\`.
 
 ## Quick orientation
 
