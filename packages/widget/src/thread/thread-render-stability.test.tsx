@@ -21,6 +21,7 @@ import {
 } from "@aomi-labs/react";
 import { AomiFrame } from "@/frame/aomi-frame";
 import { testIds } from "@/test-ids";
+import type { PendingInput } from "@aomi-labs/client";
 
 const work = vi.hoisted(() => ({ catalog: vi.fn(), row: vi.fn() }));
 vi.mock("@aomi-labs/react", async (importOriginal) => {
@@ -182,6 +183,134 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 describe("thread rendering under live runtime updates", () => {
+  const inputControl = (active: string | null) => ({
+    active_turn_id: active,
+    accepted_input_revision: active ? 2 : 0,
+    applied_input_revision: active ? 2 : 0,
+    queued_turn_ids: [],
+    event_sequence: 10,
+    stream_epoch: "status-epoch",
+  });
+
+  it.each([
+    ["sending", "Sending update…"],
+    ["accepted", "Update accepted · waiting for the current step"],
+    ["applied", "Update applied"],
+  ] as const)(
+    "scopes %s update feedback to its active root",
+    (status, label) => {
+      const input: PendingInput = {
+        inputId: "update",
+        targetTurnId: "turn-1",
+        operation: "steer",
+        message: "Use Base",
+        status,
+      };
+      const state = {
+        isSubmitting: false,
+        supportsSteering: true,
+        turnState: "processing" as const,
+        turnInputs: [input],
+      };
+      const view = render(
+        <Fixture
+          api={api({ ...state, turnControl: inputControl("turn-1") })}
+        />,
+      );
+      expect(view.getByText(label)).toBeVisible();
+      view.rerender(
+        <Fixture
+          api={api({
+            ...state,
+            turnState: "complete",
+            turnControl: inputControl(null),
+          })}
+        />,
+      );
+      expect(view.queryByText(label)).toBeNull();
+      view.rerender(
+        <Fixture
+          api={api({ ...state, turnControl: inputControl("turn-2") })}
+        />,
+      );
+      expect(view.queryByText(label)).toBeNull();
+    },
+  );
+
+  it.each(["rejected", "uncertain"] as const)(
+    "keeps a %s draft until the next composer submission and shows a new failure",
+    async (status) => {
+      const input: PendingInput = {
+        inputId: "update",
+        targetTurnId: "turn-1",
+        operation: "steer",
+        message: "Retained correction",
+        status,
+      };
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const state = {
+        isSubmitting: false,
+        supportsSteering: true,
+        currentThreadId: "thread-1",
+        turnState: "processing" as const,
+        turnInputs: [input],
+        sendMessage,
+      };
+      const view = render(
+        <Fixture
+          api={api({ ...state, turnControl: inputControl("turn-2") })}
+        />,
+      );
+      expect(view.getByText("Retained correction")).toBeVisible();
+      fireEvent.submit(view.getByTestId(testIds.composer));
+      await waitFor(() =>
+        expect(sendMessage).toHaveBeenCalledWith("Ready draft"),
+      );
+      expect(view.queryByText("Retained correction")).toBeNull();
+      // An exact input retry gets a fresh failure snapshot, even with the same id.
+      view.rerender(
+        <Fixture
+          api={api({
+            ...state,
+            turnInputs: [{ ...input, error: new Error("New attempt failed") }],
+            turnControl: inputControl("turn-2"),
+          })}
+        />,
+      );
+      expect(view.getByText("Retained correction")).toBeVisible();
+    },
+  );
+
+  it("dismisses an old retained correction when independent work is queued", async () => {
+    const queueMessage = vi.fn().mockResolvedValue(undefined);
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: false,
+          supportsSteering: true,
+          turnState: "processing",
+          turnControl: inputControl("turn-1"),
+          queueMessage,
+          turnInputs: [
+            {
+              inputId: "rejected",
+              targetTurnId: "turn-1",
+              operation: "steer",
+              message: "Old rejected correction",
+              status: "rejected",
+            },
+          ],
+        })}
+      />,
+    );
+    expect(view.getByText("Old rejected correction")).toBeVisible();
+    fireEvent.click(view.getByRole("button", { name: "Queue new request" }));
+    await waitFor(() =>
+      expect(queueMessage).toHaveBeenCalledWith("Ready draft"),
+    );
+    expect(view.queryByText("Old rejected correction")).toBeNull();
+  });
+
   it("keeps catalog/provider work stable on unrelated event/status snapshots while native messages still update", async () => {
     const view = render(<Fixture api={api()} />);
     await waitFor(() => expect(view.getByText("Saved answer")).toBeVisible());

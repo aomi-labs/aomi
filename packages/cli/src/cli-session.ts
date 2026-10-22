@@ -45,6 +45,10 @@ function sameServerOrigin(left: string, right: string | undefined): boolean {
 }
 
 export class CliSession {
+  private static readonly clientOwners = new WeakMap<
+    ClientSession,
+    CliSession
+  >();
   private state: CliSessionState;
 
   private constructor(state: CliSessionState) {
@@ -581,10 +585,42 @@ export class CliSession {
         inferenceFunding: config?.inferenceFunding,
       },
     );
+    CliSession.clientOwners.set(session, this);
     return session;
   }
 
-  syncClientSession(session: ClientSession, config: Partial<CliConfig>): void {
+  /** False means construction-time transport/auth/signing context must be replaced. */
+  syncClientSession(
+    session: ClientSession,
+    config: Partial<CliConfig>,
+  ): boolean {
+    const owner = CliSession.clientOwners.get(session);
+    const identity = (state: CliSessionState) => ({
+      baseUrl: state.baseUrl,
+      sessionId: state.sessionId,
+      clientId: state.clientId,
+      apiKey: state.apiKey,
+      accountBearer: state.accountBearer,
+      guestBearer: state.guestBearer,
+      auth: state.auth,
+      oauthGrants: state.oauthGrants,
+      publicKey: state.publicKey,
+      privateKey: state.privateKey,
+      svmPublicKey: state.svmPublicKey,
+      svmPrivateKey: state.svmPrivateKey,
+      svmCluster: state.svmCluster,
+      chainId: state.chainId,
+    });
+    if (
+      !owner ||
+      JSON.stringify(identity(owner.state)) !==
+        JSON.stringify(identity(this.state))
+    ) {
+      return false;
+    }
+    // Auth providers close over the original owner. Refresh that owner's state
+    // too, so a later token refresh cannot overwrite newly saved preferences.
+    owner.state = this.state;
     session.syncRuntimeOptions({
       target: this.resolveAgentTarget(config),
       model: config.model ?? this.state.model,
@@ -596,6 +632,7 @@ export class CliSession {
         }),
       inferenceFunding: config.inferenceFunding,
     });
+    return true;
   }
 
   private resolveAgentTarget(config?: Partial<CliConfig>): AgentTarget {

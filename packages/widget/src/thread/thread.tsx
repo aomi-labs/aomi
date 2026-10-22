@@ -31,6 +31,7 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
+import type { PendingInput } from "@aomi-labs/client";
 import { memo, useEffect, useRef, useState } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
@@ -397,9 +398,24 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const composer = useComposerRuntime();
   const safety = useThreadSafety();
   const committing = useRef(false);
+  // Retrying the same identity produces a new view, so a new failure remains
+  // visible after feedback from the previous attempt was dismissed.
+  const [dismissedFeedback, setDismissedFeedback] = useState<
+    ReadonlySet<PendingInput>
+  >(() => new Set());
+  const inputSubmitted = () => {
+    const feedback =
+      runtime?.turnInputs?.filter(
+        (input) => input.status === "rejected" || input.status === "uncertain",
+      ) ?? [];
+    if (feedback.length)
+      setDismissedFeedback((previous) => new Set([...previous, ...feedback]));
+  };
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
+    if (!event.defaultPrevented && composer.getState().text.trim())
+      inputSubmitted();
     const active = runtime?.turnControl
       ? Boolean(runtime.turnControl.active_turn_id)
       : runtime?.turnState === "processing" ||
@@ -449,17 +465,29 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
         placeholder={placeholder}
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
       />
-      <ComposerAction />
-      <TurnInputStatus />
+      <ComposerAction onInputSubmit={inputSubmitted} />
+      <TurnInputStatus dismissedFeedback={dismissedFeedback} />
       <ComposerSafetyStatus />
     </ComposerPrimitive.Root>
   );
 };
 
-const TurnInputStatus: FC = () => {
+const TurnInputStatus: FC<{ dismissedFeedback: ReadonlySet<PendingInput> }> = ({
+  dismissedFeedback,
+}) => {
   const runtime = useOptionalAomiRuntime();
   const inputs = runtime?.turnInputs ?? [];
-  const latest = inputs.findLast((input) => input.operation === "steer");
+  const candidate = inputs.findLast((input) => input.operation === "steer");
+  const feedback =
+    candidate?.status === "rejected" || candidate?.status === "uncertain";
+  const latest =
+    candidate &&
+    (feedback
+      ? !dismissedFeedback.has(candidate)
+      : Boolean(runtime?.turnControl?.active_turn_id) &&
+        candidate.targetTurnId === runtime?.turnControl?.active_turn_id)
+      ? candidate
+      : undefined;
   const status = latest?.status;
   const queued = runtime?.turnControl?.queued_turn_ids ?? [];
   const label =
@@ -563,7 +591,9 @@ const CapabilityPickerButton: FC = () => {
   );
 };
 
-const ComposerAction: FC = () => {
+const ComposerAction: FC<{ onInputSubmit: () => void }> = ({
+  onInputSubmit,
+}) => {
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
   const composer = useComposerRuntime();
@@ -613,6 +643,7 @@ const ComposerAction: FC = () => {
               onClick={() => {
                 const text = composer.getState().text.trim();
                 if (!text || !aomiRuntime.queueMessage) return;
+                onInputSubmit();
                 composer.setText("");
                 void aomiRuntime.queueMessage(text).catch((error: unknown) => {
                   if (!composer.getState().text.trim()) composer.setText(text);

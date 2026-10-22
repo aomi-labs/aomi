@@ -77,7 +77,10 @@ export class ClientSession {
   private control?: TurnControl;
   private observed = 0;
   private inputAdmissions = Promise.resolve();
-  private steeringAdmissions = new Map<string, Promise<EventPage>>();
+  private steeringAdmissions = new Map<
+    string,
+    { inputId: string; promise: Promise<EventPage> }
+  >();
   private inputs = new Map<
     string,
     {
@@ -329,12 +332,36 @@ export class ClientSession {
         status: "sending",
       },
       async () => {
-        const previous = predecessor ? await predecessor : undefined;
+        let previous: InputReceipt | undefined;
+        if (predecessor) {
+          try {
+            previous = (await predecessor.promise).input;
+          } catch (error) {
+            // A refused predecessor cannot poison this separate input's
+            // retained request. An unknown outcome needs its own receipt.
+            if (!isDefinitiveStartRejection(error))
+              previous = this.inputs.get(predecessor.inputId)?.view.receipt;
+          }
+        }
+        const unresolved = [...this.inputs.values()].find(
+          ({ view }) =>
+            view.inputId !== inputId &&
+            view.operation === "steer" &&
+            view.targetTurnId === targetTurnId &&
+            view.status === "uncertain",
+        );
+        if (unresolved)
+          throw new AgentApiError(
+            409,
+            "input_predecessor_unresolved",
+            "Check the previous update's receipt before sending another update.",
+            false,
+          );
         intent ??= {
           turnId: targetTurnId,
           expectedInputRevision:
             options.expectedInputRevision ??
-            previous?.input?.input_revision ??
+            previous?.input_revision ??
             expectedRevision,
           message: text,
         };
@@ -342,10 +369,10 @@ export class ClientSession {
       },
       JSON.stringify({ expectedInputRevision: options.expectedInputRevision }),
     );
-    this.steeringAdmissions.set(targetTurnId, admission);
+    this.steeringAdmissions.set(targetTurnId, { inputId, promise: admission });
     void admission
       .finally(() => {
-        if (this.steeringAdmissions.get(targetTurnId) === admission)
+        if (this.steeringAdmissions.get(targetTurnId)?.promise === admission)
           this.steeringAdmissions.delete(targetTurnId);
       })
       .catch(() => {});
@@ -398,7 +425,7 @@ export class ClientSession {
 
   /** Replay a possibly accepted input with its original body, target and identity. */
   async retryInput(inputId: string): Promise<EventPage> {
-    this.assertTurnInputs();
+    this.assertInputOwner();
     const input = this.inputs.get(inputId);
     if (!input) return Promise.reject(new TypeError("Unknown input identity"));
     return this.admitInput(input.view, input.request, input.contentKey);
@@ -409,7 +436,9 @@ export class ClientSession {
     targetTurnId: string;
     inputId?: string;
   }): Promise<EventPage> {
-    this.assertTurnInputs();
+    this.assertInputOwner();
+    if (!options.targetTurnId.trim())
+      throw new TypeError("A target turn is required");
     const page = await this.client.agent.interrupt(
       this.sessionId,
       options.targetTurnId,
@@ -429,11 +458,15 @@ export class ClientSession {
     return page;
   }
 
-  private assertTurnInputs(): void {
+  private assertInputOwner(): void {
     this.assertOpen();
     const guest = this.client.guestIdentity?.() ?? null;
     if (this.guestOwner && guest && guest !== this.guestOwner)
       throw AgentApiError.guestIdentityChanged();
+  }
+
+  private assertTurnInputs(): void {
+    this.assertInputOwner();
     if (this.capabilities?.turn_input !== 1)
       throw new AgentApiError(
         501,

@@ -152,6 +152,94 @@ describe("shared turn input admission", () => {
     expect(session.getSnapshot().inputs).toHaveLength(1);
   });
 
+  it("lets a separate correction reach the host after a rejected predecessor without rebasing its captured revision", async () => {
+    const { session, steer } = await setup();
+    let rejectFirst!: (error: unknown) => void;
+    steer.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectFirst = reject;
+      }),
+    );
+    const conflict = () =>
+      new AgentApiError(
+        409,
+        "revision_conflict",
+        "Another client updated this request",
+        false,
+        undefined,
+        {
+          session_id: session.sessionId,
+          control: control(2),
+        },
+      );
+    steer.mockRejectedValueOnce(conflict());
+    const first = session.steer("First correction", { inputId: "first" });
+    const second = session.steer("Separate correction", { inputId: "second" });
+    const firstRejected = expect(first).rejects.toMatchObject({
+      code: "revision_conflict",
+    });
+    const secondRejected = expect(second).rejects.toMatchObject({
+      code: "revision_conflict",
+    });
+    await Promise.resolve();
+    rejectFirst(conflict());
+    await Promise.all([firstRejected, secondRejected]);
+    expect(
+      steer.mock.calls.map((call) => [call[2], call[1].expectedInputRevision]),
+    ).toEqual([
+      ["first", 1],
+      ["second", 1],
+    ]);
+    expect(session.getSnapshot().control?.accepted_input_revision).toBe(2);
+
+    steer.mockResolvedValueOnce(
+      page({ input: receipt("later", 3), control: control(3) }),
+    );
+    await session.steer("Later correction", { inputId: "later" });
+    expect(steer.mock.calls[2]?.[1].expectedInputRevision).toBe(2);
+    steer.mockRejectedValueOnce(conflict());
+    await expect(session.retryInput("second")).rejects.toMatchObject({
+      code: "revision_conflict",
+    });
+    expect(steer.mock.calls[3]).toEqual(steer.mock.calls[1]);
+  });
+
+  it("gates distinct corrections behind an unknown receipt until that exact input is resolved", async () => {
+    const { session, steer } = await setup();
+    steer.mockRejectedValueOnce(new TypeError("Acknowledgement lost"));
+    const first = session.steer("First correction", { inputId: "unknown" });
+    const second = session.steer("Separate correction", { inputId: "waiting" });
+    const secondBlocked = expect(second).rejects.toMatchObject({
+      code: "input_predecessor_unresolved",
+    });
+    await expect(first).rejects.toThrow("Acknowledgement lost");
+    await secondBlocked;
+    await expect(
+      session.steer("Later separate correction", { inputId: "later" }),
+    ).rejects.toMatchObject({ code: "input_predecessor_unresolved" });
+    expect(steer).toHaveBeenCalledTimes(1);
+    expect(
+      session.getSnapshot().inputs?.find((input) => input.inputId === "unknown")
+        ?.status,
+    ).toBe("uncertain");
+
+    steer.mockResolvedValueOnce(
+      page({ input: receipt("unknown", 2), control: control(2) }),
+    );
+    await session.retryInput("unknown");
+    expect(steer.mock.calls[1]).toEqual(steer.mock.calls[0]);
+    steer.mockResolvedValueOnce(
+      page({ input: receipt("waiting", 3), control: control(3) }),
+    );
+    await session.retryInput("waiting");
+    expect(steer.mock.calls[2]?.[1]).toMatchObject({
+      turnId: "turn-1",
+      expectedInputRevision: 2,
+      message: "Separate correction",
+    });
+    expect(steer.mock.calls[2]?.[2]).toBe("waiting");
+  });
+
   it("keeps a completed target bound and never converts rejection into a new send", async () => {
     const { session, steer, start } = await setup();
     steer.mockRejectedValueOnce(
@@ -254,6 +342,139 @@ describe("shared turn input admission", () => {
     });
     expect(steer).not.toHaveBeenCalled();
     expect(start).not.toHaveBeenCalled();
+  });
+
+  it.each(["turn-1", "queued-turn"])(
+    "can cancel existing %s work after new input admissions are disabled",
+    async (targetTurnId) => {
+      const { session, client, poll } = await setup();
+      const current = { ...control(), queued_turn_ids: ["queued-turn"] };
+      poll.mockResolvedValueOnce(
+        page({ capabilities: { turn_input: 0 }, control: current }),
+      );
+      await session.sync();
+      const cancelled = page({
+        capabilities: { turn_input: 0 },
+        terminal_turn: { turn_id: targetTurnId, state: "interrupted" },
+        control: {
+          ...control(1, targetTurnId === "turn-1" ? null : "turn-1", 2),
+          queued_turn_ids: targetTurnId === "turn-1" ? ["queued-turn"] : [],
+        },
+      });
+      const interrupt = vi
+        .spyOn(client.agent, "interrupt")
+        .mockResolvedValueOnce(cancelled);
+      await expect(
+        session.cancel({ targetTurnId, inputId: "drain-cancel" }),
+      ).resolves.toEqual(cancelled);
+      expect(interrupt).toHaveBeenCalledOnce();
+      expect(interrupt).toHaveBeenCalledWith(
+        session.sessionId,
+        targetTurnId,
+        "drain-cancel",
+      );
+    },
+  );
+
+  it("replays only a known exact input after admission capability switches off", async () => {
+    const { session, steer, start, poll } = await setup();
+    steer.mockRejectedValueOnce(new TypeError("Lost acknowledgement"));
+    await expect(
+      session.steer("Keep this exact correction", {
+        inputId: "draining-input",
+      }),
+    ).rejects.toThrow("Lost acknowledgement");
+    const original = steer.mock.calls[0];
+    poll.mockResolvedValueOnce(page({ capabilities: { turn_input: 0 } }));
+    await session.sync();
+    steer.mockResolvedValueOnce(
+      page({
+        capabilities: { turn_input: 0 },
+        input: receipt("draining-input", 2),
+        control: control(2),
+      }),
+    );
+    await session.retryInput("draining-input");
+    expect(steer.mock.calls[1]).toEqual(original);
+    expect(session.getSnapshot().inputs?.[0]).toMatchObject({
+      inputId: "draining-input",
+      status: "accepted",
+    });
+    await expect(session.retryInput("unknown-input")).rejects.toThrow(
+      "Unknown input identity",
+    );
+    await expect(session.steer("A new correction")).rejects.toMatchObject({
+      code: "steering_unsupported",
+    });
+    await expect(session.queue("New independent work")).rejects.toMatchObject({
+      code: "steering_unsupported",
+    });
+    expect(steer).toHaveBeenCalledTimes(2);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("keeps guest ownership and closed-session guards on draining operations", async () => {
+    const { session, client, steer, poll } = await setup();
+    const guest = vi.spyOn(client, "guestIdentity").mockReturnValue("guest-1");
+    await session.sync();
+    steer.mockRejectedValueOnce(new TypeError("Lost acknowledgement"));
+    await expect(
+      session.steer("Retained correction", { inputId: "known" }),
+    ).rejects.toThrow("Lost acknowledgement");
+    poll.mockResolvedValueOnce(page({ capabilities: { turn_input: 0 } }));
+    await session.sync();
+    const interrupt = vi.spyOn(client.agent, "interrupt");
+    guest.mockReturnValue("guest-2");
+    await expect(
+      session.cancel({ targetTurnId: "turn-1" }),
+    ).rejects.toMatchObject({
+      code: "guest_identity_changed",
+      isGuestIdentityChanged: true,
+    });
+    await expect(session.retryInput("known")).rejects.toMatchObject({
+      code: "guest_identity_changed",
+      isGuestIdentityChanged: true,
+    });
+    session.close();
+    await expect(session.cancel({ targetTurnId: "turn-1" })).rejects.toThrow(
+      "Session is closed",
+    );
+    await expect(session.retryInput("known")).rejects.toThrow(
+      "Session is closed",
+    );
+    expect(interrupt).not.toHaveBeenCalled();
+    expect(steer).toHaveBeenCalledOnce();
+  });
+
+  it("replays a retained queue admission exactly while new queue admissions are disabled", async () => {
+    const { session, start, poll } = await setup();
+    start.mockRejectedValueOnce(new TypeError("Lost queue acknowledgement"));
+    await expect(
+      session.queue("Independent request", { inputId: "draining-queue" }),
+    ).rejects.toThrow("Lost queue acknowledgement");
+    const original = start.mock.calls[0];
+    poll.mockResolvedValueOnce(page({ capabilities: { turn_input: 0 } }));
+    await session.sync();
+    start.mockResolvedValueOnce(
+      page({
+        capabilities: { turn_input: 0 },
+        input: {
+          ...receipt("draining-queue", 1, "queued"),
+          operation: "queue",
+          turn_id: "queued-turn",
+        },
+        control: { ...control(), queued_turn_ids: ["queued-turn"] },
+      }),
+    );
+    await session.retryInput("draining-queue");
+    expect(start.mock.calls[1]).toEqual(original);
+    expect(session.getSnapshot().control?.queued_turn_ids).toEqual([
+      "queued-turn",
+    ]);
+    await expect(session.queue("Different request")).rejects.toMatchObject({
+      code: "steering_unsupported",
+    });
+    expect(start).toHaveBeenCalledTimes(2);
   });
 
   it("settles T1 with T1's answer while an observed conversation follows T2", async () => {

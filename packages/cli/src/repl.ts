@@ -216,7 +216,7 @@ export async function runInteractiveCli(
         if (next === "exit") {
           break;
         }
-        chat.sync();
+        await chat.sync();
       } catch (err) {
         if (err instanceof CliExit) {
           continue;

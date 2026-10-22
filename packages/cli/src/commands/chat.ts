@@ -85,52 +85,126 @@ export function printBoundaryForTurn(
 
 /** One session and renderer for the whole interactive conversation. */
 export async function openInteractiveChat(config: CliConfig, verbose: boolean) {
-  const cli = CliSession.loadOrCreate(config);
-  const session = cli.createClientSession(config, {
+  let cli = CliSession.loadOrCreate(config);
+  const credentialServer = cli.baseUrl;
+  const walletIdentity = (state: CliSession) =>
+    JSON.stringify([
+      state.publicKey,
+      state.privateKey,
+      state.svmPublicKey,
+      state.resolvedSvmPrivateKey(),
+    ]);
+  const credentialWallet = walletIdentity(cli);
+  const sessionConfig = (next: CliSession): CliConfig => {
+    const sameServer =
+      new URL(next.baseUrl).origin === new URL(credentialServer).origin;
+    const sameWallet = walletIdentity(next) === credentialWallet;
+    if (sameServer && sameWallet) return config;
+    const scoped = { ...config };
+    // Startup credentials and upload secrets belong only to the original
+    // server; startup signing keys also belong to its original wallet choice.
+    if (!sameServer) {
+      scoped.secrets = {};
+      delete scoped.apiKey;
+      delete scoped.accountBearer;
+    }
+    delete scoped.privateKey;
+    delete scoped.solanaPrivateKey;
+    return scoped;
+  };
+  let session = cli.createClientSession(sessionConfig(cli), {
     onPayment: printPaymentEvent,
   });
-  await ingestSecretsForSession(config, cli, session.client);
-  await applyRequestedModelIfPresent(config, cli, session);
-  try {
-    await session.fetchCurrentState();
-  } catch (error) {
-    if (
-      !(
-        error instanceof AgentApiError &&
-        error.status === 404 &&
-        error.code === "session_not_found"
-      )
-    ) {
-      session.close();
+  let closed = false;
+  let ready = false;
+  let printed = 0;
+  let sequence = 0;
+  const statuses = new Map<string, string>();
+  let unsubscribe = () => {};
+  let unobserve = () => {};
+  const prepare = async (current: ClientSession, state: CliSession) => {
+    const scoped = sessionConfig(state);
+    try {
+      await ingestSecretsForSession(scoped, state, current.client);
+      await applyRequestedModelIfPresent(scoped, state, current);
+      try {
+        await current.fetchCurrentState();
+      } catch (error) {
+        if (
+          !(
+            error instanceof AgentApiError &&
+            error.status === 404 &&
+            error.code === "session_not_found"
+          )
+        )
+          throw error;
+      }
+    } catch (error) {
+      current.close();
       throw error;
     }
-  }
-  let printed = session
-    .getSnapshot()
-    .messages.filter((message) => message.sender === "agent").length;
-  let sequence = session.getSnapshot().events.at(-1)?.sequence ?? 0;
-  const statuses = new Map<string, string>();
-  const unsubscribe = session.subscribe(() => {
-    const snapshot = session.getSnapshot();
-    for (const input of snapshot.inputs ?? []) {
-      if (statuses.get(input.inputId) === input.status) continue;
-      statuses.set(input.inputId, input.status);
-      console.log(`[${input.operation}: ${input.status}] ${input.message}`);
+    if (closed) {
+      current.close();
+      return;
     }
-    for (const event of snapshot.events) {
-      if (event.sequence <= sequence) continue;
-      sequence = event.sequence;
-      if (verbose && event.type === "tool_complete") printToolComplete(event);
-      if (event.type === "error") console.error(event.message);
-      if (event.type === "action" && event.state === "pending")
-        console.log(`Approval required: ${event.id}`);
-    }
-    printed = printNewAgentMessages(snapshot.messages, printed);
-  });
-  const unobserve = session.observe();
+    printed = current
+      .getSnapshot()
+      .messages.filter((message) => message.sender === "agent").length;
+    sequence = current.getSnapshot().events.at(-1)?.sequence ?? 0;
+    statuses.clear();
+    unsubscribe = current.subscribe(() => {
+      if (closed || current !== session) return;
+      const snapshot = current.getSnapshot();
+      for (const input of snapshot.inputs ?? []) {
+        if (statuses.get(input.inputId) === input.status) continue;
+        statuses.set(input.inputId, input.status);
+        console.log(`[${input.operation}: ${input.status}] ${input.message}`);
+      }
+      for (const event of snapshot.events) {
+        if (event.sequence <= sequence) continue;
+        sequence = event.sequence;
+        if (verbose && event.type === "tool_complete") printToolComplete(event);
+        if (event.type === "error") console.error(event.message);
+        if (event.type === "action" && event.state === "pending")
+          console.log(`Approval required: ${event.id}`);
+      }
+      printed = printNewAgentMessages(snapshot.messages, printed);
+    });
+    unobserve = current.observe();
+    ready = true;
+  };
+  await prepare(session, cli);
+  let syncing: Promise<void> | undefined;
+  const sync = (): Promise<void> => {
+    if (closed) return Promise.reject(new Error("Interactive chat is closed"));
+    if (syncing) return syncing;
+    syncing = (async () => {
+      // Saved identity is authoritative. Reapplying startup auth/server flags
+      // here could overwrite another process's deliberate account/server switch.
+      const next =
+        CliSession.load() ??
+        CliSession.loadOrCreate({ ...config, freshSession: false });
+      if (ready && next.syncClientSession(session, sessionConfig(next))) return;
+      ready = false;
+      unsubscribe();
+      unobserve();
+      session.close();
+      cli = next;
+      session = cli.createClientSession(sessionConfig(cli), {
+        onPayment: printPaymentEvent,
+      });
+      await prepare(session, cli);
+    })().finally(() => {
+      syncing = undefined;
+    });
+    return syncing;
+  };
   return {
-    session,
+    get session() {
+      return session;
+    },
     send: async (text: string) => {
+      await sync();
       const snapshot = session.getSnapshot();
       const active = snapshot.control
         ? snapshot.control.active_turn_id
@@ -142,18 +216,18 @@ export async function openInteractiveChat(config: CliConfig, verbose: boolean) {
       else await session.sendAsync(text);
     },
     queue: async (text: string) => {
+      await sync();
       await session.queue(text);
     },
     cancel: async (turnId?: string) => {
+      await sync();
       if (turnId) await session.cancel({ targetTurnId: turnId });
       else await session.interrupt();
     },
-    sync: () =>
-      CliSession.loadOrCreate({
-        ...config,
-        freshSession: false,
-      }).syncClientSession(session, config),
+    sync,
     close: () => {
+      if (closed) return;
+      closed = true;
       unsubscribe();
       unobserve();
       session.close();
