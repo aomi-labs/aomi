@@ -34,6 +34,16 @@ import { cliWallets } from "./action-capabilities";
 import { walletCapabilities } from "@aomi-labs/client";
 import { commitCapabilities } from "@aomi-labs/client";
 
+function sameServerOrigin(left: string, right: string | undefined): boolean {
+  if (!right) return false;
+  try {
+    const origin = new URL(left).origin;
+    return origin !== "null" && origin === new URL(right).origin;
+  } catch {
+    return false;
+  }
+}
+
 export class CliSession {
   private state: CliSessionState;
 
@@ -101,6 +111,9 @@ export class CliSession {
     }
 
     const baseUrl = config.baseUrl ?? seed?.baseUrl ?? DEFAULT_CLI_BASE_URL;
+    const trustedSeed = sameServerOrigin(baseUrl, seed?.baseUrl)
+      ? seed
+      : undefined;
     const configuredTarget = config.app ?? config.applicationId;
     const seededMode =
       seed?.agentMode ??
@@ -119,20 +132,20 @@ export class CliSession {
           ? undefined
           : (config.applicationId ?? seed?.applicationId),
       model: config.model ?? seed?.model,
-      apiKey: config.apiKey ?? seed?.apiKey,
-      accountBearer: config.accountBearer ?? seed?.accountBearer,
-      guestBearer: baseUrl === seed?.baseUrl ? seed.guestBearer : undefined,
+      apiKey: config.apiKey ?? trustedSeed?.apiKey,
+      accountBearer: config.accountBearer ?? trustedSeed?.accountBearer,
+      guestBearer: trustedSeed?.guestBearer,
       publicKey: config.publicKey ?? seed?.publicKey,
-      privateKey: seed?.privateKey,
+      privateKey: trustedSeed?.privateKey,
       svmPublicKey: svmPublicKey ?? seed?.svmPublicKey,
       svmCluster: config.svmCluster ?? seed?.svmCluster,
       // Carry forward only persisted Solana keys from `wallet set --solana`.
       // Keys supplied via --solana-private-key/env stay transient.
-      svmPrivateKey: seed?.svmPrivateKey,
+      svmPrivateKey: trustedSeed?.svmPrivateKey,
       chainId: config.chain ?? seed?.chainId,
-      secretHandles: seed?.secretHandles,
-      auth: seed?.auth,
-      oauthGrants: seed?.oauthGrants,
+      secretHandles: trustedSeed?.secretHandles,
+      auth: trustedSeed?.auth,
+      oauthGrants: trustedSeed?.oauthGrants,
     };
     const cli = new CliSession(state);
     cli.ensureSvmClusterInvariant();
@@ -216,8 +229,17 @@ export class CliSession {
     let changed = false;
 
     if (config.baseUrl !== undefined && config.baseUrl !== this.state.baseUrl) {
+      if (!sameServerOrigin(config.baseUrl, this.state.baseUrl)) {
+        delete this.state.auth;
+        delete this.state.accountBearer;
+        delete this.state.guestBearer;
+        delete this.state.oauthGrants;
+        delete this.state.apiKey;
+        delete this.state.secretHandles;
+        delete this.state.privateKey;
+        delete this.state.svmPrivateKey;
+      }
       this.state.baseUrl = config.baseUrl;
-      delete this.state.guestBearer;
       changed = true;
     }
     if (config.agentMode === "auto") {

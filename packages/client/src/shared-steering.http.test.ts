@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AomiClient, Session } from "./";
 import { createFakeAgentServer } from "../../../tests/e2e/fake-backend/server";
 
@@ -18,6 +18,119 @@ async function setup() {
 }
 
 describe("shared inputs over real HTTP and SSE", () => {
+  it("shows the next active turn after a terminal rejection while keeping the correction bound to the old turn", async () => {
+    const { session: first, client, backend } = await setup();
+    const steers = vi.spyOn(client.agent, "steer");
+    cleanup.push(() => steers.mockRestore());
+    await first.sendAsync("[slow] first request");
+    const second = new Session(client, { sessionId: first.sessionId });
+    cleanup.push(() => second.close());
+    await second.sync();
+    const oldTarget = second.getSnapshot().control!.active_turn_id!;
+    const queued = await first.queue("[slow] second request", {
+      inputId: "next-request",
+    });
+    backend.completeActiveInput(first.sessionId, "First answer");
+
+    await expect(
+      second.steer("Retain this old correction", {
+        inputId: "late-correction",
+        targetTurnId: oldTarget,
+      }),
+    ).rejects.toMatchObject({ code: "target_terminal" });
+    expect(second.getSnapshot()).toMatchObject({
+      turnId: queued.input!.turn_id,
+      turnState: "processing",
+      control: {
+        active_turn_id: queued.input!.turn_id,
+        accepted_input_revision: 1,
+      },
+    });
+    expect(second.getSnapshot().inputs).toEqual([
+      expect.objectContaining({
+        inputId: "late-correction",
+        targetTurnId: oldTarget,
+        message: "Retain this old correction",
+        status: "rejected",
+      }),
+    ]);
+    const originalRequest = steers.mock.calls.at(-1)!;
+    expect(originalRequest[1]).toMatchObject({
+      turnId: oldTarget,
+      expectedInputRevision: 1,
+    });
+    expect(steers).toHaveBeenCalledTimes(1);
+    await expect(second.retryInput("late-correction")).rejects.toMatchObject({
+      code: "target_terminal",
+    });
+    expect(steers.mock.calls.at(-1)).toEqual(originalRequest);
+    expect(backend.starts()).toHaveLength(2);
+    expect(
+      backend
+        .events(first.sessionId)
+        .some(
+          (event) =>
+            event.type === "turn_input" && event.input_id === "late-correction",
+        ),
+    ).toBe(false);
+  });
+
+  it("refreshes a stale client's revision from rejection without resending its correction", async () => {
+    const { session: first, client, backend } = await setup();
+    const steers = vi.spyOn(client.agent, "steer");
+    cleanup.push(() => steers.mockRestore());
+    await first.sendAsync("[slow] research");
+    const second = new Session(client, { sessionId: first.sessionId });
+    cleanup.push(() => second.close());
+    await second.sync();
+    const target = second.getSnapshot().control!.active_turn_id!;
+    await first.steer("Use Base", { inputId: "other-client-update" });
+    expect(second.getSnapshot().control?.accepted_input_revision).toBe(1);
+
+    await expect(
+      second.steer("Keep my draft", {
+        inputId: "stale-client-update",
+        targetTurnId: target,
+      }),
+    ).rejects.toMatchObject({ code: "revision_conflict" });
+    expect(second.getSnapshot().control).toMatchObject({
+      active_turn_id: target,
+      accepted_input_revision: 2,
+    });
+    expect(second.getSnapshot().inputs).toEqual([
+      expect.objectContaining({
+        inputId: "stale-client-update",
+        message: "Keep my draft",
+        targetTurnId: target,
+        status: "rejected",
+      }),
+    ]);
+    const firstAttempt = steers.mock.calls.at(-1)!;
+    expect(firstAttempt[1]).toMatchObject({
+      turnId: target,
+      expectedInputRevision: 1,
+      message: "Keep my draft",
+    });
+    expect(backend.requestsSince(0, "chat.steer")).toHaveLength(2);
+
+    await expect(
+      second.retryInput("stale-client-update"),
+    ).rejects.toMatchObject({ code: "revision_conflict" });
+    const explicitRetry = steers.mock.calls.at(-1)!;
+    expect(explicitRetry).toEqual(firstAttempt);
+    expect(backend.requestsSince(0, "chat.steer")).toHaveLength(3);
+    expect(backend.starts()).toHaveLength(1);
+    expect(
+      backend
+        .events(first.sessionId)
+        .filter(
+          (event) =>
+            event.type === "turn_input" &&
+            event.input_id === "stale-client-update",
+        ),
+    ).toHaveLength(0);
+  });
+
   it("keeps correction receipts on one target and admits queued work behind it", async () => {
     const { session, backend } = await setup();
     await session.sendAsync("[slow] research token");

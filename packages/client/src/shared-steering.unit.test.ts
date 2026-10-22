@@ -172,6 +172,59 @@ describe("shared turn input admission", () => {
     expect(start).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { control: control(2) },
+    { session_id: "foreign-session", control: control(2) },
+    {
+      session_id: "steering-session",
+      control: { ...control(2), stream_epoch: "other-epoch" },
+    },
+    { session_id: "steering-session", control: control(2, "turn-1", 0) },
+    {
+      session_id: "steering-session",
+      control: { ...control(2), accepted_input_revision: 0 },
+    },
+    {
+      session_id: "steering-session",
+      control: { ...control(2), applied_input_revision: 3 },
+    },
+    {
+      session_id: "steering-session",
+      control: { ...control(2), accepted_input_revision: 2.5 },
+    },
+    {
+      session_id: "steering-session",
+      control: { ...control(2), queued_turn_ids: ["queued", "queued"] },
+    },
+  ])(
+    "ignores unbound, stale, or malformed rejection control: %j",
+    async (details) => {
+      const { session, steer } = await setup();
+      const before = session.getSnapshot().control;
+      steer.mockRejectedValueOnce(
+        new AgentApiError(
+          409,
+          "revision_conflict",
+          "Stale revision",
+          false,
+          undefined,
+          details,
+        ),
+      );
+      await expect(
+        session.steer("Retain this draft", { inputId: "rejected" }),
+      ).rejects.toMatchObject({ code: "revision_conflict" });
+      expect(session.getSnapshot().control).toEqual(before);
+      expect(session.getSnapshot().inputs?.[0]).toMatchObject({
+        inputId: "rejected",
+        message: "Retain this draft",
+        targetTurnId: "turn-1",
+        status: "rejected",
+      });
+      expect(steer).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each(["applied", "cancelled", "superseded"] as const)(
     "does not regress a %s input or control state on an older admission replay",
     async (disposition) => {

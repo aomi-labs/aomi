@@ -20,6 +20,7 @@ import {
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
+import { asRecord } from "../internal/record";
 import { conversationMessages } from "./conversation";
 import type { AomiClientOptions } from "../types";
 import type {
@@ -506,6 +507,17 @@ export class ClientSession {
     );
     input.promise = operation
       .catch((error: unknown) => {
+        if (isDefinitiveStartRejection(error)) {
+          const control = rejectedInputControl(
+            error,
+            this.sessionId,
+            this.control,
+          );
+          if (control) {
+            this.applyControl(control);
+            this.applyControlTurn();
+          }
+        }
         input.view = {
           ...input.view,
           status: isDefinitiveStartRejection(error) ? "rejected" : "uncertain",
@@ -1052,6 +1064,36 @@ export class ClientSession {
     }
   }
 
+  private applyControl(control: TurnControl): void {
+    if (
+      this.control &&
+      control.stream_epoch === this.control.stream_epoch &&
+      control.event_sequence < this.control.event_sequence
+    )
+      return;
+    this.control = control;
+    for (const [key, message] of this.liveMessages) {
+      if (
+        message.turn_id === control.active_turn_id &&
+        (message.input_revision ?? 1) < control.accepted_input_revision
+      ) {
+        this.liveMessages.delete(key);
+        this.liveRevisions.delete(key);
+      }
+    }
+  }
+
+  private applyControlTurn(): void {
+    if (!this.control?.active_turn_id) return;
+    this.turnId = this.control.active_turn_id;
+    const current = this.events.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === this.turnId,
+    );
+    this.turnState =
+      current?.type === "turn_state_changed" ? current.state : "processing";
+  }
+
   private applyEventPage(page: EventPage, inactiveTurnId?: string): void {
     if (page.session_id !== this.sessionId) {
       throw new TypeError("Agent response session does not match the request");
@@ -1061,23 +1103,7 @@ export class ClientSession {
     this.lastPageNewEvents = 0;
     try {
       if (page.capabilities) this.capabilities = page.capabilities;
-      if (
-        page.control &&
-        (!this.control ||
-          page.control.stream_epoch !== this.control.stream_epoch ||
-          page.control.event_sequence >= this.control.event_sequence)
-      ) {
-        this.control = page.control;
-        for (const [key, message] of this.liveMessages) {
-          if (
-            message.turn_id === this.control.active_turn_id &&
-            (message.input_revision ?? 1) < this.control.accepted_input_revision
-          ) {
-            this.liveMessages.delete(key);
-            this.liveRevisions.delete(key);
-          }
-        }
-      }
+      if (page.control) this.applyControl(page.control);
       if (page.input) this.ingestInput(page.input);
       for (const view of page.commits ?? []) this.commits.ingest(view);
       for (const event of page.events) {
@@ -1247,16 +1273,7 @@ export class ClientSession {
             break;
         }
       }
-      if (this.control?.active_turn_id) {
-        this.turnId = this.control.active_turn_id;
-        const current = this.events.findLast(
-          (event) =>
-            event.type === "turn_state_changed" &&
-            event.turn_id === this.turnId,
-        );
-        this.turnState =
-          current?.type === "turn_state_changed" ? current.state : "processing";
-      }
+      this.applyControlTurn();
       this.cursor = page.cursor;
       this.error = undefined;
     } finally {
@@ -1926,4 +1943,68 @@ function isDefinitiveStartRejection(error: unknown): boolean {
     ![408, 429].includes(error.status) &&
     error.code !== "request_in_flight"
   );
+}
+
+/** Refresh the session projection without changing the rejected input's request. */
+function rejectedInputControl(
+  error: unknown,
+  sessionId: string,
+  current: TurnControl | undefined,
+): TurnControl | undefined {
+  if (
+    !(error instanceof AgentApiError) ||
+    !current ||
+    error.status !== 409 ||
+    ![
+      "turn_busy",
+      "queue_full",
+      "guest_concurrency_limit",
+      "target_terminal",
+      "target_mismatch",
+      "revision_conflict",
+      "pending_inputs_full",
+      "source_order_conflict",
+      "source_selection_conflict",
+    ].includes(error.code)
+  )
+    return;
+  const outer = asRecord(error.details);
+  const details = asRecord(outer?.details) ?? outer;
+  if (details?.session_id !== sessionId) return;
+  const control = asRecord(details?.control);
+  if (!control) return;
+  const active = control.active_turn_id;
+  if (active !== null && (typeof active !== "string" || !active)) return;
+  const accepted = control.accepted_input_revision;
+  const applied = control.applied_input_revision;
+  const sequence = control.event_sequence;
+  const queued = control.queued_turn_ids;
+  if (
+    control.stream_epoch !== current.stream_epoch ||
+    typeof accepted !== "number" ||
+    !Number.isSafeInteger(accepted) ||
+    accepted < 0 ||
+    typeof applied !== "number" ||
+    !Number.isSafeInteger(applied) ||
+    applied < 0 ||
+    applied > accepted ||
+    typeof sequence !== "number" ||
+    !Number.isSafeInteger(sequence) ||
+    sequence < current.event_sequence ||
+    !Array.isArray(queued) ||
+    queued.some((id) => typeof id !== "string" || !id || id === active) ||
+    new Set(queued).size !== queued.length ||
+    (active === current.active_turn_id &&
+      (accepted < current.accepted_input_revision ||
+        applied < current.applied_input_revision))
+  )
+    return;
+  return {
+    active_turn_id: active,
+    accepted_input_revision: accepted,
+    applied_input_revision: applied,
+    event_sequence: sequence,
+    stream_epoch: current.stream_epoch,
+    queued_turn_ids: queued,
+  };
 }

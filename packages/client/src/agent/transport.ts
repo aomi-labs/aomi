@@ -1,4 +1,5 @@
 import { AomiApiError, apiErrorFields, isRetryableStatus } from "../api-error";
+import { asRecord } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import type {
   Action,
@@ -365,6 +366,6 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
     error.message?.trim() ? error.message : code.replaceAll("_", " "),
     isRetryableStatus(response.status),
     response.headers.get("x-request-id") ?? undefined,
-    body?.error,
+    error.details ?? (asRecord(body)?.control ? body : body?.error),
   );
 }

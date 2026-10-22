@@ -302,12 +302,19 @@ export class FakeAgentBackend {
         error(
           "target_terminal",
           "This request finished. Send your text as a new request.",
+          {
+            session_id: sessionId,
+            control: this.page(thread, this.sequence).control,
+          },
         ),
       );
     if (steering && body.expectedInputRevision !== thread.inputRevision)
       return json(
         409,
-        error("input_revision_conflict", "Another update changed this request"),
+        error("revision_conflict", "Another update changed this request", {
+          session_id: sessionId,
+          control: this.page(thread, this.sequence).control,
+        }),
       );
     const queued =
       !steering && body.intent === "queue" && thread.activeTurn !== null;
@@ -816,8 +823,14 @@ function json(status: number, body: unknown): FakeResponse {
   return { kind: "json", status, body };
 }
 
-function error(code: string, message: string): ErrorBody {
-  return { error: { code, message, retryable: false } };
+function error(
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+): ErrorBody {
+  return {
+    error: { code, message, retryable: false, ...(details ? { details } : {}) },
+  };
 }
 
 function notFound(): FakeResponse {
