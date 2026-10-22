@@ -2,11 +2,10 @@
 
 ## 0.1.2
 
-- Expose SDK-owned operational funding checks and direct ERC-20 payment evidence through thin `tx preflight` and `tx status` adapters.
-
+- Add `tx preflight`, a read-only check of which catalogued wallets can fund an exact ERC-20 transfer on their own chains, including native gas. It never signs.
 - Report the effective connection origin and its configuration source with `aomi config current`, without exposing credentials or requiring a signing key.
-- Document operational-wallet funding checks, Portal/BFF configuration and the current durable Commit signing and receipt-verification flow.
-- Validate clean CLI installation alongside the client migration shim and after package publication.
+- Document staging and Portal/BFF configuration and the Commit review, signing and retry flow.
+- Validate a clean CLI install alongside the client migration shim, and from the public registry after publication.
 
 ## 0.1.1
 

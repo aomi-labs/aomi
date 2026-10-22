@@ -182,22 +182,12 @@ function resolveExecution(
 // Config builder — replaces parseArgs() + getConfig()
 // ---------------------------------------------------------------------------
 
-/** Transport settings for read-only commands; signing keys are never inspected. */
-export function buildCliConnectionConfig(
-  args: Record<string, unknown>,
-): CliConfig {
-  return {
-    baseUrl: str(args["backend-url"]) ?? process.env.AOMI_BACKEND_URL,
-    apiKey: str(args["api-key"]) ?? process.env.AOMI_API_KEY,
-    accountBearer:
-      str(args["account-bearer"]) ?? process.env.AOMI_ACCOUNT_BEARER,
-    json: args.json === true,
-    verbose: args.verbose === true,
-    secrets: {},
-  };
-}
-
-/** Extend the transport settings with execution and signing configuration. */
+/**
+ * Build a CliConfig directly from citty's typed args + env vars.
+ *
+ * This is the single source of truth for CLI configuration.
+ * No re-parsing of process.argv.
+ */
 export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   const execution = resolveExecution(args);
   const privateKey = normalizePrivateKey(
@@ -206,6 +196,8 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   const configuredPublicKey =
     str(args["public-key"]) ?? process.env.AOMI_PUBLIC_KEY;
   const derivedPublicKey = derivePublicKeyFromPrivateKey(privateKey);
+  const accountBearer =
+    str(args["account-bearer"]) ?? process.env.AOMI_ACCOUNT_BEARER;
   const requestedMode = parseAgentMode(
     str(args.mode) ?? process.env.AOMI_AGENT_MODE,
   );
@@ -273,7 +265,11 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   );
 
   return {
-    ...buildCliConnectionConfig(args),
+    baseUrl: str(args["backend-url"]) ?? process.env.AOMI_BACKEND_URL,
+    apiKey: str(args["api-key"]) ?? process.env.AOMI_API_KEY,
+    json: args.json === true,
+    verbose: args.verbose === true,
+    accountBearer,
     agentMode: requestedMode ?? (app || applicationId ? "direct" : undefined),
     app,
     applicationId,
@@ -287,6 +283,7 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     svmCluster,
     chainRpcUrl: str(args["rpc-url"]) ?? process.env.CHAIN_RPC_URL,
     chain: parseChainId(str(args.chain) ?? process.env.AOMI_CHAIN_ID),
+    secrets: {},
     execution,
     paymentMethod: parsePaymentMethod(
       str(args["payment-method"]) ?? process.env.AOMI_PAYMENT_METHOD,

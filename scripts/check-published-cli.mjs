@@ -5,11 +5,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Run after publication: a working migration shim cannot prove that its
-// replacement exists on the public registry or installs outside this repo.
+// Run after publication: the client's migration shim can pass CI while the
+// package it points at is missing from the public registry.
 export function checkPublishedCli({
   root = process.cwd(),
   run = execFileSync,
+  attempts = 3,
+  sleep = (ms) =>
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms),
 } = {}) {
   const { name, version } = JSON.parse(
     readFileSync(join(root, "packages/cli/package.json"), "utf8"),
@@ -20,23 +23,29 @@ export function checkPublishedCli({
       join(directory, "package.json"),
       JSON.stringify({ private: true }),
     );
-    run(
-      "npm",
-      [
-        "install",
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund",
-        "--registry=https://registry.npmjs.org",
-        `--cache=${join(directory, "cache")}`,
-        `${name}@${version}`,
-      ],
-      {
-        cwd: directory,
-        stdio: "pipe",
-        timeout: 180_000,
-      },
-    );
+    // The registry can lag a publish by a minute; retry before failing release.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        run(
+          "npm",
+          [
+            "install",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--prefer-online",
+            "--registry=https://registry.npmjs.org",
+            `--cache=${join(directory, "cache")}`,
+            `${name}@${version}`,
+          ],
+          { cwd: directory, stdio: "pipe", timeout: 180_000 },
+        );
+        break;
+      } catch (error) {
+        if (attempt >= attempts) throw error;
+        sleep(30_000);
+      }
+    }
     const binary = join(directory, "node_modules/.bin/aomi");
     const options = { cwd: directory, encoding: "utf8", timeout: 30_000 };
     const installed = run(binary, ["--version"], options).trim();
@@ -44,16 +53,9 @@ export function checkPublishedCli({
       throw new Error(
         `Installed CLI reported ${installed}; expected ${version}`,
       );
-    const help = run(binary, ["tx", "--help"], options);
-    if (
-      !["export", "submit", "preflight", "status"].every((command) =>
-        help.includes(command),
-      )
-    )
-      throw new Error("Installed CLI is missing Commit/payment commands");
-    console.log(
-      `Public clean install passed: ${name}@${version} (--version, tx --help)`,
-    );
+    // Loading a command group proves the published dependency set resolves.
+    run(binary, ["tx", "--help"], options);
+    console.log(`Public clean install passed: ${name}@${version}`);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

@@ -2,8 +2,6 @@
 
 ## 0.10.6
 
-- Add shared, read-only `EvmPayment` operational funding preflight and direct ERC-20 Commit/receipt/recipient-balance reconciliation. Outstanding hashes and wallet attempts remain non-signable.
-
 - Report the origin and route for failed guest sign-in, with Portal/BFF recovery guidance for backend-origin 404s and no credential-bearing URL details.
 
 ## 0.10.4

@@ -1,55 +1,22 @@
 import { defineCommand } from "citty";
-import {
-  globalArgs,
-  buildCliConfig,
-  buildCliConnectionConfig,
-  getPositionals,
-} from "./shared";
+import { globalArgs, buildCliConfig, getPositionals } from "./shared";
 
 const txPreflightDef = defineCommand({
   meta: {
     name: "preflight",
     description:
-      "Read operational funding across known EVM positions; never signs",
+      "Check which catalogued wallets can fund an ERC-20 transfer; never signs",
   },
   args: {
     file: {
       type: "positional",
       required: true,
-      description: "Payment and known funding positions JSON",
+      description: "Intent JSON: amount, recipient and wallets with RPC URLs",
     },
   },
   async run({ args }) {
-    const { paymentPreflightCommand } = await import("../payment");
-    await paymentPreflightCommand(args.file);
-  },
-});
-const txStatusDef = defineCommand({
-  meta: {
-    name: "status",
-    description:
-      "Reconcile a direct ERC-20 payment Commit, receipt and recipient balance",
-  },
-  args: {
-    ...globalArgs,
-    commitId: {
-      type: "positional",
-      required: true,
-      description: "Exact durable Commit ID",
-    },
-    payment: {
-      type: "string",
-      required: true,
-      description: "Original payment JSON with destination RPC",
-    },
-  },
-  async run({ args }) {
-    const { paymentStatusCommand } = await import("../payment");
-    await paymentStatusCommand(
-      buildCliConnectionConfig(args),
-      args.commitId,
-      args.payment,
-    );
+    const { preflightCommand } = await import("../preflight");
+    await preflightCommand(args.file);
   },
 });
 
@@ -192,7 +159,6 @@ export const txDef = defineCommand({
   meta: { name: "tx", description: "Transaction management" },
   subCommands: {
     preflight: txPreflightDef,
-    status: txStatusDef,
     list: txListDef,
     simulate: txSimulateDef,
     export: txExportDef,

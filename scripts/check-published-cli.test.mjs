@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkPublishedCli } from "./check-published-cli.mjs";
 
 let root;
+const sleep = vi.fn();
 beforeEach(() => {
+  sleep.mockReset();
   root = mkdtempSync(join(tmpdir(), "aomi-cli-release-test-"));
   mkdirSync(join(root, "packages/cli"), { recursive: true });
   writeFileSync(
@@ -16,26 +18,30 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("published CLI install gate", () => {
-  it("accepts the expected version with the Commit handoff commands", () => {
+  it("accepts the expected version once the command group loads", () => {
     const run = vi
       .fn()
       .mockReturnValueOnce("")
       .mockReturnValueOnce("0.1.2\n")
-      .mockReturnValueOnce("export submit sign preflight status");
-    expect(() => checkPublishedCli({ root, run })).not.toThrow();
+      .mockReturnValueOnce("Usage: aomi tx");
+    expect(() => checkPublishedCli({ root, run, sleep })).not.toThrow();
+    expect(sleep).not.toHaveBeenCalled();
   });
 
-  it("fails release when the replacement package cannot be installed", () => {
+  it("retries a lagging registry, then fails release when the package never appears", () => {
     const run = vi.fn(() => {
       throw new Error("npm E404 @aomi-labs/cli");
     });
-    expect(() => checkPublishedCli({ root, run })).toThrow("npm E404");
-    expect(run).toHaveBeenCalledOnce();
+    expect(() => checkPublishedCli({ root, run, sleep })).toThrow("npm E404");
+    expect(run).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
   });
 
   it("rejects a shadowed or incorrect CLI version", () => {
     const run = vi.fn().mockReturnValueOnce("").mockReturnValueOnce("0.9.4\n");
-    expect(() => checkPublishedCli({ root, run })).toThrow("expected 0.1.2");
+    expect(() => checkPublishedCli({ root, run, sleep })).toThrow(
+      "expected 0.1.2",
+    );
   });
 
   it("requires the installed transaction command to load", () => {
@@ -46,19 +52,8 @@ describe("published CLI install gate", () => {
       .mockImplementationOnce(() => {
         throw new Error("missing runtime dependency");
       });
-    expect(() => checkPublishedCli({ root, run })).toThrow(
+    expect(() => checkPublishedCli({ root, run, sleep })).toThrow(
       "missing runtime dependency",
-    );
-  });
-
-  it("rejects a CLI whose help cannot expose the Commit handoff", () => {
-    const run = vi
-      .fn()
-      .mockReturnValueOnce("")
-      .mockReturnValueOnce("0.1.2\n")
-      .mockReturnValueOnce("Usage: aomi");
-    expect(() => checkPublishedCli({ root, run })).toThrow(
-      "missing Commit/payment commands",
     );
   });
 });

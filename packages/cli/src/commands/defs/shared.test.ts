@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliExit } from "../../errors";
-import { buildCliConfig, buildCliConnectionConfig } from "./shared";
+import { buildCliConfig } from "./shared";
 
 const TEST_PRIVATE_KEY =
   "0x59c6995e998f97a5a0044966f0945382d2f4831f4a7d6c8b7a3b3f0f5f5f5f5f";
@@ -87,23 +87,5 @@ describe("buildCliConfig", () => {
     });
 
     expect(config.accountBearer).toBe("bearer-123");
-  });
-
-  it("builds read-only connection settings without parsing or including signing keys", () => {
-    process.env.PRIVATE_KEY = "not-a-signing-key";
-    process.env.AOMI_BACKEND_URL = "https://portal.example";
-    const config = buildCliConnectionConfig({
-      json: true,
-      "private-key": "ignored",
-    });
-    expect(config).toEqual({
-      baseUrl: "https://portal.example",
-      apiKey: undefined,
-      accountBearer: undefined,
-      json: true,
-      verbose: false,
-      secrets: {},
-    });
-    expect(config).not.toHaveProperty("privateKey");
   });
 });

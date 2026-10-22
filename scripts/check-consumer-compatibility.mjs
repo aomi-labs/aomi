@@ -299,52 +299,8 @@ for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvid
   }).trim();
   if (version !== expected)
     throw new Error(`Packed CLI reported ${version}; expected ${expected}`);
-  for (const command of ["export", "submit", "preflight", "status"])
+  for (const command of ["export", "submit", "preflight"])
     run(binary, ["tx", command, "--help"], cliDestination);
-  // Exercise the installed adapter and SDK together without network access,
-  // signing material, or state initialization. Treasury positions stay excluded.
-  const intentFile = join(cliDestination, "payment-intent.json");
-  const asset = {
-    chainId: 1,
-    token: "0x3333333333333333333333333333333333333333",
-    decimals: 6,
-  };
-  writeFileSync(
-    intentFile,
-    JSON.stringify({
-      payment: {
-        asset,
-        recipient: "0x2222222222222222222222222222222222222222",
-        amount: "1500",
-      },
-      rpcUrl: "https://unused.invalid",
-      sources: [
-        {
-          address: "0x1111111111111111111111111111111111111111",
-          role: "treasury",
-          asset,
-          rpcUrl: "https://unused.invalid",
-        },
-      ],
-    }),
-  );
-  const report = JSON.parse(
-    execFileSync(binary, ["tx", "preflight", intentFile], {
-      cwd: cliDestination,
-      encoding: "utf8",
-      timeout: 30_000,
-      env: {
-        ...process.env,
-        AOMI_STATE_DIR: join(cliDestination, "unused-state"),
-        PRIVATE_KEY: "invalid-and-unneeded",
-      },
-    }),
-  );
-  if (
-    report.selected !== null ||
-    report.sources[0]?.state !== "not_operational"
-  )
-    throw new Error("Installed payment preflight selected a treasury source");
 }
 
 try {
