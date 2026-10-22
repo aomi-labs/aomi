@@ -107,6 +107,7 @@ function fixture(
     canonicalHash?: string;
     decimals?: bigint;
     offline?: boolean;
+    transactionInput?: string;
   } = {},
 ) {
   const calls: { method: string; params: unknown[] }[] = [];
@@ -135,6 +136,16 @@ function fixture(
           break;
         case "eth_getTransactionReceipt":
           result = "receipt" in options ? options.receipt : receipt();
+          break;
+        case "eth_getTransactionByHash":
+          result = {
+            hash,
+            from: sender,
+            to: token,
+            input: options.transactionInput ?? data,
+            value: "0x0",
+            blockHash,
+          };
           break;
         case "eth_getBlockByNumber":
           result = { hash: options.canonicalHash ?? blockHash };
@@ -228,6 +239,14 @@ describe("operational payment funding", () => {
 });
 
 describe("durable payment reconciliation", () => {
+  it("rejects different on-chain calldata even when transfer events match", async () => {
+    const { payment } = fixture({ transactionInput: "0x12345678" });
+    expect(await payment.status(commit())).toMatchObject({
+      phase: "verification_failed",
+      recipient: "unverified",
+      canRequestSignature: false,
+    });
+  });
   it("offers a signature only for an exact unsigned, simulated Commit", async () => {
     const { payment, fetch } = fixture();
     const view = commit("needs_signature");

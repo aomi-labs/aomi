@@ -454,6 +454,25 @@ export class EvmPayment {
           phase: "verification_failed",
           reason: "Payment receipt does not match the Commit",
         };
+      const transaction = asRecord(
+        await this.rpc.read("eth_getTransactionByHash", [hash]),
+      );
+      if (!transaction) throw new Error("Payment transaction is unavailable");
+      if (
+        !sameAddress(transaction.hash, hash) ||
+        !sameAddress(transaction.from, commit.signer) ||
+        !sameAddress(transaction.to, this.intent.asset.token) ||
+        typeof transaction.input !== "string" ||
+        transaction.input.toLowerCase() !== this.data ||
+        quantity(transaction.value) !== BigInt(0) ||
+        transaction.blockHash !== receipt.blockHash
+      )
+        return {
+          ...status,
+          phase: "verification_failed",
+          reason:
+            "Submitted transaction differs from the approved direct payment",
+        };
       const block = quantity(receipt.blockNumber);
       if (block === BigInt(0)) throw new Error("Payment block is unavailable");
       const canonical = asRecord(
