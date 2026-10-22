@@ -221,7 +221,9 @@ export async function runInteractiveCli(
         if (err instanceof CliExit) {
           continue;
         }
-        throw err;
+        // Admission refusals and sync failures leave the conversation open.
+        // Readline keeps the submitted text in history for an explicit retry.
+        console.error(`❌ ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   } finally {

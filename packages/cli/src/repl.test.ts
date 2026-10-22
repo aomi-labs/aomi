@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliConfig } from "./types";
 
 const {
   chatCommandMock,
+  openInteractiveChatMock,
+  readlineMock,
   modelsCommandMock,
   setAppCommandMock,
   setAgentModeCommandMock,
@@ -12,6 +14,8 @@ const {
   clearByokKeysCommandMock,
 } = vi.hoisted(() => ({
   chatCommandMock: vi.fn().mockResolvedValue(undefined),
+  openInteractiveChatMock: vi.fn(),
+  readlineMock: { question: vi.fn(), close: vi.fn() },
   modelsCommandMock: vi.fn().mockResolvedValue(undefined),
   setAppCommandMock: vi.fn(),
   setAgentModeCommandMock: vi.fn(),
@@ -23,7 +27,18 @@ const {
 
 vi.mock("./commands/chat", () => ({
   chatCommand: chatCommandMock,
+  openInteractiveChat: openInteractiveChatMock,
 }));
+
+vi.mock("node:readline/promises", async (importOriginal) => {
+  const original = await importOriginal<typeof import("node:readline/promises")>();
+  const createInterface = vi.fn(() => readlineMock);
+  return {
+    ...original,
+    createInterface,
+    default: { ...original, createInterface },
+  };
+});
 
 vi.mock("./commands/control", () => ({
   modelsCommand: modelsCommandMock,
@@ -200,5 +215,54 @@ describe("interactive turn input routing", () => {
     expect(interaction.send).toHaveBeenCalledWith("Use 5 instead");
     expect(interaction.queue).toHaveBeenCalledWith("Research another token");
     expect(interaction.cancel).toHaveBeenCalledWith("queued-turn");
+  });
+});
+
+describe("interactive error recovery", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["correct this", "send", "target_terminal"],
+    ["another correction", "send", "revision_conflict"],
+    ["old host correction", "send", "steering_unsupported"],
+    ["/queue separate task", "queue", "queue_full"],
+    ["/stop root", "cancel", "network unavailable"],
+    ["accepted request", "sync", "sync unavailable"],
+  ] as const)("keeps the session open after %s fails", async (line, method, error) => {
+    const { runInteractiveCli } = await import("./repl");
+    vi.spyOn(process, "stdin", "get").mockReturnValue({
+      isTTY: true,
+    } as typeof process.stdin);
+    vi.spyOn(process, "stdout", "get").mockReturnValue({
+      isTTY: true,
+    } as typeof process.stdout);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
+    const chat = {
+      send: vi.fn().mockResolvedValue(undefined),
+      queue: vi.fn().mockResolvedValue(undefined),
+      cancel: vi.fn().mockResolvedValue(undefined),
+      sync: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn(),
+    };
+    chat[method].mockRejectedValueOnce(new Error(error));
+    openInteractiveChatMock.mockResolvedValueOnce(chat);
+    readlineMock.question
+      .mockReset()
+      .mockResolvedValueOnce(line)
+      .mockResolvedValueOnce("follow up")
+      .mockResolvedValueOnce(":exit");
+    readlineMock.close.mockClear();
+
+    await expect(runInteractiveCli({ secrets: {} })).resolves.toBeUndefined();
+
+    expect(report).toHaveBeenCalledExactlyOnceWith(`❌ ${error}`);
+    expect(readlineMock.question).toHaveBeenCalledTimes(3);
+    expect(chat.send).toHaveBeenLastCalledWith("follow up");
+    expect(chat[method]).toHaveBeenCalledTimes(
+      method === "send" || method === "sync" ? 2 : 1,
+    );
+    expect(chat.close).toHaveBeenCalledOnce();
+    expect(readlineMock.close).toHaveBeenCalledOnce();
   });
 });
