@@ -30,7 +30,7 @@ describe("guest connection diagnostics", () => {
       });
 
       await expect(guest()).rejects.toThrow(
-        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl (CLI: --backend-url or AOMI_BACKEND_URL).`,
+        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl.`,
       );
       expect(fetch).toHaveBeenCalledOnce();
       expect(String(fetch.mock.calls[0]?.[0])).toBe(
@@ -47,7 +47,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/sign-in\/anonymous\)\. Check that baseUrl points to the Portal\/BFF \(CLI: --backend-url or AOMI_BACKEND_URL\)\.$/,
+      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/sign-in\/anonymous\)\. Check that baseUrl points to the Portal\/BFF\.$/,
     );
   });
 
@@ -73,6 +73,24 @@ describe("guest connection diagnostics", () => {
     await expect(guest()).rejects.toThrow(
       "HTTP 404 at https://chat.aomi.dev (/api/auth/widget/guest).",
     );
+  });
+
+  it("exposes the same transport diagnosis to a direct SDK consumer", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(new Response(null, { status: 404 }));
+    const client = new AomiClient({
+      baseUrl: "https://api-staging.aomi.dev",
+      fetch,
+    });
+
+    await expect(
+      client.requestResponse("POST", "/v1/agent/chat", {}),
+    ).rejects.toThrow(
+      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://chat-staging.aomi.dev. Check baseUrl.",
+    );
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });
 

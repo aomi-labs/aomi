@@ -243,8 +243,8 @@ function guestConnectionError(
         : null;
   return new Error(
     portal
-      ? `${message} This is a backend origin; guest sign-in requires the Portal/BFF at ${portal}. Check baseUrl (CLI: --backend-url or AOMI_BACKEND_URL).`
-      : `${message} Check that baseUrl points to the Portal/BFF (CLI: --backend-url or AOMI_BACKEND_URL).`,
+      ? `${message} This is a backend origin; guest sign-in requires the Portal/BFF at ${portal}. Check baseUrl.`
+      : `${message} Check that baseUrl points to the Portal/BFF.`,
   );
 }
 
