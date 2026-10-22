@@ -1189,6 +1189,10 @@ describe("BackendClient projects", () => {
               apps: [],
               sdk_version: null,
               sdk_versions: ["3.0.3", "3.0.4"],
+              ffi_version: 1,
+              ffi_versions: [1],
+              required_ffi_version: 1,
+              ffi_unrecorded: false,
             },
           ],
         }),
@@ -1198,6 +1202,67 @@ describe("BackendClient projects", () => {
     const [source] = await client().listUserProjects({ githubUserId: "42" });
     expect(source.sdkVersion).toBeNull();
     expect(source.sdkVersions).toEqual(["3.0.3", "3.0.4"]);
+    expect(source).toMatchObject({
+      ffiVersion: 1,
+      ffiVersions: [1],
+      requiredFfiVersion: 1,
+      ffiUnrecorded: false,
+      ffiIncompatible: false,
+      ffiUnverifiedSdkVersions: [],
+    });
+  });
+
+  it("tells an unloadable live SDK apart from a missing FFI record", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          projects: [
+            {
+              id: 43,
+              installation_id: 1,
+              repository_link: "alice/legacy",
+              platform_name: "community",
+              apps: [],
+              sdk_version: "4.0.0",
+              sdk_versions: ["4.0.0"],
+              ffi_version: null,
+              ffi_versions: [],
+              required_ffi_version: 1,
+              ffi_unrecorded: true,
+              ffi_incompatible: true,
+              ffi_unverified_sdk_versions: ["4.0.0", 7, ""],
+            },
+            {
+              id: 44,
+              installation_id: 1,
+              repository_link: "alice/older-manager",
+              platform_name: "community",
+              apps: [],
+              sdk_version: "4.0.0",
+              sdk_versions: ["4.0.0"],
+              required_ffi_version: 1,
+              ffi_unrecorded: true,
+            },
+          ],
+        }),
+      ),
+    );
+
+    const [legacy, olderManager] = await client().listUserProjects({
+      githubUserId: "42",
+    });
+    expect(legacy).toMatchObject({
+      ffiUnrecorded: true,
+      ffiIncompatible: true,
+      ffiUnverifiedSdkVersions: ["4.0.0"],
+    });
+    // A Manager that predates the field never claims incompatibility.
+    expect(olderManager).toMatchObject({
+      ffiUnrecorded: true,
+      ffiIncompatible: false,
+      ffiUnverifiedSdkVersions: [],
+    });
   });
 
   it("maps Manager's DB-backed required-secret declarations", async () => {

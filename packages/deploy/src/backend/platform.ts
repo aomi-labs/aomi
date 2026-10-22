@@ -300,6 +300,8 @@ export class BackendPlatformClient extends BackendClientCore {
     return {
       serverTags: (result.server_tags ?? result.serverTags ?? []) as string[],
       sdkVersion: String(result.sdk_version ?? result.sdkVersion ?? ""),
+      ffiVersion: (result.ffi_version ?? result.ffiVersion ?? null) as number | null,
+      ffiInterfaces: (result.ffi_interfaces ?? result.ffiInterfaces ?? []) as string[],
     };
   }
 

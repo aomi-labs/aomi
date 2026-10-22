@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/deploy",
-  "version": "0.9.2",
+  "version": "0.9.4",
   "description": "TypeScript toolkit for the Aomi platform deploy API: server client, deploy BFF helpers, and a browser launch client. The root entry is server-only.",
   "license": "MIT",
   "repository": {
