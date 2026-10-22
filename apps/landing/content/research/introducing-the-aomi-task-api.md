@@ -7,7 +7,9 @@ Figures live in public/research/introducing-the-aomi-task-api/figures/.
 
 # Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc
 
-_Updated October 18, 2026 for the two-purchase protocol._
+_Updated October 21, 2026 for the two-purchase Arc Mainnet staging preview._
+
+The Task API is currently available on **staging** and charges real Arc Mainnet USDC through Circle Gateway. Its production endpoint is not launched. A direct staging purchase of both stages settled on Arc Mainnet on October 20; check the live quote before each new payment.
 
 ## The agentic economy needs reliable execution and two-sided services
 
@@ -103,7 +105,7 @@ That distribution model is also the larger thesis. A builder’s pricing model, 
 
 ## Try it out
 
-Start with the source TaskClient and a configured Arc testnet deployment. Provision the merchant address and trusted attestation keys independently, and fund the payer’s Circle Gateway balance separately. An ordinary wallet balance is not a Gateway balance; the client never makes automatic deposits.
+Start with the [staging Task endpoint](https://api-staging.aomi.dev/v1/task/build) and the source TaskClient configured for Arc Mainnet (`chainId: 5042`). The [OpenAPI contract](https://api-staging.aomi.dev/v1/task/openapi.json) and [public Postman collection](https://www.postman.com/cecilia-4dc7d3ec-3356433/aomi-task-api-arc-mainnet-staging) show the JSON POST. The client below makes real USDC purchases; review each quote, provision the merchant address and trusted attestation keys independently, and fund the payer’s Circle Gateway balance separately. An ordinary wallet balance is not a Gateway balance, and the client never makes automatic deposits.
 
 ::task-api-quickstart::
 
