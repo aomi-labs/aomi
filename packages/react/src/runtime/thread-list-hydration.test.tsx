@@ -389,8 +389,8 @@ describe("saved thread summaries", () => {
     const { view, options } = setup({ kind: "user", id: "a" }, ["newer-chat"]);
     await waitFor(() =>
       expect(
-        view.result.current.threads.getThreadMetadata("saved-chat"),
-      ).toBeDefined(),
+        view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+      ).toBe("Old title"),
     );
     expect(options.remoteThreadIdsRef.current.has("newer-chat")).toBe(true);
   });
@@ -448,8 +448,8 @@ describe("saved thread summaries", () => {
     const { view, state } = setup({ kind: "user", id: "a" });
     await waitFor(() =>
       expect(
-        view.result.current.threads.getThreadMetadata("saved-chat"),
-      ).toBeDefined(),
+        view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+      ).toBe("Old title"),
     );
     state.account = { kind: "user", id: "b" };
     view.rerender();

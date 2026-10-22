@@ -4,23 +4,13 @@ import { SdkBadge } from "./sdk-badge";
 import { projectSdk } from "../sdk-compatibility";
 
 describe("SdkBadge", () => {
-  it("shows ok when stamped matches required", () => {
-    render(<SdkBadge stamped="3.0.1" required="3.0.1" />);
-    expect(screen.getByTestId("sdk-badge")).toHaveAttribute("data-state", "ok");
-  });
-  it("shows outdated when they differ", () => {
-    render(<SdkBadge stamped="3.0.0" required="3.0.1" />);
-    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
-      "data-state",
-      "outdated",
-    );
-  });
-  it("shows missing when stamp absent", () => {
-    render(<SdkBadge stamped={null} required="3.0.1" />);
-    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
-      "data-state",
-      "missing",
-    );
+  it.each([
+    ["ok", "stamped matches required", "3.0.1"],
+    ["outdated", "they differ", "3.0.0"],
+    ["missing", "stamp absent", null],
+  ] as const)("shows %s when %s", (state, _when, stamped) => {
+    render(<SdkBadge stamped={stamped} required="3.0.1" />);
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute("data-state", state);
   });
   it("shows incompatible, not outdated, for a release the runtime refuses", () => {
     const sdk = projectSdk(

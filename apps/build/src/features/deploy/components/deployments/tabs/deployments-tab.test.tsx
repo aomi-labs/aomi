@@ -137,8 +137,8 @@ describe("DeploymentsTab", () => {
 
   it("renders deployments from the DB timeline, current first", async () => {
     renderTab(<DeploymentsTab detail={detail} />);
-    expect(detail.loadHistory).toHaveBeenCalled();
-    expect(detail.loadRecords).toHaveBeenCalled();
+    expect(detail.loadHistory).toHaveBeenCalledWith();
+    expect(detail.loadRecords).toHaveBeenCalledWith();
     expect(
       await screen.findByText(/Live · my-bot · 2 deployments/i),
     ).toBeInTheDocument();
@@ -278,7 +278,8 @@ describe("DeploymentsTab", () => {
   it("redeploys from the linked repository", () => {
     renderTab(<DeploymentsTab detail={detail} />);
     fireEvent.click(screen.getByRole("button", { name: "Deploy" }));
-    expect(detail.redeploySource).toHaveBeenCalled();
+    // Empty branch input means "deploy the default branch".
+    expect(detail.redeploySource).toHaveBeenCalledWith("");
   });
 
   const pullRequestResult = {
@@ -445,8 +446,9 @@ describe("DeploymentsTab", () => {
     const toggles = screen.getAllByRole("button", {
       name: /deployment detail/i,
     });
+    vi.mocked(detail.loadHistory).mockClear();
     fireEvent.click(toggles[0]);
-    expect(detail.loadHistory).toHaveBeenCalled();
+    expect(detail.loadHistory).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Source repository")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /a\/b/i })).toHaveAttribute(
       "href",
@@ -459,7 +461,7 @@ describe("DeploymentsTab", () => {
       hasMissingSecrets: (app) => app === "my-bot",
     });
     renderTab(<DeploymentsTab detail={blockedDetail} />);
-    expect(blockedDetail.loadRequiredSecrets).toHaveBeenCalled();
+    expect(blockedDetail.loadRequiredSecrets).toHaveBeenCalledWith();
     expect(screen.getByRole("button", { name: /promote/i })).toBeDisabled();
     expect(screen.getByText(/required secrets missing/i)).toBeInTheDocument();
   });

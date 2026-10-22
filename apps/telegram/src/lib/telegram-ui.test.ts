@@ -43,14 +43,16 @@ describe("useTelegramMainButton", () => {
 
     expect(result.current).toBe(true);
     expect(button.setText).toHaveBeenCalledWith("Sign permission");
-    expect(button.show).toHaveBeenCalled();
-    expect(button.enable).toHaveBeenCalled();
+    expect(button.hideProgress).toHaveBeenCalledTimes(1);
+    expect(button.enable).toHaveBeenCalledTimes(1);
+    expect(button.disable).not.toHaveBeenCalled();
+    expect(button.show).toHaveBeenCalledTimes(1);
   });
 
   it("hides the button when there is no action", () => {
     const button = installWebApp();
     renderHook(() => useTelegramMainButton(null));
-    expect(button.hide).toHaveBeenCalled();
+    expect(button.hide).toHaveBeenCalledTimes(1);
     expect(button.show).not.toHaveBeenCalled();
   });
 
@@ -59,8 +61,10 @@ describe("useTelegramMainButton", () => {
     renderHook(() =>
       useTelegramMainButton({ label: "Signing", busy: true, onClick: vi.fn() }),
     );
-    expect(button.disable).toHaveBeenCalled();
-    expect(button.showProgress).toHaveBeenCalled();
+    expect(button.setText).toHaveBeenCalledWith("Signing");
+    expect(button.disable).toHaveBeenCalledTimes(1);
+    expect(button.showProgress).toHaveBeenCalledWith(false);
+    expect(button.enable).not.toHaveBeenCalled();
   });
 
   it("registers one handler and always calls the current one", () => {
@@ -87,8 +91,10 @@ describe("useTelegramMainButton", () => {
     const { unmount } = renderHook(() =>
       useTelegramMainButton({ label: "Go", onClick: vi.fn() }),
     );
+    const registered = button.onClick.mock.calls[0][0];
     unmount();
-    expect(button.offClick).toHaveBeenCalled();
-    expect(button.hide).toHaveBeenCalled();
+    // The exact listener registered on mount must be removed, or it leaks.
+    expect(button.offClick).toHaveBeenCalledWith(registered);
+    expect(button.hide).toHaveBeenCalledTimes(1);
   });
 });

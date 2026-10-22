@@ -1,21 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
+  ArrowDownLeftIcon,
+  ArrowRightLeftIcon,
+  ArrowUpRightIcon,
+  BlocksIcon,
   BracesIcon,
+  CircleCheckIcon,
+  CircleXIcon,
+  ClockIcon,
   CoinsIcon,
+  FileCode2Icon,
   FileTextIcon,
+  FuelIcon,
   GlobeIcon,
+  HashIcon,
   LandmarkIcon,
+  LayersIcon,
+  ListOrderedIcon,
   NetworkIcon,
   PencilLineIcon,
   PercentIcon,
   PuzzleIcon,
+  ReceiptTextIcon,
   SearchIcon,
   TagIcon,
+  UserIcon,
 } from "lucide-react";
 
 import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import { formatTokenUnits } from "@/thread/tool-interpreter/token-registry";
 import { statusFact } from "@/thread/tool-interpreter/normalize";
+import { BaseIcon, SolanaIcon } from "@/icons/chain-icons";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 
 const labelsFor = (chips: { label: string }[]) =>
@@ -265,7 +280,7 @@ describe("tool interpreter", () => {
       "0x8335…2913",
       "ethereum",
     ]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
+    expect(step.chips[0].icon).toBe(BaseIcon);
     expect(step.chips[1].icon).toBe(CoinsIcon);
   });
 
@@ -549,7 +564,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Call token contract");
     expect(labelsFor(step.chips)).toEqual(["Failed"]);
-    expect(step.chips[0].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(CircleXIcon);
     expect(step.failed).toBe(true);
   });
 
@@ -735,9 +750,9 @@ describe("tool interpreter", () => {
       "0.05 USDC",
       "0.00003 ETH",
     ]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(CoinsIcon);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
   it("shows LI.FI approval chain from nested token metadata", () => {
@@ -768,7 +783,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Prepare LI.FI approval");
     expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0.05 USDC"]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
+    expect(step.chips[0].icon).toBe(BaseIcon);
   });
 
   it("shows Lifi instead of LI for LI.FI swap prep", () => {
@@ -924,8 +939,8 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Check network");
     expect(labelsFor(step.chips)).toEqual(["Base", "48,314,732"]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(BlocksIcon);
   });
 
   it("shows Solana cluster and slot separately from EVM context", () => {
@@ -945,8 +960,8 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Check network");
     expect(labelsFor(step.chips)).toEqual(["Solana", "433,493,809"]);
     expect(step.confidence).toBe("high");
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(SolanaIcon);
+    expect(step.chips[1].icon).toBe(BlocksIcon);
   });
 
   it("shows the visible SPL amount and known token symbol", () => {
@@ -982,7 +997,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Get holdings");
     expect(labelsFor(step.chips)).toEqual(["0.148008 USDC"]);
-    expect(step.chips[0].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(CoinsIcon);
     expect(step.confidence).toBe("high");
   });
 
@@ -1005,7 +1020,7 @@ describe("tool interpreter", () => {
     });
 
     expect(labelsFor(step.chips)).toEqual(["0.123456"]);
-    expect(step.chips[0].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(CoinsIcon);
   });
 
   it("shows Jupiter input, output, and token direction like LI.FI", () => {
@@ -1324,7 +1339,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Get holdings");
     expect(labelsFor(step.chips)).toEqual(["Top 10", "USDC"]);
-    expect(step.chips[0].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(ListOrderedIcon);
   });
 
   it("shows a chosen chain first, then the default limit", () => {
@@ -1374,8 +1389,8 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Get contract details");
     expect(labelsFor(step.chips)).toEqual(["Base", "USDC"]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(FileCode2Icon);
   });
 
   it("shows one useful contract identity for ABI lookups", () => {
@@ -1457,9 +1472,9 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Get balance");
     expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0xda65…3cf0"]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(CoinsIcon);
+    expect(step.chips[2].icon).toBe(UserIcon);
   });
 
   it("uses a generic token icon for decoded approval amounts", () => {
@@ -1582,7 +1597,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toContain("Approval required");
     expect(
       step.chips.find((chip) => chip.label === "Approval required")?.icon,
-    ).toBeDefined();
+    ).toBe(ClockIcon);
     expect(labelsFor(step.chips)).toContain("Prepared");
     expect(labelsFor(step.chips)).not.toContain("Success");
   });
@@ -1786,7 +1801,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Read token decimals");
     expect(labelsFor(step.chips)).toEqual(["Base", "6 decimals"]);
-    expect(step.chips[1].icon).toBeTypeOf("object");
+    expect(step.chips[1].icon).toBe(HashIcon);
   });
 
   it("recognizes allowance checks without value chips", () => {
@@ -1817,7 +1832,7 @@ describe("tool interpreter", () => {
       "0xda65…3cf0",
       "0xcf77…4e43",
     ]);
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[2].icon).toBe(UserIcon);
   });
 
   it("falls back to the model label for protocol-specific calls", () => {
@@ -1846,9 +1861,9 @@ describe("tool interpreter", () => {
       "0xda65…3cf0",
       "0x420d…40da",
     ]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(ArrowUpRightIcon);
+    expect(step.chips[2].icon).toBe(ArrowDownLeftIcon);
   });
 
   it("shows the called function without its signature arguments", () => {
@@ -1894,9 +1909,9 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Stage transaction");
     expect(labelsFor(step.chips)).toEqual(["Base", "1 tx", "Swap", "Staged"]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(ReceiptTextIcon);
+    expect(step.chips[2].icon).toBe(ArrowRightLeftIcon);
   });
 
   it("capitalizes staged ERC-20 approval labels and uses action and tx icons", () => {
@@ -1919,7 +1934,7 @@ describe("tool interpreter", () => {
       "Staged",
     ]);
     expect(step.chips[2].icon).toBe(PencilLineIcon);
-    expect(step.chips[1].icon).toBeTypeOf("object");
+    expect(step.chips[1].icon).toBe(ReceiptTextIcon);
   });
 
   it("keeps a generic icon on unknown staged action chips", () => {
@@ -1940,7 +1955,7 @@ describe("tool interpreter", () => {
       "Delegate vote",
       "Staged",
     ]);
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[2].icon).toBe(LayersIcon);
   });
 
   it("does not infer routes from hardcoded protocol or token addresses", () => {
@@ -1987,10 +2002,10 @@ describe("tool interpreter", () => {
       "262,888 gas",
       "Passed",
     ]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
-    expect(step.chips[3].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(ReceiptTextIcon);
+    expect(step.chips[2].icon).toBe(FuelIcon);
+    expect(step.chips[3].icon).toBe(CircleCheckIcon);
   });
 
   it("derives current simulation status from execution evidence", () => {
@@ -2061,9 +2076,9 @@ describe("tool interpreter", () => {
       "2 txs",
       "Awaiting approval",
     ]);
-    expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("object");
-    expect(step.chips[2].icon).toBeTypeOf("object");
+    expect(step.chips[0].icon).toBe(BaseIcon);
+    expect(step.chips[1].icon).toBe(ReceiptTextIcon);
+    expect(step.chips[2].icon).toBe(ClockIcon);
   });
 
   it("shows the Solana transaction count while awaiting wallet approval", () => {

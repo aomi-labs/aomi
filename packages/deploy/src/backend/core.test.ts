@@ -237,27 +237,27 @@ describe("BackendClient.activate", () => {
     });
   });
 
-  it("rejects empty release tag targets before calling the backend", async () => {
-    await expect(
-      client().activate({
-        platform: "community",
-        target: { kind: "release_tags", value: [] },
-        apps: ["demo"],
-      }),
-    ).rejects.toThrow(/target.value/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects mismatched app and release tag counts before calling the backend", async () => {
-    await expect(
-      client().activate({
-        platform: "community",
-        target: { kind: "release_tags", value: ["apps-123-demo-abc1234def56"] },
-        apps: ["demo", "other"],
-      }),
-    ).rejects.toThrow(/same number/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  it.each([
+    ["empty release tag targets", [], ["demo"], /target.value/],
+    [
+      "mismatched app and release tag counts",
+      ["apps-123-demo-abc1234def56"],
+      ["demo", "other"],
+      /same number/,
+    ],
+  ])(
+    "rejects %s before calling the backend",
+    async (_name, value, apps, error) => {
+      await expect(
+        client().activate({
+          platform: "community",
+          target: { kind: "release_tags", value },
+          apps,
+        }),
+      ).rejects.toThrow(error);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects non-release-tag activation targets before calling the backend", async () => {
     await expect(

@@ -106,9 +106,34 @@ describe("Aomi OAuth resource policy", () => {
     const resources = aomiOAuthResources(env);
     // The full advertised set, which is what a client actually asks for.
     const requested = [...AOMI_SCOPES];
-    for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+    const expected = new Map([
+      [
+        resources.agentMcp,
+        [
+          "agent:read",
+          "agent:write",
+          "agent:actions:resolve",
+          "mcp:agent",
+          "payments:submit",
+          "custody:delegate",
+          "offline_access",
+        ],
+      ],
+      [
+        resources.pipelineMcp,
+        [
+          "pipeline:catalog",
+          "pipeline:execute",
+          "mcp:pipeline",
+          "payments:submit",
+          "custody:delegate",
+          "offline_access",
+        ],
+      ],
+    ]);
+    for (const [resource, scopes] of expected) {
       const narrowed = narrowScopesForAomiResource(resource, requested, env);
-      expect(narrowed.length).toBeGreaterThan(0);
+      expect(narrowed).toEqual(scopes);
       expect(validateAomiResourceScopes(resource, narrowed, env).ok).toBe(true);
     }
   });

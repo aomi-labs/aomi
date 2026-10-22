@@ -45,7 +45,11 @@ describe("buildCliConfig", () => {
       }),
     ).toThrow(CliExit);
 
-    expect(stderr).toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "`--public-key` does not match the address derived from `--private-key`.",
+      ),
+    );
   });
 
   it("does not force default backend/app when neither args nor env provide them", () => {

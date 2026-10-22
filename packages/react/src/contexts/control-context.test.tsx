@@ -172,7 +172,11 @@ describe("ControlContextProvider", () => {
 
   it("initializes client id synchronously on first render", () => {
     const { getControl } = renderControlContext();
-    expect(getControl().state.clientId).toBeTruthy();
+    const clientId = getControl().state.clientId;
+    expect(clientId).toMatch(/\S/);
+    expect(createScopedStorage({ backendUrl: "" }).get("clientId")).toBe(
+      clientId,
+    );
   });
 
   it("reuses the stored client id across remounts", async () => {

@@ -32,13 +32,27 @@ describe("NotificationToaster", () => {
     vi.useRealTimers();
   });
 
-  it("dismisses notification state after the default six-second banner", () => {
+  it.each([
+    {
+      name: "after the default six-second banner",
+      duration: undefined,
+      quietMs: 5999,
+      remainingMs: 1,
+    },
+    {
+      name: "after an explicit notification duration",
+      duration: 9000,
+      quietMs: 6000,
+      remainingMs: 3000,
+    },
+  ])("dismisses notification state $name", ({ duration, quietMs, remainingMs }) => {
     notificationState.notifications = [
       {
         id: "notice-1",
         type: "notice",
         title: "Backend connected",
         timestamp: Date.now(),
+        ...(duration === undefined ? {} : { duration }),
       },
     ];
 
@@ -48,37 +62,11 @@ describe("NotificationToaster", () => {
       </WidgetScope>,
     );
 
-    act(() => vi.advanceTimersByTime(5999));
+    act(() => vi.advanceTimersByTime(quietMs));
     expect(notificationState.dismissNotification).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(1));
-
+    act(() => vi.advanceTimersByTime(remainingMs));
     expect(notificationState.dismissNotification).toHaveBeenCalledWith(
       "notice-1",
-    );
-  });
-
-  it("preserves an explicit notification duration", () => {
-    notificationState.notifications = [
-      {
-        id: "notice-2",
-        type: "notice",
-        title: "Longer notice",
-        timestamp: Date.now(),
-        duration: 9000,
-      },
-    ];
-
-    render(
-      <WidgetScope>
-        <NotificationToaster />
-      </WidgetScope>,
-    );
-
-    act(() => vi.advanceTimersByTime(6000));
-    expect(notificationState.dismissNotification).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(3000));
-    expect(notificationState.dismissNotification).toHaveBeenCalledWith(
-      "notice-2",
     );
   });
 });

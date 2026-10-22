@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { getSkillIcon, JupiterSkillIcon, normalizeSkillId } from "./skill-icons";
+import { CoinsIcon, FlaskConicalIcon } from "lucide-react";
+
+import {
+  getSkillIcon,
+  JupiterSkillIcon,
+  normalizeSkillId,
+  RocketPoolSkillIcon,
+} from "./skill-icons";
 import {
   skillIconFallbacks,
   skillIconGenericAliases,
@@ -60,22 +67,22 @@ const BUILT_IN_SKILL_IDS = [
 describe("skill icon mapping", () => {
   it("normalizes wire IDs without changing their identity", () => {
     expect(normalizeSkillId("  Rocket-Pool ")).toBe("rocket_pool");
-    expect(getSkillIcon("  Rocket-Pool ")).toBeDefined();
+    expect(getSkillIcon("  Rocket-Pool ")).toBe(RocketPoolSkillIcon);
   });
 
   it("returns official marks for mapped built-in skills", () => {
     const mappedIds = Object.keys(skillIconSources);
 
     for (const skillId of mappedIds) {
-      expect(getSkillIcon(skillId), skillId).toBeDefined();
+      expect(getSkillIcon(skillId), skillId).toBeTypeOf("function");
     }
     expect(getSkillIcon("jupiter")).toBe(JupiterSkillIcon);
   });
 
   it("provides semantic marks for the token and developer test skills", () => {
-    expect(getSkillIcon("dummy")).toBeDefined();
-    expect(getSkillIcon("common_erc20")).toBeDefined();
-    expect(getSkillIcon("common-erc20")).toBeDefined();
+    expect(getSkillIcon("dummy")).toBe(FlaskConicalIcon);
+    expect(getSkillIcon("common_erc20")).toBe(CoinsIcon);
+    expect(getSkillIcon("common-erc20")).toBe(CoinsIcon);
   });
 
   it("leaves unsupported and dynamic IDs to the caller fallback", () => {
@@ -90,7 +97,6 @@ describe("skill icon mapping", () => {
   it("renders every built-in identity locally without clipping its CSS size", () => {
     for (const id of BUILT_IN_SKILL_IDS) {
       const Icon = getSkillIcon(id);
-      expect(Icon, id).toBeDefined();
       const container = document.createElement("div");
       container.innerHTML = renderToStaticMarkup(
         createElement(Icon!, { width: 20, height: 20 }),

@@ -35,8 +35,12 @@ describe("ChatTab", () => {
 
     expect(screen.queryByTestId("chat-gate")).not.toBeInTheDocument();
     expect(screen.queryByText("SDK upgrade required")).not.toBeInTheDocument();
-    expect(container.querySelector("iframe")).not.toBeNull();
-    expect(screen.getByRole("link", { name: /open chat/i })).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /open chat/i });
+    const iframe = container.querySelector("iframe");
+    expect(iframe).toHaveAttribute("title", "Chat with my-bot");
+    // The embedded chat and the "Open chat" link point at the same app URL.
+    expect(link.getAttribute("href")).toMatch(/^https?:\/\//);
+    expect(iframe).toHaveAttribute("src", link.getAttribute("href"));
   });
 
   it("blocks chat in red when the runtime cannot load the app's FFI", () => {

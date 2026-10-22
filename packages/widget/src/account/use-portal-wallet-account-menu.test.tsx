@@ -79,7 +79,8 @@ describe("account menu publication", () => {
     expect(state.published.mock.calls[0][0]).not.toHaveProperty(
       "onOpenDeployments",
     );
-    const initialLine = screen.getByTestId("credits").textContent;
+    // 100 credits = $1: $10 included - $2 used.
+    expect(screen.getByTestId("credits")).toHaveTextContent(/^800$/);
     fireEvent.click(screen.getByRole("button"));
     expect(state.published).toHaveBeenCalledTimes(1);
 
@@ -92,7 +93,7 @@ describe("account menu publication", () => {
     state.credits.data.included.used_microusd = 3_000_000;
     fireEvent.click(screen.getByRole("button"));
     expect(state.published).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("credits").textContent).not.toBe(initialLine);
+    expect(screen.getByTestId("credits")).toHaveTextContent(/^700$/);
   });
 
   it("settles loading publication then publishes the resolved credits once", () => {

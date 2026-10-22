@@ -290,7 +290,9 @@ describe("useProjectDetail", () => {
     const { result } = renderHook(() => useProjectDetail(7), {
       wrapper: wrapper(),
     });
-    await waitFor(() => expect(launchAppsStatus).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(launchAppsStatus).toHaveBeenCalledWith({ projectId: 7 }),
+    );
     expect(result.current.source?.apps[0]?.loaded).toBeUndefined();
     expect(projectDeploymentStatus(result.current.source!)).toMatchObject({
       label: "Activated",

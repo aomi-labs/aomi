@@ -75,8 +75,15 @@ describe("GitHub CLI sessions", () => {
     const first = await readGitHubCliExchange(code);
     const second = await readGitHubCliExchange(code);
 
-    expect(first).not.toBeNull();
+    expect(first).toEqual({
+      accessToken: expect.any(String),
+      codeChallenge: "c".repeat(43),
+      session,
+    });
     expect(second).toEqual(first);
-    expect(first?.accessToken).toBe(second?.accessToken);
+    // The embedded token is itself a valid CLI session for the same user.
+    await expect(readGitHubCliSession(first!.accessToken)).resolves.toEqual(
+      session,
+    );
   });
 });

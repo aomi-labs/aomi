@@ -234,7 +234,18 @@ describe("deactivateAomiAccount last-factor handling", () => {
       revokedIdentities: 1,
       revokedWallets: 0,
     });
-    expect(queryMocks.deactivateAomiUser).toHaveBeenCalled();
+    expect(queryMocks.revokeAllAuthIdentitiesForUser).toHaveBeenCalledWith({
+      userId: "solo-user",
+      db: tx,
+    });
+    expect(queryMocks.revokeAllWalletsForUser).toHaveBeenCalledWith({
+      userId: "solo-user",
+      db: tx,
+    });
+    expect(queryMocks.deactivateAomiUser).toHaveBeenCalledWith({
+      userId: "solo-user",
+      db: tx,
+    });
   });
 });
 

@@ -21,7 +21,6 @@ describe("createWidgetX402Client", () => {
       switchChain,
     });
 
-    expect(client).toBeDefined();
     await client!.createPaymentPayload({
       x402Version: 2,
       resource: { url: CHAT_URL },

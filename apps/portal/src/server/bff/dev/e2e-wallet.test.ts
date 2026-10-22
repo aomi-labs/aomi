@@ -32,37 +32,25 @@ function enableSolanaWallet(signer: Keypair) {
 describe("Solana E2E wallet boundary", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("mints and verifies a Solana-only seed", () => {
-    const signer = Keypair.generate();
-    enableSolanaWallet(signer);
-    const cookie = mintE2EWalletCookie({
-      svmAddress: signer.publicKey.toBase58(),
-      svmCluster: "solana:devnet",
-      ttlSeconds: 60,
-    });
-    expect(cookie).toBeTruthy();
-    expect(verifyE2EWalletCookie(cookie ?? undefined)).toMatchObject({
-      svmAddress: signer.publicKey.toBase58(),
-      svmCluster: "solana:devnet",
-    });
-  });
-
-  it("mints and verifies a mainnet-fork seed", () => {
-    // "solana:mainnet" = the LOCAL Surfpool mirror, never the real cluster —
-    // the executor's loopback-only RPC rule holds for every cluster value.
-    const signer = Keypair.generate();
-    enableSolanaWallet(signer);
-    const cookie = mintE2EWalletCookie({
-      svmAddress: signer.publicKey.toBase58(),
-      svmCluster: "solana:mainnet",
-      ttlSeconds: 60,
-    });
-    expect(cookie).toBeTruthy();
-    expect(verifyE2EWalletCookie(cookie ?? undefined)).toMatchObject({
-      svmAddress: signer.publicKey.toBase58(),
-      svmCluster: "solana:mainnet",
-    });
-  });
+  // "solana:mainnet" = the LOCAL Surfpool mirror, never the real cluster —
+  // the executor's loopback-only RPC rule holds for every cluster value.
+  it.each(["solana:devnet", "solana:mainnet"] as const)(
+    "mints and verifies a Solana-only %s seed",
+    (svmCluster) => {
+      const signer = Keypair.generate();
+      enableSolanaWallet(signer);
+      const cookie = mintE2EWalletCookie({
+        svmAddress: signer.publicKey.toBase58(),
+        svmCluster,
+        ttlSeconds: 60,
+      });
+      expect(cookie).toEqual(expect.any(String));
+      expect(verifyE2EWalletCookie(cookie ?? undefined)).toMatchObject({
+        svmAddress: signer.publicKey.toBase58(),
+        svmCluster,
+      });
+    },
+  );
 
   it("signs binding messages under a mainnet-fork seed", async () => {
     const signer = Keypair.generate();

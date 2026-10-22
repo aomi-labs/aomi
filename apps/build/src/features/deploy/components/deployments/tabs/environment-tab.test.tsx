@@ -48,8 +48,8 @@ describe("EnvironmentTab", () => {
 
   it("loads secrets on mount and lists configured keys (names only)", () => {
     renderTab();
-    expect(detail.loadSecrets).toHaveBeenCalled();
-    expect(detail.loadRequiredSecrets).toHaveBeenCalled();
+    expect(detail.loadSecrets).toHaveBeenCalledWith(11);
+    expect(detail.loadRequiredSecrets).toHaveBeenCalledWith();
     expect(screen.getByText("EXISTING_KEY")).toBeInTheDocument();
     expect(screen.getByText("Builder secret")).toBeInTheDocument();
     expect(screen.getByText("Runtime")).toBeInTheDocument();

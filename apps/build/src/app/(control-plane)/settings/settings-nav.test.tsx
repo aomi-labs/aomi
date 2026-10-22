@@ -52,8 +52,16 @@ describe("SettingsNav", () => {
 
     render(<SettingsNav />);
 
-    expect(screen.getAllByText("Soon").length).toBeGreaterThan(0);
-    expect(screen.getByText("Project-scoped")).toBeInTheDocument();
-    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+    for (const [title, badge] of [
+      ["General", "Available"],
+      ["Secrets", "Project-scoped"],
+      ["Notifications", "Soon"],
+      ["Billing", "Available"],
+      ["Danger zone", "Soon"],
+    ]) {
+      expect(screen.getByRole("link", { name: new RegExp(title) })).toHaveTextContent(
+        `${title}${badge}`,
+      );
+    }
   });
 });

@@ -42,7 +42,6 @@ describe("getAppIcon", () => {
   it("renders every curated mark locally through currentColor", () => {
     for (const appId of CURATED_APP_IDS) {
       const Icon = getAppIcon(appId);
-      expect(Icon, appId).toBeDefined();
       const markup = renderToStaticMarkup(
         createElement(Icon!),
       );

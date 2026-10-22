@@ -192,7 +192,11 @@ describe("CLI BYOK-key commands", () => {
       ),
     ).rejects.toBeInstanceOf(CliExit);
 
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "Invalid format. Use: <provider>:<key> (e.g. anthropic:sk-ant-...)",
+      ),
+    );
     errorSpy.mockRestore();
   });
 });

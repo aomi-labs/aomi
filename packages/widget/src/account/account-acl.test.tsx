@@ -579,7 +579,6 @@ describe("account ACL wiring", () => {
       string,
       unknown
     >;
-    expect(update).toBeDefined();
     expect(update).not.toHaveProperty("connection");
     expect(update.svm).toEqual({ address: PRIVY_SVM, broadcaster: "hosted" });
   });
