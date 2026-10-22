@@ -503,7 +503,8 @@ const ComposerAction: FC = () => {
   const canSend = useAuiState((state) => state.composer.canSend);
   const hasText = useComposer((state) => Boolean(state.text.trim()));
   const active = aomiRuntime?.turnControl
-    ? Boolean(aomiRuntime.turnControl.active_turn_id)
+    ? Boolean(aomiRuntime.turnControl.active_turn_id) ||
+      Boolean(aomiRuntime.isSubmitting)
     : nativeRunning || aomiRuntime?.turnState === "awaiting_action";
   const controlBarProps = composerControl.controlBarProps ?? {};
   const hideModel = controlBarProps.hideModel ?? false;

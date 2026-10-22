@@ -469,7 +469,12 @@ export function projectAssistantMessages(
       inputRevisions.set(root, revision);
     const segment = revision > 1 ? `${root}:input:${revision}` : root;
     segmentRoots.set(segment, root);
-    if (!segmentStarts.has(segment))
+    // Streaming assistant messages carry the client's clock. A persisted
+    // user input owns the phase boundary, even if its live prose arrived first.
+    if (
+      (event.type === "message" && event.sender === "user") ||
+      (event.type !== "message" && !segmentStarts.has(segment))
+    )
       segmentStarts.set(segment, parseTimestamp(event.occurred_at));
     if (!latestSegments.has(root)) latestSegments.set(root, segment);
     if (event.type === "message" && event.sender === "user") {

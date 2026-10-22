@@ -50,6 +50,38 @@ const contents = (events: Event[]) =>
   }));
 
 describe("steering transcript projection", () => {
+  it.each([1, 1_900_000_000])(
+    "anchors a phase to its wire input despite live clock %s",
+    (clock) => {
+      const events: Event[] = [
+        {
+          ...meta(1),
+          type: "message",
+          sender: "user",
+          content: "Research",
+          message_key: "request",
+        },
+        { ...meta(2), type: "turn_state_changed", state: "processing" },
+        update(3, "accepted"),
+      ];
+      const live = {
+        ...text(2, 2, "Live follow-up"),
+        event_id: "live:follow-up",
+        occurred_at: clock,
+        is_streaming: true,
+      };
+      const messages = projectRuntimeMessages(events, undefined, [live]);
+      expect(
+        messages.find((message) => message.id === "turn:turn-1:input:2")
+          ?.metadata?.custom,
+      ).toMatchObject({ aomiTraceStartedAt: 3000 });
+      expect(
+        messages.find((message) => message.id === "turn:turn-1")?.metadata
+          ?.custom,
+      ).toMatchObject({ aomiTraceEndedAt: 3000 });
+    },
+  );
+
   it("keeps an earlier thinking trace above a follow-up before any output arrives", () => {
     const events: Event[] = [
       {

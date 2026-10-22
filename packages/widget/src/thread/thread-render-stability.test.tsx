@@ -341,6 +341,23 @@ describe("thread rendering under live runtime updates", () => {
     expect(view.queryByRole("button", { name: "Stop generating" })).toBeNull();
   });
 
+  it("keeps Stop available while Start is awaiting acknowledgement on an idle control snapshot", () => {
+    const cancelGeneration = vi.fn();
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: true,
+          turnControl: inputControl(null),
+          cancelGeneration,
+        })}
+      />,
+    );
+    fireEvent.change(view.getByRole("textbox"), { target: { value: "" } });
+    fireEvent.click(view.getByRole("button", { name: "Stop generating" }));
+    expect(cancelGeneration).toHaveBeenCalledOnce();
+    expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
+  });
+
   it("keeps catalog/provider work stable on unrelated event/status snapshots while native messages still update", async () => {
     const view = render(<Fixture api={api()} />);
     await waitFor(() => expect(view.getByText("Saved answer")).toBeVisible());
