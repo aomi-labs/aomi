@@ -54,6 +54,8 @@ For custom React UIs, install `@aomi-labs/react` and provide the transport and
 wallet capabilities explicitly. See the package READMEs and the maintained
 [integration documentation](https://docs.aomi.dev).
 
+> Security: see `docs/topics/security/official-install-paths.md` for the official package names and hosted MCP URLs. Avoid unscoped `aomi*` names and the `@aomi/*` scope.
+
 ## Workspace
 
 `apps/` contains deployed hosts: Portal, Build, Landing and Telegram.
