@@ -32,53 +32,34 @@ describe("NotificationToaster", () => {
     vi.useRealTimers();
   });
 
-  it("dismisses notification state after the default six-second banner", () => {
-    notificationState.notifications = [
-      {
-        id: "notice-1",
-        type: "notice",
-        title: "Backend connected",
-        timestamp: Date.now(),
-      },
-    ];
+  it.each([
+    [undefined, 5999, 1],
+    [9000, 6000, 3000],
+  ])(
+    "dismisses duration %s after %i + %i ms",
+    (duration, quietMs, remainingMs) => {
+      notificationState.notifications = [
+        {
+          id: "notice-1",
+          type: "notice",
+          title: "Backend connected",
+          timestamp: Date.now(),
+          duration,
+        },
+      ];
 
-    render(
-      <WidgetScope>
-        <NotificationToaster />
-      </WidgetScope>,
-    );
+      render(
+        <WidgetScope>
+          <NotificationToaster />
+        </WidgetScope>,
+      );
 
-    act(() => vi.advanceTimersByTime(5999));
-    expect(notificationState.dismissNotification).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(1));
-
-    expect(notificationState.dismissNotification).toHaveBeenCalledWith(
-      "notice-1",
-    );
-  });
-
-  it("preserves an explicit notification duration", () => {
-    notificationState.notifications = [
-      {
-        id: "notice-2",
-        type: "notice",
-        title: "Longer notice",
-        timestamp: Date.now(),
-        duration: 9000,
-      },
-    ];
-
-    render(
-      <WidgetScope>
-        <NotificationToaster />
-      </WidgetScope>,
-    );
-
-    act(() => vi.advanceTimersByTime(6000));
-    expect(notificationState.dismissNotification).not.toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(3000));
-    expect(notificationState.dismissNotification).toHaveBeenCalledWith(
-      "notice-2",
-    );
-  });
+      act(() => vi.advanceTimersByTime(quietMs));
+      expect(notificationState.dismissNotification).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(remainingMs));
+      expect(notificationState.dismissNotification).toHaveBeenCalledWith(
+        "notice-1",
+      );
+    },
+  );
 });

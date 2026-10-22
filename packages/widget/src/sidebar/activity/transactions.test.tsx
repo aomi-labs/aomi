@@ -24,42 +24,24 @@ function renderTransaction(overrides: Partial<ActivityTransaction>) {
 }
 
 describe("transaction network chip", () => {
-  it.each([
-    ["mainnet-beta", "Solana"],
-    ["mainnet", "Solana"],
-    ["devnet", "Solana Devnet"],
-    ["testnet", "Solana Testnet"],
-    ["solana:mainnet", "Solana"],
-    ["solana:devnet", "Solana Devnet"],
-    ["solana:testnet", "Solana Testnet"],
-    [undefined, "Solana"],
-  ])("shows the Solana mark and friendly label for %s", (cluster, label) => {
-    renderTransaction({ cluster });
+  it.each<[Partial<ActivityTransaction>, string, typeof SolanaIcon]>([
+    [{ cluster: "mainnet-beta" }, "Solana", SolanaIcon],
+    [{ cluster: "mainnet" }, "Solana", SolanaIcon],
+    [{ cluster: "devnet" }, "Solana Devnet", SolanaIcon],
+    [{ cluster: "testnet" }, "Solana Testnet", SolanaIcon],
+    [{ cluster: "solana:mainnet" }, "Solana", SolanaIcon],
+    [{ cluster: "solana:devnet" }, "Solana Devnet", SolanaIcon],
+    [{ cluster: "solana:testnet" }, "Solana Testnet", SolanaIcon],
+    [{ cluster: undefined }, "Solana", SolanaIcon],
+    [{ cluster: "localnet", stage: "committed" }, "localnet", SolanaIcon],
+    [{ family: "evm", chainId: 8453 }, "Base", BaseIcon],
+  ])("shows the network for %j as %s", (overrides, label, Icon) => {
+    renderTransaction(overrides);
 
     const chip = screen.getByTitle(label).parentElement;
     expect(chip).toHaveTextContent(label);
     expect(chip?.querySelector("svg")?.outerHTML).toBe(
-      render(<SolanaIcon className="size-3 shrink-0" />).container.innerHTML,
-    );
-  });
-
-  it("keeps a custom SVM cluster visible beside the Solana mark", () => {
-    renderTransaction({ cluster: "localnet", stage: "committed" });
-
-    const chip = screen.getByTitle("localnet").parentElement;
-    expect(chip).toHaveTextContent("localnet");
-    expect(chip?.querySelector("svg")?.outerHTML).toBe(
-      render(<SolanaIcon className="size-3 shrink-0" />).container.innerHTML,
-    );
-  });
-
-  it("keeps the EVM chain name and mark", () => {
-    renderTransaction({ family: "evm", chainId: 8453 });
-
-    const chip = screen.getByTitle("Base").parentElement;
-    expect(chip).toHaveTextContent("Base");
-    expect(chip?.querySelector("svg")?.outerHTML).toBe(
-      render(<BaseIcon className="size-3 shrink-0" />).container.innerHTML,
+      render(<Icon className="size-3 shrink-0" />).container.innerHTML,
     );
   });
 

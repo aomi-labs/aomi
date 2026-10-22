@@ -20,9 +20,13 @@ describe("readAccountAuthEnv", () => {
     expect(env.databaseUrl).toBe(TEST_DATABASE_URL);
   });
 
-  it("requires BetterAuth secret outside development and test", () => {
+  it.each([
+    ["requires BetterAuth secret", undefined],
+    ["rejects the known dev secret", DEV_BETTER_AUTH_SECRET],
+  ])("%s outside development and test", (_name, BETTER_AUTH_SECRET) => {
     expect(() =>
       readAccountAuthEnv({
+        BETTER_AUTH_SECRET,
         BETTER_AUTH_URL: "https://app.aomi.dev",
         DATABASE_URL: "postgresql://prod.example/aomi",
         NODE_ENV: "production",
@@ -42,19 +46,6 @@ describe("readAccountAuthEnv", () => {
         }),
       ).toThrow("DATABASE_URL is not set");
     }
-  });
-
-  it("rejects the known dev secret outside development and test", () => {
-    expect(() =>
-      readAccountAuthEnv({
-        BETTER_AUTH_SECRET: DEV_BETTER_AUTH_SECRET,
-        BETTER_AUTH_URL: "https://app.aomi.dev",
-        DATABASE_URL: "postgresql://prod.example/aomi",
-        NODE_ENV: "production",
-      }),
-    ).toThrow(
-      "BETTER_AUTH_SECRET must be configured outside NODE_ENV=development/test",
-    );
   });
 
   it("uses the immutable Vercel deployment as an ephemeral preview issuer", () => {
