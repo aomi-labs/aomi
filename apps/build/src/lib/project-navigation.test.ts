@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { setLastProjectId } from "@/lib/project-navigation";
 import {
+  getLastProjectId,
+  setLastProjectId,
   lastEnvironmentHref,
   lastProjectHref,
   lastUsageHref,
@@ -8,13 +9,24 @@ import {
   usageHref,
 } from "@/lib/project-navigation";
 
-describe("deep-links", () => {
+describe("project navigation", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
   afterEach(() => {
     window.localStorage.clear();
+  });
+
+  it("stores and reads the last project id", () => {
+    expect(getLastProjectId()).toBeNull();
+    setLastProjectId(42);
+    expect(getLastProjectId()).toBe(42);
+  });
+
+  it("ignores invalid last project ids", () => {
+    setLastProjectId(-1);
+    expect(getLastProjectId()).toBeNull();
   });
 
   it("builds project and usage hrefs", () => {
