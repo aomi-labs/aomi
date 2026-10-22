@@ -6,22 +6,10 @@ const definition = guardDef.args as ArgsDef;
 
 describe("guard command arguments", () => {
   it.each([
-    [
-      "reads account policy without requiring a replacement mode",
-      ["--account"],
-      { account: true, level: undefined },
-    ],
-    [
-      "reads thread policy without requiring a replacement mode",
-      ["--thread", "session-3"],
-      { thread: "session-3", level: undefined },
-    ],
-    [
-      "keeps explicit policy writes available",
-      ["guarded_only", "--account"],
-      { account: true, level: "guarded_only" },
-    ],
-  ])("%s", (_name, argv, expected) => {
+    [["--account"], { account: true, level: undefined }],
+    [["--thread", "session-3"], { thread: "session-3", level: undefined }],
+    [["guarded_only", "--account"], { account: true, level: "guarded_only" }],
+  ])("parses %j", (argv, expected) => {
     expect(parseArgs(argv, definition)).toMatchObject(expected);
   });
 });

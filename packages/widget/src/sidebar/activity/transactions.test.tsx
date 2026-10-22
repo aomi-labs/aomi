@@ -24,40 +24,26 @@ function renderTransaction(overrides: Partial<ActivityTransaction>) {
 }
 
 describe("transaction network chip", () => {
-  it.each([
-    ["mainnet-beta", { cluster: "mainnet-beta" }, "Solana", SolanaIcon],
-    ["mainnet", { cluster: "mainnet" }, "Solana", SolanaIcon],
-    ["devnet", { cluster: "devnet" }, "Solana Devnet", SolanaIcon],
-    ["testnet", { cluster: "testnet" }, "Solana Testnet", SolanaIcon],
-    ["solana:mainnet", { cluster: "solana:mainnet" }, "Solana", SolanaIcon],
-    ["solana:devnet", { cluster: "solana:devnet" }, "Solana Devnet", SolanaIcon],
-    [
-      "solana:testnet",
-      { cluster: "solana:testnet" },
-      "Solana Testnet",
-      SolanaIcon,
-    ],
-    ["no cluster", { cluster: undefined }, "Solana", SolanaIcon],
-    // A custom SVM cluster stays visible beside the Solana mark.
-    [
-      "custom localnet",
-      { cluster: "localnet", stage: "committed" },
-      "localnet",
-      SolanaIcon,
-    ],
-    ["EVM chain 8453", { family: "evm", chainId: 8453 }, "Base", BaseIcon],
-  ] as const)(
-    "shows the network mark and friendly label for %s",
-    (_name, overrides, label, Icon) => {
-      renderTransaction(overrides as Partial<ActivityTransaction>);
+  it.each<[Partial<ActivityTransaction>, string, typeof SolanaIcon]>([
+    [{ cluster: "mainnet-beta" }, "Solana", SolanaIcon],
+    [{ cluster: "mainnet" }, "Solana", SolanaIcon],
+    [{ cluster: "devnet" }, "Solana Devnet", SolanaIcon],
+    [{ cluster: "testnet" }, "Solana Testnet", SolanaIcon],
+    [{ cluster: "solana:mainnet" }, "Solana", SolanaIcon],
+    [{ cluster: "solana:devnet" }, "Solana Devnet", SolanaIcon],
+    [{ cluster: "solana:testnet" }, "Solana Testnet", SolanaIcon],
+    [{ cluster: undefined }, "Solana", SolanaIcon],
+    [{ cluster: "localnet", stage: "committed" }, "localnet", SolanaIcon],
+    [{ family: "evm", chainId: 8453 }, "Base", BaseIcon],
+  ])("shows the network for %j as %s", (overrides, label, Icon) => {
+    renderTransaction(overrides);
 
-      const chip = screen.getByTitle(label).parentElement;
-      expect(chip).toHaveTextContent(label);
-      expect(chip?.querySelector("svg")?.outerHTML).toBe(
-        render(<Icon className="size-3 shrink-0" />).container.innerHTML,
-      );
-    },
-  );
+    const chip = screen.getByTitle(label).parentElement;
+    expect(chip).toHaveTextContent(label);
+    expect(chip?.querySelector("svg")?.outerHTML).toBe(
+      render(<Icon className="size-3 shrink-0" />).container.innerHTML,
+    );
+  });
 
   it("keeps the generic fallback for an unknown EVM chain", () => {
     renderTransaction({ family: "evm", chainId: 999999 });

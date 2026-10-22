@@ -5,12 +5,15 @@ import { projectSdk } from "../sdk-compatibility";
 
 describe("SdkBadge", () => {
   it.each([
-    ["ok", "stamped matches required", "3.0.1"],
-    ["outdated", "they differ", "3.0.0"],
-    ["missing", "stamp absent", null],
-  ] as const)("shows %s when %s", (state, _when, stamped) => {
+    ["ok", "3.0.1"],
+    ["outdated", "3.0.0"],
+    ["missing", null],
+  ] as const)("shows %s for stamp %s", (state, stamped) => {
     render(<SdkBadge stamped={stamped} required="3.0.1" />);
-    expect(screen.getByTestId("sdk-badge")).toHaveAttribute("data-state", state);
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
+      "data-state",
+      state,
+    );
   });
   it("shows incompatible, not outdated, for a release the runtime refuses", () => {
     const sdk = projectSdk(

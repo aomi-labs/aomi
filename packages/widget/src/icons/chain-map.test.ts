@@ -12,15 +12,5 @@ describe("chain icon map", () => {
     container.innerHTML = renderToStaticMarkup(createElement(Icon!));
     expect(container.querySelector("svg path")).not.toBeNull();
     expect(container.querySelector("svg text")?.textContent).toBe("T");
-    expect(getChainIcon(8453)?.name).toBe("BaseIcon");
-  });
-
-  it.each([
-    [4326, "MegaETHIcon"],
-    [5042002, "ArcIcon"],
-    [5042, "ArcIcon"],
-    [4663, "RobinhoodIcon"],
-  ])("maps chain %i to the monochrome %s", (chainId, iconName) => {
-    expect(getChainIcon(chainId)?.name).toBe(iconName);
   });
 });

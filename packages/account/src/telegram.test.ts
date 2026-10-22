@@ -122,11 +122,8 @@ describe("Telegram Mini App launch verification", () => {
     });
   });
 
-  it.each([
-    ["stale signed launch data before account exchange", 1_700_000_000],
-    ["launch data dated beyond the allowed clock skew", AUTH_DATE + 3600],
-  ])("rejects %s", (_name, authDate) => {
-    expect(verify(signedInitData({ authDate }))).toEqual({
+  it("rejects stale signed launch data before account exchange", () => {
+    expect(verify(signedInitData({ authDate: 1_700_000_000 }))).toEqual({
       ok: false,
       reason: "expired",
     });
@@ -140,6 +137,13 @@ describe("Telegram Mini App launch verification", () => {
         publicKeyHex,
       }),
     ).toEqual({ ok: false, reason: "expired" });
+  });
+
+  it("rejects launch data dated beyond the allowed clock skew", () => {
+    expect(verify(signedInitData({ authDate: AUTH_DATE + 3600 }))).toEqual({
+      ok: false,
+      reason: "expired",
+    });
   });
 
   it("returns the verified auth_date so callers can see the proof's age", () => {

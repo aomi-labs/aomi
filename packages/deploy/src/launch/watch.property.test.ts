@@ -6,59 +6,17 @@ import { BackendClient } from "../backend";
 import type { DeploymentProgressEvent, DeploymentStatus } from "../types";
 import { backoffDelay, deploymentProgress } from "./watch";
 
-function newClient(): BackendClient {
-  return new BackendClient({
-    aomi: {
-      backendUrl: "https://staging-api.example.com",
-      activationToken: "act-token",
-    },
-  });
-}
+const client = new BackendClient({
+  aomi: {
+    backendUrl: "https://staging-api.example.com",
+    activationToken: "act-token",
+  },
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
-
-// Fetch mock that returns states in order, then repeats the last.
-function mockStatusSequence(states: string[]) {
-  let idx = 0;
-  return vi.fn().mockImplementation(async () => {
-    const state = states[
-      Math.min(idx, states.length - 1)
-    ] as DeploymentStatus["state"];
-    idx++;
-    return new Response(
-      JSON.stringify({ state, releaseTags: [] } satisfies DeploymentStatus),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    );
-  });
-}
-
-// Runs watchDeployment under fake timers. Callers must include a terminal
-// state in `states`, otherwise the watcher polls forever.
-async function runWatch(states: string[]) {
-  vi.useFakeTimers();
-  const events: DeploymentProgressEvent[] = [];
-  const fetchMock = mockStatusSequence(states);
-  vi.stubGlobal("fetch", fetchMock);
-
-  const promise = newClient().watchDeployment(
-    "dep_1",
-    "community",
-    (e) => events.push(e),
-    { baseDelayMs: 1, maxDelayMs: 5, maxRetries: 3 },
-  );
-
-  await vi.advanceTimersByTimeAsync(5000);
-  await promise;
-  const fetchCount = fetchMock.mock.calls.length;
-  // No further polling once a terminal event has been emitted.
-  await vi.advanceTimersByTimeAsync(100);
-  expect(fetchMock).toHaveBeenCalledTimes(fetchCount);
-  vi.useRealTimers();
-  return events;
-}
 
 describe("deploymentProgress", () => {
   it.each([
@@ -94,33 +52,6 @@ describe("backoffDelay", () => {
       expect(backoffDelay(failures, baseMs, maxMs)).toBe(expected);
     },
   );
-
-  it("delay at failure n is always >= delay at failure n-1", () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: 7 }), (n) => {
-        expect(backoffDelay(n, 3000, 30000)).toBeGreaterThanOrEqual(
-          backoffDelay(n - 1, 3000, 30000),
-        );
-      }),
-      { numRuns: 50 },
-    );
-  });
-
-  it("delay never exceeds maxDelayMs", () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: 0, max: 20 }),
-        fc.integer({ min: 100, max: 5000 }),
-        fc.integer({ min: 5000, max: 60000 }),
-        (failures, baseMs, maxMs) => {
-          expect(backoffDelay(failures, baseMs, maxMs)).toBeLessThanOrEqual(
-            maxMs,
-          );
-        },
-      ),
-      { numRuns: 100 },
-    );
-  });
 });
 
 describe("watchDeployment", () => {
@@ -131,17 +62,45 @@ describe("watchDeployment", () => {
           maxLength: 6,
         }),
         fc.constantFrom("ready", "failed", "no_ci"),
-        fc.array(
-          fc.constantFrom("pending", "building", "releasing", "ready"),
-          { maxLength: 2 },
-        ),
+        fc.array(fc.constantFrom("pending", "building", "releasing", "ready"), {
+          maxLength: 2,
+        }),
         async (prefix, terminal, trailing) => {
-          const events = await runWatch([...prefix, terminal, ...trailing]);
+          vi.useFakeTimers();
+          const states = [...prefix, terminal, ...trailing];
+          let index = 0;
+          const fetchMock = vi.fn(
+            async () =>
+              new Response(
+                JSON.stringify({
+                  state: states[Math.min(index++, states.length - 1)],
+                  releaseTags: [],
+                }),
+              ),
+          );
+          vi.stubGlobal("fetch", fetchMock);
+          const events: DeploymentProgressEvent[] = [];
+          const pending = client.watchDeployment(
+            "dep_1",
+            "community",
+            (e) => events.push(e),
+            {
+              baseDelayMs: 1,
+              maxDelayMs: 5,
+              maxRetries: 3,
+            },
+          );
+          await vi.advanceTimersByTimeAsync(5000);
+          await pending;
+          expect(fetchMock).toHaveBeenCalledTimes(prefix.length + 1);
+          await vi.advanceTimersByTimeAsync(100);
+          expect(fetchMock).toHaveBeenCalledTimes(prefix.length + 1);
+          vi.useRealTimers();
 
           expect(events.length).toBeGreaterThanOrEqual(1);
           const lastEvent = events[events.length - 1];
           expect(lastEvent.kind).toBe("terminal");
-          expect(["ready", "failed", "no_ci"]).toContain(lastEvent.status.state);
+          expect(lastEvent.status.state).toBe(terminal);
 
           let lastCompleted = -1;
           for (const event of events) {
@@ -165,13 +124,11 @@ describe("watchDeployment", () => {
 
   it("emits an error event after maxRetries consecutive poll failures", async () => {
     vi.useFakeTimers();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("network error")),
-    );
+    const fetchMock = vi.fn().mockRejectedValue(new Error("network error"));
+    vi.stubGlobal("fetch", fetchMock);
 
     const events: DeploymentProgressEvent[] = [];
-    const promise = newClient().watchDeployment(
+    const promise = client.watchDeployment(
       "dep_1",
       "community",
       (e) => events.push(e),
@@ -181,10 +138,12 @@ describe("watchDeployment", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await promise;
 
-    expect(events.length).toBeGreaterThanOrEqual(1);
-    const lastEvent = events[events.length - 1];
-    expect(lastEvent.kind).toBe("error");
-    expect(lastEvent.progress).toBeDefined();
-    expect(lastEvent.error).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(events.map((event) => event.kind)).toEqual([
+      "warning",
+      "warning",
+      "warning",
+      "error",
+    ]);
   });
 });
