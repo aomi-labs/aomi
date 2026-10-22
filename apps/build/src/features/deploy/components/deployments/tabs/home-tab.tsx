@@ -272,8 +272,7 @@ export function HomeTab({
     tab: "home" | "deployments" | "providers" | "environment" | "chat",
   ) => tabHref?.(tab) ?? `?tab=${tab}`;
 
-  const isLive =
-    status.isLive && Boolean(lifecycle.chatApp) && !chatBlocked;
+  const isLive = status.isLive && Boolean(lifecycle.chatApp) && !chatBlocked;
   const chatUrl = isLive
     ? chatAppUrl(lifecycle.chatApp!, {
         locked: true,
@@ -286,14 +285,14 @@ export function HomeTab({
     : outdated
       ? "Outdated"
       : lifecycle.kind === "live"
-      ? status.isLive
-        ? "Live"
-        : status.label
-      : lifecycle.kind === "building" || lifecycle.kind === "build_ready"
-        ? lifecycle.statusLabel
-        : lifecycle.kind === "failed"
+        ? status.isLive
+          ? "Live"
+          : status.label
+        : lifecycle.kind === "building" || lifecycle.kind === "build_ready"
           ? lifecycle.statusLabel
-          : "Not live";
+          : lifecycle.kind === "failed"
+            ? lifecycle.statusLabel
+            : "Not live";
 
   // A live app whose runtime SDK was never recorded is not a clean Live: the
   // card keeps the runtime verdict but carries the warning beside it. A
@@ -308,10 +307,12 @@ export function HomeTab({
   const monetization = monetizationCard(source);
 
   const nextAction =
-    needsUpgrade && requiredSdk
+    incompatible || (needsUpgrade && requiredSdk)
       ? {
           href: hrefForTab("deployments"),
-          label: `Upgrade to ${requiredSdk}`,
+          label: requiredSdk
+            ? `Upgrade to ${requiredSdk}`
+            : "Rebuild and redeploy",
           copy: incompatible
             ? `This app cannot run on the backend. Rebuild with ${sdk.rebuildWith} and redeploy before opening chat.`
             : chatBlocked

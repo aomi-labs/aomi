@@ -188,6 +188,25 @@ describe("HomeTab", () => {
 
   // Fundamental interface mismatch: red, chat blocked, and the copy says
   // rebuild with a supported SDK rather than "match 6.0.0".
+  it("offers rebuild guidance without server SDK metadata", async () => {
+    Object.assign(detail.source!, {
+      sdkVersion: "4.0.0",
+      ffiIncompatible: true,
+      requiredFfiVersion: 1,
+      ffiUnverifiedSdkVersions: ["4.0.0"],
+    });
+    renderTab(
+      <HomeTab detail={detail} tabHref={(tab) => `/projects/1?tab=${tab}`} />,
+    );
+    expect(
+      screen.getByRole("link", { name: "Rebuild and redeploy" }),
+    ).toHaveAttribute("href", "/projects/1?tab=deployments");
+    expect(
+      screen.queryByText("Publish a deployment, then set keys and open chat."),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
   it("shows a red, chat-blocking verdict for a release the runtime cannot load", async () => {
     detail.source!.apps = [
       {
@@ -239,7 +258,9 @@ describe("HomeTab", () => {
         "This app cannot run on the backend. Rebuild with a supported SDK (5.1.1 or newer) and redeploy before opening chat.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/rebuilt with aomi-sdk 6\.0\.0/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/rebuilt with aomi-sdk 6\.0\.0/),
+    ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "Upgrade to 6.0.0" })[0],
     ).toHaveAttribute("href", "/projects/1?tab=deployments");
