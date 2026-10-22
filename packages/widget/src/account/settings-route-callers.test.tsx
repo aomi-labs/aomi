@@ -217,13 +217,12 @@ describe("settings route callers", () => {
   });
 
   it("loads the general account overview from the account route", async () => {
-    const { calls } = installFetchRecorder();
+    const { calls, fetchMock } = installFetchRecorder();
 
     render(<GeneralSettings />);
 
-    await waitFor(() =>
-      expect(requestPaths(calls)).toContain("/api/account"),
-    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(requestPaths(calls)).toContain("/api/account");
     expect(requestPaths(calls)).not.toContain("/api/settings/account");
   });
 

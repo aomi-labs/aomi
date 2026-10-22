@@ -44,7 +44,7 @@ describe("Solana E2E wallet boundary", () => {
         svmCluster,
         ttlSeconds: 60,
       });
-      expect(cookie).toEqual(expect.any(String));
+      expect(cookie).toBeTruthy();
       expect(verifyE2EWalletCookie(cookie ?? undefined)).toMatchObject({
         svmAddress: signer.publicKey.toBase58(),
         svmCluster,

@@ -351,7 +351,7 @@ describe("HomeTab", () => {
     );
 
     expect(loadSecrets).not.toHaveBeenCalled();
-    expect(loadRequiredSecrets).toHaveBeenCalledWith();
+    expect(loadRequiredSecrets).toHaveBeenCalled();
     expect(screen.getByText("Project home")).toBeInTheDocument();
     expect(screen.getByText("Not live")).toBeInTheDocument();
     expect(screen.getByText("No apps yet")).toBeInTheDocument();

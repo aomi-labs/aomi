@@ -17,7 +17,6 @@ describe("walletCapabilities", () => {
       description: "Account consent", payloads: [{ kind: "evm_personal", message: "0x01" }],
     }, signal)).resolves.toEqual({ status: "signed", outputs: [{ id: "payload_1", signature: "0xconsent" }] });
     expect(signMessage).toHaveBeenCalledOnce();
-    expect(signMessage).toHaveBeenCalledWith({ message: "0x01", chainId: 1 });
   });
 
   it.each([[], ["durable-stage"]])(

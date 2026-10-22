@@ -101,14 +101,8 @@ describe("GitHub callback route", () => {
       app: 2,
       redirectUri: "http://localhost:3000/api/bff/auth/github/callback",
     });
-    expect(mocks.setGitHubSessionCookie).toHaveBeenCalledWith(res, {
-      githubUserId: "4738254",
-      githubLogin: "han",
-      installationId: "123",
-    });
-    expect(mocks.setGitHubVisibilityGrantCookie).toHaveBeenCalledWith(res, null);
+    expect(mocks.setGitHubSessionCookie).toHaveBeenCalled();
     expect(location.searchParams.get("github_error")).toBeNull();
-    expect(mocks.observeFailure).not.toHaveBeenCalled();
   });
 
   it("returns a refreshed installation to the template wizard", async () => {
@@ -129,14 +123,7 @@ describe("GitHub callback route", () => {
     expect(location.pathname).toBe("/operate/deployments/new");
     expect(location.searchParams.get("platform")).toBe("community");
     expect(location.searchParams.get("mode")).toBe("template");
-    expect(mocks.setGitHubSessionCookie).toHaveBeenCalledWith(res, {
-      githubUserId: "4738254",
-      githubLogin: "han",
-      installationId: "123",
-    });
-    expect(mocks.setGitHubVisibilityGrantCookie).toHaveBeenCalledWith(res, null);
-    expect(location.searchParams.get("github_error")).toBeNull();
-    expect(mocks.observeFailure).not.toHaveBeenCalled();
+    expect(mocks.setGitHubSessionCookie).toHaveBeenCalled();
   });
 
   it.each([

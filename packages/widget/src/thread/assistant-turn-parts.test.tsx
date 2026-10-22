@@ -153,7 +153,7 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(
       original.compareDocumentPosition(view.getByText(state.answerText)) &
         Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    ).toBeTruthy();
 
     act(() => {
       state.running = false;

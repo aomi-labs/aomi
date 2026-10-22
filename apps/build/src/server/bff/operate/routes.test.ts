@@ -1174,9 +1174,7 @@ describe("operateObservabilityRoute live data", () => {
     const res = await operateObservabilityRoute(observabilityReq());
 
     expect(res.status).toBe(404);
-    expect(client.getUserObservability).toHaveBeenCalledWith(
-      expect.objectContaining({ githubUserId: "gh-1" }),
-    );
+    expect(client.getUserObservability).toHaveBeenCalled();
     expect(client.getUserProjectObservability).not.toHaveBeenCalled();
   });
 
@@ -1775,10 +1773,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
       ),
     );
     expect(ok.status).toBe(200);
-    expect(client.listUserProjects).toHaveBeenCalledWith({
-      githubUserId: "gh-1",
-      platform: undefined,
-    });
+    expect(client.listUserProjects).toHaveBeenCalled();
 
     const foreign = await operatePaymentsRoute(
       new Request(

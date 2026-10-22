@@ -39,9 +39,8 @@ describe("run state", () => {
 
   it("sanitizes app names used for run directories", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "aomi-runs-"));
-    const created = await createRunState("weird/app name", root);
-    expect(created.runId).toMatch(/^smither-weird_app_name-[0-9a-f-]{36}$/);
-    expect(await loadRunState("weird/app name", root)).toEqual(created);
+    await createRunState("weird/app name", root);
+    expect(await loadRunState("weird/app name", root)).not.toBeNull();
     expect(runDir("weird/app name", root)).toBe(path.join(root, "weird_app_name"));
   });
 

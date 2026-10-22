@@ -253,6 +253,7 @@ describe("embedded EOA execution through the shared executor", () => {
       waitForTransactionReceipt: async () => ({ status: "success" }),
     });
 
+    expect(runtime.sendTransaction).toBeDefined();
     const result = await runtime.sendTransaction!({
       to: "0x1111111111111111111111111111111111111111",
       value: "0x0",

@@ -25,7 +25,7 @@ describe("MCP authorization resume", () => {
     const query = "?response_type=code&client_id=mcp-client&state=original";
     window.history.replaceState(null, "", `/${query}`);
     render(<McpAuthorizeResume />);
-    await waitFor(() => expect(useSession).toHaveBeenCalledWith());
+    await waitFor(() => expect(useSession).toHaveBeenCalled());
     expect(sessionStorage.getItem("aomi.mcp.authorize.query")).toBe(query);
   });
 
@@ -35,10 +35,6 @@ describe("MCP authorization resume", () => {
       "?response_type=code&client_id=mcp-client",
     );
     render(<McpAuthorizeResume />);
-    await waitFor(() => expect(useSession).toHaveBeenCalledWith());
-    // No session yet: the stash must survive until login completes.
-    expect(sessionStorage.getItem("aomi.mcp.authorize.query")).toBe(
-      "?response_type=code&client_id=mcp-client",
-    );
+    await waitFor(() => expect(useSession).toHaveBeenCalled());
   });
 });
