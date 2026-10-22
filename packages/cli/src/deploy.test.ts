@@ -22,7 +22,7 @@ describe("aomi deploy Project routing", () => {
   });
 
   it("routes by Project identity without forwarding a client-selected platform", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       Response.json({
         ok: true,
         deployment: {

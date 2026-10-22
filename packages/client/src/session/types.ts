@@ -5,6 +5,9 @@ import type {
   EventPage,
   MessageEvent,
   TurnState,
+  InputReceipt,
+  TurnControl,
+  TurnInputCapabilities,
 } from "../agent/types";
 import type { ActionAttempt, ActionCapabilities } from "../actions";
 import type { UserState } from "../user-state";
@@ -28,11 +31,31 @@ export type SendResult = {
   title?: string;
 };
 
+export type SteerOptions = {
+  targetTurnId?: string;
+  expectedInputRevision?: number;
+  /** Reuse this identity when recovering an uncertain admission. */
+  inputId?: string;
+};
+
+export type PendingInput = Readonly<{
+  inputId: string;
+  message: string;
+  operation: "steer" | "queue";
+  targetTurnId?: string;
+  status: "sending" | "uncertain" | "rejected" | InputReceipt["disposition"];
+  receipt?: InputReceipt;
+  error?: unknown;
+}>;
+
 export type SessionSnapshot = Readonly<{
   sessionId: string;
   cursor?: string;
   turnId?: string;
   turnState?: TurnState;
+  capabilities?: TurnInputCapabilities;
+  control?: TurnControl;
+  inputs?: readonly PendingInput[];
   events: readonly Event[];
   messages: readonly MessageEvent[];
   /** Provisional display only; never advances the durable cursor. */

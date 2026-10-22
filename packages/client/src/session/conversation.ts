@@ -10,6 +10,29 @@ export function projectConversationEvents(events: readonly Event[]): Event[] {
   const removedTurns = new Set<string>();
   const interruptedTurns = new Set<string>();
   for (const event of events) {
+    if (
+      event.type === "turn_input" &&
+      ((event.operation === "steer" &&
+        ["accepted", "applied", "superseded", "cancelled"].includes(
+          event.disposition,
+        )) ||
+        (event.operation === "queue" && event.disposition === "applied"))
+    ) {
+      const message: MessageEvent = {
+        type: "message",
+        event_id: event.event_id,
+        sequence: event.sequence,
+        occurred_at: event.occurred_at,
+        turn_id: event.turn_id,
+        message_key: event.input_id,
+        input_id: event.input_id,
+        input_revision: event.input_revision,
+        sender: "user",
+        content: event.message,
+      };
+      if (!hidden(message)) active.push(message);
+      continue;
+    }
     if (event.type === "branch") {
       for (const key of event.removed_message_keys) removedKeys.add(key);
       for (const turn of event.removed_turn_ids) removedTurns.add(turn);

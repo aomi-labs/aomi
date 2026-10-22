@@ -1,4 +1,5 @@
 import { AomiApiError, apiErrorFields, isRetryableStatus } from "../api-error";
+import { asRecord } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import type {
   Action,
@@ -8,6 +9,7 @@ import type {
   Session,
   SessionPage,
   StartTurnIntent,
+  SteerTurnIntent,
   AomiInferenceFundingSource,
 } from "./types";
 
@@ -106,6 +108,21 @@ export class AgentTransport {
         wait: Math.min(Math.max(options.waitMs ?? 0, 0), 30_000),
       },
     });
+  }
+
+  steer(
+    sessionId: string,
+    intent: SteerTurnIntent,
+    inputId: string,
+  ): Promise<EventPage> {
+    return this.json(
+      "POST",
+      `/v1/agent/chat/${encodeURIComponent(sessionId)}/steer`,
+      {
+        headers: { "idempotency-key": inputId, ...threadHeaders(sessionId) },
+        body: intent,
+      },
+    );
   }
 
   async stream(
@@ -349,6 +366,6 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
     error.message?.trim() ? error.message : code.replaceAll("_", " "),
     isRetryableStatus(response.status),
     response.headers.get("x-request-id") ?? undefined,
-    body?.error,
+    error.details ?? (asRecord(body)?.control ? body : body?.error),
   );
 }

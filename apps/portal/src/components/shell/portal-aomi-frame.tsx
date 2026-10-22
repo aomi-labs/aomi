@@ -156,16 +156,18 @@ export function ThreadUrlBootstrap({
   );
   const { navigating, requestedThread } = navigationSnapshot;
   useEffect(() => {
-    const readLocation = () => {
-      locationState.navigate(
-        new URLSearchParams(window.location.search).get("thread")?.trim() ||
-          null,
-      );
-    };
+    const locationThread = () =>
+      new URLSearchParams(window.location.search).get("thread")?.trim() || null;
+    const readLocation = () => locationState.navigate(locationThread());
     // Assistant-ui's per-chat boundary remounts this subtree. Only initial
     // host restoration or browser navigation should reopen the current URL.
-    if (locationState.getSnapshot().requestedThread === undefined)
-      readLocation();
+    if (locationState.getSnapshot().requestedThread === undefined) {
+      const initialThread = locationThread();
+      if (initialThread) locationState.navigate(initialThread);
+      // An empty initial URL already has a fresh composer. Waiting for the
+      // list before treating it as New chat would erase an early submission.
+      else locationState.sync(null);
+    }
     window.addEventListener("popstate", readLocation);
     return () => window.removeEventListener("popstate", readLocation);
   }, [locationState]);

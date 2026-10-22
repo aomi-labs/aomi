@@ -291,3 +291,140 @@ it.each([
     ).not.toBeInTheDocument();
   },
 );
+
+it("closes the earlier working trace and continues below an ordinary follow-up", async () => {
+  const event = (sequence: number, payload: object): Event =>
+    ({
+      event_id: `split-${sequence}`,
+      turn_id: "split-turn",
+      sequence,
+      occurred_at: 1_700_000_000 + sequence,
+      ...payload,
+    }) as Event;
+  transport.stoppedTurnId = undefined;
+  transport.turnState = "processing";
+  transport.events = [
+    event(1, {
+      type: "message",
+      sender: "user",
+      content: "Research",
+      message_key: "request",
+    }),
+    event(2, { type: "turn_state_changed", state: "processing" }),
+    event(3, {
+      type: "message",
+      sender: "agent",
+      content: "Checking the first request",
+      message_key: "first-work",
+      input_revision: 1,
+    }),
+    event(4, {
+      type: "turn_input",
+      operation: "steer",
+      disposition: "accepted",
+      input_id: "follow-up",
+      input_revision: 2,
+      message: "Focus on Base",
+      received_at: 4,
+      admitted_at: 4,
+      applied_at: null,
+    }),
+    event(5, {
+      type: "message",
+      sender: "agent",
+      content: "Checking Base instead",
+      message_key: "second-work",
+      input_revision: 2,
+    }),
+  ];
+  const view = render(<Fixture />);
+  await waitFor(() =>
+    expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
+      2,
+    ),
+  );
+  const rows = screen.getAllByTestId("assistant-row");
+  expect(rows[0]).toHaveTextContent("Worked");
+  expect(rows[0]).not.toHaveTextContent("Working");
+  expect(rows[1]).toHaveTextContent("Working");
+  expect(rows[0].querySelector(".aui-working-answer")).toBeNull();
+  expect(rows[1].querySelector(".aui-working-answer")).toBeNull();
+
+  transport.events = [
+    ...transport.events,
+    event(6, { type: "turn_state_changed", state: "complete" }),
+  ];
+  transport.turnState = "complete";
+  view.rerender(<Fixture />);
+  await waitFor(() =>
+    expect(rows[1].querySelector(".aui-working-answer")).toHaveTextContent(
+      "Checking Base instead",
+    ),
+  );
+  expect(rows[0].querySelector(".aui-working-answer")).toBeNull();
+  expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(2);
+  expect(rows[1]).toHaveTextContent("Worked");
+  expect(
+    rows[1]
+      .querySelector(".aui-working-trace")
+      ?.compareDocumentPosition(rows[1].querySelector(".aui-working-answer")!),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+  view.unmount();
+  const reloaded = render(<Fixture />);
+  await waitFor(() =>
+    expect(
+      reloaded.container.querySelectorAll(".aui-working-trace"),
+    ).toHaveLength(2),
+  );
+  expect(screen.getAllByTestId("assistant-row")[1]).toHaveTextContent(
+    "Checking Base instead",
+  );
+});
+
+it("retains the earlier empty thinking trace when a follow-up arrives immediately", async () => {
+  transport.stoppedTurnId = undefined;
+  transport.turnState = "processing";
+  transport.events = [
+    {
+      type: "message",
+      sender: "user",
+      content: "Research",
+      message_key: "request",
+      event_id: "empty-1",
+      turn_id: "empty-turn",
+      sequence: 1,
+      occurred_at: 1,
+    },
+    {
+      type: "turn_state_changed",
+      state: "processing",
+      event_id: "empty-2",
+      turn_id: "empty-turn",
+      sequence: 2,
+      occurred_at: 2,
+    },
+    {
+      type: "turn_input",
+      operation: "steer",
+      disposition: "accepted",
+      input_id: "immediate",
+      input_revision: 2,
+      message: "Focus on Base",
+      received_at: 3,
+      admitted_at: 3,
+      applied_at: null,
+      event_id: "empty-3",
+      turn_id: "empty-turn",
+      sequence: 3,
+      occurred_at: 3,
+    },
+  ];
+  const view = render(<Fixture />);
+  await waitFor(() =>
+    expect(screen.getAllByTestId("assistant-row")).toHaveLength(2),
+  );
+  expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(1);
+  expect(screen.getByLabelText("Aomi is thinking")).toBeVisible();
+  expect(screen.getAllByTestId("assistant-row")[0]).toHaveTextContent("Worked");
+});

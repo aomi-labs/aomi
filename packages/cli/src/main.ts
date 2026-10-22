@@ -3,6 +3,7 @@ import { root, SUBCOMMAND_NAMES } from "./root";
 import { AgentApiError } from "@aomi-labs/client";
 import { APP_ACCESS_CLI_HINTS, CliExit, DeployCliError } from "./errors";
 import packageJson from "../package.json";
+import { forwardGlobalOptions } from "./cli-args";
 
 const ROOT_SUBCOMMANDS = SUBCOMMAND_NAMES;
 
@@ -127,7 +128,7 @@ function printRootHelp(): void {
 
 export async function runCli(argv: string[] = process.argv): Promise<void> {
   const strictExit = process.env.AOMI_CLI_STRICT_EXIT === "1";
-  const rawArgs = argv.slice(2);
+  const rawArgs = await forwardGlobalOptions(root, argv.slice(2));
 
   try {
     if (shouldPrintRootHelp(rawArgs)) {

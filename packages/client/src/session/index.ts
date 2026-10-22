@@ -6,6 +6,10 @@ import type {
   MessageEvent,
   StartTurnIntent,
   TurnState,
+  InputReceipt,
+  TurnControl,
+  TurnInputCapabilities,
+  SteerTurnIntent,
 } from "../agent/types";
 import { ActionHandler } from "../actions";
 import {
@@ -16,6 +20,7 @@ import {
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
+import { asRecord } from "../internal/record";
 import { conversationMessages } from "./conversation";
 import type { AomiClientOptions } from "../types";
 import type {
@@ -24,6 +29,8 @@ import type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SteerOptions,
+  PendingInput,
 } from "./types";
 
 export { aaModeFromExecutionKind } from "../aa/policy";
@@ -35,6 +42,8 @@ export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SteerOptions,
+  PendingInput,
   TurnState,
 } from "./types";
 
@@ -64,6 +73,24 @@ export class ClientSession {
   private turnId?: string;
   private acceptedTurnId?: string;
   private turnState?: TurnState;
+  private capabilities?: TurnInputCapabilities;
+  private control?: TurnControl;
+  private observed = 0;
+  private inputAdmissions = Promise.resolve();
+  private steeringAdmissions = new Map<
+    string,
+    { inputId: string; promise: Promise<EventPage> }
+  >();
+  private inputs = new Map<
+    string,
+    {
+      view: PendingInput;
+      request: () => Promise<EventPage>;
+      promise?: Promise<EventPage>;
+      contentKey?: string;
+    }
+  >();
+  private pendingTurnId?: string;
   private startOperation?: {
     message: string;
     regenerate?: string;
@@ -231,23 +258,325 @@ export class ClientSession {
 
   async send(message: string, options: SendOptions = {}): Promise<SendResult> {
     const page = await this.submit(message, options);
+    const targetTurnId = page.started_turn_id ?? this.turnId;
+    if (targetTurnId && this.turnHasAnswer(targetTurnId))
+      return this.result(targetTurnId);
     if (this.isTerminal()) {
       this.drainTerminalPage(page);
       // The drain may still be polling for the trailing final message /
       // title; only a finished drain has the complete result in hand.
-      if (!this.streamingActive) return this.result();
+      if (!this.streamingActive) return this.result(targetTurnId);
     } else if (this.turnState !== "awaiting_action" || page.has_more) {
       this.startStreaming();
     }
     // A high-level run may hand off a durable commit and close this session
     // while the submitted page is still unwinding. Do not park a new waiter
     // after close() has already drained pending sends.
-    if (this.closed) return this.result();
+    if (this.closed) return this.result(targetTurnId);
     this.pendingSend ??= new Promise((resolve, reject) => {
+      this.pendingTurnId = targetTurnId;
       this.pendingResolve = resolve;
       this.pendingReject = reject;
     });
     return this.pendingSend;
+  }
+
+  /** Keep the visible conversation subscribed after its current turn ends. */
+  observe(): () => void {
+    this.assertOpen();
+    this.observed += 1;
+    if (this.cursor || this.turnId) this.startStreaming();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.observed -= 1;
+      if (!this.observed && (!this.turnState || this.isTerminal()))
+        this.stopStreaming();
+    };
+  }
+
+  /** Append a correction to the exact running turn; never falls back to Send. */
+  async steer(message: string, options: SteerOptions = {}): Promise<EventPage> {
+    this.assertInputOwner();
+    // A follow-up can arrive while Start is still being acknowledged. Join
+    // that admission and retain its identity, even if newer work begins.
+    const pending =
+      !options.targetTurnId && this.isSubmitting
+        ? this.activeSubmission?.promise
+        : undefined;
+    const admitted = pending ? await pending : undefined;
+    this.assertTurnInputs();
+    const text = message.trim();
+    if (!text) return Promise.reject(new TypeError("message is required"));
+    const admittedTurn = admitted?.started_turn_id ?? admitted?.input?.turn_id;
+    if (pending && !admittedTurn)
+      throw new TypeError("The initial request did not identify its turn");
+    const targetTurnId =
+      options.targetTurnId ??
+      admittedTurn ??
+      (this.control ? this.control.active_turn_id : this.turnId);
+    if (!targetTurnId)
+      return Promise.reject(new TypeError("A target turn is required"));
+    const inputId =
+      options.inputId ??
+      [...this.inputs.values()].find(
+        ({ view }) =>
+          view.status === "uncertain" &&
+          view.operation === "steer" &&
+          view.message === text &&
+          view.targetTurnId === targetTurnId,
+      )?.view.inputId ??
+      `input_${crypto.randomUUID()}`;
+    const predecessor = this.steeringAdmissions.get(targetTurnId);
+    const expectedRevision =
+      options.expectedInputRevision ??
+      (this.control?.active_turn_id === targetTurnId
+        ? this.control.accepted_input_revision
+        : (admitted?.input?.input_revision ?? 0));
+    let intent: SteerTurnIntent | undefined;
+    const admission = this.admitInput(
+      {
+        inputId,
+        message: text,
+        operation: "steer",
+        targetTurnId,
+        status: "sending",
+      },
+      async () => {
+        let previous: InputReceipt | undefined;
+        if (predecessor) {
+          try {
+            previous = (await predecessor.promise).input;
+          } catch (error) {
+            // A refused predecessor cannot poison this separate input's
+            // retained request. An unknown outcome needs its own receipt.
+            if (!isDefinitiveStartRejection(error))
+              previous = this.inputs.get(predecessor.inputId)?.view.receipt;
+          }
+        }
+        const unresolved = [...this.inputs.values()].find(
+          ({ view }) =>
+            view.inputId !== inputId &&
+            view.operation === "steer" &&
+            view.targetTurnId === targetTurnId &&
+            view.status === "uncertain",
+        );
+        if (unresolved)
+          throw new AgentApiError(
+            409,
+            "input_predecessor_unresolved",
+            "Check the previous update's receipt before sending another update.",
+            false,
+          );
+        intent ??= {
+          turnId: targetTurnId,
+          expectedInputRevision:
+            options.expectedInputRevision ??
+            previous?.input_revision ??
+            expectedRevision,
+          message: text,
+        };
+        return this.client.agent.steer(this.sessionId, intent, inputId);
+      },
+      JSON.stringify({ expectedInputRevision: options.expectedInputRevision }),
+    );
+    this.steeringAdmissions.set(targetTurnId, { inputId, promise: admission });
+    void admission
+      .finally(() => {
+        if (this.steeringAdmissions.get(targetTurnId)?.promise === admission)
+          this.steeringAdmissions.delete(targetTurnId);
+      })
+      .catch(() => {});
+    return admission;
+  }
+
+  /** Admit independent work to the host's durable FIFO queue. */
+  async queue(
+    message: string,
+    options: { inputId?: string; apiKey?: string } = {},
+  ): Promise<EventPage> {
+    this.assertTurnInputs();
+    const text = message.trim();
+    if (!text) return Promise.reject(new TypeError("message is required"));
+    const inputId =
+      options.inputId ??
+      [...this.inputs.values()].find(
+        ({ view }) =>
+          view.status === "uncertain" &&
+          view.operation === "queue" &&
+          view.message === text,
+      )?.view.inputId ??
+      `input_${crypto.randomUUID()}`;
+    const state = this.getUserState?.();
+    const intent: StartTurnIntent = {
+      sessionId: this.sessionId,
+      clientId: this.clientId,
+      message: text,
+      intent: "queue",
+      ...startTargetFields({
+        target: this.target,
+        app: this.app,
+        applicationId: this.applicationId,
+      }),
+      ...(this.model ? { model: this.model } : {}),
+      ...(state ? { userState: structuredClone(state) } : {}),
+    };
+    const inferenceFunding = this.inferenceFunding;
+    return this.admitInput(
+      { inputId, message: text, operation: "queue", status: "sending" },
+      () =>
+        this.client.agent.start(intent, {
+          idempotencyKey: inputId,
+          apiKey: options.apiKey,
+          inferenceFunding,
+        }),
+      JSON.stringify(intent),
+    );
+  }
+
+  /** Replay a possibly accepted input with its original body, target and identity. */
+  async retryInput(inputId: string): Promise<EventPage> {
+    this.assertInputOwner();
+    const input = this.inputs.get(inputId);
+    if (!input) return Promise.reject(new TypeError("Unknown input identity"));
+    return this.admitInput(input.view, input.request, input.contentKey);
+  }
+
+  /** Cancel the selected active or queued turn. */
+  async cancel(options: {
+    targetTurnId: string;
+    inputId?: string;
+  }): Promise<EventPage> {
+    this.assertInputOwner();
+    if (!options.targetTurnId.trim())
+      throw new TypeError("A target turn is required");
+    const page = await this.client.agent.interrupt(
+      this.sessionId,
+      options.targetTurnId,
+      options.inputId,
+    );
+    if (
+      (page.terminal_turn &&
+        page.terminal_turn.turn_id !== options.targetTurnId) ||
+      (page.input && page.input.turn_id !== options.targetTurnId)
+    )
+      throw new TypeError("Agent response turn does not match the request");
+    if (!page.terminal_turn && page.input?.disposition !== "cancelled")
+      throw new Error(
+        "The server has not confirmed cancellation of the target turn",
+      );
+    this.applyEventPage(page);
+    return page;
+  }
+
+  private assertInputOwner(): void {
+    this.assertOpen();
+    const guest = this.client.guestIdentity?.() ?? null;
+    if (this.guestOwner && guest && guest !== this.guestOwner)
+      throw AgentApiError.guestIdentityChanged();
+  }
+
+  private assertTurnInputs(): void {
+    this.assertInputOwner();
+    if (this.capabilities?.turn_input !== 1)
+      throw new AgentApiError(
+        501,
+        "steering_unsupported",
+        "This host does not support shared turn inputs",
+        false,
+      );
+  }
+
+  private admitInput(
+    view: PendingInput,
+    request: () => Promise<EventPage>,
+    contentKey?: string,
+  ): Promise<EventPage> {
+    const prior = this.inputs.get(view.inputId);
+    if (
+      prior &&
+      (prior.view.message !== view.message ||
+        prior.view.operation !== view.operation ||
+        prior.view.targetTurnId !== view.targetTurnId ||
+        (contentKey !== undefined &&
+          prior.contentKey !== undefined &&
+          contentKey !== prior.contentKey))
+    )
+      return Promise.reject(
+        new AgentApiError(
+          409,
+          "idempotency_conflict",
+          "Input identity belongs to a different request",
+          false,
+        ),
+      );
+    if (prior?.promise) return prior.promise;
+    if (prior?.view.receipt)
+      return Promise.resolve()
+        .then(prior.request)
+        .then((page) => {
+          this.applyEventPage(page);
+          return page;
+        });
+    const input = prior ?? {
+      view,
+      request,
+      contentKey,
+      promise: undefined as Promise<EventPage> | undefined,
+    };
+    input.view = { ...input.view, status: "sending", error: undefined };
+    this.inputs.set(view.inputId, input);
+    const operation = this.inputAdmissions.then(async () => {
+      this.assertOpen();
+      const page = await input.request();
+      if (
+        page.session_id !== this.sessionId ||
+        page.input?.input_id !== view.inputId ||
+        page.input.operation !== view.operation ||
+        (view.operation === "steer" && page.input.turn_id !== view.targetTurnId)
+      )
+        throw new TypeError("Agent response input does not match the request");
+      input.view = {
+        ...input.view,
+        status: page.input.disposition,
+        receipt: page.input,
+      };
+      this.applyEventPage(page);
+      this.startStreaming();
+      return page;
+    });
+    this.inputAdmissions = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    input.promise = operation
+      .catch((error: unknown) => {
+        if (isDefinitiveStartRejection(error)) {
+          const control = rejectedInputControl(
+            error,
+            this.sessionId,
+            this.control,
+          );
+          if (control) {
+            this.applyControl(control);
+            this.applyControlTurn();
+          }
+        }
+        input.view = {
+          ...input.view,
+          status: isDefinitiveStartRejection(error) ? "rejected" : "uncertain",
+          error,
+        };
+        this.error = error;
+        throw error;
+      })
+      .finally(() => {
+        input.promise = undefined;
+        this.publish();
+      });
+    this.publish();
+    return input.promise;
   }
 
   async sendAsync(
@@ -603,7 +932,11 @@ export class ClientSession {
         );
       }
       operation.uncertain = false;
-      if (page.started_turn_id) {
+      if (
+        page.started_turn_id &&
+        (!this.control?.active_turn_id ||
+          this.control.active_turn_id === page.started_turn_id)
+      ) {
         // Bind the accepted identity before reducing a bounded historical page:
         // only its own user event may clear the pending echo.
         this.acceptedTurnId = page.started_turn_id;
@@ -617,7 +950,11 @@ export class ClientSession {
           this.pendingUserMessage.turnId = page.started_turn_id;
       }
       this.applyEventPage(page);
-      if (page.started_turn_id) {
+      if (
+        page.started_turn_id &&
+        (!this.control?.active_turn_id ||
+          this.control.active_turn_id === page.started_turn_id)
+      ) {
         // A bounded start page may carry historical events only. Its accepted
         // identity keeps Stop on the new run until its own events catch up.
         this.acceptedTurnId = page.started_turn_id;
@@ -772,6 +1109,36 @@ export class ClientSession {
     }
   }
 
+  private applyControl(control: TurnControl): void {
+    if (
+      this.control &&
+      control.stream_epoch === this.control.stream_epoch &&
+      control.event_sequence < this.control.event_sequence
+    )
+      return;
+    this.control = control;
+    for (const [key, message] of this.liveMessages) {
+      if (
+        message.turn_id === control.active_turn_id &&
+        (message.input_revision ?? 1) < control.accepted_input_revision
+      ) {
+        this.liveMessages.delete(key);
+        this.liveRevisions.delete(key);
+      }
+    }
+  }
+
+  private applyControlTurn(): void {
+    if (!this.control?.active_turn_id) return;
+    this.turnId = this.control.active_turn_id;
+    const current = this.events.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === this.turnId,
+    );
+    this.turnState =
+      current?.type === "turn_state_changed" ? current.state : "processing";
+  }
+
   private applyEventPage(page: EventPage, inactiveTurnId?: string): void {
     if (page.session_id !== this.sessionId) {
       throw new TypeError("Agent response session does not match the request");
@@ -780,6 +1147,9 @@ export class ClientSession {
     this.applyingPage = true;
     this.lastPageNewEvents = 0;
     try {
+      if (page.capabilities) this.capabilities = page.capabilities;
+      if (page.control) this.applyControl(page.control);
+      if (page.input) this.ingestInput(page.input);
       for (const view of page.commits ?? []) this.commits.ingest(view);
       for (const event of page.events) {
         if (event.type === "action" && this.replaceActionEvent(event)) {
@@ -818,6 +1188,9 @@ export class ClientSession {
         if (ownsActiveTurn && !staleBusyState)
           this.turnId = event.turn_id ?? this.turnId;
         switch (event.type) {
+          case "turn_input":
+            this.ingestInput(event, event.message);
+            break;
           case "message":
             if (
               event.tool_result &&
@@ -945,12 +1318,52 @@ export class ClientSession {
             break;
         }
       }
+      this.applyControlTurn();
       this.cursor = page.cursor;
       this.error = undefined;
     } finally {
       this.applyingPage = false;
     }
+    if (this.pendingTurnId && this.turnHasAnswer(this.pendingTurnId))
+      this.resolvePending();
+    if (this.observed && !this.closed) this.startStreaming();
     this.publish();
+  }
+
+  private ingestInput(receipt: InputReceipt, message?: string): void {
+    if (receipt.operation !== "steer" && receipt.operation !== "queue") return;
+    const input = this.inputs.get(receipt.input_id);
+    if (input) {
+      const prior = input.view.receipt;
+      // An idempotent HTTP replay retains the original admission disposition.
+      if (
+        prior !== undefined &&
+        ["applied", "cancelled", "superseded"].includes(prior.disposition) &&
+        ["accepted", "queued"].includes(receipt.disposition)
+      )
+        return;
+      input.view = {
+        ...input.view,
+        receipt,
+        status: receipt.disposition,
+        error: undefined,
+      };
+    } else if (message !== undefined) {
+      this.inputs.set(receipt.input_id, {
+        view: {
+          inputId: receipt.input_id,
+          message,
+          operation: receipt.operation,
+          targetTurnId: receipt.turn_id,
+          status: receipt.disposition,
+          receipt,
+        },
+        request: () =>
+          Promise.reject(
+            new Error("Only the originating client can replay this input"),
+          ),
+      });
+    }
   }
 
   /** The user message an Edit or Rerun replaces, for its optimistic echo. */
@@ -1154,12 +1567,16 @@ export class ClientSession {
     const frame = value as {
       turn_id?: string;
       revision?: number;
+      input_revision?: number;
       message?: Partial<MessageEvent>;
     };
     const message = frame?.message;
     const key = message?.message_key;
     if (
       frame?.turn_id !== this.turnId ||
+      (this.control &&
+        this.control.active_turn_id === frame?.turn_id &&
+        (frame.input_revision ?? 1) < this.control.accepted_input_revision) ||
       this.acknowledgedInterrupts.has(frame.turn_id ?? "") ||
       this.supersededTurns.has(frame.turn_id ?? "") ||
       !key ||
@@ -1196,6 +1613,9 @@ export class ClientSession {
       message_key: key,
       turn_id: frame.turn_id ?? null,
       runtime_sequence: frame.revision,
+      ...(frame.input_revision !== undefined
+        ? { input_revision: frame.input_revision }
+        : {}),
       sequence:
         this.liveMessages.get(key)?.sequence ??
         this.events.at(-1)?.sequence ??
@@ -1292,7 +1712,7 @@ export class ClientSession {
     this.terminalDrainUntil = undefined;
     this.terminalTurnId = undefined;
     this.pendingUserMessage = undefined;
-    this.stopStreaming();
+    if (!this.observed) this.stopStreaming();
     this.resolvePending();
     this.resumeCompletedCallbacks();
   }
@@ -1358,8 +1778,42 @@ export class ClientSession {
     return Boolean(this.turnState && TERMINAL_TURN_STATES.has(this.turnState));
   }
 
-  private result(): SendResult {
-    return { messages: conversationMessages(this.events), title: this.title };
+  private turnHasAnswer(turnId: string): boolean {
+    const state = this.events.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    const outcome =
+      state?.type === "turn_state_changed"
+        ? state.state
+        : this.terminalAcknowledgments.get(turnId);
+    return (
+      outcome === "interrupted" ||
+      outcome === "failed" ||
+      (outcome === "complete" &&
+        this.events.some(
+          (event) =>
+            event.type === "message" &&
+            event.turn_id === turnId &&
+            event.sender === "agent" &&
+            !event.is_streaming &&
+            !event.tool_result &&
+            Boolean(event.content.trim()),
+        ))
+    );
+  }
+
+  private result(turnId?: string): SendResult {
+    const first =
+      this.events.find((event) => event.turn_id === turnId)?.sequence ??
+      Infinity;
+    return {
+      messages: conversationMessages(this.events).filter(
+        (message) =>
+          !turnId || message.turn_id === turnId || message.sequence < first,
+      ),
+      title: this.title,
+    };
   }
 
   private resolvePending(): void {
@@ -1367,7 +1821,9 @@ export class ClientSession {
     this.pendingResolve = null;
     this.pendingReject = null;
     this.pendingSend = undefined;
-    resolve?.(this.result());
+    const turnId = this.pendingTurnId;
+    this.pendingTurnId = undefined;
+    resolve?.(this.result(turnId));
   }
 
   private buildSnapshot(): SessionSnapshot {
@@ -1386,6 +1842,9 @@ export class ClientSession {
       ...(this.cursor ? { cursor: this.cursor } : {}),
       ...(this.turnId ? { turnId: this.turnId } : {}),
       ...(this.turnState ? { turnState: this.turnState } : {}),
+      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
+      ...(this.control ? { control: this.control } : {}),
+      inputs: [...this.inputs.values()].map((input) => input.view),
       events: this.cachedStore.events,
       messages: this.cachedStore.messages,
       liveMessages: [...this.liveMessages.values()],
@@ -1529,4 +1988,68 @@ function isDefinitiveStartRejection(error: unknown): boolean {
     ![408, 429].includes(error.status) &&
     error.code !== "request_in_flight"
   );
+}
+
+/** Refresh the session projection without changing the rejected input's request. */
+function rejectedInputControl(
+  error: unknown,
+  sessionId: string,
+  current: TurnControl | undefined,
+): TurnControl | undefined {
+  if (
+    !(error instanceof AgentApiError) ||
+    !current ||
+    error.status !== 409 ||
+    ![
+      "turn_busy",
+      "queue_full",
+      "guest_concurrency_limit",
+      "target_terminal",
+      "target_mismatch",
+      "revision_conflict",
+      "pending_inputs_full",
+      "source_order_conflict",
+      "source_selection_conflict",
+    ].includes(error.code)
+  )
+    return;
+  const outer = asRecord(error.details);
+  const details = asRecord(outer?.details) ?? outer;
+  if (details?.session_id !== sessionId) return;
+  const control = asRecord(details?.control);
+  if (!control) return;
+  const active = control.active_turn_id;
+  if (active !== null && (typeof active !== "string" || !active)) return;
+  const accepted = control.accepted_input_revision;
+  const applied = control.applied_input_revision;
+  const sequence = control.event_sequence;
+  const queued = control.queued_turn_ids;
+  if (
+    control.stream_epoch !== current.stream_epoch ||
+    typeof accepted !== "number" ||
+    !Number.isSafeInteger(accepted) ||
+    accepted < 0 ||
+    typeof applied !== "number" ||
+    !Number.isSafeInteger(applied) ||
+    applied < 0 ||
+    applied > accepted ||
+    typeof sequence !== "number" ||
+    !Number.isSafeInteger(sequence) ||
+    sequence < current.event_sequence ||
+    !Array.isArray(queued) ||
+    queued.some((id) => typeof id !== "string" || !id || id === active) ||
+    new Set(queued).size !== queued.length ||
+    (active === current.active_turn_id &&
+      (accepted < current.accepted_input_revision ||
+        applied < current.applied_input_revision))
+  )
+    return;
+  return {
+    active_turn_id: active,
+    accepted_input_revision: accepted,
+    applied_input_revision: applied,
+    event_sequence: sequence,
+    stream_epoch: current.stream_epoch,
+    queued_turn_ids: queued,
+  };
 }

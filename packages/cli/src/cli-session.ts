@@ -34,7 +34,21 @@ import { cliWallets } from "./action-capabilities";
 import { walletCapabilities } from "@aomi-labs/client";
 import { commitCapabilities } from "@aomi-labs/client";
 
+function sameServerOrigin(left: string, right: string | undefined): boolean {
+  if (!right) return false;
+  try {
+    const origin = new URL(left).origin;
+    return origin !== "null" && origin === new URL(right).origin;
+  } catch {
+    return false;
+  }
+}
+
 export class CliSession {
+  private static readonly clientOwners = new WeakMap<
+    ClientSession,
+    CliSession
+  >();
   private state: CliSessionState;
 
   private constructor(state: CliSessionState) {
@@ -101,6 +115,9 @@ export class CliSession {
     }
 
     const baseUrl = config.baseUrl ?? seed?.baseUrl ?? DEFAULT_CLI_BASE_URL;
+    const trustedSeed = sameServerOrigin(baseUrl, seed?.baseUrl)
+      ? seed
+      : undefined;
     const configuredTarget = config.app ?? config.applicationId;
     const seededMode =
       seed?.agentMode ??
@@ -119,20 +136,20 @@ export class CliSession {
           ? undefined
           : (config.applicationId ?? seed?.applicationId),
       model: config.model ?? seed?.model,
-      apiKey: config.apiKey ?? seed?.apiKey,
-      accountBearer: config.accountBearer ?? seed?.accountBearer,
-      guestBearer: baseUrl === seed?.baseUrl ? seed.guestBearer : undefined,
+      apiKey: config.apiKey ?? trustedSeed?.apiKey,
+      accountBearer: config.accountBearer ?? trustedSeed?.accountBearer,
+      guestBearer: trustedSeed?.guestBearer,
       publicKey: config.publicKey ?? seed?.publicKey,
-      privateKey: seed?.privateKey,
+      privateKey: trustedSeed?.privateKey,
       svmPublicKey: svmPublicKey ?? seed?.svmPublicKey,
       svmCluster: config.svmCluster ?? seed?.svmCluster,
       // Carry forward only persisted Solana keys from `wallet set --solana`.
       // Keys supplied via --solana-private-key/env stay transient.
-      svmPrivateKey: seed?.svmPrivateKey,
+      svmPrivateKey: trustedSeed?.svmPrivateKey,
       chainId: config.chain ?? seed?.chainId,
-      secretHandles: seed?.secretHandles,
-      auth: seed?.auth,
-      oauthGrants: seed?.oauthGrants,
+      secretHandles: trustedSeed?.secretHandles,
+      auth: trustedSeed?.auth,
+      oauthGrants: trustedSeed?.oauthGrants,
     };
     const cli = new CliSession(state);
     cli.ensureSvmClusterInvariant();
@@ -216,8 +233,17 @@ export class CliSession {
     let changed = false;
 
     if (config.baseUrl !== undefined && config.baseUrl !== this.state.baseUrl) {
+      if (!sameServerOrigin(config.baseUrl, this.state.baseUrl)) {
+        delete this.state.auth;
+        delete this.state.accountBearer;
+        delete this.state.guestBearer;
+        delete this.state.oauthGrants;
+        delete this.state.apiKey;
+        delete this.state.secretHandles;
+        delete this.state.privateKey;
+        delete this.state.svmPrivateKey;
+      }
       this.state.baseUrl = config.baseUrl;
-      delete this.state.guestBearer;
       changed = true;
     }
     if (config.agentMode === "auto") {
@@ -559,7 +585,54 @@ export class CliSession {
         inferenceFunding: config?.inferenceFunding,
       },
     );
+    CliSession.clientOwners.set(session, this);
     return session;
+  }
+
+  /** False means construction-time transport/auth/signing context must be replaced. */
+  syncClientSession(
+    session: ClientSession,
+    config: Partial<CliConfig>,
+  ): boolean {
+    const owner = CliSession.clientOwners.get(session);
+    const identity = (state: CliSessionState) => ({
+      baseUrl: state.baseUrl,
+      sessionId: state.sessionId,
+      clientId: state.clientId,
+      apiKey: state.apiKey,
+      accountBearer: state.accountBearer,
+      guestBearer: state.guestBearer,
+      auth: state.auth,
+      oauthGrants: state.oauthGrants,
+      publicKey: state.publicKey,
+      privateKey: state.privateKey,
+      svmPublicKey: state.svmPublicKey,
+      svmPrivateKey: state.svmPrivateKey,
+      svmCluster: state.svmCluster,
+      chainId: state.chainId,
+    });
+    if (
+      !owner ||
+      JSON.stringify(identity(owner.state)) !==
+        JSON.stringify(identity(this.state))
+    ) {
+      return false;
+    }
+    // Auth providers close over the original owner. Refresh that owner's state
+    // too, so a later token refresh cannot overwrite newly saved preferences.
+    owner.state = this.state;
+    session.syncRuntimeOptions({
+      target: this.resolveAgentTarget(config),
+      model: config.model ?? this.state.model,
+      clientId: this.state.clientId,
+      getUserState: () =>
+        buildCliUserState(this.state.publicKey, this.state.chainId, {
+          svmAddress: this.state.svmPublicKey,
+          svmCluster: this.resolvedSvmCluster(config.svmCluster),
+        }),
+      inferenceFunding: config.inferenceFunding,
+    });
+    return true;
   }
 
   private resolveAgentTarget(config?: Partial<CliConfig>): AgentTarget {

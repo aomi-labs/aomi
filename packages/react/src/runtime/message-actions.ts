@@ -11,6 +11,27 @@ function textContent(content: ThreadMessageLike["content"]): string {
         .join("\n");
 }
 
+/** Composer paths share hint encoding and raw-draft recovery. */
+export async function submitComposerMessage(
+  message: Pick<ThreadMessageLike, "content"> & Pick<AppendMessage, "runConfig">,
+  send: (text: string) => Promise<void>,
+  restore: (text: string) => void,
+): Promise<void> {
+  const text = textContent(message.content);
+  if (!text.trim()) return;
+  try {
+    await send(
+      appendCapabilityHints(
+        text,
+        message.runConfig?.custom?.aomiCapabilityHints,
+      ),
+    );
+  } catch (error) {
+    restore(text);
+    throw error;
+  }
+}
+
 /** Edit and Rerun replace the conversation from a durable message, as in a
  * linear chat; the server runs the replacement as a normal turn. */
 export function messageActions({
@@ -55,16 +76,8 @@ export function messageActions({
   };
   return {
     onNew: async (message: AppendMessage) => {
-      const text = textContent(message.content);
-      if (text.trim())
-        await submit(
-          appendCapabilityHints(
-            text,
-            message.runConfig?.custom?.aomiCapabilityHints,
-          ),
-          undefined,
-          () => restore(text),
-        );
+      // The orchestrator already reports the error; native callbacks consume it.
+      await submitComposerMessage(message, send, restore).catch(() => {});
     },
     onEdit: async (message: AppendMessage) => {
       const original = messages.find(

@@ -269,7 +269,19 @@ export function useRuntimeOrchestrator(
   );
 
   const sendOnce = useCallback(
-    async (text: string, threadId: string, sendOptions?: SendOptions) => {
+    async (
+      text: string,
+      threadId: string,
+      sendOptions?: SendOptions,
+      intent: "send" | "queue" = "send",
+    ) => {
+      const submitted = getSession(threadId).getSnapshot();
+      const targetTurnId = submitted.control
+        ? submitted.control.active_turn_id
+        : submitted.turnState === "processing" ||
+            submitted.turnState === "awaiting_action"
+          ? submitted.turnId
+          : undefined;
       // A history read already in flight (a restored chat loads before the
       // list confirms it) finishes first, so a send never lands before it.
       await loading.current.get(threadId)?.catch(() => undefined);
@@ -289,7 +301,26 @@ export function useRuntimeOrchestrator(
         optionsRef.current.getTarget(),
         text,
       );
-      await session.sendAsync(text, { ...sendOptions, apiKey });
+      if (intent === "queue") await session.queue(text, { apiKey });
+      else if (
+        (targetTurnId || submitted.isSubmitting) &&
+        !sendOptions?.edit &&
+        !sendOptions?.regenerate
+      ) {
+        if (!submitted.isSubmitting && submitted.capabilities?.turn_input !== 1)
+          throw new AgentApiError(
+            501,
+            "steering_unsupported",
+            "Wait for the current generation to finish or stop it. This host does not support updates to running requests.",
+            false,
+          );
+        await session.steer(
+          text,
+          !submitted.isSubmitting && targetTurnId
+            ? { targetTurnId }
+            : undefined,
+        );
+      } else await session.sendAsync(text, { ...sendOptions, apiKey });
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
       optionsRef.current.onSendSuccess?.(threadId);
@@ -316,6 +347,12 @@ export function useRuntimeOrchestrator(
   const sendMessage = useCallback(
     async (text: string, threadId: string, sendOptions?: SendOptions) => {
       const startedIn = generation.current;
+      const submitted = getSession(threadId).getSnapshot();
+      const followUp =
+        submitted.isSubmitting ||
+        (submitted.control
+          ? Boolean(submitted.control.active_turn_id)
+          : isTurnActive(submitted));
       try {
         await sendOnce(text, threadId, sendOptions);
         return;
@@ -323,6 +360,7 @@ export function useRuntimeOrchestrator(
         const guestExpired =
           error instanceof AgentApiError &&
           error.isGuestIdentityChanged &&
+          !followUp &&
           !sendOptions?.edit &&
           !sendOptions?.regenerate &&
           startedIn === generation.current &&
@@ -344,7 +382,7 @@ export function useRuntimeOrchestrator(
         await reportFailure(freshThreadId, error, retriedIn);
       }
     },
-    [closeAllSessions, reportFailure, sendOnce],
+    [closeAllSessions, getSession, reportFailure, sendOnce],
   );
 
   const cancelGeneration = useCallback(
@@ -354,12 +392,26 @@ export function useRuntimeOrchestrator(
     [sessionManager],
   );
 
+  const queueMessage = useCallback(
+    async (text: string, threadId: string) => {
+      const startedIn = generation.current;
+      try {
+        await sendOnce(text, threadId, undefined, "queue");
+      } catch (error) {
+        await reportFailure(threadId, error, startedIn);
+      }
+    },
+    [reportFailure, sendOnce],
+  );
+
   const currentSession = getSession(threads.currentThreadId);
   const snapshot = useSyncExternalStore(
     currentSession.subscribe,
     currentSession.getSnapshot,
     currentSession.getSnapshot,
   );
+
+  useEffect(() => currentSession.observe?.(), [currentSession]);
 
   useEffect(() => closeAllSessions, [closeAllSessions]);
 
@@ -374,6 +426,7 @@ export function useRuntimeOrchestrator(
     hasLoadFailed,
     retryLoad,
     sendMessage,
+    queueMessage,
     cancelGeneration,
     closeSession,
     closeAllSessions,

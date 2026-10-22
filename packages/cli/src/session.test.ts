@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair } from "@solana/web3.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CliSessionState } from "./state";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -619,7 +620,7 @@ describe("CLI session lifecycle", () => {
     );
   });
 
-  it("preserves saved wallet, chain, and backend settings across fresh sessions", async () => {
+  it("preserves public wallet context but clears signing keys when a fresh session changes server", async () => {
     const { CliSession } = await import("./cli-session");
 
     const initial = CliSession.loadOrCreate({
@@ -645,12 +646,57 @@ describe("CLI session lifecycle", () => {
 
     expect(fresh.sessionId).not.toBe(initial.sessionId);
     expect(fresh.publicKey).toBe("0xabc");
-    expect(fresh.privateKey).toBe(
-      "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    );
+    expect(fresh.privateKey).toBeUndefined();
     expect(fresh.chainId).toBe(1);
     expect(fresh.baseUrl).toBe("https://api.aomi.dev");
   });
+
+  it.each([false, true])(
+    "does not reuse another server's authority (fresh=%s)",
+    async (freshSession) => {
+      const { CliSession } = await import("./cli-session");
+      const seed: CliSessionState = {
+        sessionId: "origin-bound-session",
+        baseUrl: "https://example.invalid",
+        auth: { sessionToken: "old-session", expiresAt: Date.now() + 60_000 },
+        accountBearer: "old-account-bearer",
+        guestBearer: "old-guest-bearer",
+        apiKey: "old-app-key",
+        privateKey: "old-signing-key",
+        svmPrivateKey: "old-solana-key",
+        secretHandles: { service: "old-handle" },
+        oauthGrants: {
+          agent: {
+            clientId: "old-client",
+            accessToken: "old-access",
+            refreshToken: "old-refresh",
+            expiresAt: Date.now() + 60_000,
+            resource: "https://example.invalid/v1/agent",
+            scopes: ["agent:write"],
+          },
+        },
+      };
+      CliSession.create({ secrets: {} }, seed);
+      const cli = CliSession.loadOrCreate({
+        baseUrl: "http://localhost:3010",
+        freshSession,
+        secrets: {},
+      });
+      expect(cli.toState()).toMatchObject({ baseUrl: "http://localhost:3010" });
+      for (const key of [
+        "auth",
+        "accountBearer",
+        "guestBearer",
+        "apiKey",
+        "privateKey",
+        "svmPrivateKey",
+        "secretHandles",
+        "oauthGrants",
+      ] as const) {
+        expect(cli.toState()[key]).toBeUndefined();
+      }
+    },
+  );
 
   it("does not persist private keys supplied as one-shot config", async () => {
     const { CliSession } = await import("./cli-session");

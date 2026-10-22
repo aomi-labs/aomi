@@ -783,6 +783,47 @@ describe("ThreadUrlBootstrap", () => {
     );
   });
 
+  it("keeps an early submission when the initial empty URL's history finishes loading", () => {
+    window.history.replaceState({}, "", "/?app=default");
+    runtimeState.current.threadListLoading = true;
+    const view = render(<ThreadUrlBootstrap />);
+
+    // Sending turns the existing composer into a saved chat before its first
+    // history list returns. The URL bootstrap must not replace that chat.
+    runtimeState.current.threadMetadata = new Map([
+      ["initial", { title: "Early reply", status: "regular" }],
+    ]);
+    runtimeState.current.isRemoteThread = vi.fn(() => true);
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    runtimeState.current.threadListLoading = false;
+    view.rerender(<ThreadUrlBootstrap />);
+
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?app=default&thread=initial");
+  });
+
+  it("still opens a new chat when browser navigation removes the thread while history loads", async () => {
+    window.history.replaceState({}, "", "/?thread=saved");
+    runtimeState.current.currentThreadId = "saved";
+    runtimeState.current.threadMetadata = new Map([
+      ["saved", { title: "Saved", status: "regular" }],
+    ]);
+    runtimeState.current.isRemoteThread = vi.fn(() => true);
+    const view = render(<ThreadUrlBootstrap />);
+    runtimeState.current.threadListLoading = true;
+    await act(async () => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    runtimeState.current.threadListLoading = false;
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+    expect(window.location.search).toBe("");
+  });
+
   it("validates a linked thread against published metadata before the rendered map catches up", () => {
     window.history.replaceState({}, "", "/?thread=published");
     runtimeState.current.threadMetadata = new Map();

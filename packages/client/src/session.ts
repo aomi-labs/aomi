@@ -5,6 +5,8 @@ export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SteerOptions,
+  PendingInput,
   Event,
   EventPage,
   TurnState,

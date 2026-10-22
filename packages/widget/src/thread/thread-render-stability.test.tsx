@@ -5,13 +5,19 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
   useExternalStoreRuntime,
   useMessage,
+  useComposerRuntime,
+  type AppendMessage,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
 import {
@@ -21,8 +27,14 @@ import {
 } from "@aomi-labs/react";
 import { AomiFrame } from "@/frame/aomi-frame";
 import { testIds } from "@/test-ids";
+import type { PendingInput } from "@aomi-labs/client";
 
-const work = vi.hoisted(() => ({ catalog: vi.fn(), row: vi.fn() }));
+const work = vi.hoisted(() => ({
+  catalog: vi.fn(),
+  row: vi.fn(),
+  blocked: false,
+  retainMentions: vi.fn(),
+}));
 vi.mock("@aomi-labs/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@aomi-labs/react")>();
   return {
@@ -64,12 +76,30 @@ vi.mock("@/composer/capability-composer/provider", () => ({
   CapabilityComposerProvider: ({ children }: { children: ReactNode }) =>
     children,
   useCapabilityComposer: () => ({
-    prepareSubmit: () => {},
+    prepareSubmit: (event: React.FormEvent) => {
+      if (work.blocked) event.preventDefault();
+    },
+    retainMentions: work.retainMentions,
     hintsEnabled: false,
   }),
 }));
 vi.mock("@/composer/capability-composer/input", () => ({
-  CapabilityMentionInput: () => <ComposerPrimitive.Input />,
+  CapabilityMentionInput: () => {
+    const composer = useComposerRuntime();
+    const text = useSyncExternalStore(
+      (notify) => composer.subscribe(notify),
+      () => composer.getState().text,
+    );
+    // Model the capability editor's controlled text, not Primitive.Input's
+    // separate editing-mode gate, which this rendering fixture does not use.
+    return (
+      <textarea
+        aria-label="Message input"
+        value={text}
+        onChange={(event) => composer.setText(event.target.value)}
+      />
+    );
+  },
 }));
 vi.mock("./working-trace", () => ({
   AssistantTurnParts: () => {
@@ -118,11 +148,13 @@ function Fixture({
   messages = history,
   loading = false,
   sendDisabled = false,
+  runConfig,
 }: {
   api: AomiRuntimeApi | null;
   messages?: ThreadMessageLike[];
   loading?: boolean;
   sendDisabled?: boolean;
+  runConfig?: AppendMessage["runConfig"];
 }) {
   const native = useExternalStoreRuntime({
     messages,
@@ -133,7 +165,8 @@ function Fixture({
   });
   useEffect(() => {
     native.thread.composer.setText("Ready draft");
-  }, [native]);
+    if (runConfig) native.thread.composer.setRunConfig(runConfig);
+  }, [native, runConfig]);
   const composer = useMemo(
     () => <AomiFrame.Composer sendDisabled={sendDisabled} />,
     [sendDisabled],
@@ -165,6 +198,8 @@ const originalScrollTo = Object.getOwnPropertyDescriptor(
 beforeEach(() => {
   work.catalog.mockClear();
   work.row.mockClear();
+  work.blocked = false;
+  work.retainMentions.mockClear();
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
     configurable: true,
     value() {},
@@ -182,6 +217,147 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 describe("thread rendering under live runtime updates", () => {
+  const inputControl = (active: string | null) => ({
+    active_turn_id: active,
+    accepted_input_revision: active ? 2 : 0,
+    applied_input_revision: active ? 2 : 0,
+    queued_turn_ids: [],
+    event_sequence: 10,
+    stream_epoch: "status-epoch",
+  });
+
+  it("keeps the existing controls neutral even when the SDK has input receipts or queued work", () => {
+    const retained: PendingInput = {
+      inputId: "update",
+      operation: "steer",
+      targetTurnId: "turn-1",
+      message: "Private retained draft",
+      status: "rejected",
+    };
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: false,
+          turnState: "processing",
+          supportsSteering: true,
+          turnInputs: [retained],
+          turnControl: {
+            ...inputControl("turn-1"),
+            queued_turn_ids: ["sdk-queue"],
+          },
+        })}
+      />,
+    );
+    expect(
+      view.queryByRole("button", { name: /Queue|Update current/ }),
+    ).toBeNull();
+    expect(
+      view.queryByText(/Update (accepted|applied|not accepted)|Queued:/),
+    ).toBeNull();
+    expect(view.queryByText(retained.message)).toBeNull();
+    expect(view.getByRole("button", { name: "Send message" })).toBeVisible();
+    expect(retained.message).toBe("Private retained draft");
+  });
+
+  it.each([false, true])(
+    "uses ordinary Send with captured capabilities while active=%s",
+    async (active) => {
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      const queueMessage = vi.fn();
+      const runConfig = {
+        custom: {
+          aomiCapabilityHints: {
+            capabilities: [{ kind: "chain", id: "eip155:8453" }],
+          },
+        },
+      };
+      const view = render(
+        <Fixture
+          runConfig={runConfig}
+          api={api({
+            isSubmitting: false,
+            supportsSteering: true,
+            turnState: active ? "processing" : "complete",
+            turnControl: inputControl(active ? "turn-1" : null),
+            sendMessage,
+            queueMessage,
+          })}
+        />,
+      );
+      const button = view.getByRole("button", { name: "Send message" });
+      await waitFor(() => expect(button).toBeEnabled());
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(sendMessage).toHaveBeenCalledExactlyOnceWith(
+          "Ready draft",
+          runConfig,
+        ),
+      );
+      expect(queueMessage).not.toHaveBeenCalled();
+      expect(work.retainMentions).toHaveBeenCalledExactlyOnceWith(new Set());
+      expect(view.getByRole("textbox")).toHaveValue("");
+    },
+  );
+
+  it.each([false, true])(
+    "validates routing before ordinary Send while active=%s",
+    async (active) => {
+      work.blocked = true;
+      const sendMessage = vi.fn();
+      const view = render(
+        <Fixture
+          api={api({
+            isSubmitting: false,
+            turnState: active ? "processing" : "complete",
+            turnControl: inputControl(active ? "turn-1" : null),
+            sendMessage,
+          })}
+        />,
+      );
+      fireEvent.click(view.getByRole("button", { name: "Send message" }));
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(work.retainMentions).not.toHaveBeenCalled();
+      expect(view.getByRole("textbox")).toHaveValue("Ready draft");
+    },
+  );
+
+  it("keeps Stop in its existing position until a follow-up is ready to send", () => {
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: false,
+          turnState: "processing",
+          turnControl: inputControl("turn-1"),
+        })}
+      />,
+    );
+    fireEvent.change(view.getByRole("textbox"), { target: { value: "" } });
+    expect(view.getByRole("button", { name: "Stop generating" })).toBeVisible();
+    expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
+    fireEvent.change(view.getByRole("textbox"), {
+      target: { value: "Continue on Base" },
+    });
+    expect(view.getByRole("button", { name: "Send message" })).toBeEnabled();
+    expect(view.queryByRole("button", { name: "Stop generating" })).toBeNull();
+  });
+
+  it("keeps Stop available while Start is awaiting acknowledgement on an idle control snapshot", () => {
+    const cancelGeneration = vi.fn();
+    const view = render(
+      <Fixture
+        api={api({
+          isSubmitting: true,
+          turnControl: inputControl(null),
+          cancelGeneration,
+        })}
+      />,
+    );
+    fireEvent.change(view.getByRole("textbox"), { target: { value: "" } });
+    fireEvent.click(view.getByRole("button", { name: "Stop generating" }));
+    expect(cancelGeneration).toHaveBeenCalledOnce();
+    expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
+  });
+
   it("keeps catalog/provider work stable on unrelated event/status snapshots while native messages still update", async () => {
     const view = render(<Fixture api={api()} />);
     await waitFor(() => expect(view.getByText("Saved answer")).toBeVisible());

@@ -272,3 +272,17 @@ composed by the Aomi wallet kit; see the sibling
 [`widget-consumer`](../widget-consumer) example. Cross-origin browser guests
 receive an origin-bound widget session; signed-in widgets can exchange that
 session through the managed OAuth bootstrap flow.
+
+## Updating running requests
+
+On a host advertising `snapshot.capabilities.turn_input === 1`, a persistent
+`Session` exposes `steer(text, { targetTurnId, expectedInputRevision, inputId })`,
+`queue(text, { inputId })`, and `cancel({ targetTurnId, inputId })`. Keep one
+`inputId` across retries. Steering returns an admission receipt; the input is
+applied only when the ordered input event or receipt reports `applied`.
+`session.observe()` keeps a visible conversation subscribed until its returned
+cleanup function is called. `send()` continues to mean a new ordinary turn.
+
+The wallet-terminal example intentionally uses a serial prompt/approval UI.
+Use `aomi` interactive mode to type updates while work runs, `/queue <text>` for
+independent work, and `/stop [turn-id]` to cancel active or queued work.

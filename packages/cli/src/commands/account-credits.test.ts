@@ -61,7 +61,7 @@ describe("aomi account credits", () => {
   });
 
   it("prints the account credit position and activity", async () => {
-    const fetchMock = vi.fn(async () => Response.json(position));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json(position));
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsShowCommand } =

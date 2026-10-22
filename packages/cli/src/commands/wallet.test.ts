@@ -30,6 +30,16 @@ function action(id: string): Action {
           kind: "transfer",
         },
       ],
+      simulation: {
+        status: "passed",
+        balanceChanges: [],
+        approvals: [],
+        warnings: [],
+        fees: [],
+        guards: [],
+        gas: null,
+        logs: [],
+      },
     },
     result: null,
     created_at: 1,
@@ -171,7 +181,7 @@ describe("CLI Action capabilities", () => {
       .spyOn(session.actions, "execute")
       .mockImplementation(async (id) => ({
         ...action(id),
-        state: "resolved",
+        state: "completed",
       }));
     const close = vi.spyOn(session, "close").mockImplementation(() => {});
     await signCommand({ secrets: {}, execution: "eoa" }, [
@@ -227,7 +237,7 @@ describe("CLI Action capabilities", () => {
     vi.spyOn(session, "fetchCurrentState").mockResolvedValue();
     const execute = vi
       .spyOn(session.actions, "execute")
-      .mockResolvedValue({ ...prepared, state: "resolved" });
+      .mockResolvedValue({ ...prepared, state: "completed" });
     const close = vi.spyOn(session, "close").mockImplementation(() => {});
     await signCommand({ secrets: {}, execution: "aa" }, ["aa-1"]);
     expect(execute).toHaveBeenCalledWith("aa-1");

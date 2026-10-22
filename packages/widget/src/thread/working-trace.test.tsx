@@ -43,24 +43,35 @@ import { ToolStepRow } from "./working-trace-rows";
 const resizeCallbacks = new Map<Element, ResizeObserverCallback>();
 beforeEach(() => {
   resizeCallbacks.clear();
-  vi.stubGlobal("ResizeObserver", class {
-    private targets = new Set<Element>();
-    constructor(private callback: ResizeObserverCallback) {}
-    observe(target: Element) {
-      this.targets.add(target);
-      resizeCallbacks.set(target, this.callback);
-    }
-    disconnect() {
-      for (const target of this.targets) resizeCallbacks.delete(target);
-    }
-  });
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      private targets = new Set<Element>();
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.targets.add(target);
+        resizeCallbacks.set(target, this.callback);
+      }
+      disconnect() {
+        for (const target of this.targets) resizeCallbacks.delete(target);
+      }
+    },
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 
 function publishBodyLayout(body: HTMLElement, height: number) {
-  act(() => resizeCallbacks.get(body)?.([
-    { target: body, borderBoxSize: [{ blockSize: height, inlineSize: 320 }] } as unknown as ResizeObserverEntry,
-  ], {} as ResizeObserver));
+  act(() =>
+    resizeCallbacks.get(body)?.(
+      [
+        {
+          target: body,
+          borderBoxSize: [{ blockSize: height, inlineSize: 320 }],
+        } as unknown as ResizeObserverEntry,
+      ],
+      {} as ResizeObserver,
+    ),
+  );
 }
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
@@ -136,6 +147,17 @@ describe("WorkingTrace", () => {
       phase(3, "callback", "processing", now - 2_000),
     ];
     expect(activeWorkDurationMs(events, ["turn", "callback"], now)).toBe(7_000);
+    expect(
+      activeWorkDurationMs(events, ["turn", "callback"], now, {
+        start: now - 99_000,
+        end: now - 97_000,
+      }),
+    ).toBe(2_000);
+    expect(
+      activeWorkDurationMs(events, ["turn", "callback"], now, {
+        start: now - 97_000,
+      }),
+    ).toBe(4_000);
     expect(
       activeWorkDurationMs(events.slice(0, 2), ["turn", "callback"], now),
     ).toBe(5_000);
@@ -689,20 +711,37 @@ describe("WorkingTrace", () => {
       { kind: "note" as const, key: "note", text },
       { kind: "note" as const, key: "next", text: "Next detail" },
     ];
-    const view = render(<WorkingTrace running items={note("Working")} revealed={1} />);
-    const viewport = view.container.querySelector<HTMLElement>(".aui-working-trace-viewport")!;
-    const body = view.container.querySelector<HTMLElement>(".aui-working-trace-body")!;
+    const view = render(
+      <WorkingTrace running items={note("Working")} revealed={1} />,
+    );
+    const viewport = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-viewport",
+    )!;
+    const body = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-body",
+    )!;
     const heightRead = vi.fn(() => 640);
     const scrollHeightRead = vi.fn(() => 640);
     const writes = vi.fn();
     let top = 0;
-    Object.defineProperties(body, { offsetHeight: { configurable: true, get: heightRead } });
+    Object.defineProperties(body, {
+      offsetHeight: { configurable: true, get: heightRead },
+    });
     Object.defineProperties(viewport, {
       scrollHeight: { configurable: true, get: scrollHeightRead },
       clientHeight: { configurable: true, get: () => 260 },
-      scrollTop: { configurable: true, get: () => top, set: (value: number) => { top = value; writes(value); } },
+      scrollTop: {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => {
+          top = value;
+          writes(value);
+        },
+      },
     });
-    view.rerender(<WorkingTrace running items={note("More live detail")} revealed={2} />);
+    view.rerender(
+      <WorkingTrace running items={note("More live detail")} revealed={2} />,
+    );
     expect(heightRead).not.toHaveBeenCalled();
     expect(scrollHeightRead).not.toHaveBeenCalled();
     publishBodyLayout(body, 640);
@@ -711,7 +750,9 @@ describe("WorkingTrace", () => {
     expect(viewport).toHaveAttribute("tabindex", "0");
     expect(view.container).toHaveTextContent("Show all 2 steps");
 
-    view.rerender(<WorkingTrace running={false} items={note("Finished")} revealed={2} />);
+    view.rerender(
+      <WorkingTrace running={false} items={note("Finished")} revealed={2} />,
+    );
     top = 100;
     fireEvent.scroll(viewport);
     writes.mockClear();
@@ -730,7 +771,9 @@ describe("WorkingTrace", () => {
     writes.mockClear();
     publishBodyLayout(body, 800);
     expect(writes).not.toHaveBeenCalled();
-    fireEvent.click(view.getByRole("button", { name: "Collapse to recent steps" }));
+    fireEvent.click(
+      view.getByRole("button", { name: "Collapse to recent steps" }),
+    );
     publishBodyLayout(body, 800);
     expect(viewport.style.maxHeight).toBe("260px");
     expect(writes).toHaveBeenLastCalledWith(640);

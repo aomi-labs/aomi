@@ -463,6 +463,8 @@ export class AgentTransport {
         inferenceFunding?: AomiInferenceFundingSource;
     }): Promise<EventPage>;
     // (undocumented)
+    steer(sessionId: string, intent: SteerTurnIntent, inputId: string): Promise<EventPage>;
+    // (undocumented)
     stream(sessionId: string, options: {
         cursor?: string;
         signal: AbortSignal;
@@ -2283,6 +2285,9 @@ export type GuestSessionProvider = ((options?: {
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;
 
 // @public (undocumented)
+export type InputReceipt = NonNullable<EventPage["input"]>;
+
+// @public (undocumented)
 export type InterruptIntent = Schemas$3["InterruptIntent"];
 
 // @public
@@ -2532,6 +2537,17 @@ export class PartialWalletExecutionError extends Error {
     // (undocumented)
     readonly partial: PartialWalletExecution;
 }
+
+// @public (undocumented)
+export type PendingInput = Readonly<{
+    inputId: string;
+    message: string;
+    operation: "steer" | "queue";
+    targetTurnId?: string;
+    status: "sending" | "uncertain" | "rejected" | InputReceipt["disposition"];
+    receipt?: InputReceipt;
+    error?: unknown;
+}>;
 
 // @public
 export interface PipelineActionSummary {
@@ -2912,6 +2928,10 @@ export class Session {
     constructor(clientOrOptions: AomiClient | AomiClientOptions, sessionOptions?: SessionOptions);
     // (undocumented)
     readonly actions: ActionHandler;
+    cancel(options: {
+        targetTurnId: string;
+        inputId?: string;
+    }): Promise<EventPage>;
     // (undocumented)
     readonly client: AomiClient;
     // (undocumented)
@@ -2924,6 +2944,12 @@ export class Session {
     getSnapshot: () => SessionSnapshot;
     // (undocumented)
     interrupt(): Promise<void>;
+    observe(): () => void;
+    queue(message: string, options?: {
+        inputId?: string;
+        apiKey?: string;
+    }): Promise<EventPage>;
+    retryInput(inputId: string): Promise<EventPage>;
     // (undocumented)
     send(message: string, options?: SendOptions): Promise<SendResult>;
     // (undocumented)
@@ -2932,6 +2958,7 @@ export class Session {
     readonly sessionId: string;
     // (undocumented)
     startStreaming(): void;
+    steer(message: string, options?: SteerOptions): Promise<EventPage>;
     // (undocumented)
     stopStreaming(): void;
     // (undocumented)
@@ -2981,6 +3008,9 @@ export type SessionSnapshot = Readonly<{
     cursor?: string;
     turnId?: string;
     turnState?: TurnState;
+    capabilities?: TurnInputCapabilities;
+    control?: TurnControl;
+    inputs?: readonly PendingInput[];
     events: readonly Event_2[];
     messages: readonly MessageEvent_2[];
     liveMessages?: readonly MessageEvent_2[];
@@ -3147,6 +3177,16 @@ export type SponsorshipPaymasterServiceContext = Record<string, unknown> & {
 
 // @public (undocumented)
 export type StartTurnIntent = Schemas$3["StartTurnIntent"];
+
+// @public (undocumented)
+export type SteerOptions = {
+    targetTurnId?: string;
+    expectedInputRevision?: number;
+    inputId?: string;
+};
+
+// @public (undocumented)
+export type SteerTurnIntent = Schemas$3["TurnSteer"];
 
 // @public
 export type StorageScope = {
@@ -3552,6 +3592,12 @@ export class TransactionSafetyTransport {
     // (undocumented)
     setThread(threadId: string, mode: TransactionSafetyMode, expectedRevision: number): Promise<TransactionSafetyPolicy>;
 }
+
+// @public (undocumented)
+export type TurnControl = NonNullable<EventPage["control"]>;
+
+// @public (undocumented)
+export type TurnInputCapabilities = NonNullable<EventPage["capabilities"]>;
 
 // @public (undocumented)
 export type TurnState = TurnStateChangedEvent["state"];
