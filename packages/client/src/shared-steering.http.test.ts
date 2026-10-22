@@ -72,7 +72,8 @@ describe("shared inputs over real HTTP and SSE", () => {
     const { session, backend } = await setup();
     await session.sendAsync("[tx] Transfer 1 wei");
     const original = session.getSnapshot().control?.active_turn_id;
-    expect(session.getSnapshot().actions.at(-1)?.state).toBe("pending");
+    const approval = session.getSnapshot().actions.at(-1)!;
+    expect(approval.state).toBe("pending");
     const queued = await session.queue("A separate request", {
       inputId: "after-approval",
     });
@@ -84,8 +85,29 @@ describe("shared inputs over real HTTP and SSE", () => {
     await session.steer("Change transfer to 2 wei", {
       inputId: "approval-correction",
     });
-    expect(session.getSnapshot().actions.at(-1)?.state).toBe("superseded");
-    expect(backend.requestsSince(0, "chat.steer")).toHaveLength(1);
+    expect(session.getSnapshot().actions.at(-1)).toMatchObject({
+      id: approval.id,
+      revision: approval.revision + 1,
+      state: "rejected",
+      result: {
+        status: "rejected",
+        reason: "superseded_by_input:approval-correction",
+      },
+    });
+    await session.steer("Keep the revised transfer", {
+      inputId: "approval-follow-up",
+    });
+    expect(session.getSnapshot().actions.at(-1)).toMatchObject({
+      revision: approval.revision + 1,
+      state: "rejected",
+      result: { reason: "superseded_by_input:approval-correction" },
+    });
+    expect(
+      backend
+        .events(session.sessionId)
+        .filter((event) => event.type === "action"),
+    ).toHaveLength(2);
+    expect(backend.requestsSince(0, "chat.steer")).toHaveLength(2);
   });
 
   it("rejects a terminal target over HTTP and retains text without creating another turn", async () => {

@@ -7,6 +7,7 @@
 // the identity headers are only recorded so a spec can assert on them.
 import {
   encodeFrame,
+  type Action,
   type ErrorBody,
   type Event,
   type EventBody,
@@ -337,18 +338,26 @@ export class FakeAgentBackend {
       const pending = this.pendingInputs.get(sessionId) ?? [];
       pending.push({ receipt, message });
       this.pendingInputs.set(sessionId, pending);
-      // A pending approval belongs to the previous input revision.
-      for (const action of thread.events.filter(
-        (event) => event.type === "action" && event.state === "pending",
-      )) {
-        if (action.type === "action")
-          thread.events.push(
-            this.envelope(turn, {
-              ...action,
-              revision: action.revision + 1,
-              state: "superseded",
-            } as EventBody),
-          );
+      // Match Rust: reject each latest pending action on this root and record
+      // which accepted input invalidated its approval.
+      const actions = new Map<string, Action>();
+      for (const event of thread.events) {
+        if (event.type === "action" && event.turn_id === turn)
+          actions.set(event.id, event);
+      }
+      for (const action of actions.values()) {
+        if (action.state !== "pending") continue;
+        thread.events.push(
+          this.envelope(turn, {
+            ...action,
+            revision: action.revision + 1,
+            state: "rejected",
+            result: {
+              status: "rejected",
+              reason: `superseded_by_input:${receipt.input_id}`,
+            },
+          }),
+        );
       }
     } else if (queued) {
       thread.queued.push({ receipt, message });
