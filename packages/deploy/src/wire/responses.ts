@@ -488,6 +488,15 @@ export function camelUserProject(raw: unknown): UserProject {
     ),
     ffiUnrecorded:
       project.ffi_unrecorded === true || project.ffiUnrecorded === true,
+    ffiIncompatible:
+      project.ffi_incompatible === true || project.ffiIncompatible === true,
+    ffiUnverifiedSdkVersions: (
+      (project.ffi_unverified_sdk_versions ??
+        project.ffiUnverifiedSdkVersions ??
+        []) as unknown[]
+    ).flatMap((version) =>
+      typeof version === "string" && version ? [version] : [],
+    ),
     sdkVersions: (
       (project.sdk_versions ?? project.sdkVersions ?? []) as unknown[]
     ).flatMap((version) =>

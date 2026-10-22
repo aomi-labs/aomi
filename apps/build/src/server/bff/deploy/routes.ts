@@ -1131,6 +1131,13 @@ export async function userProjectsRoute(req: Request) {
                       ...project,
                       sdkVersion: listed.sdkVersion ?? null,
                       sdkVersions: listed.sdkVersions ?? [],
+                      ffiVersion: listed.ffiVersion ?? null,
+                      ffiVersions: listed.ffiVersions ?? [],
+                      requiredFfiVersion: listed.requiredFfiVersion ?? null,
+                      ffiUnrecorded: listed.ffiUnrecorded ?? false,
+                      ffiIncompatible: listed.ffiIncompatible ?? false,
+                      ffiUnverifiedSdkVersions:
+                        listed.ffiUnverifiedSdkVersions ?? [],
                     }
                   : project;
               },

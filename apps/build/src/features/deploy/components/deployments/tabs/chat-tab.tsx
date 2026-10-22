@@ -19,19 +19,36 @@ export function ChatTab({ detail }: { detail: Detail }) {
 
   const lifecycle = deploymentLifecycleFromProject(source);
   const requiredSdk = detail.sdk?.sdkStatus.requiredVersion ?? null;
-  if (projectSdk(source, requiredSdk).outdated) {
+  const sdk = projectSdk(source, requiredSdk);
+  // SDK drift on a loadable release is not a gate: the runtime serves it.
+  // Only a release it refuses to load (or any mismatch against an older,
+  // FFI-unaware backend) closes the tab.
+  if (sdk.chatBlocked) {
     return (
-      <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-4 py-10 text-center">
+      <div
+        data-testid="chat-gate"
+        data-severity={sdk.severity}
+        className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-4 py-10 text-center"
+      >
         <div>
-          <div className="text-base font-semibold">SDK upgrade required</div>
+          <div
+            className={`text-base font-semibold ${sdk.incompatible ? "text-destructive" : ""}`}
+          >
+            {sdk.incompatible
+              ? "App cannot run on this backend"
+              : "SDK upgrade required"}
+          </div>
           <div className="text-dim mt-1 max-w-md text-sm leading-6">
-            This deployment cannot chat until it is rebuilt with aomi-sdk{" "}
-            {requiredSdk}.
+            {sdk.incompatible
+              ? `This deployment cannot chat: its build has no FFI contract this backend can load. Rebuild it with ${sdk.rebuildWith} and redeploy.`
+              : `This deployment cannot chat until it is rebuilt with aomi-sdk ${requiredSdk}.`}
           </div>
         </div>
         <Link
           href="?tab=deployments"
-          className="bg-warning text-background inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium hover:opacity-90"
+          className={`text-background inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium hover:opacity-90 ${
+            sdk.incompatible ? "bg-destructive" : "bg-warning"
+          }`}
         >
           Upgrade deployment
         </Link>

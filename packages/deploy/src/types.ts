@@ -761,6 +761,13 @@ export interface UserProject extends Project {
   ffiVersions?: number[];
   requiredFfiVersion?: number | null;
   ffiUnrecorded?: boolean;
+  /** True when a live app cannot load on this backend: its verified FFI is
+   *  not the backend's, or its recorded SDK maps to no verified FFI at all.
+   *  Distinct from `ffiUnrecorded`, which only says a record is missing. */
+  ffiIncompatible?: boolean;
+  /** Recorded SDKs of live apps with no verified FFI (neither declared nor in
+   *  the legacy table) — the ones `ffiIncompatible` is naming. */
+  ffiUnverifiedSdkVersions?: string[];
 }
 
 /** One project's apps with live flags, from `GET /user/projects/:id/apps`
