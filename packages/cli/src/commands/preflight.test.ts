@@ -104,4 +104,19 @@ it("reads the intent file and rejects incomplete or non-decimal input", () => {
   expect(() => new Erc20Transfer("1e3", RECIPIENT, [WALLET])).toThrow(
     "decimal",
   );
+  expect(() => new Erc20Transfer("0.0", RECIPIENT, [WALLET])).toThrow(
+    "positive",
+  );
+  expect(() => new Erc20Transfer("1.0000004", RECIPIENT, [WALLET])).toThrow(
+    "fractional digits",
+  );
+  expect(
+    () =>
+      new Erc20Transfer("1", RECIPIENT, [
+        { ...WALLET, chainId: "1" as unknown as number },
+      ]),
+  ).toThrow("wallets[0]");
+  expect(
+    () => new Erc20Transfer("1", RECIPIENT, [null as unknown as typeof WALLET]),
+  ).toThrow("wallets[0]");
 });

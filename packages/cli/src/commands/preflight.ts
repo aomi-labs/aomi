@@ -40,11 +40,31 @@ export class Erc20Transfer {
     recipient: string,
     readonly wallets: readonly FundingWallet[],
   ) {
-    if (!/^\d+(?:\.\d+)?$/.test(amount))
+    if (!/^\d+(?:\.\d+)?$/.test(amount) || !/[1-9]/.test(amount))
       throw new Error("amount must be a positive decimal string");
     this.recipient = getAddress(recipient);
     if (!Array.isArray(wallets) || wallets.length === 0)
       throw new Error("wallets must list at least one catalogued wallet");
+    wallets.forEach((wallet, index) => {
+      if (
+        typeof wallet?.address !== "string" ||
+        typeof wallet.token !== "string" ||
+        typeof wallet.rpcUrl !== "string" ||
+        !Number.isSafeInteger(wallet.chainId) ||
+        !Number.isInteger(wallet.decimals) ||
+        wallet.decimals < 0 ||
+        wallet.decimals > 255
+      )
+        throw new Error(
+          `wallets[${index}] needs address, token, rpcUrl, integer chainId and decimals`,
+        );
+      // parseUnits rounds extra digits; an amount the token cannot represent
+      // must fail rather than be checked as a smaller transfer.
+      if ((amount.split(".")[1]?.length ?? 0) > wallet.decimals)
+        throw new Error(
+          `amount has more fractional digits than wallets[${index}] token's ${wallet.decimals} decimals`,
+        );
+    });
   }
 
   static fromFile(path: string): Erc20Transfer {

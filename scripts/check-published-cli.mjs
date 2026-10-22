@@ -23,6 +23,18 @@ export function checkPublishedCli({
       join(directory, "package.json"),
       JSON.stringify({ private: true }),
     );
+    // Prove anonymous access, and never hand the publish token to the code we
+    // just published: drop npm credentials and ignore setup-node's .npmrc.
+    const userconfig = join(directory, "empty.npmrc");
+    writeFileSync(userconfig, "");
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([key]) =>
+          !/^(NODE_AUTH_TOKEN|NPM_TOKEN|NPM_CONFIG_USERCONFIG|NPM_CONFIG_PROVENANCE|GITHUB_TOKEN|GH_TOKEN|ACTIONS_ID_TOKEN_REQUEST_TOKEN|ACTIONS_ID_TOKEN_REQUEST_URL)$/i.test(
+            key,
+          ) && !/^npm_config_.*(auth|token)/i.test(key),
+      ),
+    );
     // The registry can lag a publish by a minute; retry before failing release.
     for (let attempt = 1; ; attempt += 1) {
       try {
@@ -36,9 +48,10 @@ export function checkPublishedCli({
             "--prefer-online",
             "--registry=https://registry.npmjs.org",
             `--cache=${join(directory, "cache")}`,
+            `--userconfig=${userconfig}`,
             `${name}@${version}`,
           ],
-          { cwd: directory, stdio: "pipe", timeout: 180_000 },
+          { cwd: directory, env, stdio: "pipe", timeout: 180_000 },
         );
         break;
       } catch (error) {
@@ -47,7 +60,7 @@ export function checkPublishedCli({
       }
     }
     const binary = join(directory, "node_modules/.bin/aomi");
-    const options = { cwd: directory, encoding: "utf8", timeout: 30_000 };
+    const options = { cwd: directory, env, encoding: "utf8", timeout: 30_000 };
     const installed = run(binary, ["--version"], options).trim();
     if (installed !== version)
       throw new Error(

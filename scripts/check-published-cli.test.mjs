@@ -28,6 +28,24 @@ describe("published CLI install gate", () => {
     expect(sleep).not.toHaveBeenCalled();
   });
 
+  it("installs and runs the published CLI without npm or GitHub credentials", () => {
+    vi.stubEnv("NODE_AUTH_TOKEN", "publish-secret");
+    vi.stubEnv("npm_config__authToken", "publish-secret");
+    vi.stubEnv("GH_TOKEN", "publish-secret");
+    const run = vi
+      .fn()
+      .mockReturnValueOnce("")
+      .mockReturnValueOnce("0.1.2\n")
+      .mockReturnValueOnce("Usage: aomi tx");
+    checkPublishedCli({ root, run, sleep });
+    vi.unstubAllEnvs();
+    for (const [, args, options] of run.mock.calls) {
+      expect(JSON.stringify(options.env)).not.toContain("publish-secret");
+      if (args.includes("install"))
+        expect(args.some((arg) => arg.startsWith("--userconfig="))).toBe(true);
+    }
+  });
+
   it("retries a lagging registry, then fails release when the package never appears", () => {
     const run = vi.fn(() => {
       throw new Error("npm E404 @aomi-labs/cli");
