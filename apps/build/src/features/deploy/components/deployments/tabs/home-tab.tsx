@@ -71,7 +71,7 @@ function StatusCard({
   hint: string;
   actionHref?: string;
   actionLabel?: string;
-  tone?: "good" | "warn" | "neutral";
+  tone?: "good" | "warn" | "bad" | "neutral";
   meter?: ReactNode;
 }) {
   const toneClass =
@@ -79,7 +79,9 @@ function StatusCard({
       ? "border-emerald-500/30 bg-emerald-500/5"
       : tone === "warn"
         ? "border-amber-500/30 bg-amber-500/5"
-        : "border-border bg-surface-2";
+        : tone === "bad"
+          ? "border-red-500/30 bg-red-500/5"
+          : "border-border bg-surface-2";
 
   return (
     <div className={`rounded-md border px-3 py-3 ${toneClass}`}>
@@ -227,6 +229,11 @@ export function HomeTab({
     [source, requiredSdk],
   );
   const outdated = sdk?.outdated ?? false;
+  const incompatible = sdk?.incompatible ?? false;
+  // SDK drift on an FFI-compatible release never gates chat; an unloadable
+  // release (or any mismatch against an older, FFI-unaware backend) does.
+  const chatBlocked = sdk?.chatBlocked ?? false;
+  const needsUpgrade = outdated || incompatible;
 
   // Gate on the union of the source's apps and any the required-secrets check
   // itself named — a re-synced repo can register an app this snapshot predates.
@@ -265,8 +272,7 @@ export function HomeTab({
     tab: "home" | "deployments" | "providers" | "environment" | "chat",
   ) => tabHref?.(tab) ?? `?tab=${tab}`;
 
-  const isLive =
-    status.isLive && Boolean(lifecycle.chatApp) && !outdated;
+  const isLive = status.isLive && Boolean(lifecycle.chatApp) && !chatBlocked;
   const chatUrl = isLive
     ? chatAppUrl(lifecycle.chatApp!, {
         locked: true,
@@ -274,31 +280,44 @@ export function HomeTab({
       })
     : null;
 
-  const liveValue = outdated
-    ? "Outdated"
-    : lifecycle.kind === "live"
-      ? status.isLive
-        ? "Live"
-        : status.label
-      : lifecycle.kind === "building" || lifecycle.kind === "build_ready"
-        ? lifecycle.statusLabel
-        : lifecycle.kind === "failed"
+  const liveValue = incompatible
+    ? "Incompatible"
+    : outdated
+      ? "Outdated"
+      : lifecycle.kind === "live"
+        ? status.isLive
+          ? "Live"
+          : status.label
+        : lifecycle.kind === "building" || lifecycle.kind === "build_ready"
           ? lifecycle.statusLabel
-          : "Not live";
+          : lifecycle.kind === "failed"
+            ? lifecycle.statusLabel
+            : "Not live";
 
   // A live app whose runtime SDK was never recorded is not a clean Live: the
-  // card keeps the runtime verdict but carries the warning beside it.
-  const liveTone = isLive && !sdk.unrecorded ? "good" : "warn";
+  // card keeps the runtime verdict but carries the warning beside it. A
+  // release the runtime cannot load is red, and so is its chat.
+  const liveTone = incompatible
+    ? "bad"
+    : isLive && !sdk.unrecorded && !outdated
+      ? "good"
+      : "warn";
 
   const usageCopy = usageCardCopy(usage);
   const monetization = monetizationCard(source);
 
   const nextAction =
-    outdated && requiredSdk
+    incompatible || (needsUpgrade && requiredSdk)
       ? {
           href: hrefForTab("deployments"),
-          label: `Upgrade to ${requiredSdk}`,
-          copy: "Update the linked repository before opening chat.",
+          label: requiredSdk
+            ? `Upgrade to ${requiredSdk}`
+            : "Rebuild and redeploy",
+          copy: incompatible
+            ? `This app cannot run on the backend. Rebuild with ${sdk.rebuildWith} and redeploy before opening chat.`
+            : chatBlocked
+              ? "Update the linked repository before opening chat."
+              : "Redeploy with the current SDK to stay up to date. Chat keeps working meanwhile.",
         }
       : !isLive
         ? {
@@ -339,7 +358,12 @@ export function HomeTab({
         <div
           role="alert"
           data-testid="sdk-callout"
-          className="flex flex-wrap items-center gap-3 border-amber-500/30 bg-amber-500/5 px-4 py-3"
+          data-severity={sdk.severity}
+          className={`flex flex-wrap items-center gap-3 px-4 py-3 ${
+            sdk.severity === "error"
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-amber-500/30 bg-amber-500/5"
+          }`}
         >
           <SdkBadge sdk={sdk} />
           <p className="text-foreground min-w-0 flex-1 text-xs leading-5">
@@ -347,9 +371,13 @@ export function HomeTab({
           </p>
           <Link
             href={hrefForTab("deployments")}
-            className="border-warning/40 bg-warning/10 text-warning hover:bg-warning/15 inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium"
+            className={`inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium ${
+              sdk.severity === "error"
+                ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                : "border-warning/40 bg-warning/10 text-warning hover:bg-warning/15"
+            }`}
           >
-            {outdated && requiredSdk
+            {needsUpgrade && requiredSdk
               ? `Upgrade to ${requiredSdk}`
               : "View deployments"}
           </Link>
@@ -381,15 +409,27 @@ export function HomeTab({
         />
         <StatusCard
           label="Chat"
-          value={outdated ? "Blocked" : isLive ? "Ready" : "Needs live app"}
+          value={chatBlocked ? "Blocked" : isLive ? "Ready" : "Needs live app"}
           hint={
-            outdated
-              ? `Chat is blocked until the app is rebuilt with aomi-sdk ${requiredSdk ?? "the required version"}.`
-              : isLive
-                ? "Open the chat session for this app."
-                : "Chat unlocks after a live deployment."
+            incompatible
+              ? `Chat is blocked: this app cannot run on the backend. Rebuild it with ${sdk.rebuildWith} and redeploy.`
+              : chatBlocked
+                ? `Chat is blocked until the app is rebuilt with aomi-sdk ${requiredSdk ?? "the required version"}.`
+                : isLive
+                  ? outdated
+                    ? "Open the chat session for this app. It runs an older SDK; redeploy to update."
+                    : "Open the chat session for this app."
+                  : "Chat unlocks after a live deployment."
           }
-          tone={outdated ? "warn" : isLive ? "good" : "neutral"}
+          tone={
+            incompatible
+              ? "bad"
+              : chatBlocked
+                ? "warn"
+                : isLive
+                  ? "good"
+                  : "neutral"
+          }
           actionHref={isLive ? hrefForTab("chat") : hrefForTab("deployments")}
           actionLabel={isLive ? "Chat tab" : "Go to deployments"}
         />
