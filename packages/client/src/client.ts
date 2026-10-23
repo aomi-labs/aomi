@@ -562,7 +562,10 @@ export class AomiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await (options?.raw ? this.rawFetchImpl : this.fetchImpl)(
+    const requestFetch = options?.x402
+      ? wrapFetchWithPaymentChallenges(this.rawFetchImpl, options.x402)
+      : options?.raw ? this.rawFetchImpl : this.fetchImpl;
+    const response = await requestFetch(
       url,
       {
         method,

@@ -26,6 +26,14 @@ export function agentApiUrl(): string {
   return "http://127.0.0.1:8082";
 }
 
+/** Account payments share the hosted edge; local development uses Payment's port. */
+export function paymentApiUrl(): string {
+  const url = new URL(backendUrl());
+  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
+    url.port = "8085";
+  return url.origin;
+}
+
 export type DeploymentTier = "development" | "staging" | "production";
 
 /** Which Aomi environment this portal serves, judged by the backend it talks to. */

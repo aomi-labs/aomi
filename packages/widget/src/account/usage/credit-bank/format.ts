@@ -1,4 +1,4 @@
-export const MIN_TOP_UP_MICROUSD = 10_000;
+export const MIN_TOP_UP_MICROUSD = 1_000_000;
 export const MAX_TOP_UP_MICROUSD = 1_000_000_000;
 
 export function toCredits(microusd: number): number {

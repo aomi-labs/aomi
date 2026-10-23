@@ -45,10 +45,19 @@ export async function mintAgentApiBearer(
   accountId: string,
   delegated?: DelegatedBearerContext,
 ): Promise<MintedBearer> {
+  return mintDelegatedBearer(accountId, AGENT_API_AUDIENCE, delegated);
+}
+
+/** Sign a scoped user assertion for one public service boundary. */
+export async function mintDelegatedBearer(
+  accountId: string,
+  audience: "aomi-api-server" | "aomi-payment",
+  delegated?: DelegatedBearerContext,
+): Promise<MintedBearer> {
   const { accessToken, expiresAt } = await portalService().mint({
     role: "user",
     subject: accountId,
-    audience: AGENT_API_AUDIENCE,
+    audience,
     ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
     delegated,
   });

@@ -369,6 +369,17 @@ export function PortalAomiFrame() {
     "none",
   );
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [initialTopUp, setInitialTopUp] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("topup") !== "credits") return;
+    setInitialTopUp(true);
+    setSettingsTab("usage");
+    setOverlay("settings");
+    // Settings retains the request through its existing sign-in gate.
+    url.searchParams.delete("topup");
+    window.history.replaceState(null, "", url);
+  }, []);
   const [walletAccountMenu, setWalletAccountMenu] =
     useState<WalletAccountMenuOptions>();
   const openSettings = useCallback((tab: SettingsTab) => {
@@ -490,7 +501,11 @@ export function PortalAomiFrame() {
               <SettingsModal
                 key={settingsTab}
                 initialTab={settingsTab}
-                onClose={() => setOverlay("none")}
+                initialTopUp={initialTopUp}
+                onClose={() => {
+                  setInitialTopUp(false);
+                  setOverlay("none");
+                }}
               />
             </OverlayPortal>
           )}

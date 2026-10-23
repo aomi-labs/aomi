@@ -9,7 +9,7 @@ test("a real 402 opens the payment setup gate and cannot admit or replay a turn"
   const gate = widget.page.getByTestId(testIds.paygate);
   await expect(gate).toBeVisible();
   await expect(
-    gate.getByRole("heading", { name: "Set up BYOK" }),
+    gate.getByRole("heading", { name: "Add credits to continue" }),
   ).toBeVisible();
   await expect(
     gate.getByRole("button", { name: "Save and use BYOK" }),

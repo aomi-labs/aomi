@@ -10,6 +10,9 @@ export {
 } from "./account/credits";
 export type {
   AomiCreditActivity,
+  AomiCreditPurchase,
+  AomiCreditCheckout,
+  AomiCreditMethods,
   AomiCreditListOptions,
   AomiCreditPaymentReceipt,
   AomiCreditPosition,

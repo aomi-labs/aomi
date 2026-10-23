@@ -3,13 +3,19 @@ import { AccountGraphTransport } from "./graph";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
-export const MIN_CREDIT_TOP_UP = 1;
+export const MIN_CREDIT_TOP_UP = 100;
 export const MAX_CREDIT_TOP_UP = 100_000;
 
 export type AomiCreditActivity = {
   id: number;
   amount_microusd: number;
-  entry_kind: "purchase" | "usage_debit";
+  entry_kind:
+    | "purchase"
+    | "usage_debit"
+    | "admin_grant"
+    | "refund"
+    | "dispute"
+    | "reinstatement";
   payment_method: string | null;
   payment_provider: string | null;
   external_payment_reference: string | null;
@@ -82,11 +88,106 @@ type RequestResponse = (
   options?: AomiRequestOptions,
 ) => Promise<Response>;
 
+export type AomiCreditPurchase = {
+  id: string;
+  idempotency_key: string;
+  amount_microusd: number;
+  method: "card" | "wallet";
+  environment: "test" | "production";
+  status: "awaiting_action" | "processing" | "credited" | "failed" | "canceled";
+  terms: { network?: string; asset?: string; recipient?: string };
+  provider_reference: string | null;
+  error_code: string | null;
+};
+export type AomiCreditCheckout = {
+  purchase: AomiCreditPurchase;
+  action:
+    | { kind: "confirm_card"; client_secret: string }
+    | { kind: "wait" | "done" };
+};
+export type AomiCreditMethods = {
+  card: {
+    public_key: string;
+    min_microusd: number;
+    max_microusd: number;
+  } | null;
+  wallet: {
+    min_microusd: number;
+    max_microusd: number;
+    networks: Array<{
+      network: string;
+      name: string;
+      asset: string;
+      recipient: string;
+      confirmations: number;
+    }>;
+  };
+};
+
 export class AccountCreditsTransport {
   constructor(
     private readonly requestResponse: RequestResponse,
     private readonly basePath = "/v1/account/credits",
   ) {}
+
+  async methods(): Promise<AomiCreditMethods> {
+    return responseJson(
+      await this.requestResponse("GET", `${this.basePath}/methods`, {
+        raw: true,
+      }),
+      "load payment methods",
+    );
+  }
+  async purchase(id: string): Promise<AomiCreditCheckout> {
+    return responseJson(
+      await this.requestResponse(
+        "GET",
+        `${this.basePath}/purchases/${encodeURIComponent(id)}`,
+        { raw: true },
+      ),
+      "check payment",
+    );
+  }
+  async beginPurchase(input: {
+    amountMicrousd: number;
+    method: "card" | "wallet";
+    chain?: string;
+    idempotencyKey: string;
+    x402?: AomiRequestOptions["x402"];
+  }): Promise<AomiCreditCheckout> {
+    const response = await this.requestResponse(
+      "POST",
+      `${this.basePath}/purchases`,
+      {
+        raw: input.method === "card",
+        x402: input.method === "wallet" ? input.x402 : undefined,
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": input.idempotencyKey,
+          "X-Aomi-CSRF": "1",
+        },
+        body: {
+          amount_microusd: input.amountMicrousd,
+          method: input.method,
+          ...(input.chain ? { chain: input.chain } : {}),
+        },
+      },
+    );
+    return responseJson(response, "start payment");
+  }
+  async cancelPurchase(id: string): Promise<AomiCreditCheckout> {
+    return responseJson(
+      await this.requestResponse(
+        "POST",
+        `${this.basePath}/purchases/${encodeURIComponent(id)}/cancel`,
+        {
+          raw: true,
+          headers: { "X-Aomi-CSRF": "1" },
+        },
+      ),
+      "cancel payment",
+    );
+  }
 
   async get(options: AomiCreditListOptions = {}): Promise<AomiCreditPosition> {
     const limit = options.limit ?? 25;
@@ -180,13 +281,22 @@ function creditPositionFromResponse(value: unknown): AomiCreditPosition {
 function parseCreditActivity(value: unknown): AomiCreditActivity {
   const record = objectValue(value, "credit record");
   const kind = stringValue(record.kind, "record.kind");
-  if (kind !== "purchase" && kind !== "usage_debit") {
+  if (
+    ![
+      "purchase",
+      "usage_debit",
+      "admin_grant",
+      "refund",
+      "dispute",
+      "reinstatement",
+    ].includes(kind)
+  ) {
     throw invalidCreditResponse(`unsupported record kind: ${kind}`);
   }
   return {
     id: numberValue(record.id, "record.id"),
     amount_microusd: numberValue(record.amount, "record.amount"),
-    entry_kind: kind,
+    entry_kind: kind as AomiCreditActivity["entry_kind"],
     payment_method: nullableStringValue(
       record.payment_method,
       "record.payment_method",

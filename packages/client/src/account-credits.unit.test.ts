@@ -134,7 +134,7 @@ describe("account credits", () => {
 
     await expect(
       client.account.credits.topUp({ credits: 0.5, idempotencyKey: "invalid" }),
-    ).rejects.toThrow("between 1 and 100,000 credits");
+    ).rejects.toThrow("between 100 and 100,000 credits");
     await expect(
       client.account.credits.topUp({
         amountMicrousd: 10_000.5,

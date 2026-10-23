@@ -87,22 +87,33 @@ export function PaymentRequiredGate() {
       aria-modal="true"
       aria-labelledby="payment-required-title"
     >
-      <div className="bg-card border-input w-full max-w-lg rounded-3xl border p-7 shadow-2xl md:p-8">
+      <div className="bg-card border-input max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-7 shadow-2xl md:p-8">
         <div className="space-y-3">
           <h2
             id="payment-required-title"
             className="text-foreground text-2xl font-semibold tracking-normal"
           >
-            Set up BYOK
+            Add credits to continue
           </h2>
           <p className="text-muted-foreground text-base leading-7">
-            You&apos;re out of Aomi credits. Add an LLM provider key to keep
-            chatting with BYOK. x402 and MPP payments are coming to the
-            platform.
+            You&apos;re out of Aomi credits. Add credits on chat.aomi.dev using
+            the same Aomi account, then return here and retry.
           </p>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
+        <a
+          href="https://chat.aomi.dev/?topup=credits"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-foreground text-background mt-6 flex h-11 items-center justify-center rounded-full px-7 text-sm font-medium"
+        >
+          Add credits on Aomi
+        </a>
+
+        <h3 className="mt-6 text-base font-medium">
+          Or use your own provider key
+        </h3>
+        <div className="mt-3 flex flex-wrap gap-2">
           {PROVIDERS.map((provider) => {
             const active = selectedProvider === provider.id;
             return (

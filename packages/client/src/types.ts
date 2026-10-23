@@ -100,6 +100,8 @@ export interface AomiRequestOptions {
   headers?: HeadersInit;
   /** Use the native fetch path instead of a custom payment-aware fetch wrapper. */
   raw?: boolean;
+  /** Request-local signer for an explicitly reviewed purchase. */
+  x402?: x402Client | x402HTTPClient;
 }
 
 /**

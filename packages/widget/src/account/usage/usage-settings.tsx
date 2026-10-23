@@ -19,7 +19,9 @@ import { CreditBank } from "@/account/usage/credit-bank/credit-bank";
  * by-app matrix) on the live model statement (`/v1/account/statement`).
  * Tool and on-chain subjects show "—" until their ledger writers exist.
  */
-export function UsageSettings() {
+export function UsageSettings({
+  initialTopUp = false,
+}: { initialTopUp?: boolean } = {}) {
   const statement = useUsageStatement();
   const month = statement.month;
 
@@ -60,7 +62,9 @@ export function UsageSettings() {
         allowanceError={statement.allowanceError}
         onRetryAllowance={statement.retryAllowance}
       >
-        {statement.isCurrentMonth ? <CreditBank /> : null}
+        {statement.isCurrentMonth ? (
+          <CreditBank initialTopUp={initialTopUp} />
+        ) : null}
       </AllowanceSettlementSection>
 
       {!month ? null : month.apps.length > 0 ? (

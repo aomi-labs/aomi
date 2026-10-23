@@ -10,6 +10,7 @@ const MAX_PAYMENT_CHALLENGES = 4;
 /** Build the canonical x402 signer from the EVM wallet already given to Aomi. */
 export function createEvmPaymentClient(
   wallet: EvmWallet,
+  terms?: { amountMicrousd: number; network: string; asset: string; recipient: string },
 ): x402Client | undefined {
   if (!isAddress(wallet.address) || !wallet.signTypedData) return undefined;
   const client = new X402Client();
@@ -27,7 +28,16 @@ export function createEvmPaymentClient(
       },
     }),
   );
+  if (terms && "setSpendControls" in client && typeof client.setSpendControls === "function") {
+    client.setSpendControls({ maxAmountPerPayment: `$${(terms.amountMicrousd / 1_000_000).toFixed(2)}` });
+  }
   client.onBeforePaymentCreation(async ({ selectedRequirements }) => {
+    if (terms && (selectedRequirements.network !== terms.network
+      || !("amount" in selectedRequirements) || selectedRequirements.amount !== String(terms.amountMicrousd)
+      || selectedRequirements.asset.toLowerCase() !== terms.asset.toLowerCase()
+      || selectedRequirements.payTo.toLowerCase() !== terms.recipient.toLowerCase())) {
+      throw new Error("Payment terms changed. Review the amount, network and treasury again.");
+    }
     const chainId = paymentChainId(selectedRequirements.network);
     const currentChainId =
       typeof wallet.chainId === "function" ? wallet.chainId() : wallet.chainId;

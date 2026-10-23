@@ -6,7 +6,7 @@ const PARTNER = "https://partner.example";
 
 const mocks = vi.hoisted(() => ({
   mintAccountBearer: vi.fn(),
-  mintAgentApiBearer: vi.fn(),
+  mintDelegatedBearer: vi.fn(),
   fetch: vi.fn(),
   managedClient: vi.fn(),
   e2eAccountId: vi.fn(),
@@ -90,7 +90,7 @@ function bearerToken(request: Request): string | undefined {
 
 vi.mock("@aomi-labs/account", () => ({
   mintAccountBearer: mocks.mintAccountBearer,
-  mintAgentApiBearer: mocks.mintAgentApiBearer,
+  mintDelegatedBearer: mocks.mintDelegatedBearer,
 }));
 vi.mock("@aomi-labs/account/account", () => ({
   getOrCreateAomiUserForBetterAuthSession: async ({
@@ -394,6 +394,7 @@ beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
   vi.stubEnv("DATABASE_URL", "postgres://unused");
   vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://backend.example");
+  vi.stubEnv("AOMI_PROXY_BACKEND_URL", "https://backend.example");
   vi.stubEnv("AOMI_AGENT_API_URL", "https://agent.example");
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("VERCEL_ENV", "");
@@ -407,7 +408,7 @@ beforeEach(() => {
       bearer: `account:${accountId}`,
       expiresAt: 1,
     }));
-  mocks.mintAgentApiBearer
+  mocks.mintDelegatedBearer
     .mockReset()
     .mockImplementation(async (accountId: string) => ({
       bearer: `agent:${accountId}`,
@@ -456,12 +457,13 @@ describe("principal × route family", () => {
       if (status !== 200) {
         expect(mocks.fetch).not.toHaveBeenCalled();
         expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-        expect(mocks.mintAgentApiBearer).not.toHaveBeenCalled();
+        expect(mocks.mintDelegatedBearer).not.toHaveBeenCalled();
         return;
       }
       if (principalClass) {
-        expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+        expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
           subject,
+          family === "/v1/account/credits" ? "aomi-payment" : "aomi-api-server",
           expect.objectContaining({ principal_class: principalClass, scope }),
         );
         expect(upstreamCalls()[0].headers.get("authorization")).toBe(
@@ -495,7 +497,7 @@ describe("principal × route family", () => {
       }),
     );
     expect(
-      mocks.mintAgentApiBearer.mock.calls.map(([, claims]) => claims.scope),
+      mocks.mintDelegatedBearer.mock.calls.map(([, , claims]) => claims.scope),
     ).toEqual(["agent:actions:resolve", "agent:write"]);
   });
 
@@ -777,7 +779,7 @@ describe("error mapping", () => {
   });
 
   it("reports a failed bearer signature as a 502 without its message", async () => {
-    mocks.mintAgentApiBearer.mockRejectedValue(new Error("PEM key missing"));
+    mocks.mintDelegatedBearer.mockRejectedValue(new Error("PEM key missing"));
     const response = await routes.agent.GET(
       request("/v1/agent/x", { headers: { cookie: "session=user" } }),
     );
@@ -909,8 +911,15 @@ describe("scopes each agent API route asks for", () => {
       }),
     );
     expect(response.status).toBe(200);
-    expect(mocks.mintAgentApiBearer.mock.calls[0][1].scope).toBe(scope);
-    expect(upstreamCalls()[0].url).toBe(`https://agent.example${path}`);
+    expect(mocks.mintDelegatedBearer.mock.calls[0][2].scope).toBe(scope);
+    const payment =
+      path === "/v1/account/credits/top-up" || path === "/v1/account/statement";
+    expect(mocks.mintDelegatedBearer.mock.calls[0][1]).toBe(
+      payment ? "aomi-payment" : "aomi-api-server",
+    );
+    expect(upstreamCalls()[0].url).toBe(
+      `https://${payment ? "backend" : "agent"}.example${path}`,
+    );
   });
 
   it.each([
@@ -939,8 +948,9 @@ describe("scopes each agent API route asks for", () => {
       }),
     );
     expect(response.status).toBe(200);
-    expect(mocks.mintAgentApiBearer).toHaveBeenCalledWith(
+    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
       user,
+      "aomi-api-server",
       expect.objectContaining({
         scope: "mcp:agent agent:read agent:write",
         auth_source: "oauth",
@@ -980,5 +990,100 @@ describe("dev tools", () => {
       new NextRequest(`${PORTAL}/api/bff/e2e/execute`, { method: "POST" }),
     );
     expect([seed.status, execute.status]).toEqual([404, 404]);
+  });
+});
+
+describe("direct account payment forwarding", () => {
+  it.each([
+    ["GET", "/v1/account/credits/methods", "account:credits:read"],
+    ["GET", "/v1/account/credits/purchases/current", "account:credits:read"],
+    ["POST", "/v1/account/credits/purchases", "account:credits:topup"],
+    [
+      "POST",
+      "/v1/account/credits/purchases/purchase-id/cancel",
+      "account:credits:topup",
+    ],
+  ])("delegates %s %s only to Payment", async (method, path, scope) => {
+    const handler = path.endsWith("/methods")
+      ? routes.credits.GET
+      : method === "GET"
+        ? routes.purchases.GET
+        : routes.purchases.POST;
+    const rejected = await handler(
+      request(path, {
+        method,
+        headers: { cookie: "session=guest" },
+        origin: PORTAL,
+      }),
+    );
+    expect(rejected.status).toBeGreaterThanOrEqual(400);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    const response = await handler(
+      request(path, {
+        method,
+        headers: {
+          cookie: "session=user",
+          "x-aomi-csrf": "1",
+          "idempotency-key": "purchase-once",
+        },
+        origin: PORTAL,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
+      "acct-user",
+      "aomi-payment",
+      expect.objectContaining({ scope }),
+    );
+    expect(upstreamCalls()[0].url).toBe(`https://backend.example${path}`);
+    expect(upstreamCalls()[0].headers.has("cookie")).toBe(false);
+  });
+
+  it("preserves the payment challenge and does not retry a top-up", async () => {
+    const body = JSON.stringify({ amount_microusd: 1000000 });
+    const denial = {
+      code: "payment_required",
+      message: "Wallet payment required",
+    };
+    mocks.fetch.mockResolvedValue(
+      new Response(JSON.stringify(denial), {
+        status: 402,
+        headers: {
+          "content-type": "application/json",
+          "payment-required": "challenge",
+        },
+      }),
+    );
+    const response = await routes.topUp.POST(
+      request("/v1/account/credits/top-up", {
+        method: "POST",
+        origin: PORTAL,
+        headers: {
+          cookie: "session=user",
+          "content-type": "application/json",
+          "idempotency-key": "purchase-1",
+          "payment-signature": "proof",
+        },
+        body,
+      }),
+    );
+    expect(response.status).toBe(402);
+    expect(await response.json()).toEqual(denial);
+    expect(response.headers.get("payment-required")).toBe("challenge");
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const upstream = upstreamCalls()[0];
+    expect(upstream.url).toBe(
+      "https://backend.example/v1/account/credits/top-up",
+    );
+    expect(upstream.headers.get("idempotency-key")).toBe("purchase-1");
+    expect(upstream.headers.get("payment-signature")).toBe("proof");
+    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
+      user,
+      "aomi-payment",
+      expect.objectContaining({
+        scope: "account:credits:topup payments:submit",
+        resource: `${PORTAL}/v1/account`,
+      }),
+    );
   });
 });
