@@ -1,0 +1,15 @@
+{
+  "name": "aomi",
+  "description": "Execution harness for onchain finance. Read prices, balances, build transactions, simulate on a forked chain, and sign locally through your wallet. Non-custodial.",
+  "vendor": "Aomi Labs",
+  "sourceUrl": "https://github.com/aomi-labs/aomi",
+  "homepage": "https://aomi.dev",
+  "license": "MIT",
+  "runtime": "remote",
+  "transports": [
+    {
+      "type": "sse",
+      "url": "https://chat.aomi.dev/v1/agent/mcp"
+    }
+  ]
+}

@@ -12,9 +12,31 @@ Aomi is the blockchain harness for agentic AI. Three guarantees define the harne
 - **Simulate before sign.** Every transaction is dry-run on a forked chain before it can be signed.
 - **Credentials never round-trip.** Private keys stay on the user's machine; the agent never sees them.
 
+Aomi supports EVM chains and Solana.
+
 This page routes you to one of three install paths based on the user's intent.
 
 > **TL;DR:** pick one of the three paths below based on what the user asked for. Each path has a one-line install and a primary entry point. Read the path you need, not everything.
+
+## MCP Server
+
+Connect Aomi to Claude, Cursor, or any MCP client:
+
+```sh
+claude mcp add https://chat.aomi.dev/v1/agent/mcp
+```
+
+Or add to your MCP settings manually:
+
+```json
+{
+  "mcpServers": {
+    "aomi": {
+      "url": "https://chat.aomi.dev/v1/agent/mcp"
+    }
+  }
+}
+```
 
 ## Transact
 
@@ -51,14 +73,14 @@ Drop a working AI chat widget into a Next.js app, with simulation and wallet sig
 
 **Install:**
 ```bash
-npm install @aomi-labs/widget
+npm install @aomi-labs/widget-lib
 ```
 
 **Minimum code:**
 ```tsx
 "use client";
-import { AomiWidget } from "@aomi-labs/widget";
-import "@aomi-labs/widget/styles.css";
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
 export default function ChatPage() { return <AomiWidget applicationId="123" />; }
 ```
 
