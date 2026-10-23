@@ -40,7 +40,7 @@ jobs:
     if: needs.changes.outputs.preview == 'true' && vars.PLAYWRIGHT_PREVIEW_MODE != 'nightly'
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -49,11 +49,12 @@ jobs:
 
       - name: Resolve same-SHA immutable Vercel URLs
         id: previews
-        timeout-minutes: 9
+        timeout-minutes: 16
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_SHA: ${{ github.event.pull_request.head.sha }}
-          PREVIEW_TIMEOUT_SECONDS: "480"
+          # Cold builds in this repo take 11–13 minutes to publish same-SHA URLs.
+          PREVIEW_TIMEOUT_SECONDS: "900"
         run: .github/scripts/resolve-preview-urls.sh
 
       - name: Enable corepack
