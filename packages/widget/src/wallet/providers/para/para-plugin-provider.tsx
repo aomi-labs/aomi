@@ -26,7 +26,7 @@ import { walletDebug } from "@/wallet/wallet-debug";
 import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
 import type { AomiAccount, SvmNetworkOption } from "@/wallet/types";
 import { PARA_BRAND_KEY, PARA_SESSION_UID } from "./para-brand";
-import { shouldConnectParaEvmSession } from "./para-evm-session";
+import { shouldConnectParaEvmSession } from "@/wallet/providers/para/para-account";
 import {
   DEFAULT_SVM_ENDPOINT,
   useSafeSvmWallet,
@@ -34,7 +34,7 @@ import {
   type SafeSvmWalletState,
 } from "@/wallet/runtime/svm/wallet-runtime";
 import { useParaSessionSource } from "@/wallet/providers/para/sources/para-session-source";
-import { isParaEmbeddedAccount } from "./para-embedded-wallet";
+import { isParaEmbeddedAccount } from "@/wallet/providers/para/para-account";
 import {
   findParaSigningWallet,
   signParaMessage,

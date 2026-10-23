@@ -8,8 +8,8 @@ import {
 import { BUILD_SESSION_EXPIRED } from "@/lib/session-expiry";
 
 const session = vi.hoisted(() => vi.fn());
-vi.mock("@/features/deploy/dashboard", () => ({
-  fetchGitHubSession: session,
+vi.mock("@/features/deploy/client", () => ({
+  launchFetchGitHubSession: session,
 }));
 function Work() {
   const { account } = useGitHubSession();

@@ -17,15 +17,13 @@ vi.mock("./use-deployment-attempts", () => ({
     start: attemptMocks.start,
   }),
 }));
-vi.mock("@/features/deploy/dashboard", () => ({
-  fetchGitHubSession: vi.fn(async () => ({
+vi.mock("@/features/deploy/client", () => ({
+  launchFetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "alice",
     githubUserId: "u1",
   })),
-}));
 
-vi.mock("@/features/deploy/client", () => ({
   deploymentProjects: vi.fn(async () => ({
     projects: [
       {

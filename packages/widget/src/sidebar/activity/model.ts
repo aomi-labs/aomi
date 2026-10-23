@@ -190,22 +190,29 @@ export function selectActivity(
       /svm|solana|jupiter/.test(name) || result.chain_kind === "svm"
         ? "svm"
         : "evm";
-    // SVM staging wraps the assembled transaction in `tx` or `ix`.
-    const stagedRecords = Array.isArray(result.instructions)
-      ? result.instructions
-      : [record(result.tx) ?? record(result.ix) ?? result];
+    // Protocol staging tools list their pending txs under `staged`; the
+    // chain stage tools return one record (SVM wraps it in `tx` or `ix`).
+    const stagedRecords = Array.isArray(result.staged)
+      ? result.staged
+      : Array.isArray(result.instructions)
+        ? result.instructions
+        : [record(result.tx) ?? record(result.ix) ?? result];
     for (const raw of stagedRecords) {
       const tx = record(raw);
       if (!tx) continue;
       const pendingId = number(tx.pending_tx_id) ?? number(tx.pending_ix_id);
+      const txFamily =
+        tx.chain_kind === "svm" || tx.chain_kind === "evm"
+          ? tx.chain_kind
+          : family;
       if (pendingId != null && tx.current_lifecycle === "queued") {
-        const id = `${event.turn_id}:${family}:${pendingId}`;
+        const id = `${event.turn_id}:${txFamily}:${pendingId}`;
         const previous = staged.get(id);
         staged.set(id, {
           id,
           sequence: previous?.sequence ?? event.sequence,
           turnId: event.turn_id,
-          family,
+          family: txFamily,
           label:
             string(tx.label) ??
             string(tx.description) ??
@@ -218,6 +225,7 @@ export function selectActivity(
         });
       }
     }
+    // Retired Jupiter tool: its staged ids came back as `ix_ids`.
     if (name === "jupiter_prepare_swap")
       for (const id of ids(result.ix_ids)) {
         const key = `${event.turn_id}:svm:${id}`;

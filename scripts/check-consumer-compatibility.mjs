@@ -60,11 +60,15 @@ const sha = execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], {
 const temporary = mkdtempSync(join(tmpdir(), "aomi-consumer-compat-"));
 const packages = [
   ["@aomi-labs/client", "packages/client"],
+  ["@aomi-labs/cli", "packages/cli"],
   ["@aomi-labs/react", "packages/react"],
   ["@aomi-labs/deploy", "packages/deploy"],
   ["@aomi-labs/widget", "packages/widget"],
   ["@aomi-labs/widget-lib", "packages/widget-lib"],
-].filter(([name]) => !onlyWidget || name !== "@aomi-labs/deploy");
+].filter(
+  ([name]) =>
+    !onlyWidget || !["@aomi-labs/deploy", "@aomi-labs/cli"].includes(name),
+);
 const consumers = trustedConsumers(root, sha, onlyWidget);
 if (
   (onlyWidget || browserOutput) &&
@@ -263,6 +267,40 @@ for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvid
       `The client's aomi shim did not point at @aomi-labs/cli: ${shim.stderr}`,
     );
   }
+
+  const cliDestination = join(temporaryRoot, "fresh-cli-install");
+  mkdirSync(cliDestination, { recursive: true });
+  writeFileSync(
+    join(cliDestination, "package.json"),
+    JSON.stringify(
+      {
+        name: "aomi-clean-cli-install-contract",
+        private: true,
+        packageManager,
+        dependencies: { "@aomi-labs/cli": tarballs["@aomi-labs/cli"] },
+        pnpm: { overrides: tarballs },
+      },
+      null,
+      2,
+    ),
+  );
+  run(
+    "corepack",
+    ["pnpm", "install", "--ignore-scripts", "--no-frozen-lockfile"],
+    cliDestination,
+  );
+  const binary = join(cliDestination, "node_modules/.bin/aomi");
+  const expected = JSON.parse(
+    readFileSync(join(root, "packages/cli/package.json"), "utf8"),
+  ).version;
+  const version = execFileSync(binary, ["--version"], {
+    cwd: cliDestination,
+    encoding: "utf8",
+  }).trim();
+  if (version !== expected)
+    throw new Error(`Packed CLI reported ${version}; expected ${expected}`);
+  for (const command of ["export", "submit", "preflight"])
+    run(binary, ["tx", command, "--help"], cliDestination);
 }
 
 try {

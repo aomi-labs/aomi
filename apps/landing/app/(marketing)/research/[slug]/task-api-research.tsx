@@ -6,26 +6,27 @@ import styles from "../../longform.module.css";
 const richBlockPattern = /(::task-api-(?:alice|quickstart)::)/;
 
 const taskSteps = [
-  "The Task API reconstructs the request and verifies Alice’s wallet.",
+  "The agent pays 0.01 USDC to prepare the intent; Alice’s address is simulation input.",
   "The calls are simulated against pinned Arc state.",
   "Changed targets, excess spend, insufficient output or failed calls are rejected.",
-  "The agent receives a signed 402 preview and checks whether the rehearsed edge still clears its threshold.",
-  "Payment and execution require separate wallet signatures.",
+  "The agent polls for a signed preview and checks the outcome and retrieval price.",
+  "Retrieval payment and transaction execution remain separate approvals.",
 ];
 
 const outcomeRows = [
   ["Order-book proceeds", "990.000 USDC"],
   ["Maximum Arc repurchase", "−940.500 USDC"],
   ["Gross trading edge", "49.500 USDC"],
-  ["Task price: $1 + 3%", "−29.215 USDC"],
+  ["Preparation", "−0.010 USDC"],
+  ["Retrieval: 3%", "−28.215 USDC"],
 ];
 
 const launchCapabilities = [
-  "Signature-only Task authorization",
-  "Arc Mainnet simulation",
-  "Signed 402 quote and artifact hash",
-  "Separate USDC service payment",
-  "Bounded native-USDC execution",
+  "0.01 USDC paid preparation",
+  "Arc Mainnet payments verified on staging (20 Oct)",
+  "Signed preview and frozen bundle hash",
+  "Separate preparation and retrieval receipts",
+  "Unsigned native-USDC transaction bundles",
 ];
 
 const frontierCapabilities = [
@@ -38,20 +39,20 @@ const frontierCapabilities = [
 
 const quickstartSteps = [
   [
-    "Define one bounded task",
-    "State the intent, allowed targets, value limits, slippage and expiry.",
+    "Purchase preparation",
+    "Send an intent and constraints. Accept the 0.01 USDC x402 challenge to start the job.",
   ],
   [
-    "Authorize the exact request",
-    "The buyer’s wallet signs the EIP-712 Task authorization.",
+    "Poll and inspect",
+    "Free status checks return progress or a signed preview. Verify the effects, expiry, hash and retrieval price.",
   ],
   [
-    "Inspect the rehearsed outcome",
-    "Review the calls, state changes, constraints, price and artifact hash returned with the 402.",
+    "Retrieve within your budget",
+    "Approve the second purchase at 3% of simulated outgoing USDC, or retrieve for free when outflow is zero.",
   ],
   [
-    "Pay, then execute",
-    "Approve the service payment and sign the exact transaction as separate wallet actions.",
+    "Review before execution",
+    "Verify the bundle bytes, then separately review and sign with your execution wallet.",
   ],
 ];
 
@@ -68,11 +69,11 @@ function AliceExample() {
         </header>
         <div className={styles.taskExampleGrid}>
           <div className={styles.taskExampleCopy}>
-            <h4>What the signed task binds</h4>
+            <h4>What the request constrains</h4>
             <p>
               Chain, wallet, exact pool and approval targets, maximum outgoing
-              USDC, minimum EURC received, gas ceiling, call order, idempotency
-              key and a five-minute expiry.
+              USDC, minimum EURC received, gas ceiling and call order. Once
+              frozen, the unpaid bundle has a five-minute purchase window.
             </p>
             <ol className={styles.taskSteps}>
               {taskSteps.map((step) => (
@@ -81,7 +82,7 @@ function AliceExample() {
             </ol>
           </div>
           <div className={styles.taskExampleMath}>
-            <h4>Known before purchase</h4>
+            <h4>Known before retrieval purchase</h4>
             <table>
               <tbody>
                 {outcomeRows.map(([label, amount]) => (
@@ -92,14 +93,15 @@ function AliceExample() {
                 ))}
                 <tr className={styles.taskTotal}>
                   <td>Edge before gas</td>
-                  <td>20.285 USDC</td>
+                  <td>21.275 USDC</td>
                 </tr>
               </tbody>
             </table>
             <p className={styles.taskFinePrint}>
               Illustrative prices, not a claim about an available spread. The
               point is that simulation-verified execution and its price enter
-              the agent’s decision before it commits.
+              the agent’s decision before it buys the bundle; preparation is
+              already paid.
             </p>
           </div>
         </div>
@@ -107,7 +109,7 @@ function AliceExample() {
 
       <section className={styles.taskReality}>
         <div className={styles.taskLive}>
-          <h3>Available at launch</h3>
+          <h3>Verified in acceptance</h3>
           <ul>
             {launchCapabilities.map((capability) => (
               <li key={capability}>{capability}</li>
@@ -130,34 +132,33 @@ function AliceExample() {
 function TaskCode() {
   return (
     <pre className={styles.taskCode}>
-      <code>
-        <span className={styles.taskCodeKeyword}>import</span>
-        {` { ArcExecutionKit } `}
-        <span className={styles.taskCodeKeyword}>from</span>
-        {"\n  "}
-        <span className={styles.taskCodeString}>
-          &quot;arc-canteen/task-client&quot;
-        </span>
-        {`;\n\n`}
-        <span className={styles.taskCodeKeyword}>const</span>
-        {` kit = ArcExecutionKit.arcMainnet({\n  endpoint:\n    `}
-        <span className={styles.taskCodeString}>
-          &quot;https://api.aomi.dev/v1/task/build&quot;
-        </span>
-        {`,\n  wallet,\n  rpcUrl,\n  recipient: trustedTaskSeller,\n  trustedJwks,\n});\n\n`}
-        <span className={styles.taskCodeKeyword}>const</span>
-        {` quote = `}
-        <span className={styles.taskCodeKeyword}>await</span>
-        {` kit.prepare({\n  intent: `}
-        <span className={styles.taskCodeString}>
-          &quot;Send 0.01 USDC&quot;
-        </span>
-        {`,\n  reference: `}
-        <span className={styles.taskCodeString}>&quot;invoice-1042&quot;</span>
-        {`,\n  sender: wallet.walletAddress,\n  recipient: approvedRecipient,\n  amountUsdc: `}
-        <span className={styles.taskCodeString}>&quot;0.01&quot;</span>
-        {`,\n}, reviewTaskAuthorization);`}
-      </code>
+      <code>{`// Source example: examples/task-api/client.ts
+// Configure endpoint, payer, merchant, trustedJwks,
+// signer and a private journal before purchasing.
+const client = new TaskClient({
+  ...deploymentConfig,
+  maxPreparationFeeMicrousd: 10_000n,
+  maxRetrievalFeeMicrousd: 1_000n,
+  maxTotalFeeMicrousd: 11_000n,
+  waitMs: 90_000,
+});
+
+const result = await client.purchase({
+  intent: "Transfer 0.01 USDC to " + recipient,
+  chainId: 5042, // Arc Mainnet; staging API
+  sender,
+  payer,
+  constraints: {
+    maxOutgoingUsdcWei: "10000000000000000",
+  },
+});
+
+if (result.status === "complete") {
+  // result.bytes is the verified unsigned bundle.
+  // Review before signing with your own wallet.
+}
+// On timeout, keep the journal.
+// recover() replays proofs without signing again.`}</code>
     </pre>
   );
 }
@@ -167,7 +168,7 @@ function TaskLinks({ quickstart = false }: { quickstart?: boolean }) {
     <div className={styles.taskActions}>
       <a
         className={`${styles.taskButton} ${styles.taskButtonPrimary}`}
-        href="https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client"
+        href="https://github.com/aomi-labs/product-mono/tree/main/examples/task-api"
         rel="noreferrer"
         target="_blank"
       >
@@ -175,11 +176,11 @@ function TaskLinks({ quickstart = false }: { quickstart?: boolean }) {
       </a>
       <a
         className={styles.taskButton}
-        href="https://arc-canteen.aomi.dev/execution-kit"
+        href="https://github.com/aomi-labs/product-mono/blob/main/examples/task-api/README.md"
         rel="noreferrer"
         target="_blank"
       >
-        {quickstart ? "Integration guide ↗" : "Execution Kit ↗"}
+        {quickstart ? "Integration guide ↗" : "Client guide ↗"}
       </a>
     </div>
   );
@@ -199,13 +200,14 @@ function TaskQuickstart() {
         </div>
         <div className={styles.taskPanel}>
           <header className={styles.taskPanelHeader}>
-            <span>Production quickstart</span>
-            <span>Arc Mainnet</span>
+            <span>Integration walkthrough</span>
+            <span>Arc Mainnet · staging</span>
           </header>
           <div className={styles.taskQuickstart}>
             <h3>From intent to execution</h3>
             <p>
-              The client keeps authorization, payment and execution explicit.
+              The client budgets both purchases and returns verified unsigned
+              bytes.
             </p>
             <ol>
               {quickstartSteps.map(([title, description]) => (
@@ -222,9 +224,10 @@ function TaskQuickstart() {
         </div>
       </section>
       <p className={styles.taskDisclaimer}>
-        <strong>Three approvals remain separate.</strong> The buyer’s wallet
-        authorizes the Task request, pays for the service artifact and signs the
-        final transaction independently.
+        <strong>Payment is not execution authority.</strong> There is no
+        TaskAuthorization signature. The payer buys preparation and retrieval;
+        the execution wallet independently controls whether the bundle is signed
+        and submitted.
       </p>
     </>
   );

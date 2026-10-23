@@ -24,6 +24,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      # Lets npm sign build provenance for each published package.
+      id-token: write
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -63,8 +68,12 @@ jobs:
       - name: Publish versions not already present
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
         run: |
           node scripts/publish-package-if-needed.mjs packages/client
+          if [[ -f packages/cli/package.json ]]; then
+            node scripts/publish-package-if-needed.mjs packages/cli
+          fi
           node scripts/publish-package-if-needed.mjs packages/deploy
           node scripts/publish-package-if-needed.mjs packages/react
           # A frozen candidate can predate the widget package-directory move.
@@ -77,4 +86,10 @@ jobs:
           else
             echo "Candidate has no widget package directory" >&2
             exit 1
+          fi
+          # After every package is out: prove the CLI installs from the public
+          # registry, using main's checker against this candidate's manifest.
+          if [[ -f packages/cli/package.json ]]; then
+            git show origin/main:scripts/check-published-cli.mjs > "$RUNNER_TEMP/check-published-cli.mjs"
+            node "$RUNNER_TEMP/check-published-cli.mjs"
           fi

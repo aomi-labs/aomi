@@ -1,6 +1,25 @@
 import { defineCommand } from "citty";
 import { globalArgs, buildCliConfig, getPositionals } from "./shared";
 
+const txPreflightDef = defineCommand({
+  meta: {
+    name: "preflight",
+    description:
+      "Check which catalogued wallets can fund an ERC-20 transfer; never signs",
+  },
+  args: {
+    file: {
+      type: "positional",
+      required: true,
+      description: "Intent JSON: amount, recipient and wallets with RPC URLs",
+    },
+  },
+  async run({ args }) {
+    const { preflightCommand } = await import("../preflight");
+    await preflightCommand(args.file);
+  },
+});
+
 const txListDef = defineCommand({
   meta: { name: "list", description: "List session commits and Actions" },
   args: { ...globalArgs },
@@ -139,6 +158,7 @@ const txRejectDef = defineCommand({
 export const txDef = defineCommand({
   meta: { name: "tx", description: "Transaction management" },
   subCommands: {
+    preflight: txPreflightDef,
     list: txListDef,
     simulate: txSimulateDef,
     export: txExportDef,

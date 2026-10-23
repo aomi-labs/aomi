@@ -10,8 +10,11 @@ import {
 } from "@/thread/tool-interpreter/normalize";
 import { EVM_SELECTOR_REGISTRY, SHAPE_ICONS } from "@/thread/tool-registry";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
-import { routeFact, validResult } from "./shared";
-import type { ProtocolAdapter } from "./types";
+import {
+  routeFact,
+  validResult,
+} from "@/thread/tool-interpreter/protocols/protocol-adapter";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 import {
   failedFact,
   operation,
@@ -177,7 +180,7 @@ export const matchLifiSwapPrep: ToolMatcher = ({
       tokenPairFact(result?.from_token, result?.to_token),
       failedFact(resultRecord),
     ],
-    { title: isBridgeRoute(result, args) ? "Prepare LI.FI bridge" : undefined },
+    { title: isBridgeRoute(result, args) ? "Stage LI.FI bridge" : undefined },
   );
 };
 
@@ -213,8 +216,8 @@ export const matchLifiSwapBatch: ToolMatcher = ({
     ],
     {
       title: isBridgeRoute(result, args)
-        ? "Prepare LI.FI bridge"
-        : "Prepare LI.FI swap batch",
+        ? "Stage LI.FI bridge"
+        : "Stage LI.FI swap",
     },
   );
 };
@@ -260,7 +263,7 @@ export const lifi: ProtocolAdapter = {
     },
     "lifi.swap.prepare": {
       title: "fixed",
-      fixedTitle: "Prepare LI.FI swap",
+      fixedTitle: "Stage LI.FI swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
         { kind: "route" },
@@ -268,6 +271,7 @@ export const lifi: ProtocolAdapter = {
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
+        { kind: "count" },
         { kind: "status" },
       ],
     },
@@ -280,10 +284,12 @@ export const lifi: ProtocolAdapter = {
   },
   tools: [
     "lifi_get_quote",
+    "stage_lifi_swap",
+    "lifi_get_status",
+    // Retired names, still in saved threads.
     "lifi_prepare_approval_tx",
     "lifi_prepare_swap_tx",
     "lifi_prepare_swap_batch",
-    "lifi_get_status",
   ],
   match: (ctx) => {
     switch (ctx.rawLabel.toLowerCase().trim()) {
@@ -291,6 +297,7 @@ export const lifi: ProtocolAdapter = {
         return matchLifiQuote(ctx);
       case "lifi_prepare_approval_tx":
         return matchLifiApproval(ctx);
+      case "stage_lifi_swap":
       case "lifi_prepare_swap_batch":
         return matchLifiSwapBatch(ctx);
       case "lifi_get_status":

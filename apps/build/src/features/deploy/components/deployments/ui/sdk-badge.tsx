@@ -25,13 +25,17 @@ export function SdkBadge(props: SdkBadgeProps) {
       ? "ok"
       : compatibility === "outdated"
         ? "outdated"
-        : "missing";
+        : compatibility === "incompatible"
+          ? "incompatible"
+          : "missing";
   const tone =
     state === "ok"
       ? "border-positive/40 bg-positive/10 text-positive"
       : state === "outdated"
         ? "border-warning/40 bg-warning/10 text-warning"
-        : "border-border bg-surface-2 text-dim";
+        : state === "incompatible"
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : "border-border bg-surface-2 text-dim";
   return (
     <span
       data-testid="sdk-badge"

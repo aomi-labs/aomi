@@ -7,6 +7,10 @@ Figures live in public/research/introducing-the-aomi-task-api/figures/.
 
 # Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc
 
+_Updated October 21, 2026 for the two-purchase Arc Mainnet staging preview._
+
+The Task API is currently available on **staging** and charges real Arc Mainnet USDC through Circle Gateway. Its production endpoint is not launched. A direct staging purchase of both stages settled on Arc Mainnet on October 20; check the live quote before each new payment.
+
 ## The agentic economy needs reliable execution and two-sided services
 
 Since launch, [Arc](https://www.arc.io/blog/arc-economic-os-internet) has been building an agentic economy with real participants. Trading venues are opening their markets to agents. Protocols are exposing their contracts to them. Builders are shipping agents that pay invoices, rebalance treasuries and route liquidity. The agents are arriving, and the [onchain settlement rail](https://www.circle.com/usdc) is already here.
@@ -15,7 +19,7 @@ For that economy to thrive beyond the noise, two conditions must hold.
 
 ### #1 Agents deliver reliable onchain execution
 
-Reliability on every task means yielding an outcome the buyer can inspect before money moves. Agentic services with probabilistic outcomes are not sustainable: buyers would be taking risks and making bets.
+Reliable execution starts with a result the buyer can inspect before signing an onchain transaction. Simulation makes the proposed effects and constraints concrete, while the buyer retains the final execution decision.
 
 ### #2 Agents participate on both sides of the service market
 
@@ -38,31 +42,27 @@ Arc is one settlement rail for this emerging economy, but the shift extends well
 
 ## How it works
 
-An agent sends a task describing what it wants to do, together with constraints such as target addresses, spending limits, slippage and other dos and don’ts. In headless mode, the Task API resolves the intent, constructs the transaction and rehearses it against live Arc state. It returns a simulation-verified outcome: which balances move, which approvals are granted and whether every limit holds.
+The Task API turns an intent into an unsigned transaction bundle, rehearsed against pinned Arc state. Buying the service and executing the transaction are separate decisions. There is no separate TaskAuthorization signature: the sender address is simulation input, while the verified payment identifies the payer.
 
-If the buyer accepts the outcome, it pays in USDC and receives the exact transaction. The deliverable is not an ambiguous plan or suggestion, but signable bytes that produce the inspected result.
+### 1. Prepare for 0.01 USDC
 
-The buyer’s [Circle wallet](https://www.circle.com/wallets) signs and submits the transaction. The Task API never holds a key; it is aware only of public wallet addresses. If the buyer does not sign, the transaction expires and is discarded. Nothing happens.
+Send an intent, chain, sender and constraints to `POST /v1/task/build`. A valid request returns an x402 payment challenge for **0.01 USDC**. Retry the same request with payment to start planning and simulation. The API returns `202`, a `quoteId`, a private retrieval token and polling instructions.
 
-![Task, payment and execution authorities remain separate. The buyer’s agent signs the task, the Task API rehearses it and returns a quote, the buyer separately pays for the artifact, and its Circle wallet separately signs the exact transaction before Arc settlement.](/research/introducing-the-aomi-task-api/figures/sequence.png)
+Preparation is a paid attempt. Planning or simulation failures still cost 0.01 USDC. Invalid requests are rejected before payment.
 
-## Pay for outcomes, not tokens
+### 2. Inspect the result for free
 
-The Task API charges $1 plus 3% of the sender’s gross outgoing USDC, measured from the rehearsed transaction before purchase.
+Poll `POST /v1/task/{quoteId}/status` with the retrieval token. Status checks are free. When preparation finishes, inspect the signed preview, simulated effects, frozen bundle hash and retrieval price. A simulation describes the pinned state it ran against; it does not guarantee the same outcome after chain state changes.
 
-Because every task is simulated before purchase, the rehearsed outcome is both the deliverable and the audit trail against which the charge is calculated. Arc executes the resulting onchain service and settles its payment.
+### 3. Purchase the frozen bundle
 
-This is the most practical benefit of using a blockchain as the platform for agentic activity: when software actions carry real-world consequences, execution, verification and payment share the same observable foundation.
+Request `POST /v1/task/{quoteId}/result` with the retrieval token. While preparation is running, the result route returns `202`. Once ready, a nonzero retrieval fee produces a second x402 challenge. Retry the same request with payment to receive the exact frozen bundle. Zero-outflow bundles have free retrieval. Each purchase has its own payment identifier and receipt.
 
-Most agent vendors bill the buyer for tokens, regardless of whether the agent completes the task. Most outcome-based products are not agent-friendly either. A service may charge for a generated slide deck, for example, but the workflow still assumes a person will create an account, iterate on the slides, enter a credit card and approve payment before downloading the result.
+### 4. Execute with your own wallet
 
-![Token metering compared with outcome pricing. Conventional systems bill for effort whether or not there is a result; the Task API prices a rehearsed outcome that the buyer can inspect before purchase.](/research/introducing-the-aomi-task-api/figures/pricing.png)
+Verify the delivered bytes against the signed preview, then independently review, sign and submit with your execution wallet. TaskClient returns unsigned bytes; it never broadcasts the bundle. Paying for preparation or retrieval does not authorize a transfer from the sender.
 
-The Task API is headless and purchased one task at a time, making it native to machine workflows. Together, x402 settlement and pre-purchase simulation address the [fair-exchange problem](https://arxiv.org/abs/0910.4342): the seller can rely on settlement while the buyer can inspect the outcome before paying for it. Simulation is preserved within the agent’s tool trace, confining the decisive computation to an auditable part of the exchange.
-
-## The remaining trust boundary
-
-In V1, the Task API furnishes verification through its simulation infrastructure: the buyer receives a deterministic rehearsal, bounded transaction bytes and an audit trail before purchase. The direction for V2 is to make that computation independently verifiable. Candidate approaches include trusted execution environments, zero-knowledge proofs and durable audit attestations; the protocol design remains open while we evaluate which combination best supports trust-minimized exchange.
+![The agent purchases preparation for 0.01 USDC, polls for a free signed preview, and purchases the frozen unsigned bundle for 3% of simulated gross outgoing USDC. Circle Gateway accepts each service payment. The execution wallet separately signs and submits, and the app verifies the execution receipt. Zero outflow skips retrieval payment.](/research/introducing-the-aomi-task-api/figures/sequence.png)
 
 ## Example: Alice’s agent finds a dislocation
 
@@ -72,15 +72,40 @@ Alice already holds EURC. Her agent sells 900 EURC into the firm bid for 990 USD
 
 ::task-api-alice::
 
+## A cent to prepare, variable price to retrieve transactions
+
+Preparation costs **0.01 USDC per attempt**. Retrieval costs **3% of simulated gross outgoing USDC**, rounded upward to the nearest micro-USDC. There is no $1 base fee. Incoming funds do not offset outgoing funds, and self-transfers are excluded.
+
+| Simulated outgoing USDC | Preparation | Retrieval | Total service fee |
+| ----------------------- | ----------- | --------- | ----------------- |
+| 0                       | 0.01        | Free      | 0.01 USDC         |
+| 0.01                    | 0.01        | 0.0003    | 0.0103 USDC       |
+| 0.02                    | 0.01        | 0.0006    | 0.0106 USDC       |
+| 100                     | 0.01        | 3         | 3.01 USDC         |
+
+Service fees are separate from the transfer amount and execution gas. The buyer sees the retrieval price before authorizing that purchase. A failed preparation pays for the attempt and produces no purchasable bundle.
+
+An unpaid frozen bundle has a five-minute purchase window. After an accepted purchase, retrieval remains available for 30 days. Free retrieval lasts 30 days from preparation acceptance. If an unpaid quote expires, preparing again is a new paid attempt.
+
+## Recoverable workflow under two purchases
+
+Both purchases use x402 through Circle Gateway. The client keeps the URL, method and body unchanged within each payment handshake, saves each signed proof before sending it, and reuses that proof on retries. A payment identifier prevents accidental duplicate purchases; it does not grant access to the private result.
+
+TaskClient exposes `prepare()`, `status()`, `retrieve()` and `recover()`, plus `purchase()` to orchestrate the flow with bounded waiting. Separate preparation, retrieval and total spending caps bound service payments. Recovery reuses saved proofs without creating a new payment signature. Keep the private journal to recover after a timeout or restart.
+
+## The remaining trust boundary
+
+The signed preview binds the request, payer, price and frozen bundle hash. It lets the client check that the delivered bytes match what it inspected. It does not prove ownership of the sender wallet or make the simulation independently verifiable. Buyers still trust Aomi’s simulation infrastructure and must provision trusted attestation keys independently. Independently verifiable computation remains a future direction.
+
 ## Agents buying from agents
 
-The Task API is listed on [NoHumans](https://nohumans.directory/), [Open402](https://github.com/ArcedeDev/open-402), [Agent402](https://agent402.tools/marketplace) and [Superstables](https://www.superstables.com/). Builders can also inspect its contract and examples through [Postman](https://www.postman.com/) and the Arc Showcase. Every surface resolves to the same headless service: a wallet-signed request, a simulation-verified result and USDC settlement over [x402](https://www.x402.org).
+Agent service directories and marketplaces are discovery surfaces for this workflow. The integration contract is the same wherever a buyer discovers it: paid preparation, a free signed preview, then a separately priced bundle purchase over [x402](https://www.x402.org). Listing status and endpoint availability are separate from successful paid delivery.
 
 That distribution model is also the larger thesis. A builder’s pricing model, risk engine, routing strategy or operational workflow can become a callable service with a price attached to its outcome. The rails that let one agent buy simulation-verified execution from the Task API can let another sell its own expertise. Agents cease to be only spenders and become sellers; that is the half of an agentic economy that compounds.
 
 ## Try it out
 
-The fastest way to understand the protocol is to send one bounded task. The production Task API exposes the complete signature-first exchange, from wallet authorization to a simulation-verified 402 outcome.
+Start with the [staging Task endpoint](https://api-staging.aomi.dev/v1/task/build) and the source TaskClient configured for Arc Mainnet (`chainId: 5042`). The [OpenAPI contract](https://api-staging.aomi.dev/v1/task/openapi.json) and [public Postman collection](https://www.postman.com/cecilia-4dc7d3ec-3356433/aomi-task-api-arc-mainnet-staging) show the JSON POST. The client below makes real USDC purchases; review each quote, provision the merchant address and trusted attestation keys independently, and fund the payer’s Circle Gateway balance separately. An ordinary wallet balance is not a Gateway balance, and the client never makes automatic deposits.
 
 ::task-api-quickstart::
 

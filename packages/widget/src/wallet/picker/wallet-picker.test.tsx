@@ -23,7 +23,10 @@ import {
   useWalletPicker,
 } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
-import { createSheetChannel, SheetChannelContext } from "./sheet-channel";
+import {
+  createSheetChannel,
+  SheetChannelContext,
+} from "@/wallet/picker/picker-context";
 
 afterEach(cleanup);
 

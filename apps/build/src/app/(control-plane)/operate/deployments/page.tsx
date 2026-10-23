@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
-import { OperateDeployments } from "@/features/deploy/components/deployments/operate-deployments";
+import { GlobalDeploymentsList } from "@/features/deploy/components/deployments/global-deployments-list";
 import { platformParam } from "@/features/deploy/platform";
 
 export default async function OperateDeploymentsPage({
@@ -12,7 +12,7 @@ export default async function OperateDeploymentsPage({
   return (
     <ErrorBoundary>
       <Suspense fallback={null}>
-        <OperateDeployments platform={platformParam(platform)} />
+        <GlobalDeploymentsList platform={platformParam(platform)} />
       </Suspense>
     </ErrorBoundary>
   );

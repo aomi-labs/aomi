@@ -1,5 +1,9 @@
 # @aomi-labs/react
 
+## 0.8.5
+
+- Publish under the MIT license, with a `repository` link so npm can show build provenance.
+
 ## 0.8.2
 
 - Prefer GPT-6.1 Sol for new and Auto threads when available, preserving manual selections and existing fallback models.

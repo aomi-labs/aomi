@@ -44,10 +44,7 @@ import {
   type GitHubAccountState,
 } from "@/components/control-plane/github-session-context";
 import { ToastProvider } from "@/components/control-plane/toast";
-import {
-  GITHUB_SIGNIN_URL,
-  signOutGitHub,
-} from "@/features/deploy/dashboard";
+import { githubSigninUrl, launchSignOutGitHub } from "@/features/deploy/client";
 import { cn } from "@/lib/class-names";
 import { ControlPlaneQueryProvider } from "./control-plane-query-provider";
 
@@ -455,7 +452,7 @@ function AccountMenu({
   async function handleSignOut() {
     setSigningOut(true);
     try {
-      await signOutGitHub();
+      await launchSignOutGitHub();
       onSignedOut();
     } finally {
       setSigningOut(false);
@@ -506,7 +503,7 @@ function AccountMenu({
           </a>
         ) : (
           <a
-            href={GITHUB_SIGNIN_URL}
+            href={githubSigninUrl}
             className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
           >
             <Github className="size-3.5" />
@@ -704,7 +701,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
           >
             <p>Session expired.</p>
             <a
-              href={GITHUB_SIGNIN_URL}
+              href={githubSigninUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-warning shrink-0 font-medium underline underline-offset-4"

@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ModalBackdrop } from "@/ui/modal-backdrop";
 import { useWidgetOverlay } from "@/ui/widget-scope";
 import { useWalletPicker } from "./wallet-picker-context";
-import { WalletSignInOptionsContext } from "./sign-in-options";
+import { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 import { ChooseStep } from "./choose-step";
 import { ChainStep, WalletStep } from "./wallet-step";
 import { MergeStep } from "./merge-step";

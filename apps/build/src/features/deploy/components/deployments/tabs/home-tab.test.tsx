@@ -56,6 +56,16 @@ describe("HomeTab", () => {
     (detail.source as { apps: unknown[] }).apps = [];
     delete (detail.source as { sdkVersion?: string }).sdkVersion;
     delete (detail.source as { sdkVersions?: string[] }).sdkVersions;
+    for (const key of [
+      "ffiVersion",
+      "ffiVersions",
+      "requiredFfiVersion",
+      "ffiUnrecorded",
+      "ffiIncompatible",
+      "ffiUnverifiedSdkVersions",
+    ] as const) {
+      delete (detail.source as Record<string, unknown>)[key];
+    }
     (detail as { requiredSecrets: unknown }).requiredSecrets = null;
     (detail as { sdk: unknown }).sdk = null;
   });
@@ -116,6 +126,143 @@ describe("HomeTab", () => {
     expect(screen.queryByText("Ready")).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "Upgrade to 5.1.0" })[0],
+    ).toHaveAttribute("href", "/projects/1?tab=deployments");
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  // Compatible, SDK drift: amber warning and upgrade, but the runtime loads
+  // the release, so chat is Ready and nothing says it is gated.
+  it("warns about SDK drift on a supported FFI without blocking chat", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    Object.assign(detail.source!, {
+      sdkVersion: "5.1.1",
+      sdkVersions: ["5.1.1"],
+      ffiVersion: 1,
+      ffiVersions: [1],
+      requiredFfiVersion: 1,
+      ffiUnrecorded: false,
+    });
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "6.0.0" },
+    };
+
+    renderTab(
+      <HomeTab detail={detail} tabHref={(tab) => `/projects/1?tab=${tab}`} />,
+    );
+
+    const callout = screen.getByTestId("sdk-callout");
+    expect(callout).toHaveAttribute("data-severity", "warning");
+    expect(callout).toHaveTextContent(
+      "Active application built with SDK 5.1.1 — backend requires 6.0.0; redeploy to update.",
+    );
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
+      "data-state",
+      "outdated",
+    );
+    expect(screen.getByText("Outdated")).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.queryByText("Blocked")).not.toBeInTheDocument();
+    expect(screen.queryByText(/before opening chat/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Redeploy with the current SDK to stay up to date. Chat keeps working meanwhile.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Upgrade to 6.0.0" })[0],
+    ).toHaveAttribute("href", "/projects/1?tab=deployments");
+    expect(screen.getByRole("link", { name: "Chat tab" })).toHaveAttribute(
+      "href",
+      "/projects/1?tab=chat",
+    );
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  // Fundamental interface mismatch: red, chat blocked, and the copy says
+  // rebuild with a supported SDK rather than "match 6.0.0".
+  it("offers rebuild guidance without server SDK metadata", async () => {
+    Object.assign(detail.source!, {
+      sdkVersion: "4.0.0",
+      ffiIncompatible: true,
+      requiredFfiVersion: 1,
+      ffiUnverifiedSdkVersions: ["4.0.0"],
+    });
+    renderTab(
+      <HomeTab detail={detail} tabHref={(tab) => `/projects/1?tab=${tab}`} />,
+    );
+    expect(
+      screen.getByRole("link", { name: "Rebuild and redeploy" }),
+    ).toHaveAttribute("href", "/projects/1?tab=deployments");
+    expect(
+      screen.queryByText("Publish a deployment, then set keys and open chat."),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  it("shows a red, chat-blocking verdict for a release the runtime cannot load", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    Object.assign(detail.source!, {
+      sdkVersion: "4.0.0",
+      sdkVersions: ["4.0.0"],
+      ffiVersion: null,
+      ffiVersions: [],
+      requiredFfiVersion: 1,
+      ffiUnrecorded: true,
+      ffiIncompatible: true,
+      ffiUnverifiedSdkVersions: ["4.0.0"],
+    });
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "6.0.0" },
+    };
+
+    renderTab(
+      <HomeTab detail={detail} tabHref={(tab) => `/projects/1?tab=${tab}`} />,
+    );
+
+    const callout = screen.getByTestId("sdk-callout");
+    expect(callout).toHaveAttribute("data-severity", "error");
+    expect(callout).toHaveTextContent(
+      "Active application built with SDK 4.0.0 cannot run on this backend (SDK 4.0.0 has no verified FFI contract); rebuild with a supported SDK (5.1.1 or newer) and redeploy.",
+    );
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
+      "data-state",
+      "incompatible",
+    );
+    expect(screen.getByText("Incompatible")).toBeInTheDocument();
+    expect(screen.queryByText("Outdated")).not.toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+    expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Chat is blocked: this app cannot run on the backend. Rebuild it with a supported SDK (5.1.1 or newer) and redeploy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This app cannot run on the backend. Rebuild with a supported SDK (5.1.1 or newer) and redeploy before opening chat.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/rebuilt with aomi-sdk 6\.0\.0/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Upgrade to 6.0.0" })[0],
     ).toHaveAttribute("href", "/projects/1?tab=deployments");
     expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
   });

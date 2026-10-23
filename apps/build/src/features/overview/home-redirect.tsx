@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LoadingPanel } from "@/features/deploy/components/deployments/ui/state-panels";
 import { platformHref, readPlatform } from "@/features/deploy/platform";
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
-import { getLastProjectId } from "@/lib/last-project";
+import { getLastProjectId } from "@/lib/project-navigation";
 
 /**
  * Default landing: last project if known, otherwise Projects.

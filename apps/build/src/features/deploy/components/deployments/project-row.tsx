@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { UserProject } from "@aomi-labs/deploy";
 import { projectDeploymentStatus } from "./project-deployment-status";
 import { projectSdk } from "./sdk-compatibility";
-import { StatusDot } from "./ui/status-dot";
+import { DeploymentStatusDot } from "@/features/deploy/components/deployments/deployment-status";
 import { SdkBadge } from "./ui/sdk-badge";
 
 export function ProjectRow({
@@ -38,7 +38,14 @@ export function ProjectRow({
   const deploymentsHref = `${projectHref}${
     projectHref.includes("?") ? "&" : "?"
   }tab=deployments`;
-  const outdated = sdk.outdated;
+  // Red when the runtime cannot load the release at all, amber when it loads
+  // but was built with another SDK; both offer the upgrade.
+  const needsUpgrade = sdk.outdated || sdk.incompatible;
+  const statusLabel = sdk.incompatible
+    ? "Incompatible"
+    : sdk.outdated
+      ? "Outdated"
+      : status.label;
   return (
     <div className="border-border hover:bg-accent-hover flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
       <Link
@@ -54,8 +61,16 @@ export function ProjectRow({
             {source.repositoryLink ?? "Unknown repository"}
           </div>
           <div className="text-dim mt-1 flex items-center gap-2 text-xs">
-            <StatusDot state={outdated ? "outdated" : status.dotState} />
-            <span>{outdated ? "Outdated" : status.label}</span>
+            <DeploymentStatusDot
+              state={
+                sdk.incompatible
+                  ? "incompatible"
+                  : sdk.outdated
+                    ? "outdated"
+                    : status.dotState
+              }
+            />
+            <span>{statusLabel}</span>
             <span aria-hidden>·</span>
             <span>{appLabel}</span>
           </div>
@@ -63,11 +78,15 @@ export function ProjectRow({
       </Link>
       <div className="flex shrink-0 items-center gap-2">
         <SdkBadge sdk={sdk} />
-        {outdated && (
+        {needsUpgrade && (
           <Link
             href={deploymentsHref}
             prefetch={false}
-            className="border-warning/40 bg-warning/10 text-warning hover:bg-warning/15 inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium"
+            className={`inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium ${
+              sdk.incompatible
+                ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                : "border-warning/40 bg-warning/10 text-warning hover:bg-warning/15"
+            }`}
           >
             Upgrade
           </Link>

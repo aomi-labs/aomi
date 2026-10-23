@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -593,6 +594,22 @@ describe("CLI session lifecycle", () => {
           "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       }),
     );
+  });
+
+  it("inspects verbose connection settings without initializing local state", async () => {
+    const { currentBackendCommand } = await import("./commands/control");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      currentBackendCommand({
+        baseUrl: "https://chat.aomi.dev",
+        verbose: true,
+      });
+      expect(existsSync(join(stateDir, "sessions"))).toBe(false);
+      expect(existsSync(join(stateDir, "active-session.txt"))).toBe(false);
+      expect(log.mock.calls.flat().join(" ")).toContain(stateDir);
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("writes state directories and session files with private permissions", async () => {

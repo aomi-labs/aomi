@@ -14,7 +14,7 @@ import {
 } from "./account-reconcile";
 import { WalletPolicyRow, walletAddressLine } from "@/wallet/wallet-policy-row";
 import { WalletProviderAvatar } from "@/wallet/wallet-brands";
-import { isProviderSigningWallet } from "@/wallet/wallet-management-model";
+import { isProviderSigningWallet } from "@/wallet/account-presentation";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton } from "@/ui/aomi/button";

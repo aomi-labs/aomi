@@ -110,6 +110,96 @@ describe("ProjectRow", () => {
     );
   });
 
+  it("marks a live app the runtime cannot load as incompatible, in red", () => {
+    render(
+      <ProjectRow
+        source={{
+          id: 42,
+          installationId: 1,
+          repositoryLink: "alice/bot",
+          platformName: "community",
+          sdkVersion: "4.0.0",
+          sdkVersions: ["4.0.0"],
+          ffiVersion: null,
+          ffiVersions: [],
+          requiredFfiVersion: 1,
+          ffiUnrecorded: true,
+          ffiIncompatible: true,
+          ffiUnverifiedSdkVersions: ["4.0.0"],
+          apps: [
+            {
+              id: 7,
+              name: "my-bot",
+              label: null,
+              platform: "community",
+              projectId: 42,
+              isActive: true,
+              isPublic: true,
+              loaded: true,
+              appReleaseTag: "tag-old",
+              targetTags: [],
+            },
+          ],
+          latestDeployment: null,
+        }}
+        requiredSdk="6.0.0"
+      />,
+    );
+
+    expect(screen.getByText("Incompatible")).toBeInTheDocument();
+    expect(screen.queryByText("Outdated")).not.toBeInTheDocument();
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
+      "data-state",
+      "incompatible",
+    );
+    expect(screen.getByRole("link", { name: "Upgrade" })).toHaveAttribute(
+      "href",
+      "/projects/42?platform=community&tab=deployments",
+    );
+  });
+
+  it("keeps the amber upgrade for SDK drift the runtime still loads", () => {
+    render(
+      <ProjectRow
+        source={{
+          id: 42,
+          installationId: 1,
+          repositoryLink: "alice/bot",
+          platformName: "community",
+          sdkVersion: "5.1.1",
+          sdkVersions: ["5.1.1"],
+          ffiVersion: 1,
+          ffiVersions: [1],
+          requiredFfiVersion: 1,
+          ffiUnrecorded: false,
+          apps: [
+            {
+              id: 7,
+              name: "my-bot",
+              label: null,
+              platform: "community",
+              projectId: 42,
+              isActive: true,
+              isPublic: true,
+              loaded: true,
+              appReleaseTag: "tag-old",
+              targetTags: [],
+            },
+          ],
+          latestDeployment: null,
+        }}
+        requiredSdk="6.0.0"
+      />,
+    );
+
+    expect(screen.getByText("Outdated")).toBeInTheDocument();
+    expect(screen.getByTestId("sdk-badge")).toHaveAttribute(
+      "data-state",
+      "outdated",
+    );
+    expect(screen.getByRole("link", { name: "Upgrade" })).toBeInTheDocument();
+  });
+
   it("shows an upgrade when any live app has an outdated SDK", () => {
     render(
       <ProjectRow

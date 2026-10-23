@@ -7,7 +7,7 @@ import { defillama } from "./defillama";
 import { jupiter } from "./jupiter";
 import { lifi } from "./lifi";
 import { morpho } from "./morpho";
-import type { ProtocolAdapter } from "./types";
+import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 import { uniswap } from "./uniswap";
 
 /** Add one adapter file and register it here; core routing stays untouched. */

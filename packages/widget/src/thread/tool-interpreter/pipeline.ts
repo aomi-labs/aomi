@@ -1,4 +1,11 @@
 import { coreToolTitle, declaredToolIdentity } from "./identity";
+import {
+  asRecord,
+  chainFactFromRecord,
+  statusFact,
+  uniqueFacts,
+} from "@/thread/tool-interpreter/normalize";
+import { svmClusterFact } from "@/thread/tool-interpreter/families/svm/context";
 import { coreMatchersFor } from "@/thread/tool-interpreter/families/core-matchers";
 import { matchError } from "@/thread/tool-interpreter/families/general/errors";
 import { presentOperation } from "@/thread/tool-interpreter/present/present-operation";
@@ -7,7 +14,9 @@ import type {
   InterpretedToolStep,
   ToolConfidence,
   ToolContext,
+  ToolFact,
   ToolMatcher,
+  ToolOperation,
 } from "./types";
 
 /** Identity selects an adapter; payload shape only determines facts inside it. */
@@ -27,6 +36,8 @@ const fallbackOperation = (ctx: ToolContext) => {
     web_fetch: "web.fetch",
     activate_skills: "skill.activate",
     get_contract: "evm.contract.lookup.found",
+    list_transactions: "activity.transactions",
+    get_transaction: "activity.transaction",
     encode_and_call: "evm.call.generic",
     sim_call: "evm.call.generic",
   };
@@ -42,13 +53,62 @@ const fallbackOperation = (ctx: ToolContext) => {
   };
 };
 
+/** The records a staging tool returned under `staged`, one per pending tx. */
+const stagedRecords = (ctx: ToolContext): Record<string, unknown>[] =>
+  Array.isArray(ctx.resultRecord?.staged)
+    ? ctx.resultRecord.staged
+        .map((record) => asRecord(record))
+        .filter((record): record is Record<string, unknown> => record != null)
+    : [];
+
+/**
+ * Every staging tool returns its pending txs under `staged`, so the row shows
+ * the network, how many txs were staged, and that they are queued, whichever
+ * protocol built them. A protocol adapter may add its own facts on top.
+ */
+const withStaged = (
+  operation: ToolOperation,
+  ctx: ToolContext,
+): ToolOperation => {
+  const staged = stagedRecords(ctx);
+  if (staged.length === 0) return operation;
+  const base = operation.facts.filter(
+    (fact) => !(fact.kind === "status" && fact.value === "success"),
+  );
+  const facts: Array<ToolFact | null> = [
+    ...base,
+    operation.facts.some(
+      (fact) => fact.kind === "chain" || fact.kind === "cluster",
+    )
+      ? null
+      : staged[0].chain_kind === "svm"
+        ? svmClusterFact(staged[0].cluster)
+        : chainFactFromRecord(staged[0]),
+    {
+      kind: "count",
+      role: "tx",
+      value: String(staged.length),
+      source: "result",
+    },
+    base.some((fact) => fact.kind === "status") ? null : statusFact("queued"),
+  ];
+  return {
+    ...operation,
+    id: operation.id === "fallback" ? "protocol.prepare" : operation.id,
+    confidence: operation.id === "fallback" ? "high" : operation.confidence,
+    facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
+  };
+};
+
 export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
   const name = declaredToolIdentity(ctx.rawLabel);
-  const operation =
+  const operation = withStaged(
     matchersFor(name).reduce<ReturnType<ToolMatcher>>(
       (matched, matcher) => matched ?? matcher(ctx),
       null,
-    ) ?? fallbackOperation(ctx);
+    ) ?? fallbackOperation(ctx),
+    ctx,
+  );
 
   const coreTitle = coreToolTitle(ctx.rawLabel);
   const keepsSemanticTitle =

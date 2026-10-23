@@ -42,6 +42,8 @@ describe("working trace contract", () => {
     ["activate_skills", "Activate skill"],
     ["get_contract", "Get contract details"],
     ["encode_and_call", "Call contract"],
+    ["list_transactions", "List transactions"],
+    ["get_transaction", "Get transaction"],
   ])(
     "keeps %s readable through active and failed results",
     (toolName, title) => {

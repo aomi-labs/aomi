@@ -2,6 +2,37 @@
 
 ## Last Updated
 
+2026-10-15 — PRIVATE PROJECT APP BUILD KEY (branch
+  `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
+  Build's Chat tab shows an "App key" panel for a private live app
+  (`apps/build/src/features/deploy/components/deployments/app-key-panel.tsx`):
+  the builder can reveal, copy and regenerate (confirm; revokes the old key)
+  the app's key through the BFF `GET|POST /api/bff/deployments/app-key`
+  (`@aomi-labs/deploy` `getBuilderAppKey` / `regenerateBuilderAppKey`). The
+  portal now shows the composer's key button (`hideApiKey: false`), relabelled
+  "App key", so anyone the builder shares the key with can use the app. Client
+  route fixtures regenerated (manager routes 81 -> 83).
+  Pending: screenshots and a live private-app chat run on staging.
+2026-10-17 — MIT LICENSE FOR PUBLISHED PACKAGES (branch `chore/mit-license`).
+  Root `LICENSE` (MIT, Aomi Labs) and a copy in each npm package
+  (client, react, deploy, widget), plus `license` and `repository` fields.
+  The token publish workflow now signs npm provenance (`id-token: write`,
+  `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
+  deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
+  integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+
+2026-10-14 — TRACE: TRANSACTION HISTORY TOOLS (branch `feat/tx-history`, with
+  product-mono `feat/tx-history`). The backend's new `list_transactions` and
+  `get_transaction` (EVM and Solana) get trace rows: "List transactions" with
+  chain/Solana, token, counterparty and "N txs" chips, and
+  "Get transaction" with network, hash, the wallet's first signed balance
+  change and a "Reverted"/"Pending" warning that leaves the read itself
+  successful (`tool-interpreter/families/general/activity.ts`). History
+  counterparties auto-link like other addresses (`explorer-links.ts`).
+  A Solana read of a failed transaction carries its runtime error as
+  `execution_error`; older saved results with a top-level `error` beside a
+  status and signature still read as Reverted, not as a failed tool call.
+
 2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
   Reloading `?thread=` no longer flashes the welcome screen while the account
   and chat list confirm the link: the portal passes `opening` to

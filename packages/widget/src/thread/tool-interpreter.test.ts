@@ -225,7 +225,7 @@ describe("tool interpreter", () => {
         to_token: { symbol: "USDC" },
       },
     });
-    expect(preparation.title).toBe("Prepare LI.FI bridge");
+    expect(preparation.title).toBe("Stage LI.FI bridge");
     expect(labelsFor(preparation.chips)).toContain("Base → Arbitrum");
 
     const status = interpretToolStep({
@@ -801,7 +801,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI swap");
+    expect(step.title).toBe("Stage LI.FI swap");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "USDC -> ETH",
@@ -848,7 +848,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI swap batch");
+    expect(step.title).toBe("Stage LI.FI swap");
     expect(labelsFor(step.chips)).toEqual([
       "Arc",
       "USDC -> EURC",
@@ -861,8 +861,8 @@ describe("tool interpreter", () => {
     const cases = [
       ["lifi_get_quote", "Quote LI.FI swap"],
       ["lifi_prepare_approval_tx", "Prepare LI.FI approval"],
-      ["lifi_prepare_swap_tx", "Prepare LI.FI swap"],
-      ["lifi_prepare_swap_batch", "Prepare LI.FI swap batch"],
+      ["lifi_prepare_swap_tx", "Stage LI.FI swap"],
+      ["lifi_prepare_swap_batch", "Stage LI.FI swap"],
       ["lifi_get_status", "Check LI.FI transfer"],
     ] as const;
 
@@ -900,7 +900,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare LI.FI bridge");
+    expect(step.title).toBe("Stage LI.FI bridge");
     expect(labelsFor(step.chips)).toEqual([
       "Arbitrum → Base",
       "USDC -> USDC",
@@ -1039,7 +1039,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Prepare swap");
+    expect(step.title).toBe("Stage Jupiter swap");
     expect(labelsFor(step.chips)).toEqual([
       "Solana",
       "SOL → USDC",
@@ -1047,6 +1047,165 @@ describe("tool interpreter", () => {
       "0.073903 USDC",
     ]);
     expect(step.confidence).toBe("high");
+  });
+
+  it("shows what a transaction history read asked and how many it found", () => {
+    const step = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({
+        chains: ["base"],
+        direction: "out",
+        token: "USDC",
+        since: "2026-10-13",
+      }),
+      result: {
+        transactions: [
+          {
+            chain: "base",
+            chain_id: 8453,
+            transaction_hash: `0x${"a".repeat(64)}`,
+            time: "2026-10-13T14:02:11Z",
+            moves: [{ direction: "out", amount: "10", symbol: "USDC" }],
+          },
+        ],
+        checked_chains: ["base"],
+        hidden_spam: 3,
+      },
+    });
+
+    expect(step.title).toBe("List transactions");
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "1 tx"]);
+  });
+
+  it("reads Solana history and all-chain history without a chain chip", () => {
+    const solana = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({ chains: "solana", direction: "in" }),
+      result: { transactions: [], checked_chains: ["solana"] },
+    });
+    expect(labelsFor(solana.chips)).toEqual(["Solana", "0 txs"]);
+
+    const all = interpretToolStep({
+      toolName: "list_transactions",
+      argsText: JSON.stringify({ chains: null, direction: null }),
+    });
+    expect(all.title).toBe("List transactions");
+    expect(all.chips).toEqual([]);
+  });
+
+  it("shows a read transaction's network, hash and what moved", () => {
+    const hash = `0x859af39b${"0".repeat(56)}`;
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash }),
+      result: {
+        chain: "base",
+        chain_id: 8453,
+        transaction_hash: hash,
+        status: "success",
+        effects: {
+          balance_changes: [
+            { direction: "out", amount: "47.526861", symbol: "USDC" },
+          ],
+        },
+      },
+    });
+
+    expect(step.title).toBe("Get transaction");
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0x859af…00000",
+      "−47.526861 USDC",
+    ]);
+  });
+
+  it("does not show a sent amount for a reverted EVM receipt", () => {
+    const hash = `0x${"b".repeat(64)}`;
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash }),
+      result: {
+        chain: "base",
+        chain_id: 8453,
+        transaction_hash: hash,
+        status: "failed",
+        value: "1",
+        fee: "0.000021",
+        effects: { account: "0xsender" },
+      },
+    });
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xbbbbb…bbbbb",
+      "Reverted",
+    ]);
+  });
+
+  it("flags a reverted transaction without failing the read", () => {
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash: "5r51fcxVcZVowYmjjSGDZqMTbBUt" }),
+      result: {
+        chain: "solana",
+        cluster: "mainnet-beta",
+        signature: "5r51fcxVcZVowYmjjSGDZqMTbBUt",
+        status: "failed",
+        moves: [{ direction: "in", amount: "0.0045", symbol: "SOL" }],
+      },
+    });
+
+    expect(step.outcome).toBe("success");
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "5r51fcx…TbBUt",
+      "+0.0045 SOL",
+      "Reverted",
+    ]);
+  });
+
+  it.each([
+    [
+      "execution_error",
+      { execution_error: { InstructionError: [0, { Custom: 1 }] } },
+    ],
+    // Saved threads from before the key was renamed.
+    ["a top-level error", { error: { InstructionError: [0, { Custom: 1 }] } }],
+  ])(
+    "reads a reverted Solana transaction with %s as Reverted, not failed",
+    (_, executionError) => {
+      const signature = "5r51fcxVcZVowYmjjSGDZqMTbBUt";
+      const step = interpretToolStep({
+        toolName: "get_transaction",
+        argsText: JSON.stringify({ hash: signature }),
+        result: {
+          chain: "solana",
+          cluster: "mainnet-beta",
+          signature,
+          status: "failed",
+          ...executionError,
+        },
+      });
+
+      expect(step.outcome).toBe("success");
+      expect(labelsFor(step.chips)).toEqual([
+        "Solana",
+        "5r51fcx…TbBUt",
+        "Reverted",
+      ]);
+    },
+  );
+
+  it("still fails a get_transaction call that errored", () => {
+    const step = interpretToolStep({
+      toolName: "get_transaction",
+      argsText: JSON.stringify({ hash: "5r51fcxVcZVowYmjjSGDZqMTbBUt" }),
+      result: { error: "transaction not found on Solana mainnet-beta" },
+    });
+
+    expect(step.outcome).toBe("failed");
   });
 
   it("does not attribute a prior tool's chain to a native balance", () => {
@@ -1324,6 +1483,83 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
+  it.each([
+    ["success", "Staged"],
+    ["failed", "Failed"],
+  ])(
+    "keeps staged Aave %s results in the correct lifecycle",
+    (status, label) => {
+      const step = interpretToolStep({
+        toolName: "stage_aave_v4",
+        result: {
+          protocol: "aave_v4",
+          operation: "supply",
+          chain_id: 1,
+          status,
+          staged: [{ pending_tx_id: 1, chain_kind: "evm", chain_id: 1 }],
+        },
+      });
+      expect(labelsFor(step.chips)).toContain(label);
+      expect(labelsFor(step.chips)).not.toContain("Success");
+      if (status === "failed") {
+        expect(labelsFor(step.chips)).not.toContain("Staged");
+      }
+    },
+  );
+
+  it("keeps Jupiter amounts and token direction for staged-only results", () => {
+    const step = interpretToolStep({
+      toolName: "stage_jupiter_swap",
+      result: {
+        staged: [
+          { pending_tx_id: 1, chain_kind: "svm", cluster: "mainnet-beta" },
+        ],
+        quote: {
+          input_token: { symbol: "SOL" },
+          output_token: { symbol: "USDC" },
+          input: { display: "0.001 SOL" },
+          expected_output: { display: "0.073903 USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "SOL → USDC",
+      "0.001 SOL",
+      "0.073903 USDC",
+      "1 tx",
+      "Staged",
+    ]);
+  });
+
+  it("shows any staging tool's staged txs without a protocol adapter", () => {
+    const step = interpretToolStep({
+      toolName: "stage_raydium_swap",
+      result: {
+        quote: { min_output_amount: "1" },
+        staged: [
+          {
+            pending_tx_id: 1,
+            current_lifecycle: "queued",
+            cluster: "mainnet-beta",
+            chain_kind: "svm",
+          },
+          {
+            pending_tx_id: 2,
+            current_lifecycle: "queued",
+            cluster: "mainnet-beta",
+            chain_kind: "svm",
+          },
+        ],
+        pending_tx_ids: [1, 2],
+      },
+    });
+    expect(step.title).toBe("Stage raydium swap");
+    expect(labelsFor(step.chips)).toContain("Solana");
+    expect(labelsFor(step.chips)).toContain("2 txs");
+    expect(step.failed).toBe(false);
+  });
+
   it("distinguishes Aave V4 market preparation from execution", () => {
     const step = interpretToolStep({
       toolName: "aave_v4_prepare",
@@ -1340,7 +1576,7 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(step.title).toBe("Prepare Aave V4 supply");
+    expect(step.title).toBe("Stage Aave V4 supply");
     expect(labelsFor(step.chips)).toContain("5 USDC");
     expect(labelsFor(step.chips)).not.toContain("Aave V4");
     expect(labelsFor(step.chips)).toContain("Approval required");
@@ -1389,7 +1625,7 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(step.title).toBe("Prepare Circle Gateway deposit");
+    expect(step.title).toBe("Stage Circle Gateway deposit");
     expect(labelsFor(step.chips)).toContain("10 USDC");
     expect(labelsFor(step.chips)).not.toContain("Success");
   });

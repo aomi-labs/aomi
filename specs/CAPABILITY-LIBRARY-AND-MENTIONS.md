@@ -18,6 +18,28 @@ It supersedes only the entry-point decision in §1 of
 `specs/ORCHESTRATOR-UI-PLAN.md`. The delegation event and Working trace design in
 that document remains valid.
 
+## Private app onboarding (issue #756)
+
+Portal exposes a compact **+ App** button beside Library search on desktop and
+mobile, with **Add private app** as its tooltip and accessible label. The shared
+dialog accepts the builder's App key, validates it
+through `GET /api/thread/apps?resolve_key=true` with `Aomi-App-Key`, and requires
+one private application with a stable ID. Account installation sends the same
+header to `POST /api/account/apps/:id`; no raw key is stored by installation.
+
+Credentials are partitioned by backend and account, associated with the exact
+application ID, and kept in memory unless the host opts into tab session storage.
+They never enter URLs, messages, public display caches, or persisted thread data.
+A duplicate updates access for that app. Separate private apps retain separate
+keys. The app picker selects the installed app normally. Its Direct target or
+explicit Auto app mention carries that app's key; a turn with two private app
+mentions asks the user to choose one rather than selecting an unrelated key.
+An App-key access notice opens the same dialog constrained
+to that chat's app. Default/public Portal chat has no key control.
+
+The frontend requires the companion backend key-resolution/install support. An
+older catalog response fails validation instead of being mistaken for a grant.
+
 ## Decision
 
 Use one capability catalog, two related surfaces, and one separate mode control:

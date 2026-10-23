@@ -39,6 +39,8 @@ export interface AuditEvent {
     | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
+    | "get_builder_app_key"
+    | "regenerate_builder_app_key"
     | "list_user_deployments"
     | "list_user_project_deployments"
     | "list_user_project_bots"
@@ -126,6 +128,8 @@ export interface RemoveAppSecretInput extends BearerOverride {
 export interface ServerTagsResult {
   serverTags: string[];
   sdkVersion: string;
+  ffiVersion?: number | null;
+  ffiInterfaces?: string[];
 }
 
 export interface SdkVersionStatus {
@@ -562,6 +566,25 @@ export interface GetBuilderApplicationInput extends BearerOverride {
   applicationId: number;
 }
 
+export interface BuilderAppKeyInput extends GetBuilderApplicationInput {
+  actor?: string;
+}
+
+/**
+ * The key a builder shares so others can use a private application in Chat.
+ * Anyone holding it can use the application, so treat it as a secret.
+ * Regenerating it revokes the previous key.
+ */
+export interface BuilderAppKey {
+  key: string;
+  keyPrefix: string;
+  applicationId: number;
+  /** Unix seconds. */
+  createdAt: number;
+  /** Unix seconds, or null when the key has not been used yet. */
+  lastUsedAt: number | null;
+}
+
 export interface BuilderApplication {
   project: Project;
   platform: string;
@@ -699,6 +722,7 @@ export interface ProjectApplicationManifest {
   path: string;
   name: string;
   sdkVersion: string | null;
+  ffiVersion?: number | null;
   target: string;
 }
 
@@ -732,6 +756,18 @@ export interface UserProject extends Project {
   sdkVersion?: string | null;
   /** All distinct SDK versions running across this project's live apps. */
   sdkVersions?: string[];
+  /** Verified contract of the live apps; independent of SDK release numbers. */
+  ffiVersion?: number | null;
+  ffiVersions?: number[];
+  requiredFfiVersion?: number | null;
+  ffiUnrecorded?: boolean;
+  /** True when a live app cannot load on this backend: its verified FFI is
+   *  not the backend's, or its recorded SDK maps to no verified FFI at all.
+   *  Distinct from `ffiUnrecorded`, which only says a record is missing. */
+  ffiIncompatible?: boolean;
+  /** Recorded SDKs of live apps with no verified FFI (neither declared nor in
+   *  the legacy table) — the ones `ffiIncompatible` is naming. */
+  ffiUnverifiedSdkVersions?: string[];
 }
 
 /** One project's apps with live flags, from `GET /user/projects/:id/apps`

@@ -51,6 +51,7 @@ export const AGENT_API_HEADERS: HeaderPolicy = {
     "idempotency-key",
     "mcp-protocol-version",
     "x-aomi-inference-funding",
+    "x-aomi-run-budget-microusd",
     "x-request-id",
   ]),
   response: new Set([...BACKEND_API_HEADERS.response, "mcp-protocol-version"]),

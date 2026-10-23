@@ -28,7 +28,7 @@ import {
   MissingRequiredSecretsError,
   missingRequiredSecrets,
   type RequiredSecretsByApp,
-} from "@/features/deploy/required-secrets";
+} from "@aomi-labs/deploy/launch";
 import type {
   DeploymentPromoteResult,
   DeploymentRecord,
@@ -634,13 +634,7 @@ export function useProjectDetail(projectId: number) {
     void refreshRequiredSecrets().catch(() => undefined);
     // Live appears right after Verify instead of on the next 10 s tick.
     void queryClient.invalidateQueries({ queryKey: runtimeKey });
-  }, [
-    latestAttempt,
-    reload,
-    refreshRequiredSecrets,
-    queryClient,
-    runtimeKey,
-  ]);
+  }, [latestAttempt, reload, refreshRequiredSecrets, queryClient, runtimeKey]);
 
   const upgradeSdk = useCallback(
     () => deploymentUpgradeSdk({ projectId }),
