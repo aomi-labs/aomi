@@ -4,11 +4,10 @@
 // bundle into a browser. See
 // docs/topics/account-authentication/facts/service-identity.md.
 
-export { AomiService, parseTopology } from "./topology";
+export { AomiService, parseTopology, assertServerOnly } from "./topology";
 export type {
   ServiceNode,
   Topology,
   AccountBearerClaims,
   DelegatedBearerContext,
 } from "./topology";
-export { assertServerOnly } from "./server-only";

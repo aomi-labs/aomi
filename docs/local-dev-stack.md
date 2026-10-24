@@ -77,7 +77,7 @@ pnpm run dev:auth-stack:stop     # stop the tmux sessions and free ports
   this stack, especially the patch that makes the backend honor `DATABASE_URL`.
   Do not commit those from this repo.
 - `apps/portal/.env.local` has the local backend and auth values, including
-  `AOMI_PROXY_BACKEND_URL=http://127.0.0.1:8080` and
+  `BACKEND_URL=http://127.0.0.1:8080` and
   `PORTAL_SERVICE_PRIVATE_KEY`.
 
 ## Auth Contract

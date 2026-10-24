@@ -34,7 +34,7 @@ type EndpointDef = {
   label: string;
   /** HTTP method */
   method: HttpMethod;
-  /** Path template, e.g. "/api/sessions/:sessionId" */
+  /** Path template, e.g. "/api/threads/:sessionId" */
   path: string;
   /** Description shown below the URL bar */
   description?: string;

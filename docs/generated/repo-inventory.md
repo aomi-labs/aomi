@@ -38,7 +38,6 @@ review_after_days: 7
 - `packages/client`
 - `packages/deploy`
 - `packages/react`
-- `packages/service`
 - `packages/smither`
 
 ## Area Maps

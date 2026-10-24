@@ -32,7 +32,7 @@ describe("Landing backend proxy route", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
-    process.env.AOMI_PROXY_BACKEND_URL = "https://backend.example";
+    process.env.BACKEND_URL = "https://backend.example";
   });
 
   it("forwards current thread collection routes used by the SDK", async () => {
@@ -58,29 +58,20 @@ describe("Landing backend proxy route", () => {
     expect(String(target)).toBe("https://backend.example/api/thread/apps");
   });
 
-  it("rewrites legacy session routes to current backend thread routes", async () => {
-    const { PATCH } = await loadRoute();
-
-    const response = await PATCH(
-      request("/api/sessions/thread-1", { method: "PATCH" }),
-      context(["sessions", "thread-1"]),
+  it.each([
+    ["GET", "/api/sessions"],
+    ["POST", "/api/sessions"],
+    ["PATCH", "/api/sessions/thread-1"],
+    ["GET", "/api/session/apps"],
+    ["GET", "/api/session/models"],
+    ["POST", "/api/session/model"],
+  ])("rejects removed %s %s aliases without forwarding", async (method, path) => {
+    const handlers = await loadRoute();
+    const response = await handlers[method as "GET" | "POST" | "PATCH"](
+      request(path, { method }),
+      context(path.slice("/api/".length).split("/")),
     );
-
-    expect(response.status).toBe(200);
-    const [target] = vi.mocked(fetch).mock.calls[0]!;
-    expect(String(target)).toBe("https://backend.example/api/threads/thread-1");
-  });
-
-  it("rewrites legacy session app routes to current backend thread app routes", async () => {
-    const { GET } = await loadRoute();
-
-    const response = await GET(
-      request("/api/session/models"),
-      context(["session", "models"]),
-    );
-
-    expect(response.status).toBe(200);
-    const [target] = vi.mocked(fetch).mock.calls[0]!;
-    expect(String(target)).toBe("https://backend.example/api/thread/models");
+    expect(response.status).toBe(404);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -13,7 +13,6 @@ import type { DelegatedBearerContext } from "./service-topology";
  * `service.portal.toml`. Node runtime only.
  */
 export const AUDIENCE = "aomi-backend";
-export const AGENT_API_AUDIENCE = "aomi-api-server";
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
 export type MintedBearer = {
@@ -38,14 +37,6 @@ export async function mintAccountBearer(
     ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
   });
   return { bearer: accessToken, expiresAt };
-}
-
-/** Sign the user assertion accepted only by the public Rust Agent API. */
-export async function mintAgentApiBearer(
-  accountId: string,
-  delegated?: DelegatedBearerContext,
-): Promise<MintedBearer> {
-  return mintDelegatedBearer(accountId, AGENT_API_AUDIENCE, delegated);
 }
 
 /** Sign a scoped user assertion for one public service boundary. */

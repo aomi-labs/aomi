@@ -1,5 +1,5 @@
 import "server-only";
-import { backendUrlFromEnv } from "@aomi-labs/account/backend-url";
+import { backendUrlFromEnv } from "@aomi-labs/account/forward";
 import { readAccountAuthEnv } from "@aomi-labs/account/better-auth/env";
 
 /** The portal BFF's settings, read from the environment in one place. */

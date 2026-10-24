@@ -74,6 +74,12 @@ back to a weaker identity.
 
 ## Packaged compatibility
 
+The supported widget package is `@aomi-labs/widget`. The owner-authorized
+package-name cutover retires `@aomi-labs/widget-lib`, including its implicit
+provider SDK dependencies. Fresh-install checks target the current package;
+trusted-base consumer sources remain unchanged. Existing npm releases are not
+unpublished by this repository change.
+
 Run `pnpm run test:contracts -- --base <trusted-base-sha>` from the checkout.
 The check builds candidate packages, packs them, and installs them into temporary
 consumer directories outside the monorepo. The original source and build scripts

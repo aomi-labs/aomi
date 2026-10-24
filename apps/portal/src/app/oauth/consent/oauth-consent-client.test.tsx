@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 
-import { OAuthConsentClient } from "./oauth-consent-client";
+import { OAuthConsentClient, oauthConsentRedirect } from "./oauth-consent-client";
 
 describe("OAuthConsentClient", () => {
   beforeEach(() => {
@@ -41,5 +41,25 @@ describe("OAuthConsentClient", () => {
     expect(
       screen.queryByText("This authorization request is incomplete."),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("OAuth consent response", () => {
+  it("accepts Better Auth's canonical redirect response", () => {
+    expect(
+      oauthConsentRedirect({
+        redirect: true,
+        url: "https://partner.example/oauth/callback?code=code-1",
+      }),
+    ).toBe("https://partner.example/oauth/callback?code=code-1");
+  });
+
+  it("rejects legacy redirect field aliases", () => {
+    expect(
+      oauthConsentRedirect({ redirect_uri: "https://example.com/a" }),
+    ).toBe(null);
+    expect(oauthConsentRedirect({ redirectURI: "https://example.com/b" })).toBe(
+      null,
+    );
   });
 });

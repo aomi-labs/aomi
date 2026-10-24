@@ -2,6 +2,13 @@
 
 ## Last Updated
 
+2026-10-23 — EMPTY PACKAGE STUBS REMOVED.
+  Deleted untracked `packages/service` (stale `node_modules` only) and empty
+  `apps/registry`. Neither had a `package.json` or any imports. `specs/METADATA.md`
+  now points auth at `packages/account` and the terminal command at `packages/cli`.
+  Published compatibility stays: `widget-lib`, the widget 3.x deprecated exports,
+  and the client `aomi` bin shim.
+
 2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
   Reloading `?thread=` no longer flashes the welcome screen while the account
   and chat list confirm the link: the portal passes `opening` to

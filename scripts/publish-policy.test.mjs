@@ -19,7 +19,6 @@ const publicPackages = [
   "deploy",
   "cli",
   "widget",
-  "widget-lib",
 ];
 const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
 let directory;
@@ -144,7 +143,7 @@ describe("immutable package publication policy", () => {
     expect(result.stderr).toContain("only accepts a SHA merged into main");
   });
 
-  it("publishes exactly the eight public package manifests from the tested tag", () => {
+  it("publishes exactly the current public package manifests from the tested tag", () => {
     const result = publish();
     expect(result.status, result.stderr).toBe(0);
     expect(

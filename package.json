@@ -30,7 +30,7 @@
     "build:client": "pnpm --filter @aomi-labs/client build",
     "build:deploy": "pnpm --filter @aomi-labs/deploy build",
     "build:smither": "pnpm --filter @aomi-labs/smither build",
-    "build:packages": "pnpm run build:client && pnpm --filter @aomi-labs/cli build && pnpm --filter @aomi-labs/react build && pnpm --filter @aomi-labs/account type-check && pnpm run build:deploy && pnpm run build:widget && pnpm run build:widget-compat",
+    "build:packages": "pnpm run build:client && pnpm --filter @aomi-labs/cli build && pnpm --filter @aomi-labs/react build && pnpm --filter @aomi-labs/account type-check && pnpm run build:deploy && pnpm run build:widget",
     "build:landing": "pnpm --filter landing build",
     "build:portal": "pnpm --filter portal build",
     "build:aomi-build": "pnpm --filter aomi-build build",
@@ -39,7 +39,7 @@
     "build:all": "pnpm run build:packages && pnpm run build:apps",
     "clean:landing": "rm -rf apps/landing/.next",
     "clean:apps": "rm -rf apps/landing/.next apps/portal/.next apps/build/.next apps/telegram/.next examples/embed-next/.next",
-    "clean:packages": "pnpm --filter @aomi-labs/client clean:dist && pnpm --filter @aomi-labs/react clean:dist && pnpm --filter @aomi-labs/deploy clean:dist && pnpm --filter @aomi-labs/widget clean:dist && rm -rf packages/cli/dist packages/widget-lib/dist",
+    "clean:packages": "pnpm --filter @aomi-labs/client clean:dist && pnpm --filter @aomi-labs/react clean:dist && pnpm --filter @aomi-labs/deploy clean:dist && pnpm --filter @aomi-labs/widget clean:dist && rm -rf packages/cli/dist",
     "clean:next": "rm -rf .next apps/landing/.next apps/portal/.next apps/build/.next apps/telegram/.next examples/embed-next/.next",
     "clean:all": "rm -rf .next apps/landing/.next apps/portal/.next apps/build/.next apps/telegram/.next examples/embed-next/.next dist .turbo node_modules/.cache .eslintcache",
     "clean": "rm -rf .next apps/landing/.next apps/portal/.next apps/build/.next apps/telegram/.next examples/embed-next/.next dist .turbo node_modules/.cache .eslintcache",
@@ -87,7 +87,6 @@
     "version:packages": "changeset version",
     "check:package-changesets": "node scripts/check-package-changesets.mjs",
     "build:widget": "pnpm --filter @aomi-labs/widget build",
-    "build:widget-compat": "pnpm --filter @aomi-labs/widget-lib build",
     "smoke:local-runtime": "tsx scripts/smoke-local-runtime.ts"
   },
   "prettier": {

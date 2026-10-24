@@ -63,7 +63,6 @@ const packages = [
   ["@aomi-labs/react", "packages/react"],
   ["@aomi-labs/deploy", "packages/deploy"],
   ["@aomi-labs/widget", "packages/widget"],
-  ["@aomi-labs/widget-lib", "packages/widget-lib"],
 ].filter(([name]) => !onlyWidget || name !== "@aomi-labs/deploy");
 const consumers = trustedConsumers(root, sha, onlyWidget);
 if (
@@ -145,7 +144,7 @@ function verifyFreshInstall(tarballs, temporaryRoot) {
     type: "module",
     packageManager,
     dependencies: {
-      "@aomi-labs/widget-lib": tarballs["@aomi-labs/widget-lib"],
+      "@aomi-labs/widget": tarballs["@aomi-labs/widget"],
       react: "19.2.0",
       "react-dom": "19.2.0",
     },
@@ -180,8 +179,8 @@ function verifyFreshInstall(tarballs, temporaryRoot) {
     join(widgetDestination, "main.jsx"),
     `import React from "react";
 import { createRoot } from "react-dom/client";
-import { AomiWidget } from "@aomi-labs/widget-lib";
-import "@aomi-labs/widget-lib/styles.css";
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
 createRoot(document.getElementById("root")).render(
   React.createElement(AomiWidget, { applicationId: "1", apiUrl: "https://example.invalid" }),
 );
@@ -292,7 +291,6 @@ try {
   for (const [name, path] of packages) {
     if (
       name === "@aomi-labs/widget" ||
-      name === "@aomi-labs/widget-lib" ||
       name === "@aomi-labs/deploy"
     ) {
       // These packages have no prepack hook; build before producing the
@@ -414,12 +412,7 @@ try {
     if (kind === "widget") {
       // Exercise the packed subpath only after the unchanged trusted fixture
       // has built, reusing its candidate install without source aliases.
-      verifyHostCompositionExport(
-        destination,
-        manifest.dependencies["@aomi-labs/widget"]
-          ? "@aomi-labs/widget"
-          : "@aomi-labs/widget-lib",
-      );
+      verifyHostCompositionExport(destination, "@aomi-labs/widget");
     }
     if (kind === "headless") {
       run("corepack", ["pnpm", "run", "test"], destination);

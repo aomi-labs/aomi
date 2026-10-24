@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useControl, useNotification } from "@aomi-labs/react";
+import { useShellTransport } from "@/account/transport";
 import { testIds } from "@/test-ids";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
@@ -18,6 +19,9 @@ export function PaymentRequiredGate() {
   const { notifications, dismissNotification, showNotification } =
     useNotification();
   const { setByok, setInferenceFunding } = useControl();
+  // Top-ups happen on the Aomi host this widget already talks to, so staging
+  // sends users to staging. Production is the fallback outside a provider.
+  const topUpOrigin = useShellTransport().baseUrl || "https://chat.aomi.dev";
   const paymentNotification = notifications.find(
     (notification) => notification.kind === "payment_required",
   );
@@ -96,13 +100,14 @@ export function PaymentRequiredGate() {
             Add credits to continue
           </h2>
           <p className="text-muted-foreground text-base leading-7">
-            You&apos;re out of Aomi credits. Add credits on chat.aomi.dev using
-            the same Aomi account, then return here and retry.
+            You&apos;re out of Aomi credits. Add credits on{" "}
+            {new URL(topUpOrigin).host} using the same Aomi account, then return
+            here and retry.
           </p>
         </div>
 
         <a
-          href="https://chat.aomi.dev/?topup=credits"
+          href={`${topUpOrigin}/?topup=credits`}
           target="_blank"
           rel="noopener noreferrer"
           className="bg-foreground text-background mt-6 flex h-11 items-center justify-center rounded-full px-7 text-sm font-medium"

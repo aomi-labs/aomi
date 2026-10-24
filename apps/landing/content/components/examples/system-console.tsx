@@ -53,7 +53,7 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Get Apps",
     method: "GET",
-    path: "/api/session/apps",
+    path: "/api/thread/apps",
     description: "List available apps (agents) for the current context.",
     params: [
       { key: "public_key", placeholder: "0x…" },
@@ -63,14 +63,14 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Get Models",
     method: "GET",
-    path: "/api/session/models",
+    path: "/api/thread/models",
     description: "List available LLM models.",
     headers: [SESSION_HEADER],
   },
   {
     label: "Set Model",
     method: "POST",
-    path: "/api/session/model",
+    path: "/api/thread/model",
     description:
       "Set the model for a session. Returns { success, rig, baml, created }.",
     params: [

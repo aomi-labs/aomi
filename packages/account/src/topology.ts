@@ -1,4 +1,4 @@
-import { backendUrlFromEnv } from "./backend-url";
+import { backendUrlFromEnv } from "./forward";
 import { AomiService } from "./service-topology";
 import { PORTAL_TOPOLOGIES, type PortalTopologyName } from "./topology-data";
 

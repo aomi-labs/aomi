@@ -472,16 +472,17 @@ export function CreditTopUpDialog({
             ) : (
               <p>Payments are temporarily unavailable.</p>
             )}
-            {purchase?.method === "card" &&
-              purchase.status === "awaiting_action" && (
-                <button
-                  disabled={busy}
-                  className="text-aomi-muted text-xs"
-                  onClick={() => void cancel()}
-                >
-                  Cancel this payment
-                </button>
-              )}
+            {purchase?.status === "awaiting_action" && (
+              // Payment decides: a card purchase cancels its PaymentIntent; a
+              // wallet purchase cancels only while no authorization is signed.
+              <button
+                disabled={busy}
+                className="text-aomi-muted text-xs"
+                onClick={() => void cancel()}
+              >
+                Cancel this payment
+              </button>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

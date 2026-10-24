@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     methods: vi.fn(),
     purchase: vi.fn(),
     beginPurchase: vi.fn(),
+    cancelPurchase: vi.fn(),
   },
 }));
 const runtime = vi.hoisted(() => ({
@@ -209,5 +210,30 @@ describe("Credit Bank", () => {
     expect(mocks.accountCredits.beginPurchase).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button",{name:"Close top-up"}));
     await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("lets an unsigned wallet purchase be abandoned for a new amount", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(position())));
+    const pending = {
+      id: "challenged",
+      idempotency_key: "original",
+      amount_microusd: 10_000_000,
+      method: "wallet",
+      status: "awaiting_action",
+      terms: { network: "eip155:84532" },
+    };
+    mocks.accountCredits.purchase.mockResolvedValue({ purchase: pending, action: { kind: "wait" } });
+    mocks.accountCredits.cancelPurchase.mockResolvedValue({
+      purchase: { ...pending, status: "canceled" },
+      action: { kind: "wait" },
+    });
+    render(<CreditBank initialTopUp />);
+    // The amount is pinned to the open purchase until it is settled or abandoned.
+    expect(await screen.findByLabelText("Top-up credits")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel this payment" }));
+    await waitFor(() => expect(mocks.accountCredits.cancelPurchase).toHaveBeenCalledWith("challenged"));
+    fireEvent.click(await screen.findByRole("button", { name: "Choose a new payment" }));
+    expect(screen.getByLabelText("Top-up credits")).toBeEnabled();
+    expect(mocks.accountCredits.beginPurchase).not.toHaveBeenCalled();
   });
 });

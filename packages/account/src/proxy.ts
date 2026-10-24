@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
-import { backendUrlFromEnv } from "./backend-url";
 import {
+  backendUrlFromEnv,
   BACKEND_API_HEADERS,
   forward,
   UpstreamUnreachableError,
@@ -33,13 +33,6 @@ export type ProxyFailure =
     }
   | {
       kind: "upstream_request";
-      error: unknown;
-      method: string;
-      pathname: string;
-      responseStatus: number;
-    }
-  | {
-      kind: "response_transform";
       error: unknown;
       method: string;
       pathname: string;

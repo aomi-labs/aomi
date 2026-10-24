@@ -88,6 +88,8 @@ export function createShellTransport(
   return {
     fetch: request,
     json,
+    /** The Aomi origin this widget talks to; empty when same-origin. */
+    baseUrl: origin,
     embedded: Boolean(origin),
     themeRoot: null as HTMLElement | null,
     storage,

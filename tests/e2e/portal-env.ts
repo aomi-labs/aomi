@@ -20,7 +20,7 @@ export function portalEnv(input: {
     DATABASE_URL: input.databaseUrl,
     PORTAL_SERVICE_PRIVATE_KEY: bffPrivateKey,
     NEXT_PUBLIC_BACKEND_URL: "/",
-    AOMI_PROXY_BACKEND_URL: input.upstream,
+    BACKEND_URL: input.upstream,
     AOMI_AGENT_API_URL: input.upstream,
     NEXT_PUBLIC_PROJECT_ID: "000000000000000000000000000000000000000000",
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:

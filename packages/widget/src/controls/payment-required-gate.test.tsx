@@ -5,7 +5,18 @@ const mocks = vi.hoisted(() => ({
   dismissNotification: vi.fn(),
   setByok: vi.fn(),
   setInferenceFunding: vi.fn(),
+  baseUrl: "",
 }));
+vi.mock("@/account/transport", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/account/transport")>();
+  return {
+    ...actual,
+    useShellTransport: () => ({
+      ...actual.createShellTransport(),
+      baseUrl: mocks.baseUrl,
+    }),
+  };
+});
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useNotification: () => ({
@@ -35,5 +46,15 @@ describe("out-of-credit recovery", () => {
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(mocks.dismissNotification).toHaveBeenCalledWith("payment");
+  });
+
+  it("sends staging users to the staging host they are already using", () => {
+    mocks.baseUrl = "https://chat-staging.aomi.dev";
+    render(<PaymentRequiredGate />);
+    expect(
+      screen.getByRole("link", { name: "Add credits on Aomi" }),
+    ).toHaveAttribute("href", "https://chat-staging.aomi.dev/?topup=credits");
+    expect(screen.getByText(/chat-staging\.aomi\.dev/)).toBeTruthy();
+    mocks.baseUrl = "";
   });
 });

@@ -9,16 +9,11 @@ const SESSION_HEADER = {
   required: true,
 };
 
-const APP_KEY_HEADER = {
-  key: "Aomi-App-Key",
-  placeholder: "your-app-key (optional)",
-};
-
 const ENDPOINTS: EndpointDef[] = [
   {
     label: "List Sessions",
     method: "GET",
-    path: "/api/sessions",
+    path: "/api/threads",
     description:
       "Fetch all sessions for a wallet public key. Returns an array of ApiThread objects.",
     params: [
@@ -33,7 +28,7 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Create Session",
     method: "POST",
-    path: "/api/sessions",
+    path: "/api/threads",
     description:
       "Create a new chat session. Returns { session_id, title }.",
     headers: [SESSION_HEADER],
@@ -46,7 +41,7 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Get Session",
     method: "GET",
-    path: "/api/sessions/:sessionId",
+    path: "/api/threads/:sessionId",
     description:
       "Fetch a single session by ID. Returns an ApiThread object.",
     params: [
@@ -61,7 +56,7 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Rename Session",
     method: "PATCH",
-    path: "/api/sessions/:sessionId",
+    path: "/api/threads/:sessionId",
     description: "Update the title of a session.",
     params: [
       {
@@ -76,7 +71,7 @@ const ENDPOINTS: EndpointDef[] = [
   {
     label: "Delete Session",
     method: "DELETE",
-    path: "/api/sessions/:sessionId",
+    path: "/api/threads/:sessionId",
     description: "Permanently delete a session.",
     params: [
       {

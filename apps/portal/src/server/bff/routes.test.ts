@@ -394,7 +394,7 @@ beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
   vi.stubEnv("DATABASE_URL", "postgres://unused");
   vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://backend.example");
-  vi.stubEnv("AOMI_PROXY_BACKEND_URL", "https://backend.example");
+  vi.stubEnv("BACKEND_URL", "https://backend.example");
   vi.stubEnv("AOMI_AGENT_API_URL", "https://agent.example");
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("VERCEL_ENV", "");
@@ -805,6 +805,17 @@ describe("error mapping", () => {
 });
 
 describe("/api forwarding", () => {
+  it.each([
+    ["GET", "/api/control/apps"],
+    ["GET", "/api/control/models"],
+    ["POST", "/api/control/model"],
+  ])("rejects removed %s %s routes", async (method, path) => {
+    const response = await routes.backend[method](request(path, { method }));
+    expect(response.status).toBe(404);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
+  });
+
   it.each([
     [[], "/api/thread/apps"],
     [
