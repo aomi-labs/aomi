@@ -95,7 +95,8 @@ export async function handlePaymentChallenges(
   let response = initialResponse;
   let attempts = 0;
 
-  while (response.status === 402) {
+  // Account-credit exhaustion is also 402, but is not an x402 challenge.
+  while (response.status === 402 && response.headers.has("payment-required")) {
     if (attempts > 0 && paymentResponseHeader(response) === null) {
       return response;
     }
