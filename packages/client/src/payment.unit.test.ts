@@ -44,6 +44,23 @@ function paymentClient(
 }
 
 describe("wrapFetchWithPaymentChallenges", () => {
+  it.each([false, true])("preserves an account-credit 402 without signing (receipt: %s)", async (settled) => {
+    const body = { code: "payment_required", error: "Insufficient account credits" };
+    const exhausted = Response.json(body, { status: 402 });
+    if (settled) exhausted.headers.set("payment-response", "settlement-receipt");
+    const responses = settled ? [challenge(), exhausted] : [exhausted];
+    const rawFetch = vi.fn(async () => responses.shift()!);
+    const { client, createPaymentPayload } = paymentClient();
+
+    const response = await wrapFetchWithPaymentChallenges(rawFetch, client)(PAID_URL);
+
+    expect(response).toBe(exhausted);
+    expect(response.status).toBe(402);
+    expect(await response.json()).toEqual(body);
+    expect(rawFetch).toHaveBeenCalledTimes(settled ? 2 : 1);
+    expect(createPaymentPayload).toHaveBeenCalledTimes(settled ? 1 : 0);
+  });
+
   it("reauthorizes signed retries with payments:submit", async () => {
     const scopes: string[][] = [];
     const upstream = vi.fn(

@@ -32,7 +32,7 @@ describe("out-of-credit recovery", () => {
     const link = screen.getByRole("link", { name: "Add credits on Aomi" });
     expect(link).toHaveAttribute(
       "href",
-      "https://chat.aomi.dev/?topup=credits",
+      "/?topup=credits",
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(screen.getByText(/same Aomi account/)).toBeTruthy();

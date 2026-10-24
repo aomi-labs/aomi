@@ -6,9 +6,8 @@ import { testIds } from "@/test-ids";
 
 export function PaymentRequiredGate() {
   const { notifications, dismissNotification } = useNotification();
-  // Top-ups happen on the Aomi host this widget already talks to, so staging
-  // sends users to staging. Production is the fallback outside a provider.
-  const topUpOrigin = useShellTransport().baseUrl || "https://chat.aomi.dev";
+  // An empty transport origin means this host, including staging and local Chat.
+  const topUpOrigin = useShellTransport().baseUrl;
   const paymentNotification = notifications.find(
     (notification) => notification.kind === "payment_required",
   );
@@ -33,7 +32,7 @@ export function PaymentRequiredGate() {
           </h2>
           <p className="text-muted-foreground text-base leading-7">
             You&apos;re out of Aomi credits. Add credits on{" "}
-            {new URL(topUpOrigin).host} using the same Aomi account, then return
+            {topUpOrigin ? new URL(topUpOrigin).host : "this site"} using the same Aomi account, then return
             here and retry.
           </p>
         </div>
