@@ -50,6 +50,7 @@ async function forwarded(
       "payment-signature": "signed",
       "x-session-id": "thread-1",
       "idempotency-key": "k1",
+      "x-aomi-run-budget-microusd": "50000000",
       "x-unlisted": "drop",
       ...(init.headers as Record<string, string>),
     },
@@ -88,6 +89,7 @@ describe("forward", () => {
         "x-session-id",
         "x-thread-id",
         "idempotency-key",
+        "x-aomi-run-budget-microusd",
       ],
     ],
   ])(
@@ -99,6 +101,9 @@ describe("forward", () => {
       );
       expect(headers.get("authorization")).toBe("Bearer minted");
       expect(headers.get("x-thread-id")).toBe("thread-1");
+      expect(headers.get("x-aomi-run-budget-microusd")).toBe(
+        policy === AGENT_API_HEADERS ? "50000000" : null,
+      );
     },
   );
 

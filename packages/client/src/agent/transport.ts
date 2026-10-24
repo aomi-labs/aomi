@@ -74,10 +74,12 @@ export class AgentTransport {
     options: {
       idempotencyKey?: string;
       paymentSignature?: string;
+      apiKey?: string;
     } = {},
   ): Promise<EventPage> {
     const sessionId = intent.sessionId;
     return this.json("POST", "/v1/agent/chat", {
+      apiKey: options.apiKey,
       headers: {
         ...mutationHeaders(options),
         ...threadHeaders(sessionId),

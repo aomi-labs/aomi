@@ -88,6 +88,7 @@ const FIELDS: Record<string, IdentifierKind | null> = {
   wallet_address: "address",
   contract_address: "address",
   program_id: "address",
+  counterparty: "address",
   token_address: "token",
   token_contract: "token",
   token_mint: "token",

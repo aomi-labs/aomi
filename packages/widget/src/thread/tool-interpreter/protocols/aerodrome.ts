@@ -17,7 +17,7 @@ const matchAerodrome: ToolMatcher = ({ rawLabel, resultRecord }) => {
   const details = asRecord(resultRecord.summary) ?? resultRecord;
   const amount = displayedAmount(details.amount);
   if (!amount) return null;
-  return protocolOperation(rawLabel, "Prepare Aerodrome swap", "prepare", [
+  return protocolOperation(rawLabel, "Stage Aerodrome swap", "prepare", [
     chainFactFromRecord(details),
     amount,
     statusFact(resultRecord.status),
@@ -25,6 +25,7 @@ const matchAerodrome: ToolMatcher = ({ rawLabel, resultRecord }) => {
 };
 
 export const aerodrome: ProtocolAdapter = {
-  tools: ["aerodrome_arc_prepare_swap"],
+  // `aerodrome_arc_prepare_swap` is the retired name, still in saved threads.
+  tools: ["stage_aerodrome_swap", "aerodrome_arc_prepare_swap"],
   match: matchAerodrome,
 };

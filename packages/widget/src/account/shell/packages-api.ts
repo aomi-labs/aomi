@@ -34,9 +34,11 @@ function appInstallPath(applicationId: number | string): string {
 export async function installApp(
   applicationId: number | string,
   request: ShellRequest = accountScopedFetch,
+  apiKey?: string,
 ): Promise<AomiAccountAppMutationResponse> {
   return request(appInstallPath(applicationId), {
     method: "POST",
+    headers: apiKey ? { "Aomi-App-Key": apiKey } : undefined,
   });
 }
 

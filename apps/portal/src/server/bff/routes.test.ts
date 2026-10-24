@@ -680,6 +680,18 @@ describe("CORS per family", () => {
     );
   });
 
+  it("allows the fuzzer's per-run budget header on agent chat", () => {
+    const response = routes.agent.OPTIONS(
+      request("/v1/agent/chat", {
+        method: "OPTIONS",
+        origin: PARTNER,
+        headers: { "access-control-request-headers": "authorization,content-type,x-aomi-run-budget-microusd" },
+      }),
+    );
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("x-aomi-run-budget-microusd");
+  });
+
   it("echoes the widget origin on responses and on readable auth errors", async () => {
     const ok = await routes.agent.POST(
       request("/v1/agent/x", {
@@ -1103,5 +1115,56 @@ describe("direct account payment forwarding", () => {
         resource: `${PORTAL}/v1/account`,
       }),
     );
+  });
+});
+
+describe("simulation world setup", () => {
+  it("forwards a widget account's seed with its thread and user state", async () => {
+    const body = JSON.stringify({
+      forks: [{ chain_id: 5042002, overrides: [] }],
+    });
+    const path = "/api/thread/sim/world?user_state=%7B%7D";
+    const response = await routes.backend.POST(
+      request(path, {
+        method: "POST",
+        origin: PARTNER,
+        headers: {
+          authorization: "Bearer aomi_wst_user",
+          "content-type": "application/json",
+          "x-session-id": "seed-thread",
+          "x-thread-id": "seed-thread",
+        },
+        body,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const call = upstreamCalls()[0];
+    expect(call.url).toBe(`https://backend.example${path}`);
+    expect(call.headers.get("x-thread-id")).toBe("seed-thread");
+    expect(call.headers.get("x-session-id")).toBe("seed-thread");
+    expect(call.headers.get("authorization")).toBe(
+      "Bearer account:acct-widget",
+    );
+    expect(
+      await new Response(
+        (mocks.fetch.mock.calls[0][1] as RequestInit).body,
+      ).text(),
+    ).toBe(body);
+  });
+
+  it("requires authentication and only exposes POST", async () => {
+    const response = await routes.backend.POST(
+      request("/api/thread/sim/world", {
+        method: "POST",
+        origin: PORTAL,
+        body: "{}",
+      }),
+    );
+    expect(response.status).toBe(401);
+    const read = await routes.backend.GET(
+      request("/api/thread/sim/world", CREDENTIALS["widget user"]),
+    );
+    expect(read.status).toBe(404);
+    expect(upstreamCalls()).toHaveLength(0);
   });
 });

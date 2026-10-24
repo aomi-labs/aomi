@@ -23,12 +23,12 @@ const APP_ACCESS_NOTICES: Record<
   app_key_required: {
     title: "App key required",
     message:
-      "This App is private — it needs an App key. Ask the App's owner for one and configure it for this chat.",
+      "This App is private — it needs an App key. Enter the key its builder shared with you, then send your message again.",
   },
   app_key_not_scoped: {
     title: "App key not valid for this App",
     message:
-      "The configured App key doesn't grant access to this App. Ask the App's owner for a key issued for it.",
+      "The configured App key doesn't grant access to this App. Its builder may have regenerated it; ask them for the current key.",
   },
 };
 

@@ -325,6 +325,10 @@ type Notification_2 = {
     id: string;
     type: NotificationType;
     kind?: "payment_required";
+    appKeyTarget?: {
+        app?: string;
+        applicationId?: number;
+    };
     title: string;
     message?: string;
     duration?: number;
@@ -956,6 +960,14 @@ export function useOptionalAomiRuntime(): AomiRuntimeApi | null;
 // @public (undocumented)
 export function usePerThreadControl(): {
     actions: PerThreadControlActions;
+};
+
+// @public (undocumented)
+export function usePrivateApps(persistence?: "memory" | "session"): {
+    apps: AomiAppDescriptor[];
+    add: (app: AomiAppDescriptor, key: string) => void;
+    remove: (id: number | string) => void;
+    getKey: (id: number | string) => string | undefined;
 };
 
 // @public

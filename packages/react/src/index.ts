@@ -164,3 +164,5 @@ export type {
 } from "./query/display-cache";
 export type { DisplayPersistence } from "./query/display-persistence";
 export { displayQueries } from "./query/queries";
+
+export { usePrivateApps } from "./control/private-apps";

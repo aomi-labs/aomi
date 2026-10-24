@@ -31,6 +31,7 @@ type OrchestratorOptions = {
   getUserState: () => UserState;
   getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
+  getAppKey?: (target: AgentTarget, text?: string) => string | undefined;
   getClientId?: () => string | undefined;
   getActions?: () => ActionCapabilities | undefined;
   getCommits?: () => CommitCapabilities | undefined;
@@ -280,7 +281,12 @@ export function useRuntimeOrchestrator(
         );
       const session = getSession(threadId);
       const firstTurn = !session.getSnapshot().turnId;
-      await session.sendAsync(text, sendOptions);
+      // Resolved per message: a mention's key never outlives the message.
+      const apiKey = optionsRef.current.getAppKey?.(
+        optionsRef.current.getTarget(),
+        text,
+      );
+      await session.sendAsync(text, { ...sendOptions, apiKey });
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
       optionsRef.current.onSendSuccess?.(threadId);

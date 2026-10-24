@@ -2,6 +2,12 @@
   "name": "@aomi-labs/client",
   "version": "0.11.0",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aomi-labs/aomi.git",
+    "directory": "packages/client"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

@@ -14,6 +14,8 @@ import type {
   ClaimGitHubProjectResult,
   GetBuilderApplicationDetailInput,
   GetBuilderApplicationInput,
+  BuilderAppKeyInput,
+  BuilderAppKey,
   GetUserProjectInput,
   GetUserObservabilityInput,
   ActivateUserProjectReleasesInput,
@@ -268,6 +270,59 @@ export class BackendClient extends BackendPlatformClient {
       projectId: input.projectId,
     });
     return camelUserProject(raw);
+  }
+
+  /**
+   * The private application's current Build key, or null before one is
+   * issued. The manager proves the builder owns the application's Project.
+   */
+  async getBuilderAppKey(
+    input: BuilderAppKeyInput,
+  ): Promise<BuilderAppKey | null> {
+    const raw = await this.get<Record<string, unknown>>(
+      this.builderAppKeyPath(input),
+      "get_builder_app_key",
+      this.resolveBearer(input.bearer),
+    );
+    await this.audit("get_builder_app_key", input.actor, {
+      applicationId: input.applicationId,
+    });
+    return camelBuilderAppKey(raw.app_key);
+  }
+
+  /**
+   * Issue a new Build key for the private application. Any earlier key stops
+   * working at once.
+   */
+  async regenerateBuilderAppKey(
+    input: BuilderAppKeyInput,
+  ): Promise<BuilderAppKey> {
+    const raw = await this.post<Record<string, unknown>>(
+      this.builderAppKeyPath(input),
+      {},
+      "regenerate_builder_app_key",
+      this.resolveBearer(input.bearer),
+    );
+    await this.audit("regenerate_builder_app_key", input.actor, {
+      applicationId: input.applicationId,
+    });
+    const key = camelBuilderAppKey(raw.app_key);
+    if (!key) throw new Error("app key response is missing `app_key`");
+    return key;
+  }
+
+  private builderAppKeyPath(input: BuilderAppKeyInput): string {
+    if (
+      !Number.isSafeInteger(input.applicationId) ||
+      input.applicationId <= 0
+    ) {
+      throw new Error("applicationId must be a positive integer");
+    }
+    const githubUserId = required(input.githubUserId, "githubUserId");
+    return this.builderPath(
+      `applications/${encodeURIComponent(String(input.applicationId))}/app-key`,
+      new URLSearchParams({ github_user_id: githubUserId }),
+    );
   }
 
   async getBuilderApplication(
@@ -1085,4 +1140,18 @@ export class BackendClient extends BackendPlatformClient {
       },
     );
   }
+}
+
+function camelBuilderAppKey(raw: unknown): BuilderAppKey | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const key = optString(row.key);
+  if (!key) return null;
+  return {
+    key,
+    keyPrefix: optString(row.key_prefix) ?? key.slice(0, 8),
+    applicationId: Number(row.application_id ?? 0),
+    createdAt: Number(row.created_at ?? 0),
+    lastUsedAt: typeof row.last_used_at === "number" ? row.last_used_at : null,
+  };
 }

@@ -391,6 +391,11 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     need: chat,
   },
   { path: /^\/api\/thread\/model$/, methods: ["POST"], need: chat },
+  {
+    path: /^\/api\/thread\/sim\/world$/,
+    methods: ["POST"],
+    need: { capability: "chat" },
+  },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
   {
     path: /^\/api\/widget\/v1\/execution-profile$/,

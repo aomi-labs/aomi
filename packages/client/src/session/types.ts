@@ -15,7 +15,12 @@ import type { CommitView, CommitCapabilities } from "../commits";
  * turn. `edit` is a user message key; `regenerate` reruns the user message
  * before an assistant message key.
  */
-export type SendOptions = { regenerate?: string; edit?: string };
+export type SendOptions = {
+  regenerate?: string;
+  edit?: string;
+  /** Private app credential for this message only; sent as a header, never in the intent. */
+  apiKey?: string;
+};
 
 export type SendResult = {
   messages: readonly MessageEvent[];

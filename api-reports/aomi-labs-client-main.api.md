@@ -475,6 +475,7 @@ export class AgentTransport {
     start(intent: StartTurnIntent, options?: {
         idempotencyKey?: string;
         paymentSignature?: string;
+        apiKey?: string;
     }): Promise<EventPage>;
     // (undocumented)
     stream(sessionId: string, options: {
@@ -2890,6 +2891,7 @@ export function secretNamesFrom(response: AomiListSecretsResponse): string[];
 export type SendOptions = {
     regenerate?: string;
     edit?: string;
+    apiKey?: string;
 };
 
 // @public (undocumented)

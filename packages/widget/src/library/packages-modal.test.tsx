@@ -303,6 +303,22 @@ describe("packages modal wiring", () => {
     });
   });
 
+  it("closes on Escape even when the host editor consumed it", async () => {
+    installFetchRecorder();
+    const onClose = vi.fn();
+    render(<PackagesModal onClose={onClose} />, {
+      wrapper: AccountOverviewFixture,
+    });
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    escape.preventDefault();
+    fireEvent(window, escape);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it("lets guests browse public apps without account catalog access or install writes", async () => {
     seedAccountOverview(null);
     const { calls } = installFetchRecorder();

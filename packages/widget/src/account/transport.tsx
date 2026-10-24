@@ -53,9 +53,11 @@ export function createShellTransport(
   const request = async (path: string, options: RequestInit = {}) => {
     if (!path.startsWith("/api/") && !path.startsWith("/v1/"))
       throw new Error("Unsupported account API path");
+    const pathname = path.split("?", 1)[0];
     const publicRead =
       (!options.method || options.method === "GET") &&
-      (path === "/api/thread/apps" || path.startsWith("/api/resource/skills"));
+      (pathname === "/api/thread/apps" ||
+        pathname.startsWith("/api/resource/skills"));
     const headers = new Headers(options.headers);
     if (path.startsWith("/api/thread/")) {
       const sessionId = getSettingsSessionId(storage);

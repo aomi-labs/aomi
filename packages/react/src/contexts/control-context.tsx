@@ -1,5 +1,6 @@
 "use client";
 
+import { usePrivateApps } from "../control/private-apps";
 import { createScopedStorage } from "@aomi-labs/client";
 
 // Assembles the focused control hooks in ../control/ into useControl().
@@ -218,6 +219,7 @@ export function ControlContextProvider({
     clientIdRef.current = getOrCreateClientId(storage);
     clientIdScopeRef.current = storage.key("clientId");
   }
+  const privateApps = usePrivateApps(apiKeyPersistence);
   const apiKey = useApiKeyImpl(storageScope, apiKeyPersistence);
   const apiKeyRef = useRef(apiKey.state.apiKey);
   apiKeyRef.current = apiKey.state.apiKey;
@@ -247,16 +249,35 @@ export function ControlContextProvider({
     applicationId,
   });
 
+  const appDescriptors = useMemo(
+    () => [
+      ...authEndpoints.state.appDescriptors.filter(
+        (app) =>
+          !privateApps.apps.some(
+            (saved) =>
+              app.applicationId != null &&
+              String(saved.applicationId) === String(app.applicationId),
+          ),
+      ),
+      ...privateApps.apps,
+    ],
+    [authEndpoints.state.appDescriptors, privateApps.apps],
+  );
+  const authorizedApps = useMemo(
+    () => [...new Set(appDescriptors.map((app) => app.name))],
+    [appDescriptors],
+  );
+
   // Refs for the auth-endpoint state so per-thread-control callbacks can read
   // the latest values without re-creating themselves on every fetch.
   const availableModelsRef = useRef(authEndpoints.state.availableModels);
   availableModelsRef.current = authEndpoints.state.availableModels;
   const defaultModelRef = useRef(authEndpoints.state.defaultModel);
   defaultModelRef.current = authEndpoints.state.defaultModel;
-  const authorizedAppsRef = useRef(authEndpoints.state.authorizedApps);
-  authorizedAppsRef.current = authEndpoints.state.authorizedApps;
-  const appDescriptorsRef = useRef(authEndpoints.state.appDescriptors);
-  appDescriptorsRef.current = authEndpoints.state.appDescriptors;
+  const authorizedAppsRef = useRef(authorizedApps);
+  authorizedAppsRef.current = authorizedApps;
+  const appDescriptorsRef = useRef(appDescriptors);
+  appDescriptorsRef.current = appDescriptors;
   const defaultAppRef = useRef(authEndpoints.state.defaultApp);
   defaultAppRef.current = authEndpoints.state.defaultApp;
 
@@ -283,8 +304,8 @@ export function ControlContextProvider({
     clientId: clientIdRef.current,
     availableModels: authEndpoints.state.availableModels,
     defaultModel: authEndpoints.state.defaultModel,
-    authorizedApps: authEndpoints.state.authorizedApps,
-    appDescriptors: authEndpoints.state.appDescriptors,
+    authorizedApps,
+    appDescriptors,
     defaultApp: authEndpoints.state.defaultApp,
     modelsLoading: authEndpoints.state.modelsLoading,
   };

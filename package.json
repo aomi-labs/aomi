@@ -76,6 +76,7 @@
     "repowiki:refresh": "./scripts/repowiki refresh",
     "repowiki:doctor": "./scripts/repowiki doctor",
     "test:contracts": "node scripts/check-consumer-compatibility.mjs",
+    "check:published-cli": "node scripts/check-published-cli.mjs",
     "check:frontend-boundaries": "node scripts/check-frontend-boundaries.mjs",
     "test:journeys": "playwright test --config=playwright.journeys.config.ts tests/e2e/journeys",
     "test:browser:contracts": "node scripts/test-browser-contracts.mjs",

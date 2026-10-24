@@ -92,6 +92,10 @@ beforeEach(() => {
     join(directory, "scripts/publish-package-if-needed.mjs"),
     'import{appendFileSync}from"node:fs";appendFileSync(process.env.PUBLISH_LOG,process.argv[2]+"\\n");',
   );
+  writeFileSync(
+    join(directory, "scripts/check-published-cli.mjs"),
+    'import{appendFileSync}from"node:fs";if(process.env.CLI_INSTALL_FAIL)throw new Error("replacement CLI install failed");appendFileSync(process.env.PUBLISH_LOG,"verified-cli-install\\n");',
+  );
   environment = {
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
@@ -143,12 +147,15 @@ describe("immutable package publication policy", () => {
     expect(result.stderr).toContain("only accepts a SHA merged into main");
   });
 
-  it("publishes exactly the current public package manifests from the tested tag", () => {
+  it("publishes every public package from the tested tag and checks the CLI install", () => {
     const result = publish();
     expect(result.status, result.stderr).toBe(0);
     expect(
       readFileSync(environment.PUBLISH_LOG, "utf8").trim().split("\n"),
-    ).toEqual(publicPackages.map((name) => `packages/${name}`));
+    ).toEqual([
+      ...publicPackages.map((name) => `packages/${name}`),
+      "verified-cli-install",
+    ]);
     expect(readFileSync(environment.GH_CALL_LOG, "utf8")).toContain(
       `widget-package-contracts.yml/runs?branch=main&head_sha=${candidate}`,
     );
@@ -163,5 +170,14 @@ describe("immutable package publication policy", () => {
     );
     writeFileSync(join(directory, "packages/client/package.json"), "{}\n");
     expect(publish().stderr).toContain("modified tracked checkout");
+  });
+
+  it("fails publication when the replacement CLI cannot be installed", () => {
+    const result = publish({ CLI_INSTALL_FAIL: "1" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("replacement CLI install failed");
+    expect(readFileSync(environment.PUBLISH_LOG, "utf8")).not.toContain(
+      "verified-cli-install",
+    );
   });
 });

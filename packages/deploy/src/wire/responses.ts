@@ -423,6 +423,12 @@ export function camelUserDeploymentsCursor(
   return { createdAt, id };
 }
 
+function positiveInt(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : null;
+}
+
 export function camelUserProject(raw: unknown): UserProject {
   const project = (raw ?? {}) as Record<string, any>;
   const platformName = project.platform_name;
@@ -454,6 +460,7 @@ export function camelUserProject(raw: unknown): UserProject {
               path: String(app.path ?? ""),
               name: String(app.name ?? ""),
               sdkVersion: app.sdk_version ?? app.sdkVersion ?? null,
+              ffiVersion: positiveInt(app.ffi_version ?? app.ffiVersion),
               target: String(app.target ?? ""),
             })),
           }
@@ -476,6 +483,28 @@ export function camelUserProject(raw: unknown): UserProject {
       project.latest_deployment ?? project.latestDeployment,
     ),
     sdkVersion: project.sdk_version ?? project.sdkVersion ?? null,
+    ffiVersion: positiveInt(project.ffi_version ?? project.ffiVersion),
+    requiredFfiVersion: positiveInt(
+      project.required_ffi_version ?? project.requiredFfiVersion,
+    ),
+    ffiVersions: (
+      (project.ffi_versions ?? project.ffiVersions ?? []) as unknown[]
+    ).flatMap((version) =>
+      typeof version === "number" && Number.isInteger(version) && version > 0
+        ? [version]
+        : [],
+    ),
+    ffiUnrecorded:
+      project.ffi_unrecorded === true || project.ffiUnrecorded === true,
+    ffiIncompatible:
+      project.ffi_incompatible === true || project.ffiIncompatible === true,
+    ffiUnverifiedSdkVersions: (
+      (project.ffi_unverified_sdk_versions ??
+        project.ffiUnverifiedSdkVersions ??
+        []) as unknown[]
+    ).flatMap((version) =>
+      typeof version === "string" && version ? [version] : [],
+    ),
     sdkVersions: (
       (project.sdk_versions ?? project.sdkVersions ?? []) as unknown[]
     ).flatMap((version) =>

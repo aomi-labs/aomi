@@ -174,21 +174,11 @@ describe("signPrivyEmbeddedTransaction", () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
-  it("rejects a provider that answers with something other than bytes", async () => {
-    const signTransaction = vi.fn(async () => ({ signature: null }));
-    await expect(
-      signPrivyEmbeddedTransaction({
-        walletAddress: OWNER,
-        signTransaction,
-        payload: COMMIT,
-      }),
-    ).rejects.toThrow("invalid signed transaction");
-  });
-
-  it("rejects a provider that answers with a non-hex string", async () => {
-    const signTransaction = vi.fn(async () => ({
-      signature: "not-signed-bytes",
-    }));
+  it.each([
+    ["something other than bytes", null],
+    ["a non-hex string", "not-signed-bytes"],
+  ])("rejects a provider that answers with %s", async (_label, signature) => {
+    const signTransaction = vi.fn(async () => ({ signature }));
     await expect(
       signPrivyEmbeddedTransaction({
         walletAddress: OWNER,

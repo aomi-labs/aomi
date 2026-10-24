@@ -7,7 +7,11 @@ import {
   STAGED_ACTION_ICON_REGISTRY,
 } from "@/thread/tool-registry";
 
-import type { FactKind, FactRole, ToolOperation } from "@/thread/tool-interpreter/types";
+import type {
+  FactKind,
+  FactRole,
+  ToolOperation,
+} from "@/thread/tool-interpreter/types";
 import { protocolDescriptorFor } from "@/thread/tool-interpreter/protocols/protocol-matchers";
 
 export type ChipSlot = {
@@ -74,6 +78,7 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "route" },
       { kind: "requirement" },
       { kind: "decoded" },
+      { kind: "count" },
       { kind: "status" },
     ],
   },
@@ -102,6 +107,30 @@ const descriptorById: Record<string, Descriptor> = {
     fixedTitle: "Get holdings",
     icon: SHAPE_ICONS.nativeBalance,
     chipPlan: [{ kind: "chain" }, { kind: "threshold" }, { kind: "token" }],
+  },
+  "activity.transactions": {
+    title: "fixed",
+    fixedTitle: "List transactions",
+    icon: SHAPE_ICONS.history,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "token" },
+      { kind: "address" },
+      { kind: "count", role: "tx" },
+    ],
+  },
+  "activity.transaction": {
+    title: "fixed",
+    fixedTitle: "Get transaction",
+    icon: SHAPE_ICONS.receipt,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "txId" },
+      { kind: "amount" },
+      { kind: "warning" },
+    ],
   },
   "evm.call.erc20.allowance": {
     title: "fixed",

@@ -28,7 +28,7 @@ export const posts: ResearchPost[] = [
     isoDate: "2026-10-13",
     tag: "launch",
     subtitle:
-      "A wallet-signed task becomes a simulation-verified outcome that another agent can inspect, purchase in USDC, and execute with its own Circle wallet.",
+      "Prepare an intent for 0.01 USDC, inspect a signed simulation preview, and retrieve an unsigned bundle for 3% of simulated outgoing USDC.",
     cover: "/research/introducing-the-aomi-task-api/figures/architecture.png",
     readMinutes: 9,
     research: false,

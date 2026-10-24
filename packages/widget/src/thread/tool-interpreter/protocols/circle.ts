@@ -14,17 +14,27 @@ import {
 import type { ProtocolAdapter } from "@/thread/tool-interpreter/protocols/protocol-adapter";
 
 const definitions: Record<string, { protocol: string; title: string }> = {
+  stage_circle_gateway_deposit: {
+    protocol: "circle_gateway",
+    title: "Stage Circle Gateway deposit",
+  },
+  // Retired name, still in saved threads.
   circle_gateway_prepare_deposit: {
     protocol: "circle_gateway",
-    title: "Prepare Circle Gateway deposit",
+    title: "Stage Circle Gateway deposit",
   },
   circle_gateway_prepare_transfer: {
     protocol: "circle_gateway",
     title: "Prepare Circle Gateway transfer",
   },
+  stage_cctp_transfer: {
+    protocol: "cctp_v2",
+    title: "Stage Circle CCTP transfer",
+  },
+  // Retired name, still in saved threads.
   circle_cctp_prepare_transfer: {
     protocol: "cctp_v2",
-    title: "Prepare Circle CCTP transfer",
+    title: "Stage Circle CCTP transfer",
   },
 };
 

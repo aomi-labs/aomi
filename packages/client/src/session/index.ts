@@ -69,6 +69,7 @@ export class ClientSession {
     edit?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
+    apiKey?: string;
     sinceSequence: number;
     uncertain?: boolean;
     error?: unknown;
@@ -525,6 +526,7 @@ export class ClientSession {
             edit: options.edit,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
             sinceSequence: this.events.at(-1)?.sequence ?? 0,
+            apiKey: options.apiKey,
           };
     this.startOperation = operation;
     this.terminalDrainUntil = undefined;
@@ -584,6 +586,7 @@ export class ClientSession {
         },
         {
           idempotencyKey: operation.idempotencyKey,
+          apiKey: operation.apiKey,
         },
       );
       if (this.timing && this.sentAt !== undefined)
@@ -707,6 +710,7 @@ export class ClientSession {
       { ...operation.intent, ...(this.cursor ? { cursor: this.cursor } : {}) },
       {
         idempotencyKey: operation.idempotencyKey,
+        apiKey: operation.apiKey,
       },
     );
     if (page.session_id !== this.sessionId || !page.started_turn_id)

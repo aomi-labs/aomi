@@ -54,3 +54,6 @@ for (const directory of [
     { stdio: "inherit" },
   );
 }
+execFileSync(process.execPath, ["scripts/check-published-cli.mjs"], {
+  stdio: "inherit",
+});
