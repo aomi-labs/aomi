@@ -1,3 +1,4 @@
+import type { CliConfig } from "./types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -38,7 +39,7 @@ describe("CLI REPL command routing", () => {
 
   it("routes plain text to chatCommand", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
       secrets: {},
@@ -52,7 +53,7 @@ describe("CLI REPL command routing", () => {
 
   it("updates the current app when /app is used", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
       applicationId: "42",
@@ -71,7 +72,7 @@ describe("CLI REPL command routing", () => {
 
   it("updates routing with /mode and clears Direct state for Auto", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       agentMode: "direct" as const,
       app: "khalani",
@@ -108,7 +109,7 @@ describe("CLI REPL command routing", () => {
 
   it("routes /model list and /model <rig>", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
+    const config: CliConfig = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
       secrets: {},
@@ -127,7 +128,13 @@ describe("CLI REPL command routing", () => {
   it("rejects removed key commands without sending their contents to chat", async () => {
     const { handleReplLine } = await import("./repl");
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(handleReplLine({ baseUrl: "https://api.aomi.dev", app: "default", secrets: {} }, "/key provider:example", false)).rejects.toThrow();
+    await expect(
+      handleReplLine(
+        { baseUrl: "https://api.aomi.dev", app: "default", secrets: {} },
+        "/key provider:example",
+        false,
+      ),
+    ).rejects.toThrow();
     expect(chatCommandMock).not.toHaveBeenCalled();
   });
 

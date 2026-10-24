@@ -39,7 +39,6 @@ describe("shared account credit display read", () => {
     await waitFor(() => expect(screen.getAllByText("42")).toHaveLength(4));
     expect(sdk.get).toHaveBeenCalledOnce();
     expect(sdk.get).toHaveBeenCalledWith({
-      limit: 25,
       signal: expect.any(AbortSignal),
     });
     view.rerender(frame(1));

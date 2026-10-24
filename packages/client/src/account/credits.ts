@@ -1,44 +1,13 @@
+import type { components } from "../generated/agent-v1/types";
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
-export const MIN_CREDIT_TOP_UP = 100;
-export const MAX_CREDIT_TOP_UP = 100_000;
 
-export type AomiCreditActivity = {
-  id: number;
-  amount_microusd: number;
-  entry_kind:
-    | "purchase"
-    | "builder_charge"
-    | "usage_debit"
-    | "admin_grant"
-    | "refund"
-    | "dispute"
-    | "reinstatement";
-  payment_method: string | null;
-  payment_provider: string | null;
-  external_payment_reference: string | null;
-  application_id: number | null;
-  metadata: Record<string, unknown>;
-  created_at: number;
-};
-
-export type AomiCreditPosition = {
-  period_utc_month: string;
-  included: {
-    limit_microusd: number;
-    used_microusd: number;
-    remaining_microusd: number;
-  };
-  balance_microusd: number;
-  reserved_microusd: number;
-  available_microusd: number;
-  debt_microusd: number;
-  entries: AomiCreditActivity[];
-  next_before_id: number | null;
-};
+export type CreditBalance = components["schemas"]["CreditBalance"];
+export type CreditLedger = components["schemas"]["CreditLedger"];
+export type CreditLedgerEntry = CreditLedger["entries"][number];
 
 export class AomiCreditApiError extends AomiApiError {
   override name = "AomiCreditApiError";
@@ -166,7 +135,14 @@ export class AccountCreditsTransport {
     );
   }
 
-  async get(options: AomiCreditListOptions = {}): Promise<AomiCreditPosition> {
+  async get(options: { signal?: AbortSignal } = {}): Promise<CreditBalance> {
+    return responseJson(
+      await this.requestResponse("GET", this.basePath, options),
+      "load balance",
+    );
+  }
+
+  async ledger(options: AomiCreditListOptions = {}): Promise<CreditLedger> {
     const limit = options.limit ?? 25;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new RangeError("Credit activity limit must be between 1 and 100");
@@ -177,14 +153,13 @@ export class AccountCreditsTransport {
     ) {
       throw new RangeError("Credit activity cursor must be a positive integer");
     }
-    const [balance, ledger] = await Promise.all([
-      this.requestResponse("GET", this.basePath, { signal: options.signal })
-        .then((response) => responseJson<Omit<AomiCreditPosition, "entries" | "next_before_id">>(response, "load balance")),
-      this.requestResponse("GET", `${this.basePath}/ledger`, {
-        query: { limit, before_id: options.beforeId }, signal: options.signal,
-      }).then((response) => responseJson<Pick<AomiCreditPosition, "entries" | "next_before_id">>(response, "load credit ledger")),
-    ]);
-    return { ...balance, ...ledger };
+    return responseJson(
+      await this.requestResponse("GET", `${this.basePath}/ledger`, {
+        query: { limit, before_id: options.beforeId },
+        signal: options.signal,
+      }),
+      "load credit ledger",
+    );
   }
 }
 

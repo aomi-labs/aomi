@@ -12,7 +12,7 @@ import {
   SpendBreakdownSection,
   USAGE_MATRIX_HINT,
 } from "./usage-shared";
-import { CreditBank } from "@/account/usage/credit-bank/credit-bank";
+import { CreditBalancePanel } from "@/account/usage/credits/credit-balance-panel";
 
 /**
  * Settings › Usage — design-sync hierarchy (hero, spend breakdown, allowance,
@@ -26,7 +26,7 @@ export function UsageSettings({
   const month = statement.month;
 
   // Each section shows as soon as its own read answers: the statement drives
-  // the totals, the credit position drives the allowance and Credit Bank.
+  // the totals, the credit balance drives the allowance and Credit balance.
   if (!month && statement.status === "error") {
     return (
       <p className="text-aomi-danger text-[13px]">
@@ -63,7 +63,7 @@ export function UsageSettings({
         onRetryAllowance={statement.retryAllowance}
       >
         {statement.isCurrentMonth ? (
-          <CreditBank initialTopUp={initialTopUp} />
+          <CreditBalancePanel initialTopUp={initialTopUp} />
         ) : null}
       </AllowanceSettlementSection>
 

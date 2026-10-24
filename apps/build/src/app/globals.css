@@ -497,4 +497,4 @@
 }
 
 /* Shared checkout uses the same widget payment surface in Build and Chat. */
-@source "../../../../packages/widget/src/account/usage/credit-bank";
+@source "../../../../packages/widget/src/account/usage/credits";

@@ -114,9 +114,6 @@ jobs:
     if: needs.changes.outputs.consumer_compat == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      # Event payload selects the trusted baseline; PR files cannot move it.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - name: Checkout candidate and trusted baseline history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -335,8 +332,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # The immutable consumer comes from the event-selected base, never PR files.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      # Consumer sources come from the owner-reviewed Git pin in tests/contracts.
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
@@ -399,8 +395,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # The immutable consumer comes from the event-selected base, never PR files.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      # Consumer sources come from the owner-reviewed Git pin in tests/contracts.
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:

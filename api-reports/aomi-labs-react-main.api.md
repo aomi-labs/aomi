@@ -14,11 +14,8 @@ import { ActionResult } from '@aomi-labs/client';
 import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
-import { AomiByokKeyEntry } from '@aomi-labs/client';
 import { AomiClient } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
-import { AomiCreditPosition } from '@aomi-labs/client';
-import { AomiInferenceFundingSource } from '@aomi-labs/client';
 import { AomiPlatformFilter } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
 import { AomiSimulateResponse } from '@aomi-labs/client';
@@ -32,6 +29,8 @@ import { ClassValue } from 'clsx';
 import { CommitCapabilities } from '@aomi-labs/client';
 import { CommitController } from '@aomi-labs/client';
 import { CommitView } from '@aomi-labs/client';
+import { CreditBalance } from '@aomi-labs/client';
+import { CreditLedger } from '@aomi-labs/client';
 import { Event as Event_2 } from '@aomi-labs/client';
 import { executeWalletCalls } from '@aomi-labs/client';
 import { MAX_AUTO_FEE_WEI } from '@aomi-labs/client';
@@ -86,8 +85,6 @@ export function AomiChatBoundary(input: {
 export { AomiClient }
 
 export { AomiClientOptions }
-
-export { AomiInferenceFundingSource }
 
 export { AomiPlatformFilter }
 
@@ -168,7 +165,6 @@ export type AomiRuntimeProviderProps = {
     agentTarget?: AgentTarget;
     appPlatforms?: AomiPlatformFilter;
     clientOptions?: Omit<AomiClientOptions, "baseUrl">;
-    inferenceFunding?: AomiInferenceFundingSource;
     actions?: ActionCapabilities;
     commits?: CommitCapabilities;
     accountSessionAvailable?: boolean;
@@ -215,7 +211,7 @@ export type ContextStep = {
 };
 
 // @public (undocumented)
-export type ControlContextApi = ApiKeyActions & ByokActions & AppSecretsActions & AuthEndpointsActions & PerThreadControlActions & {
+export type ControlContextApi = ApiKeyActions & SecretsActions & AppSecretsActions & AuthEndpointsActions & PerThreadControlActions & {
     state: ControlState;
     getControlState: () => ControlState;
 };
@@ -234,13 +230,12 @@ export type ControlContextProviderProps = {
     applicationId?: ApplicationId;
     apiKeyPersistence?: "memory" | "session";
     backendUrl?: string;
-    inferenceFunding?: AomiInferenceFundingSource;
     accountSessionAvailable?: boolean;
     account?: RuntimeAccount | null;
 };
 
 // @public
-export type ControlState = ApiKeyState & ByokState & AuthEndpointsState & {
+export type ControlState = ApiKeyState & AuthEndpointsState & {
     clientId: string | null;
 };
 
@@ -271,7 +266,8 @@ export const displayQueries: {
         apiKey: () => string | null;
         platforms?: AomiPlatformFilter;
     }) => DisplayQuery<AomiAppDescriptor[]>;
-    credits: (api: AomiClient, enabled?: boolean) => DisplayQuery<AomiCreditPosition>;
+    credits: (api: AomiClient, enabled?: boolean) => DisplayQuery<CreditBalance>;
+    creditLedger: (api: AomiClient, enabled?: boolean) => DisplayQuery<CreditLedger>;
 };
 
 // @public
@@ -284,7 +280,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "profile" | "credits" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
+export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "credit-ledger" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;
@@ -376,9 +372,6 @@ export function selectTaskRuns(events: readonly Event_2[], scope?: "thread" | "t
 export type ShowNotificationParams = Omit<Notification_2, "id" | "timestamp">;
 
 export { SponsorshipPaymasterServiceContext }
-
-// @public
-export type StoredByokKey = AomiByokKeyEntry;
 
 // @public
 export const SUPPORTED_CHAINS: ChainInfo[];
@@ -934,12 +927,6 @@ export function useAppSecrets(): {
 export function useAuthEndpoints(): {
     state: AuthEndpointsState;
     actions: AuthEndpointsActions;
-};
-
-// @public (undocumented)
-export function useByok(): {
-    state: ByokState;
-    actions: ByokActions;
 };
 
 // @public (undocumented)

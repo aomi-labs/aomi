@@ -1,18 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { LoadingLine, LoadingPane } from "@/ui/aomi/loading-pane";
-import { type AomiCreditActivity } from "@aomi-labs/client";
-import { useAccountCredits } from "@/account/use-account-credits";
-import { CreditTopUpDialog } from "./top-up-dialog";
+import { type CreditLedgerEntry } from "@aomi-labs/client";
 import {
-  formatCreditAmount,
-  formatCredits,
-  formatUsdc,
-  toCredits,
-} from "./format";
+  useAccountCredits,
+  useAccountCreditLedger,
+} from "@/account/use-account-credits";
+import { CreditCheckoutDialog } from "./credit-checkout-dialog";
+import { formatCreditAmount, formatUsd, toCredits } from "./format";
 import {
-  CheckCircle2,
   ChevronDown,
   Coins,
   ExternalLink,
@@ -20,27 +17,20 @@ import {
   ReceiptText,
 } from "lucide-react";
 
-export function CreditBank({
-  onLoad,
+export function CreditBalancePanel({
   initialTopUp = false,
-}: { onLoad?: () => void; initialTopUp?: boolean } = {}) {
+}: { initialTopUp?: boolean } = {}) {
   const creditQuery = useAccountCredits();
   const [open, setOpen] = useState(initialTopUp);
   const [reviewOpen, setReviewOpen] = useState(initialTopUp);
+  const ledgerQuery = useAccountCreditLedger(open);
+  const ledger = ledgerQuery.data;
   const position = creditQuery.data ?? null;
   const loading = creditQuery.isPending;
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  useEffect(() => {
-    if (!loading) onLoad?.();
-  }, [loading, onLoad]);
-
+  const error = creditQuery.error?.message ?? ledgerQuery.error?.message;
   const load = useCallback(async () => {
-    await creditQuery.refetch();
-  }, [creditQuery.refetch]);
-  useEffect(() => {
-    if (creditQuery.error) setError(creditQuery.error.message);
-  }, [creditQuery.error]);
+    await Promise.all([creditQuery.refetch(), ledgerQuery.refetch()]);
+  }, [creditQuery.refetch, ledgerQuery.refetch]);
   const balance = position ? toCredits(position.balance_microusd) : null;
 
   return (
@@ -57,7 +47,7 @@ export function CreditBank({
           </span>
           <span className="min-w-0">
             <span className="text-aomi-fg block text-[13px] font-medium">
-              Credit bank
+              Credit balance
             </span>
             <span className="text-aomi-muted block truncate text-[11px]">
               Purchased balance · never expires
@@ -81,7 +71,7 @@ export function CreditBank({
               ) : balance === null ? (
                 "Unavailable"
               ) : (
-                `${formatUsdc(balance / 100)} value`
+                `${formatUsd(balance / 100)} value`
               )}
             </span>
           </span>
@@ -101,16 +91,14 @@ export function CreditBank({
                 Keep usage moving
               </p>
               <p className="text-aomi-muted mt-0.5 max-w-md text-[12px] leading-relaxed">
-                Add permanent credits by card or USDC. Purchased credits are used
-                after your monthly allowance.
+                Add permanent credits by card or USDC. Purchased credits are
+                used after your monthly allowance.
               </p>
             </div>
             <button
               type="button"
               disabled={loading}
               onClick={() => {
-                setError(null);
-                setSuccess(null);
                 setReviewOpen(true);
               }}
               className="bg-aomi-fg text-aomi-bg focus-visible:ring-aomi-accent/50 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3.5 text-[13px] font-medium transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
@@ -120,19 +108,6 @@ export function CreditBank({
             </button>
           </div>
 
-          {success ? (
-            <div
-              role="status"
-              className="border-aomi-success/25 bg-aomi-success/5 text-aomi-fg flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs"
-            >
-              <CheckCircle2
-                size={15}
-                className="text-aomi-success mt-px shrink-0"
-                aria-hidden="true"
-              />
-              <span>{success}</span>
-            </div>
-          ) : null}
           {error && !reviewOpen ? (
             <div
               role="alert"
@@ -154,19 +129,19 @@ export function CreditBank({
               <h3 className="text-aomi-fg text-[12px] font-medium">
                 Recent activity
               </h3>
-              {position?.entries.length ? (
+              {ledger?.entries.length ? (
                 <span className="text-aomi-muted text-[11px]">
-                  Latest {position.entries.length}
+                  Latest {ledger.entries.length}
                 </span>
               ) : null}
             </div>
-            {loading && !position ? (
+            {ledgerQuery.isPending ? (
               <LoadingPane
                 label="Loading recent activity"
                 className="min-h-16"
               />
             ) : null}
-            {position?.entries.length === 0 ? (
+            {ledger?.entries.length === 0 ? (
               <div className="border-aomi-border bg-aomi-bg/40 flex items-center gap-3 rounded-lg border border-dashed px-3 py-3">
                 <ReceiptText
                   size={15}
@@ -178,13 +153,13 @@ export function CreditBank({
                 </p>
               </div>
             ) : null}
-            {position?.entries.length ? (
+            {ledger?.entries.length ? (
               <div
                 className="border-aomi-border divide-aomi-border divide-y overflow-hidden rounded-lg border"
                 role="list"
                 aria-label="Recent credit activity"
               >
-                {position.entries.map((entry) => (
+                {ledger.entries.map((entry) => (
                   <CreditActivityRow entry={entry} key={entry.id} />
                 ))}
               </div>
@@ -193,15 +168,19 @@ export function CreditBank({
         </div>
       ) : null}
 
-      <CreditTopUpDialog open={reviewOpen} onClose={() => setReviewOpen(false)} onSuccess={load} />
+      <CreditCheckoutDialog
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        onSuccess={load}
+      />
     </div>
   );
 }
 
-function CreditActivityRow({ entry }: { entry: AomiCreditActivity }) {
+function CreditActivityRow({ entry }: { entry: CreditLedgerEntry }) {
   const receiptUrl = creditReceiptUrl(entry);
   const amountCredits = Math.abs(toCredits(entry.amount_microusd));
-  const amountUsdc = Math.abs(entry.amount_microusd) / 1_000_000;
+  const amountUsd = Math.abs(entry.amount_microusd) / 1_000_000;
   const isCredit = entry.amount_microusd > 0;
   const details = [
     formatCreditDate(entry.created_at),
@@ -260,8 +239,8 @@ function CreditActivityRow({ entry }: { entry: AomiCreditActivity }) {
         </p>
         <p className="text-aomi-muted mt-0.5 text-[10px] tabular-nums">
           {entry.entry_kind === "purchase"
-            ? `${formatUsdc(amountUsdc)} paid`
-            : formatUsdc(amountUsdc)}
+            ? `${formatUsd(amountUsd)} paid`
+            : formatUsd(amountUsd)}
         </p>
       </div>
     </div>
@@ -269,8 +248,7 @@ function CreditActivityRow({ entry }: { entry: AomiCreditActivity }) {
 }
 
 function formatCreditDate(timestamp: number): string {
-  const milliseconds =
-    timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+  const milliseconds = timestamp * 1000;
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -279,19 +257,19 @@ function formatCreditDate(timestamp: number): string {
   }).format(new Date(milliseconds));
 }
 
-function creditReceiptUrl(entry: AomiCreditActivity): string | null {
-  const provider = entry.payment_provider?.toLowerCase();
-  if (provider !== "coinbase") return null;
+function creditReceiptUrl(entry: CreditLedgerEntry): string | null {
+  if (entry.payment_method !== "wallet") return null;
+  const transaction = entry.metadata?.transaction;
   if (
-    !entry.external_payment_reference ||
-    !/^0x[0-9a-f]{64}$/i.test(entry.external_payment_reference)
+    typeof transaction !== "string" ||
+    !/^0x[0-9a-f]{64}$/i.test(transaction)
   ) {
     return null;
   }
-  const network = entry.metadata.payment_network;
+  const network = entry.metadata?.payment_network;
   if (typeof network !== "string") return null;
   const explorer = explorerForPaymentNetwork(network);
-  return explorer ? `${explorer}/tx/${entry.external_payment_reference}` : null;
+  return explorer ? `${explorer}/tx/${transaction}` : null;
 }
 
 function explorerForPaymentNetwork(network: string): string | null {
@@ -300,26 +278,24 @@ function explorerForPaymentNetwork(network: string): string | null {
       {
         "eip155:8453": "https://basescan.org",
         "eip155:84532": "https://sepolia.basescan.org",
-        "eip155:137": "https://polygonscan.com",
-        "eip155:80002": "https://amoy.polygonscan.com",
-        "eip155:43114": "https://snowtrace.io",
-        "eip155:43113": "https://testnet.snowtrace.io",
-        "eip155:42220": "https://celoscan.io",
-        "eip155:11142220": "https://celo-sepolia.blockscout.com",
+        "eip155:1": "https://etherscan.io",
+        "eip155:42161": "https://arbiscan.io",
+        "eip155:10": "https://optimistic.etherscan.io",
       } as Record<string, string>
     )[network] ?? null
   );
 }
 
-function creditPaymentLabel(entry: AomiCreditActivity): string {
-  if (entry.payment_provider?.toLowerCase() === "coinbase") {
-    return "Coinbase x402";
-  }
-  return entry.payment_provider ?? entry.payment_method ?? "Wallet payment";
+function creditPaymentLabel(entry: CreditLedgerEntry): string {
+  return entry.payment_method === "card" ? "Card payment" : "USDC payment";
 }
 
 function creditActivityLabel(kind: string): string {
-  if (kind === "purchase") return "Wallet top-up";
+  if (kind === "purchase") return "Credits added";
   if (kind === "usage_debit") return "Personal usage";
+  if (kind === "builder_charge") return "Builder charge";
+  if (kind === "refund") return "Refund";
+  if (kind === "dispute") return "Dispute";
+  if (kind === "reinstatement") return "Reinstatement";
   return "Credit adjustment";
 }

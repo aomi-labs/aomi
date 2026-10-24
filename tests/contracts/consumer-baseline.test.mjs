@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   copyTrustedConsumer,
+  consumerBaseline,
   trustedConsumerImporters,
   trustedConsumers,
 } from "../../scripts/check-consumer-compatibility-baseline.mjs";
@@ -157,7 +158,6 @@ test("candidate consumer edits cannot rewrite the trusted baseline", () => {
 });
 
 for (const baseline of [
-  undefined,
   "0000000000000000000000000000000000000000",
   "does-not-exist",
 ]) {
@@ -179,3 +179,47 @@ for (const baseline of [
     assert.doesNotMatch(result.stdout, /Checking consumers/);
   });
 }
+
+test("default consumer baseline is immutable and missing or malformed pins fail closed", () => {
+  const repo = mkdtempSync(join(tmpdir(), "consumer-pin-test-"));
+  try {
+    assert.throws(() => consumerBaseline(repo), /ENOENT/);
+    mkdirSync(join(repo, "tests/contracts"), { recursive: true });
+    const pin = join(repo, "tests/contracts/consumer-baseline.json");
+    const sha = "1234567890abcdef1234567890abcdef12345678";
+    writeFileSync(pin, JSON.stringify({ version: "test-v2", commit: sha }));
+    assert.equal(consumerBaseline(repo), sha);
+    const other = "abcdef1234567890abcdef1234567890abcdef12";
+    assert.equal(consumerBaseline(repo, other), other);
+    for (const invalid of [
+      null,
+      "",
+      "main",
+      "HEAD",
+      "0".repeat(40),
+      "1234",
+      42,
+    ]) {
+      writeFileSync(pin, JSON.stringify({ commit: invalid }));
+      assert.throws(() => consumerBaseline(repo), /pinned/);
+    }
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CI and browser checks use the same reviewed release pin", () => {
+  const ci = readFileSync(
+    new URL("../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(ci, /CONSUMER_BASE_SHA:/);
+  const hosts = readFileSync(
+    new URL("../../scripts/browser-hosts.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    hosts,
+    /consumerBaseline\(root, process.env.CONSUMER_BASE_SHA\)/,
+  );
+});

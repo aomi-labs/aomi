@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { importerVersions } from "./consumer-lockfile.mjs";
 
@@ -61,4 +61,26 @@ export function copyTrustedConsumer(repo, commit, consumer, destinationRoot) {
     mkdirSync(dirname(output), { recursive: true });
     writeFileSync(output, contents);
   }
+}
+
+/** The owner-reviewed release fixture is independent of the current PR's code. */
+export function consumerBaseline(repo, override) {
+  const commit =
+    override ??
+    JSON.parse(
+      readFileSync(
+        join(repo, "tests/contracts/consumer-baseline.json"),
+        "utf8",
+      ),
+    ).commit;
+  if (
+    typeof commit !== "string" ||
+    !/^[0-9a-f]{40}$/.test(commit) ||
+    /^0+$/.test(commit)
+  ) {
+    throw new Error(
+      "Consumer baseline must be a pinned, nonzero 40-character Git commit SHA",
+    );
+  }
+  return commit;
 }

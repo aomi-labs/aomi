@@ -49,8 +49,7 @@ describe("aomi account login", () => {
     vi.doMock("../oauth-device-auth", () => ({
       signInWithOAuthDevice: oauthLogin,
     }));
-    const { accountLoginCommand } =
-      await import("./account");
+    const { accountLoginCommand } = await import("./account");
     const { readState } = await import("../state");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -138,8 +137,7 @@ describe("aomi account login", () => {
     vi.doMock("../device-auth", () => ({
       signInWithDeviceProvider: deviceLogin,
     }));
-    const { accountLoginCommand } =
-      await import("./account");
+    const { accountLoginCommand } = await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
 
     await accountLoginCommand(baseConfig, { provider: "para" });
@@ -155,8 +153,7 @@ describe("aomi account login", () => {
     vi.doMock("../device-auth", () => ({
       signInWithDeviceProvider: deviceLogin,
     }));
-    const { accountLoginCommand } =
-      await import("./account");
+    const { accountLoginCommand } = await import("./account");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
@@ -166,54 +163,55 @@ describe("aomi account login", () => {
   });
 
   it("establishes an account session through BetterAuth SIWE", async () => {
-    const { accountLoginCommand } =
-      await import("./account");
+    const { accountLoginCommand } = await import("./account");
 
-    const nativeFetch = vi.fn(async (url: string | URL | Request) => {
-      const target = String(url);
-      if (target.endsWith("/api/auth/siwe/nonce")) {
-        return {
-          ok: true,
-          status: 200,
-          json: vi.fn(async () => ({
-            nonce: "abc123def456",
-            domain: "chat.aomi.dev",
-            uri: "https://chat.aomi.dev",
-          })),
-          headers: new Headers(),
-        } as unknown as Response;
-      }
-      if (target.endsWith("/api/auth/siwe/verify")) {
-        return {
-          ok: true,
-          status: 200,
-          json: vi.fn(async () => ({
+    const nativeFetch = vi.fn(
+      async (url: string | URL | Request, _init?: RequestInit) => {
+        const target = String(url);
+        if (target.endsWith("/api/auth/siwe/nonce")) {
+          return {
             ok: true,
-            user_id: "canonical-user",
-          })),
-          headers: new Headers({ "set-auth-token": "session-123" }),
-        } as unknown as Response;
-      }
-      if (target.endsWith("/v1/account")) {
-        return {
-          ok: true,
-          status: 200,
-          json: vi.fn(async () => ({
-            session: {
-              betterAuthUserId: "canonical-user",
-              expiresAt: "2030-01-02T03:04:05.000Z",
-            },
-          })),
-        } as unknown as Response;
-      }
-      if (target.endsWith("/v1/account/session/cli")) {
-        return Response.json({
-          sessionToken: "cli-session",
-          expiresAt: "2030-01-01T03:04:05.000Z",
-        });
-      }
-      throw new Error(`unexpected fetch: ${target}`);
-    });
+            status: 200,
+            json: vi.fn(async () => ({
+              nonce: "abc123def456",
+              domain: "chat.aomi.dev",
+              uri: "https://chat.aomi.dev",
+            })),
+            headers: new Headers(),
+          } as unknown as Response;
+        }
+        if (target.endsWith("/api/auth/siwe/verify")) {
+          return {
+            ok: true,
+            status: 200,
+            json: vi.fn(async () => ({
+              ok: true,
+              user_id: "canonical-user",
+            })),
+            headers: new Headers({ "set-auth-token": "session-123" }),
+          } as unknown as Response;
+        }
+        if (target.endsWith("/v1/account")) {
+          return {
+            ok: true,
+            status: 200,
+            json: vi.fn(async () => ({
+              session: {
+                betterAuthUserId: "canonical-user",
+                expiresAt: "2030-01-02T03:04:05.000Z",
+              },
+            })),
+          } as unknown as Response;
+        }
+        if (target.endsWith("/v1/account/session/cli")) {
+          return Response.json({
+            sessionToken: "cli-session",
+            expiresAt: "2030-01-01T03:04:05.000Z",
+          });
+        }
+        throw new Error(`unexpected fetch: ${target}`);
+      },
+    );
     const originalFetch = globalThis.fetch;
     vi.stubGlobal("fetch", nativeFetch);
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -261,8 +259,7 @@ describe("aomi account login", () => {
   });
 
   it("requires an EVM private key", async () => {
-    const { accountLoginCommand } =
-      await import("./account");
+    const { accountLoginCommand } = await import("./account");
 
     const nativeFetch = vi.fn();
     const originalFetch = globalThis.fetch;
@@ -284,39 +281,40 @@ describe("aomi account login", () => {
   it("establishes an account session through BetterAuth SIWS", async () => {
     const keypair = Keypair.generate();
     const secret = bs58.encode(keypair.secretKey);
-    const { accountLoginCommand } =
-      await import("./account");
-    const nativeFetch = vi.fn(async (url: string | URL | Request) => {
-      const target = String(url);
-      if (target.endsWith("/api/auth/siws/nonce")) {
-        return Response.json({
-          nonce: "siws-nonce",
-          domain: "chat.aomi.dev",
-          uri: "https://chat.aomi.dev",
-        });
-      }
-      if (target.endsWith("/api/auth/siws/verify")) {
-        return Response.json(
-          { success: true, user: { id: "ba-svm-user" } },
-          { headers: { "set-auth-token": "svm-session" } },
-        );
-      }
-      if (target.endsWith("/v1/account")) {
-        return Response.json({
-          session: {
-            betterAuthUserId: "ba-svm-user",
-            expiresAt: "2030-01-02T03:04:05.000Z",
-          },
-        });
-      }
-      if (target.endsWith("/v1/account/session/cli")) {
-        return Response.json({
-          sessionToken: "cli-session",
-          expiresAt: "2030-01-01T03:04:05.000Z",
-        });
-      }
-      throw new Error(`unexpected fetch: ${target}`);
-    });
+    const { accountLoginCommand } = await import("./account");
+    const nativeFetch = vi.fn(
+      async (url: string | URL | Request, _init?: RequestInit) => {
+        const target = String(url);
+        if (target.endsWith("/api/auth/siws/nonce")) {
+          return Response.json({
+            nonce: "siws-nonce",
+            domain: "chat.aomi.dev",
+            uri: "https://chat.aomi.dev",
+          });
+        }
+        if (target.endsWith("/api/auth/siws/verify")) {
+          return Response.json(
+            { success: true, user: { id: "ba-svm-user" } },
+            { headers: { "set-auth-token": "svm-session" } },
+          );
+        }
+        if (target.endsWith("/v1/account")) {
+          return Response.json({
+            session: {
+              betterAuthUserId: "ba-svm-user",
+              expiresAt: "2030-01-02T03:04:05.000Z",
+            },
+          });
+        }
+        if (target.endsWith("/v1/account/session/cli")) {
+          return Response.json({
+            sessionToken: "cli-session",
+            expiresAt: "2030-01-01T03:04:05.000Z",
+          });
+        }
+        throw new Error(`unexpected fetch: ${target}`);
+      },
+    );
     vi.stubGlobal("fetch", nativeFetch);
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 

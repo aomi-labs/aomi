@@ -14,12 +14,34 @@ const baseConfig = {
 };
 const position = {
   period_utc_month: "2026-09-01",
-  included: { limit_microusd: 50_000_000, used_microusd: 5_250_000, remaining_microusd: 44_750_000 },
-  balance_microusd: 1_500_000, reserved_microusd: 0, available_microusd: 1_500_000, debt_microusd: 0,
-  entries: [{ id: 1, amount_microusd: 1_500_000, entry_kind: "purchase", application_id: null, payment_method: "wallet", payment_provider: "coinbase", external_payment_reference: "0xtx", metadata: {}, created_at: 1788264000 }],
+  included: {
+    limit_microusd: 50_000_000,
+    used_microusd: 5_250_000,
+    remaining_microusd: 44_750_000,
+  },
+  balance_microusd: 1_500_000,
+  reserved_microusd: 0,
+  available_microusd: 1_500_000,
+  debt_microusd: 0,
+  entries: [
+    {
+      id: 1,
+      amount_microusd: 1_500_000,
+      entry_kind: "purchase",
+      application_id: null,
+      payment_method: "wallet",
+      payment_provider: "coinbase",
+      external_payment_reference: "0xtx",
+      metadata: {},
+      created_at: 1788264000,
+    },
+  ],
   next_before_id: null,
 };
-const funded = { funding_event: { id: "fund_test", status: "credited" }, action: { kind: "done" } };
+const funded = {
+  funding_event: { id: "fund_test", status: "credited" },
+  action: { kind: "done" },
+};
 
 describe("aomi account credits", () => {
   let stateDir: string;
@@ -47,11 +69,12 @@ describe("aomi account credits", () => {
   });
 
   it("prints the account credit position and activity", async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => Response.json(position));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
+      Response.json(position),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsShowCommand } =
-      await import("./account");
+    const { accountCreditsShowCommand } = await import("./account");
 
     await accountCreditsShowCommand(baseConfig, { limit: "10" });
 
@@ -59,7 +82,7 @@ describe("aomi account credits", () => {
       "https://portal.test/v1/account/credits",
     );
     expect(log).toHaveBeenCalledWith("Monthly:     525 / 5,000 credits used");
-    expect(log).toHaveBeenCalledWith("Credit bank: 150 credits available");
+    expect(log).toHaveBeenCalledWith("Credit balance: 150 credits");
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("+150 purchase via wallet"),
     );
@@ -79,8 +102,7 @@ describe("aomi account credits", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsShowCommand } =
-      await import("./account");
+    const { accountCreditsShowCommand } = await import("./account");
 
     await accountCreditsShowCommand(
       { ...baseConfig, accountBearer: "account-bearer" },
@@ -98,8 +120,14 @@ describe("aomi account credits", () => {
           "Bearer session-token",
         );
         if (request.method === "POST") {
-          expect(request.url).toBe("https://portal.test/v1/account/credits/funding-events");
-          expect(await request.json()).toEqual({ amount_microusd: 1_000_000, method: "wallet", chain: "eip155:84532" });
+          expect(request.url).toBe(
+            "https://portal.test/v1/account/credits/funding-events",
+          );
+          expect(await request.json()).toEqual({
+            amount_microusd: 1_000_000,
+            method: "wallet",
+            chain: "eip155:84532",
+          });
           return Response.json(funded);
         }
         return Response.json({ ...position, balance_microusd: 2_500_000 });
@@ -107,8 +135,7 @@ describe("aomi account credits", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsFundCommand } =
-      await import("./account");
+    const { accountCreditsFundCommand } = await import("./account");
 
     await accountCreditsFundCommand(
       { ...baseConfig, privateKey: PRIVATE_KEY },
@@ -119,13 +146,12 @@ describe("aomi account credits", () => {
       },
     );
 
-    expect(log).toHaveBeenCalledWith("Credit bank: 250 credits available");
+    expect(log).toHaveBeenCalledWith("Credit balance: 250 credits");
   });
   it("requires a caller-retained funding key before making a payment request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { accountCreditsFundCommand } =
-      await import("./account");
+    const { accountCreditsFundCommand } = await import("./account");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
       accountCreditsFundCommand(baseConfig, "100"),
@@ -150,8 +176,7 @@ describe("aomi account credits", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsFundCommand } =
-      await import("./account");
+    const { accountCreditsFundCommand } = await import("./account");
     const config = { ...baseConfig, privateKey: PRIVATE_KEY };
     await expect(
       accountCreditsFundCommand(config, "100", {

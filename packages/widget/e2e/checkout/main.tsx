@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CreditTopUpDialog } from "../../src/account/usage/credit-bank/top-up-dialog";
+import { CreditCheckoutDialog } from "../../src/account/usage/credits/credit-checkout-dialog";
 import { WidgetScope } from "../../src/ui/widget-scope";
 import { useAomiRuntime } from "./runtime";
 import "../../src/package.css";
@@ -17,7 +17,7 @@ function Checkout() {
         </p>
         <p>Balance: {balance}</p>
         <button onClick={() => setOpen(true)}>Add credits</button>
-        <CreditTopUpDialog
+        <CreditCheckoutDialog
           open={open}
           onClose={() => setOpen(false)}
           onSuccess={async () => {

@@ -1,6 +1,3 @@
-export const MIN_TOP_UP_MICROUSD = 1_000_000;
-export const MAX_TOP_UP_MICROUSD = 1_000_000_000;
-
 export function toCredits(microusd: number): number {
   return microusd / 10_000;
 }
@@ -18,4 +15,13 @@ export function formatUsdc(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   })} USDC`;
+}
+
+export function formatUsd(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
 }

@@ -306,7 +306,7 @@ export function Chip(input: {
 }): JSX.Element;
 
 // @public (undocumented)
-export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">): ReturnType<typeof createEvmPaymentClient> | undefined;
+export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">, terms?: Parameters<typeof createEvmPaymentClient>[1]): ReturnType<typeof createEvmPaymentClient> | undefined;
 
 // @public @deprecated (undocumented)
 export const CURATED_APP_IDS: typeof CURATED_APP_IDS_2;
@@ -459,6 +459,7 @@ export function SettingsModal(input: {
     onClose: () => void;
     initialTab?: SettingsTab;
     accountOnly?: boolean;
+    initialTopUp?: boolean;
 }): JSX.Element;
 
 // @public

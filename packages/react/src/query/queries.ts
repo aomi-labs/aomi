@@ -2,7 +2,8 @@ import {
   normalizeAppDescriptor,
   type AomiAppDescriptor,
   type AomiClient,
-  type AomiCreditPosition,
+  type CreditBalance,
+  type CreditLedger,
   type AomiPlatformFilter,
 } from "@aomi-labs/client";
 import type { DisplayQuery } from "./display-cache";
@@ -62,12 +63,17 @@ export const displayQueries = {
         signal,
       }),
   }),
-  credits: (
-    api: AomiClient,
-    enabled = true,
-  ): DisplayQuery<AomiCreditPosition> => ({
+  credits: (api: AomiClient, enabled = true): DisplayQuery<CreditBalance> => ({
     resource: "credits",
     enabled,
-    fetcher: (signal) => api.account.credits.get({ limit: 25, signal }),
+    fetcher: (signal) => api.account.credits.get({ signal }),
+  }),
+  creditLedger: (
+    api: AomiClient,
+    enabled = true,
+  ): DisplayQuery<CreditLedger> => ({
+    resource: "credit-ledger",
+    enabled,
+    fetcher: (signal) => api.account.credits.ledger({ limit: 25, signal }),
   }),
 };

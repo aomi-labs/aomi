@@ -6,6 +6,7 @@ import {
   keccak256,
   parseTransaction,
   recoverTransactionAddress,
+  type TransactionSerialized,
   TransactionNotFoundError,
 } from "viem";
 import { Connection, Keypair } from "@solana/web3.js";
@@ -419,7 +420,7 @@ describe("CLI durable commits", () => {
     });
     expect(
       await recoverTransactionAddress({
-        serializedTransaction: raw as `0x${string}`,
+        serializedTransaction: raw as TransactionSerialized,
       }),
     ).toBe(signer);
     await expect(

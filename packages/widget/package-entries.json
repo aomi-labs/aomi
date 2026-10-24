@@ -7,7 +7,7 @@
     "browser-auth": "src/account/browser-auth.ts",
     "providers/para": "src/wallet/providers/para/index.ts",
     "providers/privy": "src/wallet/providers/privy/index.ts",
-    "checkout": "src/account/usage/credit-bank/top-up-dialog.tsx"
+    "checkout": "src/account/usage/credits/credit-checkout-dialog.tsx"
   },
   "deprecated": {
     "aomi-widget": "src/frame/aomi-widget.tsx",

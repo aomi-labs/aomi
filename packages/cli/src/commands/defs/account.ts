@@ -296,7 +296,7 @@ const accountCreditsFundDef = defineCommand({
 const accountCreditsDef = defineCommand({
   meta: {
     name: "credits",
-    description: "Included allowance, Credit Bank activity, and wallet funding",
+    description: "Included allowance, Credit balance activity, and wallet funding",
   },
   subCommands: {
     show: accountCreditsShowDef,

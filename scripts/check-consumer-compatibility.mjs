@@ -13,6 +13,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   copyTrustedConsumer,
+  consumerBaseline,
   trustedConsumerImporters,
   trustedConsumers,
 } from "./check-consumer-compatibility-baseline.mjs";
@@ -29,7 +30,10 @@ const packageManager = JSON.parse(
 ).packageManager;
 const args = process.argv.slice(2);
 const baseFlag = args.indexOf("--base");
-const base = baseFlag >= 0 ? args[baseFlag + 1] : process.env.CONSUMER_BASE_SHA;
+const base = consumerBaseline(
+  root,
+  baseFlag >= 0 ? args[baseFlag + 1] : process.env.CONSUMER_BASE_SHA,
+);
 const outputFlag = args.indexOf("--browser-output");
 const browserOutput =
   outputFlag >= 0 ? args[outputFlag + 1] : process.env.CONSUMER_BROWSER_OUTPUT;
@@ -50,7 +54,7 @@ if (
   )
 ) {
   throw new Error(
-    "Pass --base <trusted commit SHA> or CONSUMER_BASE_SHA; browser output paths require a value",
+    "--base and --browser-output require values; the default baseline is tests/contracts/consumer-baseline.json",
   );
 }
 const sha = execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], {
@@ -289,10 +293,7 @@ try {
     "radix-ui",
   );
   for (const [name, path] of packages) {
-    if (
-      name === "@aomi-labs/widget" ||
-      name === "@aomi-labs/deploy"
-    ) {
+    if (name === "@aomi-labs/widget" || name === "@aomi-labs/deploy") {
       // These packages have no prepack hook; build before producing the
       // exact archive consumed by the clean-install fixture.
       run("corepack", ["pnpm", "--dir", join(root, path), "build"]);
@@ -443,7 +444,9 @@ if (!esm.Aomi || !cjs.Aomi) throw new Error("Packed client facade export missing
       })}\n`,
     );
   }
-  console.log("Trusted-base consumers compile against candidate tarballs.");
+  console.log(
+    `Trusted-base consumers compile against candidate tarballs (${sha}).`,
+  );
 } finally {
   if (process.env.KEEP_CONSUMER_COMPAT_DIR || browserOutput)
     console.log(`Retained ${temporary}`);

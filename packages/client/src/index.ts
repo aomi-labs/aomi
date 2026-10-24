@@ -4,17 +4,16 @@ export { AomiClient, secretNamesFrom } from "./client";
 export {
   AccountCreditsTransport,
   AccountTransport,
-  MAX_CREDIT_TOP_UP,
   MICROUSD_PER_CREDIT,
-  MIN_CREDIT_TOP_UP,
 } from "./account/credits";
 export type {
-  AomiCreditActivity,
+  CreditLedgerEntry,
+  CreditLedger,
   AomiFundingEvent,
   AomiFundingResult,
   AomiCreditMethods,
   AomiCreditListOptions,
-  AomiCreditPosition,
+  CreditBalance,
 } from "./account/credits";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";

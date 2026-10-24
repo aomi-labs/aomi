@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getChainInfo } from "@aomi-labs/react";
-import type { AomiCreditPosition } from "@aomi-labs/client";
+import type { CreditBalance } from "@aomi-labs/client";
 import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -201,7 +201,7 @@ function AccountSummaryCard({
   walletDesc: string;
   tier?: string;
   memberSince?: string;
-  credits?: AomiCreditPosition | null;
+  credits?: CreditBalance | null;
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {

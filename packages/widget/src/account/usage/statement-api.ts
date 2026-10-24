@@ -200,7 +200,7 @@ export function buildMonthlyStatement(
   const totalUsd = totalMicrousd / 1_000_000;
   const settlement = [
     allowanceAppliedMicrousd > 0 ? "monthly allowance" : null,
-    creditBankAppliedMicrousd > 0 ? "Credit Bank" : null,
+    creditBankAppliedMicrousd > 0 ? "Credit balance" : null,
   ].filter((method): method is string => method !== null);
 
   return {

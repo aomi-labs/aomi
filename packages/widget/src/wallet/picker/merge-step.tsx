@@ -1,7 +1,7 @@
 "use client";
 
 import { AomiButton } from "@/ui/aomi/button";
-import { formatCredits } from "@/account/usage/credit-bank/format";
+import { formatCredits } from "@/account/usage/credits/format";
 import { shortAddress } from "@aomi-labs/client";
 import type { SheetState } from "./sheet-machine";
 import type { SheetFlow } from "./use-sheet-flow";

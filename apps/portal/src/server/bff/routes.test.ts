@@ -924,7 +924,8 @@ describe("scopes each agent API route asks for", () => {
     expect(response.status).toBe(200);
     expect(mocks.mintDelegatedBearer.mock.calls[0][2].scope).toBe(scope);
     const payment =
-      path === "/v1/account/credits/funding-events" || path === "/v1/account/statement";
+      path === "/v1/account/credits/funding-events" ||
+      path === "/v1/account/statement";
     expect(mocks.mintDelegatedBearer.mock.calls[0][1]).toBe(
       payment ? "aomi-payment" : "aomi-api-server",
     );
@@ -1007,7 +1008,12 @@ describe("dev tools", () => {
 describe("direct account payment forwarding", () => {
   it.each([
     ["GET", "/v1/account/credits/methods", "account:credits:read"],
-    ["GET", "/v1/account/credits/funding-events/current", "account:credits:read"],
+    ["GET", "/v1/account/credits/ledger", "account:credits:read"],
+    [
+      "GET",
+      "/v1/account/credits/funding-events/current",
+      "account:credits:read",
+    ],
     ["POST", "/v1/account/credits/funding-events", "account:credits:fund"],
     [
       "POST",
@@ -1015,11 +1021,12 @@ describe("direct account payment forwarding", () => {
       "account:credits:fund",
     ],
   ])("delegates %s %s only to Payment", async (method, path, scope) => {
-    const handler = path.endsWith("/methods")
-      ? routes.credits.GET
-      : method === "GET"
-        ? routes.fundingEvents.GET
-        : routes.fundingEvents.POST;
+    const handler =
+      path.endsWith("/methods") || path.endsWith("/ledger")
+        ? routes.credits.GET
+        : method === "GET"
+          ? routes.fundingEvents.GET
+          : routes.fundingEvents.POST;
     const rejected = await handler(
       request(path, {
         method,

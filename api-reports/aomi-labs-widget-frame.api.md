@@ -7,7 +7,6 @@
 import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/react';
 import { AomiClientOptions } from '@aomi-labs/react';
-import { AomiInferenceFundingSource } from '@aomi-labs/react';
 import { CSSProperties } from 'react';
 import { DisplayPersistence } from '@aomi-labs/react';
 import { FC } from 'react';
@@ -65,7 +64,6 @@ export type AomiFrameRootProps = {
     applicationId?: number | string | null;
     agentTarget?: AgentTarget;
     clientOptions?: Omit<AomiClientOptions, "baseUrl">;
-    inferenceFunding?: AomiInferenceFundingSource;
     accountSessionAvailable?: boolean;
     persistThread?: boolean;
     threadPersistenceKey?: string;

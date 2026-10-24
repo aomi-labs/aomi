@@ -1,15 +1,9 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/account/usage/credit-bank/credit-bank", async () => {
-  const { useEffect } = await import("react");
-  return {
-    CreditBank: ({ onLoad }: { onLoad?: () => void }) => {
-      useEffect(() => onLoad?.(), [onLoad]);
-      return <div>Credit Bank</div>;
-    },
-  };
-});
+vi.mock("@/account/usage/credits/credit-balance-panel", () => ({
+  CreditBalancePanel: () => <div>Credit balance</div>,
+}));
 
 const account = vi.hoisted(() => ({ id: "" }));
 vi.mock("@/wallet/context", () => ({
@@ -42,8 +36,15 @@ const STATEMENT = {
 
 const CREDITS = {
   period_utc_month: "2026-09-01",
-  included: { limit_microusd: 5_000_000, used_microusd: 800_000, remaining_microusd: 4_200_000 },
-  balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
+  included: {
+    limit_microusd: 5_000_000,
+    used_microusd: 800_000,
+    remaining_microusd: 4_200_000,
+  },
+  balance_microusd: 0,
+  reserved_microusd: 0,
+  available_microusd: 0,
+  debt_microusd: 0,
   entries: [],
   next_before_id: null,
 };
@@ -66,7 +67,8 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json(STATEMENT);
         }
-        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
+        if (url.pathname === "/v1/account/credits/ledger")
+          return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json(CREDITS);
         }
@@ -87,15 +89,15 @@ describe("usage settings wiring", () => {
     expect(statementQuery.searchParams.get("limit")).toBe("100");
     expect(statementQuery.searchParams.get("from")).toBeTruthy();
     expect(statementQuery.searchParams.get("to")).toBeTruthy();
-    expect(calls).toContain("/v1/account/credits/ledger?limit=25");
+    expect(calls).toContain("/v1/account/credits");
     expect(
       calls.filter((call) => call.startsWith("/v1/account/credits/ledger?")),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("No charges").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/of 500 left · 80 used/)).toBeTruthy();
-    expect(screen.getByText("Credit Bank")).toBeTruthy();
+    expect(screen.getByText("Credit balance")).toBeTruthy();
     const settlement = screen.getByText(/Paid via monthly allowance/);
     expect(settlement.textContent).toContain(
       "Compute fully covered by your allowance ($0.80 applied).",
@@ -109,7 +111,7 @@ describe("usage settings wiring", () => {
     ).toBeTruthy();
   });
 
-  it("composes allowance from Credit Bank instead of the profile response", async () => {
+  it("composes allowance from Credit balance instead of the profile response", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -117,11 +119,16 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json({ entries: [], next_cursor: null });
         }
-        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
+        if (url.pathname === "/v1/account/credits/ledger")
+          return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json({
             ...CREDITS,
-            included: { limit_microusd: 50_000_000, used_microusd: 12_500_000, remaining_microusd: 37_500_000 },
+            included: {
+              limit_microusd: 50_000_000,
+              used_microusd: 12_500_000,
+              remaining_microusd: 37_500_000,
+            },
           });
         }
         return new Response("unexpected", { status: 500 });
@@ -150,7 +157,8 @@ describe("usage settings wiring", () => {
             { status: 401 },
           );
         }
-        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
+        if (url.pathname === "/v1/account/credits/ledger")
+          return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json(CREDITS);
         }
@@ -170,7 +178,7 @@ describe("usage settings wiring", () => {
     expect(screen.queryByText(/widget_auth_failed/)).toBeNull();
   });
 
-  it("keeps spend and Credit Bank visible when allowance loading fails", async () => {
+  it("keeps spend and Credit balance visible when allowance loading fails", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -178,7 +186,8 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json(STATEMENT);
         }
-        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
+        if (url.pathname === "/v1/account/credits/ledger")
+          return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return new Response("credits unavailable", { status: 503 });
         }
@@ -192,7 +201,7 @@ describe("usage settings wiring", () => {
 
     expect(await screen.findByText("Spend breakdown")).toBeTruthy();
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("Credit Bank")).toBeTruthy();
+    expect(screen.getByText("Credit balance")).toBeTruthy();
     expect(screen.getByText("Unavailable")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });

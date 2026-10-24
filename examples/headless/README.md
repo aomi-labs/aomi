@@ -118,8 +118,8 @@ non-exportable DPoP keys and intentionally remains memory-only.
   reads the Agent session list. Run `pnpm example:auth:siws:disposable`; it
   creates no Solana transaction and never prints the secret or session token.
 - [`src/account/credits.ts`](./src/account/credits.ts) reads the monthly
-  allowance, Credit Bank balance, debt, and recent activity.
-  Set `AOMI_TOP_UP_CREDITS` to purchase credits through the SDK's normal x402
+  allowance, credit balance, debt, and recent activity.
+  Set `AOMI_FUNDING_CREDITS` to purchase credits through the SDK's normal x402
   wallet path. The account bearer and private key are read from the environment
   and are never printed or persisted by the example.
 
@@ -128,17 +128,21 @@ non-exportable DPoP keys and intentionally remains memory-only.
 The high-level SDK keeps billing under the account it belongs to:
 
 ```ts
-const position = await aomi.account.credits.get({ limit: 25 });
-const topUp = await aomi.account.credits.topUp({
-  credits: 100,
-  idempotencyKey: crypto.randomUUID(),
+const balance = await aomi.account.credits.get();
+const ledger = await aomi.account.credits.ledger({ limit: 25 });
+const funding = await aomi.account.credits.beginFunding({
+  amountMicrousd: 1_000_000, // 100 credits
+  method: "wallet",
+  chain: "eip155:84532", // Explicitly choose an advertised test network.
+  idempotencyKey: savedFundingKey, // Persist once and reuse after unknown outcomes.
 });
 ```
 
-There is no separate debt-payment endpoint. The Credit Bank position reports
-any outstanding usage debt, while paid Agent and Pipeline requests satisfy an
-x402 challenge automatically through the same wallet transport. A top-up
-creates a durable balance for subsequent usage.
+There is no separate debt-payment endpoint. The credit balance reports
+any outstanding usage debt. Wallet funding satisfies its x402 challenge through
+the wallet transport and credits the account after verified settlement. Poll
+`credits.fundingEvent(funding.funding_event.id)` until credited; a processing
+response does not yet make the funds available.
 
 For the runnable top-up example, use a short-lived signed-in account bearer and
 a funded throwaway EVM development wallet:
@@ -147,7 +151,8 @@ a funded throwaway EVM development wallet:
 AOMI_BASE_URL=http://localhost:3000 \
 AOMI_ACCOUNT_BEARER="$AOMI_ACCOUNT_BEARER" \
 AOMI_PRIVATE_KEY="$AOMI_PRIVATE_KEY" \
-AOMI_TOP_UP_CREDITS=100 \
+AOMI_FUNDING_CREDITS=100 \
+AOMI_FUNDING_KEY="$AOMI_FUNDING_KEY" \
 AOMI_PAYMENT_CHAIN_ID=84532 \
 pnpm example:account:credits
 ```
@@ -249,7 +254,7 @@ was submitted.
 | `corepack pnpm example:walkthrough`                 | `AOMI_BASE_URL`; optionally `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION`, `AOMI_PIPELINE_ARGS`                                | Two turns reuse one session; optional Pipeline section reports access policy and never commits.                                                         |
 | `corepack pnpm example:oauth`                       | `AOMI_BASE_URL`, `AOMI_OAUTH_CLIENT_ID`; optionally `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_STORE_PATH`                              | Device authorization and an authenticated Agent or Pipeline request, matching the client's exact resource. Requires browser approval.                   |
 | `corepack pnpm example:oauth-token`                 | `AOMI_BASE_URL`, `AOMI_OAUTH_ACCESS_TOKEN`, `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_SCOPES`                                          | A host-supplied exact-resource token is accepted for the requested scope.                                                                               |
-| `corepack pnpm example:account:credits`             | `AOMI_BASE_URL`, `AOMI_ACCOUNT_BEARER`, `AOMI_PRIVATE_KEY`; optionally `AOMI_TOP_UP_CREDITS`, `AOMI_PAYMENT_CHAIN_ID`           | Reads Credit Bank position; setting top-up credits adds a paid operation.                                                                               |
+| `corepack pnpm example:account:credits`             | `AOMI_BASE_URL`, `AOMI_ACCOUNT_BEARER`, `AOMI_PRIVATE_KEY`; `AOMI_PAYMENT_CHAIN_ID`; optionally `AOMI_FUNDING_CREDITS` with `AOMI_FUNDING_KEY`           | Reads credit balance; setting top-up credits adds a paid operation.                                                                               |
 | `corepack pnpm example:wallet-terminal`             | `AOMI_BASE_URL`; for EVM wallet work also `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`; optionally `AOMI_WALLET_AUTH=siwe` | Guest or signed-in SIWE Agent session, with terminal approval for every pending Commit step or historical Action. `/exit` quits.                        |
 | `corepack pnpm example:custom-contract:anchor-root` | `AOMI_BASE_URL`, `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`, `ANCHOR_REGISTRY_ADDRESS`; optionally `ANCHOR_ROOT`         | A Commit whose review decodes to `registerRoot(root)` on the registry with passed simulation, signed locally; mismatches are rejected with exit code 1. |
 | `corepack pnpm example:auth:siws:disposable`        | `AOMI_BASE_URL`; optionally `AOMI_SIWS_CHAIN_ID`                                                                                | Disposable-key SIWS challenge/verify and authenticated Agent read; no funded key or Solana transaction.                                                 |
