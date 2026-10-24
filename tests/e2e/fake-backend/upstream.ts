@@ -3,7 +3,7 @@
 // with the committed development key. Agent threads are kept per account so
 // one account can never read another's chat.
 import { createPrivateKey, createPublicKey, verify } from "node:crypto";
-import type { CreditBalance } from "@aomi-labs/client";
+import type { CreditBalance } from "../../../packages/client/src/account/credits";
 import {
   createServer,
   type IncomingMessage,
