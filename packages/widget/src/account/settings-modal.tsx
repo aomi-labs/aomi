@@ -134,10 +134,12 @@ export function SettingsModal({
   onClose,
   initialTab = "general",
   accountOnly = false,
+  initialTopUp = false,
 }: {
   onClose: () => void;
   initialTab?: SettingsTab;
   accountOnly?: boolean;
+  initialTopUp?: boolean;
 }) {
   const [tab, setTab] = useState<SettingsTab>(
     accountOnly ? "account" : initialTab,
@@ -212,7 +214,7 @@ export function SettingsModal({
             ) : id === "account" ? (
               <AccountSettings onClose={onClose} />
             ) : id === "usage" ? (
-              <UsageSettings />
+              <UsageSettings initialTopUp={initialTopUp} />
             ) : (
               <PolicyPage />
             )}

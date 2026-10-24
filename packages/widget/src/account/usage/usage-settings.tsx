@@ -12,19 +12,21 @@ import {
   SpendBreakdownSection,
   USAGE_MATRIX_HINT,
 } from "./usage-shared";
-import { CreditBank } from "@/account/usage/credit-bank/credit-bank";
+import { CreditBalancePanel } from "@/account/usage/credits/credit-balance-panel";
 
 /**
  * Settings › Usage — design-sync hierarchy (hero, spend breakdown, allowance,
  * by-app matrix) on the live model statement (`/v1/account/statement`).
  * Tool and on-chain subjects show "—" until their ledger writers exist.
  */
-export function UsageSettings() {
+export function UsageSettings({
+  initialTopUp = false,
+}: { initialTopUp?: boolean } = {}) {
   const statement = useUsageStatement();
   const month = statement.month;
 
   // Each section shows as soon as its own read answers: the statement drives
-  // the totals, the credit position drives the allowance and Credit Bank.
+  // the totals, the credit balance drives the allowance and Credit balance.
   if (!month && statement.status === "error") {
     return (
       <p className="text-aomi-danger text-[13px]">
@@ -60,7 +62,9 @@ export function UsageSettings() {
         allowanceError={statement.allowanceError}
         onRetryAllowance={statement.retryAllowance}
       >
-        {statement.isCurrentMonth ? <CreditBank /> : null}
+        {statement.isCurrentMonth ? (
+          <CreditBalancePanel initialTopUp={initialTopUp} />
+        ) : null}
       </AllowanceSettlementSection>
 
       {!month ? null : month.apps.length > 0 ? (

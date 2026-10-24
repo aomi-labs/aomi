@@ -14,7 +14,6 @@ import {
   useAomiRuntime,
   type AomiClientOptions,
   type AgentTarget,
-  type AomiInferenceFundingSource,
   type DisplayPersistence,
   type RuntimeAccount,
 } from "@aomi-labs/react";
@@ -97,7 +96,6 @@ type RootProps = {
   /** Optional runtime client overrides. */
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
   /** Explicit inference funding lane for Agent turns. */
-  inferenceFunding?: AomiInferenceFundingSource;
   /** Whether an account session can load thread history without a wallet. */
   accountSessionAvailable?: boolean;
   /** Persist the active materialized thread in localStorage. Defaults to true. */
@@ -176,7 +174,6 @@ const Root: FC<RootProps> = ({
   applicationId,
   agentTarget,
   clientOptions,
-  inferenceFunding,
   accountSessionAvailable,
   persistThread,
   threadPersistenceKey,
@@ -214,7 +211,6 @@ const Root: FC<RootProps> = ({
         applicationId={applicationId}
         agentTarget={agentTarget}
         clientOptions={clientOptions}
-        inferenceFunding={inferenceFunding}
         accountSessionAvailable={accountSessionAvailable}
         persistThread={persistThread}
         threadPersistenceKey={threadPersistenceKey}

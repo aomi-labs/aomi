@@ -175,7 +175,6 @@ export function AomiRuntimeCore({
     aomiClientRef,
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState: userContext.getUserState,
-    inferenceFunding: getControlState().inferenceFunding,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
     getAppKey: (target, text) =>
       privateAppKey(target, text, privateApps.getKey, (id) =>

@@ -68,6 +68,7 @@ export default defineConfig({
     include: [
       "scripts/**/*.{test,spec}.{ts,tsx,mjs,cjs,js}",
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
+      "apps/landing/app/api/**/route.{test,spec}.{ts,tsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",

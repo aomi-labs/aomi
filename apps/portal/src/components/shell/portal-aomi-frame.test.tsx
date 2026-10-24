@@ -184,8 +184,18 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
         </button>
       ) : null,
     PackagesModal: () => <div data-testid="packages-modal" />,
-    SettingsModal: ({ initialTab }: { initialTab?: string }) => (
-      <div data-testid="settings-modal" data-tab={initialTab} />
+    SettingsModal: ({
+      initialTab,
+      initialTopUp,
+    }: {
+      initialTab?: string;
+      initialTopUp?: boolean;
+    }) => (
+      <div
+        data-testid="settings-modal"
+        data-tab={initialTab}
+        data-topup={String(initialTopUp)}
+      />
     ),
     useAccountOverview: () => {
       if (!React.useContext(frameScope.context!))
@@ -517,6 +527,29 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-agent-target",
       "",
+    );
+  });
+
+  it("opens a credit top-up handoff and retains it through sign-in", () => {
+    window.history.replaceState({}, "", "/?topup=credits&app=demo");
+    const view = render(<PortalAomiFrame />);
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-tab",
+      "usage",
+    );
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-topup",
+      "true",
+    );
+    expect(window.location.search).toBe("?app=demo");
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    view.rerender(<PortalAomiFrame />);
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-topup",
+      "true",
     );
   });
 

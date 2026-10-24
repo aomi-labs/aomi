@@ -1,5 +1,5 @@
 import "server-only";
-import { backendUrlFromEnv } from "@aomi-labs/account/backend-url";
+import { backendUrlFromEnv } from "@aomi-labs/account/forward";
 import { readAccountAuthEnv } from "@aomi-labs/account/better-auth/env";
 
 /** The portal BFF's settings, read from the environment in one place. */
@@ -24,6 +24,21 @@ export function agentApiUrl(): string {
   )
     throw new Error("AOMI_AGENT_API_URL is required in hosted environments");
   return "http://127.0.0.1:8082";
+}
+
+/** Account payments share the hosted edge; local development uses Payment's port. */
+export function paymentApiUrl(): string {
+  const configured = process.env.AOMI_PAYMENT_API_URL?.trim();
+  if (configured) {
+    const url = absoluteHttpUrl(configured);
+    if (!url)
+      throw new Error("AOMI_PAYMENT_API_URL must be an absolute HTTP URL");
+    return url;
+  }
+  const url = new URL(backendUrl());
+  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
+    url.port = "8085";
+  return url.origin;
 }
 
 export type DeploymentTier = "development" | "staging" | "production";

@@ -19,7 +19,6 @@ const publicPackages = [
   "deploy",
   "cli",
   "widget",
-  "widget-lib",
 ];
 const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
 let directory;

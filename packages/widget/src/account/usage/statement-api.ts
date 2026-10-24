@@ -19,7 +19,7 @@ type AccountStatementResponse = {
   next_cursor: string | null;
 };
 
-type FundingKind = "platform" | "user_key" | "application_key";
+type FundingKind = "platform" | "user_key" | "builder_key";
 
 export type UsageCharge = {
   applicationId: number | null;
@@ -200,7 +200,7 @@ export function buildMonthlyStatement(
   const totalUsd = totalMicrousd / 1_000_000;
   const settlement = [
     allowanceAppliedMicrousd > 0 ? "monthly allowance" : null,
-    creditBankAppliedMicrousd > 0 ? "Credit Bank" : null,
+    creditBankAppliedMicrousd > 0 ? "Credit balance" : null,
   ].filter((method): method is string => method !== null);
 
   return {
@@ -276,16 +276,7 @@ function createAppAccumulator(name: string): AppAccumulator {
 function parseUsageCharge(value: unknown): UsageCharge {
   const row = statementObject(value, "entry");
   const funding = statementObject(row.funding, "entry.funding");
-  const fundingKind = funding.kind;
-  if (
-    fundingKind !== "platform" &&
-    fundingKind !== "user_key" &&
-    fundingKind !== "application_key"
-  ) {
-    throw new TypeError(
-      `Invalid account statement response: unsupported funding kind ${String(fundingKind)}`,
-    );
-  }
+  const fundingKind = parseFundingKind(funding.kind);
 
   return {
     applicationId: statementNullableNumber(
@@ -303,8 +294,18 @@ function parseUsageCharge(value: unknown): UsageCharge {
   };
 }
 
+function parseFundingKind(value: unknown): FundingKind {
+  if (value === "application_key" || value === "builder_key") {
+    return "builder_key";
+  }
+  if (value === "platform" || value === "user_key") return value;
+  throw new TypeError(
+    `Invalid account statement response: unsupported funding kind ${String(value)}`,
+  );
+}
+
 function isOwnKeyFunding(funding: FundingKind): boolean {
-  return funding === "user_key" || funding === "application_key";
+  return funding === "user_key" || funding === "builder_key";
 }
 
 async function fetchApplicationNames(

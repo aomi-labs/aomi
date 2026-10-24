@@ -1,3 +1,4 @@
+import { consumerBaseline } from "./check-consumer-compatibility-baseline.mjs";
 // Production hosts for the browser suites: the fake upstream, a production
 // Portal on a disposable database, and the packed widget consumers built from
 // this checkout's tarballs. Each runner starts what it needs and stops it all.
@@ -90,7 +91,7 @@ export function createHosts(output) {
 
 /** Fake upstream, packed Vite consumer and production Portal. */
 export async function startPortalHosts(hosts, upstreamOptions = {}) {
-  const trustedBase = required("CONSUMER_BASE_SHA");
+  const trustedBase = consumerBaseline(root, process.env.CONSUMER_BASE_SHA);
   const databaseUrl = required("AOMI_TEST_DATABASE_URL");
   if (process.env.AOMI_TEST_DATABASE_DISPOSABLE !== "1")
     throw new Error(

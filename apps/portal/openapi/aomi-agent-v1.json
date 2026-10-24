@@ -10,13 +10,20 @@
     "DELETE /v1/account/apps/{applicationId}/secrets",
     "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
     "DELETE /v1/agent/sessions/{sessionId}",
+    "GET /.well-known/agent.json",
     "GET /.well-known/api-catalog",
+    "GET /.well-known/jwks.json",
+    "GET /.well-known/x402",
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
     "GET /v1/account/apps",
     "GET /v1/account/apps/{applicationId}/secrets",
     "GET /v1/account/credits",
+    "GET /v1/account/credits/funding-events/current",
+    "GET /v1/account/credits/funding-events/{id}",
+    "GET /v1/account/credits/ledger",
+    "GET /v1/account/credits/methods",
     "GET /v1/account/statement",
     "GET /v1/account/transaction-safety",
     "GET /v1/account/transaction-safety/threads/{threadId}",
@@ -24,6 +31,11 @@
     "GET /v1/agent/chat/{sessionId}/stream",
     "GET /v1/agent/sessions",
     "GET /v1/agent/sessions/{sessionId}",
+    "GET /v1/builder/credits",
+    "GET /v1/builder/credits/funding-events/current",
+    "GET /v1/builder/credits/funding-events/{id}",
+    "GET /v1/builder/credits/ledger",
+    "GET /v1/builder/credits/methods",
     "GET /v1/pipeline",
     "GET /v1/pipeline/apps",
     "GET /v1/pipeline/apps/{app}",
@@ -55,14 +67,20 @@
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
+    "GET /v1/task/build",
+    "GET /v1/task/openapi.json",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/apps/{applicationId}",
     "POST /v1/account/apps/{applicationId}/secrets",
-    "POST /v1/account/credits/top-up",
+    "POST /v1/account/credits/funding-events",
+    "POST /v1/account/credits/funding-events/{id}/cancel",
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
     "POST /v1/agent/chat/{sessionId}/interrupt",
     "POST /v1/agent/mcp",
+    "POST /v1/builder/credits/funding-events",
+    "POST /v1/builder/credits/funding-events/{id}/cancel",
+    "POST /v1/payment/webhooks/stripe",
     "POST /v1/pipeline/apps/{app}/operations/{operation}",
     "POST /v1/pipeline/evm/account",
     "POST /v1/pipeline/evm/build",
@@ -87,10 +105,57 @@
     "POST /v1/pipeline/svm/stage",
     "POST /v1/pipeline/svm/token-holdings",
     "POST /v1/task/build",
+    "POST /v1/task/{quoteId}/result",
+    "POST /v1/task/{quoteId}/status",
     "PUT /v1/account/transaction-safety",
     "PUT /v1/account/transaction-safety/threads/{threadId}"
   ],
   "paths": {
+    "/.well-known/x402": {
+      "get": {
+        "operationId": "taskPaymentDiscovery",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Public Task payment endpoint discovery"
+          }
+        }
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "operationId": "taskManifest",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Public Task manifest using deployed payment terms"
+          },
+          "502": {
+            "description": "Invalid Task discovery configuration"
+          },
+          "503": {
+            "description": "Payment service unavailable"
+          }
+        }
+      }
+    },
+    "/v1/task/openapi.json": {
+      "get": {
+        "operationId": "taskOpenapi",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Task-only OpenAPI contract with deployed networks"
+          },
+          "502": {
+            "description": "Invalid Task discovery configuration"
+          },
+          "503": {
+            "description": "Payment service unavailable"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health",
@@ -122,155 +187,6 @@
             "description": "This document"
           }
         }
-      }
-    },
-    "/v1/account/credits": {
-      "get": {
-        "operationId": "getAccountCredits",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "before_id",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current included allowance, Credit Bank balance, and recent activity"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/top-up": {
-      "post": {
-        "operationId": "topUpAccountCredits",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["amount_microusd"],
-                "additionalProperties": false,
-                "properties": {
-                  "amount_microusd": {
-                    "type": "integer",
-                    "minimum": 10000,
-                    "maximum": 1000000000
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated Credit Bank position"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:credits:topup"]
-          }
-        ]
-      }
-    },
-    "/v1/account/statement": {
-      "get": {
-        "operationId": "getAccountStatement",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "from",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Priced usage statement"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:usage:read"]
-          }
-        ]
       }
     },
     "/v1/agent/chat": {
@@ -2657,12 +2573,356 @@
         ]
       }
     },
+    "/.well-known/jwks.json": {
+      "get": {
+        "operationId": "signingJwks",
+        "summary": "Public signing keys for verifying Aomi API attestations",
+        "responses": {
+          "200": {
+            "description": "Ed25519 verification keys; contains no private key material",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["keys"],
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["kty", "crv", "alg", "kid", "x"],
+                        "properties": {
+                          "kty": {
+                            "const": "OKP"
+                          },
+                          "crv": {
+                            "const": "Ed25519"
+                          },
+                          "alg": {
+                            "const": "EdDSA"
+                          },
+                          "kid": {
+                            "type": "string"
+                          },
+                          "x": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/task/build": {
-      "post": {
-        "operationId": "buildTask",
+      "get": {
+        "operationId": "discoverTaskPayment",
         "security": [],
-        "description": "Wallet-native task preparation. Every request is bound to the exact canonical body by a short-lived EIP-712 TaskAuthorization; bearer credentials are rejected. smart_account_calls may include exact ordered calls that Aomi simulates directly with the authenticated wallet as msg.sender. EOA, ERC-1271 and ERC-6492 signatures are supported. Payment and final execution remain separate wallet signatures. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
+        "summary": "Read-only Task payment metadata",
+        "description": "Returns public instructions for the payable POST. A valid POST returns a body-bound x402 v2 Payment-Required challenge; a GET cannot buy preparation and does not advertise a payable challenge. No signature or authorization is required for this metadata.",
+        "responses": {
+          "200": {
+            "description": "Task payment metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "endpoint",
+                    "method",
+                    "paymentProtocol",
+                    "paymentScheme",
+                    "networks",
+                    "asset",
+                    "preparationPriceMicroUsdc",
+                    "retrievalPrice",
+                    "openapi",
+                    "exampleRequest",
+                    "paymentInstructions"
+                  ],
+                  "properties": {
+                    "endpoint": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "method": {
+                      "const": "POST"
+                    },
+                    "paymentProtocol": {
+                      "type": "string"
+                    },
+                    "paymentScheme": {
+                      "type": "string"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "asset": {
+                      "type": "string"
+                    },
+                    "preparationPriceMicroUsdc": {
+                      "type": "string"
+                    },
+                    "retrievalPrice": {
+                      "type": "string"
+                    },
+                    "openapi": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "exampleRequest": {
+                      "type": "object",
+                      "description": "Unsigned JSON body that reaches the body-bound preparation challenge on an enabled network."
+                    },
+                    "paymentInstructions": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "prepareTask",
+        "security": [],
+        "summary": "Purchase one preparation attempt for 0.01 USDC",
+        "description": "Validate intent, then pay the x402 challenge by retrying the same body. Returns a private job capability. Preparation attempts are non-refundable; no TaskAuthorization or execution signature is required.",
         "parameters": [
+          {
+            "in": "header",
+            "name": "Payment-Signature",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "scheme": "GatewayWalletBatched"
+              }
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["intent", "chainId", "sender"],
+                "properties": {
+                  "executionKind": {
+                    "enum": ["eoa_transactions", "smart_account_calls"],
+                    "default": "eoa_transactions"
+                  },
+                  "transactionSafetyMode": {
+                    "$ref": "#/components/schemas/TransactionSafetyMode",
+                    "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                  },
+                  "intent": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "chainId": {
+                    "type": "integer",
+                    "enum": [5042, 5042002]
+                  },
+                  "sender": {
+                    "type": "string"
+                  },
+                  "payer": {
+                    "type": "string"
+                  },
+                  "calls": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "default": [],
+                    "description": "Exact ordered inner calls. Allowed only with smart_account_calls; simulated without planner reconstruction.",
+                    "items": {
+                      "$ref": "#/components/schemas/TaskWalletCall"
+                    }
+                  },
+                  "constraints": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "maxOutgoingUsdcWei": {
+                        "type": "string",
+                        "pattern": "^[0-9]+$",
+                        "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
+                      },
+                      "maxGasUnits": {
+                        "type": "integer",
+                        "format": "uint64",
+                        "minimum": 0,
+                        "description": "Maximum simulated gas units across all actions."
+                      },
+                      "allowedTargets": {
+                        "type": "array",
+                        "default": [],
+                        "items": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{40}$"
+                        },
+                        "description": "If nonempty, every action target must be in this allowlist."
+                      },
+                      "minimumReceived": {
+                        "type": "array",
+                        "default": [],
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["asset", "amount"],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^[0-9]+$",
+                              "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Preparation payment pending or accepted; quoteId, retrievalToken, statusUrl, resultUrl, retryAfter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskJob"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "0.01 USDC preparation challenge",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; not charged"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/task/{quoteId}/status": {
+      "post": {
+        "operationId": "taskStatus",
+        "security": [],
+        "summary": "Free progress, terminal failure, or attested preview and 3% retrieval quote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quoteId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["retrievalToken"],
+                "properties": {
+                  "retrievalToken": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Free progress, terminal failure, or attested preview and 3% retrieval quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskProgress"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Work or payment pending; retry existing job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskProgress"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown job or invalid capability"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/task/{quoteId}/result": {
+      "post": {
+        "operationId": "taskResult",
+        "security": [],
+        "summary": "Purchase frozen bundle for 3% of gross outgoing USDC; zero outflow is free. Repeat retrieval lasts 30 days",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quoteId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "in": "header",
             "name": "Payment-Signature",
@@ -2676,162 +2936,28 @@
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "intent",
-                      "chainId",
-                      "sender",
-                      "idempotencyKey",
-                      "authorization"
-                    ],
-                    "properties": {
-                      "executionKind": {
-                        "enum": ["eoa_transactions", "smart_account_calls"],
-                        "default": "eoa_transactions"
-                      },
-                      "transactionSafetyMode": {
-                        "$ref": "#/components/schemas/TransactionSafetyMode",
-                        "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
-                      },
-                      "intent": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 8000
-                      },
-                      "chainId": {
-                        "type": "integer",
-                        "enum": [5042, 5042002]
-                      },
-                      "sender": {
-                        "type": "string"
-                      },
-                      "payer": {
-                        "type": "string",
-                        "description": "Wallet paying for the Task artifact. When omitted on an initial request, the server materializes payer as the normalized sender address before canonicalization and signing; the EIP-712 payer field must therefore equal sender."
-                      },
-                      "calls": {
-                        "type": "array",
-                        "maxItems": 16,
-                        "default": [],
-                        "description": "Exact ordered inner calls. Allowed only with smart_account_calls; signed and simulated without planner reconstruction.",
-                        "items": {
-                          "$ref": "#/components/schemas/TaskWalletCall"
-                        }
-                      },
-                      "constraints": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                          "maxOutgoingUsdcWei": {
-                            "type": "string",
-                            "pattern": "^[0-9]+$",
-                            "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
-                          },
-                          "maxGasUnits": {
-                            "type": "integer",
-                            "format": "uint64",
-                            "minimum": 0,
-                            "description": "Maximum simulated gas units across all actions."
-                          },
-                          "allowedTargets": {
-                            "type": "array",
-                            "default": [],
-                            "items": {
-                              "type": "string",
-                              "pattern": "^0x[0-9a-fA-F]{40}$"
-                            },
-                            "description": "If nonempty, every action target must be in this allowlist."
-                          },
-                          "minimumReceived": {
-                            "type": "array",
-                            "default": [],
-                            "items": {
-                              "type": "object",
-                              "additionalProperties": false,
-                              "required": ["asset", "amount"],
-                              "properties": {
-                                "asset": {
-                                  "type": "string",
-                                  "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
-                                },
-                                "amount": {
-                                  "type": "string",
-                                  "pattern": "^[0-9]+$",
-                                  "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
-                                }
-                              }
-                            }
-                          }
-                        }
-                      },
-                      "idempotencyKey": {
-                        "type": "string",
-                        "maxLength": 160
-                      },
-                      "authorization": {
-                        "$ref": "#/components/schemas/TaskAuthorization"
-                      }
-                    }
-                  },
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["quoteId", "retrievalToken", "authorization"],
-                    "properties": {
-                      "quoteId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "retrievalToken": {
-                        "type": "string",
-                        "writeOnly": true
-                      },
-                      "authorization": {
-                        "allOf": [
-                          {
-                            "$ref": "#/components/schemas/TaskAuthorization"
-                          }
-                        ],
-                        "description": "Authorizes the exact canonical request stored with the quote, not this retrieval body. Reuse the original signature while it remains suitable, or refresh only issuedAt, expiresAt, and signature over the same stored requestHash, EIP-712 domain, typed fields, wallet, and idempotencyKey."
-                      }
-                    }
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["retrievalToken"],
+                "properties": {
+                  "retrievalToken": {
+                    "type": "string",
+                    "writeOnly": true
                   }
-                ]
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Exact frozen JSON artifact bytes (build, report and safe summary), released only after payment acceptance. smart_account_calls artifacts also expose the exact ordered walletCalls simulated with the authenticated wallet as msg.sender. This covers inner calls, not Circle's outer envelope or wallet policy. Payment-Response is returned when available; accepted is distinct from batch settlement.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["summary"],
-                  "properties": {
-                    "summary": {
-                      "$ref": "#/components/schemas/TaskSummary"
-                    },
-                    "walletCalls": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/TaskWalletCall"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Purchase frozen bundle for 3% of gross outgoing USDC; zero outflow is free. Repeat retrieval lasts 30 days"
           },
           "202": {
-            "description": "Payment submitted or ambiguous; retry the same quote/token for recovery. Artifact remains private."
+            "description": "Work or payment pending; retry existing job"
           },
           "402": {
-            "description": "Safe summary, pricing, quoteId, expiresAt, SHA-256 payloadHash, EdDSA attestation, retrievalToken and base64 Gateway paymentRequired. No build/calldata/full report.",
+            "description": "Attested preview and variable fee; pay by retrying identical request",
             "headers": {
               "Payment-Required": {
                 "schema": {
@@ -2842,23 +2968,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": ["summary"],
-                  "properties": {
-                    "summary": {
-                      "$ref": "#/components/schemas/TaskSummary"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TaskPreview"
                 }
               }
             }
           },
-          "409": {
-            "description": "Request key conflict, active preparation, or incompatible payment replay."
+          "404": {
+            "description": "Unknown job or invalid capability"
           },
           "default": {
             "$ref": "#/components/responses/Error"
           }
+        },
+        "x-payment-info": {
+          "price": {
+            "mode": "dynamic",
+            "currency": "USD",
+            "min": "0"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "scheme": "GatewayWalletBatched"
+              }
+            }
+          ]
         }
       }
     },
@@ -3402,6 +3536,1022 @@
             "aomiOAuth": ["account:transaction-safety:write"]
           }
         ]
+      }
+    },
+    "/v1/account/statement": {
+      "get": {
+        "operationId": "getAccountStatement",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Priced usage statement"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:usage:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits": {
+      "get": {
+        "operationId": "accountBalance",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/methods": {
+      "get": {
+        "operationId": "accountMethods",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["card", "wallet"],
+                  "properties": {
+                    "card": {
+                      "type": ["object", "null"],
+                      "additionalProperties": true
+                    },
+                    "wallet": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/ledger": {
+      "get": {
+        "operationId": "accountLedger",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditLedger"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events": {
+      "post": {
+        "operationId": "accountBeginFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["amount_microusd", "method"],
+                "properties": {
+                  "amount_microusd": {
+                    "type": "integer",
+                    "minimum": 1000000,
+                    "maximum": 1000000000,
+                    "multipleOf": 10000
+                  },
+                  "method": {
+                    "enum": ["card", "wallet"]
+                  },
+                  "chain": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/current": {
+      "get": {
+        "operationId": "accountCurrentFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/{id}": {
+      "get": {
+        "operationId": "accountFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/{id}/cancel": {
+      "post": {
+        "operationId": "accountCancelFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits": {
+      "get": {
+        "operationId": "builderBalance",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/methods": {
+      "get": {
+        "operationId": "builderMethods",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["card", "wallet"],
+                  "properties": {
+                    "card": {
+                      "type": ["object", "null"],
+                      "additionalProperties": true
+                    },
+                    "wallet": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/ledger": {
+      "get": {
+        "operationId": "builderLedger",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditLedger"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events": {
+      "post": {
+        "operationId": "builderBeginFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["amount_microusd", "method"],
+                "properties": {
+                  "amount_microusd": {
+                    "type": "integer",
+                    "minimum": 1000000,
+                    "maximum": 1000000000,
+                    "multipleOf": 10000
+                  },
+                  "method": {
+                    "enum": ["card", "wallet"]
+                  },
+                  "chain": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/current": {
+      "get": {
+        "operationId": "builderCurrentFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/{id}": {
+      "get": {
+        "operationId": "builderFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/{id}/cancel": {
+      "post": {
+        "operationId": "builderCancelFunding",
+        "responses": {
+          "200": {
+            "description": "Owned credit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "headers": {
+              "Payment-Response": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/payment/webhooks/stripe": {
+      "post": {
+        "operationId": "stripeWebhook",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Verified notification persisted"
+          },
+          "400": {
+            "description": "Invalid signed notification"
+          }
+        }
       }
     }
   },
@@ -5880,11 +7030,11 @@
           "query": {
             "type": ["string", "null"],
             "maxLength": 256,
-            "description": "Case-insensitive substring of token symbol, name or contract address."
+            "description": "Case-insensitive discovery substring of symbol/name/address, not token identity. Named-token answers must consult query_resolution and identity; an exact contract reads that candidate. Missing or filtered holdings do not establish a zero balance."
           },
           "min_usd_value": {
             "type": ["string", "null"],
-            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; pass \"0\" when small balances matter, such as checking gas."
+            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; set it to 0 when small balances matter, such as checking gas."
           },
           "include_unpriced": {
             "type": ["boolean", "null"],
@@ -5904,7 +7054,9 @@
           "total_matching",
           "next_cursor",
           "hidden",
-          "warnings"
+          "warnings",
+          "registry",
+          "query_resolution"
         ],
         "properties": {
           "chain_id": {
@@ -5918,12 +7070,15 @@
           },
           "hidden": {
             "type": "object",
-            "description": "Counts filtered out by min_usd_value or for lacking a price.",
+            "description": "Counts excluded by min_usd_value, missing prices or provider screening. Flagged contracts can be inspected with an exact contract query.",
             "properties": {
               "below_min_usd": {
                 "type": "integer"
               },
               "unpriced": {
+                "type": "integer"
+              },
+              "flagged": {
                 "type": "integer"
               }
             }
@@ -5948,12 +7103,21 @@
               "type": "string"
             }
           },
+          "registry": {
+            "type": "object",
+            "description": "LI.FI and Uniswap reference freshness and age; separate from balance/indexer completeness."
+          },
+          "query_resolution": {
+            "type": ["object", "null"],
+            "description": "Independent reference candidates, including contracts absent from this wallet page. Not balances. Preserve ambiguity; read exact contracts for zero/dust."
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
               "required": [
                 "token_address",
+                "identity",
                 "symbol",
                 "name",
                 "decimals",
@@ -5966,6 +7130,10 @@
               "properties": {
                 "token_address": {
                   "type": "string"
+                },
+                "identity": {
+                  "type": "object",
+                  "description": "screening (native/verified/flagged/unverified/unknown), registry_sources, provider assessments. Approval is not issuer identity; absence is not spam."
                 },
                 "symbol": {
                   "type": ["string", "null"]
@@ -6918,27 +8086,6 @@
           }
         }
       },
-      "TaskAuthorization": {
-        "type": "object",
-        "description": "Per-request EIP-712 authorization for both initial Task quote requests and quote-purchase recovery requests. Compute requestHash as keccak256(UTF-8(JCS(request without authorization))) using RFC 8785 canonical JSON after lowercasing EVM addresses, materializing documented defaults (including payer = sender when payer is omitted), encoding numeric quantities as decimal strings, and preserving call-array order. The EIP-712 domain is {name: 'Aomi Task API', version: '1', chainId: request.chainId, salt: keccak256('https://chat.aomi.dev/v1/task')}. The primary type is TaskAuthorization(string endpoint,bytes32 requestHash,uint256 chainId,address sender,address payer,string idempotencyKey,uint64 issuedAt,uint64 expiresAt), where endpoint is '/v1/task/build'. issuedAt and expiresAt are Unix seconds; expiresAt must be after issuedAt and no more than five minutes later, and issuedAt may be at most 30 seconds in the future. The recovered EOA, ERC-1271, or ERC-6492 signer must equal both sender and payer. Before a quote exists, a near-expiry authorization may be replaced only for the identical requestHash and idempotencyKey. After quote creation, purchase and recovery remain bound to the stored original requestHash, domain, typed fields, wallet, and idempotencyKey; clients may refresh only issuedAt, expiresAt, and signature over that same binding until quote expiry, and the authorization cannot authorize another request.",
-        "additionalProperties": false,
-        "required": ["issuedAt", "expiresAt", "signature"],
-        "properties": {
-          "issuedAt": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "signature": {
-            "type": "string",
-            "pattern": "^0x[0-9a-fA-F]+$",
-            "writeOnly": true
-          }
-        }
-      },
       "TaskSummary": {
         "type": "object",
         "additionalProperties": false,
@@ -6952,7 +8099,7 @@
           "source",
           "senderBinding",
           "requestHash",
-          "authorizationIdentity",
+          "payerIdentity",
           "actionCount",
           "outgoingUsdcWei"
         ],
@@ -7042,7 +8189,7 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
           },
-          "authorizationIdentity": {
+          "payerIdentity": {
             "type": "string"
           },
           "actionCount": {
@@ -7073,6 +8220,183 @@
             "pattern": "^[0-9]+$"
           }
         }
+      },
+      "X402PaymentRequirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scheme",
+          "network",
+          "asset",
+          "amount",
+          "payTo",
+          "maxTimeoutSeconds"
+        ],
+        "properties": {
+          "scheme": {
+            "const": "exact"
+          },
+          "maxTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "network": {
+            "type": "string",
+            "pattern": "^eip155:[0-9]+$"
+          },
+          "asset": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "payTo": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          }
+        }
+      },
+      "TaskJob": {
+        "type": "object",
+        "required": [
+          "quoteId",
+          "retrievalToken",
+          "statusUrl",
+          "resultUrl",
+          "status",
+          "retryAfter"
+        ],
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "retrievalToken": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "statusUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "resultUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "status": {
+            "enum": ["payment_pending", "preparing", "ready", "failed"]
+          },
+          "retryAfter": {
+            "type": "integer"
+          },
+          "error": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "TaskPreview": {
+        "type": "object",
+        "required": [
+          "status",
+          "quoteId",
+          "requestHash",
+          "request",
+          "summary",
+          "pricing",
+          "payloadHash",
+          "expiresAt",
+          "attestation",
+          "paymentRequired"
+        ],
+        "properties": {
+          "status": {
+            "const": "ready"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestHash": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "description": "Canonical normalized original request; integer quantities are decimal strings"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskSummary"
+          },
+          "pricing": {
+            "type": "object",
+            "required": [
+              "outgoing_usdc_wei",
+              "fee_microusd",
+              "preparation_fee_microusd"
+            ],
+            "properties": {
+              "outgoing_usdc_wei": {
+                "type": "string"
+              },
+              "fee_microusd": {
+                "type": "string"
+              },
+              "preparation_fee_microusd": {
+                "const": "10000"
+              }
+            }
+          },
+          "payloadHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "attestation": {
+            "type": "string"
+          },
+          "paymentRequired": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "TaskProgress": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TaskPreview"
+          },
+          {
+            "type": "object",
+            "required": ["quoteId", "status"],
+            "properties": {
+              "quoteId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "enum": [
+                  "payment_pending",
+                  "preparing",
+                  "failed",
+                  "expired",
+                  "ready"
+                ]
+              },
+              "purchased": {
+                "type": "boolean",
+                "description": "Ready after an existing accepted retrieval; reuse the saved verified preview"
+              },
+              "error": {
+                "type": ["string", "null"]
+              },
+              "retryAfter": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
       },
       "TransactionSafetyMode": {
         "type": "string",
@@ -7337,6 +8661,204 @@
             "enum": ["pending", "passed", "failed", "unavailable"]
           }
         }
+      },
+      "FundingEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "idempotency_key",
+          "amount_microusd",
+          "method",
+          "environment",
+          "status",
+          "terms",
+          "provider_reference",
+          "error_code",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "amount_microusd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["card", "wallet"]
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["test", "production"]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "awaiting_action",
+              "processing",
+              "credited",
+              "failed",
+              "canceled"
+            ]
+          },
+          "terms": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "provider_reference": {
+            "type": ["string", "null"]
+          },
+          "error_code": {
+            "type": ["string", "null"]
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "FundingResult": {
+        "type": "object",
+        "required": ["funding_event", "action"],
+        "properties": {
+          "funding_event": {
+            "$ref": "#/components/schemas/FundingEvent"
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["kind", "client_secret"],
+                "properties": {
+                  "kind": {
+                    "const": "confirm_card"
+                  },
+                  "client_secret": {
+                    "type": "string",
+                    "description": "Ephemeral confirmation secret; never log"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["kind"],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["wait", "done"]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "CreditBalance": {
+        "type": "object",
+        "required": [
+          "balance_microusd",
+          "reserved_microusd",
+          "available_microusd",
+          "debt_microusd",
+          "period_utc_month",
+          "included"
+        ],
+        "properties": {
+          "balance_microusd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reserved_microusd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "available_microusd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "debt_microusd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "period_utc_month": {
+            "type": "string"
+          },
+          "included": {
+            "type": "object",
+            "required": [
+              "limit_microusd",
+              "used_microusd",
+              "remaining_microusd"
+            ],
+            "properties": {
+              "limit_microusd": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "used_microusd": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "remaining_microusd": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        }
+      },
+      "CreditLedger": {
+        "type": "object",
+        "required": ["entries", "next_before_id"],
+        "properties": {
+          "next_before_id": {
+            "type": ["integer", "null"]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "amount_microusd", "entry_kind", "created_at"],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "amount_microusd": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "entry_kind": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "application_id": {
+                  "type": ["integer", "null"]
+                },
+                "payment_method": {
+                  "type": ["string", "null"]
+                },
+                "payment_provider": {
+                  "type": ["string", "null"]
+                },
+                "external_payment_reference": {
+                  "type": ["string", "null"]
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -7359,9 +8881,6 @@
               "account:apps:write": "Install and remove applications",
               "account:credentials:read": "Read credential declarations and presence without values",
               "account:credentials:write": "Save and remove owned application credentials",
-              "account:credits:read": "Read included allowance and Credit Bank activity",
-              "account:credits:topup": "Buy durable Credit Bank value through x402",
-              "account:usage:read": "Read priced account usage",
               "mcp:agent": "Use the Agent MCP protected resource",
               "mcp:pipeline": "Use the Pipeline MCP protected resource",
               "payments:submit": "Attach a client-held payment signature",
@@ -7376,6 +8895,22 @@
           "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
           "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
           "account": "https://chat.aomi.dev/v1/account"
+        }
+      },
+      "paymentOAuth": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://chat.aomi.dev/api/auth/oauth2/authorize",
+            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token",
+            "scopes": {
+              "account:credits:read": "Read personal credits",
+              "account:credits:fund": "Fund personal credits",
+              "builder:credits:read": "Read builder credits",
+              "builder:credits:fund": "Fund builder credits",
+              "account:usage:read": "Read priced account usage"
+            }
+          }
         }
       }
     }

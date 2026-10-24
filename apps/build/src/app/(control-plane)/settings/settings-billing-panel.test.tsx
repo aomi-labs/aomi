@@ -1,55 +1,62 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { setLastProjectId } from "@/lib/project-navigation";
-
-vi.mock("@/lib/chat-url", () => ({
-  resolveChatUrl: () => "https://chat.aomi.dev",
+import { beforeEach, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+const state = vi.hoisted(() => ({ get: vi.fn(), ledger: vi.fn(), path: "" }));
+vi.mock("@aomi-labs/client", () => ({
+  AomiClient: class {
+    requestResponse() {}
+  },
+  AccountCreditsTransport: class {
+    constructor(_request: unknown, path: string) {
+      state.path = path;
+    }
+    get = state.get;
+    ledger = state.ledger;
+  },
 }));
-
+vi.mock("@aomi-labs/widget/checkout", () => ({
+  CreditCheckoutDialog: ({
+    open,
+    onSuccess,
+  }: {
+    open: boolean;
+    onSuccess: () => Promise<void>;
+  }) =>
+    open ? (
+      <button onClick={() => void onSuccess()}>Confirm test funding</button>
+    ) : null,
+}));
+vi.mock("@/features/operate/client", () => ({
+  operateFetch: vi.fn(async () => ({
+    statement: {
+      charges: [],
+      range: { fromDate: "2026-10-01", toDate: "2026-10-31" },
+    },
+  })),
+}));
 import { SettingsBillingPanel } from "./settings-billing-panel";
-
-describe("SettingsBillingPanel", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
+beforeEach(() => {
+  state.ledger
+    .mockReset()
+    .mockResolvedValue({ entries: [], next_before_id: null });
+  state.get
+    .mockReset()
+    .mockResolvedValue({
+      balance_microusd: -10000000,
+      debt_microusd: 10000000,
+      entries: [],
+    });
+});
+it("uses builder ownership and refreshes debt after shared checkout succeeds", async () => {
+  render(<SettingsBillingPanel />);
+  expect(await screen.findByText(/Pay \$10.00 to restore/)).toBeInTheDocument();
+  expect(state.path).toBe("/v1/builder/credits");
+  state.get.mockResolvedValue({
+    balance_microusd: 0,
+    debt_microusd: 0,
+    entries: [],
   });
-
-  afterEach(() => {
-    window.localStorage.clear();
-  });
-
-  it("keeps short product copy without rail jargon or fake invoices", () => {
-    render(<SettingsBillingPanel />);
-
-    expect(screen.getByText(/^payment setup$/i)).toBeInTheDocument();
-    expect(screen.getByText(/managed in/i)).toBeInTheDocument();
-    expect(screen.getByText(/^coming later$/i)).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("link", { name: /operate → usage/i }),
-    ).toHaveAttribute("href", "/operate/usage");
-    expect(
-      screen.getByRole("link", { name: /secrets → environment/i }),
-    ).toHaveAttribute("href", "/settings/secrets");
-    expect(screen.getByRole("link", { name: /open chat/i })).toHaveAttribute(
-      "href",
-      "https://chat.aomi.dev",
-    );
-
-    expect(screen.queryByText(/tempo/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/byok/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/x402/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/invoice #/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/\$\d/)).not.toBeInTheDocument();
-  });
-
-  it("deep-links Usage and Environment to the last project when set", () => {
-    setLastProjectId(9);
-    render(<SettingsBillingPanel />);
-    expect(
-      screen.getByRole("link", { name: /operate → usage/i }),
-    ).toHaveAttribute("href", "/operate/usage?project=9");
-    expect(
-      screen.getByRole("link", { name: /secrets → environment/i }),
-    ).toHaveAttribute("href", "/projects/9?tab=environment");
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Add credits" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm test funding" }));
+  expect(await screen.findByText("$0.00")).toBeInTheDocument();
+  expect(screen.queryByText(/Pay \$10.00 to restore/)).not.toBeInTheDocument();
 });

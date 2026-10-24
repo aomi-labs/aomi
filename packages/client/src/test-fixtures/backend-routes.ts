@@ -40,11 +40,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/account/model-keys/:provider",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
     path: "/api/account/providers/:provider/delegation",
     auth: ["account"],
   },
@@ -141,11 +136,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/account/bots",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {
@@ -380,6 +370,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/manager/openapi.json",
+    auth: ["public"],
+  },
+  {
+    method: "GET",
     path: "/api/openapi.json",
     auth: [],
   },
@@ -591,11 +586,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/account/bots",
-    auth: ["account"],
-  },
-  {
-    method: "POST",
-    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {

@@ -28,6 +28,7 @@ export type DisplayResource =
   | "threads"
   | "profile"
   | "credits"
+  | "credit-ledger"
   | "account-acl"
   | "account-apps"
   | "transaction-safety"

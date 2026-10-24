@@ -16,6 +16,19 @@
         "x-aomi-auth": []
       }
     },
+    "/api/manager/openapi.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
     "/api/integrations/github-app/oauth/start": {
       "get": {
         "responses": {

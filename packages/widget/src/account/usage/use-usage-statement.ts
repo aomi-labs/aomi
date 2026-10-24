@@ -25,7 +25,7 @@ const NO_NAMES: ReadonlyMap<number, string> = new Map();
  * Real statement months, held in the shared display cache per account and
  * month, so reopening Settings or the full statement reuses them. App names
  * come from the shared account-apps read and never hold back the totals. The
- * allowance meter comes from the current account credit position, so past
+ * allowance meter comes from the current account credit balance, so past
  * months hide it rather than showing today's value.
  */
 export function useUsageStatement(monthCount = 6) {

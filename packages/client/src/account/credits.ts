@@ -1,46 +1,13 @@
+import type { components } from "../generated/agent-v1/types";
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
-export const MIN_CREDIT_TOP_UP = 1;
-export const MAX_CREDIT_TOP_UP = 100_000;
 
-export type AomiCreditActivity = {
-  id: number;
-  amount_microusd: number;
-  entry_kind: "purchase" | "usage_debit";
-  payment_method: string | null;
-  payment_provider: string | null;
-  external_payment_reference: string | null;
-  application_id: number | null;
-  metadata: Record<string, unknown>;
-  created_at: number;
-};
-
-export type AomiCreditPosition = {
-  period_utc_month: string;
-  included: {
-    limit_microusd: number;
-    used_microusd: number;
-    remaining_microusd: number;
-  };
-  bank: {
-    balance_microusd: number;
-    outstanding_debt_microusd: number;
-  };
-  entries: AomiCreditActivity[];
-  next_before_id: number | null;
-};
-
-export type AomiCreditPaymentReceipt = {
-  transaction?: string;
-  network?: string;
-};
-
-export type AomiCreditTopUpResult = AomiCreditPosition & {
-  receipt?: AomiCreditPaymentReceipt;
-};
+export type CreditBalance = components["schemas"]["CreditBalance"];
+export type CreditLedger = components["schemas"]["CreditLedger"];
+export type CreditLedgerEntry = CreditLedger["entries"][number];
 
 export class AomiCreditApiError extends AomiApiError {
   override name = "AomiCreditApiError";
@@ -60,27 +27,48 @@ export type AomiCreditListOptions = {
   beforeId?: number;
 };
 
-export type AomiCreditTopUpOptions =
-  | {
-      credits: number;
-      amountMicrousd?: never;
-      idempotencyKey: string;
-      /** Retry a previously submitted payment without creating a new proof. */
-      recover?: boolean;
-    }
-  | {
-      amountMicrousd: number;
-      credits?: never;
-      idempotencyKey: string;
-      /** Retry a previously submitted payment without creating a new proof. */
-      recover?: boolean;
-    };
-
 type RequestResponse = (
   method: AomiHttpMethod,
   path: string,
   options?: AomiRequestOptions,
 ) => Promise<Response>;
+
+export type AomiFundingEvent = {
+  id: string;
+  idempotency_key: string;
+  created_at: number;
+  amount_microusd: number;
+  method: "card" | "wallet";
+  environment: "test" | "production";
+  status: "awaiting_action" | "processing" | "credited" | "failed" | "canceled";
+  terms: { network?: string; asset?: string; recipient?: string };
+  provider_reference: string | null;
+  error_code: string | null;
+};
+export type AomiFundingResult = {
+  funding_event: AomiFundingEvent;
+  action:
+    | { kind: "confirm_card"; client_secret: string }
+    | { kind: "wait" | "done" };
+};
+export type AomiCreditMethods = {
+  card: {
+    public_key: string;
+    min_microusd: number;
+    max_microusd: number;
+  } | null;
+  wallet: {
+    min_microusd: number;
+    max_microusd: number;
+    networks: Array<{
+      network: string;
+      name: string;
+      asset: string;
+      recipient: string;
+      confirmations: number;
+    }>;
+  };
+};
 
 export class AccountCreditsTransport {
   constructor(
@@ -88,7 +76,73 @@ export class AccountCreditsTransport {
     private readonly basePath = "/v1/account/credits",
   ) {}
 
-  async get(options: AomiCreditListOptions = {}): Promise<AomiCreditPosition> {
+  async methods(): Promise<AomiCreditMethods> {
+    return responseJson(
+      await this.requestResponse("GET", `${this.basePath}/methods`, {
+        raw: true,
+      }),
+      "load payment methods",
+    );
+  }
+  async fundingEvent(id: string): Promise<AomiFundingResult> {
+    return responseJson(
+      await this.requestResponse(
+        "GET",
+        `${this.basePath}/funding-events/${encodeURIComponent(id)}`,
+        { raw: true },
+      ),
+      "check payment",
+    );
+  }
+  async beginFunding(input: {
+    amountMicrousd: number;
+    method: "card" | "wallet";
+    chain?: string;
+    idempotencyKey: string;
+    x402?: AomiRequestOptions["x402"];
+  }): Promise<AomiFundingResult> {
+    const response = await this.requestResponse(
+      "POST",
+      `${this.basePath}/funding-events`,
+      {
+        raw: input.method === "card",
+        x402: input.method === "wallet" ? input.x402 : undefined,
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": input.idempotencyKey,
+          "X-Aomi-CSRF": "1",
+        },
+        body: {
+          amount_microusd: input.amountMicrousd,
+          method: input.method,
+          ...(input.chain ? { chain: input.chain } : {}),
+        },
+      },
+    );
+    return responseJson(response, "start payment");
+  }
+  async cancelFunding(id: string): Promise<AomiFundingResult> {
+    return responseJson(
+      await this.requestResponse(
+        "POST",
+        `${this.basePath}/funding-events/${encodeURIComponent(id)}/cancel`,
+        {
+          raw: true,
+          headers: { "X-Aomi-CSRF": "1" },
+        },
+      ),
+      "cancel payment",
+    );
+  }
+
+  async get(options: { signal?: AbortSignal } = {}): Promise<CreditBalance> {
+    return responseJson(
+      await this.requestResponse("GET", this.basePath, options),
+      "load balance",
+    );
+  }
+
+  async ledger(options: AomiCreditListOptions = {}): Promise<CreditLedger> {
     const limit = options.limit ?? 25;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new RangeError("Credit activity limit must be between 1 and 100");
@@ -99,153 +153,14 @@ export class AccountCreditsTransport {
     ) {
       throw new RangeError("Credit activity cursor must be a positive integer");
     }
-    const response = await this.requestResponse("GET", this.basePath, {
-      query: { limit, before_id: options.beforeId },
-      signal: options.signal,
-    });
-    return creditPositionFromResponse(
-      await responseJson<unknown>(response, "fetch account credits"),
+    return responseJson(
+      await this.requestResponse("GET", `${this.basePath}/ledger`, {
+        query: { limit, before_id: options.beforeId },
+        signal: options.signal,
+      }),
+      "load credit ledger",
     );
   }
-
-  async topUp(options: AomiCreditTopUpOptions): Promise<AomiCreditTopUpResult> {
-    const amountMicrousd = topUpMicrousd(options);
-    const idempotencyKey = options.idempotencyKey.trim();
-    if (!idempotencyKey) {
-      throw new TypeError("Credit top-up requires an idempotency key");
-    }
-    if (idempotencyKey.length > 200) {
-      throw new RangeError("Credit top-up idempotency key is too long");
-    }
-    const response = await this.requestResponse(
-      "POST",
-      `${this.basePath}/top-up`,
-      {
-        // A recovery probe must reach the backend without the x402 wrapper:
-        // the original proof is already bound to this idempotency key and a
-        // fresh challenge would be rejected as a different payment attempt.
-        raw: options.recover === true,
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-          "X-Aomi-CSRF": "1",
-        },
-        body: { amount_microusd: amountMicrousd },
-      },
-    );
-    const result = creditPositionFromResponse(
-      await responseJson<unknown>(response, "top up account credits"),
-    );
-    const receipt = paymentReceiptFrom(response);
-    return receipt ? { ...result, receipt } : result;
-  }
-}
-
-/** Translate the current `UserCredits` wire contract to the public SDK model. */
-function creditPositionFromResponse(value: unknown): AomiCreditPosition {
-  const position = objectValue(value, "account credits");
-  const records = position.records;
-  if (!Array.isArray(records)) {
-    throw invalidCreditResponse("records must be an array");
-  }
-
-  return {
-    period_utc_month: stringValue(
-      position.period_utc_month,
-      "period_utc_month",
-    ),
-    included: {
-      limit_microusd: numberValue(position.included_limit, "included_limit"),
-      used_microusd: numberValue(position.included_used, "included_used"),
-      remaining_microusd: numberValue(
-        position.included_remaining,
-        "included_remaining",
-      ),
-    },
-    bank: {
-      balance_microusd: numberValue(position.balance, "balance"),
-      outstanding_debt_microusd: numberValue(
-        position.outstanding_debt,
-        "outstanding_debt",
-      ),
-    },
-    entries: records.map(parseCreditActivity),
-    next_before_id: nullableNumberValue(
-      position.next_before_id,
-      "next_before_id",
-    ),
-  };
-}
-
-function parseCreditActivity(value: unknown): AomiCreditActivity {
-  const record = objectValue(value, "credit record");
-  const kind = stringValue(record.kind, "record.kind");
-  if (kind !== "purchase" && kind !== "usage_debit") {
-    throw invalidCreditResponse(`unsupported record kind: ${kind}`);
-  }
-  return {
-    id: numberValue(record.id, "record.id"),
-    amount_microusd: numberValue(record.amount, "record.amount"),
-    entry_kind: kind,
-    payment_method: nullableStringValue(
-      record.payment_method,
-      "record.payment_method",
-    ),
-    payment_provider: nullableStringValue(
-      record.payment_provider,
-      "record.payment_provider",
-    ),
-    external_payment_reference: nullableStringValue(
-      record.external_payment_reference,
-      "record.external_payment_reference",
-    ),
-    application_id: nullableNumberValue(
-      record.application_id,
-      "record.application_id",
-    ),
-    metadata: optionalObject(record.metadata) ?? {},
-    created_at: numberValue(record.created_at, "record.created_at"),
-  };
-}
-
-function objectValue(value: unknown, field: string): Record<string, unknown> {
-  const object = optionalObject(value);
-  if (!object) throw invalidCreditResponse(`${field} must be an object`);
-  return object;
-}
-
-function optionalObject(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function stringValue(value: unknown, field: string): string {
-  if (typeof value !== "string") {
-    throw invalidCreditResponse(`${field} must be a string`);
-  }
-  return value;
-}
-
-function nullableStringValue(value: unknown, field: string): string | null {
-  if (value === null || value === undefined) return null;
-  return stringValue(value, field);
-}
-
-function numberValue(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw invalidCreditResponse(`${field} must be a safe integer`);
-  }
-  return value;
-}
-
-function nullableNumberValue(value: unknown, field: string): number | null {
-  if (value === null || value === undefined) return null;
-  return numberValue(value, field);
-}
-
-function invalidCreditResponse(detail: string): TypeError {
-  return new TypeError(`Invalid account credits response: ${detail}`);
 }
 
 export class AccountTransport extends AccountGraphTransport {
@@ -254,26 +169,6 @@ export class AccountTransport extends AccountGraphTransport {
     super(requestResponse);
     this.credits = new AccountCreditsTransport(requestResponse);
   }
-}
-
-function topUpMicrousd(options: AomiCreditTopUpOptions): number {
-  const scaled =
-    options.credits === undefined
-      ? options.amountMicrousd
-      : options.credits * MICROUSD_PER_CREDIT;
-  if (!Number.isSafeInteger(scaled)) {
-    throw new TypeError(
-      "Credit top-up must resolve to a whole, safe microusd amount",
-    );
-  }
-  const min = MIN_CREDIT_TOP_UP * MICROUSD_PER_CREDIT;
-  const max = MAX_CREDIT_TOP_UP * MICROUSD_PER_CREDIT;
-  if (scaled < min || scaled > max) {
-    throw new RangeError(
-      `Credit top-up must be between ${MIN_CREDIT_TOP_UP.toLocaleString()} and ${MAX_CREDIT_TOP_UP.toLocaleString()} credits`,
-    );
-  }
-  return scaled;
 }
 
 async function responseJson<T>(
@@ -320,31 +215,4 @@ function jsonErrorDetail(value: unknown): string | undefined {
     }
   }
   return undefined;
-}
-
-function paymentReceiptFrom(
-  response: Response,
-): AomiCreditPaymentReceipt | undefined {
-  const header =
-    response.headers.get("payment-response") ??
-    response.headers.get("x-payment-response");
-  if (!header) return undefined;
-  try {
-    const normalized = header.replace(/-/g, "+").replace(/_/g, "/");
-    const parsed = JSON.parse(
-      atob(
-        normalized.padEnd(
-          normalized.length + ((4 - (normalized.length % 4)) % 4),
-          "=",
-        ),
-      ),
-    ) as Record<string, unknown>;
-    const transaction =
-      typeof parsed.transaction === "string" ? parsed.transaction : undefined;
-    const network =
-      typeof parsed.network === "string" ? parsed.network : undefined;
-    return transaction || network ? { transaction, network } : undefined;
-  } catch {
-    return undefined;
-  }
 }

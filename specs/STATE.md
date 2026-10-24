@@ -2,6 +2,13 @@
 
 ## Last Updated
 
+2026-10-23 — EMPTY PACKAGE STUBS REMOVED.
+  Deleted untracked `packages/service` (stale `node_modules` only) and empty
+  `apps/registry`. Neither had a `package.json` or any imports. `specs/METADATA.md`
+  now points auth at `packages/account` and the terminal command at `packages/cli`.
+  Published compatibility stays: `widget-lib`, the widget 3.x deprecated exports,
+  and the client `aomi` bin shim.
+
 2026-10-15 — PRIVATE PROJECT APP BUILD KEY (branch
   `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
   Build's Chat tab shows an "App key" panel for a private live app

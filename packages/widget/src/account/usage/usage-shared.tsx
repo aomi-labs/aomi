@@ -401,7 +401,7 @@ export function ModelRow({
 }
 
 function isOwnKeyFunding(funding: string): boolean {
-  return funding === "user_key" || funding === "application_key";
+  return funding === "user_key" || funding === "builder_key";
 }
 
 export function ToolRow({ item }: { item: AppToolItem }) {
@@ -713,7 +713,7 @@ export function AllowanceSettlementSection({
             <span className="text-aomi-muted text-[12px] leading-snug">
               Paid via {payment.settledVia}.{" "}
               {over
-                ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
+                ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit balance beyond your ${usd(
                     payment.allowanceAppliedUsd,
                   )} monthly allowance.`
                 : `Compute fully covered by your allowance (${usd(

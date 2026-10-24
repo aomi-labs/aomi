@@ -16,10 +16,15 @@ import {
 } from "@/composer/capabilities/skill-catalog";
 import { useCapabilityComposer } from "./provider";
 import type { PickerItem } from "./model";
+import { resolveAutoModel } from "@/controls/model-metadata";
 
 export function useCapabilityCatalog(): PickerItem[] {
   const { enabledAppIds, allowAppMentions } = useCapabilityComposer();
-  const { state } = useControl();
+  const { state, getCurrentThreadControl } = useControl();
+  const control = getCurrentThreadControl();
+  const model = control.modelMode === "auto" || control.model === null
+    ? resolveAutoModel(state.availableModels)
+    : control.model;
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { skills } = useSkillCatalog();
   const enabled = useMemo(
@@ -51,6 +56,9 @@ export function useCapabilityCatalog(): PickerItem[] {
           )
           .map((app) => {
             const info = resolveAppIdentity(app);
+            const metadata = app.metadata;
+            const known = typeof metadata?.fundedModelOnly === "boolean" && Array.isArray(metadata.sponsoredModelIds);
+            const disabled = !known || (metadata.fundedModelOnly === true && (!model || !metadata.sponsoredModelIds?.includes(model)));
             const chainSearch = (app.chainIds ?? [])
               .map((chainId) => getChainInfo(chainId)?.name ?? chainId)
               .join(" ");
@@ -63,7 +71,8 @@ export function useCapabilityCatalog(): PickerItem[] {
               kind: "app" as const,
               id: sourceId,
               label: info.displayName,
-              description: info.category.label,
+              description: !known ? "Checking model availability…" : disabled ? "Choose a sponsored model" : info.category.label,
+              disabled,
               chainIds: app.chainIds,
               applicationId: app.applicationId,
               appName: app.name,
@@ -108,6 +117,7 @@ export function useCapabilityCatalog(): PickerItem[] {
     networkPreferences,
     skills,
     state.appDescriptors,
+    model,
   ]);
 
   return items;

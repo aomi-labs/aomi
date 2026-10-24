@@ -4,17 +4,16 @@ export { AomiClient, secretNamesFrom } from "./client";
 export {
   AccountCreditsTransport,
   AccountTransport,
-  MAX_CREDIT_TOP_UP,
   MICROUSD_PER_CREDIT,
-  MIN_CREDIT_TOP_UP,
 } from "./account/credits";
 export type {
-  AomiCreditActivity,
+  CreditLedgerEntry,
+  CreditLedger,
+  AomiFundingEvent,
+  AomiFundingResult,
+  AomiCreditMethods,
   AomiCreditListOptions,
-  AomiCreditPaymentReceipt,
-  AomiCreditPosition,
-  AomiCreditTopUpOptions,
-  AomiCreditTopUpResult,
+  CreditBalance,
 } from "./account/credits";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
@@ -104,7 +103,6 @@ export type {
   Session as AgentSession,
   SessionPage,
   StartTurnIntent,
-  AomiInferenceFundingSource,
   TaskActivityEvent,
   TaskCompletedEvent,
   TaskPhaseEvent,
@@ -263,13 +261,10 @@ export type {
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
-  AomiByokKeyEntry,
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
   AomiAccountAppMutationResponse,
-  AomiListByokKeysResponse,
-  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,

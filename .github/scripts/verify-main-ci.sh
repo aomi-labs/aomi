@@ -49,7 +49,6 @@ PUBLISHABLE_PATHS=(
   packages/deploy
   packages/cli
   packages/widget
-  packages/widget-lib
   # Retain historical coverage for candidates before the widget move.
   apps/shadcn-registry
 )

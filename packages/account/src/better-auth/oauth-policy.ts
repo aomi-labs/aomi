@@ -19,7 +19,7 @@ export const AOMI_SCOPES = [
   "mcp:pipeline",
   "payments:submit",
   "account:credits:read",
-  "account:credits:topup",
+  "account:credits:fund",
   "account:usage:read",
   "account:transaction-safety:read",
   "account:transaction-safety:write",
@@ -51,7 +51,7 @@ export const PIPELINE_SCOPES = [
 ] as const;
 export const ACCOUNT_SCOPES = [
   "account:credits:read",
-  "account:credits:topup",
+  "account:credits:fund",
   "account:usage:read",
   "account:transaction-safety:read",
   "account:transaction-safety:write",

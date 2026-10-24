@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { publicApiContract } from "./public-api-contract.mjs";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -13,10 +13,7 @@ const generatedSchemas = join(
   root,
   "packages/client/src/generated/agent-v1/schemas.ts",
 );
-const artifact = process.env.AOMI_AGENT_OPENAPI_FILE;
-const serialized = artifact
-  ? readFileSync(resolve(artifact), "utf8")
-  : printRustOpenApi();
+const serialized = publicApiContract(rustRepo);
 const checkedIn = readFileSync(source, "utf8");
 const current = JSON.stringify(JSON.parse(serialized));
 if (current !== JSON.stringify(JSON.parse(checkedIn))) {
@@ -68,6 +65,8 @@ const sourceRoots = [
 ];
 for (const relative of sourceRoots) {
   for (const file of sourceFiles(join(root, relative))) {
+    // Negative contract tests deliberately name removed APIs.
+    if (/\.(?:test|spec)\.tsx?$/.test(file)) continue;
     const contents = readFileSync(file, "utf8");
     for (const [label, pattern] of forbiddenSources) {
       if (pattern.test(contents)) {
@@ -87,25 +86,4 @@ function* sourceFiles(directory) {
       yield path;
     }
   }
-}
-
-function printRustOpenApi() {
-  const rust = spawnSync(
-    "cargo",
-    ["run", "--quiet", "-p", "api-server", "--", "--print-openapi"],
-    // The published contract describes Aomi Cloud: the OAuth issuer and API
-    // resources live on its public origin, which api-server reads from
-    // deployment config rather than hard-coding.
-    {
-      cwd: rustRepo,
-      encoding: "utf8",
-      env: { ...process.env, AOMI_PORTAL_URL: "https://chat.aomi.dev" },
-    },
-  );
-  if (rust.status !== 0) {
-    if (rust.stdout) process.stderr.write(rust.stdout);
-    if (rust.stderr) process.stderr.write(rust.stderr);
-    process.exit(rust.status ?? 1);
-  }
-  return rust.stdout;
 }

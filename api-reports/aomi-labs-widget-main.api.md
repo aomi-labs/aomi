@@ -11,7 +11,6 @@ import { AomiAppDescriptor } from '@aomi-labs/client';
 import * as aomiClient from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/react';
 import { AomiFeatureCategory } from '@aomi-labs/client';
-import { AomiInferenceFundingSource } from '@aomi-labs/react';
 import { AomiOnchainAddress } from '@aomi-labs/client';
 import * as aomiReact from '@aomi-labs/react';
 import { AomiSecretSlot } from '@aomi-labs/client';
@@ -137,7 +136,6 @@ export type AomiWidgetProps = {
     controlBarProps?: Omit<FrameControlBarProps, "children">;
     routing?: AomiRoutingConfig;
     clientOptions?: Omit<AomiClientOptions, "baseUrl" | "getAccountBearer">;
-    inferenceFunding?: AomiInferenceFundingSource;
     persistThread?: boolean;
     threadPersistenceKey?: string;
     threadPersistenceScope?: string | null;

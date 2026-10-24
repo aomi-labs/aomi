@@ -1,5 +1,5 @@
 import "server-only";
-import { mintAccountBearer, mintAgentApiBearer } from "@aomi-labs/account";
+import { mintAccountBearer, mintDelegatedBearer } from "@aomi-labs/account";
 import { aomiOAuthResources, auth } from "@aomi-labs/account/better-auth";
 import {
   AGENT_API_HEADERS,
@@ -14,6 +14,7 @@ import * as deviceAuth from "@/server/device-auth/handlers";
 import type { NextRequest } from "next/server";
 import {
   agentApiUrl,
+  paymentApiUrl,
   appCatalogPlatforms,
   backendUrl,
   devToolsAllowed,
@@ -162,31 +163,42 @@ async function toBackend(call: Call, path: string): Promise<Response> {
   });
 }
 
-/** Forward to the agent API with a bearer carrying exactly the authorized scopes. */
-async function toAgentApi(call: Call, resource: string): Promise<Response> {
+/** Forward with a bearer scoped to both the resource and the receiving service. */
+async function toScopedApi(
+  call: Call,
+  resource: string,
+  target: "agent" | "payment",
+): Promise<Response> {
   const { principal } = call;
   if (principal.kind === "none")
-    throw new Error("agent API call without a principal");
+    throw new Error("scoped API call without a principal");
   const incoming = new URL(call.request.url);
   const { bearer } = await mintBearer(() =>
-    mintAgentApiBearer(principal.accountId, {
-      scope: call.scopes.join(" "),
-      resource,
-      client_id: principal.kind === "oauth" ? principal.clientId : undefined,
-      auth_source: principal.kind === "oauth" ? "oauth" : "session",
-      principal_class: principal.guest ? "guest" : "user",
-      grant_id: principal.kind === "oauth" ? principal.grantId : undefined,
-      // A raw session token never enters an internal assertion; only the
-      // fact that one exists does.
-      sid:
-        principal.kind !== "oauth" || principal.sessionBound
-          ? "session-bound"
-          : undefined,
-    }),
+    mintDelegatedBearer(
+      principal.accountId,
+      target === "payment" ? "aomi-payment" : "aomi-api-server",
+      {
+        scope: call.scopes.join(" "),
+        resource,
+        client_id: principal.kind === "oauth" ? principal.clientId : undefined,
+        auth_source: principal.kind === "oauth" ? "oauth" : "session",
+        principal_class: principal.guest ? "guest" : "user",
+        grant_id: principal.kind === "oauth" ? principal.grantId : undefined,
+        // A raw session token never enters an internal assertion; only the
+        // fact that one exists does.
+        sid:
+          principal.kind !== "oauth" || principal.sessionBound
+            ? "session-bound"
+            : undefined,
+      },
+    ),
   );
   return forward({
     request: call.request,
-    url: new URL(`${incoming.pathname}${incoming.search}`, agentApiUrl()),
+    url: new URL(
+      `${incoming.pathname}${incoming.search}`,
+      target === "payment" ? paymentApiUrl() : agentApiUrl(),
+    ),
     policy: AGENT_API_HEADERS,
     bearer,
   });
@@ -200,11 +212,12 @@ function withPayment(request: Request, scopes: string[]): string[] {
     : scopes;
 }
 
-function agentApi(
+function scopedApi(
   operation: string,
   methods: readonly Method[],
   resource: () => string,
   scopes: (request: Request) => string[] | null,
+  target: "agent" | "payment" = "agent",
 ): Binding {
   return bind({
     operation,
@@ -214,7 +227,7 @@ function agentApi(
       const required = scopes(request);
       return required && { resource: resource(), scopes: required };
     },
-    handle: (call) => toAgentApi(call, resource()),
+    handle: (call) => toScopedApi(call, resource(), target),
   });
 }
 
@@ -240,7 +253,7 @@ function mcp(
             authorize(principal, need);
             // Rust maps each tools/call to its business scope, so the bearer
             // carries every scope of the grant; the portal never reads the body.
-            return await toAgentApi(
+            return await toScopedApi(
               {
                 request: new Request(request.url, {
                   method: request.method,
@@ -252,6 +265,7 @@ function mcp(
                 params: {},
               },
               need.resource,
+              "agent",
             );
           } catch (error) {
             return errorResponse(error, request, {
@@ -382,9 +396,6 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     methods: ["POST"],
     need: { capability: "chat" },
   },
-  { path: /^\/api\/control\/apps$/, methods: ["GET"], need: chat },
-  { path: /^\/api\/control\/models$/, methods: ["GET"], need: chat },
-  { path: /^\/api\/control\/model$/, methods: ["POST"], need: chat },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
   {
     path: /^\/api\/widget\/v1\/execution-profile$/,
@@ -428,7 +439,7 @@ export const routes = {
     handle: (call) => toBackend(call, new URL(call.request.url).pathname),
   }),
 
-  agent: agentApi(
+  agent: scopedApi(
     "agent.request",
     ["GET", "POST", "PATCH", "DELETE"],
     () => resources().agentRest,
@@ -439,7 +450,7 @@ export const routes = {
       return withPayment(request, ["agent:write"]);
     },
   ),
-  pipeline: agentApi(
+  pipeline: scopedApi(
     "pipeline.request",
     ["GET", "POST"],
     () => resources().pipelineRest,
@@ -451,31 +462,37 @@ export const routes = {
           : "pipeline:execute",
       ]),
   ),
-  credits: agentApi(
+  credits: scopedApi(
     "account.credits",
     ["GET"],
     () => resources().accountRest,
     () => ["account:credits:read"],
+    "payment",
   ),
-  topUp: agentApi(
-    "account.top_up",
-    ["POST"],
+  fundingEvents: scopedApi(
+    "account.funding_events",
+    ["GET", "POST"],
     () => resources().accountRest,
-    (request) => withPayment(request, ["account:credits:topup"]),
+    (request) =>
+      request.method === "GET"
+        ? ["account:credits:read"]
+        : withPayment(request, ["account:credits:fund"]),
+    "payment",
   ),
-  statement: agentApi(
+  statement: scopedApi(
     "account.statement",
     ["GET"],
     () => resources().accountRest,
     () => ["account:usage:read"],
+    "payment",
   ),
-  accountApps: agentApi(
+  accountApps: scopedApi(
     "account.apps",
     ["GET", "POST", "DELETE"],
     () => resources().accountRest,
     accountScope,
   ),
-  transactionSafety: agentApi(
+  transactionSafety: scopedApi(
     "account.transaction_safety",
     ["GET", "PUT"],
     () => resources().accountRest,

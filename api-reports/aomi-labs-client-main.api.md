@@ -80,9 +80,25 @@ export class AccountCredentialUnavailableError extends Error {
 export class AccountCreditsTransport {
     constructor(requestResponse: RequestResponse, basePath?: string);
     // (undocumented)
-    get(options?: AomiCreditListOptions): Promise<AomiCreditPosition>;
+    beginFunding(input: {
+        amountMicrousd: number;
+        method: "card" | "wallet";
+        chain?: string;
+        idempotencyKey: string;
+        x402?: AomiRequestOptions["x402"];
+    }): Promise<AomiFundingResult>;
     // (undocumented)
-    topUp(options: AomiCreditTopUpOptions): Promise<AomiCreditTopUpResult>;
+    cancelFunding(id: string): Promise<AomiFundingResult>;
+    // (undocumented)
+    fundingEvent(id: string): Promise<AomiFundingResult>;
+    // (undocumented)
+    get(options?: {
+        signal?: AbortSignal;
+    }): Promise<CreditBalance>;
+    // (undocumented)
+    ledger(options?: AomiCreditListOptions): Promise<CreditLedger>;
+    // (undocumented)
+    methods(): Promise<AomiCreditMethods>;
 }
 
 // @public (undocumented)
@@ -274,7 +290,7 @@ export function acquireAomiDeviceGrant(input: {
 }): Promise<AomiOAuthGrant>;
 
 // @public (undocumented)
-export type Action = Schemas$3["Action"];
+export type Action = Schemas$2["Action"];
 
 // @public (undocumented)
 export type ActionAttempt = {
@@ -342,13 +358,13 @@ export type ActionHandlerEvents = {
 };
 
 // @public (undocumented)
-export type ActionRequest = Schemas$3["ActionRequest"];
+export type ActionRequest = Schemas$2["ActionRequest"];
 
 // @public (undocumented)
 export type ActionResponder = (action: Action, result: ActionResult, idempotencyKey: string) => Promise<Action>;
 
 // @public (undocumented)
-export type ActionResult = Schemas$3["ActionResult"];
+export type ActionResult = Schemas$2["ActionResult"];
 
 // @public (undocumented)
 export type ActionResultFor<Type extends ActionType> = Type extends "sign" ? Extract<ActionResult, {
@@ -428,7 +444,7 @@ export interface AgentRunResult extends SendResult {
 }
 
 // @public (undocumented)
-export type AgentSession = Schemas$3["Session"];
+export type AgentSession = Schemas$2["Session"];
 
 // @public (undocumented)
 export type AgentTarget = {
@@ -443,7 +459,7 @@ export type AgentTarget = {
 
 // @public (undocumented)
 export class AgentTransport {
-    constructor(requestResponse: RequestResponse$4, defaultInferenceFunding?: AomiInferenceFundingSource | undefined);
+    constructor(requestResponse: RequestResponse$4);
     // (undocumented)
     interrupt(sessionId: string, turnId: string, idempotencyKey?: string): Promise<EventPage>;
     // (undocumented)
@@ -460,7 +476,6 @@ export class AgentTransport {
         idempotencyKey?: string;
         paymentSignature?: string;
         apiKey?: string;
-        inferenceFunding?: AomiInferenceFundingSource;
     }): Promise<EventPage>;
     // (undocumented)
     stream(sessionId: string, options: {
@@ -570,7 +585,11 @@ export interface AomiAppDescriptor {
     isPublic?: boolean | null;
     // (undocumented)
     label?: string | null;
-    metadata?: Record<string, unknown> | null;
+    metadata?: {
+        [key: string]: unknown;
+        fundedModelOnly?: boolean;
+        sponsoredModelIds?: string[];
+    } | null;
     // (undocumented)
     name: string;
     // (undocumented)
@@ -705,18 +724,6 @@ export type AomiBrowserOAuthOptions = CommonOAuthOptions & {
     popup?: (url: string, target: string, features: string) => Window | null;
 };
 
-// @public
-export interface AomiByokKeyEntry {
-    // (undocumented)
-    is_active: boolean;
-    // (undocumented)
-    key_prefix: string;
-    // (undocumented)
-    label?: string | null;
-    // (undocumented)
-    provider: string;
-}
-
 // @public (undocumented)
 export type AomiChainKind = "evm" | "svm";
 
@@ -754,7 +761,6 @@ export class AomiClient {
     clearAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiClearAppSecretsResponse>;
     clearSecrets(sessionId: string, clientId: string): Promise<AomiClearSecretsResponse>;
     deleteAppSecret(sessionId: string, applicationId: ApplicationId, name: string): Promise<AomiDeleteSecretResponse>;
-    deleteByokKey(sessionId: string, provider: string): Promise<boolean>;
     deleteSecret(sessionId: string, clientId: string, name: string): Promise<AomiDeleteSecretResponse>;
     fetchAccountProfile(sessionId: string): Promise<AomiAccountProfile | null>;
     getAccount(sessionId: string): Promise<AomiAccountResponse>;
@@ -778,7 +784,6 @@ export class AomiClient {
     ingestSecrets(sessionId: string, clientId: string, secrets: Record<string, string>): Promise<AomiIngestSecretsResponse>;
     listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]>;
     listAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiUserAppSecrets>;
-    listByokKeys(sessionId: string): Promise<AomiByokKeyEntry[]>;
     listSecrets(sessionId: string, clientId?: string): Promise<AomiListSecretsResponse>;
     // (undocumented)
     readonly pipeline: PipelineTransport;
@@ -790,7 +795,6 @@ export class AomiClient {
     request<T = unknown>(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<T>;
     requestResponse(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<Response>;
     saveAppSecrets(sessionId: string, applicationId: ApplicationId, secrets: Record<string, string>): Promise<AomiUserAppSecrets>;
-    saveByokKey(sessionId: string, provider: string, byokKey: string, label?: string): Promise<AomiByokKeyEntry>;
     setAppCredential(sessionId: string, applicationId: ApplicationId, name: string, value: string): Promise<AomiUserAppSecrets>;
     setModel(sessionId: string, rig: string, options?: {
         app?: string;
@@ -824,7 +828,6 @@ export type AomiClientOptions = {
     fetch?: typeof fetch;
     apiKey?: string;
     x402?: x402Client | x402HTTPClient;
-    inferenceFunding?: AomiInferenceFundingSource;
     getAccountBearer?: GetAccountBearer;
     oauth?: AomiOAuthTokenProvider;
     guest?: boolean | GuestSessionProvider;
@@ -833,19 +836,6 @@ export type AomiClientOptions = {
 
 // @public
 export type AomiClientType = "ts_cli" | "web_ui" | (string & {});
-
-// @public (undocumented)
-export type AomiCreditActivity = {
-    id: number;
-    amount_microusd: number;
-    entry_kind: "purchase" | "usage_debit";
-    payment_method: string | null;
-    payment_provider: string | null;
-    external_payment_reference: string | null;
-    application_id: number | null;
-    metadata: Record<string, unknown>;
-    created_at: number;
-};
 
 // @public (undocumented)
 export class AomiCreditApiError extends AomiApiError {
@@ -862,43 +852,23 @@ export type AomiCreditListOptions = {
 };
 
 // @public (undocumented)
-export type AomiCreditPaymentReceipt = {
-    transaction?: string;
-    network?: string;
-};
-
-// @public (undocumented)
-export type AomiCreditPosition = {
-    period_utc_month: string;
-    included: {
-        limit_microusd: number;
-        used_microusd: number;
-        remaining_microusd: number;
+export type AomiCreditMethods = {
+    card: {
+        public_key: string;
+        min_microusd: number;
+        max_microusd: number;
+    } | null;
+    wallet: {
+        min_microusd: number;
+        max_microusd: number;
+        networks: Array<{
+            network: string;
+            name: string;
+            asset: string;
+            recipient: string;
+            confirmations: number;
+        }>;
     };
-    bank: {
-        balance_microusd: number;
-        outstanding_debt_microusd: number;
-    };
-    entries: AomiCreditActivity[];
-    next_before_id: number | null;
-};
-
-// @public (undocumented)
-export type AomiCreditTopUpOptions = {
-    credits: number;
-    amountMicrousd?: never;
-    idempotencyKey: string;
-    recover?: boolean;
-} | {
-    amountMicrousd: number;
-    credits?: never;
-    idempotencyKey: string;
-    recover?: boolean;
-};
-
-// @public (undocumented)
-export type AomiCreditTopUpResult = AomiCreditPosition & {
-    receipt?: AomiCreditPaymentReceipt;
 };
 
 // @public (undocumented)
@@ -976,21 +946,41 @@ export class AomiEvmPipeline {
 export type AomiFeatureCategory = "lending" | "cross-chain" | "staking" | "trading" | "research" | "wallets" | "developer";
 
 // @public (undocumented)
-export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+export type AomiFundingEvent = {
+    id: string;
+    idempotency_key: string;
+    created_at: number;
+    amount_microusd: number;
+    method: "card" | "wallet";
+    environment: "test" | "production";
+    status: "awaiting_action" | "processing" | "credited" | "failed" | "canceled";
+    terms: {
+        network?: string;
+        asset?: string;
+        recipient?: string;
+    };
+    provider_reference: string | null;
+    error_code: string | null;
+};
 
-// @public
-export type AomiInferenceFundingSource = "user_byok";
+// @public (undocumented)
+export type AomiFundingResult = {
+    funding_event: AomiFundingEvent;
+    action: {
+        kind: "confirm_card";
+        client_secret: string;
+    } | {
+        kind: "wait" | "done";
+    };
+};
+
+// @public (undocumented)
+export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 // @public
 export interface AomiIngestSecretsResponse {
     // (undocumented)
     handles: Record<string, string>;
-}
-
-// @public (undocumented)
-export interface AomiListByokKeysResponse {
-    // (undocumented)
-    keys: AomiByokKeyEntry[];
 }
 
 // @public
@@ -1273,16 +1263,11 @@ export interface AomiRequestOptions {
     raw?: boolean;
     sessionId?: string;
     signal?: AbortSignal;
+    x402?: x402Client | x402HTTPClient;
 }
 
 // @public (undocumented)
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
-
-// @public (undocumented)
-export interface AomiSaveByokKeyResponse {
-    // (undocumented)
-    key: AomiByokKeyEntry;
-}
 
 // @public
 export interface AomiSecretSlot {
@@ -1794,10 +1779,10 @@ export type CommitWalletAttemptRequest = components["schemas"]["CommitWalletAtte
 export type CommitWalletAttemptView = components["schemas"]["CommitWalletAttemptView"];
 
 // @public (undocumented)
-export type ContextCompactedEvent = Schemas$3["ContextCompactedEvent"];
+export type ContextCompactedEvent = Schemas$2["ContextCompactedEvent"];
 
 // @public (undocumented)
-export type ContextCompactingEvent = Schemas$3["ContextCompactingEvent"];
+export type ContextCompactingEvent = Schemas$2["ContextCompactingEvent"];
 
 // @public
 export function createAccountBearerProvider(input: AccountBearerProviderOptions): AccountBearerProvider;
@@ -1848,7 +1833,12 @@ export function createAomiOAuthGrantManager(input: {
 }): AomiOAuthGrantManager;
 
 // @public
-export function createEvmPaymentClient(wallet: EvmWallet): x402Client | undefined;
+export function createEvmPaymentClient(wallet: EvmWallet, terms?: {
+    amountMicrousd: number;
+    network: string;
+    asset: string;
+    recipient: string;
+}): x402Client | undefined;
 
 // @public (undocumented)
 export function createGuestSessionProvider(input: {
@@ -1895,6 +1885,15 @@ export function createSiwsAccountAuthAdapter(input: {
 }): AccountAuthAdapter;
 
 // @public (undocumented)
+export type CreditBalance = components["schemas"]["CreditBalance"];
+
+// @public (undocumented)
+export type CreditLedger = components["schemas"]["CreditLedger"];
+
+// @public (undocumented)
+export type CreditLedgerEntry = CreditLedger["entries"][number];
+
+// @public (undocumented)
 export function discoverAomiAuthorizationServer(input: {
     portalBaseUrl: string;
     fetch?: typeof fetch;
@@ -1907,15 +1906,15 @@ export function ensureSvmWalletBound(client: AomiClient, wallet: string, signMes
 export function ensureSvmWalletBoundVia(post: AuthorizationPoster, wallet: string, signMessage: (message: Uint8Array) => Promise<Uint8Array>): Promise<AomiEnsureBoundResult>;
 
 // @public (undocumented)
-type ErrorEvent_2 = Schemas$3["ErrorEvent"];
+type ErrorEvent_2 = Schemas$2["ErrorEvent"];
 export { ErrorEvent_2 as ErrorEvent }
 
 // @public (undocumented)
-type Event_2 = Schemas$3["ConcreteEvent"];
+type Event_2 = Schemas$2["ConcreteEvent"];
 export { Event_2 as Event }
 
 // @public (undocumented)
-export type EventPage = Schemas$3["EventPage"];
+export type EventPage = Schemas$2["EventPage"];
 
 // @public (undocumented)
 export class EvmBuild {
@@ -2283,7 +2282,7 @@ export type GuestSessionProvider = ((options?: {
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;
 
 // @public (undocumented)
-export type InterruptIntent = Schemas$3["InterruptIntent"];
+export type InterruptIntent = Schemas$2["InterruptIntent"];
 
 // @public
 export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean;
@@ -2304,9 +2303,6 @@ export const MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE = "Manual EVM execution sign
 
 // @public
 export const MAX_AUTO_FEE_WEI: bigint;
-
-// @public (undocumented)
-export const MAX_CREDIT_TOP_UP = 100000;
 
 // @public (undocumented)
 export const megaeth: {
@@ -2357,15 +2353,12 @@ export const megaeth: {
     verifyHash?: ((client: viem.Client, parameters: viem.VerifyHashActionParameters) => Promise<viem.VerifyHashActionReturnType>) | undefined;
 };
 
-// @public (undocumented)
-type MessageEvent_2 = Schemas$3["MessageEvent"];
+// @public
+type MessageEvent_2 = Schemas$2["MessageEvent"];
 export { MessageEvent_2 as MessageEvent }
 
 // @public (undocumented)
 export const MICROUSD_PER_CREDIT = 10000;
-
-// @public (undocumented)
-export const MIN_CREDIT_TOP_UP = 1;
 
 // @public (undocumented)
 export const monad: {
@@ -2812,7 +2805,7 @@ export type ResolvedAccountLink = {
 };
 
 // @public (undocumented)
-export type RespondToActionIntent = Schemas$3["RespondToActionIntent"];
+export type RespondToActionIntent = Schemas$2["RespondToActionIntent"];
 
 // @public
 export function reviewEligibility(request: ActionRequest | undefined): {
@@ -2951,7 +2944,6 @@ export type SessionOptions = {
     model?: string | null;
     applicationId?: number | string | null;
     getUserState?: () => UserState | undefined;
-    inferenceFunding?: AomiInferenceFundingSource;
     clientId?: string;
     logger?: {
         debug: (...args: unknown[]) => void;
@@ -2960,7 +2952,7 @@ export type SessionOptions = {
 };
 
 // @public (undocumented)
-export type SessionPage = Schemas$3["SessionPage"];
+export type SessionPage = Schemas$2["SessionPage"];
 
 // @public (undocumented)
 export type SessionRuntimeOptions = {
@@ -2971,7 +2963,6 @@ export type SessionRuntimeOptions = {
     applicationId?: number | string | null;
     clientId?: string;
     getUserState?: () => UserState | undefined;
-    inferenceFunding?: AomiInferenceFundingSource;
     actions?: ActionCapabilities;
 };
 
@@ -3146,7 +3137,7 @@ export type SponsorshipPaymasterServiceContext = Record<string, unknown> & {
 };
 
 // @public (undocumented)
-export type StartTurnIntent = Schemas$3["StartTurnIntent"];
+export type StartTurnIntent = Schemas$2["StartTurnIntent"];
 
 // @public
 export type StorageScope = {
@@ -3164,7 +3155,7 @@ export function summarizeSimulation(value: unknown): {
 } | undefined;
 
 // @public (undocumented)
-export const SUPPORTED_CHAIN_IDS: (1 | 5042 | 5042002 | 10 | 143 | 10143 | 4663 | 4326 | 137 | 42161 | 8453 | 84532 | 11155111 | 59144 | 59141 | 31337)[];
+export const SUPPORTED_CHAIN_IDS: (1 | 10 | 5042 | 5042002 | 143 | 10143 | 4663 | 4326 | 137 | 42161 | 8453 | 84532 | 11155111 | 59144 | 59141 | 31337)[];
 
 // @public (undocumented)
 export const SUPPORTED_CHAINS: readonly [{
@@ -3487,19 +3478,19 @@ export interface SvmWallet {
 }
 
 // @public (undocumented)
-export type TaskActivityEvent = Schemas$3["TaskActivityEvent"];
+export type TaskActivityEvent = Schemas$2["TaskActivityEvent"];
 
 // @public (undocumented)
-export type TaskCompletedEvent = Schemas$3["TaskCompletedEvent"];
+export type TaskCompletedEvent = Schemas$2["TaskCompletedEvent"];
 
 // @public (undocumented)
-export type TaskPhaseEvent = Schemas$3["TaskPhaseEvent"];
+export type TaskPhaseEvent = Schemas$2["TaskPhaseEvent"];
 
 // @public (undocumented)
-export type TaskStartedEvent = Schemas$3["TaskStartedEvent"];
+export type TaskStartedEvent = Schemas$2["TaskStartedEvent"];
 
 // @public (undocumented)
-export type TitleEvent = Schemas$3["TitleEvent"];
+export type TitleEvent = Schemas$2["TitleEvent"];
 
 // @public (undocumented)
 export function toAAWalletCall(payload: WalletTxPayload, defaultChainId?: number): AAWalletCall;
@@ -3508,13 +3499,13 @@ export function toAAWalletCall(payload: WalletTxPayload, defaultChainId?: number
 export function toAAWalletCalls(payload: WalletTxPayload, defaultChainId?: number): AAWalletCall[];
 
 // @public (undocumented)
-export type ToolCompleteEvent = Schemas$3["ToolCompleteEvent"];
+export type ToolCompleteEvent = Schemas$2["ToolCompleteEvent"];
 
 // @public (undocumented)
-export type ToolOutputTrimmedEvent = Schemas$3["ToolOutputTrimmedEvent"];
+export type ToolOutputTrimmedEvent = Schemas$2["ToolOutputTrimmedEvent"];
 
 // @public (undocumented)
-export type ToolUpdateEvent = Schemas$3["ToolUpdateEvent"];
+export type ToolUpdateEvent = Schemas$2["ToolUpdateEvent"];
 
 // @public
 export function toViemSignMessageArgs(payload: WalletEip712Payload): ViemSignMessageArgs | null;
@@ -3557,7 +3548,7 @@ export class TransactionSafetyTransport {
 export type TurnState = TurnStateChangedEvent["state"];
 
 // @public (undocumented)
-export type TurnStateChangedEvent = Schemas$3["TurnStateChangedEvent"];
+export type TurnStateChangedEvent = Schemas$2["TurnStateChangedEvent"];
 
 // @public
 export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record<string, unknown>> {
@@ -3574,7 +3565,7 @@ export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record
 }
 
 // @public (undocumented)
-export type UserState = Schemas$2["UserState"];
+export type UserState = Schemas$3["UserState"];
 
 // @public (undocumented)
 export namespace UserState {

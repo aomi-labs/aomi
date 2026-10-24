@@ -102,7 +102,7 @@ function identifyProxyFailure(failure: ProxyFailure): IdentifiedFailure {
           error: "upstream_unavailable",
         };
 
-  if (failure.kind === "bearer_mint" || failure.kind === "response_transform") {
+  if (failure.kind === "bearer_mint") {
     return {
       origin: "local",
       error: failure.error,

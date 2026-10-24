@@ -8,7 +8,6 @@ import type {
   Session,
   SessionPage,
   StartTurnIntent,
-  AomiInferenceFundingSource,
 } from "./types";
 
 type RequestResponse = (
@@ -66,7 +65,6 @@ export class AgentTransport {
 
   constructor(
     private readonly requestResponse: RequestResponse,
-    private readonly defaultInferenceFunding?: AomiInferenceFundingSource,
   ) {
     this.sessions = new AgentSessionsTransport(requestResponse);
   }
@@ -77,18 +75,13 @@ export class AgentTransport {
       idempotencyKey?: string;
       paymentSignature?: string;
       apiKey?: string;
-      inferenceFunding?: AomiInferenceFundingSource;
     } = {},
   ): Promise<EventPage> {
     const sessionId = intent.sessionId;
     return this.json("POST", "/v1/agent/chat", {
       apiKey: options.apiKey,
       headers: {
-        ...mutationHeaders({
-          ...options,
-          inferenceFunding:
-            options.inferenceFunding ?? this.defaultInferenceFunding,
-        }),
+        ...mutationHeaders(options),
         ...threadHeaders(sessionId),
       },
       body: intent,
@@ -303,7 +296,6 @@ function mutationHeaders(
   options: {
     idempotencyKey?: string;
     paymentSignature?: string;
-    inferenceFunding?: AomiInferenceFundingSource;
   } = {},
 ): Record<string, string> {
   return {
@@ -311,9 +303,7 @@ function mutationHeaders(
     ...(options.paymentSignature
       ? { "payment-signature": options.paymentSignature }
       : {}),
-    ...(options.inferenceFunding
-      ? { "x-aomi-inference-funding": options.inferenceFunding }
-      : {}),
+
   };
 }
 

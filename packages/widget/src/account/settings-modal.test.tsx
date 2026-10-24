@@ -44,7 +44,9 @@ vi.mock("./account-settings", () => ({
 }));
 
 vi.mock("@/account/usage/usage-settings", () => ({
-  UsageSettings: () => <div>Usage content</div>,
+  UsageSettings: ({ initialTopUp }: { initialTopUp?: boolean }) => (
+    <div data-topup={String(initialTopUp)}>Usage content</div>
+  ),
 }));
 
 vi.mock("@/account/policy/policy-page", () => ({
@@ -54,6 +56,22 @@ vi.mock("@/account/policy/policy-page", () => ({
 describe("SettingsModal directory shell", () => {
   afterEach(() => {
     session.status = "ready";
+  });
+
+  it("waits for sign-in before showing the requested credit top-up", () => {
+    session.status = "anonymous";
+    const view = render(
+      <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
+    );
+    expect(screen.queryByText("Usage content")).toBeNull();
+    session.status = "ready";
+    view.rerender(
+      <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("Usage content")).toHaveAttribute(
+      "data-topup",
+      "true",
+    );
   });
 
   it("matches the Library frame and keeps navigation in the sidebar", () => {

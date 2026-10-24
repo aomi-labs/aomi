@@ -1024,6 +1024,7 @@ export interface BuilderModelKeyAppUsage extends BuilderModelKeyUsage {
  *  recognizable prefix + the applications it is granted to. Never carries
  *  key material. */
 export interface BuilderModelKey {
+  grants: { applicationId: number; keyId: number; modelIds: "*" | string[] }[];
   id: number;
   provider: string;
   label: string | null;
@@ -1058,6 +1059,7 @@ export interface DeleteBuilderModelKeyInput extends BuilderModelKeysInput {
 export interface SetModelKeyGrantsInput extends BuilderModelKeysInput {
   keyId: number;
   applicationIds: number[];
+  modelIds: "*" | string[];
 }
 
 export interface DeleteUserProjectBotInput extends OwnedOperateProjectInput {

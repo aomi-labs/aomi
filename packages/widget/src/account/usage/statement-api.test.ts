@@ -79,7 +79,7 @@ describe("statement adapter", () => {
             model: "claude-sonnet-5",
             input_tokens: 800,
             output_tokens: 150,
-            funding: { kind: "application_key", application_id: 7 },
+            funding: { kind: "builder_key", application_id: 7 },
             gross: 300_000,
             included: 0,
             credits: 0,
@@ -122,7 +122,7 @@ describe("statement adapter", () => {
     // Payment strip reports account funding buckets, not inference key ownership.
     expect(month.payment.allowanceAppliedUsd).toBeCloseTo(1.0);
     expect(month.payment.creditBankAppliedUsd).toBeCloseTo(0.2);
-    expect(month.payment.settledVia).toBe("monthly allowance + Credit Bank");
+    expect(month.payment.settledVia).toBe("monthly allowance + Credit balance");
     expect(month.payment.allowanceCredits).toEqual({ included: 0, used: 0 });
   });
 

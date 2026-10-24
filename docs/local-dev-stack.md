@@ -77,7 +77,7 @@ pnpm run dev:auth-stack:stop     # stop the tmux sessions and free ports
   this stack, especially the patch that makes the backend honor `DATABASE_URL`.
   Do not commit those from this repo.
 - `apps/portal/.env.local` has the local backend and auth values, including
-  `AOMI_PROXY_BACKEND_URL=http://127.0.0.1:8080` and
+  `BACKEND_URL=http://127.0.0.1:8080` and
   `PORTAL_SERVICE_PRIVATE_KEY`.
 
 ## Auth Contract
@@ -166,3 +166,8 @@ prefixes.
 Better Auth and the widget proof and guest endpoints share one PostgreSQL `rate_limits` table. Its schema is the product-mono migration `supabase/migrations/20261006000000_bff_rate_limits.sql`; hosted databases get it only through that migration, applied before the frontend that uses it. `packages/account/src/db/rate-limits.sql` is the same file, used to set up disposable local and test databases (the browser contract schema script applies it). Each key gets a fixed window that starts with its first request and resets when it expires. If the table is missing, requests are allowed and the error is reported once per server instance, so sign-in keeps working; any other store error rejects the request.
 
 Both limiters trust only the client-IP header named by `AOMI_CLIENT_IP_HEADER` (see `apps/portal/LOCAL_ENV.example`). On Vercel it defaults to `x-vercel-forwarded-for`, which Vercel overwrites at ingress; a self-hosted portal must set it to the header its own proxy overwrites, or every caller shares one conservative bucket. Loopback development uses a larger widget guest budget because every test browser shares one address.
+
+For an isolated Payment process on a non-default port, set `AOMI_PAYMENT_API_URL`
+to its absolute HTTP URL. Without this override, loopback development uses port
+8085 and hosted checkout uses the configured backend edge. Browser fixtures set
+this address to their verified fake upstream.

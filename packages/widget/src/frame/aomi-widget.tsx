@@ -22,7 +22,6 @@ export {
 } from "./widget-auth";
 import type {
   AomiClientOptions,
-  AomiInferenceFundingSource,
 } from "@aomi-labs/react";
 import { createWidgetX402Client } from "@/wallet/payment-client";
 import { SvmWalletBindingGate } from "@/wallet/svm-wallet-binding-gate";
@@ -71,7 +70,6 @@ export type AomiWidgetProps = {
   routing?: AomiRoutingConfig;
   clientOptions?: Omit<AomiClientOptions, "baseUrl" | "getAccountBearer">;
   /** Select the account's saved BYOK key for Agent turns. */
-  inferenceFunding?: AomiInferenceFundingSource;
   persistThread?: boolean;
   threadPersistenceKey?: string;
   threadPersistenceScope?: string | null;
@@ -223,7 +221,6 @@ function ConfiguredWidget({
         controlBarProps={props.controlBarProps}
         routing={props.routing}
         clientOptions={props.clientOptions}
-        inferenceFunding={props.inferenceFunding}
         persistThread={props.persistThread}
         threadPersistenceKey={props.threadPersistenceKey}
         threadPersistenceScope={props.threadPersistenceScope}
@@ -250,7 +247,6 @@ type WidgetFrameProps = Pick<
   | "controlBarProps"
   | "routing"
   | "clientOptions"
-  | "inferenceFunding"
   | "persistThread"
   | "threadPersistenceKey"
   | "threadPersistenceScope"
@@ -274,7 +270,6 @@ function WidgetFrame({
   controlBarProps,
   routing,
   clientOptions,
-  inferenceFunding,
   persistThread,
   threadPersistenceKey,
   threadPersistenceScope,
@@ -325,7 +320,6 @@ function WidgetFrame({
         agentTarget={fixedAgentTarget}
         accountSessionAvailable={Boolean(walletKit.accountUser)}
         clientOptions={runtimeClientOptions}
-        inferenceFunding={inferenceFunding}
         width={width}
         height={height}
         className={className}

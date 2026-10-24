@@ -57,7 +57,6 @@ export class ClientSession {
   private model?: string | null;
   private applicationId?: number | string | null;
   private getUserState?: SessionOptions["getUserState"];
-  private inferenceFunding?: SessionOptions["inferenceFunding"];
   private clientId: string;
   private logger?: { debug: (...args: unknown[]) => void };
   private cursor?: string;
@@ -70,7 +69,6 @@ export class ClientSession {
     edit?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
-    inferenceFunding?: SessionOptions["inferenceFunding"];
     apiKey?: string;
     sinceSequence: number;
     uncertain?: boolean;
@@ -158,7 +156,6 @@ export class ClientSession {
       applicationId: this.applicationId,
     });
     this.getUserState = sessionOptions?.getUserState;
-    this.inferenceFunding = sessionOptions?.inferenceFunding;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
     this.logger = sessionOptions?.logger;
     this.commits = new CommitController(
@@ -408,7 +405,6 @@ export class ClientSession {
     this.applicationId = options.applicationId;
     this.clientId = options.clientId ?? this.clientId;
     this.getUserState = options.getUserState;
-    this.inferenceFunding = options.inferenceFunding;
     if (options.actions) this.actions.setCapabilities(options.actions);
     if (options.commits) this.commits.setCapabilities(options.commits);
   }
@@ -530,7 +526,6 @@ export class ClientSession {
             edit: options.edit,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
             sinceSequence: this.events.at(-1)?.sequence ?? 0,
-            inferenceFunding: this.inferenceFunding,
             apiKey: options.apiKey,
           };
     this.startOperation = operation;
@@ -591,7 +586,6 @@ export class ClientSession {
         },
         {
           idempotencyKey: operation.idempotencyKey,
-          inferenceFunding: operation.inferenceFunding,
           apiKey: operation.apiKey,
         },
       );
@@ -716,7 +710,6 @@ export class ClientSession {
       { ...operation.intent, ...(this.cursor ? { cursor: this.cursor } : {}) },
       {
         idempotencyKey: operation.idempotencyKey,
-        inferenceFunding: operation.inferenceFunding,
         apiKey: operation.apiKey,
       },
     );

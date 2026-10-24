@@ -40,12 +40,6 @@ describe("package entry points", () => {
     expect(read("package.json").exports).toEqual(expectedExports);
   });
 
-  it("forwards the same entries from the deprecated @aomi-labs/widget-lib", () => {
-    expect(Object.keys(read("../widget-lib/package.json").exports)).toEqual(
-      Object.keys(expectedExports),
-    );
-  });
-
   it("records the previous exports of every deprecated entry", () => {
     expect(Object.keys(read("src/compat-exports.json")).sort()).toEqual(
       Object.keys(deprecated).sort(),

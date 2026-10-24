@@ -42,7 +42,6 @@ for (const directory of [
   "packages/deploy",
   "packages/cli",
   "packages/widget",
-  "packages/widget-lib",
 ]) {
   const path = resolve(directory, "package.json");
   if (!existsSync(path))

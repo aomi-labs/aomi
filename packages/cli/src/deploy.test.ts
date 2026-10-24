@@ -22,16 +22,17 @@ describe("aomi deploy Project routing", () => {
   });
 
   it("routes by Project identity without forwarding a client-selected platform", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({
-        ok: true,
-        deployment: {
-          id: "deployment-1",
-          status: "preflight",
-          source: { repository_link: "alice/trading-bot" },
-          platform: { platform: "trading-platform-x", apps: [] },
-        },
-      }),
+    const fetchMock = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        Response.json({
+          ok: true,
+          deployment: {
+            id: "deployment-1",
+            status: "preflight",
+            source: { repository_link: "alice/trading-bot" },
+            platform: { platform: "trading-platform-x", apps: [] },
+          },
+        }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -45,13 +46,13 @@ describe("aomi deploy Project routing", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.test/api/projects/42/deploy");
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(JSON.parse(String(init!.body))).toEqual({
       source_ref: SOURCE_REF,
       preflight: true,
     });
-    expect(new Headers(init.headers).get("Authorization")).toBe(
+    expect(new Headers(init!.headers).get("Authorization")).toBe(
       "Bearer activation-token",
     );
     expect(mocks.writeDeploymentState).not.toHaveBeenCalled();
@@ -60,7 +61,7 @@ describe("aomi deploy Project routing", () => {
   it("persists the backend-resolved platform after deployment", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
+      vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
         Response.json({
           ok: true,
           deployment: {

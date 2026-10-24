@@ -4,7 +4,16 @@ import { useCallback, useMemo, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@aomi-labs/widget/browser-auth";
-import { oauthConsentRedirect } from "./consent-response";
+
+export function oauthConsentRedirect(body: unknown): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const response = body as Record<string, unknown>;
+  return response.redirect === true &&
+    typeof response.url === "string" &&
+    response.url.length > 0
+    ? response.url
+    : null;
+}
 
 const DESCRIPTIONS: Record<string, string> = {
   "account:apps:read": "View your available and installed apps",

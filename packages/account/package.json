@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
@@ -19,7 +19,6 @@
     "./widget-auth": "./src/widget-auth/index.ts",
     "./forward": "./src/forward.ts",
     "./csrf": "./src/csrf.ts",
-    "./backend-url": "./src/backend-url.ts",
     "./rate-limit": "./src/rate-limit.ts",
     "./rate-limits.sql": "./src/db/rate-limits.sql",
     "./service-topology": "./src/service-topology/index.ts"

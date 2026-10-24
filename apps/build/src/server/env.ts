@@ -1,5 +1,5 @@
 import "server-only";
-import { backendUrlFromEnv } from "@aomi-labs/account/backend-url";
+import { backendUrlFromEnv } from "@aomi-labs/account/forward";
 
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 

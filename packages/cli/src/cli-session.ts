@@ -556,7 +556,6 @@ export class CliSession {
           }),
         actions: walletCapabilities(wallets),
         commits: commitCapabilities(wallets),
-        inferenceFunding: config?.inferenceFunding,
       },
     );
     return session;
