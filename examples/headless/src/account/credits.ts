@@ -21,12 +21,15 @@ const aomi = new Aomi({
   },
 });
 
-const before = await aomi.account.credits.get({ limit: 5 });
+const [before, ledger] = await Promise.all([
+  aomi.account.credits.get(),
+  aomi.account.credits.ledger({ limit: 5 }),
+]);
 console.log({
   period: before.period_utc_month,
   included: before.included,
   balanceMicrousd: before.balance_microusd,
-  activity: before.entries,
+  activity: ledger.entries,
 });
 
 const credits = optionalCredits(process.env.AOMI_FUNDING_CREDITS);
@@ -37,7 +40,10 @@ if (credits !== undefined) {
     chain: `eip155:${paymentChainId}`,
     idempotencyKey: requiredEnv("AOMI_FUNDING_KEY"),
   });
-  console.log({ id: result.funding_event.id, status: result.funding_event.status });
+  console.log({
+    id: result.funding_event.id,
+    status: result.funding_event.status,
+  });
 }
 
 function requiredEnv(name: string): string {
@@ -50,7 +56,9 @@ function optionalCredits(value: string | undefined): number | undefined {
   if (!value?.trim()) return undefined;
   const credits = Number(value);
   if (!Number.isSafeInteger(credits) || credits < 100 || credits > 100_000) {
-    throw new Error("AOMI_FUNDING_CREDITS must be a whole number from 100 to 100000");
+    throw new Error(
+      "AOMI_FUNDING_CREDITS must be a whole number from 100 to 100000",
+    );
   }
   return credits;
 }
