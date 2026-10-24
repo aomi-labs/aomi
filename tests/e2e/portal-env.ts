@@ -12,6 +12,8 @@ export function portalEnv(input: {
   embedOrigins: string[];
 }): Record<string, string> {
   return {
+    // Loopback fixtures use the development signer, independent of local Vercel settings.
+    VERCEL_ENV: "development",
     BETTER_AUTH_URL: input.portal,
     BETTER_AUTH_SECRET: "browser-test-secret-at-least-32-bytes-long",
     AOMI_PORTAL_BASE_URL: input.portal,
@@ -22,6 +24,7 @@ export function portalEnv(input: {
     NEXT_PUBLIC_BACKEND_URL: "/",
     BACKEND_URL: input.upstream,
     AOMI_AGENT_API_URL: input.upstream,
+    AOMI_PAYMENT_API_URL: input.upstream,
     NEXT_PUBLIC_PROJECT_ID: "000000000000000000000000000000000000000000",
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:
       "000000000000000000000000000000000000000000",

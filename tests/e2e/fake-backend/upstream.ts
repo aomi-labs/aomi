@@ -3,6 +3,7 @@
 // with the committed development key. Agent threads are kept per account so
 // one account can never read another's chat.
 import { createPrivateKey, createPublicKey, verify } from "node:crypto";
+import type { CreditBalance } from "@aomi-labs/client";
 import {
   createServer,
   type IncomingMessage,
@@ -109,6 +110,25 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       return json(response, 200, accountBody(accountRoute, principal));
     }
 
+    if (
+      method === "GET" &&
+      (url.pathname === "/v1/account/credits" ||
+        url.pathname === "/v1/account/statement")
+    ) {
+      const principal = verifyBearer(request, "aomi-payment");
+      record(principal);
+      const scope = url.pathname.endsWith("/credits")
+        ? "account:credits:read"
+        : "account:usage:read";
+      if (!principal || !principal.scope?.split(" ").includes(scope))
+        return json(response, 401, { error: { code: "invalid_token" } });
+      return json(
+        response,
+        200,
+        url.pathname.endsWith("/credits") ? credits : statement,
+      );
+    }
+
     const principal = verifyBearer(request, "aomi-api-server");
     record(principal);
     if (!principal)
@@ -119,10 +139,6 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       response.setHeader("x-request-id", "fixture-error-request");
       return json(response, 429, { error: { code: "fixture_limited" } });
     }
-    if (url.pathname === "/v1/account/statement" && method === "GET")
-      return json(response, 200, statement);
-    if (url.pathname === "/v1/account/credits" && method === "GET")
-      return json(response, 200, credits);
     if (!url.pathname.startsWith("/v1/agent/"))
       return json(response, 404, {
         error: { code: "fixture_route_not_found" },
@@ -260,15 +276,17 @@ const statement = {
   next_cursor: null,
 };
 
-const credits = {
+const credits: CreditBalance = {
   period_utc_month: "2026-09",
-  included_limit: 10_000_000,
-  included_used: 1_250_000,
-  included_remaining: 8_750_000,
-  balance: 25_000_000,
-  outstanding_debt: 0,
-  records: [],
-  next_before_id: null,
+  included: {
+    limit_microusd: 10_000_000,
+    used_microusd: 1_250_000,
+    remaining_microusd: 8_750_000,
+  },
+  balance_microusd: 25_000_000,
+  reserved_microusd: 0,
+  available_microusd: 25_000_000,
+  debt_microusd: 0,
 };
 
 /** EdDSA bearer issued by the development BFF for a user, or null. */
