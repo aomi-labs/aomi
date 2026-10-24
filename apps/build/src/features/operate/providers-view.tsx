@@ -571,7 +571,7 @@ function KeyRow({
           <div className="pt-2">
             <label className="block text-sm">Sponsored models
               <input aria-label="Sponsored models" value={coverage} onChange={(event) => setCoverage(event.target.value)} className="mt-2 w-full rounded border border-border bg-surface-1 p-2" />
-              <span className="mt-1 block text-xs text-dim">Use * for this provider's models, or comma-separated route IDs such as openai:gpt-6.1-sol.</span>
+              <span className="mt-1 block text-xs text-dim">Use * for this provider&apos;s models, or comma-separated route IDs such as openai:gpt-6.1-sol.</span>
             </label>
             <div className="mb-2 mt-4">
               <h4 className="text-sm font-medium">Add to project</h4>

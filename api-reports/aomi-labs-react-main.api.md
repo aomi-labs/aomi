@@ -280,7 +280,20 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "credit-ledger" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
+export type DisplayResource =
+| "models"
+| "app-catalog"
+| "skills"
+| "authorized-models"
+| "authorized-apps"
+| "threads"
+| "profile"
+| "credits"
+| "credit-ledger"
+| "account-acl"
+| "account-apps"
+| "transaction-safety"
+| "usage";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;
@@ -293,7 +306,10 @@ export function ExtUserProvider(input: {
 }): react_jsx_runtime.JSX.Element;
 
 // @public
-export function fetchDisplayQuery<T>(cache: DisplayCache, query: DisplayQuery<T>): Promise<T>;
+export function fetchDisplayQuery<T>(
+cache: DisplayCache,
+query: DisplayQuery<T>,
+): Promise<T>;
 
 // @public @deprecated (undocumented)
 export const formatAddress: (addr?: string) => string;
@@ -949,7 +965,12 @@ export function useControl(): ControlContextApi;
 export function useCurrentThreadMetadata(): ThreadMetadata | undefined;
 
 // @public
-export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<_tanstack_react_query.NoInfer<T>, Error>;
+export function useDisplayQuery<T>(
+query: DisplayQuery<T>,
+): _tanstack_react_query.UseQueryResult<
+_tanstack_react_query.NoInfer<T>,
+Error
+>;
 
 // @public (undocumented)
 export function useNotification(): NotificationContextValue;
