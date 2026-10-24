@@ -40,11 +40,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/account/model-keys/:provider",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
     path: "/api/account/providers/:provider/delegation",
     auth: ["account"],
   },
@@ -145,11 +140,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/account/model-keys",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
     path: "/api/account/onchain-policies/:provider",
     auth: ["account"],
   },
@@ -206,6 +196,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/builder/applications/:application_id",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
     auth: ["service"],
   },
   {
@@ -372,6 +367,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "GET",
     path: "/api/integrations/github-app/user/usage",
     auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/manager/openapi.json",
+    auth: ["public"],
   },
   {
     method: "GET",
@@ -590,11 +590,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/model-keys",
-    auth: ["account"],
-  },
-  {
-    method: "POST",
     path: "/api/account/onchain-policies/:provider/:binding_id/revoke/confirm",
     auth: ["account"],
   },
@@ -707,6 +702,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/exec/tool-call",
     auth: ["account","thread","app_gate","delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/builder/applications/:application_id/app-key",
+    auth: ["service"],
   },
   {
     method: "POST",

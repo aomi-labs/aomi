@@ -6,11 +6,10 @@ const mocks = vi.hoisted(() => ({
   connected: true,
   accountCredits: {
     get: vi.fn(),
-    topUp: vi.fn(),
     methods: vi.fn(),
-    purchase: vi.fn(),
-    beginPurchase: vi.fn(),
-    cancelPurchase: vi.fn(),
+    fundingEvent: vi.fn(),
+    beginFunding: vi.fn(),
+    cancelFunding: vi.fn(),
   },
 }));
 const runtime = vi.hoisted(() => ({
@@ -73,10 +72,10 @@ function position(
       used_microusd: 12_500_000,
       remaining_microusd: 37_500_000,
     },
-    bank: {
-      balance_microusd: -250_000,
-      outstanding_debt_microusd: 250_000,
-    },
+    balance_microusd: -250_000,
+    reserved_microusd: 0,
+    available_microusd: -250_000,
+    debt_microusd: 250_000,
     entries,
     next_before_id: null,
   };
@@ -87,10 +86,9 @@ describe("Credit Bank", () => {
     mocks.connected = true;
     window.localStorage.clear();
     mocks.accountCredits.get.mockReset();
-    mocks.accountCredits.topUp.mockReset();
-    mocks.accountCredits.beginPurchase.mockReset();
+    mocks.accountCredits.beginFunding.mockReset();
     mocks.accountCredits.methods.mockResolvedValue({ card: null, wallet: { min_microusd: 1000000, max_microusd: 1000000000, networks: [{ network: "eip155:84532", name: "Base Sepolia", asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", recipient: "0x0000000000000000000000000000000000000002", confirmations: 2 }] } });
-    mocks.accountCredits.purchase.mockRejectedValue(new AomiCreditApiError(404,"check payment"));
+    mocks.accountCredits.fundingEvent.mockRejectedValue(new AomiCreditApiError(404,"check payment"));
     mocks.accountCredits.get.mockImplementation(async () => {
       const response = await fetch(`/v1/account/credits?limit=25`);
       if (!response.ok) throw new Error(await response.text());
@@ -111,7 +109,7 @@ describe("Credit Bank", () => {
     render(<CreditBank initialTopUp />);
     expect(screen.getByRole("dialog", { name: "Add credits" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Connect wallet" })).toBeEnabled();
-    expect(mocks.accountCredits.topUp).not.toHaveBeenCalled();
+    expect(mocks.accountCredits.beginFunding).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Close top-up" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
@@ -185,31 +183,49 @@ describe("Credit Bank", () => {
 
   it("validates whole credits and submits the reviewed wallet terms", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json(position())));
-    mocks.accountCredits.beginPurchase.mockResolvedValue({ purchase: { id: "purchase-1", idempotency_key: "key-1", amount_microusd: 1_000_000, method: "wallet", status: "credited", terms: { network: "eip155:84532" } }, action: { kind: "done" } });
+    mocks.accountCredits.beginFunding.mockResolvedValue({ funding_event: { id: "purchase-1", idempotency_key: "key-1", amount_microusd: 1_000_000, method: "wallet", status: "credited", terms: { network: "eip155:84532" } }, action: { kind: "done" } });
     render(<CreditBank initialTopUp />);
     await screen.findByRole("button", { name: "Pay 10.00 USDC" });
     const input=screen.getByLabelText("Top-up credits");
     fireEvent.change(input,{target:{value:"100.5"}});
     expect(screen.getByText("Choose 100–100,000 whole credits.")).toBeTruthy();
-    expect(mocks.accountCredits.beginPurchase).not.toHaveBeenCalled();
+    expect(mocks.accountCredits.beginFunding).not.toHaveBeenCalled();
     fireEvent.change(input,{target:{value:"100"}});
     const pay=screen.getByRole("button",{name:"Pay 1.00 USDC"});
     await waitFor(()=>expect(pay).toBeEnabled());
     fireEvent.click(pay);
-    await waitFor(()=>expect(mocks.accountCredits.beginPurchase).toHaveBeenCalledWith({amountMicrousd:1_000_000,method:"wallet",chain:"eip155:84532",idempotencyKey:expect.any(String),x402:expect.any(Object)}));
+    await waitFor(()=>expect(mocks.accountCredits.beginFunding).toHaveBeenCalledWith({amountMicrousd:1_000_000,method:"wallet",chain:"eip155:84532",idempotencyKey:expect.any(String),x402:expect.any(Object)}));
     expect(await screen.findByText("100 credits added. Your balance is up to date.")).toBeTruthy();
   });
 
   it("resumes a server-owned pending purchase without signing again", async () => {
     mocks.connected=false;
     vi.stubGlobal("fetch",vi.fn(async()=>Response.json(position())));
-    mocks.accountCredits.purchase.mockResolvedValue({purchase:{id:"pending",idempotency_key:"original",amount_microusd:10_000_000,method:"wallet",status:"processing",terms:{network:"eip155:84532"}},action:{kind:"wait"}});
+    mocks.accountCredits.fundingEvent.mockResolvedValue({funding_event:{id:"pending",idempotency_key:"original",amount_microusd:10_000_000,method:"wallet",status:"processing",terms:{network:"eip155:84532"}},action:{kind:"wait"}});
     render(<CreditBank initialTopUp />);
     expect(await screen.findByText(/Confirming your payment/)).toBeTruthy();
     expect(screen.getByLabelText("Top-up credits")).toBeDisabled();
-    expect(mocks.accountCredits.beginPurchase).not.toHaveBeenCalled();
+    expect(mocks.accountCredits.beginFunding).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button",{name:"Close top-up"}));
     await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("shows durable processing after a lost settlement response, not a failed payment", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(position())));
+    mocks.accountCredits.beginFunding.mockImplementation(async () => {
+      mocks.accountCredits.fundingEvent.mockResolvedValue({
+        funding_event: { id: "recovering", idempotency_key: "original", amount_microusd: 10_000_000, method: "wallet", status: "processing", terms: { network: "eip155:84532" } },
+        action: { kind: "wait" },
+      });
+      throw new AomiCreditApiError(503, "start payment");
+    });
+    render(<CreditBank initialTopUp />);
+    const pay = await screen.findByRole("button", { name: "Pay 10.00 USDC" });
+    await waitFor(() => expect(pay).toBeEnabled());
+    fireEvent.click(pay);
+    expect(await screen.findByText(/Confirming your payment/)).toBeTruthy();
+    expect(screen.queryByText(/Failed to start payment/)).toBeNull();
+    expect(mocks.accountCredits.beginFunding).toHaveBeenCalledTimes(1);
   });
 
   it("lets an unsigned wallet purchase be abandoned for a new amount", async () => {
@@ -222,18 +238,18 @@ describe("Credit Bank", () => {
       status: "awaiting_action",
       terms: { network: "eip155:84532" },
     };
-    mocks.accountCredits.purchase.mockResolvedValue({ purchase: pending, action: { kind: "wait" } });
-    mocks.accountCredits.cancelPurchase.mockResolvedValue({
-      purchase: { ...pending, status: "canceled" },
+    mocks.accountCredits.fundingEvent.mockResolvedValue({ funding_event: pending, action: { kind: "wait" } });
+    mocks.accountCredits.cancelFunding.mockResolvedValue({
+      funding_event: { ...pending, status: "canceled" },
       action: { kind: "wait" },
     });
     render(<CreditBank initialTopUp />);
     // The amount is pinned to the open purchase until it is settled or abandoned.
     expect(await screen.findByLabelText("Top-up credits")).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel this payment" }));
-    await waitFor(() => expect(mocks.accountCredits.cancelPurchase).toHaveBeenCalledWith("challenged"));
+    await waitFor(() => expect(mocks.accountCredits.cancelFunding).toHaveBeenCalledWith("challenged"));
     fireEvent.click(await screen.findByRole("button", { name: "Choose a new payment" }));
     expect(screen.getByLabelText("Top-up credits")).toBeEnabled();
-    expect(mocks.accountCredits.beginPurchase).not.toHaveBeenCalled();
+    expect(mocks.accountCredits.beginFunding).not.toHaveBeenCalled();
   });
 });

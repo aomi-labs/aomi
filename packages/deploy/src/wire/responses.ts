@@ -323,6 +323,7 @@ export function camelBuilderModelKey(raw: unknown): BuilderModelKey {
     provider: String(k.provider ?? ""),
     label: k.label ?? null,
     keyPrefix: String(k.keyPrefix ?? k.key_prefix ?? ""),
+    grants: Array.isArray(k.grants) ? k.grants : [],
     createdAt: Number(k.createdAt ?? k.created_at ?? 0),
     updatedAt: Number(k.updatedAt ?? k.updated_at ?? 0),
     applicationIds: Array.isArray(k.applicationIds ?? k.application_ids)

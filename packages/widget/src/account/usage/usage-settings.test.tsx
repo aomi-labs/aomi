@@ -42,12 +42,9 @@ const STATEMENT = {
 
 const CREDITS = {
   period_utc_month: "2026-09-01",
-  included_limit: 5_000_000,
-  included_used: 800_000,
-  included_remaining: 4_200_000,
-  balance: 0,
-  outstanding_debt: 0,
-  records: [],
+  included: { limit_microusd: 5_000_000, used_microusd: 800_000, remaining_microusd: 4_200_000 },
+  balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
+  entries: [],
   next_before_id: null,
 };
 
@@ -69,6 +66,7 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json(STATEMENT);
         }
+        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json(CREDITS);
         }
@@ -89,9 +87,9 @@ describe("usage settings wiring", () => {
     expect(statementQuery.searchParams.get("limit")).toBe("100");
     expect(statementQuery.searchParams.get("from")).toBeTruthy();
     expect(statementQuery.searchParams.get("to")).toBeTruthy();
-    expect(calls).toContain("/v1/account/credits?limit=25");
+    expect(calls).toContain("/v1/account/credits/ledger?limit=25");
     expect(
-      calls.filter((call) => call.startsWith("/v1/account/credits?")),
+      calls.filter((call) => call.startsWith("/v1/account/credits/ledger?")),
     ).toHaveLength(1);
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("No charges").length).toBeGreaterThanOrEqual(2);
@@ -119,12 +117,11 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json({ entries: [], next_cursor: null });
         }
+        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json({
             ...CREDITS,
-            included_limit: 50_000_000,
-            included_used: 12_500_000,
-            included_remaining: 37_500_000,
+            included: { limit_microusd: 50_000_000, used_microusd: 12_500_000, remaining_microusd: 37_500_000 },
           });
         }
         return new Response("unexpected", { status: 500 });
@@ -153,6 +150,7 @@ describe("usage settings wiring", () => {
             { status: 401 },
           );
         }
+        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return Response.json(CREDITS);
         }
@@ -180,6 +178,7 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/statement") {
           return Response.json(STATEMENT);
         }
+        if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
         if (url.pathname === "/v1/account/credits") {
           return new Response("credits unavailable", { status: 503 });
         }

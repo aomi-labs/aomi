@@ -48,7 +48,7 @@ const VENDOR_PATTERNS: [RegExp, string][] = [
 ];
 
 export function getVendorForModel(model: string): VendorInfo {
-  const lower = model.toLowerCase();
+  const lower = (model.split(":").at(-1) ?? model).toLowerCase();
   for (const [pattern, vendorId] of VENDOR_PATTERNS) {
     if (pattern.test(lower)) {
       return VENDORS[vendorId]!;

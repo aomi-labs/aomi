@@ -79,7 +79,7 @@ describe("statement adapter", () => {
             model: "claude-sonnet-5",
             input_tokens: 800,
             output_tokens: 150,
-            funding: { kind: "application_key", application_id: 7 },
+            funding: { kind: "builder_key", application_id: 7 },
             gross: 300_000,
             included: 0,
             credits: 0,

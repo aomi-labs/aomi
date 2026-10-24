@@ -61,7 +61,7 @@ const x402 = createEvmPaymentClient(
 const key = `testnet-${crypto.randomUUID()}`;
 let checkout;
 try {
-  checkout = await client.account.credits.beginPurchase({
+  checkout = await client.account.credits.beginFunding({
     amountMicrousd: 1_000_000,
     method: "wallet",
     chain: terms.network,
@@ -69,27 +69,27 @@ try {
     x402,
   });
 } catch {
-  checkout = await client.account.credits.purchase("current");
+  checkout = await client.account.credits.fundingEvent("current");
 }
 console.log(
   JSON.stringify({
-    purchase_id: checkout.purchase.id,
-    status: checkout.purchase.status,
+    purchase_id: checkout.funding_event.id,
+    status: checkout.funding_event.status,
     phase: "authorization submitted",
   }),
 );
-for (let i = 0; i < 60 && checkout.purchase.status !== "credited"; i++) {
+for (let i = 0; i < 60 && checkout.funding_event.status !== "credited"; i++) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
-  checkout = await client.account.credits.purchase(checkout.purchase.id);
+  checkout = await client.account.credits.fundingEvent(checkout.funding_event.id);
 }
 const after = await balances();
-const reference = checkout.purchase.provider_reference;
+const reference = checkout.funding_event.provider_reference;
 const tx = reference?.split(":").at(-1) as Hex;
 const receipt = tx ? await rpc.getTransactionReceipt({ hash: tx }) : undefined;
 const evidence = {
-  purchase_id: checkout.purchase.id,
+  purchase_id: checkout.funding_event.id,
   idempotency_key: key,
-  status: checkout.purchase.status,
+  status: checkout.funding_event.status,
   network: terms.network,
   payer: signer.address,
   treasury: terms.recipient,
@@ -105,7 +105,7 @@ if (process.env.PAYMENT_EVIDENCE_FILE)
   );
 console.log(JSON.stringify(evidence));
 if (
-  checkout.purchase.status !== "credited" ||
+  checkout.funding_event.status !== "credited" ||
   receipt?.status !== "success" ||
   before[0] - after[0] !== 1_000_000n ||
   after[1] - before[1] !== 1_000_000n

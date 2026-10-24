@@ -134,7 +134,7 @@ describe("creditAllowanceFromPosition", () => {
           limit_microusd: 1_000_000,
           remaining_microusd: 880_000,
         },
-        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        balance_microusd: 0, debt_microusd: 0, reserved_microusd: 0, available_microusd: 0,
         entries: [],
         next_before_id: null,
       }),
@@ -149,7 +149,7 @@ describe("creditAllowanceFromPosition", () => {
     expect(
       creditAllowanceFromPosition({
         period_utc_month: "2026-09-01",
-        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        balance_microusd: 0, debt_microusd: 0, reserved_microusd: 0, available_microusd: 0,
         entries: [],
         next_before_id: null,
       }),

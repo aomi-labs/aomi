@@ -9,14 +9,10 @@ import type {
   AomiClientOptions,
   AomiClearAppSecretsResponse,
   AomiClearSecretsResponse,
-  AomiDeleteByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
-  AomiListByokKeysResponse,
   AomiListSecretsResponse,
   AomiRequestOptions,
-  AomiByokKeyEntry,
-  AomiSaveByokKeyResponse,
   AomiAccountAppMutationResponse,
   AomiSimulateResponse,
   AomiUserAppSecrets,
@@ -356,8 +352,8 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
           : "account:apps:write";
     } else if (url.pathname === "/v1/account/statement") {
       scope = "account:usage:read";
-    } else if (url.pathname === "/v1/account/credits/top-up") {
-      scope = "account:credits:topup";
+    } else if (url.pathname.startsWith("/v1/account/credits/funding-events") && method.toUpperCase() === "POST") {
+      scope = "account:credits:fund";
     } else {
       scope = "account:credits:read";
     }
@@ -487,7 +483,6 @@ export class AomiClient {
     this.agent = new AgentTransport(
       (method, path, requestOptions) =>
         this.requestResponse(method, path, requestOptions),
-      options.inferenceFunding,
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
@@ -1010,74 +1005,6 @@ export class AomiClient {
       baml: string;
       created: boolean;
     };
-  }
-
-  /**
-   * List BYOK keys (one per LLM provider) bound to the current account.
-   */
-  async listByokKeys(sessionId: string): Promise<AomiByokKeyEntry[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/model-keys");
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get BYOK keys: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiListByokKeysResponse;
-    return data.keys ?? [];
-  }
-
-  /**
-   * Save or replace a BYOK key for the current account.
-   */
-  async saveByokKey(
-    sessionId: string,
-    provider: string,
-    byokKey: string,
-    label?: string,
-  ): Promise<AomiByokKeyEntry> {
-    const url = joinApiPath(this.baseUrl, "/api/account/model-keys");
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        provider,
-        byok_key: byokKey,
-        label,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to save BYOK key: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiSaveByokKeyResponse;
-    return data.key;
-  }
-
-  /**
-   * Delete a BYOK key for the current account.
-   */
-  async deleteByokKey(sessionId: string, provider: string): Promise<boolean> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/account/model-keys/${encodeURIComponent(provider)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete BYOK key: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiDeleteByokKeyResponse;
-    return data.deleted;
   }
 
   // ===========================================================================

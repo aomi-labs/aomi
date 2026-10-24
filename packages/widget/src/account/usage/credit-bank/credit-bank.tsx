@@ -41,7 +41,7 @@ export function CreditBank({
   useEffect(() => {
     if (creditQuery.error) setError(creditQuery.error.message);
   }, [creditQuery.error]);
-  const balance = position ? toCredits(position.bank.balance_microusd) : null;
+  const balance = position ? toCredits(position.balance_microusd) : null;
 
   return (
     <div className="border-aomi-border border-t">

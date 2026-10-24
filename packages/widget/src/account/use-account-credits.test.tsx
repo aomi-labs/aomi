@@ -18,10 +18,10 @@ vi.mock("./transport", () => ({
 
 describe("shared account credit display read", () => {
   it("serves four surfaces from one request and keeps the data when Settings reopens", async () => {
-    sdk.get.mockResolvedValue({ bank: { balance_microusd: 42 } });
+    sdk.get.mockResolvedValue({ balance_microusd: 42 });
     function Surface() {
       const credits = useAccountCredits();
-      return <span>{credits.data?.bank.balance_microusd ?? "pending"}</span>;
+      return <span>{credits.data?.balance_microusd ?? "pending"}</span>;
     }
     const frame = (count: number) => (
       <DisplayCacheProvider

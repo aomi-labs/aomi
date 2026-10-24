@@ -55,7 +55,6 @@ export {
   useOptionalAomiRuntime,
 } from "./interface";
 export type { AomiRuntimeApi } from "./interface";
-export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 // =============================================================================
 // Handler Hooks
@@ -140,7 +139,6 @@ export {
 export {
   useControl,
   useApiKey,
-  useByok,
   useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
@@ -148,7 +146,6 @@ export {
   type ControlState,
   type ControlContextApi,
   type ControlContextProviderProps,
-  type StoredByokKey,
 } from "./contexts/control-context";
 
 export { AomiChatBoundary } from "./runtime/assistant-runtime-boundary";

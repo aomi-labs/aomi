@@ -61,6 +61,7 @@ export type ModelKey = {
   createdAt: number;
   updatedAt: number;
   applicationIds: number[];
+  grants?: { applicationId: number; keyId: number; modelIds: "*" | string[] }[];
   /** Wire form from the BFF: all-time funded-turn sums per application. */
   usageByApplication?: ModelKeyAppUsage[];
   /** applicationId -> usage, derived from `usageByApplication` on load. */
@@ -322,7 +323,7 @@ function ProjectsTable({
 }: {
   keyRow: ModelKey;
   options: AppOption[];
-  fundedBy: Map<number, ModelKey>;
+  fundedBy: Map<number, ModelKey[]>;
   checked: Set<number>;
   onToggle: (applicationId: number, isChecked: boolean) => void;
 }) {
@@ -342,8 +343,7 @@ function ProjectsTable({
         <tbody className="divide-border divide-y">
           {options.map((option) => {
             const isChecked = checked.has(option.applicationId);
-            const holder = fundedBy.get(option.applicationId);
-            const stolen = holder && holder.id !== keyRow.id && isChecked;
+            const holders = fundedBy.get(option.applicationId) ?? [];
             return (
               <tr
                 key={option.applicationId}
@@ -369,19 +369,7 @@ function ProjectsTable({
                   {option.projectLabel}
                 </td>
                 <td className="px-3 py-2 text-xs">
-                  {stolen ? (
-                    <span className="text-warning">
-                      {keyDisplayName(holder)} — reassigns on save
-                    </span>
-                  ) : holder ? (
-                    holder.id === keyRow.id ? (
-                      <span className="text-foreground">This key</span>
-                    ) : (
-                      <span className="text-dim">{keyDisplayName(holder)}</span>
-                    )
-                  ) : (
-                    <span className="text-dim">—</span>
-                  )}
+                  <span className="text-dim">{holders.length ? holders.map((key) => key.id === keyRow.id ? "This key" : keyDisplayName(key)).join(", ") : "—"}</span>
                 </td>
                 <td className="text-dim whitespace-nowrap px-3 py-2 text-right font-mono text-xs">
                   {tokensCell(keyRow.usage?.[option.applicationId]?.tokens)}
@@ -422,8 +410,8 @@ function KeyRow({
 }: {
   keyRow: ModelKey;
   options: AppOption[];
-  fundedBy: Map<number, ModelKey>;
-  onGrants: (key: ModelKey, applicationIds: number[]) => Promise<void>;
+  fundedBy: Map<number, ModelKey[]>;
+  onGrants: (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) => Promise<void>;
   onRotate: (key: ModelKey, material: string) => Promise<void>;
   onRemove: (key: ModelKey) => Promise<void>;
   busy: boolean;
@@ -432,15 +420,19 @@ function KeyRow({
   const [checked, setChecked] = useState<Set<number>>(
     () => new Set(keyRow.applicationIds),
   );
+  const savedModels = keyRow.grants?.[0]?.modelIds ?? "*";
+  const savedCoverage = Array.isArray(savedModels) ? savedModels.join(", ") : savedModels;
+  const [coverage, setCoverage] = useState(savedCoverage);
   const [flow, setFlow] = useState<"rotate" | "remove" | null>(null);
   const [material, setMaterial] = useState("");
 
   useEffect(() => {
     setChecked(new Set(keyRow.applicationIds));
-  }, [keyRow.applicationIds]);
+    setCoverage(savedCoverage);
+  }, [keyRow.applicationIds, savedCoverage]);
 
   const dirty =
-    checked.size !== keyRow.applicationIds.length ||
+    coverage !== savedCoverage || checked.size !== keyRow.applicationIds.length ||
     keyRow.applicationIds.some((id) => !checked.has(id));
   const projectCount = keyRow.applicationIds.length;
   /** Names of the projects this key funds, so the closed row answers
@@ -577,7 +569,11 @@ function KeyRow({
           ) : null}
 
           <div className="pt-2">
-            <div className="mb-2">
+            <label className="block text-sm">Sponsored models
+              <input aria-label="Sponsored models" value={coverage} onChange={(event) => setCoverage(event.target.value)} className="mt-2 w-full rounded border border-border bg-surface-1 p-2" />
+              <span className="mt-1 block text-xs text-dim">Use * for this provider's models, or comma-separated route IDs such as openai:gpt-6.1-sol.</span>
+            </label>
+            <div className="mb-2 mt-4">
               <h4 className="text-sm font-medium">Add to project</h4>
               <p className="text-dim mt-1.5 text-xs">
                 Use this key to fund projects when users select models from this
@@ -616,7 +612,7 @@ function KeyRow({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void onGrants(keyRow, [...checked])}
+                  onClick={() => void onGrants(keyRow, [...checked], coverage.trim() === "*" ? "*" : coverage.split(",").map((id) => id.trim()).filter(Boolean))}
                   className={COMMIT_BTN}
                 >
                   {busy ? "Saving…" : "Save"}
@@ -648,7 +644,7 @@ function ProviderSection({
     material: string,
     label: string,
   ) => Promise<void>;
-  onGrants: (key: ModelKey, applicationIds: number[]) => Promise<void>;
+  onGrants: (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) => Promise<void>;
   onRotate: (key: ModelKey, material: string) => Promise<void>;
   onRemove: (key: ModelKey) => Promise<void>;
   busy: boolean;
@@ -657,9 +653,9 @@ function ProviderSection({
   const [material, setMaterial] = useState("");
   const [label, setLabel] = useState("");
   const fundedBy = useMemo(() => {
-    const map = new Map<number, ModelKey>();
+    const map = new Map<number, ModelKey[]>();
     for (const key of keys) {
-      for (const id of key.applicationIds) map.set(id, key);
+      for (const id of key.applicationIds) map.set(id, [...(map.get(id) ?? []), key]);
     }
     return map;
   }, [keys]);
@@ -832,12 +828,12 @@ export function ProvidersView() {
     [run],
   );
   const onGrants = useCallback(
-    (key: ModelKey, applicationIds: number[]) =>
+    (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) =>
       run(() =>
         fetch(API_PATHS.bff.operate.modelKeys, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keyId: key.id, applicationIds }),
+          body: JSON.stringify({ keyId: key.id, applicationIds, modelIds }),
         }),
       ),
     [run],

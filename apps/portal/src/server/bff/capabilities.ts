@@ -84,7 +84,7 @@ const SCOPE_CAPABILITY: Record<string, Capability> = {
   "pipeline:execute": "chat",
   "agent:actions:resolve": "actions",
   "payments:submit": "payments",
-  "account:credits:topup": "payments",
+  "account:credits:fund": "payments",
   "custody:delegate": "custody",
   "account:credits:read": "account_read",
   "account:usage:read": "account_read",

@@ -14,26 +14,12 @@ const baseConfig = {
 };
 const position = {
   period_utc_month: "2026-09-01",
-  included_limit: 50_000_000,
-  included_used: 5_250_000,
-  included_remaining: 44_750_000,
-  balance: 1_500_000,
-  outstanding_debt: 0,
-  records: [
-    {
-      id: 1,
-      amount: 1_500_000,
-      kind: "purchase",
-      application_id: null,
-      payment_method: "coinbase",
-      payment_provider: "coinbase",
-      external_payment_reference: "0xtx",
-      metadata: {},
-      created_at: Math.floor(Date.parse("2026-09-01T12:00:00Z") / 1000),
-    },
-  ],
+  included: { limit_microusd: 50_000_000, used_microusd: 5_250_000, remaining_microusd: 44_750_000 },
+  balance_microusd: 1_500_000, reserved_microusd: 0, available_microusd: 1_500_000, debt_microusd: 0,
+  entries: [{ id: 1, amount_microusd: 1_500_000, entry_kind: "purchase", application_id: null, payment_method: "wallet", payment_provider: "coinbase", external_payment_reference: "0xtx", metadata: {}, created_at: 1788264000 }],
   next_before_id: null,
 };
+const funded = { funding_event: { id: "fund_test", status: "credited" }, action: { kind: "done" } };
 
 describe("aomi account credits", () => {
   let stateDir: string;
@@ -61,7 +47,7 @@ describe("aomi account credits", () => {
   });
 
   it("prints the account credit position and activity", async () => {
-    const fetchMock = vi.fn(async () => Response.json(position));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => Response.json(position));
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsShowCommand } =
@@ -70,12 +56,12 @@ describe("aomi account credits", () => {
     await accountCreditsShowCommand(baseConfig, { limit: "10" });
 
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-      "https://portal.test/v1/account/credits?limit=10",
+      "https://portal.test/v1/account/credits",
     );
     expect(log).toHaveBeenCalledWith("Monthly:     525 / 5,000 credits used");
     expect(log).toHaveBeenCalledWith("Credit bank: 150 credits available");
     expect(log).toHaveBeenCalledWith(
-      expect.stringContaining("+150 purchase via coinbase"),
+      expect.stringContaining("+150 purchase via wallet"),
     );
   });
 
@@ -101,46 +87,48 @@ describe("aomi account credits", () => {
       { limit: "10" },
     );
 
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("sends a wallet-funded top-up with the active session and key", async () => {
+  it("sends a wallet funding event with the active session and key", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
         expect(request.headers.get("authorization")).toBe(
           "Bearer session-token",
         );
-        expect(await request.json()).toEqual({ amount_microusd: 1_000_000 });
-        return Response.json({
-          ...position,
-          balance: 2_500_000,
-        });
+        if (request.method === "POST") {
+          expect(request.url).toBe("https://portal.test/v1/account/credits/funding-events");
+          expect(await request.json()).toEqual({ amount_microusd: 1_000_000, method: "wallet", chain: "eip155:84532" });
+          return Response.json(funded);
+        }
+        return Response.json({ ...position, balance_microusd: 2_500_000 });
       },
     );
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsTopUpCommand } =
+    const { accountCreditsFundCommand } =
       await import("./account");
 
-    await accountCreditsTopUpCommand(
+    await accountCreditsFundCommand(
       { ...baseConfig, privateKey: PRIVATE_KEY },
       "100",
       {
+        chain: "eip155:84532",
         idempotencyKey: "cli-topup-1",
       },
     );
 
     expect(log).toHaveBeenCalledWith("Credit bank: 250 credits available");
   });
-  it("requires a caller-retained purchase key before making a payment request", async () => {
+  it("requires a caller-retained funding key before making a payment request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const { accountCreditsTopUpCommand } =
+    const { accountCreditsFundCommand } =
       await import("./account");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
-      accountCreditsTopUpCommand(baseConfig, "100"),
+      accountCreditsFundCommand(baseConfig, "100"),
     ).rejects.toThrow();
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining("--idempotency-key"),
@@ -148,28 +136,31 @@ describe("aomi account credits", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reuses the purchase key after an unknown outcome", async () => {
+  it("reuses the funding key after an unknown outcome", async () => {
     const keys: Array<string | null> = [];
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
+        if (request.method !== "POST") return Response.json(position);
         keys.push(request.headers.get("idempotency-key"));
         return keys.length === 1
           ? new Response("unavailable", { status: 503 })
-          : Response.json(position);
+          : Response.json(funded);
       },
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const { accountCreditsTopUpCommand } =
+    const { accountCreditsFundCommand } =
       await import("./account");
     const config = { ...baseConfig, privateKey: PRIVATE_KEY };
     await expect(
-      accountCreditsTopUpCommand(config, "100", {
+      accountCreditsFundCommand(config, "100", {
+        chain: "eip155:84532",
         idempotencyKey: "recover-cli",
       }),
     ).rejects.toThrow();
-    await accountCreditsTopUpCommand(config, "100", {
+    await accountCreditsFundCommand(config, "100", {
+      chain: "eip155:84532",
       idempotencyKey: "recover-cli",
     });
     expect(keys).toEqual(["recover-cli", "recover-cli"]);

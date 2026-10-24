@@ -96,11 +96,13 @@ export function CapabilityPicker({
                         data-capability-index={index}
                         type="button"
                         role="option"
+                        disabled={item.disabled}
+                        aria-disabled={item.disabled}
                         aria-selected={highlighted === index}
                         onMouseDown={(event) => event.preventDefault()}
                         onPointerMove={() => onHighlight(index)}
                         onClick={() => onSelect(item)}
-                        className="hover:bg-aomi-surface-2 aria-selected:bg-aomi-surface-2 flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors"
+                        className="disabled:opacity-40 disabled:cursor-not-allowed hover:bg-aomi-surface-2 aria-selected:bg-aomi-surface-2 flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors"
                       >
                         <span className="text-aomi-muted flex size-7 shrink-0 items-center justify-center">
                           <item.Icon className="size-3.5" />

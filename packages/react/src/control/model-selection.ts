@@ -21,7 +21,7 @@ export function resolveAutoModel(models: string[]): string | null {
   if (models.length === 0) return null;
 
   for (const pattern of PREFERRED_DEFAULT_MODEL_PATTERNS) {
-    const match = models.find((model) => pattern.test(model));
+    const match = models.find((model) => pattern.test(model.split(":").at(-1) ?? model));
     if (match) return match;
   }
 

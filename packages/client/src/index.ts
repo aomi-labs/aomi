@@ -10,14 +10,11 @@ export {
 } from "./account/credits";
 export type {
   AomiCreditActivity,
-  AomiCreditPurchase,
-  AomiCreditCheckout,
+  AomiFundingEvent,
+  AomiFundingResult,
   AomiCreditMethods,
   AomiCreditListOptions,
-  AomiCreditPaymentReceipt,
   AomiCreditPosition,
-  AomiCreditTopUpOptions,
-  AomiCreditTopUpResult,
 } from "./account/credits";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
@@ -107,7 +104,6 @@ export type {
   Session as AgentSession,
   SessionPage,
   StartTurnIntent,
-  AomiInferenceFundingSource,
   TaskActivityEvent,
   TaskCompletedEvent,
   TaskPhaseEvent,
@@ -266,13 +262,10 @@ export type {
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
-  AomiByokKeyEntry,
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
   AomiAccountAppMutationResponse,
-  AomiListByokKeysResponse,
-  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,

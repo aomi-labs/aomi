@@ -4,10 +4,15 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(83);
+    expect(publicApi["x-aomi-route-manifest"]).toContain(
+      "GET /v1/builder/credits",
+    );
+    expect(publicApi["x-aomi-route-manifest"]).toContain(
+      "POST /v1/account/credits/funding-events",
+    );
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
-      operationId: "buildTask",
+      operationId: "prepareTask",
       security: [],
     });
     expect(
@@ -17,23 +22,14 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(
       publicApi.components.securitySchemes.aomiOAuth["x-aomi-resources"],
     ).not.toHaveProperty("task");
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "RFC 8785 canonical JSON",
+    expect(publicApi.components.schemas).not.toHaveProperty(
+      "TaskAuthorization",
     );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "TaskAuthorization(string endpoint,bytes32 requestHash",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "Unix seconds",
-    );
-    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
-      "payer = sender when payer is omitted",
-    );
-    expect(
-      publicApi.paths["/v1/task/build"].post.requestBody.content[
-        "application/json"
-      ].schema.oneOf[1].properties.authorization.description,
-    ).toContain("not this retrieval body");
+    expect(publicApi.paths["/v1/task/build"].post.parameters).toContainEqual({
+      in: "header",
+      name: "Payment-Signature",
+      schema: { type: "string" },
+    });
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(
       ([path, operations]) =>

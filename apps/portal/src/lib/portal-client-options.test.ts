@@ -123,12 +123,5 @@ describe("getRequestedAppConfig", () => {
     });
   });
 
-  it("accepts an explicit inference funding lane", () => {
-    expect(getRequestedAppConfig("?funding=user_byok").inferenceFunding).toBe(
-      "user_byok",
-    );
-    expect(getRequestedAppConfig("?funding=unknown").inferenceFunding).toBe(
-      undefined,
-    );
-  });
+
 });

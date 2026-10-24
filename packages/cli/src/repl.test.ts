@@ -6,18 +6,12 @@ const {
   setAppCommandMock,
   setAgentModeCommandMock,
   setModelCommandMock,
-  saveByokKeyCommandMock,
-  showByokKeysCommandMock,
-  clearByokKeysCommandMock,
 } = vi.hoisted(() => ({
   chatCommandMock: vi.fn().mockResolvedValue(undefined),
   modelsCommandMock: vi.fn().mockResolvedValue(undefined),
   setAppCommandMock: vi.fn(),
   setAgentModeCommandMock: vi.fn(),
   setModelCommandMock: vi.fn().mockResolvedValue(undefined),
-  saveByokKeyCommandMock: vi.fn().mockResolvedValue(undefined),
-  showByokKeysCommandMock: vi.fn().mockResolvedValue(undefined),
-  clearByokKeysCommandMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./commands/chat", () => ({
@@ -29,12 +23,6 @@ vi.mock("./commands/control", () => ({
   setAppCommand: setAppCommandMock,
   setAgentModeCommand: setAgentModeCommandMock,
   setModelCommand: setModelCommandMock,
-}));
-
-vi.mock("./commands/byok", () => ({
-  saveByokKeyCommand: saveByokKeyCommandMock,
-  showByokKeysCommand: showByokKeysCommandMock,
-  clearByokKeysCommand: clearByokKeysCommandMock,
 }));
 
 vi.mock("./cli-session", () => ({
@@ -136,30 +124,11 @@ describe("CLI REPL command routing", () => {
     expect(config.model).toBe("gpt-5");
   });
 
-  it("routes /key commands to BYOK-key handlers", async () => {
+  it("rejects removed key commands without sending their contents to chat", async () => {
     const { handleReplLine } = await import("./repl");
-    const config = {
-      baseUrl: "https://api.aomi.dev",
-      app: "default",
-      secrets: {},
-    };
-
-    await handleReplLine(config, "/key anthropic:sk-ant", false);
-    expect(saveByokKeyCommandMock).toHaveBeenCalledWith(
-      config,
-      "anthropic:sk-ant",
-      { printLocation: false },
-    );
-
-    await handleReplLine(config, "/key show", false);
-    expect(showByokKeysCommandMock).toHaveBeenCalledWith(config, {
-      printLocation: false,
-    });
-
-    await handleReplLine(config, "/key clear", false);
-    expect(clearByokKeysCommandMock).toHaveBeenCalledWith(config, {
-      printLocation: false,
-    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(handleReplLine({ baseUrl: "https://api.aomi.dev", app: "default", secrets: {} }, "/key provider:example", false)).rejects.toThrow();
+    expect(chatCommandMock).not.toHaveBeenCalled();
   });
 
   it("exits on :exit", async () => {

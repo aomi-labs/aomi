@@ -35,7 +35,7 @@ export default defineConfig({
             const now = Math.floor(Date.now() / 1000);
             const encode = (value: object) =>
               Buffer.from(JSON.stringify(value)).toString("base64url");
-            const data = `${encode({ alg: "EdDSA", typ: "JWT", kid: "aomi-bff-dev-1" })}.${encode({ iss: "aomi-bff", aud: "aomi-payment", sub: "checkout-e2e-20261023", role: "user", iat: now, exp: now + 60, scope: "account:credits:read account:credits:topup payments:submit", resource: `${origin}/v1/account`, principal_class: "user", auth_source: "session" })}`;
+            const data = `${encode({ alg: "EdDSA", typ: "JWT", kid: "aomi-bff-dev-1" })}.${encode({ iss: "aomi-bff", aud: "aomi-payment", sub: "checkout-e2e-20261023", role: "user", iat: now, exp: now + 60, scope: "account:credits:read account:credits:fund payments:submit", resource: `${origin}/v1/account`, principal_class: "user", auth_source: "session" })}`;
             const token = `${data}.${sign(null, Buffer.from(data), readFileSync(process.env.PAYMENT_E2E_KEY_FILE!)).toString("base64url")}`;
             const chunks: Buffer[] = [];
             for await (const chunk of req) chunks.push(Buffer.from(chunk));

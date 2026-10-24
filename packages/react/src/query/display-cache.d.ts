@@ -7,7 +7,7 @@ export type RuntimeAccount = {
     kind: "guest" | "user";
     id: string;
 };
-export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "profile" | "credits" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
+export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "account-acl" | "account-apps" | "transaction-safety" | "usage";
 export declare const isPublicCatalog: (resource: DisplayResource) => boolean;
 /**
  * `account` is undefined while the host is still finding out who is signed in,

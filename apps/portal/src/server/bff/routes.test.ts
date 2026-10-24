@@ -880,10 +880,10 @@ describe("scopes each agent API route asks for", () => {
     ],
     [
       "POST",
-      "/v1/account/credits/top-up",
-      routes.topUp.POST,
+      "/v1/account/credits/funding-events",
+      routes.fundingEvents.POST,
       { "payment-signature": "x" },
-      "account:credits:topup payments:submit",
+      "account:credits:fund payments:submit",
     ],
     [
       "GET",
@@ -924,7 +924,7 @@ describe("scopes each agent API route asks for", () => {
     expect(response.status).toBe(200);
     expect(mocks.mintDelegatedBearer.mock.calls[0][2].scope).toBe(scope);
     const payment =
-      path === "/v1/account/credits/top-up" || path === "/v1/account/statement";
+      path === "/v1/account/credits/funding-events" || path === "/v1/account/statement";
     expect(mocks.mintDelegatedBearer.mock.calls[0][1]).toBe(
       payment ? "aomi-payment" : "aomi-api-server",
     );
@@ -1007,19 +1007,19 @@ describe("dev tools", () => {
 describe("direct account payment forwarding", () => {
   it.each([
     ["GET", "/v1/account/credits/methods", "account:credits:read"],
-    ["GET", "/v1/account/credits/purchases/current", "account:credits:read"],
-    ["POST", "/v1/account/credits/purchases", "account:credits:topup"],
+    ["GET", "/v1/account/credits/funding-events/current", "account:credits:read"],
+    ["POST", "/v1/account/credits/funding-events", "account:credits:fund"],
     [
       "POST",
-      "/v1/account/credits/purchases/purchase-id/cancel",
-      "account:credits:topup",
+      "/v1/account/credits/funding-events/purchase-id/cancel",
+      "account:credits:fund",
     ],
   ])("delegates %s %s only to Payment", async (method, path, scope) => {
     const handler = path.endsWith("/methods")
       ? routes.credits.GET
       : method === "GET"
-        ? routes.purchases.GET
-        : routes.purchases.POST;
+        ? routes.fundingEvents.GET
+        : routes.fundingEvents.POST;
     const rejected = await handler(
       request(path, {
         method,
@@ -1050,7 +1050,7 @@ describe("direct account payment forwarding", () => {
     expect(upstreamCalls()[0].headers.has("cookie")).toBe(false);
   });
 
-  it("preserves the payment challenge and does not retry a top-up", async () => {
+  it("preserves the payment challenge and does not retry a funding event", async () => {
     const body = JSON.stringify({ amount_microusd: 1000000 });
     const denial = {
       code: "payment_required",
@@ -1065,8 +1065,8 @@ describe("direct account payment forwarding", () => {
         },
       }),
     );
-    const response = await routes.topUp.POST(
-      request("/v1/account/credits/top-up", {
+    const response = await routes.fundingEvents.POST(
+      request("/v1/account/credits/funding-events", {
         method: "POST",
         origin: PORTAL,
         headers: {
@@ -1084,7 +1084,7 @@ describe("direct account payment forwarding", () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
     const upstream = upstreamCalls()[0];
     expect(upstream.url).toBe(
-      "https://backend.example/v1/account/credits/top-up",
+      "https://backend.example/v1/account/credits/funding-events",
     );
     expect(upstream.headers.get("idempotency-key")).toBe("purchase-1");
     expect(upstream.headers.get("payment-signature")).toBe("proof");
@@ -1092,7 +1092,7 @@ describe("direct account payment forwarding", () => {
       user,
       "aomi-payment",
       expect.objectContaining({
-        scope: "account:credits:topup payments:submit",
+        scope: "account:credits:fund payments:submit",
         resource: `${PORTAL}/v1/account`,
       }),
     );

@@ -57,7 +57,8 @@ export type AccountCreditsShowOptions = {
   before?: string;
 };
 
-export type AccountCreditsTopUpOptions = {
+export type AccountCreditsFundOptions = {
+  chain?: string;
   idempotencyKey?: string;
 };
 
@@ -558,19 +559,19 @@ export async function accountCreditsShowCommand(
   printDataFileLocation({ verbose: config.verbose });
 }
 
-export async function accountCreditsTopUpCommand(
+export async function accountCreditsFundCommand(
   config: CliConfig,
   rawCredits: string,
-  options: AccountCreditsTopUpOptions = {},
+  options: AccountCreditsFundOptions = {},
 ): Promise<void> {
   const credits = Number(rawCredits);
-  if (!Number.isFinite(credits)) {
-    fatal("Credits must be a number between 1 and 100,000.");
+  if (!Number.isSafeInteger(credits) || credits < 100 || credits > 100_000) {
+    fatal("Credits must be a whole number between 100 and 100,000.");
   }
   const idempotencyKey = options.idempotencyKey?.trim();
   if (!idempotencyKey) {
     fatal(
-      "Provide --idempotency-key for this purchase and reuse it when retrying an unknown payment outcome.",
+      "Provide --idempotency-key for this funding event and reuse it when retrying an unknown payment outcome.",
     );
   }
   const cli = loadMergedCli(config);
@@ -582,22 +583,23 @@ export async function accountCreditsTopUpCommand(
     },
     config.json ? undefined : printPaymentEvent,
   );
-  const result = await requireAccountGraphClient(
-    cli,
-    paymentFetch,
-  ).credits.topUp({
-    credits,
-    idempotencyKey,
+  const transport = requireAccountGraphClient(cli, paymentFetch).credits;
+  if (!options.chain) fatal("Provide --chain with an enabled treasury network, such as eip155:8453.");
+  const result = await transport.beginFunding({
+    amountMicrousd: credits * 10_000,
+    method: "wallet",
+    chain: options.chain,
+    idempotencyKey: idempotencyKey!,
   });
   if (config.json) {
     printJson(result);
     return;
   }
-  console.log(
-    `Credit bank: ${formatMicrousd(result.bank.balance_microusd)} credits available`,
-  );
-  if (result.receipt?.transaction) {
-    console.log(`Transaction: ${result.receipt.transaction}`);
+  console.log(`Funding event: ${result.funding_event.id} (${result.funding_event.status})`);
+  if (result.funding_event.status === "credited") {
+    printCreditPosition(await transport.get());
+  } else {
+    console.log("Payment is pending. Reuse the same amount, chain, and idempotency key to resume.");
   }
   printDataFileLocation({ verbose: config.verbose });
 }
@@ -838,7 +840,7 @@ function printCreditPosition(position: AomiCreditPosition): void {
     `Monthly:     ${formatMicrousd(position.included.used_microusd)} / ${formatMicrousd(position.included.limit_microusd)} credits used`,
   );
   console.log(
-    `Credit bank: ${formatMicrousd(position.bank.balance_microusd)} credits available`,
+    `Credit bank: ${formatMicrousd(position.balance_microusd)} credits available`,
   );
   if (position.entries.length === 0) {
     console.log("Activity:    none");

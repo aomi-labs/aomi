@@ -401,7 +401,7 @@ export function ModelRow({
 }
 
 function isOwnKeyFunding(funding: string): boolean {
-  return funding === "user_key" || funding === "application_key";
+  return funding === "user_key" || funding === "builder_key";
 }
 
 export function ToolRow({ item }: { item: AppToolItem }) {

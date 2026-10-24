@@ -941,8 +941,10 @@ export async function operateModelKeysGrantsRoute(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     keyId?: unknown;
     applicationIds?: unknown;
+    modelIds?: unknown;
   };
   if (
+    (body.modelIds !== "*" && (!Array.isArray(body.modelIds) || body.modelIds.length === 0 || body.modelIds.some((id) => typeof id !== "string"))) ||
     typeof body.keyId !== "number" ||
     !Array.isArray(body.applicationIds) ||
     body.applicationIds.some((id) => typeof id !== "number")
@@ -959,6 +961,7 @@ export async function operateModelKeysGrantsRoute(req: Request) {
       platform: owned.platform,
       keyId: body.keyId,
       applicationIds: body.applicationIds as number[],
+      modelIds: body.modelIds as "*" | string[],
     });
     return NextResponse.json({ key });
   } catch (err) {

@@ -102,7 +102,6 @@ function printRootHelp(): void {
   console.log(
     "  guard                        Read or set transaction guard policy",
   );
-  console.log("  byok                         Manage provider API keys");
   console.log("  model                        Model management");
   console.log("  app                          App management");
   console.log("  chain                        Chain information");

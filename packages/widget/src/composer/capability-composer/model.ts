@@ -39,6 +39,7 @@ export function requestCapabilityMention(
 }
 
 export type PickerItem = CapabilityMention & {
+  disabled?: boolean;
   searchText: string;
   Icon: FC<{ className?: string }>;
   fullDescription?: string;

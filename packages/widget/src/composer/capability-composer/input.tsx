@@ -276,6 +276,7 @@ export const CapabilityMentionInput: FC<{
 
   const insertItemAtRange = useCallback(
     (item: PickerItem, range: Range) => {
+      if (item.disabled) return;
       const editor = editorRef.current;
       if (!editor) return;
       range.deleteContents();
@@ -325,6 +326,7 @@ export const CapabilityMentionInput: FC<{
 
   const selectItem = useCallback(
     (item: PickerItem) => {
+      if (item.disabled) return;
       const range = document.createRange();
       if (pickerSourceRef.current === "button") {
         const trigger = buttonTriggerRef.current;

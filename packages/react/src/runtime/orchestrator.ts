@@ -21,7 +21,6 @@ import {
   type SessionSnapshot,
   type UserState,
 } from "@aomi-labs/client";
-import type { AomiInferenceFundingSource } from "../interface";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
 import { isGenericTitle, reconcileGeneratedThreadTitle } from "./thread-title";
@@ -33,7 +32,6 @@ type OrchestratorOptions = {
   getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
   getClientId?: () => string | undefined;
-  inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
   getCommits?: () => CommitCapabilities | undefined;
   onSendSuccess?: (threadId: string) => void;
@@ -131,7 +129,6 @@ export function useRuntimeOrchestrator(
         model: runtime.getModel?.(),
         clientId: runtime.getClientId?.(),
         getUserState,
-        inferenceFunding: runtime.inferenceFunding,
         actions: runtime.getActions?.(),
         commits: runtime.getCommits?.(),
       };

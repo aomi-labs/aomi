@@ -354,7 +354,6 @@ describe("ClientSession Stop terminal races", () => {
       session.syncRuntimeOptions({
         model: "changed-model",
         clientId: "changed-client",
-        inferenceFunding: "user_byok",
       });
       pending.reject(failure);
       await rejected;
@@ -424,7 +423,6 @@ describe("ClientSession Stop terminal races", () => {
       expect(poll).toHaveBeenCalledOnce();
       session.syncRuntimeOptions({
         model: "changed-model",
-        inferenceFunding: "user_byok",
       });
       await session.sendAsync("Explain");
       expect(start.mock.calls[1]![1]).toEqual(start.mock.calls[0]![1]);

@@ -753,7 +753,7 @@ export class BackendClient extends BackendPlatformClient {
     const keyId = required(String(input.keyId), "keyId");
     const raw = await this.put<{ key?: unknown }>(
       this.userPath(`model-keys/${encodeURIComponent(keyId)}/grants`, params),
-      { application_ids: input.applicationIds },
+      { application_ids: input.applicationIds, model_ids: input.modelIds },
       "set_model_key_grants",
       bearer,
     );

@@ -1,6 +1,5 @@
 import { defineCommand } from "citty";
 import { guardDef } from "./commands/defs/guard";
-import { byokDef } from "./commands/defs/byok";
 import { chatDef } from "./commands/defs/chat";
 import { txDef } from "./commands/defs/tx";
 import { sessionDef } from "./commands/defs/session";
@@ -36,7 +35,6 @@ export const SUBCOMMAND_NAMES = new Set([
   "deploy",
   "pipeline",
   "guard",
-  "byok",
 ]);
 
 export function hasRootSubcommand(rawArgs: string[]): boolean {
@@ -104,6 +102,5 @@ export const root = defineCommand({
     deploy: deployDef,
     pipeline: pipelineDef,
     guard: guardDef,
-    byok: byokDef,
   },
 });

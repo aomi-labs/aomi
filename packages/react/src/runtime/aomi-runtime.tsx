@@ -12,7 +12,6 @@ import {
   type AomiClientOptions,
   type AomiPlatformFilter,
 } from "@aomi-labs/client";
-import type { AomiInferenceFundingSource } from "../interface";
 import { ControlContextProvider } from "../contexts/control-context";
 import { NotificationContextProvider } from "../contexts/notification-context";
 import {
@@ -54,7 +53,6 @@ export type AomiRuntimeProviderProps = {
   agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
-  inferenceFunding?: AomiInferenceFundingSource;
   actions?: ActionCapabilities;
   commits?: CommitCapabilities;
   /** Whether an account session can load chats without a wallet. */
@@ -87,7 +85,6 @@ export function AomiRuntimeProvider({
   agentTarget,
   appPlatforms,
   clientOptions,
-  inferenceFunding,
   actions,
   commits,
   accountSessionAvailable = false,
@@ -181,7 +178,6 @@ export function AomiRuntimeProvider({
               }
               apiKeyPersistence={apiKeyPersistence}
               backendUrl={backendUrl}
-              inferenceFunding={inferenceFunding}
               applicationId={applicationId}
               agentTarget={agentTarget}
               appPlatforms={appPlatforms}
@@ -213,7 +209,6 @@ type AomiRuntimeInnerProps = {
     | AomiClientOptions["oauth"];
   apiKeyPersistence?: "memory" | "session";
   backendUrl: string;
-  inferenceFunding?: AomiInferenceFundingSource;
   applicationId?: number | string | null;
   agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
@@ -233,7 +228,6 @@ function AomiRuntimeInner({
   accountAuthSource,
   apiKeyPersistence,
   backendUrl,
-  inferenceFunding,
   applicationId,
   agentTarget,
   appPlatforms,
@@ -259,7 +253,6 @@ function AomiRuntimeInner({
       updateThreadMetadata={threadContext.updateThreadMetadata}
       appPlatforms={appPlatforms}
       applicationId={applicationId}
-      inferenceFunding={inferenceFunding}
       accountSessionAvailable={accountSessionAvailable}
       account={account}
     >

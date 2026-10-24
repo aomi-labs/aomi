@@ -464,21 +464,14 @@ export const routes = {
     () => ["account:credits:read"],
     "payment",
   ),
-  topUp: scopedApi(
-    "account.top_up",
-    ["POST"],
-    () => resources().accountRest,
-    (request) => withPayment(request, ["account:credits:topup"]),
-    "payment",
-  ),
-  purchases: scopedApi(
-    "account.purchases",
+  fundingEvents: scopedApi(
+    "account.funding_events",
     ["GET", "POST"],
     () => resources().accountRest,
     (request) =>
       request.method === "GET"
         ? ["account:credits:read"]
-        : withPayment(request, ["account:credits:topup"]),
+        : withPayment(request, ["account:credits:fund"]),
     "payment",
   ),
   statement: scopedApi(

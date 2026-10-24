@@ -1,4 +1,3 @@
-import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 export type CliExecutionMode = "aa" | "eoa";
 export type CliAgentMode = "auto" | "direct";
@@ -46,5 +45,4 @@ export type CliConfig = {
   execution?: CliExecutionMode;
   paymentMethod?: CliPaymentMethod;
   /** Explicit inference funding lane selected for chat. */
-  inferenceFunding?: AomiInferenceFundingSource;
 };

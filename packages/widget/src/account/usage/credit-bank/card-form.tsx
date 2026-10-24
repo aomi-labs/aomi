@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Elements,
   ExpressCheckoutElement,
@@ -10,31 +10,58 @@ import {
 } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import type { StripeExpressCheckoutElementConfirmEvent } from "@stripe/stripe-js";
-import type { AomiCreditCheckout } from "@aomi-labs/client";
+import type { AomiFundingResult } from "@aomi-labs/client";
 
 export default function CardForm(props: {
   publicKey: string;
   amount: number;
   disabled: boolean;
-  begin: () => Promise<AomiCreditCheckout>;
+  begin: () => Promise<AomiFundingResult>;
   completed: () => void;
   failed: (message: string) => void;
   onBusy: (busy: boolean) => void;
 }) {
   const stripe = useMemo(() => loadStripe(props.publicKey), [props.publicKey]);
+  const container = useRef<HTMLDivElement>(null);
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = container.current;
+    if (!root) return;
+    const syncTheme = () =>
+      setDark(
+        root.closest(".light, .dark")?.classList.contains("dark") ?? false,
+      );
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    for (
+      let ancestor = root.parentElement;
+      ancestor;
+      ancestor = ancestor.parentElement
+    )
+      observer.observe(ancestor, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    return () => observer.disconnect();
+  }, []);
   return (
-    <Elements
-      stripe={stripe}
-      options={{
-        mode: "payment",
-        amount: props.amount / 10_000,
-        currency: "usd",
-        allowedPaymentMethodTypes: ["card", "link"],
-        appearance: { theme: "night", variables: { borderRadius: "12px" } },
-      }}
-    >
-      <Form {...props} />
-    </Elements>
+    <div ref={container}>
+      <Elements
+        stripe={stripe}
+        options={{
+          mode: "payment",
+          amount: props.amount / 10_000,
+          currency: "usd",
+          allowedPaymentMethodTypes: ["card", "link"],
+          appearance: {
+            theme: dark ? "night" : "stripe",
+            variables: { borderRadius: "12px" },
+          },
+        }}
+      >
+        <Form {...props} />
+      </Elements>
+    </div>
   );
 }
 
@@ -50,7 +77,7 @@ function Form({
   const elements = useElements();
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
-  const [express, setExpress] = useState(false);
+  const [express, setExpress] = useState<boolean | null>(null);
   async function pay(event?: StripeExpressCheckoutElementConfirmEvent) {
     if (!stripe || !elements || busy || disabled) {
       event?.paymentFailed({ reason: "fail" });
@@ -99,9 +126,10 @@ function Form({
   }
   return (
     <div className="flex flex-col gap-4">
-      <div hidden={!express}>
+      <div hidden={express === false}>
         <ExpressCheckoutElement
           options={{
+            layout: { maxColumns: 1 },
             paymentMethods: {
               applePay: "auto",
               link: "auto",

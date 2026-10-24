@@ -170,7 +170,6 @@ export function AomiRuntimeCore({
     aomiClientRef,
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState: userContext.getUserState,
-    inferenceFunding: getControlState().inferenceFunding,
     getTarget: () => agentTarget ?? getCurrentThreadTarget(),
     getModel: () => {
       const control = getCurrentThreadControl();

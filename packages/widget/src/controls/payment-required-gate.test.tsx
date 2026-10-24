@@ -3,8 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   dismissNotification: vi.fn(),
-  setByok: vi.fn(),
-  setInferenceFunding: vi.fn(),
   baseUrl: "",
 }));
 vi.mock("@/account/transport", async (importOriginal) => {
@@ -24,7 +22,6 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
     dismissNotification: mocks.dismissNotification,
     showNotification: vi.fn(),
   }),
-  useControl: () => mocks,
 }));
 
 import { PaymentRequiredGate } from "./payment-required-gate";
@@ -39,11 +36,9 @@ describe("out-of-credit recovery", () => {
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(screen.getByText(/same Aomi account/)).toBeTruthy();
-    expect(mocks.setByok).not.toHaveBeenCalled();
-    expect(mocks.setInferenceFunding).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "Save and use BYOK" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Save and use BYOK" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(mocks.dismissNotification).toHaveBeenCalledWith("payment");
   });

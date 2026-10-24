@@ -94,15 +94,24 @@ export function useAuthEndpointsImpl({
         })
       : displayQueries.appCatalog(api, appPlatforms),
   );
-  const availableModels = models.data ?? NO_MODELS;
   const appDescriptors = apps.data ?? (apps.error ? DEFAULT_APPS : NO_APPS);
+  const availableModels = useMemo(
+    () => [...new Set([
+      ...(models.data ?? NO_MODELS),
+      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
+    ])],
+    [models.data, appDescriptors],
+  );
   const authorizedApps = useMemo(
     () => appNames(appDescriptors),
     [appDescriptors],
   );
   const getAvailableModels = useCallback(
-    async () => (await models.refetch()).data ?? [],
-    [models.refetch],
+    async () => [...new Set([
+      ...((await models.refetch()).data ?? []),
+      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
+    ])],
+    [models.refetch, appDescriptors],
   );
   const getAuthorizedApps = useCallback(
     async () => appNames((await apps.refetch()).data ?? DEFAULT_APPS),

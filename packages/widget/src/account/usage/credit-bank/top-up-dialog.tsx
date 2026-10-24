@@ -9,15 +9,17 @@ import {
   useState,
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { ChevronDown, Wallet, X } from "lucide-react";
 import { createPublicClient, erc20Abi, http, type Address } from "viem";
 import { arbitrum, base, baseSepolia, mainnet, optimism } from "viem/chains";
-import { useAomiRuntime } from "@aomi-labs/react";
+import { useShellTransport } from "@/account/transport";
+import type { AomiWalletKit } from "@/wallet/types";
 import {
   AomiCreditApiError,
-  type AomiCreditCheckout,
+  type AccountCreditsTransport,
+  type AomiFundingResult,
   type AomiCreditMethods,
-  type AomiCreditPurchase,
+  type AomiFundingEvent,
 } from "@aomi-labs/client";
 import { useWidgetOverlay } from "@/ui/widget-scope";
 import { createWidgetX402Client } from "@/wallet/payment-client";
@@ -30,24 +32,33 @@ export function CreditTopUpDialog({
   open,
   onClose,
   onSuccess,
+  credits: suppliedCredits,
+  wallet: suppliedWallet,
 }: {
+  credits?: AccountCreditsTransport;
+  wallet?: Pick<
+    AomiWalletKit,
+    "identity" | "signTypedData" | "switchChain" | "connect"
+  >;
   open: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void>;
 }) {
   const overlay = useWidgetOverlay();
-  const { account } = useAomiRuntime();
-  const wallet = useAomiWalletKit();
+  const transport = useShellTransport();
+  const creditsApi = suppliedCredits ?? transport.client.account.credits;
+  const connectedWallet = useAomiWalletKit();
+  const wallet = suppliedWallet ?? connectedWallet;
   const [methods, setMethods] = useState<AomiCreditMethods | null>(null);
   const [method, setMethod] = useState<"card" | "wallet">("card");
   const [credits, setCredits] = useState("1000");
   const [network, setNetwork] = useState("");
-  const [purchase, setPurchase] = useState<AomiCreditPurchase | null>(null);
+  const [purchase, setPurchase] = useState<AomiFundingEvent | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const owner = useRef(account);
+  const owner = useRef(creditsApi);
   const key = useRef<string>(crypto.randomUUID());
   const notified = useRef<string | null>(null);
   const amount = Number(credits) * 10_000;
@@ -65,20 +76,20 @@ export function CreditTopUpDialog({
   const wrongNetwork = chain && wallet.identity.chainId !== chain.id;
   const settled = purchase?.status === "credited";
 
-  const accept = useCallback((next: AomiCreditCheckout) => {
-    setPurchase(next.purchase);
-    setMethod(next.purchase.method);
-    setCredits(String(next.purchase.amount_microusd / 10_000));
-    setNetwork(next.purchase.terms.network ?? "");
-    key.current = next.purchase.idempotency_key;
-    setWaiting(next.purchase.status === "processing");
+  const accept = useCallback((next: AomiFundingResult) => {
+    setPurchase(next.funding_event);
+    setMethod(next.funding_event.method);
+    setCredits(String(next.funding_event.amount_microusd / 10_000));
+    setNetwork(next.funding_event.terms.network ?? "");
+    key.current = next.funding_event.idempotency_key;
+    setWaiting(next.funding_event.status === "processing");
   }, []);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    if (owner.current !== account) {
-      owner.current = account;
+    if (owner.current !== creditsApi) {
+      owner.current = creditsApi;
       setPurchase(null);
       setWaiting(false);
       setBusy(false);
@@ -88,8 +99,8 @@ export function CreditTopUpDialog({
     }
     setError(null);
     void Promise.all([
-      account.credits.methods(),
-      account.credits.purchase("current").catch((e: unknown) => {
+      creditsApi.methods(),
+      creditsApi.fundingEvent("current").catch((e: unknown) => {
         if (e instanceof AomiCreditApiError && e.status === 404) return null;
         throw e;
       }),
@@ -112,7 +123,7 @@ export function CreditTopUpDialog({
     return () => {
       active = false;
     };
-  }, [open, account, accept]);
+  }, [open, creditsApi, accept]);
 
   useEffect(() => {
     setBalance(null);
@@ -147,12 +158,12 @@ export function CreditTopUpDialog({
       return;
     let active = true;
     const timer = setInterval(() => {
-      void account.credits
-        .purchase(purchase.id)
+      void creditsApi
+        .fundingEvent(purchase.id)
         .then((next) => {
           if (!active) return;
-          setPurchase(next.purchase);
-          setWaiting(next.purchase.status === "processing");
+          setPurchase(next.funding_event);
+          setWaiting(next.funding_event.status === "processing");
         })
         .catch(() => {
           if (active)
@@ -163,7 +174,7 @@ export function CreditTopUpDialog({
       active = false;
       clearInterval(timer);
     };
-  }, [account, purchase?.id, purchase?.status]);
+  }, [creditsApi, purchase?.id, purchase?.status]);
 
   useEffect(() => {
     if (purchase?.status === "credited" && notified.current !== purchase.id) {
@@ -178,7 +189,7 @@ export function CreditTopUpDialog({
 
   async function begin() {
     setError(null);
-    const next = await account.credits.beginPurchase({
+    const next = await creditsApi.beginFunding({
       amountMicrousd: amount,
       method,
       chain: method === "wallet" ? network : undefined,
@@ -193,7 +204,7 @@ export function CreditTopUpDialog({
             })
           : undefined,
     });
-    if (owner.current !== account)
+    if (owner.current !== creditsApi)
       throw new Error(
         "Account changed. Reopen checkout for your current account.",
       );
@@ -205,7 +216,7 @@ export function CreditTopUpDialog({
     setBusy(true);
     setError(null);
     try {
-      accept(await account.credits.cancelPurchase(purchase.id));
+      accept(await creditsApi.cancelFunding(purchase.id));
     } catch {
       setError(
         "Cancellation could not be confirmed. Your purchase is saved; we’ll keep checking.",
@@ -219,6 +230,7 @@ export function CreditTopUpDialog({
     setWaiting(false);
     setError(null);
     setMethod(methods?.card ? "card" : "wallet");
+    setNetwork(methods?.wallet.networks[0]?.network ?? "");
     setCredits("1000");
     key.current = crypto.randomUUID();
   }
@@ -244,7 +256,10 @@ export function CreditTopUpDialog({
       );
       // Recover identity from Payment after a lost response, never infer success.
       try {
-        accept(await account.credits.purchase("current"));
+        const current = await creditsApi.fundingEvent("current");
+        accept(current);
+        if (["processing", "credited"].includes(current.funding_event.status))
+          setError(null);
       } catch {
         /* preserve the same idempotency key */
       }
@@ -409,36 +424,81 @@ export function CreditTopUpDialog({
               <>
                 <label className="text-aomi-muted text-xs">
                   Network
-                  <select
-                    aria-label="Payment network"
-                    value={network}
-                    disabled={locked}
-                    onChange={(e) => setNetwork(e.target.value)}
-                    className="bg-aomi-bg border-aomi-border text-aomi-fg mt-2 w-full rounded-xl border p-3"
-                  >
-                    {methods?.wallet.networks.map((n) => (
-                      <option key={n.network} value={n.network}>
-                        {n.name} · native USDC
-                      </option>
-                    ))}
-                  </select>
+                  <span className="relative mt-2 block">
+                    <select
+                      aria-label="Payment network"
+                      value={network}
+                      disabled={locked}
+                      onChange={(e) => setNetwork(e.target.value)}
+                      className="bg-aomi-bg border-aomi-border text-aomi-fg focus-visible:ring-aomi-accent/40 min-h-12 w-full appearance-none rounded-xl border py-3 pl-4 pr-10 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+                    >
+                      {methods?.wallet.networks.map((n) => (
+                        <option key={n.network} value={n.network}>
+                          {n.name} · native USDC
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
+                    />
+                  </span>
                 </label>
-                <p className="text-aomi-muted break-all text-xs">
-                  Paying wallet: {wallet.identity.address ?? "Not connected"}
-                  <br />
-                  Available:{" "}
-                  {balance === null
-                    ? "—"
-                    : (Number(balance) / 1_000_000).toFixed(2)}{" "}
-                  USDC
-                </p>
-                <details className="text-aomi-muted text-xs">
-                  <summary>Review treasury details</summary>
-                  <p className="mt-2 break-all">
-                    Recipient: {selected?.recipient}
-                    <br />
-                    Native USDC: {selected?.asset}
-                  </p>
+                <div className="border-aomi-border bg-aomi-surface/30 rounded-xl border p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-aomi-surface-2 text-aomi-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+                      <Wallet size={18} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-aomi-muted text-xs">Paying wallet</p>
+                      <p className="text-aomi-fg mt-1 break-all text-sm font-medium">
+                        {connected
+                          ? wallet.identity.address
+                          : "Connect your wallet"}
+                      </p>
+                    </div>
+                  </div>
+                  {connected ? (
+                    <div className="border-aomi-border mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
+                      <span className="text-aomi-muted">
+                        Available on {selected?.name}
+                      </span>
+                      <span className="text-aomi-fg font-medium tabular-nums">
+                        {balance === null
+                          ? "Checking balance…"
+                          : `${(Number(balance) / 1_000_000).toFixed(2)} USDC`}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-aomi-muted mt-3 text-xs leading-relaxed">
+                      Connect to check your USDC balance before paying.
+                    </p>
+                  )}
+                </div>
+                <details className="border-aomi-border group rounded-xl border text-xs">
+                  <summary className="text-aomi-muted focus-visible:ring-aomi-accent/40 flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 focus-visible:outline-none focus-visible:ring-2 [&::-webkit-details-marker]:hidden">
+                    Review payment details
+                    <ChevronDown
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <dl className="border-aomi-border mx-4 space-y-3 border-t py-4">
+                    <div>
+                      <dt className="text-aomi-muted">Treasury recipient</dt>
+                      <dd className="text-aomi-fg mt-1 break-all font-mono leading-relaxed">
+                        {selected?.recipient ?? "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-aomi-muted">Native USDC contract</dt>
+                      <dd className="text-aomi-fg mt-1 break-all font-mono leading-relaxed">
+                        {selected?.asset ?? "—"}
+                      </dd>
+                    </div>
+                  </dl>
                 </details>
                 {balance !== null && balance < BigInt(valid ? amount : 0) && (
                   <p role="alert" className="text-aomi-danger text-xs">

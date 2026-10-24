@@ -16,6 +16,19 @@
         "x-aomi-auth": []
       }
     },
+    "/api/manager/openapi.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
     "/api/integrations/github-app/oauth/start": {
       "get": {
         "responses": {
@@ -498,6 +511,30 @@
     },
     "/api/integrations/github-app/user/projects/{id}/statement": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/builder/applications/{application_id}/app-key": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
         "responses": {
           "200": {
             "description": "OK"
