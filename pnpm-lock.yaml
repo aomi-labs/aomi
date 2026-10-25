@@ -1104,9 +1104,6 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../deploy
-      '@aomi-labs/internal':
-        specifier: workspace:*
-        version: link:../internal
       '@inkjs/ui':
         specifier: ^2.0.0
         version: 2.0.0(ink@7.1.0(@types/react@19.2.14)(bufferutil@4.1.0)(react-devtools-core@6.1.5(bufferutil@4.1.0)(utf-8-validate@5.0.10))(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)
@@ -1128,6 +1125,10 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.4.3
+    devDependencies:
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../internal
 
   packages/widget:
     dependencies:
