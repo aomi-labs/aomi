@@ -16,6 +16,7 @@
     "deploy:production": "node scripts/deploy.mjs production"
   },
   "dependencies": {
+    "@aomi-labs/account": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/internal": "workspace:*",
     "@aomi-labs/service-identity": "workspace:*",

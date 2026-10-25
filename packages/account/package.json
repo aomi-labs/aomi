@@ -13,6 +13,7 @@
     "./better-auth/client": "./src/better-auth/auth-client.ts",
     "./better-auth/env": "./src/better-auth/env.ts",
     "./better-auth/siwe": "./src/better-auth/siwe.ts",
+    "./policy": "./src/policy.ts",
     "./providers": "./src/providers/index.ts",
     "./telegram": "./src/telegram.ts",
     "./observability": "./src/observability.ts",

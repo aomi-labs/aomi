@@ -6,26 +6,25 @@
  * the table passes through to the Vercel portal unchanged (sign-in, the
  * account graph, Better Auth, device auth).
  */
-import { edgeService } from "../identity";
-import { isManagerPath } from "../api/routes";
-import { config } from "../kernel/config";
-import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
-import { minted, unreachable } from "../kernel/errors";
-import { rankedPool } from "../kernel/pool";
-import { passThrough, proxy, target } from "../kernel/proxy";
-import { isPublicCatalogKind, publicCatalog } from "./catalog";
-import type { PortalContext } from "./context";
-import { portalError } from "./errors";
-import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
 import {
-  capabilitiesOf,
-  DELEGATING_SCOPES,
-  policyFor,
-  sessionScopesOn,
+  authorize as decide,
+  scopesOn as heldScopes,
   type Capability,
   type Need,
   type Resources,
-} from "./policy";
+} from "@aomi-labs/account/policy";
+
+import { edgeService } from "../identity";
+import { config } from "../kernel/config";
+import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
+import { minted, unreachable } from "../kernel/errors";
+import { apiOrigins } from "../kernel/manager";
+import { rankedPool } from "../kernel/pool";
+import { passThrough, proxy, target } from "../kernel/proxy";
+import { isPublicCatalogKind, publicCatalog } from "./catalog";
+import { policyFor, type PortalContext } from "./context";
+import { portalError } from "./errors";
+import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
 import { PrincipalError, resolvePrincipal, type Principal } from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
@@ -202,25 +201,12 @@ function needOf(row: Row, requirement: Requirement, request: Request, resources:
   return { resource: resources[row.on!], scopes };
 }
 
-/** The one permission check: the scopes to mint, or a PrincipalError. */
+/** The one permission check, from `@aomi-labs/account/policy`: the scopes to mint, or a PrincipalError. */
 export function authorize(principal: Principal, need: Need, ctx: PortalContext): string[] {
-  if (principal.kind === "none") {
-    if ("capability" in need && need.anonymous) return [];
-    throw new PrincipalError(401, "unauthenticated");
-  }
-  if ("capability" in need) {
-    if (principal.kind === "oauth") throw new PrincipalError(401, "invalid_token");
-    if (!capabilitiesOf(principal.kind, principal.guest).includes(need.capability))
-      throw new PrincipalError(403, "insufficient_scope");
-    return [];
-  }
-  const held = scopesOn(principal, need.resource, ctx);
-  if (need.scopes.some((scope) => !held.includes(scope)))
-    throw new PrincipalError(403, "insufficient_scope", need.scopes);
-  const scopes = [...new Set(need.scopes)];
-  if (need.scopes.some((scope) => DELEGATING_SCOPES.includes(scope)) && held.includes("custody:delegate"))
-    scopes.push("custody:delegate");
-  return scopes;
+  const result = decide(principal, need, (resource) => policyFor(resource, ctx));
+  if ("scopes" in result) return result.scopes;
+  const { status, code, requiredScopes } = result.denied;
+  throw new PrincipalError(status, code, requiredScopes);
 }
 
 /** The scopes a principal holds on a protected resource. */
@@ -229,8 +215,7 @@ export function scopesOn(
   resource: string,
   ctx: PortalContext,
 ): readonly string[] {
-  if (principal.kind === "oauth") return principal.scopes;
-  return sessionScopesOn(principal.kind, principal.guest, policyFor(resource, ctx.resources, ctx.dpopRequired));
+  return heldScopes(principal, policyFor(resource, ctx));
 }
 
 /**
@@ -277,9 +262,13 @@ function mint(ctx: PortalContext, request: Request, claims: Parameters<ReturnTyp
   return mintToken(ctx, request, claims).then((token) => token.accessToken);
 }
 
-/** The Rust backend's /api, with an account bearer or anonymously, over the ranked pool. */
+/**
+ * The backend's /api (or the manager, for its control-plane routes), with an
+ * account bearer or anonymously.
+ */
 async function toBackend(row: Row, request: Request, principal: Principal, ctx: PortalContext): Promise<Response> {
-  const { pathname, search } = new URL(request.url);
+  const { search } = new URL(request.url);
+  const pathname = row.rewrite?.(new URL(request.url).pathname) ?? new URL(request.url).pathname;
   const bearer =
     "accountId" in principal
       ? await mint(ctx, request, {
@@ -289,13 +278,8 @@ async function toBackend(row: Row, request: Request, principal: Principal, ctx: 
           ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
         })
       : undefined;
-  const path = row.rewrite?.(pathname) ?? pathname;
-  // The deploy control plane moves to the manager with the same MANAGER_ORIGIN
-  // switch the api surface uses; everything else is ranked over the backend pool.
-  const { manager } = config(ctx.env);
-  const origins = manager && isManagerPath(path) ? [manager] : rankedPool(request, ctx.env);
-  const targets = origins.map((origin) => {
-    const url = target(origin, path, search);
+  const targets = apiOrigins(request, ctx.env, pathname).map((origin) => {
+    const url = target(origin, pathname, search);
     if (url.pathname === "/api/thread/apps" && !url.searchParams.has("platform"))
       for (const platform of config(ctx.env).portal.catalogPlatforms) url.searchParams.append("platform", platform);
     return url;

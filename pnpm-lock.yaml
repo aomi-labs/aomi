@@ -334,6 +334,9 @@ importers:
 
   apps/edge:
     dependencies:
+      '@aomi-labs/account':
+        specifier: workspace:*
+        version: link:../../packages/account
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../../packages/deploy

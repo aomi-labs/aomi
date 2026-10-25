@@ -3,7 +3,6 @@ import { decodeJwt, errors as joseErrors, jwtVerify, type JWTPayload } from "jos
 import { TwoTierCache } from "../kernel/cache";
 import { sha256Hex } from "../kernel/crypto";
 import { EdgeError } from "../kernel/errors";
-import type { PortalContext } from "./context";
 import { observedOrigin } from "../kernel/cors";
 import { cookieWriteAllowed } from "../kernel/csrf";
 import { DpopError, DPOP_SIGNING_ALGORITHMS, verifyDpopProof } from "./dpop";
@@ -12,10 +11,13 @@ import {
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   guestScopesFor,
-  policyFor,
   type Need,
-  type SessionKind,
-} from "./policy";
+  type SessionKind as PolicySessionKind,
+} from "@aomi-labs/account/policy";
+import { policyFor, type PortalContext } from "./context";
+
+/** The session kinds the edge accepts; the portal's local E2E stand-in never reaches it. */
+type SessionKind = Exclude<PolicySessionKind, "e2e">;
 
 /** Who is calling, from exactly one credential. */
 export type Principal =
@@ -370,7 +372,7 @@ async function oauthRequestPrincipal(
   requiredScopes: readonly string[],
   ctx: PortalContext,
 ): Promise<Principal> {
-  const policy = policyFor(resource, ctx.resources, ctx.dpopRequired);
+  const policy = policyFor(resource, ctx);
   if (policy.dpopBoundAccessTokensRequired && !hasDpopPresentation(request)) {
     throw new PrincipalError(
       401,
@@ -462,7 +464,7 @@ export function oauthPrincipal(
     throw new PrincipalError(401, "invalid_token");
   const scopes = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
   const guest = principalClass === "guest";
-  const policy = policyFor(resource, ctx.resources, ctx.dpopRequired);
+  const policy = policyFor(resource, ctx);
   if (guest && guestScopesFor(policy, scopes).length !== scopes.length)
     throw new PrincipalError(403, "insufficient_scope");
   return {

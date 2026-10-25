@@ -1,7 +1,8 @@
+import { resourcePolicies, resourcesFor, type ResourcePolicy, type Resources } from "@aomi-labs/account/policy";
+
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
 import type { FetchLike } from "../kernel/proxy";
-import { resourcesFor, type Resources } from "./policy";
 
 /** Everything the portal surface needs per request, resolved once. */
 export type PortalContext = {
@@ -41,4 +42,11 @@ export function portalContext(
     fetchImpl,
     now,
   };
+}
+
+/** The policy of one protected resource this portal origin hosts. */
+export function policyFor(resource: string, ctx: Pick<PortalContext, "resources" | "dpopRequired">): ResourcePolicy {
+  const policy = resourcePolicies(ctx.resources, ctx.dpopRequired).find((candidate) => candidate.identifier === resource);
+  if (!policy) throw new Error(`unknown protected resource ${resource}`);
+  return policy;
 }

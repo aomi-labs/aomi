@@ -155,6 +155,7 @@ const world: FetchLike = async (request) => {
   if (url.origin === AGENT) return echo(request, body, "agent");
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
+  if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === BACKEND) {
     if (url.pathname === "/api/thread/models") return Response.json(["gpt", 3, "claude"]);
     if (url.pathname === "/api/resource/skills")
@@ -539,6 +540,26 @@ describe("portal surface: MCP", () => {
 });
 
 describe("portal surface: backend /api allowlist, payment and public routes", () => {
+  it("sends the manager's control-plane routes to MANAGER_ORIGIN, still as the signed-in account", async () => {
+    const withManager = { ...env, MANAGER_ORIGIN: MANAGER };
+    const call = (path: string) =>
+      handleRequest(
+        new Request(`${PORTAL}${path}`, { headers: { cookie: "session=user", origin: PORTAL } }),
+        withManager,
+        world,
+      );
+    expect((await call("/api/account/bots")).status).toBe(200);
+    expect((await call("/api/integrations/github-app/oauth/start")).status).toBe(200);
+    expect((await call("/api/account")).status).toBe(200);
+    expect(seen.map((record) => record.url)).toEqual([
+      `${MANAGER}/api/account/bots`,
+      `${MANAGER}/api/integrations/github-app/oauth/start`,
+      `${BACKEND}/api/account`,
+    ]);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    expect(seen[0].headers.cookie).toBeUndefined();
+  });
+
   it("forwards allowlisted /api routes to the backend pool with an account bearer", async () => {
     const response = await portal("/api/thread/apps", { headers: { cookie: "session=user" }, origin: PORTAL });
     expect(response.status).toBe(200);

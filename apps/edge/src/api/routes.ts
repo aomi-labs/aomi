@@ -3,6 +3,7 @@ import { config } from "../kernel/config";
 import type { CorsPolicy } from "../kernel/cors";
 import type { HeaderPolicy } from "../kernel/proxy";
 import { target } from "../kernel/proxy";
+import { isManagerPath } from "../kernel/manager";
 import { rankOrigins } from "../kernel/pool";
 
 /** The api surface (api.aomi.dev): which upstream a path goes to and under which CORS policy. */
@@ -56,55 +57,6 @@ export const CORS: Record<RouteName, CorsPolicy> = {
   },
   jwks: { origin: "any", methods: ["GET"], headers: ["Content-Type"], maxAge: 1728000 },
 };
-
-// Deploy control-plane routes owned by bin/manager. Exact paths, not a
-// prefix: the live per-host app reads (GET .../apps, GET .../apps/:app) stay on
-// the backend. Keep in sync with the manager router
-// (aomi/bin/manager/src/routes.rs) and the backend platform router
-// (aomi/bin/backend/src/endpoint/platform/mod.rs) in product-mono.
-const MANAGER_ROUTE_PATTERNS: readonly RegExp[] = [
-  /^\/api\/manager\/openapi\.json$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/attempts(?:\/[^/]+(?:\/cancel)?)?$/,
-  /^\/api\/integrations\/github-app\/webhook$/,
-  /^\/api\/integrations\/github-app\/oauth\/(start|callback|result|exchange|claim)$/,
-  /^\/api\/integrations\/github-app\/builder\/applications\/[^/]+(?:\/detail|\/app-key|\/tools\/[^/]+\/trace)?$/,
-  /^\/api\/integrations\/github-app\/user\/projects$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+$/,
-  /^\/api\/integrations\/github-app\/user\/deployments$/,
-  /^\/api\/integrations\/github-app\/user\/(observability|payments|transactions|statement|usage|logs|installations)$/,
-  // `/command-secret` is the builder's read of a bot's derived signing key;
-  // `/webhook` compares Telegram's registered webhook with the manager's.
-  /^\/api\/integrations\/github-app\/user\/bots(?:\/[^/]+(?:\/(?:command-secret|webhook))?)?$/,
-  /^\/api\/integrations\/github-app\/user\/model-keys(?:\/[^/]+(?:\/grants)?)?$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/(latest-deployment|required-secrets|sdk-upgrade|sdk-upgrade-status|deployments|apps|transactions|usage|logs|observability|statement)$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/deployments\/[^/]+(?:\/promote|\/refresh)?$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/releases\/activate$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/deployments\/import$/,
-  /^\/api\/integrations\/github-app\/user\/projects\/[^/]+\/bots(\/[^/]+)?$/,
-  /^\/api\/integrations\/github-app\/platforms\/[^/]+\/projects\/create-from-template$/,
-  /^\/api\/platforms$/,
-  /^\/api\/platforms\/server-tags$/,
-  /^\/api\/platforms\/[^/]+\/(activate|deactivate)$/,
-  /^\/api\/platforms\/[^/]+\/apps\/activate$/,
-  /^\/api\/platforms\/[^/]+\/applications\/[^/]+\/deactivate$/,
-  /^\/api\/platforms\/[^/]+\/deployments\/[^/]+\/(status|rerun)$/,
-  /^\/api\/platforms\/[^/]+\/apps\/[^/]+\/records$/,
-  /^\/api\/platforms\/[^/]+\/projects$/,
-  /^\/api\/platforms\/[^/]+\/tokens(\/[^/]+)?$/,
-  // Admin-only partner venue row; the backend has no such route.
-  /^\/api\/platforms\/[^/]+\/venue$/,
-  // Handover, plus the wallet channel's own endpoints: `/nonce` and `/bot`
-  // are one segment where the others are two, and `/status` joins activate
-  // and revoke as a third.
-  /^\/api\/platforms\/[^/]+\/telegram\/handover(?:\/(?:nonce|bot)|\/[^/]+\/[^/]+(?:\/(?:activate|revoke|status))?)?$/,
-  /^\/api\/projects\/[^/]+\/deploy$/,
-  // Account-owned bots. The rest of `/api/account/*` stays on the backend.
-  /^\/api\/account\/bots(?:\/[^/]+)?$/,
-];
-
-export function isManagerPath(pathname: string): boolean {
-  return MANAGER_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
-}
 
 export const TASK_BUILD_PATH = "/v1/task/build";
 const TASK_JOB_PATH =

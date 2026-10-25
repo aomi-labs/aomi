@@ -3,14 +3,17 @@ import { ManagerClient } from "@aomi-labs/internal";
 import { edgeService, EDGE_SERVICE_NAME } from "../identity";
 import { config } from "../kernel/config";
 import { minted, unreachable } from "../kernel/errors";
-import { rankedPool } from "../kernel/pool";
+import { apiOrigins } from "../kernel/manager";
 import type { BuildContext } from "./context";
 
 const SERVICE_BEARER_TTL_SECONDS = 5 * 60;
 
+/** Any manager-owned path: every manager client call resolves where the manager is. */
+const MANAGER_PROBE_PATH = "/api/manager/openapi.json";
+
 /** Where the manager control plane is reached: the cutover switch, else the backend pool. */
 export function managerOrigin(request: Request, ctx: BuildContext): string {
-  const origin = ctx.env.MANAGER_ORIGIN?.trim() || rankedPool(request, ctx.env)[0];
+  const [origin] = apiOrigins(request, ctx.env, MANAGER_PROBE_PATH);
   if (!origin) throw unreachable(new Error("no manager or backend origin"));
   return origin;
 }
