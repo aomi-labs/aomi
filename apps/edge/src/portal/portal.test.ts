@@ -153,6 +153,8 @@ const world: FetchLike = async (request) => {
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === BACKEND) {
     if (url.pathname === "/api/thread/models") return Response.json(["gpt", 3, "claude"]);
+    if (url.pathname === "/api/resource/skills")
+      return new Response(null, { status: 302, headers: { location: `${BACKEND}/elsewhere` } });
     return echo(request, body, "backend");
   }
   return new Response("unexpected origin", { status: 599 });
@@ -546,6 +548,12 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(models.headers.get("cdn-cache-control")).toContain("max-age=1800");
     expect(models.headers.get("access-control-allow-origin")).toBe("*");
     expect(await (await portal("/api/public/catalog/secrets")).json()).toEqual({ error: "not_found" });
+
+    // A redirecting backend is unavailable; the edge never follows it, and
+    // workerd offers no "error" redirect mode to refuse it with.
+    const redirected = await portal("/api/public/catalog/skills");
+    expect(redirected.status).toBe(502);
+    expect(await redirected.json()).toEqual({ error: "catalog_unavailable" });
   });
 
   it("answers preflight for moved routes without credentials", async () => {

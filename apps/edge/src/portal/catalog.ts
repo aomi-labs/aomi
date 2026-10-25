@@ -107,12 +107,15 @@ export async function publicCatalog(
   let upstream: Response;
   try {
     upstream = await fetchImpl(
-      new Request(upstreamUrl, { method: "GET", headers: upstreamHeaders, redirect: "error" }),
+      // workerd supports only "follow" and "manual"; a redirecting backend is unavailable.
+      new Request(upstreamUrl, { method: "GET", headers: upstreamHeaders, redirect: "manual" }),
       { cache: "no-store" },
     );
   } catch {
     return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
   }
+  if (upstream.status >= 300 && upstream.status < 400)
+    return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
   if (!upstream.ok)
     return Response.json(
       { error: "catalog_unavailable" },
