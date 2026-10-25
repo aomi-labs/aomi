@@ -262,22 +262,61 @@ export async function createAomiBrowserGrantManager(
             if (!keys || keys.privateKey.extractable) continue;
             const signer = await createDpopSigner(keys);
             dpopByResource.set(grant.resource, signer);
-            // Refresh proves current authorization; never trust a persisted account label.
-            const fresh = await verified(
-              await refreshAomiOAuthGrant({
+            const dropGrant = async () => {
+              remaining.splice(remaining.indexOf(grant), 1);
+              if (
+                ![...restored, ...remaining].some(
+                  (item) => item.resource === grant.resource,
+                )
+              ) {
+                dpopByResource.delete(grant.resource);
+                saved.keys.delete(grant.resource);
+              }
+              await persistent.save({
+                grants: [...restored, ...remaining].map(
+                  ({ dpopProof: _proof, ...item }) => item,
+                ),
+                keys: saved.keys,
+              });
+            };
+            // Only a token-endpoint rejection invalidates this saved authorization.
+            // Network/JWKS failures remain visible and retain unrelated grants.
+            let refreshed: AomiOAuthGrant;
+            try {
+              refreshed = await refreshAomiOAuthGrant({
                 metadata,
                 grant,
                 request: { resource: grant.resource, scopes: grant.scopes },
                 fetch: fetchImpl,
                 now: input.now,
                 dpopProof: signer.proof,
-              }),
-            );
-            if (grant.accountId && fresh.accountId !== grant.accountId)
-              throw new AomiOAuthError(
-                "account_changed",
-                "Sign in again to use the selected Aomi account",
-              );
+              });
+            } catch (error) {
+              if (
+                error instanceof AomiOAuthError &&
+                error.code === "invalid_grant"
+              ) {
+                await dropGrant();
+                continue;
+              }
+              throw error;
+            }
+            let fresh: AomiOAuthGrant;
+            try {
+              fresh = await verified(refreshed);
+              if (grant.accountId && fresh.accountId !== grant.accountId)
+                throw new AomiOAuthError(
+                  "account_changed",
+                  "Sign in again to use the selected Aomi account",
+                );
+            } catch (error) {
+              if (
+                error instanceof AomiOAuthError &&
+                error.code === "account_changed"
+              )
+                await dropGrant();
+              throw error;
+            }
             restored.push(fresh);
             remaining.splice(remaining.indexOf(grant), 1);
             // Persist each rotation before refreshing another resource. A later failure

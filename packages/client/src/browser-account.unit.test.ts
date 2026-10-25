@@ -69,7 +69,11 @@ async function fixture(
       })
         .setProtectedHeader({ alg: "ES256", kid: "test" })
         .setIssuer(input.issuer ?? `${portal}/api/auth`)
-        .setAudience(input.audience ?? resource)
+        .setAudience(
+          input.audience ??
+            new URLSearchParams(String(init?.body)).get("resource") ??
+            resource,
+        )
         .setIssuedAt()
         .setExpirationTime("5m")
         .sign(keys.privateKey);
@@ -78,7 +82,13 @@ async function fixture(
         refresh_token: "test-refresh",
         token_type: "DPoP",
         expires_in: 300,
-        scope: "agent:read",
+        scope:
+          new URLSearchParams(String(init?.body)).get("scope") ??
+          (new URLSearchParams(String(init?.body))
+            .get("resource")
+            ?.endsWith("/v1/account")
+            ? "account:credits:read"
+            : "agent:read"),
       });
     }
     throw new Error("Unexpected endpoint");
@@ -191,4 +201,84 @@ it("reload rejects a changed canonical account instead of trusting saved labels"
   });
   await expect(restored.grants()).rejects.toThrow(/Sign in again/);
   expect(popup).not.toHaveBeenCalled();
+});
+
+function restore(fetcher: typeof fetch) {
+  return createAomiBrowserGrantManager({
+    portalBaseUrl: portal,
+    clientId: "fuzzer",
+    redirectUri: "https://fuzzer.example/auth/aomi",
+    persistenceKey: "tab-session",
+    interactive: false,
+    fetch: fetcher,
+  });
+}
+
+it("drops only the rejected saved grant and restores the other resource", async () => {
+  const { manager, fetcher } = await fixture({ persistenceKey: "tab-session" });
+  const accountResource = `${portal}/v1/account` as const;
+  await manager.tokenProvider({ resource, scopes: ["agent:read"] });
+  await manager.tokenProvider({
+    resource: accountResource,
+    scopes: ["account:credits:read"],
+  });
+  const restored = await restore(async (url, init) => {
+    if (
+      String(url).endsWith("/token") &&
+      new URLSearchParams(String(init?.body)).get("resource") === resource
+    )
+      return Response.json({ error: "invalid_grant" }, { status: 400 });
+    return fetcher(url, init);
+  });
+  expect((await restored.grants()).map((grant) => grant.resource)).toEqual([
+    accountResource,
+  ]);
+  const reloaded = await restore(fetcher);
+  expect((await reloaded.grants()).map((grant) => grant.resource)).toEqual([
+    accountResource,
+  ]);
+  await reloaded.clear();
+  expect(savedSessions.size).toBe(0);
+});
+
+it("removes an account-changing grant while preserving unrelated saved authorization", async () => {
+  const { manager, fetcher, changeOwner } = await fixture({
+    persistenceKey: "tab-session",
+  });
+  const accountResource = `${portal}/v1/account` as const;
+  await manager.tokenProvider({ resource, scopes: ["agent:read"] });
+  await manager.tokenProvider({
+    resource: accountResource,
+    scopes: ["account:credits:read"],
+  });
+  changeOwner("changed");
+  const restored = await restore(fetcher);
+  await expect(restored.grants()).rejects.toThrow(/Sign in again/);
+  const saved = [...savedSessions.values()][0] as {
+    grants: { resource: string }[];
+  };
+  expect(saved.grants.map((grant) => grant.resource)).toEqual([
+    accountResource,
+  ]);
+  changeOwner("account-b");
+  const reloaded = await restore(fetcher);
+  expect((await reloaded.grants()).map((grant) => grant.resource)).toEqual([
+    accountResource,
+  ]);
+  await restored.clear();
+  expect(savedSessions.size).toBe(0);
+});
+
+it("retains saved grants on a transient verification failure and still permits sign-out", async () => {
+  const { manager, fetcher } = await fixture({ persistenceKey: "tab-session" });
+  await manager.tokenProvider({ resource, scopes: ["agent:read"] });
+  const restored = await restore(async (url, init) =>
+    String(url).endsWith("/jwks")
+      ? new Response(null, { status: 503 })
+      : fetcher(url, init),
+  );
+  await expect(restored.grants()).rejects.toThrow(/Cannot verify/);
+  expect(savedSessions.size).toBe(1);
+  await restored.clear();
+  expect(savedSessions.size).toBe(0);
 });

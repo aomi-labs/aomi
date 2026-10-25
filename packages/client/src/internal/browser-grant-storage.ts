@@ -28,7 +28,9 @@ export function browserGrantStorage(key: string) {
   }
   return {
     load: () =>
-      transaction<Saved | undefined>("readonly", (store) => store.get(key)),
+      transaction<Saved | undefined>("readonly", (store) =>
+        store.get(key),
+      ).catch(() => undefined),
     save: (value: Saved | null) =>
       value
         ? transaction("readwrite", (store) => store.put(value, key))

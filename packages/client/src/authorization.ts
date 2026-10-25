@@ -195,7 +195,8 @@ export function createAomiOAuthGrantManager(input: {
       await persist();
     },
     async clear() {
-      await ready;
+      // Failed restoration must not prevent explicit local sign-out.
+      await ready.catch(() => {});
       grants = [];
       await persist();
     },
