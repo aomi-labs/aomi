@@ -57,9 +57,11 @@ const SESSIONS: Record<string, { sub: string; guest: boolean }> = {
   user: { sub: "acct-user", guest: false },
   guest: { sub: "acct-guest", guest: true },
 };
-const WIDGETS: Record<string, { sub: string; origin: string; guest: boolean }> = {
+const WIDGETS: Record<string, { sub: string; origin: string; guest: boolean; expiresAt?: number }> = {
   aomi_wst_user: { sub: "acct-widget", origin: PARTNER, guest: false },
   aomi_wst_guest: { sub: "acct-widget-guest", origin: PARTNER, guest: true },
+  // A session the portal still describes but whose own lifetime has ended.
+  aomi_wst_stale: { sub: "acct-widget-stale", origin: PARTNER, guest: true, expiresAt: 1_700_000_000 },
 };
 
 async function signPortal(claims: Record<string, unknown>, options: { aud: string; exp?: number } = { aud: "aomi-edge" }) {
@@ -126,7 +128,7 @@ const world: FetchLike = async (request) => {
             guest: widget.guest,
             origin: widget.origin,
             auth_method: widget.guest ? "anonymous" : "siwe",
-            expires_at: 1_900_000_000,
+            expires_at: widget.expiresAt ?? 1_900_000_000,
           }),
         });
       }
@@ -299,6 +301,19 @@ describe("portal surface: widget sessions", () => {
     const { payload } = await upstreamBearer(seen[0]);
     expect(payload).toMatchObject({ sub: "acct-widget", auth_source: "session", scope: "agent:write custody:delegate" });
     expect(seen[0].body).toBe('{"message":"hi"}');
+  });
+
+  it("refuses a widget session past its own expiry even while the signed principal is fresh", async () => {
+    const response = await portal("/v1/agent/sessions", {
+      headers: { authorization: "Bearer aomi_wst_stale" },
+      origin: PARTNER,
+    });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: { code: "invalid_widget_session" } });
+    expect(seen).toHaveLength(0);
+    // Not remembered: the next call asks the portal again.
+    await portal("/v1/agent/sessions", { headers: { authorization: "Bearer aomi_wst_stale" }, origin: PARTNER });
+    expect(principalCalls).toBe(2);
   });
 
   it("refuses a widget session from another origin and never falls back to a cookie", async () => {

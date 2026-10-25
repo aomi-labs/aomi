@@ -271,9 +271,18 @@ async function exchangePrincipal(
     token = body.token;
   }
   const claims = await verifyPrincipalToken(token, ctx);
-  const ttlMs = claims.exp * 1000 - nowMs;
+  // A principal is good until its own signature lapses or the credential it
+  // describes expires, whichever comes first (KV keeps entries at least a
+  // minute, so a widget session's end is checked here, not left to the cache).
+  const expiresAtMs = Math.min(claims.exp, claims.expires_at ?? claims.exp) * 1000;
+  if (expiresAtMs <= nowMs) {
+    exchanges.delete(key);
+    await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+    throw new PrincipalError(401, kind === "widget" ? "invalid_widget_session" : "invalid_token");
+  }
+  const ttlMs = expiresAtMs - nowMs;
   if (ttlMs > 1000) {
-    exchanges.set(key, { token, expiresAtMs: claims.exp * 1000 });
+    exchanges.set(key, { token, expiresAtMs });
     await ctx.env.EDGE_CACHE?.put(key, token, {
       expirationTtl: Math.max(60, Math.floor(ttlMs / 1000)),
     }).catch(() => undefined);
