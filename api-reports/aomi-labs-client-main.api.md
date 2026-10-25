@@ -706,7 +706,8 @@ export type AomiBrowserGrantOptions = {
     portalBaseUrl: string;
     clientId: string;
     redirectUri: string;
-    getWidgetBearer: () => Promise<string | null | undefined>;
+    getWidgetBearer?: () => Promise<string | null | undefined>;
+    closePopup?: boolean;
     subject?: string;
     store?: AomiOAuthGrantStore;
     fetch?: typeof fetch;
@@ -1001,6 +1002,7 @@ export type AomiOAuthGrant = AomiOAuthTokenSet & {
     issuer: string;
     clientId: string;
     subject?: string;
+    accountId?: string;
 };
 
 // @public (undocumented)

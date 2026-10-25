@@ -77,7 +77,7 @@ async function login(index: number) {
   console.log(index === 0 ? "Cecilia fixture" : "B fixture", profile.user.id);
   return cookies;
 }
-const accounts = fixtureKeys.evm.map(privateKeyToAccount);
+const accounts = fixtureKeys.evm.map((key) => privateKeyToAccount(key));
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url!, "http://127.0.0.1:3419");
