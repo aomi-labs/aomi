@@ -241,7 +241,6 @@ const CREDENTIALS: Record<string, Credential> = {
 
 const FAMILIES = {
   "/v1/account": ["GET", "/v1/account", routes.account.GET],
-  "/v1/account/bearer": ["GET", "/v1/account/bearer", routes.bearer.GET],
   "/v1/account/session/cli": [
     "POST",
     "/v1/account/session/cli",
@@ -256,27 +255,22 @@ const user = "acct-user";
 const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "cookie user": {
     "/v1/account": 200,
-    "/v1/account/bearer": [200, user],
     "/v1/account/session/cli": 403,
   },
   "cookie guest": {
     "/v1/account": 200,
-    "/v1/account/bearer": [200, "acct-guest"],
     "/v1/account/session/cli": 403,
   },
   "session bearer": {
     "/v1/account": 200,
-    "/v1/account/bearer": [200, user],
     "/v1/account/session/cli": 200,
   },
   "widget user": {
     "/v1/account": 200,
-    "/v1/account/bearer": 403,
     "/v1/account/session/cli": 403,
   },
   "widget guest": {
     "/v1/account": 200,
-    "/v1/account/bearer": 403,
     "/v1/account/session/cli": 403,
   },
   "widget, wrong origin": allStatus(401),
@@ -290,7 +284,6 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   },
   "e2e cookie": {
     "/v1/account": 200,
-    "/v1/account/bearer": [200, "acct-e2e"],
     "/v1/account/session/cli": 401,
   },
   "e2e cookie on Vercel": {

@@ -186,11 +186,6 @@ export const routes = {
     need: { capability: "cli_session" },
     handle: { POST: account.rotateCliSession },
   }),
-  bearer: bind({
-    operation: "account.bearer",
-    need: { capability: "backend_bearer" },
-    handle: { GET: account.backendBearer },
-  }),
 
   deviceGrant: bind({
     operation: "device_auth.grant",

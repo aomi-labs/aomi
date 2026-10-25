@@ -15,7 +15,6 @@ export type Capability =
   | "settings" // installed apps, app secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
   | "managed_signing" // execution profile, AA accounts, signing requests
-  | "backend_bearer" // a raw 15-minute backend token
   | "cli_session" // a separate one-day CLI session
   | "device_login" // grant a CLI device login
   | "mcp"; // MCP transport, OAuth grants only
@@ -30,7 +29,6 @@ const SIGNED_IN: readonly Capability[] = [
   "settings",
   "safety_policy",
   "managed_signing",
-  "backend_bearer",
   "cli_session",
   "device_login",
 ];
@@ -38,13 +36,10 @@ const GUEST: readonly Capability[] = [
   "chat",
   "actions",
   "account",
-  "backend_bearer",
   "device_login",
 ];
-// Any https site may embed the widget, so its sessions never get a raw backend
-// token or mint CLI logins.
+// Any https site may embed the widget, so its sessions never mint CLI logins.
 const EMBEDDED: readonly Capability[] = [
-  "backend_bearer",
   "cli_session",
   "device_login",
 ];
