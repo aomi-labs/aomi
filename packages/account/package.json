@@ -41,7 +41,8 @@
     "viem": "^2.47.11",
     "zod": "^4.4.3",
     "toml": "^3.0.0",
-    "@aomi-labs/client": "workspace:*"
+    "@aomi-labs/client": "workspace:*",
+    "@aomi-labs/service-identity": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=15"

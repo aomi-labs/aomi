@@ -135,6 +135,13 @@ function classifyPath(selection, path) {
     return selection;
   }
 
+  // The edge Worker has no Vercel project; its unit tests run with the
+  // workspace suite and its deploy is driven from product-mono.
+  if (path.startsWith("apps/edge/")) {
+    select(selection, "packages");
+    return selection;
+  }
+
   if (path.startsWith("packages/widget/")) {
     selectSharedFrontend(selection);
     return selection;

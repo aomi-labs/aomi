@@ -70,6 +70,8 @@ export default defineConfig({
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
       "apps/landing/app/api/**/route.{test,spec}.{ts,tsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
+      "apps/edge/src/**/*.{test,spec}.ts",
+      "apps/edge/scripts/**/*.{test,spec}.mjs",
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
