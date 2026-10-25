@@ -1,4 +1,4 @@
-import { errors as joseErrors, jwtVerify, type JWTPayload } from "jose";
+import { decodeJwt, errors as joseErrors, jwtVerify, type JWTPayload } from "jose";
 
 import type { PortalContext } from "./context";
 import { cookieWriteAllowed, observedOrigin } from "./csrf";
@@ -232,12 +232,24 @@ async function exchangePrincipal(
   const key = `principal:v1:${kind}:${await sha256Hex(`${credential}\n${origin}`)}`;
   const nowMs = ctx.now();
   let token: string | null = null;
+  let claims: PrincipalTokenClaims | null = null;
   const cached = exchanges.get(key);
   if (cached && cached.expiresAtMs > nowMs) {
     token = cached.token;
   } else {
     const stored = await ctx.env.EDGE_CACHE?.get(key).catch(() => null);
     if (stored) token = stored;
+  }
+  if (token) {
+    // KV keeps an entry for at least a minute, so it can outlive the token it
+    // holds. A cached token that no longer verifies is a miss, not an outage:
+    // evict it and exchange again.
+    claims = await verifyCachedPrincipalToken(token, ctx, nowMs);
+    if (!claims) {
+      token = null;
+      exchanges.delete(key);
+      await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+    }
   }
   if (!token) {
     const headers = new Headers({
@@ -269,8 +281,9 @@ async function exchangePrincipal(
     const body = (await response.json().catch(() => null)) as { token?: unknown } | null;
     if (typeof body?.token !== "string") throw new PrincipalUpstreamError(new Error("no token"));
     token = body.token;
+    claims = await verifyPrincipalToken(token, ctx);
   }
-  const claims = await verifyPrincipalToken(token, ctx);
+  if (!claims) throw new PrincipalUpstreamError(new Error("no principal claims"));
   // A principal is good until its own signature lapses or the credential it
   // describes expires, whichever comes first (KV keeps entries at least a
   // minute, so a widget session's end is checked here, not left to the cache).
@@ -320,6 +333,34 @@ async function verifyWithJwks(
       ).payload;
     }
     throw error;
+  }
+}
+
+/**
+ * Verify a token read back from a cache. Returns null when the token has
+ * lapsed (by its own `exp` or the credential's `expires_at`) or no longer
+ * verifies against the portal's keys; only an unreachable JWKS still fails.
+ */
+async function verifyCachedPrincipalToken(
+  token: string,
+  ctx: PortalContext,
+  nowMs: number,
+): Promise<PrincipalTokenClaims | null> {
+  let decoded: JWTPayload;
+  try {
+    decoded = decodeJwt(token);
+  } catch {
+    return null;
+  }
+  const exp = typeof decoded.exp === "number" ? decoded.exp : 0;
+  const expiresAt = typeof decoded.expires_at === "number" ? decoded.expires_at : exp;
+  if (Math.min(exp, expiresAt) * 1000 <= nowMs) return null;
+  try {
+    return await verifyPrincipalToken(token, ctx);
+  } catch (error) {
+    if (error instanceof PrincipalUpstreamError && error.cause instanceof JwksUnavailableError)
+      throw error;
+    return null;
   }
 }
 

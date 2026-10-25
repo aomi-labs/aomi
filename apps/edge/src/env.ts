@@ -6,6 +6,7 @@ export interface EdgeCache {
     value: string,
     options?: { expirationTtl?: number },
   ): Promise<void>;
+  delete(key: string): Promise<void>;
 }
 
 export type EdgeTopologyName = "default" | "staging" | "production";

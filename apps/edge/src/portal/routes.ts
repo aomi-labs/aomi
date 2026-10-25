@@ -7,6 +7,7 @@
  */
 import { edgeService } from "../identity";
 import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
+import { isManagerPath } from "../routing/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import type { PortalContext } from "./context";
 import { openWidget, publicRead } from "./cors";
@@ -149,7 +150,14 @@ function hostOf(request: Request): string {
 async function toBackend(call: Call, path: string): Promise<Response> {
   const { ctx, request } = call;
   const incoming = new URL(request.url);
-  const ranked = rankOrigins(routingKeyFor(request, incoming), resolvePool(ctx.env));
+  // The deploy control plane moves to the manager with the same MANAGER_ORIGIN
+  // switch the api surface uses; everything else is rendezvous-ranked over the
+  // backend pool. Both verify the bearer as the one `aomi-backend` service.
+  const managerOrigin = (ctx.env.MANAGER_ORIGIN || "").trim();
+  const ranked =
+    managerOrigin && isManagerPath(new URL(path, incoming).pathname)
+      ? [managerOrigin]
+      : rankOrigins(routingKeyFor(request, incoming), resolvePool(ctx.env));
   if (ranked.length === 0) throw new UpstreamUnreachableError(new Error("no backend origins"));
   const accountId = "accountId" in call.principal ? call.principal.accountId : null;
   const bearer = accountId

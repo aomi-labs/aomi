@@ -25,6 +25,7 @@ const PARTNER = "https://partner.example";
 const AGENT = "https://agent.example";
 const PAYMENT = "https://payment.example";
 const BACKEND = "https://backend.example";
+const MANAGER = "https://manager.example";
 const ISSUER = `${PORTAL}/api/auth`;
 
 const DEV_PRIVATE_KEY = [
@@ -152,6 +153,7 @@ const world: FetchLike = async (request) => {
     return echo(request, body, "vercel");
   }
   if (url.origin === AGENT) return echo(request, body, "agent");
+  if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === BACKEND) {
     if (url.pathname === "/api/thread/models") return Response.json(["gpt", 3, "claude"]);
@@ -162,10 +164,32 @@ const world: FetchLike = async (request) => {
   return new Response("unexpected origin", { status: 599 });
 };
 
-function portal(path: string, init: RequestInit & { origin?: string } = {}) {
+function portal(path: string, init: RequestInit & { origin?: string; env?: Partial<EdgeEnv> } = {}) {
   const headers = new Headers(init.headers);
   if (init.origin) headers.set("origin", init.origin);
-  return handleRequest(new Request(`${PORTAL}${path}`, { ...init, headers }), env, world);
+  return handleRequest(new Request(`${PORTAL}${path}`, { ...init, headers }), { ...env, ...init.env }, world);
+}
+
+/** An EDGE_CACHE binding that remembers everything and records what it was told. */
+function fakeCache(seed: Record<string, string> = {}) {
+  const store = new Map(Object.entries(seed));
+  const log: string[] = [];
+  return {
+    store,
+    log,
+    async get(key: string) {
+      log.push(`get ${key}`);
+      return store.get(key) ?? null;
+    },
+    async put(key: string, value: string) {
+      log.push(`put ${key}`);
+      store.set(key, value);
+    },
+    async delete(key: string) {
+      log.push(`delete ${key}`);
+      store.delete(key);
+    },
+  };
 }
 
 async function upstreamBearer(record: Seen) {
@@ -230,6 +254,35 @@ describe("portal surface: sessions", () => {
     expect(principalCalls).toBe(1);
     await portal("/v1/agent/sessions", { headers: { cookie: "session=guest" }, origin: PORTAL });
     expect(principalCalls).toBe(2);
+  });
+
+  it("treats a cached principal whose signature has lapsed as a miss, not an outage", async () => {
+    // KV keeps an entry for at least a minute, so it can hand back a principal
+    // token that expired seconds ago. The Worker must exchange again, not 502.
+    const stale = await signPortal(
+      { sub: "acct-user", kind: "cookie", guest: false },
+      { aud: "aomi-edge", exp: Math.floor(Date.now() / 1000) - 5 },
+    );
+    const cache = fakeCache();
+    const probe = fakeCache();
+    // Learn the cache key the Worker derives for this cookie, then plant the stale token under it.
+    await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL, env: { EDGE_CACHE: probe } });
+    const key = probe.log.find((entry) => entry.startsWith("put principal:"))!.slice(4);
+    cache.store.set(key, stale);
+    resetPrincipalCaches();
+    principalCalls = 0;
+    seen = [];
+
+    const response = await portal("/v1/agent/sessions", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+      env: { EDGE_CACHE: cache },
+    });
+    expect(response.status).toBe(200);
+    expect(principalCalls).toBe(1);
+    expect(cache.log.filter((entry) => entry.includes("principal:"))).toEqual([`get ${key}`, `delete ${key}`, `put ${key}`]);
+    expect(cache.store.get(key)).not.toBe(stale);
+    expect((await upstreamBearer(seen[0])).payload.sub).toBe("acct-user");
   });
 
   it("refuses a cookie write without a trusted origin (CSRF)", async () => {
@@ -496,6 +549,29 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
       aud: "aomi-backend",
       role: "user",
     });
+  });
+
+  it("sends the manager-owned control-plane routes to MANAGER_ORIGIN once it is set", async () => {
+    const unset = await portal("/api/account/bots", { headers: { cookie: "session=user" }, origin: PORTAL });
+    expect(unset.status).toBe(200);
+    expect(seen[0].url).toBe(`${BACKEND}/api/account/bots`);
+    seen = [];
+    const bots = await portal("/api/account/bots", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+      env: { MANAGER_ORIGIN: MANAGER },
+    });
+    expect(bots.status).toBe(200);
+    expect(seen[0].url).toBe(`${MANAGER}/api/account/bots`);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    // The rest of /api/account and the chat routes stay on the backend pool.
+    const settings = await portal("/api/account", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+      env: { MANAGER_ORIGIN: MANAGER },
+    });
+    expect(settings.status).toBe(200);
+    expect(seen[1].url).toBe(`${BACKEND}/api/account`);
   });
 
   it("serves anonymous chat catalog reads without a bearer and keeps settings from guests", async () => {
