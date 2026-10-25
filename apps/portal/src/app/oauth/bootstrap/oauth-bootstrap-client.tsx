@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -31,6 +31,11 @@ export function OAuthBootstrapClient() {
   );
   const [channelNonce, setChannelNonce] = useState<string | null>(null);
   const [relay, setRelay] = useState<BootstrapRelay | null>(null);
+  const [preview, setPreview] = useState<{
+    widget: { id: string; name: string };
+    portal: { id: string; name: string } | null;
+    sessionVersion: string | null;
+  } | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -72,90 +77,169 @@ export function OAuthBootstrapClient() {
     return () => window.removeEventListener("message", receive);
   }, [channelNonce, partnerOrigin]);
 
-  const confirm = useCallback(async () => {
+  useEffect(() => {
     if (!relay || !partnerOrigin || !channelNonce) return;
-    setPending(true);
-    setStatus("Creating a secure Aomi session…");
-    try {
-      const response = await fetch("/api/auth/aomi/widget-bootstrap/redeem", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          ticket: relay.ticket,
-          origin: partnerOrigin,
-          channelNonce,
-          state: relay.state,
-          confirmed: true,
-        }),
-      });
-      const body = (await response.json().catch(() => null)) as {
-        authorization?: AuthorizationContext;
-        message?: string;
-      } | null;
-      if (!response.ok || !body?.authorization) {
-        throw new Error(body?.message ?? "The secure handoff expired");
-      }
-      const authorization = body.authorization;
-      const query = new URLSearchParams({
-        response_type: "code",
-        client_id: authorization.clientId,
-        redirect_uri: authorization.redirectUri,
-        code_challenge: authorization.codeChallenge,
-        code_challenge_method: authorization.codeChallengeMethod,
-        resource: authorization.resource,
-        scope: authorization.scopes.join(" "),
+    const controller = new AbortController();
+    setPreview(null);
+    setStatus("Checking your accounts…");
+    void fetch("/api/auth/aomi/widget-bootstrap/preview", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        ticket: relay.ticket,
+        origin: partnerOrigin,
+        channelNonce,
         state: relay.state,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error(
+            "This handoff expired or is unavailable. Close this window and try again.",
+          );
+        const accounts = await response.json();
+        if (!controller.signal.aborted) {
+          setPreview(accounts);
+          setStatus(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "Unable to check accounts.",
+          );
       });
-      window.location.replace(`/api/auth/oauth2/authorize?${query}`);
-    } catch (error) {
-      setStatus(
-        error instanceof Error ? error.message : "Secure handoff failed",
-      );
-      setPending(false);
-    }
-  }, [channelNonce, partnerOrigin, relay]);
+    return () => controller.abort();
+  }, [relay, partnerOrigin, channelNonce]);
+
+  const confirm = useCallback(
+    async (account: "widget" | "portal") => {
+      if (!relay || !partnerOrigin || !channelNonce || !preview || pending)
+        return;
+      setPending(true);
+      setStatus("Continuing securely…");
+      try {
+        const response = await fetch("/api/auth/aomi/widget-bootstrap/redeem", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            ticket: relay.ticket,
+            origin: partnerOrigin,
+            channelNonce,
+            state: relay.state,
+            confirmed: true,
+            account,
+            sessionVersion: preview.sessionVersion,
+          }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          authorization?: AuthorizationContext;
+          message?: string;
+        } | null;
+        if (!response.ok || !body?.authorization) {
+          throw new Error(
+            body?.message === "portal_session_changed"
+              ? "Your portal account changed. Close this window and try again before choosing an account."
+              : "The secure handoff expired or could not be completed. Close this window and try again.",
+          );
+        }
+        const authorization = body.authorization;
+        const query = new URLSearchParams({
+          response_type: "code",
+          client_id: authorization.clientId,
+          redirect_uri: authorization.redirectUri,
+          code_challenge: authorization.codeChallenge,
+          code_challenge_method: authorization.codeChallengeMethod,
+          resource: authorization.resource,
+          scope: authorization.scopes.join(" "),
+          state: relay.state,
+        });
+        window.location.replace(`/api/auth/oauth2/authorize?${query}`);
+      } catch (error) {
+        setStatus(
+          error instanceof Error ? error.message : "Secure handoff failed",
+        );
+        setPreview(null);
+        setPending(false);
+      }
+    },
+    [channelNonce, partnerOrigin, relay, preview, pending],
+  );
+
+  const mismatch = preview?.portal && preview.portal.id !== preview.widget.id;
 
   return (
     <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
       <section className="w-full max-w-md">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Continue to Aomi
+          {mismatch
+            ? "Which account would you like to use?"
+            : "Continue to Aomi"}
         </h1>
         {relay ? (
           <>
             <p className="text-muted-foreground mt-3 text-sm">
-              Confirm the account handoff from {partnerOrigin}. You will review
-              the final OAuth permissions before they are granted.
+              Continue from {partnerOrigin}. You will review access before
+              returning to the app. Accounts, credits and campaign history stay
+              separate.
             </p>
-            <dl className="border-border mt-5 grid gap-3 rounded-md border p-4 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Client</dt>
-                <dd className="break-all font-mono">{relay.clientId}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Resource</dt>
-                <dd className="break-all font-mono">{relay.resource}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Requested access</dt>
-                <dd className="mt-1 grid gap-1">
-                  {relay.scopes.map((scope) => (
-                    <span className="flex items-center gap-2" key={scope}>
-                      <ShieldCheck className="h-4 w-4" /> {scope}
+            {preview && (
+              <div className="mt-5 space-y-3 text-sm">
+                <p>
+                  App account: <strong>{preview.widget.name}</strong>{" "}
+                  <span className="text-muted-foreground">
+                    ({preview.widget.id.slice(0, 8)})
+                  </span>
+                </p>
+                {mismatch && (
+                  <p>
+                    Portal account: <strong>{preview.portal!.name}</strong>{" "}
+                    <span className="text-muted-foreground">
+                      ({preview.portal!.id.slice(0, 8)})
                     </span>
-                  ))}
-                </dd>
+                  </p>
+                )}
               </div>
-            </dl>
+            )}
             <button
               className="bg-foreground text-background mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-60"
-              disabled={pending}
-              onClick={() => void confirm()}
+              disabled={pending || !preview}
+              onClick={() => void confirm("widget")}
               type="button"
             >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Confirm and review access
+              {preview
+                ? `Use ${preview.widget.name} on Aomi`
+                : "Checking accounts…"}
+            </button>
+            {mismatch && (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void confirm("portal")}
+                  className="border-border mt-3 flex h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-medium disabled:opacity-60"
+                >
+                  Continue as {preview.portal!.name}
+                </button>
+                <p className="text-muted-foreground mt-3 text-sm">
+                  This authorizes the app to use your portal account. Existing
+                  campaigns remain with their original account.
+                </p>
+              </>
+            )}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => window.close()}
+              className="mt-3 h-11 w-full text-sm disabled:opacity-60"
+            >
+              Cancel
             </button>
           </>
         ) : (
