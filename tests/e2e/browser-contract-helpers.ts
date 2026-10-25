@@ -218,12 +218,12 @@ export function expectVerifiedBffRecord(
   expect(record?.cookie).toBe("absent");
   expect(record?.principal).toMatchObject({
     sub: userId,
-    iss: "aomi-bff",
+    iss: "aomi-edge",
     aud: "aomi-api-server",
     role: "user",
     auth_source: authSource,
     principal_class: principalClass,
-    kid: "aomi-bff-dev-1",
+    kid: "aomi-edge-dev-1",
   });
   expect(record?.headers["x-aomi-user-id"]).toBeUndefined();
   expect(record?.headers["x-aomi-principal-id"]).toBeUndefined();
