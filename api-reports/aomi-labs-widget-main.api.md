@@ -4,6 +4,7 @@
 
 ```ts
 
+import { AccountCreditsTransport } from '@aomi-labs/client';
 import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/react';
 import { AomiAccountProfile } from '@aomi-labs/client';

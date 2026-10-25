@@ -708,6 +708,8 @@ export type AomiBrowserGrantOptions = {
     redirectUri: string;
     getWidgetBearer?: () => Promise<string | null | undefined>;
     closePopup?: boolean;
+    persistenceKey?: string;
+    interactive?: boolean;
     subject?: string;
     store?: AomiOAuthGrantStore;
     fetch?: typeof fetch;

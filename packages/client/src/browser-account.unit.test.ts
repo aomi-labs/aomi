@@ -3,9 +3,22 @@ import { afterEach, expect, it, vi } from "vitest";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createAomiBrowserGrantManager } from "./oauth";
 
+const savedSessions = vi.hoisted(() => new Map<string, unknown>());
+vi.mock("./internal/browser-grant-storage", () => ({
+  browserGrantStorage: (key: string) => ({
+    load: async () => savedSessions.get(key),
+    save: async (value: unknown) => {
+      if (value) savedSessions.set(key, structuredClone(value));
+      else savedSessions.delete(key);
+    },
+  }),
+}));
 const portal = "https://portal.example";
 const resource = `${portal}/v1/agent` as const;
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  savedSessions.clear();
+});
 
 async function fixture(
   input: {
@@ -13,6 +26,7 @@ async function fixture(
     issuer?: string;
     account?: string;
     guest?: boolean;
+    persistenceKey?: string;
   } = {},
 ) {
   const keys = await generateKeyPair("ES256");
@@ -71,6 +85,7 @@ async function fixture(
   });
   const manager = await createAomiBrowserGrantManager({
     portalBaseUrl: portal,
+    persistenceKey: input.persistenceKey,
     clientId: "fuzzer",
     redirectUri: "https://fuzzer.example/auth/aomi",
     fetch: fetcher,
@@ -126,4 +141,54 @@ it("refresh cannot silently change the admitted account", async () => {
     }),
   ).rejects.toThrow(/Sign in again/);
   expect((await manager.grants())[0]?.accountId).toBe("account-b");
+});
+
+it("restores DPoP credentials without opening a popup and clears durable grants on sign-out", async () => {
+  const { manager, fetcher } = await fixture({ persistenceKey: "tab-session" });
+  await manager.tokenProvider({ resource, scopes: ["agent:read"] });
+  const saved = [...savedSessions.values()][0] as {
+    keys: Map<string, CryptoKeyPair>;
+  };
+  expect(saved.keys.get(resource)?.privateKey.extractable).toBe(false);
+  const popup = vi.fn();
+  const restored = await createAomiBrowserGrantManager({
+    portalBaseUrl: portal,
+    clientId: "fuzzer",
+    redirectUri: "https://fuzzer.example/auth/aomi",
+    persistenceKey: "tab-session",
+    interactive: false,
+    fetch: fetcher,
+    popup,
+  });
+  expect((await restored.grants())[0]?.accountId).toBe("account-b");
+  expect(
+    await restored.tokenProvider({ resource, scopes: ["agent:read"] }),
+  ).toBeTruthy();
+  expect(popup).not.toHaveBeenCalled();
+  await restored.clear();
+  expect(savedSessions.size).toBe(0);
+  await expect(
+    restored.tokenProvider({ resource, scopes: ["agent:read"] }),
+  ).resolves.toBeNull();
+  expect(popup).not.toHaveBeenCalled();
+});
+
+it("reload rejects a changed canonical account instead of trusting saved labels", async () => {
+  const { manager, fetcher, changeOwner } = await fixture({
+    persistenceKey: "tab-session",
+  });
+  await manager.tokenProvider({ resource, scopes: ["agent:read"] });
+  changeOwner("other-account");
+  const popup = vi.fn();
+  const restored = await createAomiBrowserGrantManager({
+    portalBaseUrl: portal,
+    clientId: "fuzzer",
+    redirectUri: "https://fuzzer.example/auth/aomi",
+    persistenceKey: "tab-session",
+    interactive: false,
+    fetch: fetcher,
+    popup,
+  });
+  await expect(restored.grants()).rejects.toThrow(/Sign in again/);
+  expect(popup).not.toHaveBeenCalled();
 });

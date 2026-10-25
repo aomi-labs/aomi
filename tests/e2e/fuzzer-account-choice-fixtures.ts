@@ -32,12 +32,36 @@ await db.query(
   [portal + "/v1/agent", JSON.stringify(scopes)],
 );
 await db.query(
-  `insert into ba_oauth_clients(id,client_id,name,disabled,skip_consent,redirect_uris,scopes,grant_types,response_types,token_endpoint_auth_method,application_type,require_p_k_c_e,dpop_bound_access_tokens,metadata,created_at,updated_at) values('fuzzer-local','fuzzer-local','Fuzzer local test',false,false,$1,$2,'["authorization_code","refresh_token"]','["code"]','none','web',true,true,'{"aomi_client_class":"partner_widget"}',now(),now()) on conflict(client_id) do update set redirect_uris=excluded.redirect_uris`,
-  [JSON.stringify([host + "/auth/aomi"]), JSON.stringify(scopes)],
+  `insert into ba_oauth_clients(id,client_id,name,disabled,skip_consent,redirect_uris,scopes,grant_types,response_types,token_endpoint_auth_method,application_type,require_p_k_c_e,dpop_bound_access_tokens,metadata,created_at,updated_at) values('fuzzer-local','fuzzer-local','Fuzzer local test',false,false,$1,$2,'["authorization_code","refresh_token"]','["code"]','none','web',true,true,'{"aomi_client_class":"partner_widget"}',now(),now()) on conflict(client_id) do update set redirect_uris=excluded.redirect_uris, scopes=excluded.scopes`,
+  [
+    JSON.stringify([host + "/auth/aomi"]),
+    JSON.stringify([
+      ...scopes,
+      "account:credits:read",
+      "account:credits:fund",
+      "payments:submit",
+    ]),
+  ],
 );
 await db.query(
   `insert into ba_oauth_client_resources(id,client_id,resource_id) values('fuzzer-link','fuzzer-local',$1) on conflict do nothing`,
   [portal + "/v1/agent"],
+);
+await db.query(
+  `insert into ba_oauth_resources(id,identifier,name,allowed_scopes,signing_algorithm,access_token_ttl,refresh_token_ttl,disabled,created_at,updated_at) values('fuzzer-account',$1,'Account',$2,'RS256',300,86400,false,now(),now()) on conflict(identifier) do nothing`,
+  [
+    portal + "/v1/account",
+    JSON.stringify([
+      "account:credits:read",
+      "account:credits:fund",
+      "payments:submit",
+      "offline_access",
+    ]),
+  ],
+);
+await db.query(
+  `insert into ba_oauth_client_resources(id,client_id,resource_id) values('fuzzer-account-link','fuzzer-local',$1) on conflict do nothing`,
+  [portal + "/v1/account"],
 );
 async function post(path: string, body: unknown) {
   return fetch(portal + path, {

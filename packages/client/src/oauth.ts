@@ -7,6 +7,7 @@ import {
   type AomiOAuthResource,
   type AomiOAuthTokenRequest,
 } from "./authorization";
+import { browserGrantStorage } from "./internal/browser-grant-storage";
 import {
   SignJWT,
   createLocalJWKSet,
@@ -43,6 +44,10 @@ export type AomiBrowserGrantOptions = {
   getWidgetBearer?: () => Promise<string | null | undefined>;
   /** Host may retain its pre-opened popup for account/credit management. */
   closePopup?: boolean;
+  /** Opt-in browser persistence; non-exportable DPoP keys remain in IndexedDB. */
+  persistenceKey?: string;
+  /** Disable interactive acquisition when restoring or serving background requests. */
+  interactive?: boolean;
   subject?: string;
   store?: AomiOAuthGrantStore;
   fetch?: typeof fetch;
@@ -180,7 +185,7 @@ export async function createAomiDeviceGrantManager(input: {
 /** Browser public-client authorization-code + PKCE flow. The popup carries no
  * bearer or bootstrap ticket in its URL; it receives the opaque ticket over an
  * exact-origin/source postMessage channel. REST tokens are DPoP-bound with an
- * extractable=false Web Crypto key kept only in this manager's memory. */
+ * extractable=false Web Crypto key, optionally retained in IndexedDB for reloads. */
 export async function createAomiBrowserGrantManager(
   input: AomiBrowserGrantOptions,
 ): Promise<
@@ -234,24 +239,99 @@ export async function createAomiBrowserGrantManager(
     accountId = selected;
     return { ...grant, accountId };
   }
+  const persistent = input.persistenceKey
+    ? browserGrantStorage(
+        JSON.stringify([metadata.issuer, input.clientId, input.persistenceKey]),
+      )
+    : undefined;
+  const store = persistent
+    ? {
+        async load() {
+          const saved = await persistent.load();
+          if (!saved) return [];
+          const restored: AomiOAuthGrant[] = [];
+          const remaining = [...saved.grants];
+          for (const grant of saved.grants) {
+            if (
+              grant.issuer !== metadata.issuer ||
+              grant.clientId !== input.clientId ||
+              grant.subject !== input.subject
+            )
+              continue;
+            const keys = saved.keys.get(grant.resource);
+            if (!keys || keys.privateKey.extractable) continue;
+            const signer = await createDpopSigner(keys);
+            dpopByResource.set(grant.resource, signer);
+            // Refresh proves current authorization; never trust a persisted account label.
+            const fresh = await verified(
+              await refreshAomiOAuthGrant({
+                metadata,
+                grant,
+                request: { resource: grant.resource, scopes: grant.scopes },
+                fetch: fetchImpl,
+                now: input.now,
+                dpopProof: signer.proof,
+              }),
+            );
+            if (grant.accountId && fresh.accountId !== grant.accountId)
+              throw new AomiOAuthError(
+                "account_changed",
+                "Sign in again to use the selected Aomi account",
+              );
+            restored.push(fresh);
+            remaining.splice(remaining.indexOf(grant), 1);
+            // Persist each rotation before refreshing another resource. A later failure
+            // must not leave the first resource's already-consumed refresh token on disk.
+            await persistent.save({
+              grants: [...restored, ...remaining].map(
+                ({ dpopProof: _proof, ...item }) => item,
+              ),
+              keys: saved.keys,
+            });
+          }
+          await this.save(restored);
+          return restored;
+        },
+        async save(grants: readonly AomiOAuthGrant[]) {
+          await persistent.save(
+            grants.length
+              ? {
+                  grants: grants.map(
+                    ({ dpopProof: _proof, ...grant }) => grant,
+                  ),
+                  keys: new Map(
+                    [...dpopByResource].map(([resource, signer]) => [
+                      resource,
+                      signer.keys,
+                    ]),
+                  ),
+                }
+              : null,
+          );
+        },
+      }
+    : input.store;
   const manager = createAomiOAuthGrantManager({
     issuer: metadata.issuer,
     clientId: input.clientId,
     subject: input.subject,
-    store: input.store,
+    store,
     now: input.now,
-    acquire: async (request) => {
-      const signer = await createDpopSigner();
-      const grant = await acquireAomiBrowserGrant({
-        ...input,
-        metadata,
-        request,
-        fetch: fetchImpl,
-        dpopProof: signer.proof,
-      });
-      dpopByResource.set(request.resource, signer);
-      return verified(grant);
-    },
+    acquire:
+      input.interactive === false
+        ? undefined
+        : async (request) => {
+            const signer = await createDpopSigner();
+            const grant = await acquireAomiBrowserGrant({
+              ...input,
+              metadata,
+              request,
+              fetch: fetchImpl,
+              dpopProof: signer.proof,
+            });
+            dpopByResource.set(request.resource, signer);
+            return verified(grant);
+          },
     refresh: async (grant, request) => {
       const signer = dpopByResource.get(grant.resource);
       if (!signer) {
@@ -719,15 +799,19 @@ function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-async function createDpopSigner(): Promise<{
+async function createDpopSigner(keys?: CryptoKeyPair): Promise<{
+  keys: CryptoKeyPair;
   proof: NonNullable<AomiOAuthGrant["dpopProof"]>;
 }> {
-  const { privateKey, publicKey } = await generateKeyPair("ES256", {
-    extractable: false,
-  });
+  const { privateKey, publicKey } =
+    keys ??
+    (await generateKeyPair("ES256", {
+      extractable: false,
+    }));
   const publicJwk = (await exportJWK(publicKey)) as JWK;
   await calculateJwkThumbprint(publicJwk, "sha256");
   return {
+    keys: { privateKey, publicKey },
     proof: async ({ url, method, accessToken, nonce }) => {
       const claims: Record<string, string | number> = {
         jti: randomBase64Url(24),

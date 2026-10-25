@@ -85,14 +85,25 @@ describe("portal account choice", () => {
       screen.queryByRole("button", { name: "Continue as Account B" }),
     ).toBeNull();
   });
-  it("does not offer a redundant switch for the same canonical account", async () => {
-    fetchMock.mockResolvedValue(
-      Response.json({ ...accounts, portal: accounts.widget }),
+  it("automatically continues an already matching canonical account once", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/preview")
+        ? Response.json({ ...accounts, portal: accounts.widget })
+        : new Promise(() => {}),
     );
     await open();
-    expect(
-      await screen.findByRole("button", { name: "Use Cecilia on Aomi" }),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/redeem")),
+      ).toHaveLength(1),
+    );
+    const call = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/redeem"),
+    );
+    expect(JSON.parse(call![1].body)).toMatchObject({
+      account: "portal",
+      sessionVersion: accounts.sessionVersion,
+    });
     expect(
       screen.queryByText("Which account would you like to use?"),
     ).toBeNull();

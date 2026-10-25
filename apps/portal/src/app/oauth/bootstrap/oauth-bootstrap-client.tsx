@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type BootstrapRelay = {
   type: "aomi.oauth.bootstrap.ticket";
@@ -37,6 +37,7 @@ export function OAuthBootstrapClient() {
     sessionVersion: string | null;
   } | null>(null);
   const [pending, setPending] = useState(false);
+  const confirming = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => setChannelNonce(randomBrowserNonce()), []);
@@ -118,8 +119,16 @@ export function OAuthBootstrapClient() {
 
   const confirm = useCallback(
     async (account: "widget" | "portal") => {
-      if (!relay || !partnerOrigin || !channelNonce || !preview || pending)
+      if (
+        !relay ||
+        !partnerOrigin ||
+        !channelNonce ||
+        !preview ||
+        pending ||
+        confirming.current
+      )
         return;
+      confirming.current = true;
       setPending(true);
       setStatus("Continuing securely…");
       try {
@@ -165,11 +174,17 @@ export function OAuthBootstrapClient() {
           error instanceof Error ? error.message : "Secure handoff failed",
         );
         setPreview(null);
+        confirming.current = false;
         setPending(false);
       }
     },
     [channelNonce, partnerOrigin, relay, preview, pending],
   );
+
+  useEffect(() => {
+    if (preview?.portal?.id === preview?.widget.id && preview)
+      void confirm("portal");
+  }, [preview, confirm]);
 
   const mismatch = preview?.portal && preview.portal.id !== preview.widget.id;
 
