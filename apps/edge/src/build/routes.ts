@@ -5,12 +5,12 @@
  * client). Anything not listed here passes through to the Vercel Build app
  * unchanged: the build sandbox, integrations and the local-only helpers.
  */
-import { passThrough as passThroughTo } from "../passthrough";
-import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
-import { errorResponse } from "../portal/errors";
-import { BACKEND_API_HEADERS, UpstreamUnreachableError, forward } from "../portal/forward";
+import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
+import { BACKEND_API_HEADERS } from "../portal/headers";
 import type { BuildContext } from "./context";
 import { BUILDER_CREDITS_PREFIX, credits } from "./credits";
+import { failureResponse } from "./failures";
+import { managerOrigin } from "./manager-client";
 import * as deploy from "./deploy";
 import * as operate from "./operate";
 import {
@@ -40,13 +40,9 @@ export const GITHUB_APP_INSTALL_START_PATH = "/api/integrations/github-app/oauth
 
 /** Build forwards only the GitHub App install start, anonymously. */
 async function installStart(request: Request, ctx: BuildContext): Promise<Response> {
-  const incoming = new URL(request.url);
-  const [origin] = rankOrigins(routingKeyFor(request, incoming), resolvePool(ctx.env));
-  if (!origin) throw new UpstreamUnreachableError(new Error("no backend origins"));
-  const url = new URL(GITHUB_APP_INSTALL_START_PATH, (ctx.env.MANAGER_ORIGIN ?? "").trim() || origin);
-  url.search = incoming.search;
-  if (!url.searchParams.get("platform")) url.searchParams.set("platform", ctx.deployPlatforms[0]);
-  return forward({ request, url, policy: BACKEND_API_HEADERS, fetchImpl: ctx.fetchImpl });
+  const url = target(managerOrigin(request, ctx), GITHUB_APP_INSTALL_START_PATH, new URL(request.url).search);
+  if (!url.searchParams.get("platform")) url.searchParams.set("platform", ctx.config.platforms[0]);
+  return proxy(request, url, { fetchImpl: ctx.fetchImpl, headers: BACKEND_API_HEADERS });
 }
 
 export const BUILD_ROUTES: readonly BuildRoute[] = [
@@ -139,7 +135,7 @@ async function run(operation: string, handle: Handler, request: Request, ctx: Bu
   try {
     return await handle(request, ctx);
   } catch (error) {
-    return errorResponse(error, request, { operation });
+    return failureResponse(error, request, operation);
   }
 }
 

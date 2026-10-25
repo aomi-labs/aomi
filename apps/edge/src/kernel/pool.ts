@@ -1,4 +1,5 @@
 import type { EdgeEnv } from "../env";
+import { config } from "./config";
 
 // The whole backend fleet, in BACKEND_ORIGINS order: the Terraform backend
 // inventory, injected by scripts/deploy.mjs. Routing never narrows this
@@ -12,11 +13,8 @@ import type { EdgeEnv } from "../env";
 // hosted-app thread (discovery, chat, and state polls alike); a request
 // without it falls back to rendezvous-by-session and can land on a host that
 // does not hold the app.
-export function resolvePool(env: EdgeEnv): string[] {
-  return (env.BACKEND_ORIGINS || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+export function resolvePool(env: EdgeEnv): readonly string[] {
+  return config(env).pool;
 }
 
 function fnv1a(input: string): number {
@@ -71,4 +69,9 @@ export function routingKeyFor(request: Request, url: URL): string | null {
     request.headers.get("CF-Connecting-IP") ||
     null
   );
+}
+
+/** The pool ranked for this request: index 0 owns its thread, the rest are failover. */
+export function rankedPool(request: Request, env: EdgeEnv): string[] {
+  return rankOrigins(routingKeyFor(request, new URL(request.url)), resolvePool(env));
 }

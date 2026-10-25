@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { EdgeCache, EdgeEnv } from "./env";
 import { handleRequest } from "./handler";
-import { isAllowedCorsOrigin } from "./routing/cors";
-import { rankOrigins, resolvePool, routingKeyFor } from "./routing/pool";
-import { resolveRoute } from "./routing/routes";
-import type { FetchLike } from "./routing/upstream";
-import { resetDiscoveryCache } from "./task/discovery";
+import { isAllowedCorsOrigin } from "./kernel/cors";
+import { config } from "./kernel/config";
+import { rankOrigins, resolvePool, routingKeyFor } from "./kernel/pool";
+import { resolveRoute } from "./api/routes";
+import type { FetchLike } from "./kernel/proxy";
+import { resetDiscoveryCache } from "./api/discovery";
 
 const env: EdgeEnv = {
   BACKEND_ORIGINS: "https://backend-staging-tunnel.aomi.dev",
@@ -34,10 +35,10 @@ beforeEach(() => {
 describe("route resolution", () => {
   it("keeps /api paths intact for backend", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/chat"), env);
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/chat",
     );
-    expect(route?.corsProfile).toBe("api");
+    expect(route?.name).toBe("api");
   });
 
   it("exposes only the admitted API Server routes", () => {
@@ -45,14 +46,14 @@ describe("route resolution", () => {
       new URL("https://api-staging.aomi.dev/v1/task/build?trace=one"),
       env,
     );
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://agent-staging-2.aomi.dev/v1/task/build?trace=one",
     );
-    expect(route?.corsProfile).toBe("task");
-    expect(route?.fallbackUrls).toEqual([]);
+    expect(route?.name).toBe("task");
+    expect(route?.targets.slice(1)).toEqual([]);
     expect(resolveRoute(new URL("https://api-staging.aomi.dev/v1/task/other"), env)).toBeNull();
     expect(
-      resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), productionEnv)?.targetUrl.toString(),
+      resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), productionEnv)?.targets[0].toString(),
     ).toBe("https://agent-2.aomi.dev/v1/task/build");
     expect(
       resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), {
@@ -61,8 +62,8 @@ describe("route resolution", () => {
       }),
     ).toBeNull();
     const jwks = resolveRoute(new URL("https://api.aomi.dev/.well-known/jwks.json"), productionEnv);
-    expect(jwks?.targetUrl.toString()).toBe("https://agent-2.aomi.dev/.well-known/jwks.json");
-    expect(jwks?.corsProfile).toBe("jwks");
+    expect(jwks?.targets[0].toString()).toBe("https://agent-2.aomi.dev/.well-known/jwks.json");
+    expect(jwks?.name).toBe("jwks");
     expect(
       resolveRoute(new URL("https://api.aomi.dev/.well-known/other.json"), productionEnv),
     ).toBeNull();
@@ -70,8 +71,8 @@ describe("route resolution", () => {
 
   it("forwards /metrics to backend", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/metrics"), env);
-    expect(route?.targetUrl.toString()).toBe("https://backend-staging-tunnel.aomi.dev/metrics");
-    expect(route?.corsProfile).toBe("health");
+    expect(route?.targets[0].toString()).toBe("https://backend-staging-tunnel.aomi.dev/metrics");
+    expect(route?.name).toBe("health");
   });
 
   it("forwards registered Telegram webhooks through the backend api route", () => {
@@ -79,10 +80,10 @@ describe("route resolution", () => {
       new URL("https://api.aomi.dev/api/bots/telegram/secret-123?update_id=1"),
       productionEnv,
     );
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-tunnel.aomi.dev/api/bots/telegram/secret-123?update_id=1",
     );
-    expect(route?.corsProfile).toBe("api");
+    expect(route?.name).toBe("api");
   });
 
   it("admits only UUID Task job resources", () => {
@@ -112,7 +113,7 @@ describe("CORS", () => {
       ["https://evil.example.com", false],
     ];
     for (const [origin, allowed] of cases) {
-      expect(isAllowedCorsOrigin(origin, env), origin).toBe(allowed);
+      expect(isAllowedCorsOrigin(origin, config(env)), origin).toBe(allowed);
     }
   });
 
@@ -417,20 +418,20 @@ describe("multi-origin load balancing", () => {
     }
 
     const postAttempts: string[] = [];
-    await expect(
-      handleRequest(
-        new Request("https://api.aomi.dev/api/chat", {
-          method: "POST",
-          headers: { "X-Session-Id": "session-abc" },
-          body: JSON.stringify({ message: "hello" }),
-        }),
-        multiEnv,
-        async (request) => {
-          postAttempts.push(new URL(request.url).origin);
-          throw new Error("ambiguous origin failure");
-        },
-      ),
-    ).rejects.toThrow(/ambiguous origin failure/);
+    const ambiguous = await handleRequest(
+      new Request("https://api.aomi.dev/api/chat", {
+        method: "POST",
+        headers: { "X-Session-Id": "session-abc" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      multiEnv,
+      async (request) => {
+        postAttempts.push(new URL(request.url).origin);
+        throw new Error("ambiguous origin failure");
+      },
+    );
+    expect(ambiguous.status).toBe(502);
+    expect(await ambiguous.json()).toEqual({ error: "upstream_unavailable" });
     expect(postAttempts).toEqual([ranked[0]]);
 
     const tunnelDown = await handleRequest(
@@ -454,7 +455,7 @@ describe("manager cutover routing", () => {
 
   it("is inert while MANAGER_ORIGIN is unset", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/platforms/community/deploy"), env);
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/platforms/community/deploy",
     );
   });
@@ -488,9 +489,9 @@ describe("manager cutover routing", () => {
       "/api/integrations/github-app/builder/applications/42/app-key",
     ]) {
       const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targetUrl.toString(), path).toBe(`https://manager-staging-tunnel.aomi.dev${path}`);
-      expect(route?.corsProfile).toBe("api");
-      expect(route?.fallbackUrls).toEqual([]);
+      expect(route?.targets[0].toString(), path).toBe(`https://manager-staging-tunnel.aomi.dev${path}`);
+      expect(route?.name).toBe("api");
+      expect(route?.targets.slice(1)).toEqual([]);
     }
   });
 
@@ -506,7 +507,7 @@ describe("manager cutover routing", () => {
       "/api/account/providers/para/agent-wallet",
     ]) {
       const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targetUrl.toString(), path).toBe(`https://backend-staging-tunnel.aomi.dev${path}`);
+      expect(route?.targets[0].toString(), path).toBe(`https://backend-staging-tunnel.aomi.dev${path}`);
     }
   });
 });
@@ -515,7 +516,7 @@ describe("Task discovery documents", () => {
   it("admits only the public documents with read-only public CORS", async () => {
     for (const path of ["/.well-known/agent.json", "/v1/task/openapi.json", "/.well-known/x402"]) {
       const url = new URL(`https://api-staging.aomi.dev${path}`);
-      expect(resolveRoute(url, env)?.targetUrl.toString()).toBe(`https://agent-staging-2.aomi.dev${path}`);
+      expect(resolveRoute(url, env)?.targets[0].toString()).toBe(`https://agent-staging-2.aomi.dev${path}`);
       expect(resolveRoute(url, { ...productionEnv, API_SERVER_ORIGIN: "" })).toBeNull();
       const preflight = await handleRequest(
         new Request(url, { method: "OPTIONS", headers: { Origin: "https://directory.example" } }),
@@ -541,7 +542,7 @@ describe("Task discovery documents", () => {
   it("serves only the Task document at the domain OpenAPI path", async () => {
     const url = new URL("https://api-staging.aomi.dev/openapi.json?source=crawler");
     const upstream = "https://agent-staging-2.aomi.dev/v1/task/openapi.json?source=crawler";
-    expect(resolveRoute(url, env)?.targetUrl.toString()).toBe(upstream);
+    expect(resolveRoute(url, env)?.targets[0].toString()).toBe(upstream);
     for (const method of ["GET", "HEAD"]) {
       const response = await handleRequest(new Request(url, { method }), env, async (request) => {
         expect(request.url).toBe(upstream);

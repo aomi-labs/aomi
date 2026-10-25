@@ -29,7 +29,7 @@ import { caipChainId, caipChainLabel, creditsToUsd } from "@aomi-labs/internal/o
 import { authorize } from "./auth";
 import { deployConfig, resolveDeployPlatform } from "./config";
 import type { BuildContext } from "./context";
-import { failureContext, failureResponse, reportFailure } from "./failures";
+import { failureResponse, reportFailure } from "./failures";
 import { managerClient } from "./manager-client";
 
 type BackendClientInstance = ManagerClient;
@@ -130,11 +130,7 @@ async function settleBySource<T>(
       ok.push(result.value);
     } else {
       if (source) dropped.push(source.id);
-      reportFailure(result.reason, {
-          routeFamily: "/api/bff/operate",
-          operation,
-          method: "GET",
-        });
+      reportFailure(result.reason, new Request("https://build.invalid/api/bff/operate"), operation);
     }
   });
   return { ok, dropped };
@@ -483,11 +479,7 @@ async function operateSession(req: Request, ctx: BuildContext): Promise<{ respon
     };
   } catch (err) {
     return {
-      response: failureResponse(err, {
-          routeFamily: new URL(req.url).pathname,
-          operation: "operate.owned_sources",
-          method: req.method,
-        }),
+      response: failureResponse(err, req, "operate.owned_sources"),
     };
   }
 }
@@ -531,11 +523,7 @@ async function ownedSources(req: Request, ctx: BuildContext): Promise<{ response
     };
   } catch (err) {
     return {
-      response: failureResponse(err, {
-          routeFamily: new URL(req.url).pathname,
-          operation: "operate.owned_sources",
-          method: req.method,
-        }),
+      response: failureResponse(err, req, "operate.owned_sources"),
     };
   }
 }
@@ -597,7 +585,7 @@ export async function operateBotsRoute(req: Request, ctx: BuildContext) {
       bots,
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_read"));
+    return failureResponse(err, req, "operate.bots_read");
   }
 }
 
@@ -670,7 +658,7 @@ export async function operateBotsCreateRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json({ bot }, { status: 201 });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_create"));
+    return failureResponse(err, req, "operate.bots_create");
   }
 }
 
@@ -690,7 +678,7 @@ export async function operateBotsDeleteRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json({ ok: true });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_delete"));
+    return failureResponse(err, req, "operate.bots_delete");
   }
 }
 
@@ -768,7 +756,7 @@ export async function operateBotsUpdateRoute(req: Request, ctx: BuildContext) {
       ...(webhookWarning ? { webhookWarning } : {}),
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_update"));
+    return failureResponse(err, req, "operate.bots_update");
   }
 }
 
@@ -795,7 +783,7 @@ export async function operateBotsCommandSecretRoute(req: Request, ctx: BuildCont
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_command_secret"));
+    return failureResponse(err, req, "operate.bots_command_secret");
   }
 }
 
@@ -823,7 +811,7 @@ export async function operateBotsWebhookRoute(req: Request, ctx: BuildContext) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.bots_webhook"));
+    return failureResponse(err, req, "operate.bots_webhook");
   }
 }
 
@@ -841,7 +829,7 @@ export async function operateModelKeysRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json({ projects: owned.projects, keys });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.model_keys_read"));
+    return failureResponse(err, req, "operate.model_keys_read");
   }
 }
 
@@ -877,7 +865,7 @@ export async function operateModelKeysSaveRoute(req: Request, ctx: BuildContext)
     });
     return Response.json({ key }, { status: 201 });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.model_keys_save"));
+    return failureResponse(err, req, "operate.model_keys_save");
   }
 }
 
@@ -913,7 +901,7 @@ export async function operateModelKeysGrantsRoute(req: Request, ctx: BuildContex
     });
     return Response.json({ key });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.model_keys_grants"));
+    return failureResponse(err, req, "operate.model_keys_grants");
   }
 }
 
@@ -938,7 +926,7 @@ export async function operateModelKeysDeleteRoute(req: Request, ctx: BuildContex
     });
     return Response.json({ ok: true });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.model_keys_delete"));
+    return failureResponse(err, req, "operate.model_keys_delete");
   }
 }
 
@@ -1183,7 +1171,7 @@ export async function operateTransactionsRoute(req: Request, ctx: BuildContext) 
       nextCursor,
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.transactions"));
+    return failureResponse(err, req, "operate.transactions");
   }
 }
 
@@ -1356,7 +1344,7 @@ export async function operateUsageRoute(req: Request, ctx: BuildContext) {
         : exampleStatement(owned.projects[0] ?? EXAMPLE_PROJECT),
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.usage"));
+    return failureResponse(err, req, "operate.usage");
   }
 }
 
@@ -1498,7 +1486,7 @@ export async function operateLogsRoute(req: Request, ctx: BuildContext) {
       ),
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.logs"));
+    return failureResponse(err, req, "operate.logs");
   }
 }
 
@@ -1557,7 +1545,7 @@ export async function operateObservabilityRoute(req: Request, ctx: BuildContext)
       platformMetrics: scoped[0]?.platformMetrics ?? [],
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.observability"));
+    return failureResponse(err, req, "operate.observability");
   }
 }
 
@@ -1590,7 +1578,7 @@ export async function operatePaymentsRoute(req: Request, ctx: BuildContext) {
       ),
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.payments"));
+    return failureResponse(err, req, "operate.payments");
   }
 }
 
@@ -1659,6 +1647,6 @@ export async function operateAppDetailRoute(req: Request, ctx: BuildContext) {
       deployments,
     });
   } catch (err) {
-    return failureResponse(err, failureContext(req, "operate.app_detail"));
+    return failureResponse(err, req, "operate.app_detail");
   }
 }

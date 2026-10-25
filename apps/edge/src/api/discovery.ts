@@ -1,6 +1,6 @@
 import type { EdgeCache, EdgeEnv } from "../env";
-import type { FetchLike } from "../routing/upstream";
-import { TASK_BUILD_PATH } from "../routing/routes";
+import type { FetchLike } from "../kernel/proxy";
+import { TASK_BUILD_PATH } from "./routes";
 
 /**
  * The Task discovery challenge: the API Server's own body-bound 402 for its

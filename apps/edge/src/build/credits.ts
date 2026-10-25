@@ -3,9 +3,11 @@
  * its canonical owner. Ported from the Build BFF's `server/bff/credits.ts`.
  */
 import { edgeService } from "../identity";
-import { cookieWriteAllowed } from "../portal/csrf";
-import { mintBearer } from "../portal/errors";
-import { AGENT_API_HEADERS, UpstreamUnreachableError, forward } from "../portal/forward";
+import { config } from "../kernel/config";
+import { cookieWriteAllowed } from "../kernel/csrf";
+import { EdgeError, minted, unreachable } from "../kernel/errors";
+import { proxy, target } from "../kernel/proxy";
+import { AGENT_API_HEADERS } from "../portal/headers";
 import type { BuildContext } from "./context";
 import { githubSessionOf } from "./github-auth";
 
@@ -20,15 +22,14 @@ export async function credits(request: Request, ctx: BuildContext): Promise<Resp
   const read = request.method === "GET";
   const allowed = read ? READ_PATHS : WRITE_PATHS;
   if (!allowed.test(suffix) || (!read && request.method !== "POST")) return new Response(null, { status: 404 });
-  if (!read && !cookieWriteAllowed(request, ctx.trustedOrigins))
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (!read && !cookieWriteAllowed(request, ctx.trustedOrigins)) throw new EdgeError(403, "forbidden");
   const session = await githubSessionOf(request, ctx);
-  if (!session) return Response.json({ error: "not signed in with GitHub" }, { status: 401 });
-  const payment = (ctx.env.PAYMENT_ORIGIN ?? "").trim();
-  if (!payment) throw new UpstreamUnreachableError(new Error("payment origin is not configured"));
+  if (!session) throw new EdgeError(401, "unauthenticated");
+  const payment = config(ctx.env).payment;
+  if (!payment) throw unreachable(new Error("payment origin is not configured"));
   const scopes = [`builder:credits:${read ? "read" : "fund"}`];
   if (request.headers.has("payment-signature")) scopes.push("payments:submit");
-  const { accessToken } = await mintBearer(() =>
+  const { accessToken } = await minted(() =>
     edgeService(ctx.env, url.host).mint({
       role: "user",
       subject: session.githubUserId,
@@ -43,11 +44,9 @@ export async function credits(request: Request, ctx: BuildContext): Promise<Resp
       },
     }),
   );
-  return forward({
-    request,
-    url: new URL(`${url.pathname}${url.search}`, payment),
-    policy: AGENT_API_HEADERS,
-    bearer: accessToken,
+  return proxy(request, target(payment, url.pathname, url.search), {
     fetchImpl: ctx.fetchImpl,
+    headers: AGENT_API_HEADERS,
+    bearer: accessToken,
   });
 }

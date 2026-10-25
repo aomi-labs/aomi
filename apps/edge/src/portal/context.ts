@@ -1,5 +1,6 @@
 import type { EdgeEnv } from "../env";
-import type { FetchLike } from "../routing/upstream";
+import { config } from "../kernel/config";
+import type { FetchLike } from "../kernel/proxy";
 import { resourcesFor, type Resources } from "./policy";
 
 /** Everything the portal surface needs per request, resolved once. */
@@ -17,20 +18,8 @@ export type PortalContext = {
   now: () => number;
 };
 
-function csv(value: string | undefined): string[] {
-  return (value ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-/** Hosts the edge serves as the portal surface (routed on their /api and /v1). */
-export function portalHosts(env: EdgeEnv): string[] {
-  return csv(env.PORTAL_HOSTS).map((host) => host.toLowerCase());
-}
-
 export function isPortalHost(env: EdgeEnv, host: string): boolean {
-  return portalHosts(env).includes(host.toLowerCase());
+  return config(env).portal.hosts.has(host.toLowerCase());
 }
 
 export function portalContext(
@@ -40,17 +29,15 @@ export function portalContext(
   now: () => number = Date.now,
 ): PortalContext | null {
   const url = new URL(request.url);
-  if (!isPortalHost(env, url.host)) return null;
-  const upstreamOrigin = (env.PORTAL_UPSTREAM_ORIGIN ?? "").trim().replace(/\/+$/, "");
-  if (!upstreamOrigin) return null;
-  const portalOrigin = url.origin;
+  const { portal } = config(env);
+  if (!portal.hosts.has(url.host.toLowerCase()) || !portal.upstream) return null;
   return {
     env,
-    portalOrigin,
-    upstreamOrigin,
-    trustedOrigins: [...new Set([portalOrigin, ...csv(env.PORTAL_TRUSTED_ORIGINS)])],
-    resources: resourcesFor(portalOrigin),
-    dpopRequired: (env.AOMI_MCP_DPOP_REQUIRED ?? "").trim().toLowerCase() === "true",
+    portalOrigin: url.origin,
+    upstreamOrigin: portal.upstream,
+    trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
+    resources: resourcesFor(url.origin),
+    dpopRequired: portal.dpopRequired,
     fetchImpl,
     now,
   };

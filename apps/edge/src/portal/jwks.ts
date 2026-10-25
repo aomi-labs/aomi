@@ -1,7 +1,7 @@
 import { createLocalJWKSet, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
 
 import type { EdgeCache } from "../env";
-import type { FetchLike } from "../routing/upstream";
+import type { FetchLike } from "../kernel/proxy";
 
 /** How long one JWKS document serves before the edge asks the portal again. */
 export const JWKS_TTL_SECONDS = 600;

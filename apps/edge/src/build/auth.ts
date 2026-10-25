@@ -1,4 +1,4 @@
-import { cookieWriteAllowed } from "../portal/csrf";
+import { cookieWriteAllowed } from "../kernel/csrf";
 import type { BuildContext } from "./context";
 import { githubSessionOf, signerFor, visibilityGrantOf } from "./github-auth";
 import { bearerOf, type GitHubCliScope, type GitHubSession } from "./session";
@@ -22,9 +22,9 @@ export async function authorize(
     if (cli) return { session: cli, visibilityGrant: null };
   }
   if (options.write && !cookieWriteAllowed(request, ctx.trustedOrigins))
-    return { response: Response.json({ error: "Forbidden" }, { status: 403 }) };
+    return { response: Response.json({ error: "forbidden" }, { status: 403 }) };
   const session = await githubSessionOf(request, ctx);
   return session
     ? { session, visibilityGrant: visibilityGrantOf(request) }
-    : { response: Response.json({ error: "not signed in with GitHub" }, { status: 401 }) };
+    : { response: Response.json({ error: "unauthenticated" }, { status: 401 }) };
 }

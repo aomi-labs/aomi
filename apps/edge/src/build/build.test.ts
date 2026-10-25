@@ -7,7 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { EdgeEnv } from "../env";
 import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
-import type { FetchLike } from "../routing/upstream";
+import type { FetchLike } from "../kernel/proxy";
 
 const BUILD = "https://build.example";
 const UPSTREAM = "https://build-vercel.example";
@@ -68,7 +68,7 @@ const world: FetchLike = async (request) => {
       });
     }
     if (url.pathname === "/api/integrations/github-app/oauth/claim")
-      return Response.json({ github_user_id: claimOwner, project: { id: 7 } });
+      return Response.json({ github_user_id: claimOwner, project: { id: 7, platform_name: "web" } });
     return Response.json({ tag: "backend", ...entry });
   }
   if (url.origin === PAYMENT) return Response.json({ tag: "payment", ...entry });

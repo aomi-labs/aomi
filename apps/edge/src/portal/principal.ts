@@ -1,7 +1,9 @@
 import { decodeJwt, errors as joseErrors, jwtVerify, type JWTPayload } from "jose";
 
+import { EdgeError } from "../kernel/errors";
 import type { PortalContext } from "./context";
-import { cookieWriteAllowed, observedOrigin } from "./csrf";
+import { observedOrigin } from "../kernel/cors";
+import { cookieWriteAllowed } from "../kernel/csrf";
 import { DpopError, DPOP_SIGNING_ALGORITHMS, verifyDpopProof } from "./dpop";
 import { JwksUnavailableError, portalJwks } from "./jwks";
 import {
@@ -49,25 +51,20 @@ export type PrincipalCode =
   | "csrf_failed"
   | "unauthenticated";
 
-export class PrincipalError extends Error {
+export class PrincipalError extends EdgeError {
   constructor(
     readonly status: 401 | 403,
     readonly code: PrincipalCode,
     readonly requiredScopes: readonly string[] = [],
-    readonly challengeHeaders: Headers = new Headers(),
+    challengeHeaders: HeadersInit = {},
   ) {
-    super(code);
+    super(status, code, { headers: challengeHeaders });
     this.name = "PrincipalError";
   }
 }
 
 /** The portal could not be asked who the caller is. */
-export class PrincipalUpstreamError extends Error {
-  constructor(cause: unknown) {
-    super("principal_upstream_unavailable", { cause });
-    this.name = "PrincipalUpstreamError";
-  }
-}
+const authUnavailable = (cause: unknown) => new EdgeError(502, "auth_unavailable", { cause });
 
 export const WIDGET_TOKEN_PREFIX = "aomi_wst_";
 /** The portal signs principal tokens for this audience and nobody else. */
@@ -266,7 +263,7 @@ async function exchangePrincipal(
         { cache: "no-store" },
       );
     } catch (error) {
-      throw new PrincipalUpstreamError(error);
+      throw authUnavailable(error);
     }
     if (response.status === 204) return null;
     if (response.status === 401 || response.status === 403) {
@@ -277,9 +274,9 @@ async function exchangePrincipal(
         isPrincipalCode(code) ? code : "invalid_token",
       );
     }
-    if (!response.ok) throw new PrincipalUpstreamError(new Error(`principal ${response.status}`));
+    if (!response.ok) throw authUnavailable(new Error(`principal ${response.status}`));
     const body = (await response.json().catch(() => null)) as { token?: unknown } | null;
-    if (typeof body?.token !== "string") throw new PrincipalUpstreamError(new Error("no token"));
+    if (typeof body?.token !== "string") throw authUnavailable(new Error("no token"));
     token = body.token;
     claims = await verifyPrincipalToken(token, ctx);
   }
@@ -372,8 +369,8 @@ async function verifyPrincipalToken(token: string, ctx: PortalContext): Promise<
       audience: PRINCIPAL_TOKEN_AUDIENCE,
     });
   } catch (error) {
-    if (error instanceof JwksUnavailableError) throw new PrincipalUpstreamError(error);
-    throw new PrincipalUpstreamError(error);
+    if (error instanceof JwksUnavailableError) throw authUnavailable(error);
+    throw authUnavailable(error);
   }
   const kind = payload.kind;
   if (
@@ -382,7 +379,7 @@ async function verifyPrincipalToken(token: string, ctx: PortalContext): Promise<
     (kind !== "cookie" && kind !== "session_bearer" && kind !== "widget") ||
     typeof payload.guest !== "boolean"
   )
-    throw new PrincipalUpstreamError(new Error("malformed principal token"));
+    throw authUnavailable(new Error("malformed principal token"));
   return payload as PrincipalTokenClaims;
 }
 
@@ -411,7 +408,7 @@ async function oauthRequestPrincipal(
       audience: resource,
     });
   } catch (error) {
-    if (error instanceof JwksUnavailableError) throw new PrincipalUpstreamError(error);
+    if (error instanceof JwksUnavailableError) throw authUnavailable(error);
     throw new PrincipalError(401, "invalid_token", requiredScopes, bearerChallenge(resource));
   }
   const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);

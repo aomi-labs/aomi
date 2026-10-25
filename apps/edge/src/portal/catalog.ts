@@ -1,4 +1,4 @@
-import type { FetchLike } from "../routing/upstream";
+import type { FetchLike } from "../kernel/proxy";
 
 export type PublicCatalogKind = "models" | "apps" | "skills";
 const PATHS: Record<PublicCatalogKind, string> = {

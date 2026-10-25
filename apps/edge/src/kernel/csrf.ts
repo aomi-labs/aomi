@@ -21,22 +21,3 @@ export function cookieWriteAllowed(
   if (fetchSite === "cross-site") return false;
   return fetchSite === "same-origin" || request.headers.get("x-aomi-csrf") === "1";
 }
-
-const LOCAL_WIDGET_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
-/** The request's Origin when it is a usable https (or local http) origin. */
-export function observedOrigin(request: Request): string | null {
-  const raw = request.headers.get("origin");
-  if (!raw || raw === "null") return null;
-  let origin: URL;
-  try {
-    origin = new URL(raw);
-  } catch {
-    return null;
-  }
-  if (origin.origin !== raw) return null;
-  if (origin.protocol === "https:") return origin.origin;
-  if (origin.protocol === "http:" && LOCAL_WIDGET_HOSTS.has(origin.hostname))
-    return origin.origin;
-  return null;
-}

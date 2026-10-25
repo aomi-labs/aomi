@@ -6,20 +6,16 @@
  * unchanged (sign-in, the account graph, Better Auth, device auth).
  */
 import { edgeService } from "../identity";
-import { passThrough as passThroughTo } from "../passthrough";
-import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
-import { isManagerPath } from "../routing/routes";
+import { isManagerPath } from "../api/routes";
+import { config } from "../kernel/config";
+import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
+import { minted, unreachable } from "../kernel/errors";
+import { rankedPool } from "../kernel/pool";
+import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import type { PortalContext } from "./context";
-import { openWidget, publicRead } from "./cors";
-import { errorResponse, mintBearer } from "./errors";
-import {
-  AGENT_API_HEADERS,
-  BACKEND_API_HEADERS,
-  PUBLIC_DISCOVERY_HEADERS,
-  UpstreamUnreachableError,
-  forward,
-} from "./forward";
+import { portalError } from "./errors";
+import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
 import {
   capabilitiesOf,
   DELEGATING_SCOPES,
@@ -33,6 +29,29 @@ export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 const ALL_METHODS: readonly Method[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+
+/**
+ * The open widget: any https site (or a local dev host) may embed it without
+ * registering. Nothing allows credentials, so only an explicit widget session
+ * or OAuth token can authorize a cross-origin call.
+ */
+const openWidget = (methods: readonly string[]): CorsPolicy => ({
+  origin: "echo",
+  methods,
+  headers: [
+    "Authorization", "Content-Type", "Aomi-App-Key", "Last-Event-ID", "DPoP", "Idempotency-Key",
+    "Payment-Signature", "X-Aomi-Inference-Funding", "X-Aomi-Run-Budget-Microusd", "X-Aomi-CSRF",
+    "X-Request-Id", "X-Session-Id", "X-Thread-Id",
+  ],
+  expose: [
+    "DPoP-Nonce", "WWW-Authenticate", "Payment-Required", "Payment-Receipt", "Payment-Response",
+    "X-Payment-Response", "Retry-After", "X-Request-Id",
+  ],
+  maxAge: 600,
+});
+
+/** Credential-free documents anyone may read (catalogs, discovery). */
+const publicRead = (methods: readonly string[] = ["GET", "HEAD"]): CorsPolicy => ({ origin: "any", methods });
 
 /** What a route handler receives once the caller is identified and authorized. */
 export type Call = {
@@ -105,11 +124,10 @@ function notFound(resource: string | undefined): Response {
 
 async function runFamily(family: Family, request: Request, ctx: PortalContext): Promise<Response> {
   const methods = family.methods;
-  if (request.method === "OPTIONS") {
-    return family.cors === "none"
-      ? new Response(null, { status: 204 })
-      : openWidget.preflight(request, methods);
-  }
+  const cfg = config(ctx.env);
+  const cors = openWidget(methods);
+  if (request.method === "OPTIONS")
+    return family.cors === "none" ? new Response(null, { status: 204 }) : preflight(cors, request, cfg);
   const need = family.need(request);
   const resource =
     family.resource?.(ctx) ??
@@ -132,15 +150,12 @@ async function runFamily(family: Family, request: Request, ctx: PortalContext): 
       response.headers.append("server-timing", `edge_auth;dur=${authMs.toFixed(1)}`);
     }
   } catch (error) {
-    response = errorResponse(error, request, {
-      operation: family.operation,
-      resource,
-      fallback: family.fallback,
-      challengeScopes: family.challengeScopes,
-      jsonRpc: family.jsonRpc,
-    });
+    const shape = resource
+      ? { resource, challengeScopes: family.challengeScopes, jsonRpc: family.jsonRpc }
+      : undefined;
+    response = portalError(error, request, family.operation, shape, family.fallback);
   }
-  return family.cors === "none" ? response : openWidget.apply(request, response);
+  return family.cors === "none" ? response : withCors(cors, request, response, cfg);
 }
 
 function hostOf(request: Request): string {
@@ -151,19 +166,10 @@ function hostOf(request: Request): string {
 async function toBackend(call: Call, path: string): Promise<Response> {
   const { ctx, request } = call;
   const incoming = new URL(request.url);
-  // The deploy control plane moves to the manager with the same MANAGER_ORIGIN
-  // switch the api surface uses; everything else is rendezvous-ranked over the
-  // backend pool. Both verify the bearer as the one `aomi-backend` service.
-  const managerOrigin = (ctx.env.MANAGER_ORIGIN || "").trim();
-  const ranked =
-    managerOrigin && isManagerPath(new URL(path, incoming).pathname)
-      ? [managerOrigin]
-      : rankOrigins(routingKeyFor(request, incoming), resolvePool(ctx.env));
-  if (ranked.length === 0) throw new UpstreamUnreachableError(new Error("no backend origins"));
   const accountId = "accountId" in call.principal ? call.principal.accountId : null;
   const bearer = accountId
     ? (
-        await mintBearer(() =>
+        await minted(() =>
           edgeService(ctx.env, hostOf(request)).mint({
             role: "user",
             subject: accountId,
@@ -173,28 +179,18 @@ async function toBackend(call: Call, path: string): Promise<Response> {
         )
       ).accessToken
     : undefined;
-  const idempotent = request.method === "GET" || request.method === "HEAD";
-  let lastError: unknown;
-  for (const [index, origin] of ranked.entries()) {
-    const url = new URL(path, origin);
-    url.search = incoming.search;
+  // The deploy control plane moves to the manager with the same MANAGER_ORIGIN
+  // switch the api surface uses; everything else is ranked over the backend pool.
+  const { manager } = config(ctx.env);
+  const origins =
+    manager && isManagerPath(new URL(path, incoming).pathname) ? [manager] : rankedPool(request, ctx.env);
+  const targets = origins.map((origin) => {
+    const url = target(origin, path, incoming.search);
     if (url.pathname === "/api/thread/apps" && !url.searchParams.has("platform"))
-      for (const platform of appCatalogPlatforms(ctx)) url.searchParams.append("platform", platform);
-    try {
-      return await forward({
-        request: index === 0 ? request : request.clone(),
-        url,
-        policy: BACKEND_API_HEADERS,
-        bearer,
-        fetchImpl: ctx.fetchImpl,
-      });
-    } catch (error) {
-      lastError = error;
-      // Only replay methods that are safe to send more than once.
-      if (!idempotent) throw error;
-    }
-  }
-  throw lastError;
+      for (const platform of config(ctx.env).portal.catalogPlatforms) url.searchParams.append("platform", platform);
+    return url;
+  });
+  return proxy(request, targets, { fetchImpl: ctx.fetchImpl, headers: BACKEND_API_HEADERS, bearer, set: threadId(request) });
 }
 
 /**
@@ -206,7 +202,7 @@ async function accountBearer(call: Call): Promise<Response> {
   const { principal, ctx, request } = call;
   if (principal.kind === "none" || principal.kind === "oauth")
     throw new PrincipalError(401, "unauthenticated");
-  const { accessToken, expiresAt } = await mintBearer(() =>
+  const { accessToken, expiresAt } = await minted(() =>
     edgeService(ctx.env, hostOf(request)).mint({
       role: "user",
       subject: principal.accountId,
@@ -220,33 +216,29 @@ async function accountBearer(call: Call): Promise<Response> {
   );
 }
 
-function appCatalogPlatforms(ctx: PortalContext): string[] {
-  return [
-    ...new Set(
-      (ctx.env.APP_CATALOG_PLATFORMS ?? "")
-        .split(",")
-        .map((platform) => platform.trim())
-        .filter(Boolean),
-    ),
-  ];
+/** The backend's thread extractors read X-Thread-Id; widgets send X-Session-Id. */
+function threadId(request: Request): Record<string, string> | undefined {
+  const session = request.headers.get("x-session-id");
+  return session && !request.headers.has("x-thread-id") ? { "x-thread-id": session } : undefined;
 }
 
-function serviceOrigin(ctx: PortalContext, target: "agent" | "payment"): string {
-  const origin = (target === "payment" ? ctx.env.PAYMENT_ORIGIN : ctx.env.API_SERVER_ORIGIN) ?? "";
-  if (!origin.trim()) throw new UpstreamUnreachableError(new Error(`${target} origin is not configured`));
-  return origin.trim();
+function serviceOrigin(ctx: PortalContext, service: "agent" | "payment"): string {
+  const { apiServer, payment } = config(ctx.env);
+  const origin = service === "payment" ? payment : apiServer;
+  if (!origin) throw unreachable(new Error(`${service} origin is not configured`));
+  return origin;
 }
 
 /** Forward with a bearer scoped to both the resource and the receiving service. */
-async function toScopedApi(call: Call, resource: string, target: "agent" | "payment"): Promise<Response> {
+async function toScopedApi(call: Call, resource: string, service: "agent" | "payment"): Promise<Response> {
   const { principal, ctx, request } = call;
   if (principal.kind === "none") throw new Error("scoped API call without a principal");
   const incoming = new URL(request.url);
-  const { accessToken } = await mintBearer(() =>
+  const { accessToken } = await minted(() =>
     edgeService(ctx.env, hostOf(request)).mint({
       role: "user",
       subject: principal.accountId,
-      audience: target === "payment" ? "aomi-payment" : "aomi-api-server",
+      audience: service === "payment" ? "aomi-payment" : "aomi-api-server",
       ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
       delegated: {
         scope: call.scopes.join(" "),
@@ -261,12 +253,11 @@ async function toScopedApi(call: Call, resource: string, target: "agent" | "paym
       },
     }),
   );
-  return forward({
-    request,
-    url: new URL(`${incoming.pathname}${incoming.search}`, serviceOrigin(ctx, target)),
-    policy: AGENT_API_HEADERS,
-    bearer: accessToken,
+  return proxy(request, target(serviceOrigin(ctx, service), incoming.pathname, incoming.search), {
     fetchImpl: ctx.fetchImpl,
+    headers: AGENT_API_HEADERS,
+    bearer: accessToken,
+    set: threadId(request),
   });
 }
 
@@ -279,7 +270,7 @@ function scopedApi(
   methods: readonly Method[],
   resource: (ctx: PortalContext) => string,
   scopes: (request: Request) => string[] | null,
-  target: "agent" | "payment" = "agent",
+  service: "agent" | "payment" = "agent",
 ): (ctx: PortalContext) => Family {
   return (ctx) => ({
     operation,
@@ -289,7 +280,7 @@ function scopedApi(
       const required = scopes(request);
       return required && { resource: resource(ctx), scopes: required };
     },
-    handle: (call) => toScopedApi(call, resource(ctx), target),
+    handle: (call) => toScopedApi(call, resource(ctx), service),
   });
 }
 
@@ -554,33 +545,36 @@ export function matchFamily(url: URL): ((ctx: PortalContext) => Family) | null {
 /** Public, credential-free discovery documents the agent API publishes. */
 async function discovery(request: Request, ctx: PortalContext): Promise<Response> {
   const { pathname, search } = new URL(request.url);
-  if (request.method === "OPTIONS")
-    return publicRead.apply(new Response(null, { status: 204 }));
+  const cors = publicRead();
+  const cfg = config(ctx.env);
+  if (request.method === "OPTIONS") return preflight(cors, request, cfg);
+  let response: Response;
   if (request.method !== "GET" && request.method !== "HEAD")
-    return publicRead.apply(new Response(null, { status: 405, headers: { allow: "GET, HEAD, OPTIONS" } }));
-  try {
-    return publicRead.apply(
-      await forward({
-        request,
-        url: new URL(`${pathname}${search}`, serviceOrigin(ctx, "agent")),
-        policy: PUBLIC_DISCOVERY_HEADERS,
+    response = new Response(null, { status: 405, headers: { allow: "GET, HEAD, OPTIONS" } });
+  else
+    try {
+      response = await proxy(request, target(serviceOrigin(ctx, "agent"), pathname, search), {
         fetchImpl: ctx.fetchImpl,
-      }),
-    );
-  } catch (error) {
-    return publicRead.apply(errorResponse(error, request, { operation: "discovery" }));
-  }
+        headers: PUBLIC_DISCOVERY_HEADERS,
+      });
+    } catch (error) {
+      response = portalError(error, request, "discovery");
+    }
+  return withCors(cors, request, response, cfg);
 }
 
 async function catalog(request: Request, kind: string, ctx: PortalContext): Promise<Response> {
-  if (request.method === "OPTIONS")
-    return publicRead.apply(new Response(null, { status: 204 }), ["GET"]);
-  if (!isPublicCatalogKind(kind) || (request.method !== "GET" && request.method !== "HEAD"))
-    return publicRead.apply(Response.json({ error: "not_found" }, { status: 404 }), ["GET"]);
-  const [origin] = rankOrigins(routingKeyFor(request, new URL(request.url)), resolvePool(ctx.env));
-  if (!origin)
-    return publicRead.apply(Response.json({ error: "catalog_unavailable" }, { status: 502 }), ["GET"]);
-  return publicRead.apply(await publicCatalog(request, kind, origin, ctx.fetchImpl), ["GET"]);
+  const cors = publicRead(["GET"]);
+  const cfg = config(ctx.env);
+  if (request.method === "OPTIONS") return preflight(cors, request, cfg);
+  const [origin] = rankedPool(request, ctx.env);
+  const response =
+    !isPublicCatalogKind(kind) || (request.method !== "GET" && request.method !== "HEAD")
+      ? Response.json({ error: "not_found" }, { status: 404 })
+      : origin
+        ? await publicCatalog(request, kind, origin, ctx.fetchImpl)
+        : Response.json({ error: "catalog_unavailable" }, { status: 502 });
+  return withCors(cors, request, response, cfg);
 }
 
 /** Everything else: the Vercel portal serves it, cookies and all. */

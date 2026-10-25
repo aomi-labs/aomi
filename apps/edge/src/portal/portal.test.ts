@@ -15,7 +15,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { EdgeEnv } from "../env";
 import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
-import type { FetchLike } from "../routing/upstream";
+import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
 import { resetPrincipalCaches } from "./principal";
 

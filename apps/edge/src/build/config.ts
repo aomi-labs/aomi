@@ -1,7 +1,5 @@
 import type { BuildContext } from "./context";
 
-const DEFAULT_TEMPLATE_REPO = "aomi-labs/playground-example";
-
 export type DeployConfig = {
   platform: string;
   platforms: readonly string[];
@@ -9,15 +7,10 @@ export type DeployConfig = {
   createdRepoPrivate: boolean;
 };
 
-/** Where Build deploys apps from and to; the Build BFF read this from its env. */
+/** Where Build deploys apps from and to. */
 export function deployConfig(ctx: BuildContext): DeployConfig {
-  const flag = (ctx.env.BUILD_CREATED_REPO_PRIVATE ?? "").trim().toLowerCase();
-  return {
-    platform: ctx.deployPlatforms[0],
-    platforms: ctx.deployPlatforms,
-    templateRepo: (ctx.env.BUILD_TEMPLATE_REPO ?? "").trim() || DEFAULT_TEMPLATE_REPO,
-    createdRepoPrivate: flag === "1" || flag === "true" || flag === "yes",
-  };
+  const { platforms, templateRepo, createdRepoPrivate } = ctx.config;
+  return { platform: platforms[0], platforms, templateRepo, createdRepoPrivate };
 }
 
 export function resolveDeployPlatform(value: unknown, config: DeployConfig): string | null {

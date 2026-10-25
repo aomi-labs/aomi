@@ -48,14 +48,6 @@ async function timedManagerRead<T>(
 
 type BackendClientInstance = ManagerClient;
 
-function deployErrorContext(req: Request, operation: string) {
-  return {
-    routeFamily: new URL(req.url).pathname,
-    operation,
-    method: req.method,
-  };
-}
-
 type OwnedProject = Awaited<
   ReturnType<BackendClientInstance["listUserProjects"]>
 >[number];
@@ -270,10 +262,7 @@ export function deployRoute(preflight: boolean) {
         { status: preflight ? 200 : 202 },
       );
     } catch (err) {
-      return failureResponse(err, deployErrorContext(
-          req,
-          preflight ? "launch.preflight" : "launch.deploy",
-        ));
+      return failureResponse(err, req, preflight ? "launch.preflight" : "launch.deploy");
     }
   };
 }
@@ -323,7 +312,7 @@ export async function createRepoRoute(req: Request, ctx: BuildContext) {
       project,
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "launch.create_repo"));
+    return failureResponse(err, req, "launch.create_repo");
   }
 }
 
@@ -363,7 +352,7 @@ export async function deploymentStatusRoute(req: Request, ctx: BuildContext) {
       ),
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "launch.status"));
+    return failureResponse(err, req, "launch.status");
   }
 }
 
@@ -450,7 +439,7 @@ export async function activateRoute(req: Request, ctx: BuildContext) {
     clearDeployReadCache();
     return Response.json(result);
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "launch.activate"));
+    return failureResponse(err, req, "launch.activate");
   }
 }
 
@@ -486,7 +475,7 @@ export async function projectAppsRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json(launchAppStatusesResult(owner.id, result.apps));
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "launch.apps"));
+    return failureResponse(err, req, "launch.apps");
   }
 }
 
@@ -509,7 +498,7 @@ export async function sdkStatusRoute(req: Request, ctx: BuildContext) {
       },
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "launch.sdk_status"));
+    return failureResponse(err, req, "launch.sdk_status");
   }
 }
 
@@ -536,7 +525,7 @@ export async function deploymentHistoryRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json({ deployments });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.history"));
+    return failureResponse(err, req, "deployment.history");
   }
 }
 
@@ -585,7 +574,7 @@ export async function deploymentFeedRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json(page);
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.feed"));
+    return failureResponse(err, req, "deployment.feed");
   }
 }
 
@@ -615,7 +604,7 @@ export async function deploymentSecretsRoute(req: Request, ctx: BuildContext) {
       byApp: { [application.name]: byApp[application.name] ?? [] },
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.secrets_read"));
+    return failureResponse(err, req, "deployment.secrets_read");
   }
 }
 
@@ -667,7 +656,7 @@ export async function deploymentSecretsWriteRoute(req: Request, ctx: BuildContex
       { status: 202 },
     );
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.secrets_write"));
+    return failureResponse(err, req, "deployment.secrets_write");
   }
 }
 
@@ -703,7 +692,7 @@ export async function deploymentSecretsDeleteRoute(req: Request, ctx: BuildConte
     });
     return Response.json({ ok: true, removed });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.secrets_delete"));
+    return failureResponse(err, req, "deployment.secrets_delete");
   }
 }
 
@@ -744,7 +733,7 @@ export async function deploymentRecordsRoute(req: Request, ctx: BuildContext) {
     });
     return Response.json(result);
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.records"));
+    return failureResponse(err, req, "deployment.records");
   }
 }
 
@@ -851,7 +840,7 @@ export async function deploymentPromoteRoute(req: Request, ctx: BuildContext) {
     clearDeployReadCache();
     return Response.json(result, { status: result.ok ? 202 : 409 });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.promote"));
+    return failureResponse(err, req, "deployment.promote");
   }
 }
 
@@ -922,7 +911,7 @@ export async function deploymentDeactivateRoute(req: Request, ctx: BuildContext)
     clearDeployReadCache();
     return Response.json({ ok: true, apps }, { status: 202 });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.deactivate"));
+    return failureResponse(err, req, "deployment.deactivate");
   }
 }
 
@@ -984,7 +973,7 @@ export async function redeployRoute(req: Request, ctx: BuildContext) {
       ciUrl: rerun.ciUrl ?? latest?.ciUrl ?? null,
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.redeploy"));
+    return failureResponse(err, req, "deployment.redeploy");
   }
 }
 
@@ -1090,7 +1079,7 @@ export async function userProjectsRoute(req: Request, ctx: BuildContext) {
       githubLogin: session.githubLogin,
     });
   } catch (err) {
-    return failureResponse(err, deployErrorContext(req, "deployment.projects"));
+    return failureResponse(err, req, "deployment.projects");
   }
 }
 
@@ -1155,10 +1144,10 @@ export async function requiredSecretsRoute(req: Request, ctx: BuildContext) {
           upstream: "rust",
           upstreamStatus: err.status,
         }),
-        deployErrorContext(req, "deployment.required_secrets"),
+        req, "deployment.required_secrets",
       );
     }
-    return failureResponse(err, deployErrorContext(req, "deployment.required_secrets"));
+    return failureResponse(err, req, "deployment.required_secrets");
   }
 }
 
@@ -1205,7 +1194,7 @@ export async function appKeyRoute(req: Request, ctx: BuildContext) {
         { status: 404 },
       );
     }
-    return failureResponse(err, deployErrorContext(req, "deployment.app_key"));
+    return failureResponse(err, req, "deployment.app_key");
   }
 }
 
@@ -1258,11 +1247,7 @@ export async function deploymentAttemptsRoute(req: Request, ctx: BuildContext) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    return failureResponse(error, {
-        routeFamily: "/api/bff/launch/attempts",
-        operation: "launch.attempts",
-        method: req.method,
-      });
+    return failureResponse(error, req, "launch.attempts");
   }
 }
 
@@ -1283,11 +1268,7 @@ export async function githubAppInstallationsRoute(req: Request, ctx: BuildContex
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    const failure = failureResponse(error, {
-        routeFamily: new URL(req.url).pathname,
-        operation: "deployment.github_app_installations",
-        method: req.method,
-      });
+    const failure = failureResponse(error, req, "deployment.github_app_installations");
     return Response.json(
       { error: "Couldn’t check GitHub repository access. Try again." },
       { status: failure.status },
@@ -1323,11 +1304,7 @@ export async function projectSdkUpgradeRoute(req: Request, ctx: BuildContext) {
     clearDeployReadCache();
     return Response.json(result);
   } catch (error) {
-    return failureResponse(error, {
-        routeFamily: new URL(req.url).pathname,
-        operation: "deployment.sdk_upgrade",
-        method: req.method,
-      });
+    return failureResponse(error, req, "deployment.sdk_upgrade");
   }
 }
 
@@ -1359,10 +1336,6 @@ export async function projectSdkUpgradeStatusRoute(req: Request, ctx: BuildConte
     });
     return Response.json(result);
   } catch (error) {
-    return failureResponse(error, {
-        routeFamily: new URL(req.url).pathname,
-        operation: "deployment.sdk_upgrade_status",
-        method: req.method,
-      });
+    return failureResponse(error, req, "deployment.sdk_upgrade_status");
   }
 }
