@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { EdgeError } from "../../kernel/errors";
 const mocks = vi.hoisted(() => ({
   authorize: vi.fn(),
   list: vi.fn(),
@@ -31,12 +33,10 @@ describe("GitHub App installations BFF", () => {
     expect(mocks.list).toHaveBeenCalledWith({
       githubUserId: "owner",
     });
-    expect(mocks.authorize).toHaveBeenCalledWith(expect.any(Request), expect.anything());
+    expect(mocks.authorize).toHaveBeenCalledWith(expect.any(Request), expect.anything(), {});
   });
   it("rejects unauthenticated requests before any backend operation", async () => {
-    mocks.authorize.mockResolvedValue({
-      response: new Response(null, { status: 401 }),
-    });
+    mocks.authorize.mockRejectedValue(new EdgeError(401, "unauthenticated"));
     expect((await githubAppInstallationsRoute(get())).status).toBe(401);
     expect(mocks.list).not.toHaveBeenCalled();
   });

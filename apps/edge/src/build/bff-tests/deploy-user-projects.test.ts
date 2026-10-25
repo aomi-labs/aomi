@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clearDeployReadCache, userProjectsRoute } from "./routes";
+import { userProjectsRoute } from "./routes";
 import { getGitHubSession } from "./harness";
 
 function req(platform?: string, projectId?: string) {
@@ -30,7 +30,6 @@ describe("userProjectsRoute", () => {
     getGitHubSession.mockReset();
     // The projects read cache is module state — don't leak one test's list
     // into the next.
-    clearDeployReadCache();
   });
 
   it("401s when there is no GitHub session", async () => {
@@ -232,30 +231,5 @@ describe("userProjectsRoute", () => {
     });
     const res = await userProjectsRoute(req(undefined, "not-a-number"));
     expect(res.status).toBe(400);
-  });
-
-  it("caches list and detail reads independently and refetches once cleared", async () => {
-    getGitHubSession.mockResolvedValue({
-      githubUserId: "42",
-      githubLogin: "alice",
-    });
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
-      String(input).includes("/projects/99?")
-        ? Response.json(sourceRow(99))
-        : Response.json({ projects: [sourceRow(99)] }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await userProjectsRoute(req());
-    const narrowed = await userProjectsRoute(req(undefined, "99"));
-    await userProjectsRoute(req(undefined, "99"));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect((await narrowed.json()).projects).toHaveLength(1);
-
-    // Mutations clear the cache so post-deploy reloads see fresh projects.
-    clearDeployReadCache();
-    await userProjectsRoute(req());
-    await userProjectsRoute(req(undefined, "99"));
-    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

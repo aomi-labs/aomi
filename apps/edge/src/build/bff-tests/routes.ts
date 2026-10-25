@@ -49,5 +49,3 @@ export const operateTransactionsRoute = at("GET", operate("transactions"));
 export const operateUsageRoute = at("GET", operate("usage"));
 export const operateModelKeysRoute = at("GET", operate("model-keys"));
 
-export { clearDeployReadCache } from "../deploy";
-export { clearOperateCachesForTesting } from "../operate";

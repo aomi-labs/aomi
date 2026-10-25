@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { EdgeError } from "../../kernel/errors";
 const mocks = vi.hoisted(() => ({
   authorize: vi.fn(),
   start: vi.fn(),
@@ -50,9 +52,7 @@ describe("attempt BFF authorization", () => {
     });
   });
   it("rejects unauthenticated requests before any backend operation", async () => {
-    mocks.authorize.mockResolvedValue({
-      response: new Response(null, { status: 401 }),
-    });
+    mocks.authorize.mockRejectedValue(new EdgeError(401, "unauthenticated"));
     expect(
       (await deploymentAttemptsRoute(post({ action: "start", projectId: 7 })))
         .status,

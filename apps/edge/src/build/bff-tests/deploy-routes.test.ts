@@ -8,7 +8,6 @@ import {
   deploymentPromoteRoute,
   deploymentSecretsRoute,
   deploymentSecretsWriteRoute,
-  clearDeployReadCache,
   activateRoute,
   createRepoRoute,
   projectAppsRoute,
@@ -19,10 +18,6 @@ import {
   requiredSecretsRoute,
 } from "./routes";
 import { getGitHubSession } from "./harness";
-
-beforeEach(() => {
-  clearDeployReadCache();
-});
 
 function writeReq(body: unknown) {
   return new Request("http://localhost:3000/api/bff/launch/redeploy", {
@@ -1462,11 +1457,8 @@ describe("activateRoute", () => {
     ).toBe(404);
 
     // Unmatched pair: the route no longer pre-authorizes against a listing;
-    // Manager's Project-scoped rejection is relayed as-is. Clear the read
-    // cache so this part re-fetches ownership instead of riding part one's
-    // cached (foreign-only) project list straight to a 404.
+    // Manager's Project-scoped rejection is relayed as-is.
     vi.restoreAllMocks();
-    clearDeployReadCache();
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
       githubLogin: "alice",
@@ -1727,37 +1719,6 @@ describe("deploymentRecordsRoute", () => {
     );
     expect(res.status).toBe(404);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("coalesces concurrent ownership checks for the same source", async () => {
-    getGitHubSession.mockResolvedValue({
-      githubUserId: "42",
-      githubLogin: "alice",
-    });
-    const fetchMock = vi.fn(async (input: string | URL) => {
-      const url = String(input);
-      if (url.includes("/user/projects?")) return ownedSources(99);
-      if (url.includes("/apps/my-bot/records?")) return appRecords("dep_1");
-      throw new Error(`unexpected request ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const req = () =>
-      new Request(
-        "http://localhost:3000/api/bff/deployments/records?app=my-bot&projectId=99",
-      );
-
-    const [first, second] = await Promise.all([
-      deploymentRecordsRoute(req()),
-      deploymentRecordsRoute(req()),
-    ]);
-
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
-    expect(
-      fetchMock.mock.calls.filter(([url]) =>
-        String(url).includes("/user/projects?"),
-      ),
-    ).toHaveLength(1);
   });
 });
 

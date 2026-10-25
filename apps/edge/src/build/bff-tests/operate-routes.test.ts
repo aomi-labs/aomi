@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackendError } from "@aomi-labs/deploy";
 
 import {
-  clearOperateCachesForTesting,
   operateAppDetailRoute,
   operateBotsRoute,
   operateBotsCommandSecretRoute,
@@ -92,6 +91,7 @@ function webhookReq(botId: string) {
 function deleteReq(qs: string) {
   return new Request(`http://localhost:3000/api/bff/operate/bots${qs}`, {
     method: "DELETE",
+    headers: { origin: "http://localhost:3000" },
   });
 }
 
@@ -107,7 +107,6 @@ function clearSession() {
 }
 
 beforeEach(() => {
-  clearOperateCachesForTesting();
   client.listUserProjects.mockReset();
   client.listUserProjectBots.mockReset();
   client.createUserProjectBot.mockReset();
@@ -338,8 +337,9 @@ describe("operateBotsCreateRoute", () => {
     ]) {
       const res = await operateBotsCreateRoute(postJson({ ...base, ...bad }));
       expect(res.status).toBe(400);
+      const [field] = Object.keys(bad);
       await expect(res.json()).resolves.toEqual({
-        error: "invalid bot command config",
+        error: `missing or invalid \`${field}\``,
       });
     }
     expect(client.createUserBot).not.toHaveBeenCalled();
@@ -869,29 +869,6 @@ describe("operateUsageRoute statement fallback", () => {
 });
 
 describe("operateObservabilityRoute live data", () => {
-  it("reuses a recent account-scoped manager read", async () => {
-    setSession({ githubUserId: "gh-1" });
-    oneSource();
-    client.getUserObservability.mockResolvedValue([
-      {
-        project: { id: 900 },
-        platform: "community",
-        scope: "owned_applications",
-        monitoring: null,
-        apps: [],
-        dashboardLinks: [],
-        platformMetrics: [],
-      },
-    ]);
-
-    const first = await operateObservabilityRoute(observabilityReq());
-    const second = await operateObservabilityRoute(observabilityReq());
-
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
-    expect(client.getUserObservability).toHaveBeenCalledTimes(1);
-  });
-
   it("keeps a partial live card partial instead of grafting example trends", async () => {
     setSession({ githubUserId: "gh-1" });
     oneSource();
@@ -1027,8 +1004,8 @@ describe("operateObservabilityRoute live data", () => {
 
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
-    // One account-wide read, cached across requests; no per-source fan-out.
-    expect(client.getUserObservability).toHaveBeenCalledTimes(1);
+    // One account-wide read per request; no per-source fan-out.
+    expect(client.getUserObservability).toHaveBeenCalledTimes(2);
     expect(client.getUserObservability).toHaveBeenCalledWith(
       expect.objectContaining({ githubUserId: "gh-1" }),
     );
@@ -1165,6 +1142,7 @@ describe("operatePaymentsRoute", () => {
 
 describe("operateAppDetailRoute", () => {
   it("requires a valid application id", async () => {
+    setSession({ githubUserId: "gh-1" });
     const res = await operateAppDetailRoute(
       appDetailReq("?applicationId=nope"),
     );
@@ -1279,9 +1257,7 @@ describe("account-wide batch reads", () => {
     expect(body.transactions[0].project.id).toBe(1620);
     expect(body.transactions[0].platform).toBe("somm.finance");
     // Pagination continues through the batch's global cursor.
-    expect(body.nextCursor).toEqual({
-      batch: { createdAt: 1_700_000_000, id: "tx:a" },
-    });
+    expect(body.nextCursor).toEqual({ createdAt: 1_700_000_000, id: "tx:a" });
   });
 
   /** The merged page spans every platform the account owns; the page it feeds
@@ -1330,9 +1306,7 @@ describe("account-wide batch reads", () => {
     expect(body.projects.map((project: { id: number }) => project.id)).toEqual([
       900,
     ]);
-    expect(body.nextCursor).toEqual({
-      batch: { createdAt: 1_700_000_000, id: "tx:a" },
-    });
+    expect(body.nextCursor).toEqual({ createdAt: 1_700_000_000, id: "tx:a" });
   });
 
   it("passes the batch cursor through and skips statements past page one", async () => {
@@ -1343,7 +1317,7 @@ describe("account-wide batch reads", () => {
     });
 
     const cursor = encodeURIComponent(
-      JSON.stringify({ batch: { createdAt: 1_700_000_000, id: "tx:a" } }),
+      JSON.stringify({ createdAt: 1_700_000_000, id: "tx:a" }),
     );
     const res = await operateTransactionsRoute(
       transactionsReq(`?cursor=${cursor}`),
@@ -1444,12 +1418,10 @@ describe("account-wide batch reads", () => {
     // A shared settlement belongs to the account, not one project.
     expect(body.logs[1].project).toBeNull();
     expect(body.nextCursor).toEqual({
-      batch: {
         occurredAt: 1_699_999_999,
         eventType: "usage",
         id: "settle:shared",
-      },
-    });
+      });
   });
 
   /** The merged stream spans every platform the account owns. Rows for a
