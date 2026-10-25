@@ -1,4 +1,5 @@
-import type { EdgeCache, EdgeEnv } from "../env";
+import type { EdgeEnv } from "../env";
+import { TwoTierCache } from "../kernel/cache";
 import type { FetchLike } from "../kernel/proxy";
 import { TASK_BUILD_PATH } from "./routes";
 
@@ -25,54 +26,20 @@ export type DiscoveryChallenge = {
 export const DISCOVERY_CHALLENGE_TTL_SECONDS = 240;
 const CACHE_VERSION = "v1";
 
-type CachedEntry = { expiresAt: number; value: string };
-const memory = new Map<string, CachedEntry>();
+const cache = new TwoTierCache();
 
 /** Tests share one module; let each start from an empty in-memory cache. */
 export function resetDiscoveryCache(): void {
-  memory.clear();
+  cache.clear();
 }
 
-function cacheKey(origin: URL): string {
-  return `task:discovery:${CACHE_VERSION}:${origin.host}`;
-}
-
-async function readCache(
-  key: string,
-  cache: EdgeCache | undefined,
-  now: number,
-): Promise<DiscoveryChallenge | null> {
-  const raw = cache
-    ? await cache.get(key)
-    : (() => {
-        const entry = memory.get(key);
-        return entry && entry.expiresAt > now ? entry.value : null;
-      })();
+function parse(raw: string | null): DiscoveryChallenge | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as DiscoveryChallenge;
-    return typeof parsed.paymentRequired === "string" && parsed.body
-      ? parsed
-      : null;
+    return typeof parsed.paymentRequired === "string" && parsed.body ? parsed : null;
   } catch {
     return null;
-  }
-}
-
-async function writeCache(
-  key: string,
-  value: DiscoveryChallenge,
-  cache: EdgeCache | undefined,
-  now: number,
-): Promise<void> {
-  const raw = JSON.stringify(value);
-  if (cache) {
-    await cache.put(key, raw, { expirationTtl: DISCOVERY_CHALLENGE_TTL_SECONDS });
-  } else {
-    memory.set(key, {
-      expiresAt: now + DISCOVERY_CHALLENGE_TTL_SECONDS * 1000,
-      value: raw,
-    });
   }
 }
 
@@ -101,8 +68,8 @@ export async function discoveryChallenge(
   fetchImpl: FetchLike,
   now: number = Date.now(),
 ): Promise<DiscoveryChallenge | null> {
-  const key = cacheKey(apiServerOrigin);
-  const cached = await readCache(key, env.EDGE_CACHE, now);
+  const key = `task:discovery:${CACHE_VERSION}:${apiServerOrigin.host}`;
+  const cached = parse(await cache.get(key, env.EDGE_CACHE, now));
   if (cached) return cached;
 
   const buildUrl = new URL(TASK_BUILD_PATH, apiServerOrigin);
@@ -140,7 +107,7 @@ export async function discoveryChallenge(
     paymentRequired,
     body: { ...metadata, ...body },
   };
-  await writeCache(key, value, env.EDGE_CACHE, now);
+  await cache.put(key, JSON.stringify(value), DISCOVERY_CHALLENGE_TTL_SECONDS, env.EDGE_CACHE, now);
   return value;
 }
 

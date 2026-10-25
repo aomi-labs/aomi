@@ -23,9 +23,3 @@ export function resolveDeployPlatform(value: unknown, config: DeployConfig): str
   if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(platform)) return null;
   return platform;
 }
-
-export function randomHex(bytes: number): string {
-  const buffer = new Uint8Array(bytes);
-  crypto.getRandomValues(buffer);
-  return [...buffer].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
