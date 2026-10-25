@@ -371,6 +371,7 @@ export function PortalAomiFrame() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [initialTopUp, setInitialTopUp] = useState(false);
   const [handoffMismatch, setHandoffMismatch] = useState(false);
+  const [handoffOwner, setHandoffOwner] = useState<string | null>(null);
   useEffect(() => {
     const url = new URL(window.location.href);
     const expected = url.searchParams.get("expectedAccount");
@@ -390,6 +391,7 @@ export function PortalAomiFrame() {
         return;
       }
     }
+    if (expected) setHandoffOwner(expected);
     if (url.searchParams.get("settings") === "account") {
       setSettingsTab("account");
       setOverlay("settings");
@@ -404,6 +406,19 @@ export function PortalAomiFrame() {
     url.searchParams.delete("topup");
     window.history.replaceState(null, "", url);
   }, [account, isReady, accountStatus]);
+  // Clear a consumed handoff before children render under a different owner.
+  if (
+    handoffOwner &&
+    account !== undefined &&
+    isReady !== false &&
+    accountStatus !== "loading" &&
+    account?.id !== handoffOwner
+  ) {
+    setHandoffOwner(null);
+    setInitialTopUp(false);
+    setOverlay("none");
+    setHandoffMismatch(true);
+  }
   const [walletAccountMenu, setWalletAccountMenu] =
     useState<WalletAccountMenuOptions>();
   const openSettings = useCallback((tab: SettingsTab) => {
@@ -535,19 +550,22 @@ export function PortalAomiFrame() {
           {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one
             backdrop still covers the sidebar and chat as one surface. */}
-          {overlay === "settings" && (
-            <OverlayPortal>
-              <SettingsModal
-                key={settingsTab}
-                initialTab={settingsTab}
-                initialTopUp={initialTopUp}
-                onClose={() => {
-                  setInitialTopUp(false);
-                  setOverlay("none");
-                }}
-              />
-            </OverlayPortal>
-          )}
+          {overlay === "settings" &&
+            (!handoffOwner ||
+              (!restoringSession && account?.id === handoffOwner)) && (
+              <OverlayPortal>
+                <SettingsModal
+                  key={settingsTab}
+                  initialTab={settingsTab}
+                  initialTopUp={initialTopUp}
+                  onClose={() => {
+                    setHandoffOwner(null);
+                    setInitialTopUp(false);
+                    setOverlay("none");
+                  }}
+                />
+              </OverlayPortal>
+            )}
           {overlay === "packages" && (
             <OverlayPortal>
               <PackagesModal onClose={() => setOverlay("none")} />

@@ -191,6 +191,37 @@ describe("account choice at the widget handoff", () => {
       expect.objectContaining({ userId: "cecilia", subject: "ba-cecilia" }),
     );
   });
+  it.each(["revoked identity", "inactive account"])(
+    "allows explicit widget replacement of a %s session",
+    async (reason) => {
+      signedIn();
+      if (reason === "revoked identity") mocks.owner.mockResolvedValue(null);
+      else
+        mocks.user.mockImplementation(async (id: string) =>
+          id === "b"
+            ? null
+            : { id, displayName: "Cecilia", betterAuthUserId: "ba-cecilia" },
+        );
+      const sessionVersion = sha256Hex(JSON.stringify(["session-b", null]));
+      expect(await preview(context())).toMatchObject({
+        portal: null,
+        sessionVersion,
+      });
+      await expect(
+        redeem(context({ account: "portal", sessionVersion })),
+      ).rejects.toThrow("portal_sign_in_required");
+      expect(mocks.consume).not.toHaveBeenCalled();
+      const ctx = context({ sessionVersion });
+      await redeem(ctx);
+      expect(ctx.context.internalAdapter.createSession).toHaveBeenCalledWith(
+        "ba-cecilia",
+      );
+      expect(ctx.context.internalAdapter.deleteSession).toHaveBeenCalledWith(
+        "session-b",
+      );
+      expect(mocks.consume).toHaveBeenCalledOnce();
+    },
+  );
   it("rejects a stale session preview without consuming the handoff", async () => {
     signedIn();
     await expect(redeem(context())).rejects.toThrow("portal_session_changed");

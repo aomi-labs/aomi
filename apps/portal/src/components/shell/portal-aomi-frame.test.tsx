@@ -531,29 +531,99 @@ describe("PortalAomiFrame account bootstrap", () => {
   });
 
   it("waits for the expected account before opening checkout", () => {
-    window.history.replaceState({}, "", "/?topup=credits&expectedAccount=acct-a");
+    window.history.replaceState(
+      {},
+      "",
+      "/?topup=credits&expectedAccount=acct-a",
+    );
     const view = render(<PortalAomiFrame />);
     expect(screen.queryByTestId("settings-modal")).toBeNull();
-    walletKitState.current = { isReady: true, accountStatus: "ready", accountUser: { id: "acct-a" } };
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
     view.rerender(<PortalAomiFrame />);
-    expect(screen.getByTestId("settings-modal")).toHaveAttribute("data-topup", "true");
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-topup",
+      "true",
+    );
     expect(window.location.search).toBe("");
   });
 
+  it("closes the consumed checkout handoff when its owner changes", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?topup=credits&expectedAccount=acct-a",
+    );
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    const view = render(<PortalAomiFrame />);
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-topup",
+      "true",
+    );
+    walletKitState.current = { isReady: false, accountStatus: "loading" };
+    view.rerender(<PortalAomiFrame />);
+    expect(screen.queryByTestId("settings-modal")).toBeNull();
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-b" },
+    };
+    view.rerender(<PortalAomiFrame />);
+    expect(screen.queryByTestId("settings-modal")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your Aomi account changed",
+    );
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    view.rerender(<PortalAomiFrame />);
+    expect(screen.queryByTestId("settings-modal")).toBeNull();
+  });
+
   it("does not open checkout for a different canonical account", () => {
-    window.history.replaceState({}, "", "/?topup=credits&expectedAccount=acct-a");
-    walletKitState.current = { isReady: true, accountStatus: "ready", accountUser: { id: "acct-b" } };
+    window.history.replaceState(
+      {},
+      "",
+      "/?topup=credits&expectedAccount=acct-a",
+    );
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-b" },
+    };
     render(<PortalAomiFrame />);
     expect(screen.queryByTestId("settings-modal")).toBeNull();
-    expect(screen.getByRole("alert")).toHaveTextContent("Your Aomi account changed");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your Aomi account changed",
+    );
     expect(window.location.search).toBe("");
   });
 
   it("opens account settings for the confirmed account", () => {
-    window.history.replaceState({}, "", "/?settings=account&expectedAccount=acct-a");
-    walletKitState.current = { isReady: true, accountStatus: "ready", accountUser: { id: "acct-a" } };
+    window.history.replaceState(
+      {},
+      "",
+      "/?settings=account&expectedAccount=acct-a",
+    );
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
     render(<PortalAomiFrame />);
-    expect(screen.getByTestId("settings-modal")).toHaveAttribute("data-tab", "account");
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-tab",
+      "account",
+    );
   });
 
   it("opens a credit top-up handoff and retains it through sign-in", () => {

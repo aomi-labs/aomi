@@ -40,9 +40,16 @@ const app = spawn(
   ],
   { env, stdio: "inherit" },
 );
-process.on("SIGTERM", () => {
-  app.kill();
-  void upstream.close();
-  process.exit(0);
-});
-await new Promise((resolve) => app.on("exit", resolve));
+const stop = () => app.kill("SIGTERM");
+process.on("SIGTERM", stop);
+process.on("SIGINT", stop);
+try {
+  process.exitCode = await new Promise<number>((resolve, reject) => {
+    app.once("error", reject);
+    app.once("exit", (code) => resolve(code ?? 1));
+  });
+} finally {
+  process.off("SIGTERM", stop);
+  process.off("SIGINT", stop);
+  await upstream.close();
+}

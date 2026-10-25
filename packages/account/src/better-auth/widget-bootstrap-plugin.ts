@@ -201,9 +201,9 @@ async function portalAccountFor(
     ...IDENTITY_SCOPES.betterAuth,
     subject: user.id,
   });
-  if (!id) throw unauthorized("portal_account_unavailable");
+  if (!id) return null;
   const canonical = await findAomiUserById(id);
-  if (!canonical) throw unauthorized("portal_account_unavailable");
+  if (!canonical) return null;
   return { id, name: canonical.displayName ?? user.name ?? "Portal account" };
 }
 
