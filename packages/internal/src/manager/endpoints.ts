@@ -9,14 +9,11 @@ import { DeployError } from "@aomi-labs/deploy";
 import type {
   ActivateResult,
   ActivateUserProjectReleasesInput,
-  BotRegistration,
-  BuilderAppKey,
   BuilderAppKeyInput,
   BuilderBotsInput,
   BuilderModelKeysInput,
   CheckUserBotWebhookInput,
   ClaimGitHubProjectInput,
-  ClaimGitHubProjectResult,
   CreateUserBotInput,
   DeactivateApplicationInput,
   DeleteBuilderModelKeyInput,
@@ -40,16 +37,17 @@ import type {
   ListUserProjectsInput,
   ListUserProjectTransactionsInput,
   ListUserTransactionsInput,
+  OperateLogCursor,
+  OperateTransactionCursor,
   OwnedOperateProjectInput,
   PreflightInput,
   ProjectDeploymentAttempt,
-  ProjectSdkUpgradeResult,
-  ProjectSdkUpgradeStatusResult,
   PromoteInput,
   PromoteResult,
   PromoteUserProjectDeploymentInput,
   RemoveAppSecretInput,
   RerunDeploymentInput,
+  RerunDeploymentResult,
   RevealUserBotCommandSecretInput,
   SaveBuilderModelKeyInput,
   ScaffoldInput,
@@ -57,44 +55,43 @@ import type {
   StatusInput,
   UpdateUserBotInput,
   UpdateUserBotResult,
-  UserDeployment,
-  UserProjectLatestDeployment,
 } from "@aomi-labs/deploy";
 import {
-  camelActivateResult,
-  camelBotRegistration,
-  camelBotWebhookStatus,
-  camelBuilderModelKey,
-  camelDeployResult,
-  camelGitHubAppInstallations,
-  camelLogCursor,
-  camelLogRow,
-  camelOperateAppDetail,
-  camelOperateLogs,
-  camelOperateObservability,
-  camelOperateStatement,
-  camelOperateTransactions,
-  camelOperateUsage,
-  camelPartnerPayments,
-  camelPlatformApp,
-  camelProject,
-  camelStatusResult,
-  camelTransactionCursor,
-  camelTransactionRow,
-  camelUserDeployment,
-  camelUserDeploymentsCursor,
-  camelUserProject,
-  camelUserProjectLatestDeployment,
-  camelUserProjectRefs,
-  deployRequest,
-  encodeLogCursor,
-  encodeTransactionCursor,
-  optNumber,
-  optString,
-  required,
-  responseRecord,
-  timestampSeconds,
-} from "@aomi-labs/deploy/wire";
+  ActivateResult as ActivateResultSchema,
+  BotRegistration as BotRegistrationSchema,
+  BotWebhookStatus,
+  BuilderAppKey as BuilderAppKeySchema,
+  BuilderApplication,
+  BuilderModelKey,
+  ClaimGitHubProjectResult as ClaimGitHubProjectResultSchema,
+  DeployResult as DeployResultSchema,
+  DeploymentRecord,
+  DeploymentStatus,
+  GitHubAppInstallationsResult,
+  GitHubIdentity,
+  OperateAppDetailResult,
+  OperateLogsResult,
+  OperateObservabilityResult,
+  OperateObservabilitySnapshot,
+  OperatePaymentProjectResult,
+  OperateStatementResult,
+  OperateTransactionsResult,
+  OperateUsageResult,
+  Project,
+  ProjectSdkUpgradeResult,
+  ProjectSdkUpgradeStatusResult,
+  RerunDeploymentResult as RerunDeploymentResultSchema,
+  ServerTagsResult,
+  UserDeploymentsPage,
+  UserLogsResult,
+  UserProject,
+  UserProjectAppsResult,
+  UserProjectLatestDeployment,
+  UserProjectRequiredSecretsResult,
+  UserTransactionsResult,
+  list,
+  maybe,
+} from "@aomi-labs/deploy/schemas";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -219,15 +216,30 @@ function dates(input: { fromDate?: string; toDate?: string }) {
   return { from_date: trimmed(input.fromDate), to_date: trimmed(input.toDate) };
 }
 
-function list(value: unknown): Raw[] {
-  return Array.isArray(value) ? value : [];
+export function required(value: string | undefined | null, field: string): string {
+  const clean = value?.trim();
+  if (!clean) throw new DeployError("INVALID_REQUEST", `${field} is required`);
+  return clean;
+}
+
+/** Reads `field` of the body with `schema`; without a field, the whole body. */
+function read<O>(schema: { parse(value: unknown): O }, field?: string): (raw: Raw) => O {
+  return (raw) => schema.parse(field ? raw[field] : raw);
 }
 
 function present<T>(value: T | null | undefined): value is T {
   return Boolean(value);
 }
 
-const botRegistrations = (raw: Raw): BotRegistration[] => list(raw.bot_registrations).map(camelBotRegistration);
+/** The manager pages with the cursor it sent, re-encoded as JSON. */
+function cursor(value: OperateTransactionCursor | OperateLogCursor | string | null | undefined): string | null {
+  if (!value || typeof value === "string") return value || null;
+  return JSON.stringify(
+    "eventType" in value
+      ? { occurred_at: value.occurredAt, event_type: value.eventType, id: value.id }
+      : { created_at: value.createdAt, id: value.id },
+  );
+}
 
 function botPath(input: { botId: string }, suffix = ""): string {
   return `bots/${segment(required(input.botId, "botId"))}${suffix}`;
@@ -245,11 +257,6 @@ function botBody(input: CreateUserBotInput | UpdateUserBotInput) {
   };
 }
 
-/** A project-scoped row tagged with the project and platform it came from. */
-function tagged<T>(row: Raw, camel: (row: Raw) => T) {
-  return { ...camel(row), projectId: optNumber(row.project_id ?? row.projectId), platform: optString(row.platform) };
-}
-
 function promoted(deploymentId: string, ok: boolean, activation: ActivateResult["activation"]): PromoteResult {
   return {
     ok,
@@ -262,97 +269,33 @@ function promoted(deploymentId: string, ok: boolean, activation: ActivateResult[
   };
 }
 
+/** A git commit SHA, lowercased. */
+function sourceRef(ref: string | undefined): string {
+  const clean = required(ref, "sourceRef");
+  if (!/^[0-9a-f]{7,40}$/i.test(clean)) {
+    throw new DeployError("INVALID_REQUEST", "sourceRef must be a git commit SHA (7-40 hex chars)");
+  }
+  return clean.toLowerCase();
+}
+
 function deployRow(input: PreflightInput | DeployInput, op: "preflight" | "deploy"): ManagerRequest<DeployResult> {
   return {
     op,
     method: "POST",
     path: `/api/projects/${positive(input.projectId, "projectId")}/deploy`,
-    body: deployRequest(input, op === "preflight"),
+    // Preflight may omit the ref (the manager resolves the default head); a deploy always pins
+    // the exact preflight commit.
+    body:
+      op === "preflight"
+        ? { ...(input.sourceRef ? { source_ref: sourceRef(input.sourceRef) } : {}), preflight: true }
+        : { source_ref: sourceRef(input.sourceRef) },
     read: (raw) => {
-      const result = camelDeployResult(raw);
+      const result = DeployResultSchema.parse(raw);
       if (!result.ok) {
         throw new DeployError("BACKEND", `${op} rejected by backend (deployment ${result.deployment.id})`);
       }
       return result;
     },
-  };
-}
-
-function unknownSdkStatus(): never {
-  throw new DeployError("BACKEND", "backend returned an unknown source SDK upgrade status");
-}
-
-function sdkUpgrade(raw: Raw): ProjectSdkUpgradeResult {
-  const common = {
-    requiredSdkVersion: String(raw.required_sdk_version ?? ""),
-    sourceRef: String(raw.source_ref ?? ""),
-  };
-  if (raw.status === "current") return { status: "current", ...common };
-  if (raw.status === "manual") {
-    return {
-      status: "manual",
-      ...common,
-      reason: String(raw.reason ?? "SDK upgrade requires a local change."),
-      command: String(raw.command ?? ""),
-    };
-  }
-  if (raw.status !== "pull_request") return unknownSdkStatus();
-  const pullRequest = responseRecord(raw.pull_request, "pull_request");
-  return {
-    status: "pull_request",
-    ...common,
-    branch: String(raw.branch ?? ""),
-    files: Array.isArray(raw.files) ? raw.files.map(String) : [],
-    pullRequest: {
-      number: Number(pullRequest.number),
-      url: String(pullRequest.url ?? ""),
-      created: Boolean(pullRequest.created),
-    },
-  };
-}
-
-function sdkUpgradeStatus(raw: Raw): ProjectSdkUpgradeStatusResult {
-  const { status } = raw;
-  if (status !== "merged" && status !== "open" && status !== "closed" && status !== "none") {
-    return unknownSdkStatus();
-  }
-  const pr = raw.pull_request && typeof raw.pull_request === "object" ? (raw.pull_request as Raw) : null;
-  return {
-    status,
-    requiredSdkVersion: String(raw.required_sdk_version ?? ""),
-    branch: String(raw.branch ?? ""),
-    pullRequest: pr
-      ? { number: Number(pr.number), url: String(pr.url ?? ""), state: String(pr.state ?? ""), merged: Boolean(pr.merged) }
-      : null,
-  };
-}
-
-function requiredSecretSlots(slots: unknown) {
-  return list(slots).flatMap((slot) =>
-    typeof slot.name === "string" && typeof slot.description === "string" && typeof slot.required === "boolean"
-      ? [
-          {
-            name: slot.name,
-            description: slot.description,
-            required: slot.required,
-            ...(slot.user_own === true ? { user_own: true } : {}),
-          },
-        ]
-      : [],
-  );
-}
-
-function builderAppKey(raw: unknown): BuilderAppKey | null {
-  if (!raw || typeof raw !== "object") return null;
-  const row = raw as Raw;
-  const key = optString(row.key);
-  if (!key) return null;
-  return {
-    key,
-    keyPrefix: optString(row.key_prefix) ?? key.slice(0, 8),
-    applicationId: Number(row.application_id ?? 0),
-    createdAt: Number(row.created_at ?? 0),
-    lastUsedAt: typeof row.last_used_at === "number" ? row.last_used_at : null,
   };
 }
 
@@ -365,7 +308,7 @@ export const ENDPOINTS = {
     platform(input, `deployments/${segment(required(input.deploymentId, "deploymentId"))}/status`, {
       op: "status",
       query: { github_user_id: trimmed(input.githubUserId) },
-      read: camelStatusResult,
+      read: read(DeploymentStatus),
     }),
 
   /** Promote a recorded deployment through the one activation door. */
@@ -381,7 +324,7 @@ export const ENDPOINTS = {
         ...(input.actor ? { actor: input.actor } : {}),
       },
       read: (raw) => {
-        const { ok, activation } = camelActivateResult(raw);
+        const { ok, activation } = ActivateResultSchema.parse(raw);
         return promoted(deploymentId, ok, activation);
       },
     });
@@ -402,25 +345,14 @@ export const ENDPOINTS = {
       op: "rerun",
       method: "POST",
       query: { github_user_id: trimmed(input.githubUserId) },
-      read: (raw) => ({
-        ok: raw.ok === true,
-        deploymentId,
-        commitHash: typeof raw.commit_hash === "string" ? raw.commit_hash : null,
-        runId: typeof raw.run_id === "number" ? raw.run_id : null,
-        ciUrl: typeof raw.ci_url === "string" ? raw.ci_url : null,
-      }),
+      read: (raw): RerunDeploymentResult => ({ ...RerunDeploymentResultSchema.parse(raw), deploymentId }),
     });
   },
 
   serverTags: () => ({
     op: "server tags",
     path: "/api/platforms/server-tags",
-    read: (raw: Raw) => ({
-      serverTags: (raw.server_tags ?? raw.serverTags ?? []) as string[],
-      sdkVersion: String(raw.sdk_version ?? raw.sdkVersion ?? ""),
-      ffiVersion: (raw.ffi_version ?? raw.ffiVersion ?? null) as number | null,
-      ffiInterfaces: (raw.ffi_interfaces ?? raw.ffiInterfaces ?? []) as string[],
-    }),
+    read: read(ServerTagsResult),
   }),
 
   /** Create a repository from a template and persist its project. */
@@ -435,7 +367,7 @@ export const ENDPOINTS = {
       github_user_id: required(input.githubUserId, "githubUserId"),
       private: Boolean(input.private),
     },
-    read: (raw: Raw) => camelProject(raw.project),
+    read: read(Project, "project"),
   }),
 
   listDeploymentRecords: (input: ListDeploymentRecordsInput) => {
@@ -444,16 +376,9 @@ export const ENDPOINTS = {
       op: "list_deployment_records",
       query: { project_id: input.projectId },
       read: (raw) => ({
-        app: (raw.app as string | undefined) ?? app,
-        currentReleaseTag: (raw.current_release_tag as string | null) ?? null,
-        records: list(raw.records).map((row) => ({
-          deploymentId: String(row.deployment_id ?? ""),
-          releaseTag: String(row.release_tag ?? ""),
-          actor: (row.actor as string | null) ?? null,
-          createdAt: timestampSeconds(row.created_at),
-          sdkVersion: (row.sdk_version as string | null) ?? null,
-          current: Boolean(row.current),
-        })),
+        app: typeof raw.app === "string" ? raw.app : app,
+        currentReleaseTag: typeof raw.current_release_tag === "string" ? raw.current_release_tag : null,
+        records: list(DeploymentRecord).parse(raw.records),
       }),
     });
   },
@@ -493,12 +418,7 @@ export const ENDPOINTS = {
     op: "exchange_github_code",
     path: `${GITHUB_APP}/oauth/exchange`,
     query: { code: required(input.code, "code"), app: input.app, redirect_uri: trimmed(input.redirectUri) },
-    read: (raw: Raw) => ({
-      githubUserId: String(raw.github_user_id ?? ""),
-      githubLogin: String(raw.github_login ?? ""),
-      installationId: raw.installation_id == null ? null : String(raw.installation_id),
-      visibilityGrant: typeof raw.visibility_grant === "string" ? raw.visibility_grant : null,
-    }),
+    read: read(GitHubIdentity),
   }),
 
   claimGitHubProject: (input: ClaimGitHubProjectInput) => ({
@@ -510,10 +430,7 @@ export const ENDPOINTS = {
       project_id: positive(input.projectId, "projectId"),
       redirect_uri: input.redirectUri,
     },
-    read: (raw: Raw): ClaimGitHubProjectResult => ({
-      githubUserId: String(raw.github_user_id ?? ""),
-      project: camelUserProject(raw.project ?? {}),
-    }),
+    read: read(ClaimGitHubProjectResultSchema),
   }),
 
   // ── Projects ─────────────────────────────────────────────────────────────
@@ -521,50 +438,39 @@ export const ENDPOINTS = {
     user(input, "projects", {
       op: "list_user_projects",
       query: { platform: trimmed(input.platform) },
-      read: (raw) => list(raw.projects).map(camelUserProject),
+      read: read(list(UserProject), "projects"),
     }),
 
   getUserProject: (input: GetUserProjectInput) =>
     project(input, "", {
       op: "get_user_project",
       headers: grant(input.visibilityGrant),
-      read: camelUserProject,
+      read: read(UserProject),
     }),
 
   /** Live GitHub access for the builder's connected source repositories. */
   listUserGitHubAppInstallations: (input: { githubUserId: string }) =>
-    user(input, "installations", { op: "list_user_github_app_installations", read: camelGitHubAppInstallations }),
+    user(input, "installations", { op: "list_user_github_app_installations", read: read(GitHubAppInstallationsResult) }),
 
   /** One project's apps with their live flags. */
   listUserProjectApps: (input: OwnedOperateProjectInput) =>
     project(input, "apps", {
       op: "list_user_project_apps",
-      read: (raw) => ({
-        project: camelProject(raw.project),
-        platform: optString(raw.platform) ?? "",
-        apps: list(raw.apps).map(camelPlatformApp),
-      }),
+      read: read(UserProjectAppsResult),
     }),
 
   getUserProjectRequiredSecrets: (input: OwnedOperateProjectInput) =>
     project(input, "required-secrets", {
       op: "get_user_project_required_secrets",
-      read: (raw) => ({
-        byApp: Object.fromEntries(
-          Object.entries((raw.by_app ?? {}) as Record<string, Raw>).map(([app, value]) => [
-            app,
-            { applicationId: Number(value.application_id), slots: requiredSecretSlots(value.slots) },
-          ]),
-        ),
-      }),
+      read: read(UserProjectRequiredSecretsResult),
     }),
 
   upgradeUserProjectSdk: (input: OwnedOperateProjectInput) =>
-    project(input, "sdk-upgrade", { op: "upgrade_user_project_sdk", method: "POST", read: sdkUpgrade }),
+    project(input, "sdk-upgrade", { op: "upgrade_user_project_sdk", method: "POST", read: read(ProjectSdkUpgradeResult) }),
 
   /** The upgrade PR's merge state in one GitHub-backed read; safe to poll. */
   sdkUpgradeStatus: (input: OwnedOperateProjectInput) =>
-    project(input, "sdk-upgrade-status", { op: "get_project_sdk_upgrade_status", read: sdkUpgradeStatus }),
+    project(input, "sdk-upgrade-status", { op: "get_project_sdk_upgrade_status", read: read(ProjectSdkUpgradeStatusResult) }),
 
   // ── Deployments ──────────────────────────────────────────────────────────
   listUserDeployments: (input: ListUserDeploymentsInput) =>
@@ -576,34 +482,26 @@ export const ENDPOINTS = {
         cursor_created_at: input.cursor?.createdAt,
         cursor_id: input.cursor?.id,
       },
-      read: (raw) => ({
-        deployments: list(raw.deployments)
-          .map(camelUserDeployment)
-          .filter((deployment): deployment is UserDeployment => present(deployment)),
-        nextCursor: camelUserDeploymentsCursor(raw.next_cursor),
-      }),
+      read: read(UserDeploymentsPage),
     }),
 
   getUserProjectLatestDeployment: (input: OwnedOperateProjectInput) =>
     project(input, "latest-deployment", {
       op: "get_user_project_latest_deployment",
-      read: (raw) => camelUserProjectLatestDeployment(raw.latest_deployment) ?? null,
+      read: read(maybe(UserProjectLatestDeployment), "latest_deployment"),
     }),
 
   listUserProjectDeployments: (input: ListUserProjectDeploymentsInput) =>
     project(input, "deployments", {
       op: "list_user_project_deployments",
       query: { limit: limit(input.limit) },
-      read: (raw) =>
-        list(raw.deployments)
-          .map(camelUserProjectLatestDeployment)
-          .filter((deployment): deployment is UserProjectLatestDeployment => present(deployment)),
+      read: (raw) => list(maybe(UserProjectLatestDeployment)).parse(raw.deployments).filter(present),
     }),
 
   getUserProjectDeployment: (input: GetUserProjectDeploymentInput) =>
     project(input, `deployments/${segment(required(input.deploymentId, "deploymentId"))}`, {
       op: "get_user_project_deployment",
-      read: (raw) => camelUserProjectLatestDeployment(raw.deployment) ?? null,
+      read: read(maybe(UserProjectLatestDeployment), "deployment"),
     }),
 
   promoteUserProjectDeployment: (input: PromoteUserProjectDeploymentInput) => {
@@ -616,7 +514,7 @@ export const ENDPOINTS = {
         ...(input.apps?.length ? { apps: input.apps } : {}),
         ...(input.actor ? { actor: input.actor } : {}),
       },
-      read: (raw) => promoted(deploymentId, raw.ok === true, camelActivateResult(raw).activation),
+      read: (raw) => promoted(deploymentId, raw.ok === true, ActivateResultSchema.parse(raw).activation),
     });
   },
 
@@ -625,7 +523,7 @@ export const ENDPOINTS = {
       op: "activate",
       method: "POST",
       body: { release_tags: input.releaseTags, apps: input.apps, ...(input.actor ? { actor: input.actor } : {}) },
-      read: camelActivateResult,
+      read: read(ActivateResultSchema),
     }),
 
   projectDeploymentAttempts: (input: OwnedOperateProjectInput & { runId?: number; page?: number }) =>
@@ -655,19 +553,15 @@ export const ENDPOINTS = {
   getBuilderApplication: (input: GetBuilderApplicationInput) =>
     application(input, "", {
       op: "get_builder_application",
-      read: (raw) => ({
-        project: camelProject(raw.project),
-        platform: optString(raw.platform) ?? "",
-        application: camelPlatformApp(raw.application),
-      }),
+      read: read(BuilderApplication),
     }),
 
   getBuilderApplicationDetail: (input: GetBuilderApplicationInput) =>
-    application(input, "detail", { op: "get_builder_application_detail", read: camelOperateAppDetail }),
+    application(input, "detail", { op: "get_builder_application_detail", read: read(OperateAppDetailResult) }),
 
   /** The private application's current Build key, or null before one is issued. */
   getBuilderAppKey: (input: BuilderAppKeyInput) =>
-    application(input, "app-key", { op: "get_builder_app_key", read: (raw) => builderAppKey(raw.app_key) }),
+    application(input, "app-key", { op: "get_builder_app_key", read: read(BuilderAppKeySchema, "app_key") }),
 
   /** Issue a new Build key; any earlier key stops working at once. */
   regenerateBuilderAppKey: (input: BuilderAppKeyInput) =>
@@ -675,14 +569,14 @@ export const ENDPOINTS = {
       op: "regenerate_builder_app_key",
       method: "POST",
       read: (raw) => {
-        const key = builderAppKey(raw.app_key);
+        const key = BuilderAppKeySchema.parse(raw.app_key);
         if (!key) throw new DeployError("BACKEND", "app key response is missing `app_key`");
         return key;
       },
     }),
 
   // ── Bots ─────────────────────────────────────────────────────────────────
-  listUserBots: (input: BuilderBotsInput) => user(input, "bots", { op: "list_user_bots", read: botRegistrations }),
+  listUserBots: (input: BuilderBotsInput) => user(input, "bots", { op: "list_user_bots", read: read(list(BotRegistrationSchema), "bot_registrations") }),
 
   createUserBot: (input: CreateUserBotInput) =>
     user(input, "bots", {
@@ -693,7 +587,7 @@ export const ENDPOINTS = {
         credential: required(input.credential, "credential"),
         ...botBody(input),
       },
-      read: (raw) => camelBotRegistration(raw.bot_registration),
+      read: read(BotRegistrationSchema, "bot_registration"),
     }),
 
   updateUserBot: (input: UpdateUserBotInput) =>
@@ -702,7 +596,7 @@ export const ENDPOINTS = {
       method: "PATCH",
       body: botBody(input),
       read: (raw): UpdateUserBotResult => ({
-        ...camelBotRegistration(raw.bot_registration),
+        ...BotRegistrationSchema.parse(raw.bot_registration),
         ...(typeof raw.webhook_warning === "string" && raw.webhook_warning ? { webhookWarning: raw.webhook_warning } : {}),
       }),
     }),
@@ -712,7 +606,7 @@ export const ENDPOINTS = {
     user(input, botPath(input, "/webhook"), {
       op: "check_user_bot_webhook",
       method: "POST",
-      read: (raw) => camelBotWebhookStatus(raw.webhook),
+      read: read(BotWebhookStatus, "webhook"),
     }),
 
   /** The bot's derived command-signing secret, which the caller shows once. */
@@ -727,7 +621,7 @@ export const ENDPOINTS = {
 
   // ── Model keys (names, prefixes and grants; key material is write-only) ──
   listBuilderModelKeys: (input: BuilderModelKeysInput) =>
-    keys(input, "", { op: "list_builder_model_keys", read: (raw) => list(raw.keys).map(camelBuilderModelKey) }),
+    keys(input, "", { op: "list_builder_model_keys", read: read(list(BuilderModelKey), "keys") }),
 
   /** Create (no `keyId`) or rotate (`keyId` set) a builder model key. */
   saveBuilderModelKey: (input: SaveBuilderModelKeyInput) =>
@@ -735,7 +629,7 @@ export const ENDPOINTS = {
       op: "save_builder_model_key",
       method: input.keyId === undefined ? "POST" : "PUT",
       body: { provider: required(input.provider, "provider"), key: required(input.key, "key"), label: input.label },
-      read: (raw) => camelBuilderModelKey(raw.key),
+      read: read(BuilderModelKey, "key"),
     }),
 
   deleteBuilderModelKey: (input: DeleteBuilderModelKeyInput) =>
@@ -751,91 +645,74 @@ export const ENDPOINTS = {
       op: "set_model_key_grants",
       method: "PUT",
       body: { application_ids: input.applicationIds, model_ids: input.modelIds },
-      read: (raw) => camelBuilderModelKey(raw.key),
+      read: read(BuilderModelKey, "key"),
     }),
 
   // ── Operate: one project ─────────────────────────────────────────────────
   listUserProjectTransactions: (input: ListUserProjectTransactionsInput) =>
     project(input, "transactions", {
       op: "list_user_project_transactions",
-      query: { limit: limit(input.limit), status: trimmed(input.status), cursor: encodeTransactionCursor(input.cursor) },
-      read: camelOperateTransactions,
+      query: { limit: limit(input.limit), status: trimmed(input.status), cursor: cursor(input.cursor) },
+      read: read(OperateTransactionsResult),
     }),
 
   getUserProjectUsage: (input: GetUserProjectUsageInput) =>
-    project(input, "usage", { op: "get_user_project_usage", query: dates(input), read: camelOperateUsage }),
+    project(input, "usage", { op: "get_user_project_usage", query: dates(input), read: read(OperateUsageResult) }),
 
   getUserProjectStatement: (input: GetUserProjectUsageInput) =>
-    project(input, "statement", { op: "get_user_project_statement", query: dates(input), read: camelOperateStatement }),
+    project(input, "statement", { op: "get_user_project_statement", query: dates(input), read: read(OperateStatementResult) }),
 
   listUserProjectLogs: (input: ListUserProjectLogsInput) =>
     project(input, "logs", {
       op: "list_user_project_logs",
-      query: { limit: limit(input.limit), type: trimmed(input.type), cursor: encodeLogCursor(input.cursor) },
-      read: camelOperateLogs,
+      query: { limit: limit(input.limit), type: trimmed(input.type), cursor: cursor(input.cursor) },
+      read: read(OperateLogsResult),
     }),
 
   getUserProjectObservability: (input: OwnedOperateProjectInput) =>
-    project(input, "observability", { op: "get_user_project_observability", read: camelOperateObservability }),
+    project(input, "observability", { op: "get_user_project_observability", read: read(OperateObservabilityResult) }),
 
   // ── Operate: the account, each project under its own bound platform ──────
   getUserObservability: (input: GetUserObservabilityInput) =>
     user(input, "observability", {
       op: "get_user_observability",
-      read: (raw) =>
-        list(raw.results).map((entry) => {
-          const { payments: _payments, ...snapshot } = camelOperateObservability(entry);
-          return snapshot;
-        }),
+      read: read(list(OperateObservabilitySnapshot), "results"),
     }),
 
   getUserPayments: (input: GetUserObservabilityInput) =>
     user(input, "payments", {
       op: "get_user_payments",
-      read: (raw) =>
-        list(raw.results).map((entry) => ({
-          project: camelProject(entry.project),
-          payments: camelPartnerPayments(entry.payments),
-        })),
+      read: read(list(OperatePaymentProjectResult), "results"),
     }),
 
   /** One newest-first page merged across every owned project, with one cursor. */
   listUserTransactions: (input: ListUserTransactionsInput) =>
     user(input, "transactions", {
       op: "list_user_transactions",
-      query: { limit: limit(input.limit), status: trimmed(input.status), cursor: encodeTransactionCursor(input.cursor) },
-      read: (raw) => ({
-        projects: camelUserProjectRefs(raw.projects),
-        transactions: list(raw.transactions).map((row) => tagged(row, camelTransactionRow)),
-        nextCursor: camelTransactionCursor(raw.next_cursor ?? raw.nextCursor),
-      }),
+      query: { limit: limit(input.limit), status: trimmed(input.status), cursor: cursor(input.cursor) },
+      read: read(UserTransactionsResult),
     }),
 
   getUserStatements: (input: GetUserStatementsInput) =>
     user(input, "statement", {
       op: "get_user_statement",
       query: dates(input),
-      read: (raw) => list(raw.results).map((entry) => camelOperateStatement(entry)),
+      read: read(list(OperateStatementResult), "results"),
     }),
 
   getUserUsage: (input: GetUserStatementsInput) =>
     user(input, "usage", {
       op: "get_user_usage",
       query: dates(input),
-      read: (raw) => list(raw.results).map((entry) => camelOperateUsage(entry)),
+      read: read(list(OperateUsageResult), "results"),
     }),
 
   /** One newest-first page of the merged log stream; shared partner settlements carry a null `projectId`. */
   listUserLogs: (input: ListUserLogsInput) =>
     user(input, "logs", {
       op: "list_user_logs",
-      query: { limit: limit(input.limit), type: trimmed(input.type), cursor: encodeLogCursor(input.cursor) },
-      read: (raw) => ({
-        projects: camelUserProjectRefs(raw.projects),
-        logs: list(raw.logs).map((row) => tagged(row, camelLogRow)),
-        nextCursor: camelLogCursor(raw.next_cursor ?? raw.nextCursor),
-        invocationsAvailable: raw.invocations_available !== false,
-      }),
+      query: { limit: limit(input.limit), type: trimmed(input.type), cursor: cursor(input.cursor) },
+      read: read(UserLogsResult),
     }),
 } satisfies Record<string, (input: never) => ManagerRequest<unknown>>;
 

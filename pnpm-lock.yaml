@@ -1023,6 +1023,9 @@ importers:
       jose:
         specifier: ^5.9.6
         version: 5.10.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       fast-check:
         specifier: ^4.8.0

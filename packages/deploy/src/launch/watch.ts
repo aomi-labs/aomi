@@ -61,7 +61,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function failedStatus(message: string): DeploymentStatus {
-  return { state: "failed", releaseTags: [], message };
+  return { state: "failed", deployment: null, releaseTags: [], apps: [], ci: null, message };
 }
 
 export type WatchLoopOptions = WatchDeploymentOptions & {

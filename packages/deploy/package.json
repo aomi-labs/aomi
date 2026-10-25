@@ -1,7 +1,7 @@
 {
   "name": "@aomi-labs/deploy",
   "version": "0.10.0",
-  "description": "TypeScript toolkit for the Aomi platform deploy API: wire types, errors, activation helpers and the browser launch client. The manager client lives in the workspace package @aomi-labs/internal.",
+  "description": "TypeScript toolkit for the Aomi platform deploy API: response schemas, wire types, errors, activation helpers and the browser launch client. The manager client lives in the workspace package @aomi-labs/internal.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,14 +33,14 @@
         "default": "./dist/lifecycle.cjs"
       }
     },
-    "./wire": {
+    "./schemas": {
       "import": {
-        "types": "./dist/wire/index.d.ts",
-        "default": "./dist/wire/index.js"
+        "types": "./dist/schemas/index.d.ts",
+        "default": "./dist/schemas/index.js"
       },
       "require": {
-        "types": "./dist/wire/index.d.cts",
-        "default": "./dist/wire/index.cjs"
+        "types": "./dist/schemas/index.d.cts",
+        "default": "./dist/schemas/index.cjs"
       }
     },
     "./launch": {
@@ -67,7 +67,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "jose": "^5.9.6"
+    "jose": "^5.9.6",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "fast-check": "^4.8.0"

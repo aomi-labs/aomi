@@ -4,9 +4,8 @@
  * carries the client's one bearer and turns any failure into a BackendError.
  */
 import { BackendError, BrowserEnvironmentError } from "@aomi-labs/deploy";
-import { required } from "@aomi-labs/deploy/wire";
 
-import { ENDPOINTS, type Endpoints, type ManagerRequest, type Raw } from "./endpoints";
+import { ENDPOINTS, required, type Endpoints, type ManagerRequest, type Raw } from "./endpoints";
 
 export type ManagerClientOptions = {
   /** The manager's base URL. */

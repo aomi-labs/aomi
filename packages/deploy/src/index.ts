@@ -21,7 +21,8 @@ export {
 export type { DeployErrorCode } from "./errors";
 
 // Every wire type, so @aomi-labs/internal (the manager client) and the apps
-// share one definition of the manager's shapes.
+// share one definition of the manager's shapes. Response types are inferred
+// from the schemas in `@aomi-labs/deploy/schemas`; only their types load here.
 export type * from "./types";
 
 export type {

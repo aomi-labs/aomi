@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { camelUserProject } from "./responses";
+import { UserProject } from "./projects";
 
 describe("project FFI wire validation", () => {
   it.each([null, undefined, "1", true, 0, -1, 1.5, NaN, Infinity])(
     "rejects invalid FFI values (%s)",
     (value) => {
-      const project = camelUserProject({
+      const project = UserProject.parse({
         platform_name: "community",
         ffi_version: value,
         required_ffi_version: value,
@@ -29,7 +29,7 @@ describe("project FFI wire validation", () => {
         shape === "snake"
           ? { ffi_version: 1, required_ffi_version: 2 }
           : { ffiVersion: 1, requiredFfiVersion: 2 };
-      const project = camelUserProject({
+      const project = UserProject.parse({
         platform_name: "community",
         ...fields,
         configuration: { status: "valid", applications: [fields] },
