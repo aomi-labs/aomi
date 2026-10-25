@@ -19,6 +19,8 @@ import {
   type FetchLike,
   type WaitLike,
 } from "./routing/upstream";
+import { portalContext } from "./portal/context";
+import { handlePortalRequest } from "./portal/routes";
 import { normaliseTaskBody } from "./task/body";
 import { discoveryChallenge, discoveryResponse } from "./task/discovery";
 
@@ -71,6 +73,10 @@ export async function handleRequest(
 ): Promise<Response> {
   const url = new URL(request.url);
   const origin = request.headers.get("Origin");
+  // On a portal host the edge is the portal's BFF: moved routes are served
+  // here, everything else reaches the Vercel portal unchanged.
+  const portal = portalContext(request, env, fetchImpl);
+  if (portal) return handlePortalRequest(request, portal);
   let route = resolveRoute(url, env, routingKeyFor(request, url));
   if (!route) return notFound();
 

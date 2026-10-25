@@ -34,4 +34,16 @@ export interface EdgeEnv {
   EDGE_TOPOLOGY?: EdgeTopologyName;
   /** PKCS#8 PEM of the `aomi-edge` signing key (a Wrangler secret). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
+
+  // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
+  /** Comma-separated public portal hosts (for example chat.aomi.dev). */
+  PORTAL_HOSTS?: string;
+  /** Where the Vercel portal is reached from the edge (its *.vercel.app alias). */
+  PORTAL_UPSTREAM_ORIGIN?: string;
+  /** Extra origins whose cookie reads and writes the portal trusts (its own host is implied). */
+  PORTAL_TRUSTED_ORIGINS?: string;
+  /** Platforms /api/thread/apps is filtered to when the caller names none. */
+  APP_CATALOG_PLATFORMS?: string;
+  /** "true" when MCP resources require DPoP-bound access tokens. */
+  AOMI_MCP_DPOP_REQUIRED?: string;
 }

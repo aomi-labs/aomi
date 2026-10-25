@@ -7,7 +7,16 @@
   "observability": { "enabled": true },
   "env": {
     "staging": {
-      "routes": [{ "pattern": "api-staging.aomi.dev/*", "zone_name": "aomi.dev" }],
+      // api-staging is the venue, CLI and MCP host. The portal host is routed on
+      // its API paths only (cookies stay host-only; the UI stays on Vercel).
+      // chat-staging.aomi.dev must be proxied by Cloudflare (orange cloud) for
+      // these routes to take effect.
+      "routes": [
+        { "pattern": "api-staging.aomi.dev/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat-staging.aomi.dev/api/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat-staging.aomi.dev/v1/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat-staging.aomi.dev/.well-known/*", "zone_name": "aomi.dev" }
+      ],
       // The Task discovery challenge cache. Create once per environment with
       // `wrangler kv namespace create EDGE_CACHE --env staging` and paste the id;
       // the Worker falls back to an in-isolate cache while the binding is absent.
@@ -22,6 +31,10 @@
         "HOSTED_APP_WARMUP_RETRY_MS": "1000",
         "MANAGER_ORIGIN": "https://manager-staging-tunnel.aomi.dev",
         "EDGE_TOPOLOGY": "staging",
+        // The portal surface. PORTAL_UPSTREAM_ORIGIN (the portal's Vercel
+        // alias) comes from the deploy environment like the other origins.
+        "PORTAL_HOSTS": "chat-staging.aomi.dev",
+        "APP_CATALOG_PLATFORMS": "",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
         // Exact browser origins allowed to read Task challenges without credentials.
         // They receive no CORS access to the general /api routes.
@@ -29,6 +42,8 @@
       }
     },
     "production": {
+      // Production portal host routes are added at cutover once the host is
+      // confirmed (chat.aomi.dev) and proxied by Cloudflare; see the README.
       "routes": [{ "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" }],
       // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
       "vars": {
@@ -36,6 +51,8 @@
         "HOSTED_APP_WARMUP_RETRY_MS": "1000",
         "MANAGER_ORIGIN": "https://manager-2.aomi.dev",
         "EDGE_TOPOLOGY": "production",
+        "PORTAL_HOSTS": "",
+        "APP_CATALOG_PLATFORMS": "",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
       }
     }
