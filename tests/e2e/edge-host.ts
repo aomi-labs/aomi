@@ -85,15 +85,19 @@ export async function startEdgeHost(input: EdgeHostInput): Promise<EdgeHost> {
     "false",
     ...Object.entries(edgeVars(input)).flatMap(([key, value]) => ["--var", `${key}:${value}`]),
   ];
+  // Same process group as the caller, so whoever kills the caller's group
+  // (Playwright's webServer teardown, the runners' killGroup) takes wrangler
+  // and its workerd with it; wrangler stops workerd itself on SIGTERM.
   const worker = spawn(join(EDGE_ROOT, "node_modules/.bin/wrangler"), args, {
     cwd: EDGE_ROOT,
     env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
-    detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
   worker.stdout?.on("data", (chunk) => log(`edge: ${chunk}`));
   worker.stderr?.on("data", (chunk) => log(`edge: ${chunk}`));
-  const stopWorker = () => killGroup(worker);
+  const stopWorker = () => {
+    if (worker.exitCode === null && worker.signalCode === null) worker.kill("SIGTERM");
+  };
   try {
     await waitForAnyResponse(workerOrigin, worker);
   } catch (error) {
@@ -169,15 +173,6 @@ function createRouter(
     request.on("aborted", () => upstream.destroy());
     request.pipe(upstream);
   });
-}
-
-function killGroup(child: ChildProcess): void {
-  if (child.pid === undefined || child.exitCode !== null) return;
-  try {
-    process.kill(-child.pid, "SIGTERM");
-  } catch {
-    // Already stopped.
-  }
 }
 
 function exitOf(child: ChildProcess): Promise<void> {
