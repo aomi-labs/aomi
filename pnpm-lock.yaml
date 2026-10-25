@@ -213,6 +213,9 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../../packages/deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../../packages/internal
       '@aomi-labs/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -331,6 +334,12 @@ importers:
 
   apps/edge:
     dependencies:
+      '@aomi-labs/deploy':
+        specifier: workspace:*
+        version: link:../../packages/deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../../packages/internal
       '@aomi-labs/service-identity':
         specifier: workspace:*
         version: link:../../packages/service-identity
@@ -1016,6 +1025,16 @@ importers:
         specifier: ^4.8.0
         version: 4.8.0
 
+  packages/internal:
+    dependencies:
+      '@aomi-labs/deploy':
+        specifier: workspace:*
+        version: link:../deploy
+    devDependencies:
+      fast-check:
+        specifier: ^4.8.0
+        version: 4.8.0
+
   packages/observability:
     dependencies:
       '@aomi-labs/account':
@@ -1024,6 +1043,9 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../internal
     devDependencies:
       '@sentry/nextjs':
         specifier: 10.69.0
@@ -1082,6 +1104,9 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../internal
       '@inkjs/ui':
         specifier: ^2.0.0
         version: 2.0.0(ink@7.1.0(@types/react@19.2.14)(bufferutil@4.1.0)(react-devtools-core@6.1.5(bufferutil@4.1.0)(utf-8-validate@5.0.10))(react@19.2.7)(utf-8-validate@5.0.10))(react@19.2.7)

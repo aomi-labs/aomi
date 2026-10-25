@@ -1,4 +1,4 @@
-// @aomi-labs/deploy/bff — server-only helpers for a deploy BFF: error
+// Pure helpers for a manager-backed BFF or edge surface: error
 // identification, release-manifest secret checks, project ownership and the
 // browser-safe app status mapping.
 

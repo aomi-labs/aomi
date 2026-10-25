@@ -1,7 +1,7 @@
 {
   "name": "@aomi-labs/deploy",
   "version": "0.10.0",
-  "description": "TypeScript toolkit for the Aomi platform deploy API: server client, deploy BFF helpers, and a browser launch client. The root entry is server-only.",
+  "description": "TypeScript toolkit for the Aomi platform deploy API: wire types, errors, activation helpers and the browser launch client. The manager client lives in the workspace package @aomi-labs/internal.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,24 +33,14 @@
         "default": "./dist/lifecycle.cjs"
       }
     },
-    "./bff": {
+    "./wire": {
       "import": {
-        "types": "./dist/bff/index.d.ts",
-        "default": "./dist/bff/index.js"
+        "types": "./dist/wire/index.d.ts",
+        "default": "./dist/wire/index.js"
       },
       "require": {
-        "types": "./dist/bff/index.d.cts",
-        "default": "./dist/bff/index.cjs"
-      }
-    },
-    "./bff/errors": {
-      "import": {
-        "types": "./dist/bff/errors.d.ts",
-        "default": "./dist/bff/errors.js"
-      },
-      "require": {
-        "types": "./dist/bff/errors.d.cts",
-        "default": "./dist/bff/errors.cjs"
+        "types": "./dist/wire/index.d.cts",
+        "default": "./dist/wire/index.cjs"
       }
     },
     "./launch": {

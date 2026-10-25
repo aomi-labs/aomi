@@ -5,8 +5,8 @@
 // classification and delivery belong to @aomi-labs/observability.
 // =============================================================================
 
-import { BackendError, DeployError } from "../errors";
-import type { DeployErrorDetail } from "../types";
+import { BackendError, DeployError } from "@aomi-labs/deploy";
+import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
 export type LaunchFailureSource = {
   origin: "expected" | "local" | "upstream_request" | "upstream_response";

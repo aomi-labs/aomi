@@ -1,5 +1,3 @@
-import "server-only";
-
 type CacheEntry<T> = {
   createdAt: number;
   value: Promise<T>;

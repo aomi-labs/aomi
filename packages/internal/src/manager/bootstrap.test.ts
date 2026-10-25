@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackendClient } from ".";
-import { DeployError } from "../errors";
-import type { AuditEvent } from "../types";
+import { BackendClient } from "./user";
+import { DeployError } from "@aomi-labs/deploy";
+import type { AuditEvent } from "@aomi-labs/deploy";
 
 function client(opts?: {
   activationToken?: string;

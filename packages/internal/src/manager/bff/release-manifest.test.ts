@@ -3,7 +3,7 @@ import {
   fetchReleaseSecretSlots,
   missingSecretsForActivation,
 } from "./release-manifest";
-import type { BackendClient } from "../backend";
+import type { BackendClient } from "../user";
 
 function fakeFetch(routes: Record<string, { status: number; body: unknown }>) {
   return vi.fn(async (input: RequestInfo | URL) => {

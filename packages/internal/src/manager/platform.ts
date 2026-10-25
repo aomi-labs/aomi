@@ -1,4 +1,4 @@
-import { BackendError, DeployError } from "../errors";
+import { BackendError, DeployError } from "@aomi-labs/deploy";
 import type {
   ActivateInput,
   ActivateResult,
@@ -31,8 +31,8 @@ import type {
   StatusInput,
   TokenRecord,
   WatchDeploymentOptions,
-} from "../types";
-import { watchDeploymentLoop } from "../launch/watch";
+} from "@aomi-labs/deploy";
+import { watchDeploymentLoop } from "@aomi-labs/deploy/launch";
 import {
   activateRequest,
   camelActivateResult,
@@ -43,7 +43,7 @@ import {
   deployRequest,
   required,
   timestampSeconds,
-} from "../wire";
+} from "@aomi-labs/deploy/wire";
 import { BackendClientCore } from "./core";
 
 /**

@@ -1,7 +1,7 @@
-import type { BackendClient } from "../backend";
-import { BackendError } from "../errors";
-import type { ReleaseManifest, SecretSlot, UserProject } from "../types";
-import { missingRequiredSecrets } from "../secrets";
+import type { BackendClient } from "../user";
+import { BackendError } from "@aomi-labs/deploy";
+import type { ReleaseManifest, SecretSlot, UserProject } from "@aomi-labs/deploy";
+import { missingRequiredSecrets } from "@aomi-labs/deploy";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -183,7 +183,12 @@ export async function missingSecretsForActivation(input: {
 }): Promise<Record<string, string[]>> {
   if (input.pairs.length === 0) return {};
 
-  const githubToken = input.githubToken ?? process.env.GITHUB_TOKEN?.trim();
+  // The Node BFF may fall back to its environment; the edge Worker has no
+  // `process` and always passes the token in.
+  const githubToken =
+    input.githubToken ??
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+      ?.GITHUB_TOKEN?.trim();
   if (!githubToken) {
     throw new RequiredSecretsCheckError({ reason: "bff_misconfigured" });
   }

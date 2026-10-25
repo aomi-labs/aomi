@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackendClient } from ".";
+import { BackendClient } from "./user";
 
 let client: BackendClient;
 

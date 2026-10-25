@@ -1,7 +1,5 @@
-import {
-  BackendClient,
-  type ListDeploymentRecordsResult,
-} from "@aomi-labs/deploy";
+import type { ListDeploymentRecordsResult } from "@aomi-labs/deploy";
+import { BackendClient } from "@aomi-labs/internal";
 import { resolveActivationCredential } from "./commands";
 
 export type RollbackClient = Pick<

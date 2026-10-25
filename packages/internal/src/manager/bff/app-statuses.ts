@@ -1,5 +1,5 @@
-import type { PlatformApp } from "../types";
-import type { LaunchAppStatusesResult } from "../launch/contracts";
+import type { PlatformApp } from "@aomi-labs/deploy";
+import type { LaunchAppStatusesResult } from "@aomi-labs/deploy/launch";
 
 /** Map BackendClient app flags to the browser-safe project runtime contract. */
 export function launchAppStatusesResult(

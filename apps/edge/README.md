@@ -47,20 +47,28 @@ venue-specific URL.
   - `forward.ts`, `cors.ts`, `csrf.ts`: the header policies, open-widget CORS
     and the cookie CSRF rule, copied from `@aomi-labs/account`.
 
-- `src/build/*`: the Build surface (cutover 1, step 3a). On a `BUILD_HOSTS`
+- `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
   host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
-  login (`/api/bff/cli/*`), builder credits (`/v1/builder/credits/**`) and the
-  anonymous GitHub App install start; everything else passes through to
-  `BUILD_UPSTREAM_ORIGIN` (the Vercel Build app) unchanged.
+  login (`/api/bff/cli/*`), builder credits (`/v1/builder/credits/**`), the
+  anonymous GitHub App install start and the launch, deployments and operate
+  control-plane families (`/api/bff/{launch,deployments,operate}/**`);
+  everything else passes through to `BUILD_UPSTREAM_ORIGIN` (the Vercel Build
+  app) unchanged: the build sandbox, integrations and local-only helpers.
   - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
     `aomi_github_oauth_request` cookies and the CLI bearer, signed with
     `BUILD_SESSION_SECRET` (HS256, and a JWE for the PKCE exchange code).
     Same cookie names, audiences, claims and lifetimes as the Build BFF, so
     cookies issued by either side verify on the other during the cutover.
   - `manager.ts`: the GitHub code exchange and project claim, called as the
-    `aomi-edge` service. The launch, deployments and operate families follow
-    in step 3b through the `@aomi-labs/internal` manager client.
-  - Not moved: `dev-session` (local only) and `internal/sentry-smoke`.
+    `aomi-edge` service.
+  - `deploy.ts`, `operate.ts`: the launch, deployments and operate route
+    logic ported from the Build BFF with its validation, ownership checks,
+    15s read caches and fan-out limits. The manager is called through
+    `@aomi-labs/internal` (`ManagerClient`, the former `@aomi-labs/deploy`
+    `BackendClient`) with a five-minute `aomi-edge` service bearer; failures
+    answer with the same `{ error, code?, retryable?, deployError? }` bodies.
+  - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
+    (local only) and `internal/sentry-smoke`.
 
 The Vercel route files for the moved families stay until cutover day and are
 deleted in one PR; until then both serve the same requests the same way.
@@ -82,7 +90,8 @@ pnpm --filter aomi-edge dev:staging
 Terraform inventory and exports them before calling this script. Secrets:
 `EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
 `BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
-GitHub sessions survive the cutover).
+GitHub sessions survive the cutover) and `BUILD_GITHUB_TOKEN` (Build's
+`GITHUB_TOKEN`, read access for the release-manifest secret gate).
 
 ## Portal and Build host prerequisites
 

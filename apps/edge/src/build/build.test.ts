@@ -391,10 +391,10 @@ describe("build surface: install start and passthrough", () => {
   });
 
   it("passes everything else to the Vercel Build app with forwarding headers", async () => {
-    const response = await build("/api/bff/deployments/status?id=1", { headers: { cookie: "aomi_github=t" } });
+    const response = await build("/api/bff/build/runs?id=1", { headers: { cookie: "aomi_github=t" } });
     const body = await response.json();
     expect(body.tag).toBe("vercel");
-    expect(body.url).toBe(`${UPSTREAM}/api/bff/deployments/status?id=1`);
+    expect(body.url).toBe(`${UPSTREAM}/api/bff/build/runs?id=1`);
     expect(body.headers.cookie).toBe("aomi_github=t");
     expect(body.headers["x-forwarded-host"]).toBe("build.example");
     expect(response.headers.get("set-cookie")).toBe("vercel=1");

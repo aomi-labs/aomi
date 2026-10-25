@@ -1,4 +1,4 @@
-import { BackendError, DeployError } from "../errors";
+import { BackendError, DeployError } from "@aomi-labs/deploy";
 import type {
   BotRegistration,
   BuilderBotsInput,
@@ -65,7 +65,7 @@ import type {
   UserProjectLatestDeployment,
   UserProjectRequiredSecretsResult,
   UserTransactionsResult,
-} from "../types";
+} from "@aomi-labs/deploy";
 import {
   camelBotRegistration,
   camelBotWebhookStatus,
@@ -98,7 +98,7 @@ import {
   responseRecord,
   setDateRange,
   setLimit,
-} from "../wire";
+} from "@aomi-labs/deploy/wire";
 import { BackendPlatformClient } from "./platform";
 
 function botRegistrations(raw: Record<string, unknown>): BotRegistration[] {
@@ -118,8 +118,8 @@ export class BackendClient extends BackendPlatformClient {
     if (input.page) params.set("page", String(input.page));
     const suffix = input.runId === undefined ? "" : `/${input.runId}`;
     return this.get<{
-      attempts?: import("../types").ProjectDeploymentAttempt[];
-      attempt?: import("../types").ProjectDeploymentAttempt;
+      attempts?: import("@aomi-labs/deploy").ProjectDeploymentAttempt[];
+      attempt?: import("@aomi-labs/deploy").ProjectDeploymentAttempt;
       nextPage?: number | null;
     }>(
       this.userPath(`projects/${projectId}/attempts${suffix}`, params),
@@ -133,7 +133,7 @@ export class BackendClient extends BackendPlatformClient {
   ) {
     const { projectId, params, bearer } = this.ownedOperateRequest(input);
     return this.post<{
-      attempt: import("../types").ProjectDeploymentAttempt;
+      attempt: import("@aomi-labs/deploy").ProjectDeploymentAttempt;
       existing: boolean;
     }>(
       this.userPath(`projects/${projectId}/attempts`, params),

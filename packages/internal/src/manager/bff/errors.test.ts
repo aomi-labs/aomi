@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BackendError, DeployError } from "../errors";
+import { BackendError, DeployError } from "@aomi-labs/deploy";
 import { identifyLaunchError } from "./errors";
 import { RequiredSecretsCheckError } from "./release-manifest";
 

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { portalService } from "@aomi-labs/account";
-import { BackendClient } from "@aomi-labs/deploy";
+import { BackendClient } from "@aomi-labs/internal";
 import { backendUrl } from "@/server/env";
 
 async function mintServiceBearer(): Promise<string> {

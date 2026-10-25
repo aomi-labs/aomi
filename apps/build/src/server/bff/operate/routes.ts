@@ -23,7 +23,7 @@ import type {
 import {
   EXAMPLE_PROJECT,
   exampleStatement,
-} from "@/features/operate/fixtures/wire";
+} from "@aomi-labs/internal/operate-fixtures/wire";
 import {
   caipChainId,
   caipChainLabel,
@@ -34,7 +34,7 @@ import { authorize } from "@/server/bff/auth";
 import { resolveDeployPlatform } from "@/server/bff/deploy/config";
 import { deployConfig } from "@/server/env";
 import { buildFailures } from "@/server/bff/failures";
-import { TimedPromiseCache } from "@/server/bff/timed-promise-cache";
+import { TimedPromiseCache } from "@aomi-labs/internal";
 
 type BackendClientInstance = Awaited<ReturnType<typeof backendClient>>;
 

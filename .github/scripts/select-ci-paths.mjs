@@ -164,6 +164,7 @@ function classifyPath(selection, path) {
 
   if (
     path.startsWith("packages/deploy/") ||
+    path.startsWith("packages/internal/") ||
     path.startsWith("packages/smither/")
   ) {
     select(selection, "packages", "consumer_compat");

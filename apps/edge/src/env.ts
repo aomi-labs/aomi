@@ -63,4 +63,10 @@ export interface EdgeEnv {
   BUILD_SESSION_SECRET?: string;
   /** Platforms Build deploys to; the first is the default for the GitHub App install start. */
   APP_DEPLOY_PLATFORMS?: string;
+  /** Template repository new Build projects are scaffolded from. */
+  BUILD_TEMPLATE_REPO?: string;
+  /** "true" when scaffolded repositories are created private. */
+  BUILD_CREATED_REPO_PRIVATE?: string;
+  /** GitHub token the release-manifest secret gate reads with (a Wrangler secret). */
+  BUILD_GITHUB_TOKEN?: string;
 }

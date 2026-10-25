@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackendClient } from ".";
+import { BackendClient } from "./user";
 import {
   BackendError,
   BrowserEnvironmentError,
   DeployError,
-} from "../errors";
-import type { AuditEvent } from "../types";
+} from "@aomi-labs/deploy";
+import type { AuditEvent } from "@aomi-labs/deploy";
 
 function client(onAudit?: (event: AuditEvent) => void) {
   return new BackendClient({

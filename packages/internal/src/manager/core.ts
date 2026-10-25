@@ -1,11 +1,11 @@
-import { BackendError, BrowserEnvironmentError, DeployError } from "../errors";
+import { BackendError, BrowserEnvironmentError, DeployError } from "@aomi-labs/deploy";
 import type {
   AuditEvent,
   BuilderModelKeysInput,
   BackendClientOptions,
   OwnedOperateProjectInput,
-} from "../types";
-import { required } from "../wire";
+} from "@aomi-labs/deploy";
+import { required } from "@aomi-labs/deploy/wire";
 
 /**
  * Transport tier of the deploy client: bearer resolution, raw HTTP, audit
@@ -20,6 +20,7 @@ export class BackendClientCore {
   private readonly activationToken?: string;
   /** Privileged admin/service bearer for bootstrap writes (token minting). */
   private readonly adminBearer?: string;
+  private readonly fetchImpl: NonNullable<BackendClientOptions["fetch"]>;
 
   constructor(opts: BackendClientOptions) {
     assertServerOnly();
@@ -30,6 +31,7 @@ export class BackendClientCore {
     );
     this.activationToken = opts.aomi.activationToken?.trim() || undefined;
     this.adminBearer = opts.aomi.adminBearer?.trim() || undefined;
+    this.fetchImpl = opts.fetch ?? ((input, init) => fetch(input, init));
   }
 
   /**
@@ -288,7 +290,7 @@ export class BackendClientCore {
     const url = this.endpoint(path);
     let res: Response;
     try {
-      res = await fetch(url, {
+      res = await this.fetchImpl(url, {
         method,
         headers: {
           Authorization: `Bearer ${bearer}`,

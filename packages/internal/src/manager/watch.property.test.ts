@@ -2,9 +2,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import fc from "fast-check";
 
-import { BackendClient } from "../backend";
-import type { DeploymentProgressEvent, DeploymentStatus } from "../types";
-import { backoffDelay, deploymentProgress } from "./watch";
+import { BackendClient } from "./user";
+import type { DeploymentProgressEvent, DeploymentStatus } from "@aomi-labs/deploy";
+import { backoffDelay, deploymentProgress } from "@aomi-labs/deploy/launch";
 
 const client = new BackendClient({
   aomi: {

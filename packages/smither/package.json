@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@aomi-labs/deploy": "workspace:*",
+    "@aomi-labs/internal": "workspace:*",
     "@inkjs/ui": "^2.0.0",
     "effect": "3.21.4",
     "execa": "^9.6.0",
