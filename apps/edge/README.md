@@ -61,12 +61,12 @@ venue-specific URL.
     cookies issued by either side verify on the other during the cutover.
   - `manager.ts`: the GitHub code exchange and project claim, called as the
     `aomi-edge` service.
-  - `deploy.ts`, `operate.ts`: the launch, deployments and operate route
-    logic ported from the Build BFF with its validation, ownership checks,
-    15s read caches and fan-out limits. The manager is called through
-    `@aomi-labs/internal` (`ManagerClient`, the former `@aomi-labs/deploy`
-    `BackendClient`) with a five-minute `aomi-edge` service bearer; failures
-    answer with the same `{ error, code?, retryable?, deployError? }` bodies.
+  - `deploy.ts`, `operate.ts`: the launch, deployments and operate routes,
+    each one `endpoint()` (auth, a zod input, a handler) with the ownership
+    checks of the Build BFF. The manager is called through
+    `@aomi-labs/internal` (`ManagerClient`) with a five-minute `aomi-edge`
+    service bearer; failures answer with the same
+    `{ error, code?, retryable?, deployError? }` bodies.
   - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
     (local only) and `internal/sentry-smoke`.
 

@@ -16,7 +16,6 @@ import type {
   GitHubAppInstallationsResult,
   PlatformApp,
   Project,
-  TokenRecord,
   UserDeployment,
   UserDeploymentsPage,
   UserProject,
@@ -174,21 +173,6 @@ export function camelProject(raw: unknown): Project {
     ownerBuilderId: Number(project.owner_builder_id),
     createdAt: Number(project.created_at),
     updatedAt: Number(project.updated_at),
-  };
-}
-
-export function camelTokenRecord(raw: unknown): TokenRecord {
-  const t = (raw ?? {}) as Record<string, any>;
-  return {
-    id: Number(t.id),
-    scope: t.scope ?? null,
-    appId: t.app_id ?? null,
-    tokenHashPrefix: t.token_hash_prefix ?? "",
-    createdAt: t.created_at ?? null,
-    lastUsedAt: t.last_used_at ?? null,
-    revokedAt: t.revoked_at ?? null,
-    appsUsage: t.apps_usage ?? null,
-    platformUsage: t.platform_usage ?? null,
   };
 }
 
