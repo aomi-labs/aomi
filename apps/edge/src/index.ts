@@ -11,6 +11,8 @@ export { isManagerPath, resolveRoute } from "./routing/routes";
 export { edgeService, edgeTopologyName } from "./identity";
 export { handlePortalRequest, matchFamily, BACKEND_ROUTES } from "./portal/routes";
 export { portalContext, isPortalHost } from "./portal/context";
+export { handleBuildRequest, BUILD_ROUTES } from "./build/routes";
+export { buildContext, isBuildHost } from "./build/context";
 export { resolvePrincipal, PrincipalError } from "./portal/principal";
 export type { Principal } from "./portal/principal";
 

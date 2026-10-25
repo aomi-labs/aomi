@@ -6,6 +6,7 @@
  * unchanged (sign-in, the account graph, Better Auth, device auth).
  */
 import { edgeService } from "../identity";
+import { passThrough as passThroughTo } from "../passthrough";
 import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
 import { isManagerPath } from "../routing/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
@@ -553,32 +554,8 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
 }
 
 /** Everything else: the Vercel portal serves it, cookies and all. */
-export async function passThrough(request: Request, ctx: PortalContext): Promise<Response> {
-  const incoming = new URL(request.url);
-  const target = new URL(`${incoming.pathname}${incoming.search}`, ctx.upstreamOrigin);
-  const headers = new Headers(request.headers);
-  headers.set("x-forwarded-host", incoming.host);
-  headers.set("x-forwarded-proto", incoming.protocol.replace(":", ""));
-  const clientIp = request.headers.get("cf-connecting-ip");
-  if (clientIp) {
-    headers.set("x-real-ip", clientIp);
-    const existing = request.headers.get("x-forwarded-for");
-    headers.set("x-forwarded-for", existing ? `${existing}, ${clientIp}` : clientIp);
-  }
-  const init: RequestInit & { duplex?: "half" } = { method: request.method, headers, redirect: "manual" };
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = request.body;
-    init.duplex = "half";
-  }
-  try {
-    return await ctx.fetchImpl(new Request(target, init), { cache: "no-store" });
-  } catch (error) {
-    console.error("edge.portal.passthrough_unreachable", {
-      path: incoming.pathname,
-      cause: String((error as Error | undefined)?.message ?? error),
-    });
-    return Response.json({ error: "upstream_unavailable" }, { status: 502 });
-  }
+export function passThrough(request: Request, ctx: PortalContext): Promise<Response> {
+  return passThroughTo(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal");
 }
 
 /** Serve one request on the portal surface. */
