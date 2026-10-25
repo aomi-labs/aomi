@@ -823,23 +823,20 @@ describe("operateUsageRoute statement fallback", () => {
     expect(body.statement.revenue[0].application).toBe("real-bot");
   });
 
-  it.skip("deduplicates a recipient-bucket settlement shared by two projects", async () => {
+  it("deduplicates a recipient-bucket settlement shared by two projects", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([
       { id: 900, repositoryLink: "o/one", apps: [] },
       { id: 901, repositoryLink: "o/two", apps: [] },
     ]);
-    client.getUserProjectUsage.mockImplementation(({ projectId }) =>
-      Promise.resolve({
-        ...emptyUsage,
-        project: { id: projectId },
-      }),
+    client.getUserUsage.mockResolvedValue(
+      [900, 901].map((id) => ({ ...emptyUsage, project: { id } })),
     );
     const payment = sharedSettlementPayments();
     payment.buckets[0].outstandingCredits = 25;
-    client.getUserProjectStatement.mockImplementation(({ projectId }) =>
-      Promise.resolve({
-        project: { id: projectId },
+    client.getUserStatements.mockResolvedValue(
+      [900, 901].map((id) => ({
+        project: { id },
         platform: "community",
         range: { fromDate: "2026-07-01", toDate: "2026-07-15" },
         available: true,
@@ -853,7 +850,7 @@ describe("operateUsageRoute statement fallback", () => {
         charges: [],
         entries: [],
         payments: payment,
-      }),
+      })),
     );
 
     const res = await operateUsageRoute(usageReq());
