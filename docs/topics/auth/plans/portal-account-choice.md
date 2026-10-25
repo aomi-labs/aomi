@@ -22,26 +22,46 @@ Changed sessions fail with `portal_session_changed`; the user must restart.
 Expiry, replay and revoked bindings fail closed. Keeping the portal account does
 not relink the incoming wallet, alter a balance or create another portal session.
 
-The existing OAuth authorization/consent and PKCE/DPoP exchange still follow this
-choice. This patch does not turn an OAuth grant into a Fuzzer account session or
-implement portal-only navigation. Hosts must adopt the selected authenticated
-principal, clear their prior account's transport/cache state, and scope saved
-campaigns to their original canonical owner. They must never resume the prior
-account's campaign under the new account. A connected signing wallet is separate
-from the selected Aomi account. In particular, the current SDK grant-manager
-`subject` is a caller-provided cache partition, not proof of the selected account;
-hosts must not use it to infer the authenticated principal after switching.
+The existing OAuth consent and PKCE/DPoP exchange follow this choice. The browser
+SDK verifies the issuer, audience and signed canonical-account claim and exposes
+`grant.accountId`. Refresh cannot change that account. `subject` remains only a
+caller cache partition. Hosts must dispose prior transports and isolate saved
+campaigns before adopting a different account.
 
-Deploy the Portal page and shared account package together: redemption now
-requires an explicit choice and preview. Stale open pages fail safely and must
-reopen the handoff. No database migration, payment writer, account merge or
-production configuration is changed.
+The Fuzzer companion integrates both choices and first-party account/credits
+navigation. `expectedAccount` prevents a raced Portal identity from silently
+opening another account's checkout. The two thread setup POST routes accept the
+same Agent write grant as campaign requests; unrelated routes remain closed.
 
-Local verification: 18 shared-auth tests and 7 rendered Portal component tests
-cover both choices, signed-out and matching sessions, cancellation, origin/window
-binding, revocation, one-time consumption and session changes during confirmation.
-Browser-provider integration and the actual Fuzzer account transition remain
-separate acceptance checks; mocked tests do not establish those outcomes.
+Browser acceptance found and fixed three problems: bootstrap policy incorrectly
+excluded offline_access; native browser fetch was called with an options-object
+receiver; Next's internal host differed from the configured public DPoP URL.
+Proof verification uses the configured origin, never forwarded host headers.
 
-Shared package builds, Portal and account type checks, frontend boundary checks,
-and isolated SDK consumer compatibility checks also passed.
+Deploy Portal and account together. Publish client 0.11.2 and the corresponding
+React/widget release before merging the dependent Fuzzer update. No account
+merge, financial migration or production configuration changes are included.
+
+## Reproduce the local browser acceptance
+
+Use a disposable loopback Postgres database. Set ACCOUNT_CHOICE_DATABASE_URL and
+AOMI_TEST_DATABASE_DISPOSABLE=1. Apply the existing browser-contract migration
+with that URL as DATABASE_URL. In separate terminals in this checkout run:
+
+```sh
+pnpm exec tsx tests/e2e/fuzzer-account-choice-portal.ts
+pnpm exec tsx tests/e2e/fuzzer-account-choice-fixtures.ts
+```
+
+In the companion Fuzzer checkout, install the candidate SDK packages, set
+AOMI_WIDGET_ROOT to this checkout, then run Vite with
+`apps/web/tests/account-choice.vite.ts` from apps/web. Open
+http://127.0.0.1:3420/account-choice.html. The fixtures use deterministic test
+wallets and real Better Auth, managed-client policy, PKCE, DPoP and canonical
+identity resolution. The Agent upstream is a fixture that verifies delegated
+BFF assertions, not the production execution backend. The upstream prints its
+loopback URL; /__records contains redacted principal evidence.
+
+See the companion's docs/evidence/account-choice for the browser matrix,
+screenshots and safe principal evidence. No live credentials or payments are
+used. Full deployed Fuzzer/Arc campaign acceptance remains a release gate.

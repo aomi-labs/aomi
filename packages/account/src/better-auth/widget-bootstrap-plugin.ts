@@ -261,7 +261,7 @@ async function validateHandoff(body: z.infer<typeof handoffSchema>) {
     ticket.scopes.some(
       (scope) =>
         !client.scopes.includes(scope) ||
-        !resourcePolicy.allowedScopes.includes(scope),
+        !resourcePolicy.grantableScopes.includes(scope),
     )
   ) {
     throw unauthorized("oauth_client_policy_changed");

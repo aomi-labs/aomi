@@ -9,6 +9,8 @@ import {
 } from "./authorization";
 import {
   SignJWT,
+  createLocalJWKSet,
+  jwtVerify,
   calculateJwkThumbprint,
   exportJWK,
   generateKeyPair,
@@ -38,7 +40,9 @@ export type AomiBrowserGrantOptions = {
   portalBaseUrl: string;
   clientId: string;
   redirectUri: string;
-  getWidgetBearer: () => Promise<string | null | undefined>;
+  getWidgetBearer?: () => Promise<string | null | undefined>;
+  /** Host may retain its pre-opened popup for account/credit management. */
+  closePopup?: boolean;
   subject?: string;
   store?: AomiOAuthGrantStore;
   fetch?: typeof fetch;
@@ -197,6 +201,39 @@ export async function createAomiBrowserGrantManager(
     string,
     Awaited<ReturnType<typeof createDpopSigner>>
   >();
+  let accountId: string | undefined;
+  async function verified(grant: AomiOAuthGrant): Promise<AomiOAuthGrant> {
+    const response = await fetchImpl(metadata.jwks_uri, {
+      credentials: "omit",
+    });
+    if (!response.ok)
+      throw new AomiOAuthError(
+        "invalid_grant",
+        "Cannot verify the selected account",
+      );
+    const { payload } = await jwtVerify(
+      grant.accessToken,
+      createLocalJWKSet(await response.json()),
+      {
+        issuer: metadata.issuer,
+        audience: grant.resource,
+      },
+    );
+    const selected = payload["https://aomi.dev/canonical_user_id"];
+    if (
+      typeof selected !== "string" ||
+      !selected ||
+      payload["https://aomi.dev/principal_class"] !== "user" ||
+      (accountId && accountId !== selected)
+    ) {
+      throw new AomiOAuthError(
+        "account_changed",
+        "Sign in again to use the selected Aomi account",
+      );
+    }
+    accountId = selected;
+    return { ...grant, accountId };
+  }
   const manager = createAomiOAuthGrantManager({
     issuer: metadata.issuer,
     clientId: input.clientId,
@@ -213,7 +250,7 @@ export async function createAomiBrowserGrantManager(
         dpopProof: signer.proof,
       });
       dpopByResource.set(request.resource, signer);
-      return grant;
+      return verified(grant);
     },
     refresh: async (grant, request) => {
       const signer = dpopByResource.get(grant.resource);
@@ -223,14 +260,16 @@ export async function createAomiBrowserGrantManager(
           "The in-memory DPoP key for this browser grant is unavailable",
         );
       }
-      return refreshAomiOAuthGrant({
-        metadata,
-        grant,
-        request,
-        fetch: fetchImpl,
-        now: input.now,
-        dpopProof: signer.proof,
-      });
+      return verified(
+        await refreshAomiOAuthGrant({
+          metadata,
+          grant,
+          request,
+          fetch: fetchImpl,
+          now: input.now,
+          dpopProof: signer.proof,
+        }),
+      );
     },
     revoke: (grant) =>
       revokeAomiOAuthGrant({ metadata, grant, fetch: fetchImpl }),
@@ -280,57 +319,71 @@ export async function acquireAomiBrowserGrant(
     throw new AomiOAuthError("popup_blocked", "OAuth popup was blocked");
 
   try {
-    const ready = await waitForPopupReady({
-      popup,
-      portalOrigin: portal.origin,
-      signal: input.signal,
-      timeoutMs: input.timeoutMs,
-    });
-    const widgetBearer = await input.getWidgetBearer();
-    if (!widgetBearer) {
-      throw new AomiOAuthError(
-        "widget_session_required",
-        "An authenticated widget session is required",
-      );
-    }
-    const ticketResponse = await (input.fetch ?? fetch)(
-      new URL("/api/auth/widget/oauth-bootstrap", portal),
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${widgetBearer}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          client_id: input.clientId,
-          redirect_uri: redirect.toString(),
-          code_challenge: codeChallenge,
-          code_challenge_method: "S256",
-          resource: input.request.resource,
-          scope: input.request.scopes.join(" "),
-          state,
-          channel_nonce: ready.channelNonce,
-        }),
+    if (input.getWidgetBearer) {
+      const ready = await waitForPopupReady({
+        popup,
+        portalOrigin: portal.origin,
         signal: input.signal,
-      },
-    );
-    const ticketBody = await jsonRecord(ticketResponse);
-    if (!ticketResponse.ok) {
-      throw oauthResponseError("bootstrap_ticket_failed", ticketBody);
-    }
-    popup.postMessage(
-      {
-        type: "aomi.oauth.bootstrap.ticket",
-        origin: window.location.origin,
-        ticket: requiredString(ticketBody.ticket, "ticket"),
-        state,
-        clientId: input.clientId,
+        timeoutMs: input.timeoutMs,
+      });
+      const widgetBearer = await input.getWidgetBearer();
+      if (!widgetBearer) {
+        throw new AomiOAuthError(
+          "widget_session_required",
+          "An authenticated widget session is required",
+        );
+      }
+      const ticketResponse = await (input.fetch ?? fetch)(
+        new URL("/api/auth/widget/oauth-bootstrap", portal),
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${widgetBearer}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: input.clientId,
+            redirect_uri: redirect.toString(),
+            code_challenge: codeChallenge,
+            code_challenge_method: "S256",
+            resource: input.request.resource,
+            scope: input.request.scopes.join(" "),
+            state,
+            channel_nonce: ready.channelNonce,
+          }),
+          signal: input.signal,
+        },
+      );
+      const ticketBody = await jsonRecord(ticketResponse);
+      if (!ticketResponse.ok) {
+        throw oauthResponseError("bootstrap_ticket_failed", ticketBody);
+      }
+      popup.postMessage(
+        {
+          type: "aomi.oauth.bootstrap.ticket",
+          origin: window.location.origin,
+          ticket: requiredString(ticketBody.ticket, "ticket"),
+          state,
+          clientId: input.clientId,
+          resource: input.request.resource,
+          scopes: [...input.request.scopes],
+        },
+        portal.origin,
+      );
+    } else {
+      const authorize = new URL(input.metadata.authorization_endpoint);
+      authorize.search = new URLSearchParams({
+        response_type: "code",
+        client_id: input.clientId,
+        redirect_uri: redirect.toString(),
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
         resource: input.request.resource,
-        scopes: [...input.request.scopes],
-      },
-      portal.origin,
-    );
-
+        scope: input.request.scopes.join(" "),
+        state,
+      }).toString();
+      popup.location.href = authorize.toString();
+    }
     const callback = await waitForPopupCallback({
       popup,
       redirectUri: redirect.toString(),
@@ -369,7 +422,7 @@ export async function acquireAomiBrowserGrant(
       dpopProof: input.dpopProof,
     };
   } finally {
-    if (!popup.closed) popup.close();
+    if (input.closePopup !== false && !popup.closed) popup.close();
   }
 }
 
@@ -698,8 +751,10 @@ async function fetchTokenWithDpopNonce(input: {
   proof: NonNullable<AomiOAuthGrant["dpopProof"]>;
   signal?: AbortSignal;
 }): Promise<Response> {
+  // Native browser fetch must not receive our options object as its receiver.
+  const fetchImpl = input.fetch;
   const attempt = async (nonce?: string) =>
-    input.fetch(input.endpoint, {
+    fetchImpl(input.endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
@@ -732,6 +787,12 @@ function waitForPopupReady(input: {
         ),
       input.timeoutMs ?? 120_000,
     );
+    const closed = setInterval(() => {
+      if (input.popup.closed)
+        finish(() =>
+          reject(new AomiOAuthError("access_denied", "OAuth popup was closed")),
+        );
+    }, 200);
     const onAbort = () =>
       finish(() => reject(input.signal?.reason ?? new Error("aborted")));
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -752,6 +813,7 @@ function waitForPopupReady(input: {
     };
     const finish = (done: () => void) => {
       clearTimeout(timeout);
+      clearInterval(closed);
       window.removeEventListener("message", onMessage);
       input.signal?.removeEventListener("abort", onAbort);
       done();

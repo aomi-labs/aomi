@@ -370,8 +370,32 @@ export function PortalAomiFrame() {
   );
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [initialTopUp, setInitialTopUp] = useState(false);
+  const [handoffMismatch, setHandoffMismatch] = useState(false);
   useEffect(() => {
     const url = new URL(window.location.href);
+    const expected = url.searchParams.get("expectedAccount");
+    if (expected) {
+      if (
+        account === undefined ||
+        isReady === false ||
+        accountStatus === "loading"
+      )
+        return;
+      url.searchParams.delete("expectedAccount");
+      if (account?.id !== expected) {
+        url.searchParams.delete("topup");
+        url.searchParams.delete("settings");
+        window.history.replaceState(null, "", url);
+        setHandoffMismatch(true);
+        return;
+      }
+    }
+    if (url.searchParams.get("settings") === "account") {
+      setSettingsTab("account");
+      setOverlay("settings");
+      url.searchParams.delete("settings");
+      window.history.replaceState(null, "", url);
+    }
     if (url.searchParams.get("topup") !== "credits") return;
     setInitialTopUp(true);
     setSettingsTab("usage");
@@ -379,7 +403,7 @@ export function PortalAomiFrame() {
     // Settings retains the request through its existing sign-in gate.
     url.searchParams.delete("topup");
     window.history.replaceState(null, "", url);
-  }, []);
+  }, [account, isReady, accountStatus]);
   const [walletAccountMenu, setWalletAccountMenu] =
     useState<WalletAccountMenuOptions>();
   const openSettings = useCallback((tab: SettingsTab) => {
@@ -441,6 +465,22 @@ export function PortalAomiFrame() {
       data-testid="portal-shell"
       className="bg-background relative h-full w-full overflow-hidden"
     >
+      {handoffMismatch && (
+        <div
+          role="alert"
+          className="bg-background border-border absolute inset-x-4 top-4 z-50 rounded-xl border p-4 shadow-lg"
+        >
+          Your Aomi account changed while opening this page. Return to the
+          Fuzzer and choose an account again before adding credits.
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => setHandoffMismatch(false)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div data-testid="portal-frame-content" className="h-full w-full">
         <AomiFrame.Root
           products={DEFAULT_SIDEBAR_PRODUCTS}

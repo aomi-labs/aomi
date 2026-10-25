@@ -203,15 +203,22 @@ async function oauthRequestPrincipal(
   resourceClient ??= oauthProviderResourceClient(auth).getActions();
   let claims: JWTPayload;
   try {
-    claims = await resourceClient.verifyAccessTokenRequest(request, {
-      // Pass both values explicitly: the helper otherwise rebuilds the JWKS
-      // URL from Better Auth's base path, which separately published 1.7
-      // peers can apply twice.
-      jwksUrl: `${issuer}/jwks`,
-      verifyOptions: { audience: resource, issuer },
-      requiredScopes: [...requiredScopes],
-      dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
-    });
+    const publicUrl = new URL(request.url);
+    const portal = new URL(aomiOAuthResources().portalOrigin);
+    publicUrl.protocol = portal.protocol;
+    publicUrl.host = portal.host;
+    claims = await resourceClient.verifyAccessTokenRequest(
+      new Request(publicUrl, request.clone()),
+      {
+        // Pass both values explicitly: the helper otherwise rebuilds the JWKS
+        // URL from Better Auth's base path, which separately published 1.7
+        // peers can apply twice.
+        jwksUrl: `${issuer}/jwks`,
+        verifyOptions: { audience: resource, issuer },
+        requiredScopes: [...requiredScopes],
+        dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
+      },
+    );
   } catch (error) {
     const status = Number((error as { status?: unknown })?.status);
     const code = String((error as { code?: unknown })?.code ?? "");

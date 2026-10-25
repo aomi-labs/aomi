@@ -47,6 +47,7 @@ vi.mock("./oauth-policy", () => ({
   aomiOAuthResourcePolicy: () => ({
     kind: "accountRest",
     allowedScopes: ["account:credits:read"],
+    grantableScopes: ["account:credits:read", "offline_access"],
   }),
 }));
 vi.mock("../widget-auth/oauth-bootstrap", async (original) => ({
@@ -66,7 +67,7 @@ const ticket = {
   redirectUri: "https://fuzzer.example/callback",
   codeChallenge: "a".repeat(43),
   resource: "https://portal.example/v1/account",
-  scopes: ["account:credits:read"],
+  scopes: ["account:credits:read", "offline_access"],
   stateDigest: sha256Hex("state-state-state"),
   channelNonceDigest: sha256Hex("channel-channel-channel"),
 };
@@ -240,6 +241,20 @@ describe("account choice at the widget handoff", () => {
     mocks.read.mockResolvedValue({ ...ticket, providerIdentityId: "removed" });
     await expect(preview(context())).rejects.toThrow(
       "invalid_widget_session_binding",
+    );
+  });
+  it("accepts offline_access while rejecting scopes outside the resource policy", async () => {
+    await expect(preview(context())).resolves.toBeDefined();
+    mocks.read.mockResolvedValue({
+      ...ticket,
+      scopes: [...ticket.scopes, "account:credentials:write"],
+    });
+    mocks.client.mockResolvedValue({
+      ...(await mocks.client()),
+      scopes: [...ticket.scopes, "account:credentials:write"],
+    });
+    await expect(preview(context())).rejects.toThrow(
+      "oauth_client_policy_changed",
     );
   });
   it("rejects client disablement after preview", async () => {
