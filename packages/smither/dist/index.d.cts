@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BackendClient, ListDeploymentRecordsResult } from '@aomi-labs/deploy';
+import { ListDeploymentRecordsInput, ListDeploymentRecordsResult, PromoteInput, PromoteResult } from '@aomi-labs/deploy';
 import { AgentLike, CreateSmithersApi, SmithersEvent, RunResult } from 'smithers-orchestrator';
 
 type CommandResult = {
@@ -1502,7 +1502,15 @@ declare function distillIntent(options: {
     runner?: CommandRunner;
 }): Promise<IntentDraft>;
 
-type RollbackClient = Pick<BackendClient, "listDeploymentRecords" | "promote">;
+/**
+ * The two manager calls a rollback needs. Written out rather than picked from
+ * `BackendClient` so the published typings name only `@aomi-labs/deploy` types;
+ * `@aomi-labs/internal` is private and bundled, never a dependency.
+ */
+type RollbackClient = {
+    listDeploymentRecords(input: ListDeploymentRecordsInput): Promise<ListDeploymentRecordsResult>;
+    promote(input: PromoteInput): Promise<PromoteResult>;
+};
 type RollbackTarget = {
     deploymentId: string;
     releaseTag: string;
@@ -1531,7 +1539,7 @@ declare function rollbackClientFromEnv(options: {
     env?: NodeJS.ProcessEnv;
     activationToken?: string;
     backendUrl?: string;
-}): Promise<BackendClient>;
+}): Promise<RollbackClient>;
 
 declare const packageRoot: string;
 declare const defaultRunsRoot: string;

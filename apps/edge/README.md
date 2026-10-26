@@ -47,6 +47,29 @@ venue-specific URL.
   - `forward.ts`, `cors.ts`, `csrf.ts`: the header policies, open-widget CORS
     and the cookie CSRF rule, copied from `@aomi-labs/account`.
 
+- `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
+  host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
+  login (`/api/bff/cli/*`), builder credits (`/v1/builder/credits/**`), the
+  anonymous GitHub App install start and the launch, deployments and operate
+  control-plane families (`/api/bff/{launch,deployments,operate}/**`);
+  everything else passes through to `BUILD_UPSTREAM_ORIGIN` (the Vercel Build
+  app) unchanged: the build sandbox, integrations and local-only helpers.
+  - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
+    `aomi_github_oauth_request` cookies and the CLI bearer, signed with
+    `BUILD_SESSION_SECRET` (HS256, and a JWE for the PKCE exchange code).
+    Same cookie names, audiences, claims and lifetimes as the Build BFF, so
+    cookies issued by either side verify on the other during the cutover.
+  - `manager.ts`: the GitHub code exchange and project claim, called as the
+    `aomi-edge` service.
+  - `deploy.ts`, `operate.ts`: the launch, deployments and operate route
+    logic ported from the Build BFF with its validation, ownership checks,
+    15s read caches and fan-out limits. The manager is called through
+    `@aomi-labs/internal` (`ManagerClient`, the former `@aomi-labs/deploy`
+    `BackendClient`) with a five-minute `aomi-edge` service bearer; failures
+    answer with the same `{ error, code?, retryable?, deployError? }` bodies.
+  - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
+    (local only) and `internal/sentry-smoke`.
+
 The Vercel route files for the moved families stay until cutover day and are
 deleted in one PR; until then both serve the same requests the same way.
 
@@ -80,12 +103,15 @@ efficiency follow-up, not a payment execution path.
 ## Deploying
 
 `scripts/deploy.mjs <staging|production>` runs `wrangler deploy` with
-`BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN` and
-`PORTAL_UPSTREAM_ORIGIN` taken from the deploy environment. product-mono's deploy pipeline derives those from its
+`BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+`PORTAL_UPSTREAM_ORIGIN` and `BUILD_UPSTREAM_ORIGIN` taken from the deploy environment. product-mono's deploy pipeline derives those from its
 Terraform inventory and exports them before calling this script. Secrets:
-`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`).
+`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
+`BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
+GitHub sessions survive the cutover) and `BUILD_GITHUB_TOKEN` (Build's
+`GITHUB_TOKEN`, read access for the release-manifest secret gate).
 
-## Portal host prerequisites
+## Portal and Build host prerequisites
 
 The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev/api/*`, `/v1/*`,
 `/.well-known/*`) only take effect when that hostname is proxied by Cloudflare
@@ -94,3 +120,7 @@ Worker. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the
 public host, or the Worker would call itself. The portal's `AOMI_TRUSTED_ORIGINS`
 must include the public host so Better Auth accepts requests whose `Host` is
 the Vercel alias.
+
+The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
+`BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays
+`https://<build host>/api/bff/auth/github/callback`, which the edge now answers.

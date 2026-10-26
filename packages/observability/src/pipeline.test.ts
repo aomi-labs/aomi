@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackendError, DeployError } from "@aomi-labs/deploy";
-import { RequiredSecretsCheckError } from "@aomi-labs/deploy/bff";
+import { RequiredSecretsCheckError } from "@aomi-labs/internal";
 
 const sentry = vi.hoisted(() => ({
   captureException: vi.fn(),

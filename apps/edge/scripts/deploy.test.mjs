@@ -10,6 +10,7 @@ describe("edge deploy script", () => {
         API_SERVER_ORIGIN: "https://agent.example",
         PAYMENT_ORIGIN: "https://payment.example",
         PORTAL_UPSTREAM_ORIGIN: "https://chat-portal.vercel.example",
+        BUILD_UPSTREAM_ORIGIN: "https://build.vercel.example",
       }),
     ).toEqual([
       "wrangler",
@@ -24,6 +25,8 @@ describe("edge deploy script", () => {
       "PAYMENT_ORIGIN:https://payment.example",
       "--var",
       "PORTAL_UPSTREAM_ORIGIN:https://chat-portal.vercel.example",
+      "--var",
+      "BUILD_UPSTREAM_ORIGIN:https://build.vercel.example",
     ]);
   });
 

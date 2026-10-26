@@ -6,6 +6,7 @@
  * unchanged (sign-in, the account graph, Better Auth, device auth).
  */
 import { edgeService } from "../identity";
+import { passThrough as passThroughTo } from "../passthrough";
 import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
 import { isManagerPath } from "../routing/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
@@ -26,7 +27,12 @@ import {
   sessionScopesOn,
   type Need,
 } from "./policy";
-import { PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import {
+  isOAuthCredential,
+  PrincipalError,
+  resolvePrincipal,
+  type Principal,
+} from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
@@ -196,6 +202,29 @@ async function toBackend(call: Call, path: string): Promise<Response> {
   throw lastError;
 }
 
+/**
+ * A raw backend bearer for a browser that calls the Rust backend cross-origin
+ * itself (NEXT_PUBLIC_BACKEND_URL set to another origin). The former Vercel
+ * route minted this as `aomi-bff`; hosted backends now trust `aomi-edge` only.
+ */
+async function accountBearer(call: Call): Promise<Response> {
+  const { principal, ctx, request } = call;
+  if (principal.kind === "none" || principal.kind === "oauth")
+    throw new PrincipalError(401, "unauthenticated");
+  const { accessToken, expiresAt } = await mintBearer(() =>
+    edgeService(ctx.env, hostOf(request)).mint({
+      role: "user",
+      subject: principal.accountId,
+      audience: "aomi-backend",
+      ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
+    }),
+  );
+  return Response.json(
+    { bearer: accessToken, expires_at: expiresAt },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
+
 function appCatalogPlatforms(ctx: PortalContext): string[] {
   return [
     ...new Set(
@@ -345,6 +374,13 @@ const commit = (request: Request, ctx: PortalContext): Need => ({
   scopes: [request.method === "GET" ? "agent:read" : "agent:actions:resolve"],
 });
 const chat: Need = { capability: "chat", anonymous: true };
+/** An OAuth client (the fuzzer) needs Agent write to change a thread's model or world. */
+const threadWrite =
+  (fallback: Need = chat) =>
+  (request: Request, ctx: PortalContext): Need =>
+    isOAuthCredential(request)
+      ? { resource: ctx.resources.agentRest, scopes: ["agent:write"] }
+      : fallback;
 
 /** The Rust /api routes the portal forwards. Anything else is a 404. */
 export const BACKEND_ROUTES: readonly BackendRoute[] = [
@@ -373,8 +409,8 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
   { path: /^\/api\/thread\/apps$/, methods: ["GET"], need: chat },
   { path: /^\/api\/thread\/models$/, methods: ["GET"], need: "public" },
   { path: /^\/api\/resource\/skills(?:\/[^/]+)?$/, methods: ["GET"], need: chat },
-  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: chat },
-  { path: /^\/api\/thread\/sim\/world$/, methods: ["POST"], need: { capability: "chat" } },
+  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: threadWrite() },
+  { path: /^\/api\/thread\/sim\/world$/, methods: ["POST"], need: threadWrite({ capability: "chat" }) },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
   {
     path: /^\/api\/widget\/v1\/execution-profile$/,
@@ -486,6 +522,12 @@ const FAMILIES = {
     "pipeline:catalog",
     "offline_access",
   ]),
+  bearer: (): Family => ({
+    operation: "account.bearer",
+    methods: ["GET"],
+    need: () => ({ capability: "backend_bearer" }),
+    handle: accountBearer,
+  }),
   delegationBegin: (provider: "privy" | "para") => (): Family => ({
     operation: `delegation.${provider}.begin`,
     methods: ["POST"],
@@ -507,6 +549,7 @@ export function matchFamily(url: URL): ((ctx: PortalContext) => Family) | null {
   if (/^\/v1\/account\/credits(?:\/(?:methods|ledger))?$/.test(pathname)) return FAMILIES.credits;
   if (FUNDING_EVENT_PATH.test(pathname)) return FAMILIES.fundingEvents;
   if (pathname === "/v1/account/statement") return FAMILIES.statement;
+  if (pathname === "/v1/account/bearer") return FAMILIES.bearer;
   if (pathname === "/v1/account/apps" || pathname.startsWith("/v1/account/apps/"))
     return FAMILIES.accountApps;
   if (
@@ -553,32 +596,8 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
 }
 
 /** Everything else: the Vercel portal serves it, cookies and all. */
-export async function passThrough(request: Request, ctx: PortalContext): Promise<Response> {
-  const incoming = new URL(request.url);
-  const target = new URL(`${incoming.pathname}${incoming.search}`, ctx.upstreamOrigin);
-  const headers = new Headers(request.headers);
-  headers.set("x-forwarded-host", incoming.host);
-  headers.set("x-forwarded-proto", incoming.protocol.replace(":", ""));
-  const clientIp = request.headers.get("cf-connecting-ip");
-  if (clientIp) {
-    headers.set("x-real-ip", clientIp);
-    const existing = request.headers.get("x-forwarded-for");
-    headers.set("x-forwarded-for", existing ? `${existing}, ${clientIp}` : clientIp);
-  }
-  const init: RequestInit & { duplex?: "half" } = { method: request.method, headers, redirect: "manual" };
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = request.body;
-    init.duplex = "half";
-  }
-  try {
-    return await ctx.fetchImpl(new Request(target, init), { cache: "no-store" });
-  } catch (error) {
-    console.error("edge.portal.passthrough_unreachable", {
-      path: incoming.pathname,
-      cause: String((error as Error | undefined)?.message ?? error),
-    });
-    return Response.json({ error: "upstream_unavailable" }, { status: 502 });
-  }
+export function passThrough(request: Request, ctx: PortalContext): Promise<Response> {
+  return passThroughTo(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal");
 }
 
 /** Serve one request on the portal surface. */

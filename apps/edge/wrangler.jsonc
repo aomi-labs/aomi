@@ -15,7 +15,9 @@
         { "pattern": "api-staging.aomi.dev/*", "zone_name": "aomi.dev" },
         { "pattern": "chat-staging.aomi.dev/api/*", "zone_name": "aomi.dev" },
         { "pattern": "chat-staging.aomi.dev/v1/*", "zone_name": "aomi.dev" },
-        { "pattern": "chat-staging.aomi.dev/.well-known/*", "zone_name": "aomi.dev" }
+        { "pattern": "chat-staging.aomi.dev/.well-known/*", "zone_name": "aomi.dev" },
+        { "pattern": "build-staging.aomi.dev/api/*", "zone_name": "aomi.dev" },
+        { "pattern": "build-staging.aomi.dev/v1/*", "zone_name": "aomi.dev" }
       ],
       // The Task discovery challenge cache. Create once per environment with
       // `wrangler kv namespace create EDGE_CACHE --env staging` and paste the id;
@@ -35,7 +37,14 @@
         // alias) comes from the deploy environment like the other origins.
         "PORTAL_HOSTS": "chat-staging.aomi.dev",
         "APP_CATALOG_PLATFORMS": "",
-        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
+        // The Build surface. BUILD_UPSTREAM_ORIGIN (Build's Vercel alias) comes
+        // from the deploy environment; BUILD_SESSION_SECRET is a Wrangler secret.
+        // BUILD_SESSION_SECRET and BUILD_GITHUB_TOKEN are Wrangler secrets.
+        "BUILD_HOSTS": "build-staging.aomi.dev",
+        "APP_DEPLOY_PLATFORMS": "",
+        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
+        "BUILD_CREATED_REPO_PRIVATE": "false",
+        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,build-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
         // Exact browser origins allowed to read Task challenges without credentials.
         // They receive no CORS access to the general /api routes.
         "TASK_CORS_PUBLIC_ORIGINS": "https://stableops.dev"
@@ -53,6 +62,11 @@
         "EDGE_TOPOLOGY": "production",
         "PORTAL_HOSTS": "",
         "APP_CATALOG_PLATFORMS": "",
+        // build.aomi.dev routes are added at cutover once the host is proxied by Cloudflare.
+        "BUILD_HOSTS": "",
+        "APP_DEPLOY_PLATFORMS": "",
+        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
+        "BUILD_CREATED_REPO_PRIVATE": "false",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
       }
     }

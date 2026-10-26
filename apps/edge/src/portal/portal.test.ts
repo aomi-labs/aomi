@@ -389,6 +389,65 @@ describe("portal surface: widget sessions", () => {
 });
 
 describe("portal surface: OAuth tokens", () => {
+  describe.each(["/api/thread/model", "/api/thread/sim/world"])("Fuzzer setup %s", (path) => {
+    it.each([false, true])("forwards Agent write for guest=%s with the canonical account", async (guest) => {
+      const token = await oauthToken({ sub: guest ? "guest" : "user", guest, scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+      const body = JSON.stringify({ forks: [{ chain_id: 5042002, overrides: [] }] });
+      const response = await portal(`${path}?user_state=%7B%7D`, {
+        method: "POST",
+        origin: PARTNER,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "x-session-id": "seed-thread" },
+        body,
+      });
+      expect(response.status).toBe(200);
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatchObject({
+        url: `${BACKEND}${path}?user_state=%7B%7D`,
+        method: "POST",
+        body,
+        headers: { "x-thread-id": "seed-thread", "x-session-id": "seed-thread" },
+      });
+      expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: guest ? "acct-guest" : "acct-user", aud: "aomi-backend" });
+    });
+
+    it("binds DPoP to the public URL despite spoofed forwarding headers", async () => {
+      const key = await generateKeyPair("ES256");
+      const jwk = await exportJWK(key.publicKey);
+      const token = await oauthToken({
+        sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent`,
+        cnf: { jkt: await calculateJwkThumbprint(jwk) },
+      });
+      const proof = (origin: string) => new SignJWT({
+        htm: "POST", htu: `${origin}${path}`, jti: crypto.randomUUID(),
+        ath: Buffer.from(new Uint8Array(tokenHash)).toString("base64url"),
+      }).setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk }).setIssuedAt().sign(key.privateKey);
+      const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+      for (const [origin, status] of [[UPSTREAM, 401], [PORTAL, 200]] as const) {
+        const response = await portal(path, {
+          method: "POST",
+          headers: {
+            authorization: `DPoP ${token}`, dpop: await proof(origin),
+            host: "attacker.example", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "http",
+          },
+          body: "{}",
+        });
+        expect(response.status).toBe(status);
+      }
+      expect(seen).toHaveLength(1);
+      expect(seen[0].headers.dpop).toBeUndefined();
+    });
+
+    it("preserves anonymous, cookie and widget access rules", async () => {
+      const anonymous = await portal(path, { method: "POST", body: "{}" });
+      expect(anonymous.status).toBe(path === "/api/thread/model" ? 200 : 401);
+      const cookie = await portal(path, { method: "POST", origin: PARTNER, headers: { cookie: "session=user" }, body: "{}" });
+      expect(cookie.status).toBe(403);
+      const widget = await portal(path, { method: "POST", origin: PARTNER, headers: { authorization: "Bearer aomi_wst_user" }, body: "{}" });
+      expect(widget.status).toBe(200);
+    });
+  });
+
+
   it("verifies an access token against the portal JWKS and forwards an oauth-sourced bearer", async () => {
     const token = await oauthToken({
       sub: "user",
@@ -423,6 +482,36 @@ describe("portal surface: OAuth tokens", () => {
     expect(write.status).toBe(403);
     expect(write.headers.get("www-authenticate")).toContain('error="insufficient_scope"');
     expect(write.headers.get("www-authenticate")).toContain('scope="agent:write"');
+  });
+
+  it("requires Agent write from an OAuth client changing a thread's model or world", async () => {
+    const json = { "content-type": "application/json" };
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    for (const path of ["/api/thread/model", "/api/thread/sim/world"]) {
+      const denied = await portal(path, {
+        method: "POST",
+        headers: { authorization: `Bearer ${readOnly}`, ...json },
+        body: "{}",
+      });
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("www-authenticate")).toContain('scope="agent:write"');
+    }
+    expect(seen).toHaveLength(0);
+    const write = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    const allowed = await portal("/api/thread/model", {
+      method: "POST",
+      headers: { authorization: `Bearer ${write}`, ...json },
+      body: "{}",
+    });
+    expect(allowed.status).toBe(200);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    // Other backend controls stay closed to OAuth clients.
+    const unrelated = await portal("/api/exec/simulate", {
+      method: "POST",
+      headers: { authorization: `Bearer ${write}`, ...json },
+      body: "{}",
+    });
+    expect(unrelated.status).toBe(401);
   });
 
   it("holds guests to the resource's guest ceiling", async () => {
@@ -572,6 +661,31 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     });
     expect(settings.status).toBe(200);
     expect(seen[1].url).toBe(`${BACKEND}/api/account`);
+  });
+
+  it("mints the browser's raw backend bearer as aomi-edge for the portal's own sessions only", async () => {
+    const response = await portal("/v1/account/bearer", { headers: { cookie: "session=user" }, origin: PORTAL });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = (await response.json()) as { bearer: string; expires_at: number };
+    const { payload, protectedHeader } = await jwtVerify(body.bearer, edgePublicKey, { issuer: "aomi-edge" });
+    expect(payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend", role: "user" });
+    expect(protectedHeader.kid).toBe("aomi-edge-dev-1");
+    expect(body.expires_at).toBe(payload.exp);
+    expect(seen).toHaveLength(0);
+
+    // Any https site may embed the widget, so an embedded session never gets a raw token.
+    const widget = await portal("/v1/account/bearer", {
+      headers: { authorization: "Bearer aomi_wst_user" },
+      origin: PARTNER,
+    });
+    expect(widget.status).toBe(403);
+    expect(await widget.json()).toEqual({ error: "insufficient_scope" });
+    const oauth = await portal("/v1/account/bearer", {
+      headers: { authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read", aud: AGENT })}` },
+    });
+    expect(oauth.status).toBe(401);
+    expect(await portal("/v1/account/bearer", { method: "POST", origin: PORTAL })).toMatchObject({ status: 404 });
   });
 
   it("serves anonymous chat catalog reads without a bearer and keeps settings from guests", async () => {

@@ -19,6 +19,8 @@ import {
   type FetchLike,
   type WaitLike,
 } from "./routing/upstream";
+import { buildContext } from "./build/context";
+import { handleBuildRequest } from "./build/routes";
 import { portalContext } from "./portal/context";
 import { handlePortalRequest } from "./portal/routes";
 import { normaliseTaskBody } from "./task/body";
@@ -77,6 +79,8 @@ export async function handleRequest(
   // here, everything else reaches the Vercel portal unchanged.
   const portal = portalContext(request, env, fetchImpl);
   if (portal) return handlePortalRequest(request, portal);
+  const build = buildContext(request, env, fetchImpl);
+  if (build) return handleBuildRequest(request, build);
   let route = resolveRoute(url, env, routingKeyFor(request, url));
   if (!route) return notFound();
 

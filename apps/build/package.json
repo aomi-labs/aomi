@@ -18,6 +18,7 @@
     "@aomi-labs/observability": "workspace:*",
     "@aomi-labs/client": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
+    "@aomi-labs/internal": "workspace:*",
     "@aomi-labs/react": "workspace:*",
     "@aomi-labs/smither": "workspace:*",
     "@aomi-labs/widget": "workspace:*",

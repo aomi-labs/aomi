@@ -5,8 +5,8 @@ separated layers:
 
 | Entry                         | Runs in     | What it is                                                                                                                     |
 | ----------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@aomi-labs/deploy`           | server only | `BackendClient` — typed HTTP client holding the activation/service bearer                                                      |
-| `@aomi-labs/deploy/bff`       | server only | Helpers for a deploy BFF: error identification, release-manifest secret checks, project ownership, app status mapping           |
+| `@aomi-labs/deploy`           | any         | Wire types, errors, activation and secret helpers (the manager client moved to the workspace package `@aomi-labs/internal`)      |
+| `@aomi-labs/deploy/wire`      | any         | The request/response mappers shared with `@aomi-labs/internal`                                                                 |
 | `@aomi-labs/deploy/launch`    | browser     | Typed client for the BFF routes (launch + deployments console), wizard state machine, contracts, OAuth-callback result mapping |
 | `@aomi-labs/deploy/lifecycle` | browser     | Pure helpers projecting deploy records into dashboard state                                                                    |
 
@@ -31,15 +31,15 @@ Three steps:
 ### 1. Serve the BFF routes (server)
 
 The package ships no route handlers. Your server exposes the same-origin routes
-the browser client calls (`/api/bff/launch/*`, `/api/bff/auth/github/*`) over a
-`BackendClient`, so the activation token never reaches the browser. Aomi's Build
-app does this in `apps/build/src/server/bff/deploy/routes.ts`; `./bff` carries
-the pieces it shares (`identifyLaunchError`, release-manifest secret checks,
-`ownedProject`, `launchAppStatusesResult`).
+the browser client calls (`/api/bff/launch/*`, `/api/bff/auth/github/*`) over
+the manager client, so the activation token never reaches the browser. Inside
+the Aomi workspace that client is `ManagerClient` from `@aomi-labs/internal`
+(the edge Worker and the Build BFF both use it); it is not published, so an
+external server talks to the manager API directly with the wire types here.
 
 ```ts
-// lib/launch.ts (server-only module)
-import { BackendClient } from "@aomi-labs/deploy";
+// lib/launch.ts (server-only module, inside the Aomi workspace)
+import { ManagerClient as BackendClient } from "@aomi-labs/internal";
 
 export const client = () =>
   new BackendClient({

@@ -13,6 +13,8 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: true,
+    // @aomi-labs/internal is a private workspace package; bundle it.
+    noExternal: ["@aomi-labs/internal"],
     tsconfig: "tsconfig.json",
   },
   {
@@ -23,6 +25,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: false,
     clean: false,
+    noExternal: ["@aomi-labs/internal"],
     // Smithers persists runs via bun:sqlite, so the CLI prefers Bun.
     banner: { js: "#!/usr/bin/env bun" },
     tsconfig: "tsconfig.json",

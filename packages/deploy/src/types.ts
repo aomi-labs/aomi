@@ -95,6 +95,8 @@ export interface BackendClientOptions {
   aomi: AomiConfig;
   /** Called on every privileged op. The proxy should persist this. */
   onAudit?: (event: AuditEvent) => void | Promise<void>;
+  /** The fetch the client calls the manager with; defaults to the global one. */
+  fetch?: (input: Request | string | URL, init?: RequestInit) => Promise<Response>;
 }
 
 export interface ListSecretsInput extends BearerOverride {

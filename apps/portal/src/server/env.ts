@@ -26,21 +26,6 @@ export function agentApiUrl(): string {
   return "http://127.0.0.1:8082";
 }
 
-/** Account payments share the hosted edge; local development uses Payment's port. */
-export function paymentApiUrl(): string {
-  const configured = process.env.AOMI_PAYMENT_API_URL?.trim();
-  if (configured) {
-    const url = absoluteHttpUrl(configured);
-    if (!url)
-      throw new Error("AOMI_PAYMENT_API_URL must be an absolute HTTP URL");
-    return url;
-  }
-  const url = new URL(backendUrl());
-  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
-    url.port = "8085";
-  return url.origin;
-}
-
 export type DeploymentTier = "development" | "staging" | "production";
 
 /** Which Aomi environment this portal serves, judged by the backend it talks to. */
@@ -56,18 +41,6 @@ export function deploymentTier(): DeploymentTier {
 /** Origins whose cookie-carrying requests count as the portal itself. */
 export function portalOrigins(): string[] {
   return readAccountAuthEnv(process.env).trustedOrigins;
-}
-
-/** Platforms /api/thread/apps is filtered to when the caller names none. */
-export function appCatalogPlatforms(): string[] {
-  return [
-    ...new Set(
-      (process.env.APP_CATALOG_PLATFORMS ?? "")
-        .split(",")
-        .map((platform) => platform.trim())
-        .filter(Boolean),
-    ),
-  ];
 }
 
 /** The header the hosting edge overwrites with the client IP (AOMI_CLIENT_IP_HEADER). */

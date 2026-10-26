@@ -33,7 +33,10 @@ name = "aomi-edge"
 kid = "aomi-edge-staging-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
-public_key = ""
+public_key = """
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAp2rLxTgOY90OaTgc82S1Y4Olv8y1mDpOuDChxY5f4Vg=
+-----END PUBLIC KEY-----"""
 
 [[services]]
 name = "aomi-backend"
@@ -50,7 +53,10 @@ name = "aomi-edge"
 kid = "aomi-edge-prod-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
-public_key = ""
+public_key = """
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAq9ihIZ171b4Qpk0V+vXkr0G2xFkMPFX1rO397+eeZP0=
+-----END PUBLIC KEY-----"""
 
 [[services]]
 name = "aomi-backend"
