@@ -159,6 +159,9 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
           requiredScopes: string[];
         },
       ) => {
+        expect(new URL(request.url).origin).toBe(
+          new URL(options.verifyOptions.audience).origin,
+        );
         const claims = claimsFor(bearerToken(request) ?? "");
         if (!claims || claims.aud !== options.verifyOptions.audience)
           throw Object.assign(new Error("bad token"), { status: 401 });

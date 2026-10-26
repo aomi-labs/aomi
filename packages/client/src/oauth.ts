@@ -7,8 +7,11 @@ import {
   type AomiOAuthResource,
   type AomiOAuthTokenRequest,
 } from "./authorization";
+import { browserGrantStorage } from "./internal/browser-grant-storage";
 import {
   SignJWT,
+  createLocalJWKSet,
+  jwtVerify,
   calculateJwkThumbprint,
   exportJWK,
   generateKeyPair,
@@ -38,7 +41,13 @@ export type AomiBrowserGrantOptions = {
   portalBaseUrl: string;
   clientId: string;
   redirectUri: string;
-  getWidgetBearer: () => Promise<string | null | undefined>;
+  getWidgetBearer?: () => Promise<string | null | undefined>;
+  /** Host may retain its pre-opened popup for account/credit management. */
+  closePopup?: boolean;
+  /** Opt-in browser persistence; non-exportable DPoP keys remain in IndexedDB. */
+  persistenceKey?: string;
+  /** Disable interactive acquisition when restoring or serving background requests. */
+  interactive?: boolean;
   subject?: string;
   store?: AomiOAuthGrantStore;
   fetch?: typeof fetch;
@@ -176,7 +185,7 @@ export async function createAomiDeviceGrantManager(input: {
 /** Browser public-client authorization-code + PKCE flow. The popup carries no
  * bearer or bootstrap ticket in its URL; it receives the opaque ticket over an
  * exact-origin/source postMessage channel. REST tokens are DPoP-bound with an
- * extractable=false Web Crypto key kept only in this manager's memory. */
+ * extractable=false Web Crypto key, optionally retained in IndexedDB for reloads. */
 export async function createAomiBrowserGrantManager(
   input: AomiBrowserGrantOptions,
 ): Promise<
@@ -197,24 +206,171 @@ export async function createAomiBrowserGrantManager(
     string,
     Awaited<ReturnType<typeof createDpopSigner>>
   >();
+  let accountId: string | undefined;
+  async function verified(grant: AomiOAuthGrant): Promise<AomiOAuthGrant> {
+    const response = await fetchImpl(metadata.jwks_uri, {
+      credentials: "omit",
+    });
+    if (!response.ok)
+      throw new AomiOAuthError(
+        "invalid_grant",
+        "Cannot verify the selected account",
+      );
+    const { payload } = await jwtVerify(
+      grant.accessToken,
+      createLocalJWKSet(await response.json()),
+      {
+        issuer: metadata.issuer,
+        audience: grant.resource,
+      },
+    );
+    const selected = payload["https://aomi.dev/canonical_user_id"];
+    if (
+      typeof selected !== "string" ||
+      !selected ||
+      payload["https://aomi.dev/principal_class"] !== "user" ||
+      (accountId && accountId !== selected)
+    ) {
+      throw new AomiOAuthError(
+        "account_changed",
+        "Sign in again to use the selected Aomi account",
+      );
+    }
+    accountId = selected;
+    return { ...grant, accountId };
+  }
+  const persistent = input.persistenceKey
+    ? browserGrantStorage(
+        JSON.stringify([metadata.issuer, input.clientId, input.persistenceKey]),
+      )
+    : undefined;
+  const store = persistent
+    ? {
+        async load() {
+          const saved = await persistent.load();
+          if (!saved) return [];
+          const restored: AomiOAuthGrant[] = [];
+          const remaining = [...saved.grants];
+          for (const grant of saved.grants) {
+            if (
+              grant.issuer !== metadata.issuer ||
+              grant.clientId !== input.clientId ||
+              grant.subject !== input.subject
+            )
+              continue;
+            const keys = saved.keys.get(grant.resource);
+            if (!keys || keys.privateKey.extractable) continue;
+            const signer = await createDpopSigner(keys);
+            dpopByResource.set(grant.resource, signer);
+            const dropGrant = async () => {
+              remaining.splice(remaining.indexOf(grant), 1);
+              if (
+                ![...restored, ...remaining].some(
+                  (item) => item.resource === grant.resource,
+                )
+              ) {
+                dpopByResource.delete(grant.resource);
+                saved.keys.delete(grant.resource);
+              }
+              await persistent.save({
+                grants: [...restored, ...remaining].map(
+                  ({ dpopProof: _proof, ...item }) => item,
+                ),
+                keys: saved.keys,
+              });
+            };
+            // Only a token-endpoint rejection invalidates this saved authorization.
+            // Network/JWKS failures remain visible and retain unrelated grants.
+            let refreshed: AomiOAuthGrant;
+            try {
+              refreshed = await refreshAomiOAuthGrant({
+                metadata,
+                grant,
+                request: { resource: grant.resource, scopes: grant.scopes },
+                fetch: fetchImpl,
+                now: input.now,
+                dpopProof: signer.proof,
+              });
+            } catch (error) {
+              if (
+                error instanceof AomiOAuthError &&
+                error.code === "invalid_grant"
+              ) {
+                await dropGrant();
+                continue;
+              }
+              throw error;
+            }
+            let fresh: AomiOAuthGrant;
+            try {
+              fresh = await verified(refreshed);
+              if (grant.accountId && fresh.accountId !== grant.accountId)
+                throw new AomiOAuthError(
+                  "account_changed",
+                  "Sign in again to use the selected Aomi account",
+                );
+            } catch (error) {
+              if (
+                error instanceof AomiOAuthError &&
+                error.code === "account_changed"
+              )
+                await dropGrant();
+              throw error;
+            }
+            restored.push(fresh);
+            remaining.splice(remaining.indexOf(grant), 1);
+            // Persist each rotation before refreshing another resource. A later failure
+            // must not leave the first resource's already-consumed refresh token on disk.
+            await persistent.save({
+              grants: [...restored, ...remaining].map(
+                ({ dpopProof: _proof, ...item }) => item,
+              ),
+              keys: saved.keys,
+            });
+          }
+          await this.save(restored);
+          return restored;
+        },
+        async save(grants: readonly AomiOAuthGrant[]) {
+          await persistent.save(
+            grants.length
+              ? {
+                  grants: grants.map(
+                    ({ dpopProof: _proof, ...grant }) => grant,
+                  ),
+                  keys: new Map(
+                    [...dpopByResource].map(([resource, signer]) => [
+                      resource,
+                      signer.keys,
+                    ]),
+                  ),
+                }
+              : null,
+          );
+        },
+      }
+    : input.store;
   const manager = createAomiOAuthGrantManager({
     issuer: metadata.issuer,
     clientId: input.clientId,
     subject: input.subject,
-    store: input.store,
+    store,
     now: input.now,
-    acquire: async (request) => {
-      const signer = await createDpopSigner();
-      const grant = await acquireAomiBrowserGrant({
-        ...input,
-        metadata,
-        request,
-        fetch: fetchImpl,
-        dpopProof: signer.proof,
-      });
-      dpopByResource.set(request.resource, signer);
-      return grant;
-    },
+    acquire:
+      input.interactive === false
+        ? undefined
+        : async (request) => {
+            const signer = await createDpopSigner();
+            const grant = await acquireAomiBrowserGrant({
+              ...input,
+              metadata,
+              request,
+              fetch: fetchImpl,
+              dpopProof: signer.proof,
+            });
+            dpopByResource.set(request.resource, signer);
+            return verified(grant);
+          },
     refresh: async (grant, request) => {
       const signer = dpopByResource.get(grant.resource);
       if (!signer) {
@@ -223,14 +379,16 @@ export async function createAomiBrowserGrantManager(
           "The in-memory DPoP key for this browser grant is unavailable",
         );
       }
-      return refreshAomiOAuthGrant({
-        metadata,
-        grant,
-        request,
-        fetch: fetchImpl,
-        now: input.now,
-        dpopProof: signer.proof,
-      });
+      return verified(
+        await refreshAomiOAuthGrant({
+          metadata,
+          grant,
+          request,
+          fetch: fetchImpl,
+          now: input.now,
+          dpopProof: signer.proof,
+        }),
+      );
     },
     revoke: (grant) =>
       revokeAomiOAuthGrant({ metadata, grant, fetch: fetchImpl }),
@@ -280,57 +438,71 @@ export async function acquireAomiBrowserGrant(
     throw new AomiOAuthError("popup_blocked", "OAuth popup was blocked");
 
   try {
-    const ready = await waitForPopupReady({
-      popup,
-      portalOrigin: portal.origin,
-      signal: input.signal,
-      timeoutMs: input.timeoutMs,
-    });
-    const widgetBearer = await input.getWidgetBearer();
-    if (!widgetBearer) {
-      throw new AomiOAuthError(
-        "widget_session_required",
-        "An authenticated widget session is required",
-      );
-    }
-    const ticketResponse = await (input.fetch ?? fetch)(
-      new URL("/api/auth/widget/oauth-bootstrap", portal),
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${widgetBearer}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          client_id: input.clientId,
-          redirect_uri: redirect.toString(),
-          code_challenge: codeChallenge,
-          code_challenge_method: "S256",
-          resource: input.request.resource,
-          scope: input.request.scopes.join(" "),
-          state,
-          channel_nonce: ready.channelNonce,
-        }),
+    if (input.getWidgetBearer) {
+      const ready = await waitForPopupReady({
+        popup,
+        portalOrigin: portal.origin,
         signal: input.signal,
-      },
-    );
-    const ticketBody = await jsonRecord(ticketResponse);
-    if (!ticketResponse.ok) {
-      throw oauthResponseError("bootstrap_ticket_failed", ticketBody);
-    }
-    popup.postMessage(
-      {
-        type: "aomi.oauth.bootstrap.ticket",
-        origin: window.location.origin,
-        ticket: requiredString(ticketBody.ticket, "ticket"),
-        state,
-        clientId: input.clientId,
+        timeoutMs: input.timeoutMs,
+      });
+      const widgetBearer = await input.getWidgetBearer();
+      if (!widgetBearer) {
+        throw new AomiOAuthError(
+          "widget_session_required",
+          "An authenticated widget session is required",
+        );
+      }
+      const ticketResponse = await (input.fetch ?? fetch)(
+        new URL("/api/auth/widget/oauth-bootstrap", portal),
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${widgetBearer}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: input.clientId,
+            redirect_uri: redirect.toString(),
+            code_challenge: codeChallenge,
+            code_challenge_method: "S256",
+            resource: input.request.resource,
+            scope: input.request.scopes.join(" "),
+            state,
+            channel_nonce: ready.channelNonce,
+          }),
+          signal: input.signal,
+        },
+      );
+      const ticketBody = await jsonRecord(ticketResponse);
+      if (!ticketResponse.ok) {
+        throw oauthResponseError("bootstrap_ticket_failed", ticketBody);
+      }
+      popup.postMessage(
+        {
+          type: "aomi.oauth.bootstrap.ticket",
+          origin: window.location.origin,
+          ticket: requiredString(ticketBody.ticket, "ticket"),
+          state,
+          clientId: input.clientId,
+          resource: input.request.resource,
+          scopes: [...input.request.scopes],
+        },
+        portal.origin,
+      );
+    } else {
+      const authorize = new URL(input.metadata.authorization_endpoint);
+      authorize.search = new URLSearchParams({
+        response_type: "code",
+        client_id: input.clientId,
+        redirect_uri: redirect.toString(),
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
         resource: input.request.resource,
-        scopes: [...input.request.scopes],
-      },
-      portal.origin,
-    );
-
+        scope: input.request.scopes.join(" "),
+        state,
+      }).toString();
+      popup.location.href = authorize.toString();
+    }
     const callback = await waitForPopupCallback({
       popup,
       redirectUri: redirect.toString(),
@@ -369,7 +541,7 @@ export async function acquireAomiBrowserGrant(
       dpopProof: input.dpopProof,
     };
   } finally {
-    if (!popup.closed) popup.close();
+    if (input.closePopup !== false && !popup.closed) popup.close();
   }
 }
 
@@ -666,15 +838,19 @@ function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-async function createDpopSigner(): Promise<{
+async function createDpopSigner(keys?: CryptoKeyPair): Promise<{
+  keys: CryptoKeyPair;
   proof: NonNullable<AomiOAuthGrant["dpopProof"]>;
 }> {
-  const { privateKey, publicKey } = await generateKeyPair("ES256", {
-    extractable: false,
-  });
+  const { privateKey, publicKey } =
+    keys ??
+    (await generateKeyPair("ES256", {
+      extractable: false,
+    }));
   const publicJwk = (await exportJWK(publicKey)) as JWK;
   await calculateJwkThumbprint(publicJwk, "sha256");
   return {
+    keys: { privateKey, publicKey },
     proof: async ({ url, method, accessToken, nonce }) => {
       const claims: Record<string, string | number> = {
         jti: randomBase64Url(24),
@@ -698,8 +874,10 @@ async function fetchTokenWithDpopNonce(input: {
   proof: NonNullable<AomiOAuthGrant["dpopProof"]>;
   signal?: AbortSignal;
 }): Promise<Response> {
+  // Native browser fetch must not receive our options object as its receiver.
+  const fetchImpl = input.fetch;
   const attempt = async (nonce?: string) =>
-    input.fetch(input.endpoint, {
+    fetchImpl(input.endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
@@ -732,6 +910,12 @@ function waitForPopupReady(input: {
         ),
       input.timeoutMs ?? 120_000,
     );
+    const closed = setInterval(() => {
+      if (input.popup.closed)
+        finish(() =>
+          reject(new AomiOAuthError("access_denied", "OAuth popup was closed")),
+        );
+    }, 200);
     const onAbort = () =>
       finish(() => reject(input.signal?.reason ?? new Error("aborted")));
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -752,6 +936,7 @@ function waitForPopupReady(input: {
     };
     const finish = (done: () => void) => {
       clearTimeout(timeout);
+      clearInterval(closed);
       window.removeEventListener("message", onMessage);
       input.signal?.removeEventListener("abort", onAbort);
       done();

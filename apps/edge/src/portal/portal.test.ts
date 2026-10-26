@@ -390,6 +390,83 @@ describe("portal surface: widget sessions", () => {
 });
 
 describe("portal surface: OAuth tokens", () => {
+  describe.each(["/api/thread/model", "/api/thread/sim/world"])("Fuzzer setup %s", (path) => {
+    it.each([false, true])("forwards Agent write for guest=%s with the canonical account", async (guest) => {
+      const token = await oauthToken({ sub: guest ? "guest" : "user", guest, scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+      const body = JSON.stringify({ forks: [{ chain_id: 5042002, overrides: [] }] });
+      const response = await portal(`${path}?user_state=%7B%7D`, {
+        method: "POST",
+        origin: PARTNER,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "x-session-id": "seed-thread" },
+        body,
+      });
+      expect(response.status).toBe(200);
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatchObject({
+        url: `${BACKEND}${path}?user_state=%7B%7D`,
+        method: "POST",
+        body,
+        headers: { "x-thread-id": "seed-thread", "x-session-id": "seed-thread" },
+      });
+      expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: guest ? "acct-guest" : "acct-user", aud: "aomi-backend" });
+    });
+
+    it("requires Agent write and rejects another resource without forwarding", async () => {
+      for (const grant of [
+        { scope: "agent:read", aud: `${PORTAL}/v1/agent`, status: 403 },
+        { scope: "agent:write", aud: `${PORTAL}/v1/pipeline`, status: 401 },
+      ]) {
+        const token = await oauthToken({ sub: "user", ...grant });
+        const response = await portal(path, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+        expect(response.status).toBe(grant.status);
+      }
+      expect(seen).toHaveLength(0);
+    });
+
+    it("binds DPoP to the public URL despite spoofed forwarding headers", async () => {
+      const key = await generateKeyPair("ES256");
+      const jwk = await exportJWK(key.publicKey);
+      const token = await oauthToken({
+        sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent`,
+        cnf: { jkt: await calculateJwkThumbprint(jwk) },
+      });
+      const proof = (origin: string) => new SignJWT({
+        htm: "POST", htu: `${origin}${path}`, jti: crypto.randomUUID(),
+        ath: Buffer.from(new Uint8Array(tokenHash)).toString("base64url"),
+      }).setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk }).setIssuedAt().sign(key.privateKey);
+      const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+      for (const [origin, status] of [[UPSTREAM, 401], [PORTAL, 200]] as const) {
+        const response = await portal(path, {
+          method: "POST",
+          headers: {
+            authorization: `DPoP ${token}`, dpop: await proof(origin),
+            host: "attacker.example", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "http",
+          },
+          body: "{}",
+        });
+        expect(response.status).toBe(status);
+      }
+      expect(seen).toHaveLength(1);
+      expect(seen[0].headers.dpop).toBeUndefined();
+    });
+
+    it("preserves anonymous, cookie and widget access rules", async () => {
+      const anonymous = await portal(path, { method: "POST", body: "{}" });
+      expect(anonymous.status).toBe(path === "/api/thread/model" ? 200 : 401);
+      const cookie = await portal(path, { method: "POST", origin: PARTNER, headers: { cookie: "session=user" }, body: "{}" });
+      expect(cookie.status).toBe(403);
+      const widget = await portal(path, { method: "POST", origin: PARTNER, headers: { authorization: "Bearer aomi_wst_user" }, body: "{}" });
+      expect(widget.status).toBe(200);
+    });
+  });
+
+  it("does not extend Agent grants to unrelated backend controls", async () => {
+    const token = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    const response = await portal("/api/exec/simulate", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+    expect(response.status).toBe(401);
+    expect(seen).toHaveLength(0);
+  });
+
   it("verifies an access token against the portal JWKS and forwards an oauth-sourced bearer", async () => {
     const token = await oauthToken({
       sub: "user",

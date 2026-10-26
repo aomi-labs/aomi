@@ -32,6 +32,7 @@ type ActivateResult = "active" | "switching" | "connecting";
 
 export type AccountMenuProps = {
   open: boolean;
+  placement?: "above" | "below";
   accountLabel?: string;
   accountId?: string;
   address?: string;
@@ -48,6 +49,7 @@ export type AccountMenuProps = {
   onManageAccount?: () => void;
   onToggleTheme?: () => void;
   onOpenSettings?: () => void;
+  settingsLabel?: string;
   onSignIn?: () => void;
   onActivateWallet?: (key: string) => Promise<ActivateResult>;
   onAddWallet?: () => void;
@@ -81,6 +83,7 @@ function MenuRow({
 
 export function AccountMenu({
   open,
+  placement = "above",
   accountLabel,
   accountId,
   address,
@@ -96,6 +99,7 @@ export function AccountMenu({
   onManageAccount,
   onToggleTheme,
   onOpenSettings,
+  settingsLabel = "Settings",
   onSignIn,
   onActivateWallet,
   onAddWallet,
@@ -130,7 +134,12 @@ export function AccountMenu({
       <div
         role="menu"
         aria-label="Account menu"
-        className="border-aomi-border bg-aomi-raised animate-in-pop absolute bottom-[calc(100%+8px)] left-0 z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]"
+        className={cn(
+          "border-aomi-border bg-aomi-raised animate-in-pop absolute z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]",
+          placement === "above"
+            ? "bottom-[calc(100%+8px)] left-0"
+            : "right-0 top-[calc(100%+8px)]",
+        )}
       >
         <div className="bg-aomi-surface-2/55 mx-0.5 mb-2 rounded-lg px-2 pb-1.5 pt-3">
           <div className="flex min-w-0 items-center gap-2 px-1">
@@ -204,7 +213,7 @@ export function AccountMenu({
           />
         ) : null}
         {onOpenSettings ? (
-          <MenuRow label="Settings" onClick={onOpenSettings} />
+          <MenuRow label={settingsLabel} onClick={onOpenSettings} />
         ) : null}
         <a
           href="https://aomi.dev/docs"

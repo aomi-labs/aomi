@@ -288,6 +288,16 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   const payment = new Headers(headers).has("payment-signature")
     ? ["payments:submit"]
     : [];
+  if (
+    method.toUpperCase() === "POST" &&
+    ["/api/thread/model", "/api/thread/sim/world"].includes(url.pathname)
+  ) {
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:write"],
+      method: "POST",
+    };
+  }
   if (isCommitPath(url.pathname)) {
     return {
       resource: `${origin}/v1/agent` as AomiOAuthResource,

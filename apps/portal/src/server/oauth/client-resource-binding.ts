@@ -54,8 +54,10 @@ export async function bindAomiPublicClientResource(input: {
     const registered = await client.query<{
       token_endpoint_auth_method: unknown;
       grant_types: unknown;
+      client_class: unknown;
     }>(
-      `select token_endpoint_auth_method, grant_types
+      `select token_endpoint_auth_method, grant_types,
+              coalesce(metadata->>'aomi_client_class', metadata->>'client_class') as client_class
          from ba_oauth_clients
         where client_id = $1
         for update`,
@@ -86,6 +88,13 @@ export async function bindAomiPublicClientResource(input: {
     const resources = Array.from(
       new Set(links.rows.map((link) => String(link.resource_id))),
     );
+    // Managed widgets may use only their operator-registered resources.
+    // Never apply first-use binding or add a resource for these clients.
+    if (row.client_class === "partner_widget") {
+      const allowed = resources.includes(input.resource);
+      await client.query(allowed ? "commit" : "rollback");
+      return allowed ? "already_bound" : "resource_conflict";
+    }
     if (resources.length === 1 && resources[0] === input.resource) {
       await client.query("commit");
       return "already_bound";

@@ -41,7 +41,7 @@
         // from the deploy environment; BUILD_SESSION_SECRET is a Wrangler secret.
         // BUILD_SESSION_SECRET and BUILD_GITHUB_TOKEN are Wrangler secrets.
         "BUILD_HOSTS": "build-staging.aomi.dev",
-        "APP_DEPLOY_PLATFORMS": "",
+        "APP_DEPLOY_PLATFORMS": "community,somm.finance,world-market-apps",
         "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
         "BUILD_CREATED_REPO_PRIVATE": "false",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,build-staging.aomi.dev,*.vercel.app,dev.wcm.inc",

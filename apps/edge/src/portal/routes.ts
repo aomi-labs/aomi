@@ -25,7 +25,7 @@ import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import { policyFor, type PortalContext } from "./context";
 import { portalError } from "./errors";
 import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
-import { PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import { isOAuthCredential, PrincipalError, resolvePrincipal, type Principal } from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
@@ -33,10 +33,11 @@ type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type ResourceKey = "agentRest" | "pipelineRest" | "accountRest" | "agentMcp" | "pipelineMcp";
 
 /**
- * What a method needs: a scope on the row's resource, a capability (`?` lets
- * guests without a session in), or nothing at all.
+ * What a method needs: a scope on the row's resource, a capability (optionally
+ * allowing anonymous callers), or nothing. A capability may name the scope
+ * OAuth callers need instead, on the same row's resource.
  */
-type Requirement = string | { capability: Capability; anonymous?: true } | "public";
+type Requirement = string | { capability: Capability; anonymous?: true; oauthScope?: string } | "public";
 
 type Row = {
   path: RegExp;
@@ -184,8 +185,14 @@ export const ROUTES: readonly Row[] = [
   backend(/^\/api\/thread\/apps$/, { GET: chat }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),
   backend(/^\/api\/resource\/skills(?:\/[^/]+)?$/, { GET: chat }),
-  backend(/^\/api\/thread\/model$/, { POST: chat }),
-  backend(/^\/api\/thread\/sim\/world$/, { POST: { capability: "chat" } }),
+  {
+    ...backend(/^\/api\/thread\/model$/, { POST: { ...chat, oauthScope: "agent:write" } }),
+    on: "agentRest",
+  },
+  {
+    ...backend(/^\/api\/thread\/sim\/world$/, { POST: { capability: "chat", oauthScope: "agent:write" } }),
+    on: "agentRest",
+  },
   backend(/^\/api\/exec\/simulate$/, { POST: chat }),
   backend(/^\/api\/widget\/v1\/execution-profile$/, { GET: signing }),
   backend(/^\/api\/widget\/v1\/aa-accounts\/[^/]+$/, { PUT: signing }),
@@ -195,7 +202,12 @@ export const ROUTES: readonly Row[] = [
 /** The resolved need, or "public". */
 function needOf(row: Row, requirement: Requirement, request: Request, resources: Resources): Need | "public" {
   if (requirement === "public") return "public";
-  if (typeof requirement !== "string") return requirement;
+  if (typeof requirement !== "string") {
+    // Fuzzer setup accepts Agent grants; browser and widget sessions retain
+    // their existing capability policy, including each route's guest access.
+    if (!requirement.oauthScope || !isOAuthCredential(request)) return requirement;
+    requirement = requirement.oauthScope;
+  }
   const scopes = [requirement];
   if (row.paid && request.headers.has("payment-signature")) scopes.push("payments:submit");
   return { resource: resources[row.on!], scopes };
