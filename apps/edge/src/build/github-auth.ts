@@ -6,7 +6,7 @@
  */
 import { BackendError } from "@aomi-labs/deploy";
 
-import { randomHex } from "./config";
+import { randomHex } from "../kernel/crypto";
 import type { BuildContext } from "./context";
 import { appendCookie, readCookie, serializeCookie } from "./cookies";
 import { managerClient } from "./manager-client";

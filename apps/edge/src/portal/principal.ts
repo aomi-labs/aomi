@@ -1,5 +1,7 @@
 import { decodeJwt, errors as joseErrors, jwtVerify, type JWTPayload } from "jose";
 
+import { TwoTierCache } from "../kernel/cache";
+import { sha256Hex } from "../kernel/crypto";
 import { EdgeError } from "../kernel/errors";
 import type { PortalContext } from "./context";
 import { observedOrigin } from "../kernel/cors";
@@ -200,14 +202,8 @@ export type PrincipalTokenClaims = JWTPayload & {
   better_auth_user_id?: string;
 };
 
-type Exchange = { token: string; expiresAtMs: number };
-const exchanges = new Map<string, Exchange>();
-const managedOrigins = new Map<string, { allowed: boolean; checkedAt: number }>();
-
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+const exchanges = new TwoTierCache();
+const managedOrigins = new TwoTierCache();
 
 /**
  * Turn the credential a browser or widget presents into the portal's signed
@@ -228,15 +224,8 @@ async function exchangePrincipal(
   const origin = kind === "widget" ? observedOrigin(request) ?? "" : "";
   const key = `principal:v1:${kind}:${await sha256Hex(`${credential}\n${origin}`)}`;
   const nowMs = ctx.now();
-  let token: string | null = null;
+  let token = await exchanges.get(key, ctx.env.EDGE_CACHE, nowMs);
   let claims: PrincipalTokenClaims | null = null;
-  const cached = exchanges.get(key);
-  if (cached && cached.expiresAtMs > nowMs) {
-    token = cached.token;
-  } else {
-    const stored = await ctx.env.EDGE_CACHE?.get(key).catch(() => null);
-    if (stored) token = stored;
-  }
   if (token) {
     // KV keeps an entry for at least a minute, so it can outlive the token it
     // holds. A cached token that no longer verifies is a miss, not an outage:
@@ -244,8 +233,7 @@ async function exchangePrincipal(
     claims = await verifyCachedPrincipalToken(token, ctx, nowMs);
     if (!claims) {
       token = null;
-      exchanges.delete(key);
-      await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+      await exchanges.delete(key, ctx.env.EDGE_CACHE);
     }
   }
   if (!token) {
@@ -280,23 +268,17 @@ async function exchangePrincipal(
     token = body.token;
     claims = await verifyPrincipalToken(token, ctx);
   }
-  if (!claims) throw new PrincipalUpstreamError(new Error("no principal claims"));
+  if (!claims) throw authUnavailable(new Error("no principal claims"));
   // A principal is good until its own signature lapses or the credential it
   // describes expires, whichever comes first (KV keeps entries at least a
   // minute, so a widget session's end is checked here, not left to the cache).
   const expiresAtMs = Math.min(claims.exp, claims.expires_at ?? claims.exp) * 1000;
   if (expiresAtMs <= nowMs) {
-    exchanges.delete(key);
-    await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+    await exchanges.delete(key, ctx.env.EDGE_CACHE);
     throw new PrincipalError(401, kind === "widget" ? "invalid_widget_session" : "invalid_token");
   }
   const ttlMs = expiresAtMs - nowMs;
-  if (ttlMs > 1000) {
-    exchanges.set(key, { token, expiresAtMs });
-    await ctx.env.EDGE_CACHE?.put(key, token, {
-      expirationTtl: Math.max(60, Math.floor(ttlMs / 1000)),
-    }).catch(() => undefined);
-  }
+  if (ttlMs > 1000) await exchanges.put(key, token, ttlMs / 1000, ctx.env.EDGE_CACHE, nowMs);
   return claims;
 }
 
@@ -355,8 +337,7 @@ async function verifyCachedPrincipalToken(
   try {
     return await verifyPrincipalToken(token, ctx);
   } catch (error) {
-    if (error instanceof PrincipalUpstreamError && error.cause instanceof JwksUnavailableError)
-      throw error;
+    if (error instanceof EdgeError && error.cause instanceof JwksUnavailableError) throw error;
     return null;
   }
 }
@@ -504,8 +485,8 @@ async function isManagedWidgetClientOrigin(
 ): Promise<boolean> {
   if (!clientId) return false;
   const key = `${clientId}\n${origin}`;
-  const cached = managedOrigins.get(key);
-  if (cached && ctx.now() - cached.checkedAt < MANAGED_ORIGIN_TTL_MS) return cached.allowed;
+  const cached = await managedOrigins.get(key, undefined, ctx.now());
+  if (cached) return cached === "allowed";
   const url = new URL(`${ctx.upstreamOrigin}${MANAGED_ORIGIN_PATH}`);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("origin", origin);
@@ -520,7 +501,7 @@ async function isManagedWidgetClientOrigin(
   } catch {
     allowed = false;
   }
-  managedOrigins.set(key, { allowed, checkedAt: ctx.now() });
+  await managedOrigins.put(key, allowed ? "allowed" : "denied", MANAGED_ORIGIN_TTL_MS / 1000, undefined, ctx.now());
   return allowed;
 }
 

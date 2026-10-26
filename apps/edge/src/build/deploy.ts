@@ -16,7 +16,8 @@ import {
 } from "@aomi-labs/internal";
 
 import { authorize } from "./auth";
-import { deployConfig, randomHex, resolveDeployPlatform } from "./config";
+import { randomHex } from "../kernel/crypto";
+import { deployConfig, resolveDeployPlatform } from "./config";
 import type { BuildContext } from "./context";
 import { failureResponse } from "./failures";
 import { managerClient, sdkBackendUrl } from "./manager-client";
