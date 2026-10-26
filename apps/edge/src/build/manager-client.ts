@@ -1,44 +1,45 @@
 import { ManagerClient } from "@aomi-labs/internal";
 
-import { edgeService } from "../identity";
-import { mintBearer } from "../portal/errors";
-import { UpstreamUnreachableError } from "../portal/forward";
-import { rankOrigins, resolvePool, routingKeyFor } from "../routing/pool";
+import { edgeService, EDGE_SERVICE_NAME } from "../identity";
+import { config } from "../kernel/config";
+import { minted, unreachable } from "../kernel/errors";
+import { apiOrigins } from "../kernel/manager";
+import { target } from "../kernel/proxy";
 import type { BuildContext } from "./context";
-import { BUILD_SERVICE_SUBJECT } from "./manager";
 
 const SERVICE_BEARER_TTL_SECONDS = 5 * 60;
 
-/** Where the manager control plane is reached: the cutover switch, else the backend pool. */
-export function managerOrigin(request: Request, ctx: BuildContext): string {
-  const manager = (ctx.env.MANAGER_ORIGIN ?? "").trim();
-  if (manager) return manager;
-  const [origin] = rankOrigins(routingKeyFor(request, new URL(request.url)), resolvePool(ctx.env));
-  if (!origin) throw new UpstreamUnreachableError(new Error("no backend origins"));
+/** Resolve the actual endpoint: manager control plane or backend-owned vault. */
+export function apiOrigin(request: Request, ctx: BuildContext, pathname: string): string {
+  const [origin] = apiOrigins(request, ctx.env, pathname);
+  if (!origin) throw unreachable(new Error("no manager or backend origin"));
   return origin;
 }
 
 /** The backend the CLI's `sdk fix` hint names; the first origin of the pool. */
 export function sdkBackendUrl(ctx: BuildContext): string {
-  const [origin] = resolvePool(ctx.env);
-  return origin ?? "";
+  return config(ctx.env).pool[0] ?? "";
 }
 
-/**
- * A manager client for one request, carrying a five-minute `aomi-edge`
- * service bearer. The Build BFF minted the same bearer as `aomi-bff`.
- */
+/** A manager client for one request, carrying a five-minute `aomi-edge` service bearer. */
 export async function managerClient(request: Request, ctx: BuildContext): Promise<ManagerClient> {
-  const { accessToken } = await mintBearer(() =>
+  const { accessToken } = await minted(() =>
     edgeService(ctx.env, new URL(request.url).host).mint({
       role: "service",
-      subject: BUILD_SERVICE_SUBJECT,
+      subject: EDGE_SERVICE_NAME,
       audience: "aomi-backend",
       ttlSeconds: SERVICE_BEARER_TTL_SECONDS,
     }),
   );
   return new ManagerClient({
-    aomi: { backendUrl: managerOrigin(request, ctx), activationToken: accessToken },
-    fetch: (input, init) => ctx.fetchImpl(new Request(input, init), { cache: "no-store" }),
+    // The client assembles paths here; its fetch adapter selects their upstream.
+    url: ctx.buildOrigin,
+    bearer: accessToken,
+    fetch: (input, init) => {
+      const outgoing = new Request(input, init);
+      const url = new URL(outgoing.url);
+      const upstream = target(apiOrigin(request, ctx, url.pathname), url.pathname, url.search);
+      return ctx.fetchImpl(new Request(upstream, outgoing), { cache: "no-store" });
+    },
   });
 }

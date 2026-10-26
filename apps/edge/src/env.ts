@@ -61,6 +61,8 @@ export interface EdgeEnv {
    * PORTAL_ONLY_SESSION_SECRET so both sides read the same cookies.
    */
   BUILD_SESSION_SECRET?: string;
+  /** OAuth client id for Manager's GitHub App at index 2; defaults to the deployed app for this topology. */
+  BUILD_GITHUB_CLIENT_ID?: string;
   /** Platforms Build deploys to; the first is the default for the GitHub App install start. */
   APP_DEPLOY_PLATFORMS?: string;
   /** Template repository new Build projects are scaffolded from. */

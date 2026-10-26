@@ -1,25 +1,14 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BackendClient } from "./user";
-import {
-  BackendError,
-  BrowserEnvironmentError,
-  DeployError,
-} from "@aomi-labs/deploy";
-import type { AuditEvent } from "@aomi-labs/deploy";
+import { ManagerClient } from "./client";
+import { BrowserEnvironmentError, DeployError } from "@aomi-labs/deploy";
 
-function client(onAudit?: (event: AuditEvent) => void) {
-  return new BackendClient({
-    aomi: {
-      backendUrl: "https://staging-api.example.com/",
-      activationToken: "act-token",
-    },
-    onAudit,
-  });
+function client() {
+  return new ManagerClient({ url: "https://staging-api.example.com/", bearer: "act-token" });
 }
 
-describe("BackendClient deploy/preflight", () => {
+describe("manager deploy/preflight", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -75,8 +64,7 @@ describe("BackendClient deploy/preflight", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("POSTs a preflight request and maps the deployment.json response to camelCase", async () => {
-    const audits: AuditEvent[] = [];
-    const result = await client((event) => audits.push(event)).preflight({
+    const result = await client().preflight({
       projectId: 42,
       sourceRef: "ABC1234DEF5678",
       actor: "alice",
@@ -102,13 +90,6 @@ describe("BackendClient deploy/preflight", () => {
       target: "x86_64-unknown-linux-gnu",
       files: [{ path: "apps/123/demo/aomi.toml", sha256: "00aa", bytes: 512 }],
     });
-    expect(audits).toEqual([
-      expect.objectContaining({
-        action: "preflight",
-        projectId: 42,
-        actor: "alice",
-      }),
-    ]);
   });
 
   it("POSTs an apply deploy request without the preflight flag", async () => {
@@ -157,124 +138,11 @@ describe("BackendClient deploy/preflight", () => {
   });
 });
 
-describe("BackendClient.activate", () => {
+describe("manager release activation", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fetchMock = vi.fn(async () =>
-      Response.json({
-        ok: false,
-        activation: {
-          status: "partial_failed",
-          platform: "community",
-          target: {
-            kind: "release_tags",
-            value: [
-              "apps-123-demo-abc1234def56",
-              "apps-123-broken-abc1234def56",
-            ],
-            platform_repo: "aomi-labs/community-apps",
-            platform_branch: "publish",
-            platform_commit_hash: "ff00aa",
-            ci_status: "passed",
-            ci_url:
-              "https://github.com/aomi-labs/community-apps/actions/runs/1",
-            promoted: [],
-          },
-          apps: [
-            {
-              name: "demo",
-              path: "apps/123/demo",
-              release_tag: "apps-123-demo-abc1234def56",
-              is_active: true,
-              loaded: true,
-            },
-            {
-              name: "broken",
-              path: "apps/123/broken",
-              release_tag: "apps-123-broken-abc1234def56",
-              is_active: false,
-              loaded: false,
-              error: "release artifact not found",
-            },
-          ],
-        },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-  });
-
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("POSTs one release-tags activation request and maps partial failures", async () => {
-    const promise = client().activate({
-      platform: "community",
-      target: {
-        kind: "release_tags",
-        value: ["apps-123-demo-abc1234def56", "apps-123-broken-abc1234def56"],
-      },
-      apps: ["demo", "broken"],
-      targetTags: ["staging"],
-    });
-
-    await expect(promise).rejects.toThrow(DeployError);
-    await expect(promise).rejects.toMatchObject({
-      code: "ACTIVATION",
-      reason: [{ app: "broken", error: "release artifact not found" }],
-    });
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(
-      "https://staging-api.example.com/api/platforms/community/apps/activate",
-    );
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
-      target: {
-        kind: "release_tags",
-        value: ["apps-123-demo-abc1234def56", "apps-123-broken-abc1234def56"],
-      },
-      apps: ["demo", "broken"],
-      target_tags: ["staging"],
-    });
-  });
-
-  it("rejects empty release tag targets before calling the backend", async () => {
-    await expect(
-      client().activate({
-        platform: "community",
-        target: { kind: "release_tags", value: [] },
-        apps: ["demo"],
-      }),
-    ).rejects.toThrow(/target.value/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects mismatched app and release tag counts before calling the backend", async () => {
-    await expect(
-      client().activate({
-        platform: "community",
-        target: { kind: "release_tags", value: ["apps-123-demo-abc1234def56"] },
-        apps: ["demo", "other"],
-      }),
-    ).rejects.toThrow(/same number/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects non-release-tag activation targets before calling the backend", async () => {
-    await expect(
-      client().activate({
-        platform: "community",
-        target: {
-          kind: "unsupported",
-          value: "not-a-release-tag-target",
-        } as any,
-        apps: ["demo"],
-      }),
-    ).rejects.toThrow(/release_tag/);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("allows release_tags activation without app names and maps promotions", async () => {
-    fetchMock.mockResolvedValueOnce(
       Response.json({
         ok: true,
         activation: {
@@ -319,21 +187,28 @@ describe("BackendClient.activate", () => {
         },
       }),
     );
+    vi.stubGlobal("fetch", fetchMock);
+  });
 
-    const result = await client().activate({
-      platform: "community",
-      target: {
-        kind: "release_tags",
-        value: ["apps-123-demo-abc1234def56"],
-      },
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("POSTs an owned project's release tags and maps promotions", async () => {
+    const result = await client().activateUserProjectReleases({
+      githubUserId: "42",
+      projectId: 7,
+      releaseTags: ["apps-123-demo-abc1234def56"],
+      apps: ["demo"],
+      actor: "alice",
     });
 
-    const [, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/projects/7/releases/activate?github_user_id=42",
+    );
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({
-      target: {
-        kind: "release_tags",
-        value: ["apps-123-demo-abc1234def56"],
-      },
+      release_tags: ["apps-123-demo-abc1234def56"],
+      apps: ["demo"],
+      actor: "alice",
     });
     expect(result.activation.target.promoted[0]).toMatchObject({
       name: "demo",
@@ -356,28 +231,49 @@ describe("BackendClient.activate", () => {
     });
   });
 
+  it("promotes a deployment through the activation door and reads its release tags", async () => {
+    const result = await client().promote({
+      platform: "community",
+      deploymentId: "dep_123_abc1234",
+      apps: ["demo"],
+      actor: "aomi-smither",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://staging-api.example.com/api/platforms/community/apps/activate");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      target: { kind: "deployment", value: "dep_123_abc1234" },
+      apps: ["demo"],
+      actor: "aomi-smither",
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      promote: { deploymentId: "dep_123_abc1234", releaseTags: ["apps-123-demo-abc1234def56"], status: "promoted" },
+    });
+  });
+
   it("throws BackendError on non-2xx responses", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response("ci not passed", { status: 409 }),
     );
     await expect(
-      client().activate({
-        platform: "community",
-        target: {
-          kind: "release_tags",
-          value: ["apps-123-demo-abc1234def56"],
-        },
-        apps: ["demo"],
-      }),
+      client().promote({ platform: "community", deploymentId: "dep_123_abc1234" }),
     ).rejects.toMatchObject({
-      name: "ActivationError",
+      name: "BackendError",
       status: 409,
       body: "ci not passed",
     });
   });
+
+  it("throws BackendError when the manager cannot be reached", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+    await expect(
+      client().promote({ platform: "community", deploymentId: "dep_123_abc1234" }),
+    ).rejects.toMatchObject({ name: "BackendError", status: 0, message: "promote request failed" });
+  });
 });
 
-describe("BackendClient operate observability", () => {
+describe("manager operate observability", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -644,7 +540,7 @@ describe("BackendClient operate observability", () => {
   });
 });
 
-describe("BackendClient operate logs", () => {
+describe("manager operate logs", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("normalizes safe builder model-key attribution on usage events", async () => {
@@ -699,7 +595,7 @@ describe("BackendClient operate logs", () => {
   });
 });
 
-describe("BackendClient Builder application", () => {
+describe("manager Builder application", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("loads a canonical Application from the Builder surface", async () => {
@@ -834,7 +730,7 @@ describe("BackendClient Builder application", () => {
   });
 });
 
-describe("BackendClient source SDK upgrade", () => {
+describe("manager source SDK upgrade", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("POSTs the owned source request and normalizes the upgrade PR", async () => {
@@ -942,7 +838,7 @@ describe("BackendClient source SDK upgrade", () => {
   });
 });
 
-describe("BackendClient operate statement", () => {
+describe("manager operate statement", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -1172,7 +1068,7 @@ describe("BackendClient operate statement", () => {
   });
 });
 
-describe("BackendClient projects", () => {
+describe("manager projects", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("keeps the complete live SDK set from an account-wide Project list", async () => {
@@ -1312,7 +1208,7 @@ describe("BackendClient projects", () => {
   });
 });
 
-describe("BackendClient GitHub App access", () => {
+describe("manager GitHub App access", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("reads connected source repository access in camelCase", async () => {
@@ -1331,11 +1227,7 @@ describe("BackendClient GitHub App access", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const audits: AuditEvent[] = [];
-
-    const result = await client((event) =>
-      audits.push(event),
-    ).listUserGitHubAppInstallations({
+    const result = await client().listUserGitHubAppInstallations({
       githubUserId: "42",
     });
 
@@ -1354,11 +1246,6 @@ describe("BackendClient GitHub App access", () => {
         },
       ],
     });
-    expect(audits).toContainEqual(
-      expect.objectContaining({
-        action: "list_user_github_app_installations",
-      }),
-    );
   });
 
   it("returns an empty repository report", async () => {

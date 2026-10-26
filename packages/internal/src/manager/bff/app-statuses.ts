@@ -1,7 +1,7 @@
 import type { PlatformApp } from "@aomi-labs/deploy";
 import type { LaunchAppStatusesResult } from "@aomi-labs/deploy/launch";
 
-/** Map BackendClient app flags to the browser-safe project runtime contract. */
+/** Map the manager client's app flags to the browser-safe project runtime contract. */
 export function launchAppStatusesResult(
   projectId: number,
   apps: readonly PlatformApp[],

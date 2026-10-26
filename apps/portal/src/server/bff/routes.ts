@@ -23,8 +23,6 @@ type Context = { params?: Promise<Params> };
 export type Call = {
   request: Request;
   principal: Principal;
-  /** Scopes to mint for a protected resource; empty for capability routes. */
-  scopes: string[];
   params: Params;
 };
 
@@ -40,11 +38,9 @@ type Route = {
    * callback routes); null means there is no such route here.
    */
   need: Need | "public" | ((request: Request) => Need | "public" | null);
-  /** An OAuth protected resource answers auth failures and 404s in its own shape. */
-  resource?: () => string;
   /** Fixed per-IP budget, checked before anything else. */
   budget?: WidgetBudget;
-  /** Embedding sites may call every family except device login and MCP. */
+  /** Embedding sites may call every family except device login. */
   cors?: "open_widget" | "none";
   /** The code an unexpected failure reports. */
   fallback?: string;
@@ -62,22 +58,16 @@ function bind(route: Route): Binding {
   const handler: Handler = async (request, context) => {
     const need =
       typeof route.need === "function" ? route.need(request) : route.need;
-    const resource =
-      route.resource?.() ??
-      (need && need !== "public" && "resource" in need
-        ? need.resource
-        : undefined);
     let response: Response;
     try {
       response =
         (route.budget && (await consumeWidgetBudget(request, route.budget))) ||
         (need === null
-          ? notFound(resource)
+          ? Response.json({ error: "not_found" }, { status: 404 })
           : await handleAuthorized(route, request, need, context));
     } catch (error) {
       response = errorResponse(error, request, {
         operation: route.operation,
-        resource,
         fallback: route.fallback,
       });
     }
@@ -106,25 +96,15 @@ async function handleAuthorized(
     return handle({
       request,
       principal: { kind: "none" },
-      scopes: [],
       params,
     });
   const started = performance.now();
   const principal = await resolvePrincipal(request, need);
-  const scopes = authorize(principal, need);
+  authorize(principal, need);
   const authMs = performance.now() - started;
-  const response = await handle({ request, principal, scopes, params });
+  const response = await handle({ request, principal, params });
   response.headers.append("server-timing", `bff_auth;dur=${authMs.toFixed(1)}`);
   return response;
-}
-
-function notFound(resource: string | undefined): Response {
-  return resource
-    ? Response.json(
-        { error: { code: "not_found", message: "Not found" } },
-        { status: 404 },
-      )
-    : Response.json({ error: "not_found" }, { status: 404 });
 }
 
 /** Every portal BFF route family. Route files bind one entry each. */

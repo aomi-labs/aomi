@@ -1,4 +1,5 @@
-import type { FetchLike } from "../routing/upstream";
+import { sha256Hex } from "../kernel/crypto";
+import type { FetchLike } from "../kernel/proxy";
 
 export type PublicCatalogKind = "models" | "apps" | "skills";
 const PATHS: Record<PublicCatalogKind, string> = {
@@ -73,11 +74,6 @@ export function projectPublicCatalog(kind: PublicCatalogKind, value: unknown): u
         : [];
     }),
   };
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function isPublicCatalogKind(kind: string): kind is PublicCatalogKind {

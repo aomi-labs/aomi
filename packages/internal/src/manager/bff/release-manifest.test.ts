@@ -3,7 +3,7 @@ import {
   fetchReleaseSecretSlots,
   missingSecretsForActivation,
 } from "./release-manifest";
-import type { BackendClient } from "../user";
+import type { ManagerClient } from "../client";
 
 function fakeFetch(routes: Record<string, { status: number; body: unknown }>) {
   return vi.fn(async (input: RequestInfo | URL) => {
@@ -231,7 +231,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => ({
         platformRepo: "aomi-labs/community",
       })),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     const missing = await missingSecretsForActivation({
       client,
@@ -260,7 +260,7 @@ describe("missingSecretsForActivation", () => {
     const client = {
       listAppSecrets: vi.fn(),
       getUserProjectLatestDeployment: vi.fn(async () => null),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
     await expect(
       missingSecretsForActivation({
         client,
@@ -284,7 +284,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => ({
         platformRepo: "aomi-labs/community",
       })),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     await expect(
       missingSecretsForActivation({
@@ -310,7 +310,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => {
         throw backendError;
       }),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     await expect(
       missingSecretsForActivation({
@@ -372,7 +372,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => ({
         platformRepo: "aomi-labs/community",
       })),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     const missing = await missingSecretsForActivation({
       client,
@@ -452,7 +452,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => ({
         platformRepo: "aomi-labs/community",
       })),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     const missing = await missingSecretsForActivation({
       client,
@@ -489,7 +489,7 @@ describe("missingSecretsForActivation", () => {
       getUserProjectLatestDeployment: vi.fn(async () => ({
         platformRepo: "aomi-labs/community",
       })),
-    } as unknown as BackendClient;
+    } as unknown as ManagerClient;
 
     await expect(
       missingSecretsForActivation({
