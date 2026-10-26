@@ -4,7 +4,8 @@ import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { describe, expect, it, vi } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
-import { parseSiweMessage, verifySiweMessage } from "viem/siwe";
+import { verifyMessage } from "viem";
+import { parseSiweMessage } from "viem/siwe";
 import {
   previewWalletAuthOrigin,
   withPreviewWalletAuthOrigin,
@@ -73,12 +74,12 @@ describe.each([canonical, preview])(
               const valid =
                 family === "siwe"
                   ? parseSiweMessage(body.message).nonce === nonce &&
-                    (await verifySiweMessage({
+                    parseSiweMessage(body.message).domain ===
+                      new URL(origin).host &&
+                    (await verifyMessage({
                       message: body.message,
                       signature: body.signature as `0x${string}`,
                       address: address as `0x${string}`,
-                      domain: new URL(origin).host,
-                      nonce,
                     }))
                   : verifySiwsMessage({
                       ...body,
