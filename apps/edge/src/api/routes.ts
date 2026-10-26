@@ -18,6 +18,8 @@ export type Route = {
   appId?: string;
   /** Payment routes admit exact methods only. */
   methods?: readonly string[];
+  /** A Task discovery document the edge serves itself; `targets` is the API Server. */
+  document?: TaskDocument;
 };
 
 const API_HEADERS = [
@@ -59,6 +61,17 @@ export const CORS: Record<RouteName, CorsPolicy> = {
 };
 
 export const TASK_BUILD_PATH = "/v1/task/build";
+
+export type TaskDocument = "agent" | "x402" | "openapi";
+
+/** Public discovery paths and the document the edge serves at each. */
+const TASK_DOCUMENTS: Readonly<Record<string, TaskDocument>> = {
+  "/.well-known/agent.json": "agent",
+  "/.well-known/x402": "x402",
+  // Domain crawlers get the Task contract, never the API Server's full schema.
+  "/openapi.json": "openapi",
+  "/v1/task/openapi.json": "openapi",
+};
 const TASK_JOB_PATH =
   /^\/v1\/task\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(status|result)$/i;
 
@@ -69,14 +82,6 @@ const TASK_JOB_PATH =
  */
 const TASK_HEADERS: HeaderPolicy = {
   request: new Set(["accept", "content-type", "content-length", "payment-signature", "user-agent", "x-request-id"]),
-};
-
-const TASK_DISCOVERY_PATHS: Record<string, string> = {
-  // Domain crawlers get the Task contract, never the API Server's full schema.
-  "/openapi.json": "/v1/task/openapi.json",
-  "/.well-known/agent.json": "/.well-known/agent.json",
-  "/v1/task/openapi.json": "/v1/task/openapi.json",
-  "/.well-known/x402": "/.well-known/x402",
 };
 
 // The same Payment process serves public account routes and private
@@ -123,8 +128,8 @@ export function resolveRoute(url: URL, env: EdgeEnv, routingKey: string | null =
   const payment = PAYMENT_ROUTES.find(([path]) => path.test(pathname));
   if (payment) return one("payment", cfg.payment, pathname, search, { methods: payment[1] });
   if (cfg.apiServer) {
-    if (TASK_DISCOVERY_PATHS[pathname])
-      return one("task-discovery", cfg.apiServer, TASK_DISCOVERY_PATHS[pathname], search);
+    if (Object.hasOwn(TASK_DOCUMENTS, pathname))
+      return one("task-discovery", cfg.apiServer, "/", "", { document: TASK_DOCUMENTS[pathname], methods: ["GET", "HEAD"] });
     if (pathname === "/.well-known/jwks.json") return one("jwks", cfg.apiServer, pathname, search);
     if (isTaskPath(pathname)) return one("task", cfg.apiServer, pathname, search, { headers: TASK_HEADERS });
   }

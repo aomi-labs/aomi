@@ -2,6 +2,8 @@ import type { EdgeEnv } from "../../env";
 import { TwoTierCache } from "../../kernel/cache";
 import type { FetchLike } from "../../kernel/proxy";
 import { TASK_BUILD_PATH } from "../routes";
+import { buildMetadata } from "./documents";
+import type { TaskTerms } from "./terms";
 
 /**
  * The Task discovery challenge: the API Server's own body-bound 402 for its
@@ -18,7 +20,7 @@ import { TASK_BUILD_PATH } from "../routes";
 export type DiscoveryChallenge = {
   /** The upstream `Payment-Required` header, byte for byte. */
   paymentRequired: string;
-  /** Metadata from the upstream GET merged with the upstream 402 body. */
+  /** The build metadata merged with the upstream 402 body. */
   body: Record<string, unknown>;
 };
 
@@ -58,12 +60,13 @@ async function jsonObject(
 
 /**
  * Resolve the discovery challenge for one API Server origin, from cache or by
- * asking the upstream for its metadata and then its 402 for the example body.
- * Returns null when the upstream cannot produce one; callers then fall back to
- * forwarding the request as it is.
+ * asking the upstream for its 402 for the published example body. Returns
+ * null when the upstream cannot produce one; callers then answer with the
+ * read-only metadata.
  */
 export async function discoveryChallenge(
   apiServerOrigin: URL,
+  terms: TaskTerms,
   env: EdgeEnv,
   fetchImpl: FetchLike,
   now: number = Date.now(),
@@ -73,18 +76,8 @@ export async function discoveryChallenge(
   if (cached) return cached;
 
   const buildUrl = new URL(TASK_BUILD_PATH, apiServerOrigin);
-  let metadata: Record<string, unknown> | null;
-  try {
-    const response = await fetchImpl(
-      new Request(buildUrl, { headers: { accept: "application/json" } }),
-      { cache: "no-store" },
-    );
-    metadata = response.ok ? await jsonObject(response) : null;
-  } catch {
-    return null;
-  }
-  const example = metadata?.exampleRequest;
-  if (!metadata || !example || typeof example !== "object") return null;
+  const metadata = buildMetadata(terms);
+  const example = metadata.exampleRequest;
 
   let challenge: Response;
   try {
