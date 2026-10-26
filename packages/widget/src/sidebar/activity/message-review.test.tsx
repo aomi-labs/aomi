@@ -75,13 +75,36 @@ describe("message commit review", () => {
     expect(screen.getByText("Permission changes")).toBeInTheDocument();
     const [row] = rows();
     expect(row).toHaveTextContent("≤ 500 USDC");
-    expect(row).toHaveTextContent(/0x3fC91A…2b7FAD may spend · until /);
+    expect(row).toHaveTextContent(
+      /0x3fC91A…2b7FAD may spend token 0x8335…2913 · until /,
+    );
     expect(screen.getByText("Check passed")).toBeInTheDocument();
     expect(screen.queryByText("Signing request")).not.toBeInTheDocument();
     // The rows summarize; the exact signed message is always one tap away.
     expect(
       screen.getByText("Full message", { selector: "summary" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign message" })).toBeEnabled();
+  });
+
+  it("reads Permit2's never-expiring allowance as no expiry", () => {
+    show(
+      review({
+        kind: "permit2",
+        rows: [
+          {
+            kind: "allowance",
+            token: USDC,
+            spender: SPENDER,
+            amount: "500000000",
+            unlimited: false,
+            expires_at: 2 ** 48 - 1,
+          },
+        ],
+        tokens: { [USDC]: { symbol: "USDC", decimals: 6 } },
+      }),
+    );
+    expect(rows()[0]).toHaveTextContent(/may spend token .* · no expiry/);
     expect(screen.getByRole("button", { name: "Sign message" })).toBeEnabled();
   });
 

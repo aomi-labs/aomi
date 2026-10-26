@@ -115,7 +115,7 @@ export async function txApproveCommand(
 
       let approved: CommitRefView;
       try {
-        approved = await handle.approve();
+        approved = await handle.approve(view);
       } catch (error) {
         if (error instanceof CommitApprovalForbiddenError)
           fatal(approveHint(view.sign_url));

@@ -190,10 +190,11 @@ describe("TelegramLinkPanel", () => {
       "agent-wallets": () =>
         Response.json({ pause_all: false, wallets: [agentWallet] }),
     });
-    // The bot starts on its default lane and can be moved before linking.
+    // A wallet the bot's app didn't make starts on Aomi; it can be moved
+    // before linking.
     fireEvent.click(
       await screen.findByRole("combobox", {
-        name: "Trading: Ask in @HooditBot",
+        name: "Trading: Ask on Aomi",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));

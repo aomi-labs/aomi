@@ -527,6 +527,12 @@ const untilFormat = new Intl.DateTimeFormat("en", {
   minute: "2-digit",
 });
 
+/** Permit2's "never" (2^48 - 1) is past what a JS date can hold. */
+function until(seconds: number): string {
+  const at = new Date(seconds * 1000);
+  return Number.isNaN(at.getTime()) ? "no expiry" : `until ${untilFormat.format(at)}`;
+}
+
 /** One row of what a message signature allows, in the trade rows' layout. */
 function MessageEffect({
   row,
@@ -578,9 +584,10 @@ function MessageEffect({
           row.unlimited
             ? `Unlimited ${tokenOf(tokens, row.token)?.symbol?.trim() || assetFallback(row.token)}`
             : `≤ ${messageAmount(tokens, row.token, row.amount)}`,
-          `${shortAddress(row.spender, { head: 8, tail: 6 })} may spend${
+          // A symbol is whatever the token contract says; the address isn't.
+          `${shortAddress(row.spender, { head: 8, tail: 6 })} may spend token ${shortAddress(row.token)}${
             row.expires_at
-              ? ` · until ${untilFormat.format(row.expires_at * 1000)}`
+              ? ` · ${until(row.expires_at)}`
               : ""
           }`,
           row.unlimited ? "warning" : "accent",

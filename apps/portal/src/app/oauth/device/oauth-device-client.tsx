@@ -202,14 +202,14 @@ export function DeviceSheet() {
             name={cli ? "Terminal" : name}
             size={36}
           />
-          {cli ? null : (
-            <div className="w-full">
-              <SheetAlert>
-                This isn’t the Aomi CLI. Only continue if you started this
-                sign-in yourself and trust {name}.
-              </SheetAlert>
-            </div>
-          )}
+          {/* Any app can name itself "Aomi CLI", so the name proves nothing. */}
+          <div className="w-full">
+            <SheetAlert>
+              {cli
+                ? "Only continue if you started this sign-in in your own terminal just now."
+                : `This isn’t the Aomi CLI. Only continue if you started this sign-in yourself and trust ${name}.`}
+            </SheetAlert>
+          </div>
           <p
             data-device-code
             className="border-aomi-border rounded-card w-full border border-dashed p-3.5 text-center font-mono text-[22px] font-semibold leading-none tracking-[0.14em]"

@@ -155,10 +155,17 @@ export class CommitHandle {
    * and an OAuth client its own commits where its lane is Ask in that client;
    * otherwise CommitApprovalForbiddenError: hand the human `view.sign_url`.
    * A changed commit raises CommitStaleError, an expired one
-   * CommitExpiredError (nothing was signed).
+   * CommitExpiredError (nothing was signed). Pass the view the human saw so
+   * a commit that changed after it was shown is refused, not approved.
    */
-  approve(): Promise<CommitRefView> {
-    return this.controller.approve(this.ref);
+  approve(shown?: CommitRefView): Promise<CommitRefView> {
+    return this.controller.approve(
+      this.ref,
+      shown && {
+        expectedVersion: shown.version,
+        expectedReviewDigest: shown.review?.digest,
+      },
+    );
   }
 
   /** Reject at the current version (every parked member of a batch). */

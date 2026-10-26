@@ -217,7 +217,7 @@ export function CommitApprovePanel({
       note={APPROVAL_NOTE}
       status={error}
       statusIsError={Boolean(error)}
-      onApprove={() => void run(() => handle.approve(), refresh)}
+      onApprove={() => void run(() => handle.approve(view), refresh)}
       onReject={() => void run(() => handle.reject(), refresh)}
     />
   );

@@ -303,7 +303,6 @@ export function TelegramLinkPanel({
                 client={client}
                 connectionKey={`telegram:${state.preview.identity.linked_from.bot_id}`}
                 name={state.preview.identity.linked_from.label}
-                startLane="here"
                 onChange={lanes.onChange}
               />
             ) : null}
