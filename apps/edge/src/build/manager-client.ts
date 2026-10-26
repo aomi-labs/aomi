@@ -4,16 +4,14 @@ import { edgeService, EDGE_SERVICE_NAME } from "../identity";
 import { config } from "../kernel/config";
 import { minted, unreachable } from "../kernel/errors";
 import { apiOrigins } from "../kernel/manager";
+import { target } from "../kernel/proxy";
 import type { BuildContext } from "./context";
 
 const SERVICE_BEARER_TTL_SECONDS = 5 * 60;
 
-/** Any manager-owned path: every manager client call resolves where the manager is. */
-const MANAGER_PROBE_PATH = "/api/manager/openapi.json";
-
-/** Where the manager control plane is reached: the cutover switch, else the backend pool. */
-export function managerOrigin(request: Request, ctx: BuildContext): string {
-  const [origin] = apiOrigins(request, ctx.env, MANAGER_PROBE_PATH);
+/** Resolve the actual endpoint: manager control plane or backend-owned vault. */
+export function apiOrigin(request: Request, ctx: BuildContext, pathname: string): string {
+  const [origin] = apiOrigins(request, ctx.env, pathname);
   if (!origin) throw unreachable(new Error("no manager or backend origin"));
   return origin;
 }
@@ -34,8 +32,14 @@ export async function managerClient(request: Request, ctx: BuildContext): Promis
     }),
   );
   return new ManagerClient({
-    url: managerOrigin(request, ctx),
+    // The client assembles paths here; its fetch adapter selects their upstream.
+    url: ctx.buildOrigin,
     bearer: accessToken,
-    fetch: (input, init) => ctx.fetchImpl(new Request(input, init), { cache: "no-store" }),
+    fetch: (input, init) => {
+      const outgoing = new Request(input, init);
+      const url = new URL(outgoing.url);
+      const upstream = target(apiOrigin(request, ctx, url.pathname), url.pathname, url.search);
+      return ctx.fetchImpl(new Request(upstream, outgoing), { cache: "no-store" });
+    },
   });
 }

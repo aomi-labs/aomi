@@ -12,7 +12,7 @@ import { BUILDER_CREDITS_PREFIX, credits } from "./credits";
 import { DEPLOY_ROUTES } from "./deploy";
 import { type BuildRoute, type Handler } from "./endpoint";
 import { failureResponse } from "./failures";
-import { managerOrigin } from "./manager-client";
+import { apiOrigin } from "./manager-client";
 import { OPERATE_ROUTES } from "./operate";
 import {
   callback,
@@ -29,7 +29,11 @@ export const GITHUB_APP_INSTALL_START_PATH = "/api/integrations/github-app/oauth
 
 /** Build forwards only the GitHub App install start, anonymously. */
 async function installStart(request: Request, ctx: BuildContext): Promise<Response> {
-  const url = target(managerOrigin(request, ctx), GITHUB_APP_INSTALL_START_PATH, new URL(request.url).search);
+  const url = target(
+    apiOrigin(request, ctx, GITHUB_APP_INSTALL_START_PATH),
+    GITHUB_APP_INSTALL_START_PATH,
+    new URL(request.url).search,
+  );
   if (!url.searchParams.get("platform")) url.searchParams.set("platform", ctx.config.platforms[0]);
   return proxy(request, url, { fetchImpl: ctx.fetchImpl, headers: BACKEND_API_HEADERS });
 }
