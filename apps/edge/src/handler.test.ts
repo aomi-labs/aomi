@@ -451,20 +451,20 @@ describe("multi-origin load balancing", () => {
     }
 
     const postAttempts: string[] = [];
-    await expect(
-      handleRequest(
-        new Request("https://api.aomi.dev/api/chat", {
-          method: "POST",
-          headers: { "X-Session-Id": "session-abc" },
-          body: JSON.stringify({ message: "hello" }),
-        }),
-        multiEnv,
-        async (request) => {
-          postAttempts.push(new URL(request.url).origin);
-          throw new Error("ambiguous origin failure");
-        },
-      ),
-    ).rejects.toThrow(/ambiguous origin failure/);
+    const failedPost = await handleRequest(
+      new Request("https://api.aomi.dev/api/chat", {
+        method: "POST",
+        headers: { "X-Session-Id": "session-abc" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      multiEnv,
+      async (request) => {
+        postAttempts.push(new URL(request.url).origin);
+        throw new Error("ambiguous origin failure");
+      },
+    );
+    expect(failedPost.status).toBe(502);
+    expect(failedPost.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(postAttempts).toEqual([ranked[0]]);
 
     const tunnelDown = await handleRequest(
