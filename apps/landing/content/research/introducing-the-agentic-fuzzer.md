@@ -141,6 +141,6 @@ If you build on Arc Studio and want to run the fuzzer on your own app, we want t
 - **Preview:** [fuzzer.aomi.dev](https://fuzzer.aomi.dev). The page is public; past the connect screen you need your own Arc Studio token and a wallet sign-in to an Aomi account. The backend runs on Aomi's staging environment.
 - **Walkthrough video:** [a recorded campaign on the mock vault](https://drive.google.com/file/d/1dt3q6XBbFOVrmipbT_OtFIcN1Jn6ZUg8/view), from connect to confirmed finding.
 - **Docs and platform:** [aomi.dev/docs](https://aomi.dev/docs) · [build.aomi.dev](https://build.aomi.dev)
-- **Talk to us:** [cecilia@foameo.ai](mailto:cecilia@foameo.ai) or [book a call](https://calendar.app.google/UG8dwLD8q79BfDH56).
+- **Talk to us:** [contact@aomi.dev](mailto:contact@aomi.dev) or [book a call](https://calendar.app.google/UG8dwLD8q79BfDH56).
 
 Aomi Labs is part of Circle's Arc Acceleration Season, which is how the first target became Arc Studio apps. Aomi is not an official Circle or Arc product or integration.
