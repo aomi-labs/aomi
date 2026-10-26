@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { posts } from "@/lib/research";
+import { postHref, posts } from "@/lib/research";
 import { MARKETING_ROOT } from "../site";
 import styles from "../marketing.module.css";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const blogPosts = posts.map((post) => ({
   ...post,
-  href: `/research/${post.slug}`,
+  href: postHref(post),
 }));
 const [featured, ...rest] = blogPosts;
 

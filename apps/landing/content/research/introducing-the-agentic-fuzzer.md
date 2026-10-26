@@ -1,8 +1,8 @@
 <!--
-Aomi Blog post — introducing-the-agentic-fuzzer
-slug: introducing-the-agentic-fuzzer
+Aomi Blog post — agentic-fuzzer (served at /blog/agentic-fuzzer)
+slug: agentic-fuzzer
 tag: launch
-Figures live in public/research/introducing-the-agentic-fuzzer/figures/.
+Figures live in public/blog/agentic-fuzzer/figures/.
 Rich blocks (::fuzzer-*::) render from app/(marketing)/research/[slug]/agentic-fuzzer-research.tsx.
 Source material: the agentic fuzzer application package (October 2026).
 -->
@@ -39,7 +39,7 @@ That one design rule drives everything below. Frontier models are good at readin
 
 The engine models an investigation as a tree of ordered call sequences. The root is a baseline snapshot of the fork with the contract installed and the actors funded. Every edge adds one call by one actor. The search is breadth first: all one-call sequences, then two-call extensions of the paths that reached a new state, and so on, under a depth cap and an execution budget.
 
-![Breadth-first search over call sequences on UnsafeVault. Depth 0 is the funded baseline snapshot. At depth 1, bob's withdraw fails on an empty vault and is pruned, bob's deposit reaches the same state shape as alice's and is pruned, and alice's deposit reaches a new state and is kept. At depth 2, bob's withdraw after alice's deposit succeeds and pays bob 5 USDC, breaking the rule; the sequence is minimized and replayed twice before it becomes a finding.](/research/introducing-the-agentic-fuzzer/figures/bfs.svg)
+![Breadth-first search over call sequences on UnsafeVault. Depth 0 is the funded baseline snapshot. At depth 1, bob's withdraw fails on an empty vault and is pruned, bob's deposit reaches the same state shape as alice's and is pruned, and alice's deposit reaches a new state and is kept. At depth 2, bob's withdraw after alice's deposit succeeds and pays bob 5 USDC, breaking the rule; the sequence is minimized and replayed twice before it becomes a finding.](/blog/agentic-fuzzer/figures/bfs.svg)
 
 Figure 1. Breadth-first search over call sequences, on the mock vault used throughout this post. Kept nodes reached a new state; pruned nodes repeated a known state shape or dead-ended. The red path broke the rule and was confirmed by replay.
 
@@ -63,23 +63,23 @@ A campaign is `arc_fuzz_start`, then `sim_replay_traces` and `arc_fuzz_round` al
 
 Here is the loop from the builder's side, on the mock vault. A builder pastes an Arc Studio token. Targets come from their own workspace; no handler code is written.
 
-![The Agentic Fuzzer workbench on the UnsafeVault mock. Left: fuzz targets and campaign history. Centre: the contract source and the campaign counters. Right: the agent panel with its investigation plan: hypothesis, roles, property and actions.](/research/introducing-the-agentic-fuzzer/figures/plan.png)
+![The Agentic Fuzzer workbench on the UnsafeVault mock. Left: fuzz targets and campaign history. Centre: the contract source and the campaign counters. Right: the agent panel with its investigation plan: hypothesis, roles, property and actions.](/blog/agentic-fuzzer/figures/plan.png)
 
 Figure 2. The agent's investigation plan, shown in the open before the first replay batch is issued. Hypothesis: an unprivileged actor can withdraw funds without a corresponding deposit. Property: unauthorized withdrawal must revert.
 
 The agent reads the source, maps the callable surface and writes an investigation plan: a hypothesis, the actors, and an executable property. Everything after this is an attempt to falsify that property.
 
-![The observed execution tree mid-campaign. Baseline snapshot, then deposit by the depositor, then withdraw by the attacker, with a queued extension and a reverted sibling. The counters read 3 of 32 executions, 8 queued in the frontier, 2 states expanded.](/research/introducing-the-agentic-fuzzer/figures/tree.png)
+![The observed execution tree mid-campaign. Baseline snapshot, then deposit by the depositor, then withdraw by the attacker, with a queued extension and a reverted sibling. The counters read 3 of 32 executions, 8 queued in the frontier, 2 states expanded.](/blog/agentic-fuzzer/figures/tree.png)
 
 Figure 3. The observed execution tree while the engine explores. Executed, queued and reverted nodes are marked. The budget strip tracks executions against the cap, and the caption under it says what it is: exploration is bounded, not a measure of contract safety.
 
 The engine runs ordered multi-actor sequences on the fork and the tree fills in. Reverts stay in the tree because they are evidence too.
 
-![The finished campaign. The attacker's withdraw after the depositor's deposit is marked as a confirmed finding, the replay history shows the sequence executed from baseline, and the watched balance changes are expanded. The agent panel reads: confirmed property violation, the two-call sequence reproduces from the baseline twice.](/research/introducing-the-agentic-fuzzer/figures/confirmed.png)
+![The finished campaign. The attacker's withdraw after the depositor's deposit is marked as a confirmed finding, the replay history shows the sequence executed from baseline, and the watched balance changes are expanded. The agent panel reads: confirmed property violation, the two-call sequence reproduces from the baseline twice.](/blog/agentic-fuzzer/figures/confirmed.png)
 
 Figure 4. A path becomes a confirmed finding only after it replays twice from baseline. The engine records each call's status, the replay history, watched balance changes before and after per address, and probe results.
 
-![The verified finding card: the property, the two-call sequence depositor deposit then attacker withdraw, observed balance changes, and the round, execution and corpus counters, with Arc fork and no signing in the footer. Below it, the agent's conclusion and a button to send the finding to Arc Studio for a fix.](/research/introducing-the-agentic-fuzzer/figures/handoff.png)
+![The verified finding card: the property, the two-call sequence depositor deposit then attacker withdraw, observed balance changes, and the round, execution and corpus counters, with Arc fork and no signing in the footer. Below it, the agent's conclusion and a button to send the finding to Arc Studio for a fix.](/blog/agentic-fuzzer/figures/handoff.png)
 
 Figure 5. The verified-finding card and the hand-off. The agent explains the finding and drafts a fix; sending that fix back to Arc Studio and re-running the campaign to confirm it holds is on the roadmap.
 
@@ -97,7 +97,7 @@ The product's whole claim is that findings are evidence and nothing else, so her
 
 Aomi Labs builds the execution harness for onchain finance: a hosted runtime where agents call typed tools, every transaction first runs on a copy of live chain state, and the user's own wallet signs. A chain fork is CI for transactions. The Agentic Fuzzer turns that same loop on the contract itself, as an Aomi app on the same runtime. It needed no new fork service and no new model router, only a new question.
 
-![Three owners on one runtime. Arc Studio, the builder, supplies the source, the compiled artifact and the account's deployments through the builder's token, and receives the report and drafted fix. The Aomi app holds the agent, which writes the threat model, rules, actors and action templates on a model from Aomi's catalog, and the campaign engine, deterministic code that validates the plan, owns the frontier, dedup and order, minimizes and replays twice. The held Arc fork, chain 5042 at a pinned block, installs or runs in place, funds actors and runs calls, and never signs or broadcasts.](/research/introducing-the-agentic-fuzzer/figures/architecture.svg)
+![Three owners on one runtime. Arc Studio, the builder, supplies the source, the compiled artifact and the account's deployments through the builder's token, and receives the report and drafted fix. The Aomi app holds the agent, which writes the threat model, rules, actors and action templates on a model from Aomi's catalog, and the campaign engine, deterministic code that validates the plan, owns the frontier, dedup and order, minimizes and replays twice. The held Arc fork, chain 5042 at a pinned block, installs or runs in place, funds actors and runs calls, and never signs or broadcasts.](/blog/agentic-fuzzer/figures/architecture.svg)
 
 Figure 6. Three owners on one runtime. The builder's Arc Studio account is the only source of targets. The agent and the engine run inside one Aomi app. The fork is the same held-chain-state service every Aomi app uses to test a transaction before a wallet sees it.
 
