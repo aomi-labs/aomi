@@ -197,6 +197,29 @@ async function toBackend(call: Call, path: string): Promise<Response> {
   throw lastError;
 }
 
+/**
+ * A raw backend bearer for a browser that calls the Rust backend cross-origin
+ * itself (NEXT_PUBLIC_BACKEND_URL set to another origin). The former Vercel
+ * route minted this as `aomi-bff`; hosted backends now trust `aomi-edge` only.
+ */
+async function accountBearer(call: Call): Promise<Response> {
+  const { principal, ctx, request } = call;
+  if (principal.kind === "none" || principal.kind === "oauth")
+    throw new PrincipalError(401, "unauthenticated");
+  const { accessToken, expiresAt } = await mintBearer(() =>
+    edgeService(ctx.env, hostOf(request)).mint({
+      role: "user",
+      subject: principal.accountId,
+      audience: "aomi-backend",
+      ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
+    }),
+  );
+  return Response.json(
+    { bearer: accessToken, expires_at: expiresAt },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
+
 function appCatalogPlatforms(ctx: PortalContext): string[] {
   return [
     ...new Set(
@@ -487,6 +510,12 @@ const FAMILIES = {
     "pipeline:catalog",
     "offline_access",
   ]),
+  bearer: (): Family => ({
+    operation: "account.bearer",
+    methods: ["GET"],
+    need: () => ({ capability: "backend_bearer" }),
+    handle: accountBearer,
+  }),
   delegationBegin: (provider: "privy" | "para") => (): Family => ({
     operation: `delegation.${provider}.begin`,
     methods: ["POST"],
@@ -508,6 +537,7 @@ export function matchFamily(url: URL): ((ctx: PortalContext) => Family) | null {
   if (/^\/v1\/account\/credits(?:\/(?:methods|ledger))?$/.test(pathname)) return FAMILIES.credits;
   if (FUNDING_EVENT_PATH.test(pathname)) return FAMILIES.fundingEvents;
   if (pathname === "/v1/account/statement") return FAMILIES.statement;
+  if (pathname === "/v1/account/bearer") return FAMILIES.bearer;
   if (pathname === "/v1/account/apps" || pathname.startsWith("/v1/account/apps/"))
     return FAMILIES.accountApps;
   if (

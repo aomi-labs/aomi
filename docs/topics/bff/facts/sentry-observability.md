@@ -531,7 +531,7 @@ Instrument these ownership boundaries:
 - `apps/portal/src/server/widget-auth/handlers.ts`
 - `apps/portal/src/server/bff/failures.ts`
 - `apps/portal/src/app/api/[...slug]/route.ts`
-- `apps/portal/src/app/v1/account/bearer/route.ts`
+- the `account.bearer` family in `apps/edge/src/portal/routes.ts` (`/v1/account/bearer` is served by the edge Worker)
 - `apps/portal/src/app/api/auth/[...all]/route.ts`
 - the four `apps/portal/src/app/v1/account/device-auth/*` routes
 - canonical `/v1/agent/mcp` and `/v1/pipeline/mcp` route boundaries

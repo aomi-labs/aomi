@@ -12,12 +12,17 @@ import {
 import { FakeAgentBackend, type FakeRequest } from "./backend";
 import { readBody, sendFakeResponse } from "./server";
 
-/** Development BFF signing key; its public half is in packages/account's topology. */
-export const bffPrivateKey =
-  "-----BEGIN PRIVATE KEY-----\n" +
-  "MC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n" +
-  "-----END PRIVATE KEY-----";
-const bffPublicKey = createPublicKey(createPrivateKey(bffPrivateKey));
+import { bffPrivateKey, trustedDevIssuers } from "../edge-keys";
+
+export { bffPrivateKey };
+
+/** The development issuers whose bearers the fake accepts: the portal BFF and the edge Worker. */
+const trustedKeys = new Map(
+  Object.entries(trustedDevIssuers).map(([kid, { issuer, privateKey }]) => [
+    kid,
+    { issuer, publicKey: createPublicKey(createPrivateKey(privateKey)) },
+  ]),
+);
 
 export type Principal = {
   sub: string;
@@ -289,7 +294,7 @@ const credits: CreditBalance = {
   debt_microusd: 0,
 };
 
-/** EdDSA bearer issued by the development BFF for a user, or null. */
+/** EdDSA bearer issued for a user by a trusted development issuer, or null. */
 function verifyBearer(
   request: IncomingMessage,
   audience: string,
@@ -299,20 +304,21 @@ function verifyBearer(
   )?.[1];
   const [header, payload, signature] = token?.split(".") ?? [];
   if (!header || !payload || !signature) return null;
+  const protectedHeader = decode(header);
+  const trusted = trustedKeys.get(protectedHeader.kid);
+  if (!trusted) return null;
   const signed = verify(
     null,
     Buffer.from(`${header}.${payload}`),
-    bffPublicKey,
+    trusted.publicKey,
     Buffer.from(signature, "base64url"),
   );
   if (!signed) return null;
-  const protectedHeader = decode(header);
   const claims = decode(payload);
   const audiences = [claims.aud].flat();
   if (
     protectedHeader.alg !== "EdDSA" ||
-    protectedHeader.kid !== "aomi-bff-dev-1" ||
-    claims.iss !== "aomi-bff" ||
+    claims.iss !== trusted.issuer ||
     !audiences.includes(audience) ||
     claims.role !== "user" ||
     typeof claims.sub !== "string" ||

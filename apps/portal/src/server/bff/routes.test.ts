@@ -16,7 +16,9 @@ const mocks = vi.hoisted(() => ({
 
 // One table of credentials stands in for Better Auth, widget sessions and the
 // OAuth resource server; everything above them (resolver, capabilities,
-// forwarding, error mapping, CORS) is the real pipeline.
+// error mapping, CORS) is the real pipeline. The proxy families (/api, /v1/agent,
+// /v1/pipeline, credits, statement, apps, transaction safety, MCP) left for the
+// edge Worker; apps/edge/src/portal/portal.test.ts covers them.
 const SESSIONS: Record<
   string,
   { user: { id: string; isAnonymous: boolean }; session: { token: string } }
@@ -60,12 +62,6 @@ const TOKENS: Record<
     class: "guest",
     scope: "agent:read agent:write",
     aud: `${PORTAL}/v1/agent`,
-  },
-  "mcp.user.jwt": {
-    sub: "user",
-    class: "user",
-    scope: "mcp:agent agent:read agent:write",
-    aud: `${PORTAL}/v1/agent/mcp`,
   },
 };
 
@@ -174,23 +170,6 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
     }),
   }),
 }));
-vi.mock("@better-auth/mcp", () => ({
-  requireMcpAuth:
-    (
-      _auth: unknown,
-      handler: (request: Request, claims: unknown) => Promise<Response>,
-      options: { resource: string },
-    ) =>
-    async (request: Request) => {
-      const claims = claimsFor(bearerToken(request) ?? "");
-      return claims && claims.aud === options.resource
-        ? handler(request, claims)
-        : new Response(null, {
-            status: 401,
-            headers: { "www-authenticate": "Bearer" },
-          });
-    },
-}));
 vi.mock("@/server/bff/dev/e2e-wallet", () => ({
   e2eAccountId: mocks.e2eAccountId,
 }));
@@ -261,118 +240,54 @@ const CREDENTIALS: Record<string, Credential> = {
 };
 
 const FAMILIES = {
-  "/api chat": ["POST", "/api/thread/model", routes.backend.POST],
-  "/api settings": ["GET", "/api/secrets", routes.backend.GET],
-  "/api commit": ["GET", "/api/commits/0b9c1f2e", routes.backend.GET],
-  "/v1/agent": ["POST", "/v1/agent/sessions", routes.agent.POST],
-  "/v1/account/credits": ["GET", "/v1/account/credits", routes.credits.GET],
   "/v1/account": ["GET", "/v1/account", routes.account.GET],
-  "/v1/account/bearer": ["GET", "/v1/account/bearer", routes.bearer.GET],
   "/v1/account/session/cli": [
     "POST",
     "/v1/account/session/cli",
     routes.cliSession.POST,
   ],
-  "/v1/agent/mcp": ["POST", "/v1/agent/mcp", routes.agentMcp.POST],
 } as const;
 type FamilyName = keyof typeof FAMILIES;
 
-// Minted: the account bearer subject for /api, or [subject, class, scope] for the agent API.
-type Outcome = number | [200, string] | [200, string, "user" | "guest", string];
+// Minted: the account bearer subject, where the route mints one.
+type Outcome = number | [200, string];
 const user = "acct-user";
 const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "cookie user": {
-    "/api chat": [200, user],
-    "/api settings": [200, user],
-    "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
-    "/v1/account/credits": [200, user, "user", "account:credits:read"],
     "/v1/account": 200,
-    "/v1/account/bearer": [200, user],
     "/v1/account/session/cli": 403,
-    "/v1/agent/mcp": 401,
   },
   "cookie guest": {
-    "/api chat": [200, "acct-guest"],
-    "/api settings": 403,
-    "/api commit": [200, "acct-guest"],
-    "/v1/agent": [200, "acct-guest", "guest", "agent:write"],
-    "/v1/account/credits": 403,
     "/v1/account": 200,
-    "/v1/account/bearer": [200, "acct-guest"],
     "/v1/account/session/cli": 403,
-    "/v1/agent/mcp": 401,
   },
   "session bearer": {
-    "/api chat": [200, user],
-    "/api settings": [200, user],
-    "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
-    "/v1/account/credits": [200, user, "user", "account:credits:read"],
     "/v1/account": 200,
-    "/v1/account/bearer": [200, user],
     "/v1/account/session/cli": 200,
-    "/v1/agent/mcp": 401,
   },
   "widget user": {
-    "/api chat": [200, "acct-widget"],
-    "/api settings": [200, "acct-widget"],
-    "/api commit": [200, "acct-widget"],
-    "/v1/agent": [200, "acct-widget", "user", "agent:write custody:delegate"],
-    "/v1/account/credits": [200, "acct-widget", "user", "account:credits:read"],
     "/v1/account": 200,
-    "/v1/account/bearer": 403,
     "/v1/account/session/cli": 403,
-    "/v1/agent/mcp": 401,
   },
   "widget guest": {
-    "/api chat": [200, "acct-widget-guest"],
-    "/api settings": 403,
-    "/api commit": [200, "acct-widget-guest"],
-    "/v1/agent": [200, "acct-widget-guest", "guest", "agent:write"],
-    "/v1/account/credits": 403,
     "/v1/account": 200,
-    "/v1/account/bearer": 403,
     "/v1/account/session/cli": 403,
-    "/v1/agent/mcp": 401,
   },
   "widget, wrong origin": allStatus(401),
   "invalid widget session": allStatus(401),
-  "OAuth user": {
-    ...allStatus(401),
-    "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
-  },
-  "OAuth user, DPoP": {
-    ...allStatus(401),
-    "/api commit": [200, user],
-    "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
-  },
-  "OAuth guest": {
-    ...allStatus(401),
-    "/api commit": [200, "acct-guest"],
-    "/v1/agent": [200, "acct-guest", "guest", "agent:write"],
-  },
+  "OAuth user": allStatus(401),
+  "OAuth user, DPoP": allStatus(401),
+  "OAuth guest": allStatus(401),
   none: {
     ...allStatus(401),
-    "/api chat": 200,
     "/v1/account": 200,
   },
   "e2e cookie": {
-    "/api chat": [200, "acct-e2e"],
-    "/api settings": [200, "acct-e2e"],
-    "/api commit": [200, "acct-e2e"],
-    "/v1/agent": [200, "acct-e2e", "user", "agent:write custody:delegate"],
-    "/v1/account/credits": [200, "acct-e2e", "user", "account:credits:read"],
-    // The E2E stand-in never served the portal's own account routes.
     "/v1/account": 200,
-    "/v1/account/bearer": [200, "acct-e2e"],
     "/v1/account/session/cli": 401,
-    "/v1/agent/mcp": 401,
   },
   "e2e cookie on Vercel": {
     ...allStatus(401),
-    "/api chat": 200,
     "/v1/account": 200,
   },
 };
@@ -450,56 +365,19 @@ describe("principal × route family", () => {
       const response = await handler(
         request(path, { method, headers, origin }),
       );
-      const [status, subject, principalClass, scope] = Array.isArray(outcome)
-        ? outcome
-        : [outcome];
+      const [status, subject] = Array.isArray(outcome) ? outcome : [outcome];
       expect(response.status).toBe(status);
       if (status !== 200) {
         expect(mocks.fetch).not.toHaveBeenCalled();
         expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-        expect(mocks.mintDelegatedBearer).not.toHaveBeenCalled();
         return;
       }
-      if (principalClass) {
-        expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
-          subject,
-          family === "/v1/account/credits" ? "aomi-payment" : "aomi-api-server",
-          expect.objectContaining({ principal_class: principalClass, scope }),
-        );
-        expect(upstreamCalls()[0].headers.get("authorization")).toBe(
-          `Bearer agent:${subject}`,
-        );
-      } else if (subject) {
-        expect(mocks.mintAccountBearer).toHaveBeenCalledWith(subject);
-      } else {
-        expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-      }
-      for (const call of upstreamCalls()) {
+      if (subject) expect(mocks.mintAccountBearer).toHaveBeenCalledWith(subject);
+      else expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
+      for (const call of upstreamCalls())
         expect(call.headers.has("cookie")).toBe(false);
-        if (!subject) expect(call.headers.has("authorization")).toBe(false);
-      }
     },
   );
-
-  it("only mints actions:resolve where the request needs it", async () => {
-    await routes.agent.POST(
-      request("/v1/agent/sessions/t/actions/a/result", {
-        method: "POST",
-        headers: { cookie: "session=user" },
-        origin: PORTAL,
-      }),
-    );
-    await routes.agent.POST(
-      request("/v1/agent/sessions", {
-        method: "POST",
-        headers: { authorization: "Bearer aomi_wst_guest" },
-        origin: PARTNER,
-      }),
-    );
-    expect(
-      mocks.mintDelegatedBearer.mock.calls.map(([, , claims]) => claims.scope),
-    ).toEqual(["agent:actions:resolve", "agent:write"]);
-  });
 
   it("returns the guest projection without exposing the session token", async () => {
     const response = await routes.account.GET(
@@ -528,40 +406,7 @@ describe("principal × route family", () => {
   });
 });
 
-describe("CSRF on cookie-authenticated writes", () => {
-  const write = (headers: Record<string, string>) =>
-    routes.backend.POST(
-      request("/api/thread/model", {
-        method: "POST",
-        headers: { cookie: "session=user", ...headers },
-      }),
-    );
-
-  it.each([
-    ["no Origin", {}],
-    ["Origin null", { origin: "null" }],
-    ["http: Origin", { origin: "http://portal.example" }],
-    ["cross-site Origin", { origin: "https://hostile.example" }],
-    ["cross-site fetch metadata", { "sec-fetch-site": "cross-site" }],
-    [
-      "cross-site fetch metadata with the CSRF header",
-      { "sec-fetch-site": "cross-site", "x-aomi-csrf": "1" },
-    ],
-  ])("rejects %s with 403", async (_name, headers) => {
-    const response = await write(headers);
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "csrf_failed" });
-    expect(mocks.fetch).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["the portal Origin", { origin: PORTAL }],
-    ["same-origin fetch metadata", { "sec-fetch-site": "same-origin" }],
-    ["the CSRF header", { "x-aomi-csrf": "1" }],
-  ])("accepts %s", async (_name, headers) => {
-    expect((await write(headers)).status).toBe(200);
-  });
-
+describe("CSRF on cookie-authenticated requests", () => {
   it("ignores the cookie on a cross-site read", async () => {
     const response = await routes.account.GET(
       request("/v1/account", {
@@ -571,77 +416,10 @@ describe("CSRF on cookie-authenticated writes", () => {
     );
     expect(await response.json()).toMatchObject({ user: null, session: null });
   });
-
-  it("returns an RFC 6750 challenge for protected resources", async () => {
-    const response = await routes.agent.POST(
-      request("/v1/agent/sessions", {
-        method: "POST",
-        headers: { cookie: "session=user" },
-      }),
-    );
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
-      error: { code: "csrf_failed", message: "Authorization failed" },
-    });
-  });
-});
-
-describe("explicit credentials never fall back to a cookie", () => {
-  it.each([
-    ["an unknown session bearer", "Bearer unknown"],
-    ["a revoked widget session", "Bearer aomi_wst_revoked"],
-    ["an invalid OAuth token", "Bearer bad.oauth.jwt"],
-  ])("rejects %s", async (_name, authorization) => {
-    const response = await routes.agent.POST(
-      request("/v1/agent/sessions", {
-        method: "POST",
-        headers: { authorization, cookie: "session=user" },
-        origin: PARTNER,
-      }),
-    );
-    expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toContain(
-      'resource_metadata="https://portal.example/.well-known/oauth-protected-resource/v1/agent"',
-    );
-  });
-
-  it("accepts OAuth from a managed client's registered origin only", async () => {
-    const call = (origin: string) =>
-      routes.agent.POST(
-        request("/v1/agent/sessions", {
-          method: "POST",
-          headers: { authorization: "Bearer oauth.user.jwt" },
-          origin,
-        }),
-      );
-    expect((await call("https://unregistered.example")).status).toBe(401);
-    mocks.managedClient.mockResolvedValue({
-      disabled: false,
-      clientClass: "partner_widget",
-      origins: ["https://managed.example"],
-    });
-    expect((await call("https://managed.example")).status).toBe(200);
-  });
 });
 
 describe("CORS per family", () => {
   it.each([
-    [
-      "/api",
-      () =>
-        routes.backend.OPTIONS(
-          request("/api/thread/model", { method: "OPTIONS", origin: PARTNER }),
-        ),
-      PARTNER,
-    ],
-    [
-      "/v1/agent",
-      () =>
-        routes.agent.OPTIONS(
-          request("/v1/agent/x", { method: "OPTIONS", origin: PARTNER }),
-        ),
-      PARTNER,
-    ],
     [
       "widget sign-in",
       () =>
@@ -652,22 +430,6 @@ describe("CORS per family", () => {
           }),
         ),
       PARTNER,
-    ],
-    [
-      "no usable origin",
-      () =>
-        routes.agent.OPTIONS(
-          request("/v1/agent/x", {
-            method: "OPTIONS",
-            origin: "http://insecure.example",
-          }),
-        ),
-      "*",
-    ],
-    [
-      "public catalog",
-      () => Promise.resolve(routes.publicCatalog.OPTIONS()),
-      "*",
     ],
   ])("%s preflight", async (_name, call, allowOrigin) => {
     const response = await call();
@@ -680,53 +442,6 @@ describe("CORS per family", () => {
     );
   });
 
-  it("allows the fuzzer's per-run budget header on agent chat", () => {
-    const response = routes.agent.OPTIONS(
-      request("/v1/agent/chat", {
-        method: "OPTIONS",
-        origin: PARTNER,
-        headers: { "access-control-request-headers": "authorization,content-type,x-aomi-run-budget-microusd" },
-      }),
-    );
-    expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("x-aomi-run-budget-microusd");
-  });
-
-  it("echoes the widget origin on responses and on readable auth errors", async () => {
-    const ok = await routes.agent.POST(
-      request("/v1/agent/x", {
-        method: "POST",
-        headers: { authorization: "Bearer aomi_wst_user" },
-        origin: PARTNER,
-      }),
-    );
-    const denied = await routes.credits.GET(
-      request("/v1/account/credits", {
-        headers: { authorization: "Bearer aomi_wst_guest" },
-        origin: PARTNER,
-      }),
-    );
-    for (const response of [ok, denied]) {
-      expect(response.headers.get("access-control-allow-origin")).toBe(PARTNER);
-      expect(response.headers.get("vary")).toContain("Origin");
-      expect(response.headers.get("access-control-expose-headers")).toContain(
-        "WWW-Authenticate",
-      );
-    }
-  });
-
-  it("lets anyone read the public catalog, and only it carries CDN cache headers", async () => {
-    mocks.fetch.mockResolvedValue(Response.json(["model-a"]));
-    const response = await routes.publicCatalog.GET(
-      request("/api/public/catalog/models"),
-      {
-        params: Promise.resolve({ kind: "models" }),
-      },
-    );
-    expect(response.headers.get("access-control-allow-origin")).toBe("*");
-    expect(response.headers.get("cdn-cache-control")).toContain("public");
-  });
-
   it("leaves device login without cross-origin access", async () => {
     const response = await routes.deviceExchange.POST(
       request("/v1/account/device-auth/exchange", {
@@ -736,267 +451,6 @@ describe("CORS per family", () => {
       }),
     );
     expect(response.headers.has("access-control-allow-origin")).toBe(false);
-  });
-});
-
-describe("error mapping", () => {
-  it.each([
-    [
-      "/api",
-      () =>
-        routes.backend.POST(
-          request("/api/thread/model", { method: "POST", origin: PORTAL }),
-        ),
-    ],
-    [
-      "/v1/agent",
-      () =>
-        routes.agent.POST(
-          request("/v1/agent/x", {
-            method: "POST",
-            headers: { cookie: "session=user" },
-            origin: PORTAL,
-          }),
-        ),
-    ],
-  ])(
-    "%s: an unreachable upstream is a 502, never a 401",
-    async (_name, call) => {
-      mocks.fetch.mockRejectedValue(
-        new Error("connect ECONNREFUSED 10.0.0.4:8080"),
-      );
-      const response = await call();
-      expect(response.status).toBe(502);
-      const text = await response.text();
-      expect(text).toContain("upstream_unavailable");
-      expect(text).not.toContain("ECONNREFUSED");
-    },
-  );
-
-  it("passes upstream 400, 402, 409 and 429 through unchanged", async () => {
-    for (const status of [400, 402, 409, 429]) {
-      mocks.fetch.mockResolvedValueOnce(
-        Response.json({ error: `upstream_${status}` }, { status }),
-      );
-      const response = await routes.agent.POST(
-        request("/v1/agent/x", {
-          method: "POST",
-          headers: { cookie: "session=user" },
-          origin: PORTAL,
-        }),
-      );
-      expect(response.status).toBe(status);
-      expect(await response.json()).toEqual({ error: `upstream_${status}` });
-    }
-  });
-
-  it("reports a failed bearer signature as a 502 without its message", async () => {
-    mocks.mintDelegatedBearer.mockRejectedValue(new Error("PEM key missing"));
-    const response = await routes.agent.GET(
-      request("/v1/agent/x", { headers: { cookie: "session=user" } }),
-    );
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "bearer_mint_failed" });
-  });
-
-  it("answers an unknown route with 404 before identifying the caller", async () => {
-    const response = await routes.backend.GET(
-      request("/api/not-allowed", {
-        headers: { authorization: "Bearer aomi_wst_revoked" },
-      }),
-    );
-    expect(response.status).toBe(404);
-    const apps = await routes.accountApps.GET(
-      request("/v1/account/apps/abc", { headers: { cookie: "session=user" } }),
-    );
-    expect(apps.status).toBe(404);
-    expect(await apps.json()).toEqual({
-      error: { code: "not_found", message: "Not found" },
-    });
-  });
-});
-
-describe("/api forwarding", () => {
-  it.each([
-    ["GET", "/api/control/apps"],
-    ["GET", "/api/control/models"],
-    ["POST", "/api/control/model"],
-  ])("rejects removed %s %s routes", async (method, path) => {
-    const response = await routes.backend[method](request(path, { method }));
-    expect(response.status).toBe(404);
-    expect(mocks.fetch).not.toHaveBeenCalled();
-    expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [[], "/api/thread/apps"],
-    [
-      ["somm.finance", "community"],
-      "/api/thread/apps?platform=somm.finance&platform=community",
-    ],
-  ])("filters the thread app catalog to %j", async (platforms, upstream) => {
-    vi.stubEnv("APP_CATALOG_PLATFORMS", platforms.join(","));
-    await routes.backend.GET(request("/api/thread/apps"));
-    expect(upstreamCalls()[0].url).toBe(`https://backend.example${upstream}`);
-  });
-
-  it("keeps a caller's explicit platform filter", async () => {
-    vi.stubEnv("APP_CATALOG_PLATFORMS", "somm.finance");
-    await routes.backend.GET(request("/api/thread/apps?platform=community"));
-    expect(upstreamCalls()[0].url).toBe(
-      "https://backend.example/api/thread/apps?platform=community",
-    );
-  });
-
-  it("reaches bearer-independent routes without touching a session", async () => {
-    await routes.backend.GET(
-      request("/api/thread/models", {
-        headers: { authorization: "Bearer aomi_wst_revoked" },
-      }),
-    );
-    expect(upstreamCalls()[0].headers.has("authorization")).toBe(false);
-  });
-});
-
-describe("scopes each agent API route asks for", () => {
-  const signed = { cookie: "session=user" };
-  it.each([
-    ["GET", "/v1/agent/sessions", routes.agent.GET, {}, "agent:read"],
-    [
-      "POST",
-      "/v1/agent/sessions/t/actions/a/result",
-      routes.agent.POST,
-      {},
-      "agent:actions:resolve",
-    ],
-    [
-      "POST",
-      "/v1/agent/sessions",
-      routes.agent.POST,
-      { "payment-signature": "x" },
-      "agent:write payments:submit custody:delegate",
-    ],
-    [
-      "GET",
-      "/v1/pipeline/catalog",
-      routes.pipeline.GET,
-      {},
-      "pipeline:catalog",
-    ],
-    [
-      "GET",
-      "/v1/pipeline/evm/commits/c1",
-      routes.pipeline.GET,
-      {},
-      "pipeline:execute custody:delegate",
-    ],
-    [
-      "POST",
-      "/v1/account/credits/funding-events",
-      routes.fundingEvents.POST,
-      { "payment-signature": "x" },
-      "account:credits:fund payments:submit",
-    ],
-    [
-      "GET",
-      "/v1/account/statement",
-      routes.statement.GET,
-      {},
-      "account:usage:read",
-    ],
-    [
-      "GET",
-      "/v1/account/apps",
-      routes.accountApps.GET,
-      {},
-      "account:apps:read",
-    ],
-    [
-      "DELETE",
-      "/v1/account/apps/7/secrets/API_KEY",
-      routes.accountApps.DELETE,
-      {},
-      "account:credentials:write",
-    ],
-    [
-      "PUT",
-      "/v1/account/transaction-safety/threads/t1",
-      routes.transactionSafety.PUT,
-      {},
-      "account:transaction-safety:write",
-    ],
-  ] as const)("%s %s", async (method, path, handler, headers, scope) => {
-    const response = await handler(
-      request(path, {
-        method,
-        headers: { ...signed, ...headers },
-        origin: PORTAL,
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(mocks.mintDelegatedBearer.mock.calls[0][2].scope).toBe(scope);
-    const payment =
-      path === "/v1/account/credits/funding-events" ||
-      path === "/v1/account/statement";
-    expect(mocks.mintDelegatedBearer.mock.calls[0][1]).toBe(
-      payment ? "aomi-payment" : "aomi-api-server",
-    );
-    expect(upstreamCalls()[0].url).toBe(
-      `https://${payment ? "backend" : "agent"}.example${path}`,
-    );
-  });
-
-  it.each([
-    [
-      "the account control plane",
-      routes.transactionSafety.GET,
-      "/v1/account/transaction-safety",
-    ],
-    ["app secrets", routes.accountApps.GET, "/v1/account/apps"],
-  ])("keeps guests away from %s", async (_name, handler, path) => {
-    const response = await handler(
-      request(path, {
-        headers: { authorization: "Bearer aomi_wst_guest" },
-        origin: PARTNER,
-      }),
-    );
-    expect(response.status).toBe(403);
-  });
-
-  it("gives MCP the grant's scopes for its own resource and lets Rust classify tools", async () => {
-    const response = await routes.agentMcp.POST(
-      request("/v1/agent/mcp", {
-        method: "POST",
-        headers: { authorization: "Bearer mcp.user.jwt" },
-        body: "{}",
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
-      user,
-      "aomi-api-server",
-      expect.objectContaining({
-        scope: "mcp:agent agent:read agent:write",
-        auth_source: "oauth",
-        resource: `${PORTAL}/v1/agent/mcp`,
-      }),
-    );
-    expect(upstreamCalls()[0].url).toBe("https://agent.example/v1/agent/mcp");
-  });
-
-  it("refuses an MCP payment without payments:submit", async () => {
-    const response = await routes.agentMcp.POST(
-      request("/v1/agent/mcp", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer mcp.user.jwt",
-          "payment-signature": "x",
-        },
-        body: "{}",
-      }),
-    );
-    expect(response.status).toBe(403);
-    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });
 
@@ -1014,157 +468,5 @@ describe("dev tools", () => {
       new NextRequest(`${PORTAL}/api/bff/e2e/execute`, { method: "POST" }),
     );
     expect([seed.status, execute.status]).toEqual([404, 404]);
-  });
-});
-
-describe("direct account payment forwarding", () => {
-  it.each([
-    ["GET", "/v1/account/credits/methods", "account:credits:read"],
-    ["GET", "/v1/account/credits/ledger", "account:credits:read"],
-    [
-      "GET",
-      "/v1/account/credits/funding-events/current",
-      "account:credits:read",
-    ],
-    ["POST", "/v1/account/credits/funding-events", "account:credits:fund"],
-    [
-      "POST",
-      "/v1/account/credits/funding-events/purchase-id/cancel",
-      "account:credits:fund",
-    ],
-  ])("delegates %s %s only to Payment", async (method, path, scope) => {
-    const handler =
-      path.endsWith("/methods") || path.endsWith("/ledger")
-        ? routes.credits.GET
-        : method === "GET"
-          ? routes.fundingEvents.GET
-          : routes.fundingEvents.POST;
-    const rejected = await handler(
-      request(path, {
-        method,
-        headers: { cookie: "session=guest" },
-        origin: PORTAL,
-      }),
-    );
-    expect(rejected.status).toBeGreaterThanOrEqual(400);
-    expect(mocks.fetch).not.toHaveBeenCalled();
-    const response = await handler(
-      request(path, {
-        method,
-        headers: {
-          cookie: "session=user",
-          "x-aomi-csrf": "1",
-          "idempotency-key": "purchase-once",
-        },
-        origin: PORTAL,
-      }),
-    );
-    expect(response.status).toBe(200);
-    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
-      "acct-user",
-      "aomi-payment",
-      expect.objectContaining({ scope }),
-    );
-    expect(upstreamCalls()[0].url).toBe(`https://backend.example${path}`);
-    expect(upstreamCalls()[0].headers.has("cookie")).toBe(false);
-  });
-
-  it("preserves the payment challenge and does not retry a funding event", async () => {
-    const body = JSON.stringify({ amount_microusd: 1000000 });
-    const denial = {
-      code: "payment_required",
-      message: "Wallet payment required",
-    };
-    mocks.fetch.mockResolvedValue(
-      new Response(JSON.stringify(denial), {
-        status: 402,
-        headers: {
-          "content-type": "application/json",
-          "payment-required": "challenge",
-        },
-      }),
-    );
-    const response = await routes.fundingEvents.POST(
-      request("/v1/account/credits/funding-events", {
-        method: "POST",
-        origin: PORTAL,
-        headers: {
-          cookie: "session=user",
-          "content-type": "application/json",
-          "idempotency-key": "purchase-1",
-          "payment-signature": "proof",
-        },
-        body,
-      }),
-    );
-    expect(response.status).toBe(402);
-    expect(await response.json()).toEqual(denial);
-    expect(response.headers.get("payment-required")).toBe("challenge");
-    expect(mocks.fetch).toHaveBeenCalledTimes(1);
-    const upstream = upstreamCalls()[0];
-    expect(upstream.url).toBe(
-      "https://backend.example/v1/account/credits/funding-events",
-    );
-    expect(upstream.headers.get("idempotency-key")).toBe("purchase-1");
-    expect(upstream.headers.get("payment-signature")).toBe("proof");
-    expect(mocks.mintDelegatedBearer).toHaveBeenCalledWith(
-      user,
-      "aomi-payment",
-      expect.objectContaining({
-        scope: "account:credits:fund payments:submit",
-        resource: `${PORTAL}/v1/account`,
-      }),
-    );
-  });
-});
-
-describe("simulation world setup", () => {
-  it("forwards a widget account's seed with its thread and user state", async () => {
-    const body = JSON.stringify({
-      forks: [{ chain_id: 5042002, overrides: [] }],
-    });
-    const path = "/api/thread/sim/world?user_state=%7B%7D";
-    const response = await routes.backend.POST(
-      request(path, {
-        method: "POST",
-        origin: PARTNER,
-        headers: {
-          authorization: "Bearer aomi_wst_user",
-          "content-type": "application/json",
-          "x-session-id": "seed-thread",
-          "x-thread-id": "seed-thread",
-        },
-        body,
-      }),
-    );
-    expect(response.status).toBe(200);
-    const call = upstreamCalls()[0];
-    expect(call.url).toBe(`https://backend.example${path}`);
-    expect(call.headers.get("x-thread-id")).toBe("seed-thread");
-    expect(call.headers.get("x-session-id")).toBe("seed-thread");
-    expect(call.headers.get("authorization")).toBe(
-      "Bearer account:acct-widget",
-    );
-    expect(
-      await new Response(
-        (mocks.fetch.mock.calls[0][1] as RequestInit).body,
-      ).text(),
-    ).toBe(body);
-  });
-
-  it("requires authentication and only exposes POST", async () => {
-    const response = await routes.backend.POST(
-      request("/api/thread/sim/world", {
-        method: "POST",
-        origin: PORTAL,
-        body: "{}",
-      }),
-    );
-    expect(response.status).toBe(401);
-    const read = await routes.backend.GET(
-      request("/api/thread/sim/world", CREDENTIALS["widget user"]),
-    );
-    expect(read.status).toBe(404);
-    expect(upstreamCalls()).toHaveLength(0);
   });
 });

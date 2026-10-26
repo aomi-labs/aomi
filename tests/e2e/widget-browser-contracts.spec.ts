@@ -155,22 +155,22 @@ test("anonymous widget renews an expired session after the first 401", async ({
   page,
 }) => {
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
+  // The edge learns a widget session's lifetime when it first describes it to
+  // the Portal and trusts that answer until then, so the session must be short
+  // before its first use: end it three seconds in, right before the first chat.
+  const sessionSeconds = 3;
+  let endsAt: Promise<number> | undefined;
+  await page.route(`${portalOrigin}/v1/agent/chat`, async (route) => {
+    endsAt ??= shortenWidgetSessions(sessionSeconds);
+    await endsAt;
+    await route.continue();
+  });
   const guest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await sendPrompt(page, "establish anonymous widget session");
   const first = await guest;
-  const pool = new Pool({
-    connectionString: process.env.AOMI_TEST_DATABASE_URL,
-  });
-  try {
-    const expired = await pool.query(
-      `update ba_verifications
-          set expires_at = now() - interval '1 second'
-        where identifier like 'aomi:widget:session:%'`,
-    );
-    expect(expired.rowCount).toBeGreaterThan(0);
-  } finally {
-    await pool.end();
-  }
+  await page.unroute(`${portalOrigin}/v1/agent/chat`);
+  expect(endsAt).toBeDefined();
+  await page.waitForTimeout(Math.max(0, (await endsAt!) + 1000 - Date.now()));
   const statuses: number[] = [];
   const renewed = waitForWidgetSession(page, "/api/auth/widget/guest");
   page.on("response", (response) => {
@@ -308,6 +308,34 @@ test("widget challenge is origin-bound and single-use", async ({ page }) => {
     (await wrongOriginNetworkResponse).headers()["access-control-allow-origin"],
   ).toBe("*");
 });
+
+/** Every live widget session now ends `seconds` from now; resolves to that time. */
+async function shortenWidgetSessions(seconds: number): Promise<number> {
+  const pool = new Pool({
+    connectionString: process.env.AOMI_TEST_DATABASE_URL,
+  });
+  try {
+    // Both the row's lifetime, which ends the session, and the ticket's own
+    // `expiresAt`, which the Portal reports to the edge.
+    const shortened = await pool.query(
+      `update ba_verifications
+          set expires_at = now() + interval '${seconds} seconds',
+              value = jsonb_set(
+                value::jsonb,
+                '{expiresAt}',
+                to_jsonb(to_char(
+                  (now() + interval '${seconds} seconds') at time zone 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+                ))
+              )::text
+        where identifier like 'aomi:widget:session:%'`,
+    );
+    expect(shortened.rowCount).toBeGreaterThan(0);
+    return Date.now() + seconds * 1000;
+  } finally {
+    await pool.end();
+  }
+}
 
 async function waitForWidgetSession(page: Page, path: string) {
   const response = await page.waitForResponse(

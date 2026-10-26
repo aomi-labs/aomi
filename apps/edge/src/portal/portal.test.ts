@@ -574,6 +574,31 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(seen[1].url).toBe(`${BACKEND}/api/account`);
   });
 
+  it("mints the browser's raw backend bearer as aomi-edge for the portal's own sessions only", async () => {
+    const response = await portal("/v1/account/bearer", { headers: { cookie: "session=user" }, origin: PORTAL });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = (await response.json()) as { bearer: string; expires_at: number };
+    const { payload, protectedHeader } = await jwtVerify(body.bearer, edgePublicKey, { issuer: "aomi-edge" });
+    expect(payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend", role: "user" });
+    expect(protectedHeader.kid).toBe("aomi-edge-dev-1");
+    expect(body.expires_at).toBe(payload.exp);
+    expect(seen).toHaveLength(0);
+
+    // Any https site may embed the widget, so an embedded session never gets a raw token.
+    const widget = await portal("/v1/account/bearer", {
+      headers: { authorization: "Bearer aomi_wst_user" },
+      origin: PARTNER,
+    });
+    expect(widget.status).toBe(403);
+    expect(await widget.json()).toEqual({ error: "insufficient_scope" });
+    const oauth = await portal("/v1/account/bearer", {
+      headers: { authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read", aud: AGENT })}` },
+    });
+    expect(oauth.status).toBe(401);
+    expect(await portal("/v1/account/bearer", { method: "POST", origin: PORTAL })).toMatchObject({ status: 404 });
+  });
+
   it("serves anonymous chat catalog reads without a bearer and keeps settings from guests", async () => {
     const models = await portal("/api/thread/models");
     expect(models.status).toBe(200);

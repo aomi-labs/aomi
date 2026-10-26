@@ -20,7 +20,6 @@ import {
   walletLinkMessageMatches,
 } from "@aomi-labs/account/account";
 import {
-  mintAccountBearer,
   type AomiAccountCredential,
   type SignalResolution,
   type WalletFamily,
@@ -38,7 +37,6 @@ import { BACKEND_API_HEADERS, forward } from "@aomi-labs/account/forward";
 import { recoverMessageAddress } from "viem";
 
 import { portalFailures } from "@/server/bff/failures";
-import { mintBearer } from "@/server/bff/http";
 import { PrincipalError, type Principal } from "@/server/bff/principal";
 import type { Call } from "@/server/bff/routes";
 import { backendUrl } from "@/server/env";
@@ -515,15 +513,6 @@ export async function rotateCliSession({ principal }: Call): Promise<Response> {
   const next = await createCliSession(principal.betterAuthUserId);
   await revokeSession(principal.session.session?.token);
   return Response.json(next, { headers: { "cache-control": "no-store" } });
-}
-
-export async function backendBearer({ principal }: Call): Promise<Response> {
-  if (principal.kind === "none" || principal.kind === "oauth")
-    throw new PrincipalError(401, "unauthenticated");
-  const { bearer, expiresAt } = await mintBearer(() =>
-    mintAccountBearer(principal.accountId),
-  );
-  return Response.json({ bearer, expires_at: expiresAt });
 }
 
 const DELEGATION_CALLBACK_FIELDS = {
