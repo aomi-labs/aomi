@@ -8,7 +8,7 @@ import { config } from "./kernel/config";
 import { rankOrigins, resolvePool, routingKeyFor } from "./kernel/pool";
 import { resolveRoute } from "./api/routes";
 import type { FetchLike } from "./kernel/proxy";
-import { resetDiscoveryCache } from "./api/discovery";
+import { resetDiscoveryCache } from "./api/task/challenge";
 
 const env: EdgeEnv = {
   BACKEND_ORIGINS: "https://backend-staging-tunnel.aomi.dev",

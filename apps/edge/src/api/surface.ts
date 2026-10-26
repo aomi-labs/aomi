@@ -9,9 +9,9 @@ import { preflight, withCors } from "../kernel/cors";
 import { EdgeError, errorResponse } from "../kernel/errors";
 import { routingKeyFor } from "../kernel/pool";
 import { proxy, target, type FetchLike } from "../kernel/proxy";
-import { discoveryChallenge, discoveryResponse } from "./discovery";
+import { discoveryChallenge, discoveryResponse } from "./task/challenge";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
-import { normaliseTaskBody } from "./task-body";
+import { normaliseTaskBody } from "./task/body";
 
 export type WaitLike = (delayMs: number) => Promise<unknown>;
 export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
