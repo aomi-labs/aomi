@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   e2eAccountId: vi.fn(),
   deleteSession: vi.fn(),
   createSession: vi.fn(),
+  listConnections: vi.fn(),
+  revokeConnection: vi.fn(),
 }));
 
 // One table of credentials stands in for Better Auth and widget sessions;
@@ -66,6 +68,8 @@ vi.mock("@aomi-labs/account/account", () => ({
     userId: string;
   }) => ({ user: { id: userId } }),
   updateAccountProfile: vi.fn(),
+  listAccountConnections: mocks.listConnections,
+  revokeOAuthConnection: mocks.revokeConnection,
   IdentityConflictError: class IdentityConflictError extends Error {},
 }));
 vi.mock("@aomi-labs/account/better-auth", async () => ({
@@ -388,4 +392,97 @@ describe("dev tools", () => {
     );
     expect([seed.status, execute.status]).toEqual([404, 404]);
   });
+});
+
+describe("/v1/account/connections", () => {
+  const CONNECTIONS = {
+    oauth: [
+      {
+        client_id: "client-1",
+        name: "Claude Code",
+        kind: "mcp",
+        connected_at: 1_760_400_000,
+      },
+    ],
+    telegram: {
+      username: "arixon",
+      bots: [{ bot_id: "7712345678", label: "@HooditBot" }],
+    },
+  };
+  const disconnect = (credential: string, clientId = "client-1") => {
+    const { headers, origin } = CREDENTIALS[credential];
+    return routes.connection.DELETE(
+      request(`/v1/account/connections/oauth/${clientId}`, {
+        method: "DELETE",
+        headers,
+        origin,
+      }),
+      { params: Promise.resolve({ client_id: clientId }) },
+    );
+  };
+
+  it("lists the account's connections from the portal, not the backend", async () => {
+    mocks.listConnections.mockResolvedValue(CONNECTIONS);
+    const response = await routes.connections.GET(
+      request("/v1/account/connections", {
+        headers: { cookie: "session=user" },
+        origin: PORTAL,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(CONNECTIONS);
+    expect(mocks.listConnections).toHaveBeenCalledWith("acct-user");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["OAuth user", 401],
+    ["none", 401],
+  ] as const)(
+    "does not list connections for %s",
+    async (credential, status) => {
+      const { headers, origin } = CREDENTIALS[credential];
+      const response = await routes.connections.GET(
+        request("/v1/account/connections", { headers, origin }),
+      );
+      expect(response.status).toBe(status);
+      expect(mocks.listConnections).not.toHaveBeenCalled();
+    },
+  );
+
+  it("disconnects one OAuth client", async () => {
+    mocks.revokeConnection.mockResolvedValue(true);
+    const response = await disconnect("cookie user");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ revoked: true });
+    expect(mocks.revokeConnection).toHaveBeenCalledWith({
+      userId: "acct-user",
+      clientId: "client-1",
+    });
+  });
+
+  it("answers 404 for a client the account is not connected to", async () => {
+    mocks.revokeConnection.mockResolvedValue(false);
+    const response = await disconnect("cookie user", "client-x");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "connection_not_found" });
+  });
+
+  it.each([
+    ["cookie guest", 403],
+    ["session bearer", 403],
+    ["widget user", 403],
+    ["OAuth user", 401],
+  ] as const)(
+    "only a portal session disconnects: %s",
+    async (credential, status) => {
+      const response = await disconnect(credential);
+      expect(response.status).toBe(status);
+      if (status === 403)
+        expect(await response.json()).toEqual({
+          error: "portal_session_required",
+        });
+      expect(mocks.revokeConnection).not.toHaveBeenCalled();
+    },
+  );
 });

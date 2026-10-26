@@ -89,7 +89,11 @@ export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): AomiOAuthResourcePolicy | null {
-  return resourcePolicy(aomiOAuthResources(env), isMcpDpopRequired(env), resource);
+  return resourcePolicy(
+    aomiOAuthResources(env),
+    isMcpDpopRequired(env),
+    resource,
+  );
 }
 
 /**

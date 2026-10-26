@@ -24,7 +24,7 @@ export type Route = {
 
 const API_HEADERS = [
   "Authorization", "Content-Type", "DNT", "User-Agent", "X-Requested-With", "If-Modified-Since",
-  "Cache-Control", "Range", "X-Session-Id", "X-Thread-Id", "Aomi-App-Key", "X-Aomi-Handover-Session",
+  "Cache-Control", "Range", "X-Session-Id", "X-Thread-Id", "Aomi-App-Key",
 ];
 
 export const CORS: Record<RouteName, CorsPolicy> = {

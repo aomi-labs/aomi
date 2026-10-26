@@ -7,6 +7,8 @@
  * account graph, Better Auth, device auth).
  */
 import {
+  appMcpName,
+  appMcpResource,
   authorize as decide,
   scopesOn as heldScopes,
   type Capability,
@@ -15,6 +17,7 @@ import {
 } from "@aomi-labs/account/policy";
 
 import { edgeService } from "../identity";
+import { TwoTierCache } from "../kernel/cache";
 import { config } from "../kernel/config";
 import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
 import { minted, unreachable } from "../kernel/errors";
@@ -25,19 +28,32 @@ import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import { policyFor, type PortalContext } from "./context";
 import { portalError } from "./errors";
 import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
-import { isOAuthCredential, PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import { isOAuthCredential, isPortalSession, PrincipalError, resolvePrincipal, type Principal } from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type ResourceKey = "agentRest" | "pipelineRest" | "accountRest" | "agentMcp" | "pipelineMcp";
+/** `appMcp`: the agent MCP locked to the app the path names (`/v1/apps/<app>/mcp`). */
+type ResourceKey = "agentRest" | "pipelineRest" | "accountRest" | "agentMcp" | "pipelineMcp" | "appMcp";
 
 /**
  * What a method needs: a scope on the row's resource, a capability (optionally
- * allowing anonymous callers), or nothing. A capability may name the scope
- * OAuth callers need instead, on the same row's resource.
+ * allowing anonymous callers), a signed-in portal session, or nothing. A
+ * capability may name the scope OAuth callers need instead, on the same row's
+ * resource.
  */
-type Requirement = string | { capability: Capability; anonymous?: true; oauthScope?: string } | "public";
+type Requirement =
+  | string
+  | { capability: Capability; anonymous?: true; oauthScope?: string }
+  | typeof PORTAL_SESSION
+  | "public";
+
+/**
+ * Only a signed-in, non-guest portal cookie session: never a widget, a CLI
+ * session or an OAuth client. Agent-wallet, lane and link writes; the backend
+ * checks the same thing on the bearer's `auth_source`.
+ */
+const PORTAL_SESSION = "portal_session";
 
 type Row = {
   path: RegExp;
@@ -58,11 +74,14 @@ type Row = {
   rewrite?: (pathname: string) => string;
   /** MCP: the scopes a refused client must re-authorize with. */
   challengeScopes?: readonly string[];
+  /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
+  approve?: true;
+  /** Calls one account may make per minute (after authorization), by path. */
+  perMinute?: (pathname: string) => number;
 };
 
 const chat = { capability: "chat", anonymous: true } as const;
 const settings = { capability: "settings" } as const;
-const signing = { capability: "managed_signing" } as const;
 const commit = { on: "agentRest", to: "backend", operation: "proxy.request" } as const;
 const backend = (path: RegExp, methods: Row["methods"]): Row => ({ path, methods, to: "backend", operation: "proxy.request" });
 const account = (path: RegExp, methods: Row["methods"]): Row => ({
@@ -82,8 +101,24 @@ const payment = (path: RegExp, methods: Row["methods"], paid?: true): Row => ({
 });
 
 const ID = "[0-9a-f-]+";
+const REF = "[A-Za-z0-9_-]+";
 const AGENT = /^\/v1\/agent(?!\/mcp$)(\/.*)?$/;
 const FUNDING = "\\/v1\\/account\\/credits\\/funding-events";
+/**
+ * The account's wallets, its agent wallets (create, rename, pause, archive,
+ * withdraw), pause-all, each connection's label and agent wallets, and linking
+ * a platform account with a one-time code. Served by the backend under /v1.
+ * Reads take the scope api-server asks of OAuth clients; writes are for a
+ * portal session only.
+ */
+const wallets = (path: RegExp, methods: Row["methods"], extra: Partial<Row> = {}): Row => ({
+  path,
+  methods,
+  to: "backend",
+  on: "agentRest",
+  operation: "account.wallets",
+  ...extra,
+});
 
 export const ROUTES: readonly Row[] = [
   {
@@ -102,7 +137,20 @@ export const ROUTES: readonly Row[] = [
     on: "pipelineMcp",
     paid: true,
     methods: { POST: "mcp:pipeline" },
-    challengeScopes: ["mcp:pipeline", "pipeline:catalog", "offline_access"],
+    // Every tool scope the MCP serves: a client signs in once for what its
+    // tools/call needs (aomi_call_tool, aomi_run, aomi_wallets execute).
+    challengeScopes: ["mcp:pipeline", "pipeline:catalog", "pipeline:execute", "offline_access"],
+  },
+  {
+    // The agent MCP locked to one app; the token must be for exactly this
+    // path, and api-server resolves the app (404 app_not_found).
+    path: /^\/v1\/apps\/[^/]+\/mcp$/,
+    operation: "app.mcp",
+    to: "mcp",
+    on: "appMcp",
+    paid: true,
+    methods: { POST: "mcp:agent" },
+    challengeScopes: ["mcp:agent", "agent:read", "agent:write", "offline_access"],
   },
   { path: AGENT, operation: "agent.request", to: "agent", on: "agentRest", methods: { GET: "agent:read" } },
   {
@@ -160,13 +208,30 @@ export const ROUTES: readonly Row[] = [
   },
   // Anything else under these account resources is a 404 in the resource's shape.
   account(/^\/v1\/account\/(apps|transaction-safety)(\/.*)?$/, {}),
+  wallets(/^\/v1\/account\/wallets$/, { GET: "agent:read" }),
+  wallets(/^\/v1\/account\/agent-wallets$/, { GET: "agent:read", POST: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+$/, { PATCH: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/balances$/, { GET: "agent:read" }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/, { POST: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, { PUT: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/connections\/[^/]+\/wallets$/, { PUT: PORTAL_SESSION }),
+  // The code goes in the body; a code is single-use, the budget bounds retries.
+  wallets(/^\/v1\/account\/link\/[a-z]+\/(?:preview|confirm|cancel)$/, { POST: PORTAL_SESSION }, {
+    operation: "account.link",
+    perMinute: (pathname) => (pathname.endsWith("/preview") ? 20 : 5),
+  }),
+  // Thread-less commits by ref: the same account authority and backend as
+  // /api/commits, with the scopes api-server asks of OAuth clients.
+  { ...commit, path: new RegExp(`^\\/v1\\/commits\\/${REF}$`), methods: { GET: "agent:read" } },
   {
-    path: /^\/api\/delegation\/(privy|para)\/begin$/,
-    operation: "delegation.begin",
-    to: "backend",
-    methods: { POST: { capability: "account" } },
-    rewrite: (pathname) => pathname.replace(/^\/api\/delegation\/(privy|para)\/begin$/, "/api/auth/$1/begin"),
+    ...commit,
+    path: new RegExp(`^\\/v1\\/commits\\/${REF}\\/(?:sign|broadcast|attempts|reject|attempts\\/${REF}\\/report)$`),
+    methods: { POST: "agent:write" },
   },
+  // An OAuth client (the CLI, an AI or SDK app) reaches the backend, which
+  // lets it approve only where its lane on the wallet asks in that client.
+  { ...commit, path: new RegExp(`^\\/v1\\/commits\\/${REF}\\/approve$`), methods: { POST: "agent:write" }, approve: true },
   { ...commit, path: /^\/api\/commits$/, methods: { POST: "agent:actions:resolve" } },
   { ...commit, path: new RegExp(`^\\/api\\/commits\\/${ID}$`, "i"), methods: { GET: "agent:read" } },
   {
@@ -178,6 +243,9 @@ export const ROUTES: readonly Row[] = [
     GET: { capability: "safety_policy" },
     PUT: { capability: "safety_policy" },
   }),
+  // `aomi wallets use`: a CLI or OAuth login switches its own thread's
+  // wallet; the backend checks the account owns both.
+  { ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }), on: "agentRest" },
   backend(/^\/api\/account(\/.*)?$/, { GET: settings, POST: settings, PATCH: settings, PUT: settings, DELETE: settings }),
   backend(/^\/api\/secrets$/, { GET: settings, POST: settings, DELETE: settings }),
   backend(/^\/api\/secrets\/[^/]+$/, { DELETE: settings }),
@@ -194,14 +262,19 @@ export const ROUTES: readonly Row[] = [
     on: "agentRest",
   },
   backend(/^\/api\/exec\/simulate$/, { POST: chat }),
-  backend(/^\/api\/widget\/v1\/execution-profile$/, { GET: signing }),
-  backend(/^\/api\/widget\/v1\/aa-accounts\/[^/]+$/, { PUT: signing }),
-  backend(/^\/api\/widget\/v1\/signing-requests\/sign%3A[^/]+$/i, { POST: signing }),
 ];
 
+/** The OAuth resource a row checks scopes on: fixed, or the app MCP its path names (null: no such app). */
+function resourceOf(row: Row, request: Request, resources: Resources): string | null | undefined {
+  if (row.on !== "appMcp") return row.on && resources[row.on];
+  const resource = appMcpResource(resources, new URL(request.url).pathname.split("/")[3] ?? "");
+  return appMcpName(resources, resource) ? resource : null;
+}
+
 /** The resolved need, or "public". */
-function needOf(row: Row, requirement: Requirement, request: Request, resources: Resources): Need | "public" {
+function needOf(row: Row, requirement: Requirement, request: Request, resource: string | undefined): Need | "public" {
   if (requirement === "public") return "public";
+  if (requirement === PORTAL_SESSION) return { capability: "account" };
   if (typeof requirement !== "string") {
     // Fuzzer setup accepts Agent grants; browser and widget sessions retain
     // their existing capability policy, including each route's guest access.
@@ -210,7 +283,7 @@ function needOf(row: Row, requirement: Requirement, request: Request, resources:
   }
   const scopes = [requirement];
   if (row.paid && request.headers.has("payment-signature")) scopes.push("payments:submit");
-  return { resource: resources[row.on!], scopes };
+  return { resource: resource!, scopes };
 }
 
 /** The one permission check, from `@aomi-labs/account/policy`: the scopes to mint, or a PrincipalError. */
@@ -266,6 +339,39 @@ function serviceOrigin(ctx: PortalContext, service: "agent" | "payment"): string
   return origin;
 }
 
+/** How the caller signed in, as the backend records it: thread origin, approval lane, portal-only writes. */
+export function authSource(principal: Exclude<Principal, { kind: "none" }>): "session" | "cli_session" | "widget" | "oauth" {
+  switch (principal.kind) {
+    case "cookie":
+      return "session";
+    case "session_bearer":
+      return "cli_session";
+    case "widget":
+      return "widget";
+    case "oauth":
+      return "oauth";
+  }
+}
+
+/**
+ * Who the caller is, for a first-party backend bearer: how it signed in, its
+ * class and, for an OAuth client, which one. No `scope`: the backend reads a
+ * scope-less `aomi-edge` user bearer with an `auth_source` as a first-party
+ * session, and an OAuth caller by its client id (an approval lane is per client).
+ */
+export function callerClaims(principal: Exclude<Principal, { kind: "none" }>) {
+  return {
+    auth_source: authSource(principal),
+    principal_class: principal.guest ? "guest" : "user",
+    client_id: principal.kind === "oauth" ? principal.clientId : undefined,
+  } as const;
+}
+
+/** Approving lets Aomi sign with an agent wallet: a first-party session or an OAuth client, never a guest or widget. */
+function mayApprove(principal: Exclude<Principal, { kind: "none" }>): boolean {
+  return principal.kind !== "widget" && !principal.guest;
+}
+
 function mintToken(ctx: PortalContext, request: Request, claims: Parameters<ReturnType<typeof edgeService>["mint"]>[0]) {
   return minted(() => edgeService(ctx.env, new URL(request.url).host).mint(claims));
 }
@@ -288,6 +394,7 @@ async function toBackend(row: Row, request: Request, principal: Principal, ctx: 
           subject: principal.accountId,
           audience: "aomi-backend",
           ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
+          delegated: callerClaims(principal),
         })
       : undefined;
   const targets = apiOrigins(request, ctx.env, pathname).map((origin) => {
@@ -318,9 +425,7 @@ async function toScopedApi(
     delegated: {
       scope: scopes.join(" "),
       resource,
-      client_id: oauth?.clientId,
-      auth_source: oauth ? "oauth" : "session",
-      principal_class: principal.guest ? "guest" : "user",
+      ...callerClaims(principal),
       grant_id: oauth?.grantId,
       // A raw session token never enters an internal assertion; only the fact that one exists.
       sid: !oauth || oauth.sessionBound ? "session-bound" : undefined,
@@ -334,12 +439,52 @@ async function toScopedApi(
   });
 }
 
-async function serve(row: Row, need: Need | "public", request: Request, ctx: PortalContext): Promise<Response> {
+const budgets = new TwoTierCache();
+
+/** Count one call against the row's per-account budget; false once this minute's is spent. */
+async function withinBudget(row: Row, request: Request, accountId: string, ctx: PortalContext): Promise<boolean> {
+  const { pathname } = new URL(request.url);
+  if (!row.perMinute) return true;
+  const now = ctx.now();
+  const key = `budget:v1:${row.operation}:${pathname.split("/").at(-1)}:${accountId}:${Math.floor(now / 60_000)}`;
+  const used = Number(await budgets.get(key, ctx.env.EDGE_CACHE, now)) || 0;
+  if (used >= row.perMinute(pathname)) return false;
+  await budgets.put(key, String(used + 1), 60, ctx.env.EDGE_CACHE, now);
+  return true;
+}
+
+/** Why an authorized caller is still refused on this row, or null. */
+async function refusal(
+  row: Row,
+  requirement: Requirement,
+  principal: Exclude<Principal, { kind: "none" }>,
+  request: Request,
+  ctx: PortalContext,
+): Promise<Response | null> {
+  if (requirement === PORTAL_SESSION && !isPortalSession(principal))
+    return Response.json({ error: "portal_session_required" }, { status: 403 });
+  if (row.approve && !mayApprove(principal))
+    return Response.json({ code: "commit_approval_forbidden", status: 403 }, { status: 403 });
+  if (!(await withinBudget(row, request, principal.accountId, ctx)))
+    return Response.json({ error: "rate_limited" }, { status: 429 });
+  return null;
+}
+
+async function serve(
+  row: Row,
+  requirement: Requirement,
+  need: Need | "public",
+  resource: string | undefined,
+  request: Request,
+  ctx: PortalContext,
+): Promise<Response> {
   if (need === "public") return toBackend(row, request, { kind: "none" }, ctx);
   const started = Date.now();
   const principal = await resolvePrincipal(request, need, ctx);
   if (row.to === "mcp" && principal.kind !== "oauth") throw new PrincipalError(401, "invalid_token");
   const scopes = authorize(principal, need, ctx);
+  const refused = principal.kind === "none" ? null : await refusal(row, requirement, principal, request, ctx);
+  if (refused) return refused;
   const authMs = Date.now() - started;
   let response: Response;
   if (row.to === "backend") {
@@ -356,11 +501,10 @@ async function serve(row: Row, need: Need | "public", request: Request, ctx: Por
     });
     response = Response.json({ bearer: accessToken, expires_at: expiresAt }, { headers: { "cache-control": "no-store" } });
   } else {
-    const resource = ctx.resources[row.on!];
     // MCP: Rust maps each tools/call to its business scope, so the bearer
     // carries every scope of the grant; the edge never reads the body.
-    const minted = row.to === "mcp" ? scopesOn(principal, resource, ctx) : scopes;
-    response = await toScopedApi(request, principal, minted, resource, row.to === "payment" ? "payment" : "agent", ctx);
+    const minted = row.to === "mcp" ? scopesOn(principal, resource!, ctx) : scopes;
+    response = await toScopedApi(request, principal, minted, resource!, row.to === "payment" ? "payment" : "agent", ctx);
   }
   response = new Response(response.body, response);
   response.headers.append("server-timing", `edge_auth;dur=${authMs.toFixed(1)}`);
@@ -375,17 +519,18 @@ async function served(rows: readonly Row[], request: Request, ctx: PortalContext
   if (request.method === "OPTIONS") return preflight(cors, request, cfg);
   const row = rows.find((candidate) => request.method in candidate.methods) ?? rows[0];
   const requirement = row.methods[request.method as Method];
-  const resource = row.on ? ctx.resources[row.on] : undefined;
+  const resource = resourceOf(row, request, ctx.resources);
   let response: Response;
   if (requirement === undefined)
     // A protected resource answers in its own error shape; the backend allowlist in the plain one.
     response =
-      resource && row.to !== "backend"
+      row.on && row.to !== "backend"
         ? Response.json({ error: { code: "not_found", message: "Not found" } }, { status: 404 })
         : Response.json({ error: "not_found" }, { status: 404 });
+  else if (resource === null) response = Response.json({ error: "app_not_found" }, { status: 404 });
   else
     try {
-      response = await serve(row, needOf(row, requirement, request, ctx.resources), request, ctx);
+      response = await serve(row, requirement, needOf(row, requirement, request, resource), resource, request, ctx);
     } catch (error) {
       const shape = resource && { resource, challengeScopes: row.challengeScopes, jsonRpc: row.to === "mcp" };
       response = portalError(error, request, row.operation, shape || undefined, row.to === "mcp" ? "mcp_failed" : undefined);
@@ -426,6 +571,11 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
         ? await publicCatalog(request, kind, origin, ctx.fetchImpl)
         : Response.json({ error: "catalog_unavailable" }, { status: 502 });
   return withCors(cors, request, response, cfg);
+}
+
+/** Tests run many calls for one account within a minute; drop the budgets between them. */
+export function resetBudgets(): void {
+  budgets.clear();
 }
 
 /** Serve one request on the portal surface. */

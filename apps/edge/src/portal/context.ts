@@ -1,4 +1,4 @@
-import { resourcePolicies, resourcesFor, type ResourcePolicy, type Resources } from "@aomi-labs/account/policy";
+import { resourcePolicy, resourcesFor, type ResourcePolicy, type Resources } from "@aomi-labs/account/policy";
 
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
@@ -44,9 +44,9 @@ export function portalContext(
   };
 }
 
-/** The policy of one protected resource this portal origin hosts. */
+/** The policy of one protected resource this portal origin hosts (an app-locked MCP path included). */
 export function policyFor(resource: string, ctx: Pick<PortalContext, "resources" | "dpopRequired">): ResourcePolicy {
-  const policy = resourcePolicies(ctx.resources, ctx.dpopRequired).find((candidate) => candidate.identifier === resource);
+  const policy = resourcePolicy(ctx.resources, ctx.dpopRequired, resource);
   if (!policy) throw new Error(`unknown protected resource ${resource}`);
   return policy;
 }

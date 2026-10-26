@@ -8,6 +8,7 @@ import { cookieWriteAllowed } from "../kernel/csrf";
 import { DpopError, DPOP_SIGNING_ALGORITHMS, verifyDpopProof } from "./dpop";
 import { JwksUnavailableError, portalJwks } from "./jwks";
 import {
+  acceptsApiToken,
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   guestScopesFor,
@@ -87,6 +88,14 @@ function bearerToken(request: Request): string | null {
 
 export function hasWidgetSessionBearer(request: Request): boolean {
   return bearerToken(request)?.startsWith(WIDGET_TOKEN_PREFIX) ?? false;
+}
+
+/**
+ * A signed-in, non-guest portal browser session: the only caller that may
+ * create agent wallets, change how they sign, or link a platform account.
+ */
+export function isPortalSession(principal: Principal): boolean {
+  return principal.kind === "cookie" && !principal.guest;
 }
 
 export function isOAuthCredential(request: Request): boolean {
@@ -297,7 +306,7 @@ function isPrincipalCode(value: string): value is PrincipalCode {
 async function verifyWithJwks(
   token: string,
   ctx: PortalContext,
-  options: { issuer: string; audience: string },
+  options: { issuer: string; audience: string | string[] },
 ): Promise<JWTPayload> {
   const jwksUrl = `${ctx.upstreamOrigin}/api/auth/jwks`;
   const base = { fetchImpl: ctx.fetchImpl, cache: ctx.env.EDGE_CACHE, now: ctx.now, jwksUrl };
@@ -388,13 +397,13 @@ async function oauthRequestPrincipal(
   try {
     claims = await verifyWithJwks(token ?? "", ctx, {
       issuer: ctx.resources.authorizationServerIssuer,
-      audience: resource,
+      audience: audiences(resource, ctx),
     });
   } catch (error) {
     if (error instanceof JwksUnavailableError) throw authUnavailable(error);
     throw new PrincipalError(401, "invalid_token", requiredScopes, bearerChallenge(resource));
   }
-  const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  const granted = grantedScopes(claims, resource, ctx);
   if (requiredScopes.some((scope) => !granted.includes(scope)))
     throw new PrincipalError(403, "insufficient_scope", requiredScopes);
   const cnf = claims.cnf as { jkt?: unknown } | undefined;
@@ -446,6 +455,22 @@ function dpopChallenge(error: DpopError, requiredScopes: readonly string[]): Pri
   );
 }
 
+/**
+ * The audiences a resource takes: its own, and for the three REST APIs also
+ * `/v1`, the one sign-in Aomi's CLI and SDK use. MCP servers take only theirs.
+ */
+function audiences(resource: string, ctx: PortalContext): string[] {
+  return acceptsApiToken(policyFor(resource, ctx)) ? [resource, ctx.resources.apiRest] : [resource];
+}
+
+/** A token's scopes on this resource: a `/v1` token carries every REST scope, and a route only gets its own. */
+function grantedScopes(claims: JWTPayload, resource: string, ctx: PortalContext): string[] {
+  const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  if (claims.aud === resource) return granted;
+  const grantable = policyFor(resource, ctx).grantableScopes;
+  return granted.filter((scope) => grantable.includes(scope));
+}
+
 /** The principal an OAuth access token's verified claims describe. */
 export function oauthPrincipal(
   claims: JWTPayload,
@@ -457,12 +482,13 @@ export function oauthPrincipal(
   if (
     typeof claims.sub !== "string" ||
     claims.iss !== ctx.resources.authorizationServerIssuer ||
-    claims.aud !== resource ||
+    typeof claims.aud !== "string" ||
+    !audiences(resource, ctx).includes(claims.aud) ||
     typeof accountId !== "string" ||
     (principalClass !== "user" && principalClass !== "guest")
   )
     throw new PrincipalError(401, "invalid_token");
-  const scopes = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  const scopes = grantedScopes(claims, resource, ctx);
   const guest = principalClass === "guest";
   const policy = policyFor(resource, ctx);
   if (guest && guestScopesFor(policy, scopes).length !== scopes.length)

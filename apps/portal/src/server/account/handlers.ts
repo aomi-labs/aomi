@@ -582,4 +582,3 @@ export async function rotateCliSession({ principal }: Call): Promise<Response> {
   await revokeSession(principal.session.session?.token);
   return Response.json(next, { headers: { "cache-control": "no-store" } });
 }
-

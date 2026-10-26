@@ -1959,7 +1959,7 @@ export class CommitExpiredError extends AomiApiError {
 // @public
 export class CommitHandle {
     constructor(ref: string, controller: CommitController);
-    approve(): Promise<CommitRefView>;
+    approve(shown?: CommitRefView): Promise<CommitRefView>;
     get batch(): CommitRefView[];
     canSign(signer?: CommitSigner): boolean;
     // (undocumented)
