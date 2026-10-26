@@ -1,7 +1,8 @@
 /**
  * The api surface (api.aomi.dev): the public host for venues, the CLI and MCP.
  * A pure router over the backend pool, the API Server, the manager and the
- * payment service, plus the Task venue adapter.
+ * payment service, plus the Task venue adapter (`./task`), which answers
+ * venue discovery itself.
  */
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
@@ -9,9 +10,9 @@ import { preflight, withCors } from "../kernel/cors";
 import { EdgeError, errorResponse } from "../kernel/errors";
 import { routingKeyFor } from "../kernel/pool";
 import { proxy, target, type FetchLike } from "../kernel/proxy";
-import { discoveryChallenge, discoveryResponse } from "./discovery";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
-import { normaliseTaskBody } from "./task-body";
+import { adaptTaskBuild, taskDocument } from "./task";
+import { listOnBazaar } from "./task/bazaar";
 
 export type WaitLike = (delayMs: number) => Promise<unknown>;
 export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -50,26 +51,6 @@ async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl
   throw new EdgeError(503, "app_unavailable");
 }
 
-/**
- * Venues that discover by GET, HEAD or an empty POST get the API Server's own
- * cached, body-bound 402; a JSON body sent with the wrong label is relabelled.
- * Null means: forward the request as it is.
- */
-async function adaptTaskBuild(
-  request: Request,
-  route: Route,
-  env: EdgeEnv,
-  fetchImpl: FetchLike,
-): Promise<{ respond: Response } | { forward: Request }> {
-  const apiServer = new URL(route.targets[0].origin);
-  const probe = request.method === "GET" || request.method === "HEAD";
-  if (!probe && request.method !== "POST") return { forward: request };
-  const body = probe ? null : await normaliseTaskBody(request);
-  if (body && body.kind !== "empty") return { forward: body.request };
-  const challenge = await discoveryChallenge(apiServer, env, fetchImpl);
-  return challenge ? { respond: discoveryResponse(challenge, request.method) } : { forward: request };
-}
-
 export async function handleApiRequest(
   request: Request,
   env: EdgeEnv,
@@ -101,9 +82,12 @@ export async function handleApiRequest(
 
   let response: Response;
   try {
+    if (route.document) {
+      return withCors(policy, request, await taskDocument(route.document, request, route.targets[0], env, fetchImpl), cfg);
+    }
     let outbound = request;
     if (taskBuild) {
-      const adapted = await adaptTaskBuild(request, route, env, fetchImpl);
+      const adapted = await adaptTaskBuild(request, route.targets[0], env, fetchImpl);
       if ("respond" in adapted) return withCors(policy, request, adapted.respond, cfg);
       outbound = adapted.forward;
     }
@@ -112,6 +96,7 @@ export async function handleApiRequest(
       headers: route.headers,
       forwarded: true,
     });
+    if (taskBuild) response = await listOnBazaar(response);
   } catch (error) {
     response = errorResponse(error, { surface: "api", operation: route.name, request });
   }
