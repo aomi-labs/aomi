@@ -36,7 +36,8 @@ export async function managerClient(request: Request, ctx: BuildContext): Promis
     url: ctx.buildOrigin,
     bearer: accessToken,
     fetch: (input, init) => {
-      const outgoing = new Request(input, init);
+      // The service bearer must never follow a redirect to another host.
+      const outgoing = new Request(input, { ...init, redirect: "manual" });
       const url = new URL(outgoing.url);
       const upstream = target(apiOrigin(request, ctx, url.pathname), url.pathname, url.search);
       return ctx.fetchImpl(new Request(upstream, outgoing), { cache: "no-store" });

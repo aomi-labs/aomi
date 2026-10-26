@@ -37,7 +37,14 @@ describe.each([
       EDGE_TOPOLOGY: "default",
       EDGE_SERVICE_PRIVATE_KEY: DEV_PRIVATE_KEY,
     };
-    const seen: { url: string; method: string; headers: Headers; body: unknown; cache?: RequestCache }[] = [];
+    const seen: {
+      url: string;
+      method: string;
+      headers: Headers;
+      body: unknown;
+      cache?: RequestCache;
+      redirect: RequestRedirect;
+    }[] = [];
     const context = buildContext(request, env, async (outgoing, init) => {
       const body = await outgoing.text();
       seen.push({
@@ -46,6 +53,7 @@ describe.each([
         headers: outgoing.headers,
         body: body ? JSON.parse(body) : undefined,
         cache: init?.cache,
+        redirect: outgoing.redirect,
       });
       const url = new URL(outgoing.url);
       if (outgoing.url === `${backend}/api/_internal/secrets?application_id=42`)
@@ -75,6 +83,7 @@ describe.each([
     const publicKey = await importSPKI(DEV_PUBLIC_KEY, "EdDSA");
     for (const call of seen) {
       expect(call.cache).toBe("no-store");
+      expect(call.redirect).toBe("manual");
       expect(call.headers.get("cookie")).toBeNull();
       const bearer = call.headers.get("authorization")!.replace(/^Bearer /, "");
       const { payload } = await jwtVerify(bearer, publicKey, { issuer: "aomi-edge", audience: "aomi-backend" });
