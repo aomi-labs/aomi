@@ -29,8 +29,9 @@ export function deployArgs(environment, env = process.env) {
     BACKEND_ORIGINS: requireOrigins("BACKEND_ORIGINS", env),
     API_SERVER_ORIGIN: requireOrigins("API_SERVER_ORIGIN", env),
   };
-  if ((env.PAYMENT_ORIGIN || "").trim()) {
-    vars.PAYMENT_ORIGIN = requireOrigins("PAYMENT_ORIGIN", env);
+  // Optional surfaces: present only where that environment runs them.
+  for (const name of ["PAYMENT_ORIGIN", "PORTAL_UPSTREAM_ORIGIN"]) {
+    if ((env[name] || "").trim()) vars[name] = requireOrigins(name, env);
   }
   return [
     "wrangler",

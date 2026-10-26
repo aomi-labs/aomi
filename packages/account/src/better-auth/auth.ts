@@ -223,7 +223,9 @@ export const auth = betterAuth({
   },
   plugins: [
     jwt({
-      issuer: resources.authorizationServerIssuer,
+      // The option lives under `jwt`; at the top level Better Auth ignores it and
+      // signs with the bare origin, which the edge then rejects as the wrong issuer.
+      jwt: { issuer: resources.authorizationServerIssuer },
       disableSettingJwtHeader: true,
       jwks: {
         rotationInterval: 30 * 24 * 60 * 60,
