@@ -11,6 +11,7 @@ import {
   researchPosts,
 } from "@/lib/research";
 import styles from "../../longform.module.css";
+import { AgenticFuzzerResearchBody } from "./agentic-fuzzer-research";
 import { ExecutionHarnessesResearch } from "./execution-harnesses-research";
 import { TaskApiResearchBody } from "./task-api-research";
 import { ThreeGatesResearch } from "./three-gates-research";
@@ -228,6 +229,11 @@ export default async function ResearchPostPage({
         <article className={articleClassName}>
           {post.slug === "introducing-the-aomi-task-api" ? (
             <TaskApiResearchBody body={post.body} components={components} />
+          ) : post.slug === "introducing-the-agentic-fuzzer" ? (
+            <AgenticFuzzerResearchBody
+              body={post.body}
+              components={components}
+            />
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
               {post.body}
