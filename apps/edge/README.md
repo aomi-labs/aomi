@@ -87,10 +87,13 @@ Terraform inventory and exports them before calling this script. Secrets:
 
 ## Portal host prerequisites
 
-The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev/api/*`, `/v1/*`,
-`/.well-known/*`) only take effect when that hostname is proxied by Cloudflare
-(orange cloud) in the `aomi.dev` zone; a DNS-only CNAME to Vercel bypasses the
-Worker. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the
+The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev` and
+`chat.aomi.dev`: `/api/*`, `/v1/*`, `/.well-known/*`) only take effect when
+that hostname is proxied by Cloudflare (orange cloud) in the `aomi.dev` zone; a
+DNS-only CNAME to Vercel bypasses the Worker. The production Worker is deployed
+by hand (product-mono's `deploy-cloudflare-manual` workflow) and only after the
+production backend trusts the `aomi-edge` issuer; deploying it earlier routes
+production logins to a Worker the backend rejects. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the
 public host, or the Worker would call itself. The portal's `AOMI_TRUSTED_ORIGINS`
 must include the public host so Better Auth accepts requests whose `Host` is
 the Vercel alias.

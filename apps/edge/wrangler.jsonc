@@ -42,18 +42,27 @@
       }
     },
     "production": {
-      // Production portal host routes are added at cutover once the host is
-      // confirmed (chat.aomi.dev) and proxied by Cloudflare; see the README.
-      "routes": [{ "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" }],
+      // DO NOT DEPLOY before the production backend trusts the aomi-edge
+      // issuer (product-mono release of 2026-10-28). Until then the production
+      // backend only trusts aomi-bff, and routing chat.aomi.dev's API paths to
+      // this Worker would break every production login.
+      // chat.aomi.dev must be proxied by Cloudflare (orange cloud) for these
+      // routes to take effect; a DNS-only CNAME to Vercel bypasses the Worker.
+      "routes": [
+        { "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat.aomi.dev/api/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat.aomi.dev/v1/*", "zone_name": "aomi.dev" },
+        { "pattern": "chat.aomi.dev/.well-known/*", "zone_name": "aomi.dev" }
+      ],
       // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
       "vars": {
         "HOSTED_APP_WARMUP_ATTEMPTS": "10",
         "HOSTED_APP_WARMUP_RETRY_MS": "1000",
         "MANAGER_ORIGIN": "https://manager-2.aomi.dev",
         "EDGE_TOPOLOGY": "production",
-        "PORTAL_HOSTS": "",
+        "PORTAL_HOSTS": "chat.aomi.dev",
         "APP_CATALOG_PLATFORMS": "",
-        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
+        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,chat.aomi.dev,*.vercel.app"
       }
     }
   }
