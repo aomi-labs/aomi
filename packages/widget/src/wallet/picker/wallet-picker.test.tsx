@@ -154,6 +154,78 @@ describe("wallet sheet", () => {
     expect(screen.getByText("Solana")).toBeInTheDocument();
   });
 
+  it("adds a New agent wallet row on top when adding, which names and creates one", async () => {
+    const created: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        created.push(JSON.parse(String(init?.body)));
+        return Response.json({
+          id: "g-1",
+          name: "Trading",
+          created_at: 1,
+          addresses: [],
+          connections: [],
+        });
+      }),
+    );
+    render(<Harness initial={baseKit({ accountUser: { id: "acct-1" } })} />);
+    expect(
+      screen.getByText("Create one Aomi hosts, or connect one you own"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /New agent wallet/ }));
+    // The step loads on demand.
+    const name = await screen.findByRole(
+      "textbox",
+      { name: "Name" },
+      { timeout: 5000 },
+    );
+    expect(name).toHaveValue("Agent wallet");
+    fireEvent.change(name, { target: { value: " Trading " } });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Create wallet" })),
+    );
+    expect(created).toEqual([{ name: "Trading", families: ["evm", "svm"] }]);
+    await waitFor(() =>
+      expect(screen.queryByText("New agent wallet")).toBeNull(),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("never offers an agent wallet when signing in", () => {
+    render(<Harness initial={baseKit()} />);
+    expect(screen.queryByText("New agent wallet")).toBeNull();
+  });
+
+  it("shows the opener's purpose under the header until the sheet closes", () => {
+    let open!: ReturnType<typeof useWalletPicker>["openPicker"];
+    function Opener() {
+      open = useWalletPicker().openPicker;
+      return null;
+    }
+    render(
+      <Harness initial={baseKit()} open={false}>
+        <Opener />
+      </Harness>,
+    );
+    act(() =>
+      open({
+        purpose: {
+          icon: <svg data-testid="mark" />,
+          text: "To connect Claude to your account",
+        },
+      }),
+    );
+    const purpose = screen.getByText("To connect Claude to your account");
+    expect(purpose).toHaveAttribute("data-sheet-purpose");
+    expect(screen.getByTestId("mark")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]!);
+    act(() => open());
+    expect(screen.getByText("Sign in to Aomi")).toBeInTheDocument();
+    expect(document.querySelector("[data-sheet-purpose]")).toBeNull();
+  });
+
   it("connects, asks for the signature at once, and falls back to Verify", async () => {
     const linkWallet = vi
       .fn()
@@ -323,12 +395,23 @@ describe("wallet sheet", () => {
     },
   );
 
-  it("explains billing when a merge remains blocked", async () => {
+  it.each([
+    [
+      "account_merge_payment_in_progress",
+      "Your last reply is still being billed — try again in a moment.",
+    ],
+    [
+      "account_merge_commits_in_flight",
+      "The other account has a trade in progress. Try again in a minute.",
+    ],
+    [
+      "account_merge_in_progress",
+      "One of these accounts is being linked right now. Try again in a minute.",
+    ],
+  ])("explains why a merge remains blocked: %s", async (code, copy) => {
     const mergeAccount = vi
       .fn()
-      .mockRejectedValue(
-        new AomiAccountRequestError(409, "account_merge_payment_in_progress"),
-      );
+      .mockRejectedValue(new AomiAccountRequestError(409, code));
     render(
       <Harness
         open={false}
@@ -359,9 +442,7 @@ describe("wallet sheet", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Merge into this account" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Your last reply is still being billed — try again in a moment.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(copy);
     expect(
       screen.getByRole("button", { name: "Merge into this account" }),
     ).toBeEnabled();

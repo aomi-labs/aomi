@@ -1,25 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
-import { SigningSettings } from "../provider-policy-settings";
+import { useShellTransport } from "@/account/transport";
 import { OnchainPolicySettings } from "./onchain-policy-settings";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
+import { accountSafetyQuery } from "./transaction-safety-api";
 
-/** The Safety tab: the default level for new chats, then wallet signing.
- * Both sections load behind one spinner and appear together. */
+/** The Safety tab: the guard policy new chats start on (and Swig, behind its flag). */
 export function PolicyPage() {
-  const [guardLoaded, setGuardLoaded] = useState(false);
-  const [signingLoaded, setSigningLoaded] = useState(false);
-  const loaded = guardLoaded && signingLoaded;
+  const guard = useDisplayQuery(accountSafetyQuery(useShellTransport().json));
+  if (guard.isPending) return <LoadingPane label="Loading safety settings" />;
   return (
-    <>
-      {loaded ? null : <LoadingPane label="Loading safety settings" />}
-      <div hidden={!loaded} className="flex flex-col gap-8">
-        <TransactionSafetySettings onLoad={() => setGuardLoaded(true)} />
-        <SigningSettings onLoad={() => setSigningLoaded(true)} />
-        <OnchainPolicySettings />
-      </div>
-    </>
+    <div className="flex flex-col gap-8">
+      <TransactionSafetySettings />
+      <OnchainPolicySettings />
+    </div>
   );
 }

@@ -4,14 +4,17 @@ import { useWidgetOverlay } from "@/ui/widget-scope";
 
 import {
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { cn } from "@aomi-labs/react";
 
 import { AomiButton } from "./button";
+import { InSheetContext } from "./aomi-sheet";
 
 export type ConfirmDialogOptions = {
   title: ReactNode;
@@ -60,7 +63,72 @@ export function ConfirmDialog({
   closeOnConfirm = true,
   container,
 }: ConfirmDialogProps) {
+  return (
+    <DialogFrame
+      open={open}
+      busy={busy}
+      container={container}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      footer={
+        <>
+          {cancelLabel !== null && (
+            <Dialog.Close asChild>
+              <AomiButton variant="ghost" disabled={busy}>
+                {cancelLabel}
+              </AomiButton>
+            </Dialog.Close>
+          )}
+          <AomiButton
+            variant={tone === "danger" ? "danger-fill" : "primary"}
+            disabled={busy}
+            onClick={() => {
+              onConfirm();
+              if (closeOnConfirm) onOpenChange(false);
+            }}
+          >
+            {busy && busyLabel ? busyLabel : confirmLabel}
+          </AomiButton>
+        </>
+      }
+    >
+      {children}
+    </DialogFrame>
+  );
+}
+
+/**
+ * The small modal every Aomi dialog shares: title, optional description,
+ * a body, and a right-aligned footer (Cancel first, the committing button
+ * last). `busy` blocks dismissal while work runs.
+ */
+export function DialogFrame({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  footer,
+  busy = false,
+  container,
+  onOpenAutoFocus,
+  role = "alertdialog",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  footer: ReactNode;
+  busy?: boolean;
+  container?: HTMLElement | null;
+  onOpenAutoFocus?: (event: Event) => void;
+  /** `dialog` for a form; `alertdialog` (default) for a confirm. */
+  role?: "dialog" | "alertdialog";
+}) {
   const widgetContainer = useWidgetOverlay();
+  const stacked = useContext(InSheetContext);
   return (
     <Dialog.Root
       open={open}
@@ -70,11 +138,17 @@ export function ConfirmDialog({
       }}
     >
       <Dialog.Portal container={widgetContainer ?? container}>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[3px]" />
+        <Dialog.Overlay
+          className={cn(
+            "fixed inset-0 z-[80]",
+            stacked ? "bg-black/10" : "bg-black/40 backdrop-blur-[3px]",
+          )}
+        />
         <Dialog.Content
-          role="alertdialog"
+          role={role}
           // Radix wires aria-describedby to Description; opt out without one.
           {...(description ? {} : { "aria-describedby": undefined })}
+          onOpenAutoFocus={onOpenAutoFocus}
           className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-shell shadow-modal fixed left-1/2 top-1/2 z-[81] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-[420px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-5 focus:outline-none"
         >
           <Dialog.Title className="type-title">{title}</Dialog.Title>
@@ -84,25 +158,7 @@ export function ConfirmDialog({
             </Dialog.Description>
           ) : null}
           {children ? <div className="mt-4">{children}</div> : null}
-          <div className="mt-5 flex justify-end gap-2">
-            {cancelLabel !== null && (
-              <Dialog.Close asChild>
-                <AomiButton variant="ghost" disabled={busy}>
-                  {cancelLabel}
-                </AomiButton>
-              </Dialog.Close>
-            )}
-            <AomiButton
-              variant={tone === "danger" ? "danger-fill" : "primary"}
-              disabled={busy}
-              onClick={() => {
-                onConfirm();
-                if (closeOnConfirm) onOpenChange(false);
-              }}
-            >
-              {busy && busyLabel ? busyLabel : confirmLabel}
-            </AomiButton>
-          </div>
+          <div className="mt-5 flex justify-end gap-2">{footer}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

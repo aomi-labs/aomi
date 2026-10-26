@@ -71,6 +71,49 @@ describe("CLI OAuth device authorization", () => {
     expect(tokenBody.get("resource")).toBe(AGENT_RESOURCE);
   });
 
+  it("registers again when the saved client is gone", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: "invalid_client", error_description: "Invalid client ID" },
+          { status: 400 },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json({ client_id: "fresh-client" }))
+      .mockResolvedValueOnce(
+        Response.json({
+          device_code: "device-code",
+          user_code: "AOMI-1234",
+          verification_uri: "https://chat.aomi.dev/device",
+          expires_in: 60,
+          interval: 1,
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ access_token: "access-token", expires_in: 300 }),
+      );
+
+    const resultPromise = signInWithOAuthDevice({
+      baseUrl: "https://chat.aomi.dev",
+      clientId: "deleted-client",
+      resource: AGENT_RESOURCE,
+      scopes: ["agent:read"],
+      fetch: fetchImpl,
+      openBrowser: vi.fn(),
+    });
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.clientId).toBe("fresh-client");
+    expect(
+      new URLSearchParams(String(fetchImpl.mock.calls[2]?.[1]?.body)).get(
+        "client_id",
+      ),
+    ).toBe("fresh-client");
+  });
+
   it("reuses a registered client for step-up and honors slow_down", async () => {
     vi.useFakeTimers();
     const fetchImpl = vi

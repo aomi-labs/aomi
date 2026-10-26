@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { Action, CommitView, Event } from "@aomi-labs/client";
-import { selectActivity, selectLegacyReviewAction } from "./model";
+import {
+  projectConversationEvents,
+  type Action,
+  type CommitView,
+  type Event,
+} from "@aomi-labs/client";
+import {
+  selectActivity,
+  selectLegacyReviewAction,
+  selectReviewQueue,
+} from "./model";
 
 const tx = {
   chain_id: 8453,
@@ -123,6 +132,82 @@ describe("activity projection", () => {
         .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))
         .map((item) => item.commit?.commit_id),
     ).toEqual(["commit-2", "commit-1"]);
+  });
+
+  it("binds an unbatched commit by its own stage id, also a later turn's", () => {
+    // As svm_stage_ix reports it; the commit tool's model-facing result names
+    // no sources, so the commit's own stage id is the link.
+    const solStage = (turn: string) =>
+      tool(
+        1,
+        "svm_stage_ix",
+        {
+          ix_ids: [1],
+          instructions: [
+            {
+              payer: "So1",
+              cluster: "mainnet-beta",
+              description: "Transfer SOL",
+              pending_ix_id: 1,
+              current_lifecycle: "queued",
+            },
+          ],
+        },
+        turn,
+      );
+    const parked = durableCommit(1, 0, {
+      commit_id: "sol-commit",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      stage_id: "svm:1",
+      broadcaster: "hosted",
+      state: "awaiting_approval",
+      batch: null,
+    });
+    const now = selectActivity([solStage("turn-1")], [], [parked]);
+    expect(now.transactions[0]).toMatchObject({
+      label: "Transfer SOL",
+      stage: "committed",
+      commit: { commit_id: "sol-commit" },
+    });
+    // Two staged instructions committed as one transaction: both cards follow it.
+    const second = tool(2, "svm_stage_ix", {
+      ix_ids: [2],
+      instructions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          description: "Transfer SOL back",
+          pending_ix_id: 2,
+          current_lifecycle: "queued",
+        },
+      ],
+    });
+    const both = selectActivity(
+      [solStage("turn-1"), second],
+      [],
+      [{ ...parked, stage_id: "svm:1,2", state: "confirmed" }],
+    );
+    expect(
+      both.transactions.map((card) => [card.label, card.commit?.state]),
+    ).toEqual([
+      ["Transfer SOL", "confirmed"],
+      ["Transfer SOL back", "confirmed"],
+    ]);
+    const later = selectActivity(
+      [
+        solStage("turn-1"),
+        {
+          ...meta(9, "turn-2"),
+          type: "message",
+          sender: "user",
+          content: "next",
+        } as Event,
+      ],
+      [],
+      [{ ...parked, state: "confirmed" }],
+    );
+    expect(later.history[0].commit?.state).toBe("confirmed");
   });
 
   it("lists every tx a protocol staging tool staged, then marks them simulated", () => {
@@ -467,5 +552,142 @@ describe("thread-wide activity", () => {
     expect(
       result.transactions.find((tx) => tx.action?.id === "a2")?.sequence,
     ).toBe(5);
+  });
+
+  it("shows only the visible conversation's work after an Edit or Rerun", () => {
+    const user = (sequence: number, turn: string): Event => ({
+      ...meta(sequence, turn),
+      type: "message",
+      sender: "user",
+      message_key: `${turn}:user`,
+      content: "Swap",
+    });
+    const subagent = (sequence: number, turn: string, agent: string): Event =>
+      ({
+        ...meta(sequence, turn),
+        type: "task_started",
+        call_id: agent,
+        agent_id: agent,
+        label: agent,
+        app: "swap",
+        resumed: false,
+      }) as Event;
+    const replaced: Event[] = [
+      user(1, "turn-1"),
+      tool(2, "activate_skill", { activated: ["aave"] }),
+      subagent(3, "turn-1", "old-agent"),
+      tool(4, "evm_stage_tx", {
+        ...tx,
+        pending_tx_id: 1,
+        current_lifecycle: "queued",
+      }),
+      action(5, { state: "completed" }),
+    ];
+    const branch: Event = {
+      ...meta(6, "turn-2"),
+      type: "branch",
+      kind: "regenerate",
+      target_message_key: "turn-1:user",
+      user_message_key: "turn-1:user",
+      content: "Swap",
+      removed_message_keys: ["turn-1:user"],
+      removed_turn_ids: ["turn-1"],
+    };
+    expect(
+      selectActivity(projectConversationEvents([...replaced, branch])),
+    ).toMatchObject({ agents: [], skills: [], transactions: [], history: [] });
+
+    const visible = selectActivity(
+      projectConversationEvents([
+        ...replaced,
+        branch,
+        user(7, "turn-2"),
+        tool(8, "activate_skill", { activated: ["lifi"] }, "turn-2"),
+        subagent(9, "turn-2", "new-agent"),
+        tool(
+          10,
+          "evm_stage_tx",
+          { ...tx, pending_tx_id: 1, current_lifecycle: "queued" },
+          "turn-2",
+        ),
+      ]),
+    );
+    expect(visible.skills).toEqual(["lifi"]);
+    expect(visible.agents.map((agent) => agent.agentId)).toEqual(["new-agent"]);
+    expect(visible.transactions.map((item) => item.turnId)).toEqual(["turn-2"]);
+    expect(visible.history).toEqual([]);
+  });
+});
+
+describe("selectReviewQueue", () => {
+  const member = (index: number, patch: Partial<CommitView> = {}) =>
+    ({
+      version: 1,
+      commit_id: `cmt-${index}`,
+      thread_id: "thread",
+      stage_id: `evm:${index}`,
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "0x1111111111111111111111111111111111111111",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      transaction_id: null,
+      failure_code: null,
+      review: null,
+      wallet_attempt: null,
+      action: null,
+      batch: {
+        batch_id: "batch",
+        index,
+        ordered_stage_ids: ["evm:0", "evm:1"],
+        ordered_commit_ids: ["cmt-0", "cmt-1"],
+        sources: [],
+        predecessor_commit_id: index ? "cmt-0" : null,
+        review_digest: "digest",
+      },
+      ...patch,
+    }) as CommitView;
+  // A queue over a controller whose groups are atomic or not.
+  const queue = (commits: CommitView[], atomic: boolean) =>
+    selectReviewQueue(commits, {
+      review: () => ({}) as never,
+      plan: () => ({ transport: "send_calls", prompts: 1, atomic }),
+    });
+
+  it("shows an atomic group by its leader alone", () => {
+    const leader = member(0);
+    const later = member(1);
+    expect(queue([leader, later], true)).toEqual([leader]);
+    expect(queue([leader, later], false)).toEqual([leader, later]);
+    // Once the bundle is out, the group leaves the queue.
+    expect(queue([{ ...leader, state: "submitted" }, later], true)).toEqual([]);
+  });
+
+  it("steps through groups in order across chains", () => {
+    const other = (index: number) =>
+      member(index, {
+        commit_id: `base-${index}`,
+        chain_ref: "1",
+        batch: {
+          ...member(index).batch!,
+          batch_id: "other",
+          ordered_commit_ids: ["base-0", "base-1"],
+        },
+      });
+    const commits = [member(0), member(1), other(0), other(1)];
+    expect(queue(commits, true).map((view) => view.commit_id)).toEqual([
+      "cmt-0",
+      "base-0",
+    ]);
+    expect(
+      queue([...commits].reverse(), false).map((view) => view.commit_id),
+    ).toEqual(["base-0", "base-1", "cmt-0", "cmt-1"]);
+  });
+
+  it("keeps an older lone commit ahead of a newer batch", () => {
+    const lone = member(0, { commit_id: "lone", batch: null });
+    expect(
+      queue([lone, member(1), member(0)], false).map((view) => view.commit_id),
+    ).toEqual(["lone", "cmt-0", "cmt-1"]);
   });
 });

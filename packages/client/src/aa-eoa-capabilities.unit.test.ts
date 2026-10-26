@@ -18,6 +18,10 @@ const CALL_LIST = [
   },
 ];
 
+/** A wallet RPC error as viem raises it: a numeric `code`. */
+const refused = (code: number) =>
+  Object.assign(new Error(`wallet error ${code}`), { code });
+
 describe("executeWalletCalls EOA capability handling", () => {
   it("uses direct EOA signing for a single call even when atomic sendCalls is supported", async () => {
     const sendCallsSyncAsync = vi.fn().mockResolvedValue({
@@ -330,11 +334,7 @@ describe("executeWalletCalls EOA capability handling", () => {
   });
 
   it("falls back to sequential sendTransaction when atomic capability is rejected", async () => {
-    const sendCallsSyncAsync = vi
-      .fn()
-      .mockRejectedValue(
-        new Error("Unsupported non-optional capabilities: atomic"),
-      );
+    const sendCallsSyncAsync = vi.fn().mockRejectedValue(refused(5700));
     const sendTransactionAsync = vi
       .fn()
       .mockResolvedValueOnce("0x111")
@@ -378,11 +378,7 @@ describe("executeWalletCalls EOA capability handling", () => {
   });
 
   it("reports eoa when wallet-native execution falls back to sequential sends", async () => {
-    const sendCallsSyncAsync = vi
-      .fn()
-      .mockRejectedValue(
-        new Error("Unsupported non-optional capabilities: atomic"),
-      );
+    const sendCallsSyncAsync = vi.fn().mockRejectedValue(refused(5700));
     const sendTransactionAsync = vi
       .fn()
       .mockResolvedValueOnce("0x111")
@@ -416,16 +412,10 @@ describe("executeWalletCalls EOA capability handling", () => {
     });
   });
 
-  it("falls back to sequential sendTransaction when optional paymaster sendCalls fails", async () => {
-    const sendCallsSyncAsync = vi
-      .fn()
-      .mockRejectedValue(new Error("Paymaster request failed with 500"));
-    const sendTransactionAsync = vi
-      .fn()
-      .mockResolvedValueOnce("0x111")
-      .mockResolvedValueOnce("0x222");
-
-    const result = await executeWalletCalls({
+  it("never sends optional-sponsorship calls one by one after a paymaster failure message", async () => {
+    const error = new Error("paymaster request timed out");
+    const sendTransactionAsync = vi.fn();
+    const result = executeWalletCalls({
       callList: CALL_LIST,
       currentChainId: 1,
       capabilities: {
@@ -442,22 +432,15 @@ describe("executeWalletCalls EOA capability handling", () => {
           paymasterServiceUrl: "https://paymaster.example.test",
         },
       },
-      sendCallsSyncAsync,
+      sendCallsSyncAsync: vi.fn().mockRejectedValue(error),
       sendTransactionAsync,
       switchChainAsync: vi.fn(),
       chainsById: { [mainnet.id]: mainnet },
       getPreferredRpcUrl: () => "https://example-rpc.invalid",
     });
 
-    expect(sendCallsSyncAsync).toHaveBeenCalledTimes(1);
-    expect(sendTransactionAsync).toHaveBeenCalledTimes(2);
-    expect(result).toMatchObject({
-      txHash: "0x222",
-      txHashes: ["0x111", "0x222"],
-      executionKind: "eoa",
-      batched: true,
-      sponsored: false,
-    });
+    await expect(result).rejects.toBe(error);
+    expect(sendTransactionAsync).not.toHaveBeenCalled();
   });
 
   it("requires atomic sendCalls and blocks sequential fallback when requested", async () => {
@@ -518,11 +501,7 @@ describe("executeWalletCalls EOA capability handling", () => {
   });
 
   it("does not sequentially send when an atomic-required batch is unsupported", async () => {
-    const sendCallsSyncAsync = vi
-      .fn()
-      .mockRejectedValue(
-        new Error("Unsupported non-optional capabilities: atomic"),
-      );
+    const sendCallsSyncAsync = vi.fn().mockRejectedValue(refused(5700));
     const sendTransactionAsync = vi.fn();
 
     await expect(
@@ -660,5 +639,81 @@ describe("executeWalletCalls EOA capability handling", () => {
       timeout: undefined,
       version: undefined,
     });
+  });
+});
+
+describe("executeWalletCalls bundles", () => {
+  const run = (sendCallsSyncAsync: ReturnType<typeof vi.fn>) => {
+    const sendTransactionAsync = vi.fn().mockResolvedValue("0xsingle");
+    const result = executeWalletCalls({
+      callList: [CALL_LIST[0]],
+      currentChainId: 1,
+      capabilities: {},
+      localPrivateKey: null,
+      bundle: true,
+      sendCallsSyncAsync,
+      sendTransactionAsync,
+      switchChainAsync: vi.fn(),
+      chainsById: { [mainnet.id]: mainnet },
+      getPreferredRpcUrl: () => "https://example-rpc.invalid",
+    });
+    return { result, sendTransactionAsync };
+  };
+
+  it("sends an unprobed wallet one call through sendCalls, without requiring atomicity", async () => {
+    const sendCallsSyncAsync = vi.fn().mockResolvedValue({
+      receipts: [{ transactionHash: "0xop" }],
+    });
+    const { result, sendTransactionAsync } = run(sendCallsSyncAsync);
+
+    await expect(result).resolves.toMatchObject({ txHashes: ["0xop"] });
+    expect(sendCallsSyncAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ forceAtomic: false }),
+    );
+    expect(sendTransactionAsync).not.toHaveBeenCalled();
+  });
+
+  it.each([5700, 5760, -32601, 4200])(
+    "sends one by one after a clean %i refusal",
+    async (code) => {
+      const { result, sendTransactionAsync } = run(
+        vi
+          .fn()
+          .mockRejectedValue(new Error("wrapped", { cause: refused(code) })),
+      );
+
+      await expect(result).resolves.toMatchObject({ txHashes: ["0xsingle"] });
+      expect(sendTransactionAsync).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    ["a user rejection", refused(4001)],
+    ["a rejected bundle", refused(5750)],
+    ["a timeout", new Error("Timed out while waiting for call bundle")],
+    [
+      "anything after a call id",
+      Object.assign(refused(-32601), { callsId: "0xid" }),
+    ],
+    [
+      "a call id deeper in the chain",
+      new Error("status failed", {
+        cause: new Error("wrapped", {
+          cause: Object.assign(refused(5700), { callsId: "0xid" }),
+        }),
+      }),
+    ],
+    [
+      "a rejection under a refusal",
+      Object.assign(refused(5700), { cause: refused(4001) }),
+    ],
+    ["a refusal by message only", new Error("atomic unsupported")],
+  ])("never sends again after %s", async (_name, error) => {
+    const { result, sendTransactionAsync } = run(
+      vi.fn().mockRejectedValue(error),
+    );
+
+    await expect(result).rejects.toBe(error);
+    expect(sendTransactionAsync).not.toHaveBeenCalled();
   });
 });

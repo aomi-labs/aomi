@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { Event } from "@aomi-labs/client";
+import {
+  projectConversationEvents,
+  type Action,
+  type Event,
+} from "@aomi-labs/client";
 
 import {
   CONTEXT_STEP_TOOL,
+  conversationPendingActions,
   logicalTurnRunning,
   projectAssistantMessages,
   projectRuntimeMessages,
@@ -195,6 +200,48 @@ it("projects first-release branches that edited the user message in place", () =
   expect(projectRuntimeMessages(JSON.parse(JSON.stringify(events)))).toEqual(
     projected,
   );
+});
+
+it("drops the pending Actions of turns an Edit or Rerun replaced", () => {
+  const action = (sequence: number, id: string, turnId: string) =>
+    ({
+      ...meta(sequence, "action", turnId),
+      type: "action",
+      id,
+      revision: 1,
+      state: "pending",
+      created_at: sequence,
+      expires_at: null,
+    }) as unknown as Action;
+  const replaced = action(5, "replaced", "later");
+  const current = action(8, "current", "edited");
+  const events = projectConversationEvents([
+    ...edited,
+    replaced,
+    {
+      ...meta(6, "branch", "edited"),
+      type: "branch",
+      kind: "edit",
+      target_message_key: "saved-user",
+      user_message_key: "saved-user",
+      content: "Base",
+      removed_message_keys: ["saved-user", "saved-answer", "later-user"],
+      removed_turn_ids: ["original", "later"],
+    },
+    {
+      ...meta(7, "message", "edited"),
+      type: "message",
+      sender: "user",
+      message_key: "edited-user",
+      content: "Base",
+    },
+    current,
+  ]);
+  expect(conversationPendingActions([replaced, current], events)).toEqual([
+    current,
+  ]);
+  const unchanged = [current];
+  expect(conversationPendingActions(unchanged, events)).toBe(unchanged);
 });
 
 it("keeps an accepted optimistic turn running before its durable user event", () => {

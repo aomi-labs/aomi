@@ -1,9 +1,10 @@
 import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
 import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
-import { getChainInfo } from "@aomi-labs/react";
 import { FileSignature, Layers3 } from "lucide-react";
 import { STAGED_ACTION_ICON_REGISTRY } from "@/thread/tool-registry";
+import { getDefaultSvmNetworkLabel } from "@/wallet/catalog/svm-networks";
+import type { SvmCluster } from "@/wallet/types";
 
 export type Simulation = Extract<
   ActionRequest,
@@ -36,66 +37,6 @@ export type TransactionView = {
   kind: "approval" | "action";
   Icon: TransactionIcon;
 };
-
-export function actionTransactions(
-  request: ActionRequest,
-  supportedChains?: readonly SupportedChain[],
-): TransactionView[] {
-  if (request.type === "execute_evm") {
-    return request.transactions.map((transaction, index) => {
-      const chain = supportedChains?.find(
-        (candidate) => candidate.id === transaction.chain_id,
-      );
-      const label = friendlyTransactionLabel(
-        transaction.label || `Transaction ${index + 1}`,
-        transaction.kind,
-      );
-      const semantic = transactionSemantic(label, transaction.kind);
-      return {
-        label,
-        network:
-          chain?.name ??
-          getChainInfo(transaction.chain_id)?.name ??
-          `Chain ${transaction.chain_id}`,
-        chainId: transaction.chain_id,
-        destination: transaction.to,
-        protocol: transaction.protocol,
-        ...semantic,
-      };
-    });
-  }
-  if (request.type === "execute_svm") {
-    return request.transactions.map((transaction, index) => {
-      const label = transaction.description || `Transaction ${index + 1}`;
-      return {
-        label,
-        network:
-          normalizeSolanaCluster(transaction.cluster) ??
-          transaction.cluster ??
-          "Solana",
-        ...transactionSemantic(label),
-      };
-    });
-  }
-  const chainId = request.chainId;
-  const chain = chainId
-    ? supportedChains?.find((candidate) => candidate.id === chainId)
-    : undefined;
-  return [
-    {
-      label: request.description || "Sign wallet request",
-      network:
-        request.chainFamily === "svm"
-          ? (normalizeSolanaCluster(request.cluster) ??
-            request.cluster ??
-            "Solana")
-          : (chain?.name ?? (chainId ? `Chain ${chainId}` : "Ethereum")),
-      destination: request.signer,
-      kind: "action",
-      Icon: FileSignature,
-    },
-  ];
-}
 
 export function transactionSemantic(
   label: string,
@@ -267,14 +208,21 @@ export function isZeroAddress(value: string | null | undefined): boolean {
   return Boolean(value && /^0x0{40}$/i.test(value));
 }
 
+/** A Solana cluster's display name ("Solana", "Solana Devnet"), from any of
+ * its spellings (`mainnet-beta`, `solana:mainnet`); a custom one as given. */
+export function solanaNetworkName(cluster: string | undefined): string {
+  const normalized = normalizeSolanaCluster(cluster);
+  return normalized?.startsWith("solana:")
+    ? getDefaultSvmNetworkLabel(normalized as SvmCluster)
+    : (cluster ?? "Solana");
+}
+
 export function balanceChangeNetwork(
   change: BalanceChange,
   request: ActionRequest,
   supportedChains?: readonly SupportedChain[],
 ): string | undefined {
-  if (change.cluster) {
-    return normalizeSolanaCluster(change.cluster) ?? change.cluster;
-  }
+  if (change.cluster) return solanaNetworkName(change.cluster);
   const chainId = change.chainId ?? firstEvmChainId(request);
   if (!chainId) return undefined;
   return (

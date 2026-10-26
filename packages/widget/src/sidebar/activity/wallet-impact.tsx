@@ -2,7 +2,11 @@
 import { useTokenMetadata } from "./token-metadata";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { useState } from "react";
-import type { ActionRequest } from "@aomi-labs/client";
+import type {
+  ActionRequest,
+  MessageReview,
+  MessageReviewRow,
+} from "@aomi-labs/client";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import {
   ArrowDownLeft,
@@ -14,6 +18,8 @@ import {
   Gem,
   Info,
   KeyRound,
+  LogIn,
+  PenLine,
 } from "lucide-react";
 import {
   type Simulation,
@@ -83,6 +89,7 @@ export function ImpactPanel({
   request,
   balanceChanges,
   approvals,
+  message,
   supportedChains,
   showNetwork,
   failed,
@@ -90,6 +97,8 @@ export function ImpactPanel({
   request: ActionRequest;
   balanceChanges: Simulation["balanceChanges"];
   approvals: Simulation["approvals"];
+  /** A message commit's decoded rows, in place of simulated changes. */
+  message?: MessageReview;
   supportedChains?: readonly SupportedChain[];
   showNetwork: boolean;
   failed: boolean;
@@ -98,18 +107,25 @@ export function ImpactPanel({
   const entries: Array<
     | { type: "balance"; value: BalanceChange }
     | { type: "approval"; value: ApprovalChange }
-  > = [
-    ...balanceChanges.map((value) => ({ type: "balance" as const, value })),
-    ...approvals.map((value) => ({ type: "approval" as const, value })),
-  ];
+    | { type: "message"; value: MessageReviewRow }
+  > = message
+    ? message.rows.map((value) => ({ type: "message" as const, value }))
+    : [
+        ...balanceChanges.map((value) => ({
+          type: "balance" as const,
+          value,
+        })),
+        ...approvals.map((value) => ({ type: "approval" as const, value })),
+      ];
   const pages = Math.max(1, Math.ceil(entries.length / REVIEW_PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
   const shown = entries.slice(
     safePage * REVIEW_PAGE_SIZE,
     safePage * REVIEW_PAGE_SIZE + REVIEW_PAGE_SIZE,
   );
-  const heading =
-    balanceChanges.length && approvals.length
+  const heading = message
+    ? messageHeading(message)
+    : balanceChanges.length && approvals.length
       ? "Wallet changes"
       : balanceChanges.length
         ? "Balance changes"
@@ -121,7 +137,7 @@ export function ImpactPanel({
 
   return (
     <section
-      aria-label="Simulated wallet impact"
+      aria-label={message ? "Message impact" : "Simulated wallet impact"}
       data-change-count={balanceChanges.length}
       data-approval-count={approvals.length}
       className="bg-aomi-surface rounded-card flex min-w-0 flex-col p-3"
@@ -154,12 +170,18 @@ export function ImpactPanel({
               supportedChains={supportedChains}
               showNetwork={showNetwork}
             />
-          ) : (
+          ) : entry.type === "approval" ? (
             <ApprovalEffect
               key={`${entry.value.asset}-${entry.value.kind}-${entry.value.tokenId ?? "all"}-${index}`}
               approval={entry.value}
               request={request}
               supportedChains={supportedChains}
+            />
+          ) : (
+            <MessageEffect
+              key={`${entry.value.kind}-${safePage}-${index}`}
+              row={entry.value}
+              tokens={message?.tokens}
             />
           ),
         )}
@@ -177,11 +199,13 @@ export function ImpactPanel({
                     : "Wallet changes unavailable"}
               </p>
               <p className="type-meta text-aomi-muted">
-                {request.type === "sign"
-                  ? "Review the full signing request below."
-                  : failed
-                    ? "The request reverted before effects were produced."
-                    : "Review the transaction details in your wallet."}
+                {message
+                  ? "Review the message below."
+                  : request.type === "sign"
+                    ? "Review the full signing request below."
+                    : failed
+                      ? "The request reverted before effects were produced."
+                      : "Review the transaction details in your wallet."}
               </p>
             </div>
           </div>
@@ -457,6 +481,155 @@ function ApprovalEffect({
         <p className="type-meta text-aomi-muted truncate">
           {scope} · To {shortAddress(approval.spender, { head: 8, tail: 6 })}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function messageHeading({ rows }: MessageReview): string {
+  const moves = rows.some(
+    (row) => row.kind === "sell" || row.kind === "receive",
+  );
+  const allows = rows.some((row) => row.kind === "allowance");
+  return moves && allows
+    ? "Wallet changes"
+    : moves
+      ? "Balance changes"
+      : allows
+        ? "Permission changes"
+        : "Message";
+}
+
+/** The backend's name for a row's token (keys are EIP-55). */
+function tokenOf(tokens: MessageReview["tokens"], token: string) {
+  return Object.entries(tokens ?? {}).find(
+    ([address]) => address.toLowerCase() === token.toLowerCase(),
+  )?.[1];
+}
+
+/** A token the map names with decimals reads as "500 USDC"; otherwise its
+ * raw amount and short address. */
+function messageAmount(
+  tokens: MessageReview["tokens"],
+  token: string,
+  amount: string,
+): string {
+  const known = tokenOf(tokens, token);
+  return known?.decimals == null
+    ? `${amount} ${assetFallback(token)}`
+    : `${formatAssetAmount(amount, known.decimals)} ${known.symbol?.trim() || assetFallback(token)}`;
+}
+
+const untilFormat = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** One row of what a message signature allows, in the trade rows' layout. */
+function MessageEffect({
+  row,
+  tokens,
+}: {
+  row: MessageReviewRow;
+  tokens: MessageReview["tokens"];
+}) {
+  if (row.kind === "sell" || row.kind === "receive") {
+    const incoming = row.kind === "receive";
+    const value = messageAmount(tokens, row.token, row.amount);
+    return (
+      <div
+        data-testid="message-effect"
+        data-kind={row.kind}
+        className="flex min-w-0 items-center gap-3 px-1 py-3"
+      >
+        <AssetMark
+          symbol={tokenOf(tokens, row.token)?.symbol ?? ""}
+          incoming={incoming}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="type-meta text-aomi-muted truncate">
+            {incoming
+              ? row.minimum
+                ? "You receive at least"
+                : "You receive"
+              : "You sell"}
+          </p>
+        </div>
+        <p
+          className={cn(
+            "type-meta max-w-[60%] truncate whitespace-nowrap text-right font-medium tabular-nums",
+            incoming ? "text-aomi-success" : "text-aomi-danger",
+          )}
+          title={value}
+        >
+          {incoming ? "+" : "−"}
+          {value}
+        </p>
+      </div>
+    );
+  }
+  const [Icon, eyebrow, title, detail, tone] =
+    row.kind === "allowance"
+      ? [
+          KeyRound,
+          "Permission requested",
+          row.unlimited
+            ? `Unlimited ${tokenOf(tokens, row.token)?.symbol?.trim() || assetFallback(row.token)}`
+            : `≤ ${messageAmount(tokens, row.token, row.amount)}`,
+          `${shortAddress(row.spender, { head: 8, tail: 6 })} may spend${
+            row.expires_at
+              ? ` · until ${untilFormat.format(row.expires_at * 1000)}`
+              : ""
+          }`,
+          row.unlimited ? "warning" : "accent",
+        ]
+      : row.kind === "sign_in"
+        ? [
+            LogIn,
+            "Sign-in",
+            `Sign in to ${row.domain}`,
+            row.statement,
+            "accent",
+          ]
+        : [PenLine, "Message", row.text, undefined, "neutral"];
+  return (
+    <div
+      data-testid="message-effect"
+      data-kind={row.kind}
+      className="flex min-w-0 items-center gap-3 px-1 py-3"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-full border",
+          tone === "warning"
+            ? "border-aomi-warning/20 bg-aomi-warning/10 text-aomi-warning"
+            : tone === "accent"
+              ? "border-aomi-accent/15 bg-aomi-accent-subtle text-aomi-accent-strong"
+              : "border-aomi-border bg-aomi-raised text-aomi-muted",
+        )}
+      >
+        <Icon className="size-3.5" strokeWidth={1.9} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="type-eyebrow text-aomi-muted">{eyebrow}</p>
+        <p
+          className={cn(
+            "type-control font-medium",
+            row.kind === "text" ? "line-clamp-4 break-words" : "truncate",
+            tone === "warning" ? "text-aomi-warning" : "text-aomi-fg",
+          )}
+          title={title}
+        >
+          {title}
+        </p>
+        {detail ? (
+          <p className="type-meta text-aomi-muted truncate" title={detail}>
+            {detail}
+          </p>
+        ) : null}
       </div>
     </div>
   );

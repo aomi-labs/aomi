@@ -9,6 +9,8 @@ import {
   useReducedMotion,
 } from "motion/react";
 import {
+  lazy,
+  Suspense,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -37,6 +39,12 @@ import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
 import { PHONE_QUERY, useActivityPanel } from "./activity-panel-context";
 
+const ScheduledApproval = lazy(() =>
+  import("@/commit/approval").then((module) => ({
+    default: module.ScheduledApproval,
+  })),
+);
+
 export function ActivitySidebar() {
   return <ActivitySidebarContent />;
 }
@@ -48,7 +56,13 @@ function ActivitySidebarContent() {
     actionAttempts,
     commits = [],
     commitController,
+    currentThreadId,
+    getThreadMetadata,
   } = useAomiRuntime();
+  // Refs a scheduled run of this chat parked on its own hidden thread.
+  const scheduled = (
+    getThreadMetadata(currentThreadId)?.awaitingApproval ?? []
+  ).filter((ref) => !commits.some((commit) => commit.commit_id === ref));
   const reduceMotion = useReducedMotion();
   const {
     open: panelOpen,
@@ -101,7 +115,7 @@ function ActivitySidebarContent() {
     [events],
   );
   const pending = pendingActions[0];
-  const pendingCommit = selectReviewCommit(commits, commitController?.review);
+  const pendingCommit = selectReviewCommit(commits, commitController);
   const signing = Boolean(
     pendingCommit ||
     (pending &&
@@ -146,10 +160,27 @@ function ActivitySidebarContent() {
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
   });
+  const onChainPresentation = (tx: ActivityTransaction) => {
+    const lifecycle = tx.commit
+      ? projectCommitLifecycle(
+          tx.commit,
+          undefined,
+          undefined,
+          commitController?.onChainOutcome?.(tx.commit.commit_id),
+        )
+      : undefined;
+    return lifecycle?.onChain ? lifecycle : undefined;
+  };
+  // An atomic group moves together: a member shares its leader's progress.
+  const progress = (tx: ActivityTransaction): ActivityTransaction => {
+    const commit = tx.commit && commitController?.groupView?.(tx.commit);
+    return commit && commit !== tx.commit ? { ...tx, commit } : tx;
+  };
   const card = (tx: ActivityTransaction) => (
     <TransactionCard
       key={tx.id}
       transaction={tx}
+      onChain={onChainPresentation(tx)}
       reviewing={Boolean(
         pending
           ? tx.action?.id === pending.id
@@ -184,11 +215,13 @@ function ActivitySidebarContent() {
     activity.transactions.length ||
     activity.history.length ||
     pendingActions.length ||
-    commits.length,
+    commits.length ||
+    scheduled.length,
   );
+  const waiting = Boolean(pending || pendingCommit || scheduled.length);
   useEffect(() => {
-    setWorthShowing(hasActivity, Boolean(pending || pendingCommit));
-  }, [hasActivity, pending, pendingCommit, setWorthShowing]);
+    setWorthShowing(hasActivity, waiting);
+  }, [hasActivity, waiting, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   // A new wallet request reopens the sheet: it holds the only sign controls.
   // Key it like WalletReview picks its request: the live commit comes first.
@@ -197,18 +230,21 @@ function ActivitySidebarContent() {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
   const showRail = hasActivity && panelOpen;
-  const hasTransactions = Boolean(
-    transactions.length > 0 || pending || pendingCommit,
-  );
+  const hasTransactions = Boolean(transactions.length > 0 || waiting);
   const transactionContent = (
     <>
       <TransactionList
         newestId={transactions[0]?.id}
         count={transactions.length}
       >
-        {transactions.map((tx) => card(tx))}
+        {transactions.map((tx) => card(progress(tx)))}
       </TransactionList>
       <WalletReview />
+      {scheduled.length ? (
+        <Suspense fallback={null}>
+          <ScheduledApproval refs={scheduled} />
+        </Suspense>
+      ) : null}
     </>
   );
   const groups = (

@@ -2,22 +2,32 @@
 
 import { useMemo, useRef, useState } from "react";
 import { shortAddress } from "@aomi-labs/client";
+import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { AccountManagement } from "@/account/account-management/account-management";
+import { agentWalletsQuery } from "@/account/account-queries";
+import { AgentWalletsSection } from "@/account/agent-wallets/agent-wallets-section";
 import { providerName } from "@/account/account-management/wallet-model";
 import {
   providerEmailDisplayHint,
   visibleSignInMethods,
 } from "@/wallet/account-presentation";
-import { useAccountAcl } from "./use-account-acl";
+import { useShellTransport } from "./transport";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const adapter = useAomiWalletKit();
-  const acl = useAccountAcl();
+  const { client } = useShellTransport();
+  const cache = useAomiDisplayCache();
+  const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
+  const agentQuery = useDisplayQuery({
+    ...agentWalletsQuery(client),
+    enabled: signedIn,
+  });
   const pendingRef = useRef(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -46,7 +56,12 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     setActionError(null);
     try {
       await action();
-      if (refresh) await acl.refresh();
+      if (refresh && cache)
+        await Promise.all(
+          (["profile", "account-wallets"] as const).map((resource) =>
+            cache.client.invalidateQueries({ queryKey: cache.key(resource) }),
+          ),
+        );
       return true;
     } catch (cause) {
       setActionError(
@@ -64,6 +79,10 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const unlinkLogin = adapter.unlinkLinkedAccount;
   const renameWallet = adapter.updateLinkedWallet;
   const activateWallet = adapter.activateWallet;
+
+  // One spinner until the agent wallets answer, then everything at once.
+  if (signedIn && agentQuery.isPending)
+    return <LoadingPane label="Loading your account" />;
 
   return (
     <div className="flex flex-col">
@@ -166,6 +185,24 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
                 );
               }
             : undefined
+        }
+        agentWallets={
+          signedIn ? (
+            <AgentWalletsSection
+              rows={adapter.wallets}
+              pending={pending}
+              onActivate={
+                activateWallet
+                  ? (row) =>
+                      void run(
+                        `activate:${row.key}`,
+                        () => activateWallet(row.key),
+                        false,
+                      )
+                  : undefined
+              }
+            />
+          ) : undefined
         }
         onSignOut={() => {
           // Close first so the panel never renders the signed-out account;

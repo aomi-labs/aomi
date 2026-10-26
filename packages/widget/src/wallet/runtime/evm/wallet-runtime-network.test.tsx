@@ -1,7 +1,10 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RegistryEvent, WalletRegistryState } from "@/wallet/registry/types";
+import type {
+  RegistryEvent,
+  WalletRegistryState,
+} from "@/wallet/registry/types";
 import { createInitialState, reduce } from "@/wallet/registry/reducer";
 import { useEmbeddedSessionSource } from "@/wallet/providers/sources/embedded-session-source";
 import { useEvmWalletRuntime } from "./wallet-runtime";
@@ -29,7 +32,10 @@ vi.mock("./wagmi-hooks", () => ({
   useWagmiConnections: () => [],
   useSendCallsSyncExecutor: () => undefined,
   useGetWalletClientFor: () => undefined,
-  useWalletCapabilities: () => undefined,
+  useWalletCapabilities: () => ({
+    capabilities: undefined,
+    refresh: async () => undefined,
+  }),
 }));
 vi.mock("./brands", () => ({
   useInstalledWalletFlags: () => ({}),

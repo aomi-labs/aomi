@@ -666,6 +666,21 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
+  it("opens Settings on the tab a ?settings= link names, once", async () => {
+    window.history.replaceState({}, "", "/?settings=account");
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    render(<PortalAomiFrame />);
+
+    expect(await screen.findByTestId("settings-modal")).toHaveAttribute(
+      "data-tab",
+      "account",
+    );
+    expect(window.location.search).toBe("");
+  });
+
   it("preserves the shell while sign-in establishes an account scope", async () => {
     walletKitState.current = {
       accountStatus: "error",

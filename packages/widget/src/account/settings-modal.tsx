@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import {
   ChartNoAxesCombined,
+  Plug,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -20,13 +28,23 @@ import {
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
 import { GeneralSettings } from "./general-settings";
-import { AccountSettings } from "./account-settings";
 import { UsageSettings } from "@/account/usage/usage-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
-
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
-import type { SettingsTab } from "./settings-events";
+import { SettingsNavContext, type SettingsTab } from "./settings-events";
+
+// Load with their tab, off the host bundle.
+const AccountSettings = lazy(() =>
+  import("./account-settings").then((module) => ({
+    default: module.AccountSettings,
+  })),
+);
+const ConnectionsSettings = lazy(() =>
+  import("@/account/connections/connections-settings").then((module) => ({
+    default: module.ConnectionsSettings,
+  })),
+);
 
 export type { SettingsTab };
 
@@ -49,9 +67,15 @@ const NAV: {
     Icon: UserRound,
   },
   {
+    id: "connections",
+    label: "Connections",
+    description: "Apps, bots and terminals that use your account",
+    Icon: Plug,
+  },
+  {
     id: "policy",
     label: "Safety",
-    description: "Guard policy and signing permissions",
+    description: "Guard policy for new chats",
     Icon: ShieldCheck,
   },
   {
@@ -209,10 +233,15 @@ export function SettingsModal({
               <GeneralSettings
                 onManageAccount={() => selectTab("account")}
                 onViewUsage={() => selectTab("usage")}
-                onFixWallets={() => selectTab("account")}
               />
             ) : id === "account" ? (
-              <AccountSettings onClose={onClose} />
+              <Suspense fallback={<LoadingPane label="Loading your account" />}>
+                <AccountSettings onClose={onClose} />
+              </Suspense>
+            ) : id === "connections" ? (
+              <Suspense fallback={<LoadingPane label="Loading connections" />}>
+                <ConnectionsSettings />
+              </Suspense>
             ) : id === "usage" ? (
               <UsageSettings initialTopUp={initialTopUp} />
             ) : (
@@ -253,7 +282,9 @@ export function SettingsModal({
           description={activeNav.description}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          {renderContent()}
+          <SettingsNavContext.Provider value={accountOnly ? null : selectTab}>
+            {renderContent()}
+          </SettingsNavContext.Provider>
         </div>
       </section>
     </ModalShell>

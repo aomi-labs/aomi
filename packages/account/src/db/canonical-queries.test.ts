@@ -3,7 +3,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   countLoginFactors,
-  claimTelegramSessionOwner,
   revokeAuthIdentity,
   updateWalletLabel,
   upsertWallet,
@@ -31,25 +30,6 @@ function fakeDb(
 }
 
 describe("canonical account queries", () => {
-  it("resolves a Telegram session only through the same canonical owner", async () => {
-    const { db, calls } = fakeDb(() => ({
-      rows: [{ user_id: "canonical-user" }],
-    }));
-
-    await expect(
-      claimTelegramSessionOwner({
-        sessionId: "thread-1",
-        telegramUserId: "12345",
-        db: db as never,
-      }),
-    ).resolves.toBe("canonical-user");
-    expect(calls[0]?.params).toEqual(["thread-1", "12345"]);
-    expect(calls[0]?.sql).toContain("from auth_providers");
-    expect(calls[0]?.sql).toContain("ap.provider = 'telegram'");
-    expect(calls[0]?.sql).toContain("update threads");
-    expect(calls[0]?.sql).toContain("t.user_id is null");
-  });
-
   it("counts independent auth providers instead of provider-owned child wallets", async () => {
     const { db, calls } = fakeDb(() => ({
       rows: [{ count: 1 }],
@@ -61,6 +41,8 @@ describe("canonical account queries", () => {
     expect(calls[0]?.sql).not.toContain("'siwe'");
     expect(calls[0]?.sql).not.toContain("'siws'");
     expect(calls[0]?.sql).toContain("'betterauth'");
+    // Agent wallet identities (provider-managed keys) are never logins.
+    expect(calls[0]?.sql).toContain("method <> 'agent'");
   });
 
   it("links a SIWE wallet as an owned public key with SIWE provenance", async () => {

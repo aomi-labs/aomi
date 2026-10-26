@@ -1,5 +1,7 @@
 "use client";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -18,9 +20,16 @@ import {
 import { useAomiWalletKit } from "@/wallet/context";
 import { selectLegacyReviewAction, selectReviewQueue } from "./model";
 import { TransactionReview } from "./transaction-review";
+import { useSignerSwitch } from "./signer-switch";
 
-/** One reviewed batch as it stood when Submit all was pressed. A commit that
- * was not batched stands alone under its own id. */
+const ParkedReview = lazy(() =>
+  import("@/commit/approval").then((module) => ({
+    default: module.ParkedReview,
+  })),
+);
+
+/** One reviewed group (a batch) as it stood when its send was pressed. A
+ * commit that was not batched stands alone under its own id. */
 type ReviewedBatch = {
   batchId: string;
   reviewDigest: string;
@@ -120,7 +129,7 @@ export function WalletReview() {
     showNotification,
   } = useAomiRuntime();
   const wallet = useAomiWalletKit();
-  const queue = selectReviewQueue(commits, commitController?.review);
+  const queue = selectReviewQueue(commits, commitController);
   const liveCommit = queue[0];
   // Durable commit state owns execution once it can present the review. Keep
   // unrelated pending Actions as compatibility for sessions without one.
@@ -148,6 +157,7 @@ export function WalletReview() {
         liveCommit,
         commitController?.submissionPhase?.(liveCommit.commit_id),
         recovery,
+        commitController?.onChainOutcome?.(liveCommit.commit_id),
       )
     : undefined;
   const recoveringExistingAttempt = Boolean(
@@ -167,6 +177,13 @@ export function WalletReview() {
         lifecycle.phase,
       ),
     );
+
+  // Awaiting this browser's wallet with another wallet active: switch, not Submit.
+  const signerSwitch = useSignerSwitch(
+    liveCommit?.action && !recoveringExistingAttempt && !approving
+      ? liveCommit
+      : undefined,
+  );
 
   const decide = useCallback(
     async (approved: boolean, batchCommitId?: string): Promise<boolean> => {
@@ -237,9 +254,7 @@ export function WalletReview() {
       if (reviewed) queuedBatches.push(reviewed);
     }
   }
-  const queuedIds = queuedBatches.flatMap((queued) => queued.orderedCommitIds);
-  const liveIndex = liveCommit ? queuedIds.indexOf(liveCommit.commit_id) : -1;
-  const queueIsReviewed = queuedIds.length > 1 && liveIndex >= 0;
+  const queueIsReviewed = queuedBatches.length > 1;
 
   // The click fixes the exact reviewed batches. Later commits or a new thread
   // cannot join them, even when the same sidebar stays mounted.
@@ -330,13 +345,14 @@ export function WalletReview() {
     liveCommit,
   ]);
 
-  const submitAll = () => {
-    if (!queueIsReviewed || !liveCommit || !commitController || batchSubmission)
-      return;
+  // Send these groups in order: the shown one alone, or with Submit all
+  // every queued one.
+  const submit = (batches: readonly ReviewedBatch[]) => {
+    if (!liveCommit || !commitController || batchSubmission) return;
     setBatchSubmission({
       controller: commitController,
       threadId: liveCommit.thread_id,
-      batches: queuedBatches.map((queued) => ({
+      batches: batches.map((queued) => ({
         ...queued,
         orderedCommitIds: [...queued.orderedCommitIds],
       })),
@@ -361,6 +377,15 @@ export function WalletReview() {
           request: commitReview,
         }
       : undefined);
+  // Parked for approval: Aomi signs after Approve, so no wallet step here.
+  if (liveCommit?.state === "awaiting_approval")
+    return (
+      <ReviewPresence>
+        <Suspense fallback={null}>
+          <ParkedReview key={liveCommit.commit_id} commit={liveCommit} />
+        </Suspense>
+      </ReviewPresence>
+    );
   if (!review) return <ReviewPresence />;
   const signatureAdmissionUnavailable = requiresSignatureAdmission(
     review.request,
@@ -376,30 +401,28 @@ export function WalletReview() {
         ? `Execution blocked: ${eligibility.reason ?? "review failed"}`
         : eligibilityBlocksNewAttempt && eligibility?.state === "unresolved"
           ? eligibility.reason
-          : lifecycle && NOTICE_PHASES.has(lifecycle.phase)
+          : lifecycle?.onChain ||
+              (lifecycle && NOTICE_PHASES.has(lifecycle.phase))
             ? lifecycle.label
             : undefined;
-  // While Submit all runs, progress counts against what was pinned at the click.
-  const progressIds = batchSubmission
-    ? batchSubmission.batches.flatMap((queued) => queued.orderedCommitIds)
-    : queuedIds;
-  const progressIndex = liveCommit
-    ? progressIds.indexOf(liveCommit.commit_id)
+  // While a send runs, progress counts the groups pinned at the click.
+  const groups = batchSubmission?.batches ?? queuedBatches;
+  const groupIndex = liveCommit
+    ? groups.findIndex((queued) =>
+        queued.orderedCommitIds.includes(liveCommit.commit_id),
+      )
     : -1;
   const showBatchControls =
-    progressIds.length > 1 &&
-    progressIndex >= 0 &&
+    groups.length > 1 &&
+    groupIndex >= 0 &&
     (queueIsReviewed || Boolean(batchSubmission));
-  const networks = new Set(
-    progressIds.map(
-      (id) =>
-        commits.find((candidate) => candidate.commit_id === id)?.chain_ref ??
-        id,
-    ),
-  ).size;
+  const plan = liveCommit && commitController?.plan?.(liveCommit);
 
   const remaining = showBatchControls
-    ? progressIds.slice(progressIndex).map((id) => commitController?.review(id))
+    ? groups
+        .slice(groupIndex)
+        .flatMap((queued) => queued.orderedCommitIds)
+        .map((id) => commitController?.review(id))
     : [review.request];
   const cohortBlocked = remaining.some(
     (request) =>
@@ -414,16 +437,23 @@ export function WalletReview() {
         approveAllDisabled={cohortBlocked}
         supportedChains={wallet.supportedChains}
         approving={approving}
+        submitting={Boolean(batchSubmission)}
+        prompts={plan?.prompts}
         approveDisabled={
           (Boolean(liveCommit) && !commitCanExecute && !checkingSubmission) ||
           eligibilityBlocksNewAttempt ||
-          signatureAdmissionUnavailable
+          signatureAdmissionUnavailable ||
+          Boolean(signerSwitch.note)
         }
+        connect={signerSwitch.connect}
+        note={signerSwitch.note}
         rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
-        status={status}
+        status={status ?? signerSwitch.error}
         statusIsError={
+          Boolean(!status && signerSwitch.error) ||
           signatureAdmissionUnavailable ||
           walletMismatch ||
+          lifecycle?.onChain === "reverted" ||
           (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
         }
         recoveringExistingAttempt={recoveringExistingAttempt}
@@ -434,20 +464,21 @@ export function WalletReview() {
               ? "Waiting…"
               : undefined
         }
-        onApprove={() => void decide(true)}
+        onApprove={() =>
+          liveBatch &&
+          liveBatch.orderedCommitIds.length > 1 &&
+          lifecycle?.phase === "ready"
+            ? submit([liveBatch])
+            : void decide(true)
+        }
         onApproveAll={
-          showBatchControls && progressIndex < progressIds.length - 1
-            ? submitAll
+          showBatchControls && groupIndex < groups.length - 1
+            ? () => submit(queuedBatches)
             : undefined
         }
         batchProgress={
           showBatchControls
-            ? {
-                current: progressIndex + 1,
-                total: progressIds.length,
-                networks,
-                submitting: Boolean(batchSubmission),
-              }
+            ? { current: groupIndex + 1, total: groups.length }
             : undefined
         }
         onReject={() => {

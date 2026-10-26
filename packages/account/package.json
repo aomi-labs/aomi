@@ -15,7 +15,6 @@
     "./better-auth/siwe": "./src/better-auth/siwe.ts",
     "./policy": "./src/policy.ts",
     "./providers": "./src/providers/index.ts",
-    "./telegram": "./src/telegram.ts",
     "./observability": "./src/observability.ts",
     "./widget-auth": "./src/widget-auth/index.ts",
     "./forward": "./src/forward.ts",

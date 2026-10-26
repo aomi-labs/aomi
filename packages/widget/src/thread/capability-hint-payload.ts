@@ -1,10 +1,12 @@
 import type { AgentMode } from "@aomi-labs/react";
 
 export type CapabilityHintSelection = {
-  kind: "app" | "skill" | "chain";
+  kind: "app" | "skill" | "chain" | "wallet";
   id: string;
   label?: string;
   appName?: string;
+  /** A wallet: the `w_N` id of each address, one hint apiece. */
+  walletIds?: readonly string[];
 };
 
 export function buildCapabilityHintPayload(
@@ -29,11 +31,18 @@ export function buildCapabilityHintPayload(
           })),
         }
       : {}),
-    capabilities: selections.map(({ kind, id, label, appName }) => ({
-      kind,
-      id,
-      ...(kind === "app" && label ? { label } : {}),
-      ...(kind === "app" && appName ? { appName } : {}),
-    })),
+    capabilities: selections.flatMap(
+      ({ kind, id, label, appName, walletIds }) =>
+        (kind === "wallet" && walletIds?.length ? walletIds : [id]).map(
+          (hintId) => ({
+            kind,
+            id: hintId,
+            ...((kind === "app" || kind === "wallet") && label
+              ? { label }
+              : {}),
+            ...(kind === "app" && appName ? { appName } : {}),
+          }),
+        ),
+    ),
   };
 }

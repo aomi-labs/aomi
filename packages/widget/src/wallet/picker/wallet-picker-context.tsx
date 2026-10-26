@@ -2,11 +2,13 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -17,10 +19,15 @@ import { useWalletAppSwitch } from "./use-wallet-app-switch";
 
 export { WalletSignInOptionsContext } from "@/wallet/picker/picker-context";
 
+/** Why a page asks to sign in, shown in one muted row under the header. */
+export type SheetPurpose = { icon?: ReactNode; text: string };
+
 export type WalletPickerContextValue = {
   open: boolean;
   /** Opens the sheet for whatever the user needs next: sign in, verify or add. */
-  openPicker: () => void;
+  openPicker: (options?: { purpose?: SheetPurpose }) => void;
+  /** The purpose of the open sign-in, if its opener gave one. */
+  purpose?: SheetPurpose;
   closePicker: () => void;
   sheet: SheetState;
   flow: SheetFlow;
@@ -48,6 +55,14 @@ export function WalletPickerProvider({ children }: { children: ReactNode }) {
   const [sheet, dispatch] = useReducer(sheetReducer, CLOSED_SHEET);
   const flow = useSheetFlow(kit, sheet, dispatch);
   const channel = useSheetChannel();
+  const [purpose, setPurpose] = useState<SheetPurpose>();
+  const openPicker = useCallback(
+    (options?: { purpose?: SheetPurpose }) => {
+      setPurpose(options?.purpose);
+      flow.open();
+    },
+    [flow],
+  );
 
   useEffect(() => {
     if (!channel) return;
@@ -56,7 +71,10 @@ export function WalletPickerProvider({ children }: { children: ReactNode }) {
   const isOpen = sheet.step !== "closed";
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (wasOpen.current && !isOpen) channel?.closed();
+    if (wasOpen.current && !isOpen) {
+      channel?.closed();
+      setPurpose(undefined);
+    }
     wasOpen.current = isOpen;
   }, [channel, isOpen]);
   useEffect(() => {
@@ -69,12 +87,13 @@ export function WalletPickerProvider({ children }: { children: ReactNode }) {
   const value = useMemo<WalletPickerContextValue>(
     () => ({
       open: sheet.step !== "closed",
-      openPicker: flow.open,
+      openPicker,
+      purpose,
       closePicker: flow.close,
       sheet,
       flow,
     }),
-    [flow, sheet],
+    [flow, openPicker, purpose, sheet],
   );
 
   return (

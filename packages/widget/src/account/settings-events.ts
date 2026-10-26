@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { createContext, useEffect, useRef } from "react";
 
 /** Settings modal tabs; `policy` is the Safety tab. */
-export type SettingsTab = "general" | "account" | "policy" | "usage";
+export type SettingsTab =
+  | "general"
+  | "account"
+  | "connections"
+  | "policy"
+  | "usage";
+
+/** Switches the open Settings modal to `tab`; null outside it. */
+export const SettingsNavContext = createContext<
+  ((tab: SettingsTab) => void) | null
+>(null);
 
 const OPEN_SETTINGS_EVENT = "aomi:open-settings";
 

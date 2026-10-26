@@ -268,7 +268,6 @@ adapter supplies, and the Commit service verifies signatures and transitions:
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | EVM transaction Commit     | `evm.signTransaction` signs the prepared nonce, gas, fees, value, and call; `evm.broadcastTransaction` submits signed bytes when the broadcaster is Wallet.                                     |
 | EVM browser send           | `evm.preparePreparedTransaction` and `evm.sendPreparedTransaction`, with a durable `CommitRecoveryStore`, record a wallet attempt before submission.                                            |
-| EVM user operation         | `evm.signMessage` signs the owner request; Commit Service submits the operation.                                                                                                                |
 | SVM transaction Commit     | `svm.signTransaction` signs the prepared base64 transaction; `svm.broadcastTransaction` submits when the broadcaster is Wallet. Venue submission needs an explicit `venueBroadcast` capability. |
 | Off-chain signature Action | `evm.signMessage`, `evm.signTypedData`, or `svm.signMessage`, according to the request.                                                                                                         |
 
@@ -947,10 +946,10 @@ $ npx @aomi-labs/client tx sign action-2 --private-key 0xac0974...
 ```
 
 Account abstraction is decided by backend application policy, never by the
-CLI. A current AA Commit carries an owner signature request in its `sign`
-action; the local key signs the exact request and Commit Service submits the
-operation. Historical AA Actions still use their original route. `--aa` and
-`--eoa` are assertions about the prepared work; see "Signing modes" below.
+CLI. Agent wallets' operations are built and signed server-side, so an
+external wallet never signs one. Historical AA Actions still use their original
+route. `--aa` and `--eoa` are assertions about the prepared work; see "Signing
+modes" below.
 
 ### Verbose mode & conversation log
 

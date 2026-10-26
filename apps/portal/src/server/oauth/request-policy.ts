@@ -1,9 +1,11 @@
 import {
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
+  appMcpName,
   narrowScopesForAomiResource,
   validateAomiResourceScopes,
 } from "@aomi-labs/account/better-auth";
+import { registerAppMcpResource } from "./app-mcp-resource";
 import { bindAomiPublicClientResource } from "./client-resource-binding";
 
 type OAuthError =
@@ -67,6 +69,20 @@ export async function enforceAomiOAuthRequestPolicy(
 
   const resources = values.getAll("resource").filter(Boolean);
   const scopes = splitScopes(values.get("scope"));
+  // Device grants are the CLI's: its `/v1` REST scopes, at login or when a
+  // command needs more. Anything else is refused, never narrowed.
+  if (isDevice) {
+    const cli = aomiOAuthResourcePolicy(
+      aomiOAuthResources().apiRest,
+    )?.grantableScopes;
+    if (scopes.some((scope) => !cli?.includes(scope)))
+      return reject(
+        oauthError(
+          "invalid_scope",
+          "Device grants carry only the CLI's scopes",
+        ),
+      );
+  }
   const oidcOnly =
     resources.length === 0 &&
     scopes.includes("openid") &&
@@ -99,6 +115,13 @@ export async function enforceAomiOAuthRequestPolicy(
   }
   if (!aomiOAuthResourcePolicy(resources[0])) {
     return reject(oauthError("invalid_target", "Unknown Aomi resource"));
+  }
+  // An app-locked MCP resource exists only while its app is active.
+  if (
+    appMcpName(resources[0]) &&
+    !(await registerAppMcpResource(resources[0]))
+  ) {
+    return reject(oauthError("invalid_target", "Unknown Aomi app"));
   }
   const clientId = values.get("client_id")?.trim();
   if (clientId) {
@@ -224,13 +247,19 @@ async function enforceAomiRegistration(
   if (authorizationCodeClient) {
     // RFC 7591 does not define a resource field and real MCP clients omit it;
     // their one exact resource is enforced on authorize/token. If a client
-    // declares one, it must be exactly one MCP surface.
+    // declares one, it must be exactly one MCP surface: the agent or pipeline
+    // MCP, or an active app's MCP (registered here, before Better Auth binds
+    // the client to it).
+    const declared = requestedResources[0];
+    const appMcp = declared !== undefined && Boolean(appMcpName(declared));
     if (
       requestedResources.length > 1 ||
-      (requestedResources.length === 1 &&
+      (declared !== undefined &&
+        !appMcp &&
         ![resources.agentMcp, resources.pipelineMcp].includes(
-          requestedResources[0] as typeof resources.agentMcp,
-        ))
+          declared as typeof resources.agentMcp,
+        )) ||
+      (appMcp && !(await registerAppMcpResource(declared!)))
     ) {
       return oauthError(
         "invalid_target",
@@ -247,6 +276,7 @@ async function enforceAomiRegistration(
   } else if (
     requestedResources.length !== 1 ||
     ![
+      resources.apiRest,
       resources.agentRest,
       resources.pipelineRest,
       resources.accountRest,

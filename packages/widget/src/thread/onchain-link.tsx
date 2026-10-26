@@ -101,6 +101,7 @@ export function OnchainLink({
       ? SolscanIcon
       : [
             "etherscan.io",
+            "robin.etherscan.io",
             "basescan.org",
             "arbiscan.io",
             "optimistic.etherscan.io",
@@ -124,7 +125,7 @@ export function OnchainLink({
         aria-hidden="true"
         className="mr-1 inline-block size-3.5 align-[-0.175em]"
       />
-      <span className="break-all">{children}</span>
+      <span className="break-words">{children}</span>
       <span className="sr-only"> on {explorer.chainName} explorer</span>
     </a>
   );

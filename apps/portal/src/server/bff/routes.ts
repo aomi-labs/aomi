@@ -128,6 +128,24 @@ export const routes = {
     handle: { PATCH: account.renameIdentity, DELETE: account.unlinkIdentity },
     fallback: "widget_auth_failed",
   }),
+  connections: bind({
+    operation: "account.connections",
+    need: { capability: "account" },
+    handle: { GET: account.listConnections },
+    fallback: "widget_auth_failed",
+  }),
+  connection: bind({
+    operation: "account.connection",
+    need: { capability: "account" },
+    handle: { DELETE: account.disconnectOAuthConnection },
+    fallback: "widget_auth_failed",
+  }),
+  telegramConnection: bind({
+    operation: "account.connection.telegram",
+    need: { capability: "account" },
+    handle: { DELETE: account.disconnectTelegramConnection },
+    fallback: "widget_auth_failed",
+  }),
   wallet: bind({
     operation: "account.wallet",
     need: { capability: "account" },
@@ -167,13 +185,6 @@ export const routes = {
     handle: { POST: account.rotateCliSession },
   }),
 
-  deviceGrant: bind({
-    operation: "device_auth.grant",
-    need: { capability: "device_login" },
-    handle: { POST: deviceAuth.grantDeviceLogin },
-    cors: "none",
-    fallback: "device_auth_failed",
-  }),
   deviceLinkIntent: bind({
     operation: "device_auth.link_intent",
     need: { capability: "device_login" },
@@ -209,20 +220,6 @@ export const routes = {
   siweVerify: widgetSignIn("widget.siwe.verify", widgetAuth.siweVerify),
   siwsNonce: widgetSignIn("widget.siws.nonce", widgetAuth.siwsNonce),
   siwsVerify: widgetSignIn("widget.siws.verify", widgetAuth.siwsVerify),
-  telegramCustomAuth: widgetSignIn(
-    "telegram.custom_auth",
-    widgetAuth.telegramCustomAuth,
-  ),
-  telegramExchange: widgetSignIn(
-    "telegram.exchange",
-    widgetAuth.exchangeTelegram,
-  ),
-  telegramCustomAuthKeys: bind({
-    operation: "telegram.custom_auth.jwks",
-    need: "public",
-    handle: { GET: widgetAuth.telegramCustomAuthKeys },
-    cors: "none",
-  }),
   widgetSession: bind({
     operation: "widget.session.revoke",
     need: "public",
@@ -236,14 +233,6 @@ export const routes = {
     handle: { POST: widgetAuth.issueOAuthBootstrap },
     fallback: "widget_auth_failed",
   }),
-
-  delegationCallback: (provider: "privy" | "para") =>
-    bind({
-      operation: `delegation.${provider}.callback`,
-      need: "public",
-      handle: { POST: (call) => account.recordDelegation(call, provider) },
-      cors: provider === "privy" ? "open_widget" : "none",
-    }),
 
   e2eWallet: { GET: devRoute("seedWallet") },
   e2eExecute: { POST: devRoute("executeEvm") },

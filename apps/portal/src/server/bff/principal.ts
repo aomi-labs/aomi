@@ -36,6 +36,14 @@ export type Principal =
     }
   | { kind: "e2e"; accountId: string; guest: false };
 
+/**
+ * A signed-in portal browser session. Only it may disconnect apps or unlink
+ * Telegram (the edge applies the same rule to agent-wallet writes).
+ */
+export function isPortalSession(principal: Principal): boolean {
+  return principal.kind === "cookie" && !principal.guest;
+}
+
 export type PrincipalCode =
   | "invalid_token"
   | "invalid_widget_session"

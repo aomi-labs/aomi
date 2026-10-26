@@ -22,6 +22,39 @@ describe("normalizeRequestPath", () => {
   });
 });
 
+describe("Telegram link codes", () => {
+  const code = "Ab0_-".repeat(8) + "xyz";
+
+  it("keeps the route and drops the one-time code", () => {
+    expect(
+      normalizeRequestPath(
+        `https://portal.aomi.dev/link/telegram?code=${code}`,
+      ),
+    ).toBe("/link/telegram");
+    for (const action of ["preview", "confirm", "cancel"])
+      expect(normalizeRequestPath(`/v1/account/link/telegram/${action}`)).toBe(
+        `/v1/account/link/telegram/${action}`,
+      );
+  });
+
+  it("never reports the code from a page or request URL", () => {
+    const event = scrubSentryEvent({
+      transaction: `/link/telegram?code=${code}`,
+      request: {
+        url: `https://portal.aomi.dev/link/telegram?code=${code}`,
+        query_string: `code=${code}`,
+        headers: {
+          referer: `https://portal.aomi.dev/link/telegram?code=${code}`,
+        },
+      },
+      breadcrumbs: [{ message: `GET /link/telegram?code=${code}` }],
+      tags: { route_family: `/link/telegram?code=${code}` },
+    });
+    expect(event?.transaction).toBe("/link/telegram");
+    expect(JSON.stringify(event)).not.toContain(code);
+  });
+});
+
 describe("scrubSentryEvent", () => {
   it("retains a diagnosable stack and only allowlisted operational data", () => {
     const event = scrubSentryEvent({

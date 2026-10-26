@@ -8,10 +8,16 @@ export function buildPrivySvmWalletState({
   wallet,
   wallets,
   setActiveAddress,
+  signWithPrivy,
 }: {
   wallet: PrivySolanaWallet | undefined;
   wallets: readonly PrivySolanaWallet[];
   setActiveAddress: (address: string) => void;
+  /**
+   * Signs through Privy's Solana hook, which shows Privy's confirmation like
+   * its EVM signing does; the wallet's own `signTransaction` signs silently.
+   */
+  signWithPrivy?: (tx: unknown, address: string) => Promise<unknown>;
 }): SafeSvmWalletState {
   return {
     publicKey: wallet?.address,
@@ -31,15 +37,20 @@ export function buildPrivySvmWalletState({
     select: (walletName) => {
       if (!walletName) return;
       const target = wallets.find((entry) =>
-        walletName.toString().includes(formatWalletAddress(entry.address) ?? ""),
+        walletName
+          .toString()
+          .includes(formatWalletAddress(entry.address) ?? ""),
       );
       if (target?.address) setActiveAddress(target.address);
     },
     connect: async () => undefined,
     disconnect: undefined,
-    signTransaction: wallet?.signTransaction
-      ? async (tx) => wallet.signTransaction!(tx as never)
-      : undefined,
+    signTransaction:
+      wallet?.address && signWithPrivy
+        ? async (tx) => (await signWithPrivy(tx, wallet.address)) as never
+        : wallet?.signTransaction
+          ? async (tx) => wallet.signTransaction!(tx as never)
+          : undefined,
     signAllTransactions: undefined,
     signMessage: wallet?.signMessage
       ? async (message) => wallet.signMessage!(message)

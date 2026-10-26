@@ -18,6 +18,8 @@ export function normalizeAccountWalletProvider(
     "family" | "address" | "provider" | "walletKind"
   >[],
 ): AccountWallet {
+  // An agent wallet is never a live connection on this device.
+  if (wallet.kind === "agent") return wallet;
   const liveAccount = liveAccounts.find(
     (account) =>
       account.family === wallet.family &&

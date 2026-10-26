@@ -37,17 +37,11 @@ test("Vercel builds only affected apps while preserving Portal and Build QA prev
   assert.equal(selectsVercelProject(portalChange, "portal"), true);
   assert.equal(selectsVercelProject(portalChange, "build"), true);
   assert.equal(selectsVercelProject(portalChange, "landing"), false);
-  assert.equal(selectsVercelProject(portalChange, "telegram"), false);
 
   const landingChange = ["apps/landing/content/docs/getting-started.mdx"];
   assert.equal(selectsVercelProject(landingChange, "landing"), true);
   assert.equal(selectsVercelProject(landingChange, "portal"), false);
   assert.equal(selectsVercelProject(landingChange, "build"), false);
-  assert.equal(selectsVercelProject(landingChange, "telegram"), false);
-
-  const telegramChange = ["apps/telegram/src/app/page.tsx"];
-  assert.equal(selectsVercelProject(telegramChange, "telegram"), true);
-  assert.equal(selectsVercelProject(telegramChange, "landing"), false);
 });
 
 test("Vercel path selection fails broad for shared, global, empty and forced comparisons", () => {
@@ -126,7 +120,7 @@ test("shared package changes fan out to every dependent surface", () => {
   assert.equal(selected.consumer_compat, true);
   assert.equal(selected.journeys, true);
   assert.equal(selected.browser_contracts, true);
-  for (const app of ["portal", "build", "landing", "telegram"]) {
+  for (const app of ["portal", "build", "landing"]) {
     assert.equal(selected[app], true);
   }
 });
@@ -172,7 +166,17 @@ test("retired Base paths fail broad across active apps without a retired output"
   assert.equal(selected.full, true);
   assert.equal(selected.reason, "unmapped_path");
   assert.equal(Object.hasOwn(selected, "base"), false);
-  for (const app of ["portal", "build", "landing", "telegram"]) {
+  for (const app of ["portal", "build", "landing"]) {
+    assert.equal(selected[app], true);
+  }
+});
+
+test("retired Telegram Mini App paths fail broad without a retired output", () => {
+  const selected = classifyPaths(["apps/telegram/src/app/page.tsx"]);
+  assert.equal(selected.full, true);
+  assert.equal(selected.reason, "unmapped_path");
+  assert.equal(Object.hasOwn(selected, "telegram"), false);
+  for (const app of ["portal", "build", "landing"]) {
     assert.equal(selected[app], true);
   }
 });

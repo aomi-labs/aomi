@@ -1,7 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { AccountAvatar } from "../account-avatar";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { shortAddress } from "@aomi-labs/client";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AccountManagement } from "./account-management";
@@ -104,18 +111,6 @@ describe("Wallets & access", () => {
     expect(within(rowFor(main)).getByText("Rabby")).toBeInTheDocument();
   });
 
-  it("keeps the remaining address in the strip, dimmed with its step", () => {
-    const onActivate = vi.fn();
-    renderSettings([trading], { onActivate });
-    const slot = screen.getByRole("button", {
-      name: "Switch in Rabby (EVM Trading)",
-    });
-    expect(within(slot).getByText("Switch in Rabby")).toBeInTheDocument();
-    expect(screen.queryByText("Choose a wallet")).not.toBeInTheDocument();
-    fireEvent.click(slot);
-    expect(onActivate).toHaveBeenCalledWith(trading);
-  });
-
   it("takes Active and the bar off a chosen address that cannot sign here", () => {
     const signedOut = row("0x13af000000000000000000000000000000005cf7", {
       kind: "embedded",
@@ -132,71 +127,46 @@ describe("Wallets & access", () => {
     expect(
       within(rowFor(signedOut)).getByText("Sign in with Privy"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Sign in with Privy (EVM Privy)",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("shows the login's email, never a placeholder, on Privy", () => {
     const withEmail = { ...privyEvm, loginEmail: "aron@megyeri.eu" };
     const { unmount } = renderSettings([withEmail]);
-    const provider = document.querySelector("[data-wallet-provider=privy]")!;
-    // The login card names the email; its wallet row is "Privy", with the
-    // email after the address.
+    const provider = document.querySelector(
+      "[data-wallet-provider=privy]",
+    ) as HTMLElement;
+    // One address: the login is that address row, "Privy" with the email
+    // after the address, and nothing to expand.
     expect(
-      within(provider as HTMLElement).getByText("aron@megyeri.eu"),
-    ).toBeInTheDocument();
+      within(provider).queryByRole("button", { name: /Privy addresses/ }),
+    ).toBeNull();
+    expect(provider.querySelectorAll("[data-wallet-row]")).toHaveLength(1);
     expect(within(rowFor(withEmail)).getByText("Privy")).toBeInTheDocument();
     expect(rowFor(withEmail).textContent).toContain("· aron@megyeri.eu ·");
     unmount();
 
-    renderSettings([privyEvm], {
+    renderSettings([privyEvm, privySvm], {
       signInMethods: [
         { ...privy, email: undefined, displayLabel: "privy user" },
       ],
     });
-    expect(screen.queryByText("privy user")).not.toBeInTheDocument();
-    expect(screen.getByText("Signed in with Privy")).toBeInTheDocument();
+    expect(screen.queryByText(/privy user/)).not.toBeInTheDocument();
+    // "EVM/SVM" is its own mono span, so read the row's whole text.
+    expect(
+      document.querySelector('[data-wallet-provider="privy"]'),
+    ).toHaveTextContent("2 addresses · EVM/SVM");
     expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
-  it("lays out the signs-with strip, Wallets and Social sign-in", () => {
+  it("lists every wallet you sign with under one Sign-in wallets band", () => {
     renderSettings([main, trading, metamask, privyEvm, privySvm]);
+    expect(screen.getAllByText("Sign-in wallets")).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "SVM signs with Privy" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Sign in by signing a message"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Privy and Para logins, with their wallets"),
+      screen.getByText("You sign with these yourself"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("5 addresses · 3 on this device")).toHaveLength(
       2,
     );
-  });
-
-  it("keeps an empty SVM slot that offers to add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main], { onAddWallet });
-    expect(screen.queryByText("No SVM wallet")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add SVM wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
-  });
-
-  it("ends each family picker with Add a wallet", () => {
-    const onAddWallet = vi.fn();
-    renderSettings([main, trading], { onAddWallet });
-    fireEvent.click(
-      screen.getByRole("button", { name: "EVM signs with Main" }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 
   it("titles a row with its name and puts the app beside it", () => {
@@ -250,7 +220,7 @@ describe("Wallets & access", () => {
     expect(onVerify).toHaveBeenCalledTimes(1);
   });
 
-  it("offers the address menu for an external wallet", async () => {
+  it("offers the wallet's short menu for an external wallet", async () => {
     const onRemove = vi.fn();
     const onDisconnect = vi.fn();
     const onRename = vi.fn(async () => true);
@@ -259,82 +229,112 @@ describe("Wallets & access", () => {
     const items = screen
       .getAllByRole("menuitem")
       .map((item) => item.textContent);
-    expect(items).toEqual([
-      "Use this walletOpens Rabby's account switch",
-      "Rename",
-      "Copy address",
-      "View on explorer",
-      `Remove from account${shortAddress(trading.address)} stops signing you in`,
-    ]);
+    // Manage first; Make active is the row, Copy its button, the explorer
+    // lives in Manage › Receive.
+    expect(items).toEqual(["Manage", "Rename", "Remove from account"]);
+    // The destructive item sits alone after a separator.
+    const menu = screen.getByRole("menu");
+    expect(menu.lastElementChild?.previousElementSibling).toHaveAttribute(
+      "role",
+      "separator",
+    );
 
     openMenu(main, "Main");
     expect(
-      screen.getByRole("menuitem", { name: "Disconnect on this device" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual([
+      "Manage",
+      "Rename",
+      "Sign out on this device",
+      "Remove from account",
+    ]);
     fireEvent.click(
-      screen.getByRole("menuitem", { name: /Remove from account/ }),
+      screen.getByRole("menuitem", { name: "Remove from account" }),
     );
     expect(onRemove).toHaveBeenCalledWith(main);
   });
 
-  it("renames inline: Enter saves, Escape cancels", async () => {
+  it("renames in a dialog: Cancel discards, Enter saves", async () => {
     const onRename = vi.fn(async () => true);
     renderSettings([main], { onRename });
     openMenu(main, "Main");
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const input = screen.getByRole("textbox", {
-      name: `Name for ${shortAddress(main.address)}`,
-    });
+    const dialog = await screen.findByRole("dialog", { name: "Rename wallet" });
+    const input = within(dialog).getByRole("textbox", { name: "Name" });
+    expect(input).toHaveValue("Main");
+    // Unchanged, there is nothing to save.
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "Savings" } });
-    fireEvent.keyDown(input, { key: "Escape" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(onRename).not.toHaveBeenCalled();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
 
     openMenu(main, "Main");
     fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const again = screen.getByRole("textbox", {
-      name: `Name for ${shortAddress(main.address)}`,
-    });
+    const again = await screen.findByRole("textbox", { name: "Name" });
     fireEvent.change(again, { target: { value: "Savings" } });
     await act(async () => {
-      fireEvent.keyDown(again, { key: "Enter" });
+      fireEvent.submit(again);
     });
     expect(onRename).toHaveBeenCalledWith(main, "Savings");
-    expect(screen.queryByRole("textbox", { name: /Name for/ })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("gives embedded wallets Use, Rename, Copy and View on explorer only", () => {
+  it("gives an address under a wallet only its copy button; clicking it makes it active", () => {
+    const onActivate = vi.fn();
     renderSettings([privyEvm, privySvm], {
+      onActivate,
       onRename: vi.fn(async () => true),
       onRemove: vi.fn(),
       onDisconnect: vi.fn(),
     });
-    openMenu(privyEvm, "Privy");
+    const child = rowFor(privyEvm);
     expect(
-      screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual([
-      "Use this wallet",
-      "Rename",
-      "Copy address",
-      "View on explorer",
-    ]);
+      within(child).queryByRole("button", { name: /^Actions for/ }),
+    ).toBeNull();
+    expect(
+      within(child).getByRole("button", {
+        name: `Copy address ${privyEvm.address}`,
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(child).getByRole("button", {
+        name: `Use Privy ${shortAddress(privyEvm.address)}`,
+      }),
+    );
+    expect(onActivate).toHaveBeenCalledWith(privyEvm);
   });
 
   it("offers sign-out and removal on the provider menu", () => {
     const onSignOutProvider = vi.fn();
     const onRemoveLogin = vi.fn();
     renderSettings([privyEvm, privySvm], { onSignOutProvider, onRemoveLogin });
-    expect(screen.getByText("aron@megyeri.eu")).toBeInTheDocument();
+    // "EVM/SVM" is its own mono span, so read the row's whole text.
+    expect(
+      document.querySelector('[data-wallet-provider="privy"]'),
+    ).toHaveTextContent("2 addresses · EVM/SVM");
+    // Open while one of its addresses is Active; the chevron folds it.
+    const toggle = screen.getByRole("button", {
+      name: "Hide Privy addresses",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(rowFor(privySvm)).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(rowFor(privySvm)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show Privy addresses" }),
+    ).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: "Actions for Privy" }));
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual([
-      "Sign out of Privy on this deviceStays in your account",
+      "Manage",
       "Copy email",
-      "Remove Privy from accountIts 2 addresses are removed too",
+      "Sign out on this device",
+      "Remove from account",
     ]);
     fireEvent.click(
-      screen.getByRole("menuitem", { name: /Sign out of Privy/ }),
+      screen.getByRole("menuitem", { name: "Sign out on this device" }),
     );
     expect(onSignOutProvider).toHaveBeenCalledTimes(1);
   });
@@ -346,18 +346,31 @@ describe("Wallets & access", () => {
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 
-  it("edits the account name in place", async () => {
+  it("renames the account from the profile menu", async () => {
     const onRenameAccount = vi.fn(async () => undefined);
-    renderSettings([], { onRenameAccount, signInMethods: [] });
-    fireEvent.click(screen.getByRole("button", { name: "Rename account" }));
-    const input = screen.getByRole("textbox", { name: "Account display name" });
+    renderSettings([], {
+      onRenameAccount,
+      signInMethods: [],
+      user: { id: "user-1", displayName: "Aron", email: "aron@megyeri.eu" },
+    });
+    expect(screen.queryByRole("button", { name: "Rename account" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for your account" }),
+    );
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Rename", "Copy email"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Rename account",
+    });
+    const input = within(dialog).getByRole("textbox", { name: "Name" });
     fireEvent.change(input, { target: { value: "Aron Aomi" } });
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Save account name" }),
-      );
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     });
     expect(onRenameAccount).toHaveBeenCalledWith("Aron Aomi");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("uses the verified email over a generated provider name", () => {
@@ -371,5 +384,23 @@ describe("Wallets & access", () => {
     });
     expect(screen.getByText("cecilia@example.com")).toBeInTheDocument();
     expect(screen.queryByText("Privy user")).not.toBeInTheDocument();
+  });
+});
+
+describe("Agent wallets band", () => {
+  it("sits at the bottom of the wallets card, below the sign-in wallets", () => {
+    renderSettings([main], {
+      agentWallets: <div data-testid="agent-band">Agent wallets</div>,
+    });
+    const card = screen.getByTestId("agent-band").parentElement!;
+    expect(card.lastElementChild).toBe(screen.getByTestId("agent-band"));
+    expect(card.textContent?.indexOf("Sign-in wallets")).toBeLessThan(
+      card.textContent?.indexOf("Agent wallets") ?? -1,
+    );
+  });
+
+  it("is not shown without agent wallet support", () => {
+    renderSettings([main]);
+    expect(screen.queryByText("Agent wallets")).toBeNull();
   });
 });

@@ -1,7 +1,11 @@
 import {
+  acceptsApiToken,
   AGENT_SCOPES,
+  appMcpName as appMcpNameOn,
+  appMcpResource as appMcpResourceOn,
   OFFLINE_ACCESS_SCOPE,
   resourcePolicies,
+  resourcePolicy,
   resourcesFor,
   type ResourceKind,
   type ResourcePolicy,
@@ -38,7 +42,6 @@ export const AOMI_SCOPES = [
   "account:apps:write",
   "account:credentials:read",
   "account:credentials:write",
-  "custody:delegate",
   "openid",
   "profile",
   "email",
@@ -81,15 +84,40 @@ export function aomiOAuthResourcePolicies(
   return resourcePolicies(aomiOAuthResources(env), isMcpDpopRequired(env));
 }
 
+/** The fixed resources, and every app-locked MCP path (`/v1/apps/<app>/mcp`). */
 export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): AomiOAuthResourcePolicy | null {
-  return (
-    aomiOAuthResourcePolicies(env).find(
-      (policy) => policy.identifier === resource,
-    ) ?? null
-  );
+  return resourcePolicy(aomiOAuthResources(env), isMcpDpopRequired(env), resource);
+}
+
+/**
+ * The resources a token for `/v1` (the one CLI and SDK sign-in) also opens:
+ * the three REST APIs. MCP servers only take their own exact token.
+ */
+export function acceptsAomiApiToken(
+  resource: string,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  const policy = aomiOAuthResourcePolicy(resource, env);
+  return policy !== null && acceptsApiToken(policy);
+}
+
+/** The MCP resource locked to one app: the agent MCP with that app forced. */
+export function appMcpResource(
+  name: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return appMcpResourceOn(aomiOAuthResources(env), name);
+}
+
+/** The app an app-locked MCP resource names; undefined for any other resource. */
+export function appMcpName(
+  resource: string,
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  return appMcpNameOn(aomiOAuthResources(env), resource);
 }
 
 export function guestScopesForAomiResource(

@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { CheckIcon, Loader2 } from "lucide-react";
 import type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
+import { cn, useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { useShellTransport } from "@/account/transport";
 import {
-  fetchTransactionSafety,
+  accountSafetyQuery,
   safetyErrorMessage,
   saveOrReloadTransactionSafety,
 } from "./transaction-safety-api";
@@ -34,37 +34,26 @@ const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
  * The account default every new chat starts on. It saves on change against the
  * loaded revision; a chat's own level is set from the composer, not here.
  */
-export function TransactionSafetySettings({
-  onLoad,
-}: { onLoad?: () => void } = {}) {
+export function TransactionSafetySettings() {
   const { json: request } = useShellTransport();
-  const [policy, setPolicy] = useState<TransactionSafetyPolicy>();
+  const cache = useAomiDisplayCache();
+  const query = useDisplayQuery(accountSafetyQuery(request));
+  const policy = query.data;
   const [draft, setDraft] = useState<TransactionSafetyMode>();
-  const [error, setError] = useState<string>();
-  const alive = useRef(true);
-  const loaded = Boolean(policy || error);
-  useEffect(() => {
-    if (loaded) onLoad?.();
-  }, [loaded, onLoad]);
-
-  useEffect(() => {
-    alive.current = true;
-    setPolicy(undefined);
-    setError(undefined);
-    void fetchTransactionSafety(request)
-      .then((next) => {
-        if (alive.current) setPolicy(next);
-      })
-      .catch((cause: unknown) => {
-        if (alive.current)
-          setError(
-            safetyErrorMessage(cause, "Could not load your guard policy."),
-          );
-      });
-    return () => {
-      alive.current = false;
-    };
-  }, [request]);
+  const [saveError, setSaveError] = useState<string>();
+  const error =
+    saveError ??
+    (query.error
+      ? safetyErrorMessage(query.error, "Could not load your guard policy.")
+      : undefined);
+  const setPolicy = (next: TransactionSafetyPolicy) => {
+    if (cache)
+      cache.client.setQueryData(
+        cache.key("transaction-safety", ["account"]),
+        next,
+      );
+    else void query.refetch();
+  };
 
   const choose = async (mode: TransactionSafetyMode) => {
     if (
@@ -75,16 +64,15 @@ export function TransactionSafetySettings({
     )
       return;
     setDraft(mode);
-    setError(undefined);
+    setSaveError(undefined);
     const saved = await saveOrReloadTransactionSafety(
       request,
       mode,
       policy.revision,
     );
-    if (!alive.current) return;
     setDraft(undefined);
     if (saved.ok) return setPolicy(saved.policy);
-    setError(
+    setSaveError(
       safetyErrorMessage(
         saved.error,
         "Could not save your default. Try again.",

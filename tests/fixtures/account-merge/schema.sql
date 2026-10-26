@@ -1,4 +1,5 @@
--- Prerequisites for the unmodified account-merge migration below.
+-- Prerequisites for the unmodified account-merge migration below and the
+-- step 5 `merge_accounts` v3 (20261020070000_account_link.sql).
 -- The account graph comes from tests/e2e/fixtures/canonical-account-schema.sql.
 -- Wallet tables/constraints are copied from product-mono's
 -- 20260825010000_public_key_swig_bindings.sql; other tables retain the columns
@@ -104,15 +105,9 @@ CREATE UNIQUE INDEX onchain_policy_bindings_active_delegate_provider_uidx
 CREATE INDEX onchain_policy_bindings_user_history_idx
     ON onchain_policy_bindings(user_id, created_at DESC, id DESC);
 
-create table threads (
+create table if not exists threads (
   id text primary key,
   user_id text not null references users(id)
-);
-
-create table applications (
-  id bigserial primary key,
-  name text not null,
-  label text
 );
 
 create table user_credits_records (
@@ -173,9 +168,41 @@ create table user_application_usage_daily (
   primary key (user_id, app_id, period_utc_day)
 );
 
-create table payment_runs (principal_kind text, principal_id text);
+create table payment_runs (
+  principal_kind text,
+  principal_id text,
+  state text,
+  reserved_microusd bigint not null default 0,
+  expires_at bigint
+);
 create table x402_attempts (principal_kind text, principal_id text);
 create table llm_usage_events (subject_kind text, subject_id text);
 create table thread_agent_requests (owner_subject text);
 create table thread_agent_events (action_owner_subject text);
+-- Read by 20261007000000_account_merge.sql; v3 no longer moves it.
 create table task_preparation_limits (owner_subject text);
+
+-- Commit Service rows: only the columns merge_accounts v3 reads and writes.
+create table commits (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null references users(id),
+  state text not null,
+  commit_request jsonb,
+  signed_blob jsonb,
+  provider_operation_id text,
+  failure_code text,
+  version bigint not null default 1,
+  updated_at bigint not null default 0
+);
+
+-- World handovers: the columns and live-binding key merge_accounts v3 checks.
+create table bot_handover_tokens (
+  id bigserial primary key,
+  bot_registration_id text not null references bot_registrations(id),
+  state text not null,
+  claimed_user_id text references users(id),
+  owner_address text
+);
+create unique index bot_handover_tokens_one_live_per_user_per_bot_uidx
+  on bot_handover_tokens (bot_registration_id, claimed_user_id)
+  where state in ('claimed', 'active') and owner_address is not null;

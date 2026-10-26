@@ -4,12 +4,14 @@ import {
   portalAccount,
   requiredOrigin,
   resetContractState,
+  seedCommit,
   sendPrompt,
   signInThroughUi,
   signOutThroughUi,
   upstreamRecords,
 } from "./browser-contract-helpers";
 import { fixtureKeys } from "./fixture-wallets";
+import { installBrowserWallet } from "./hosted-wallet-fixture";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
 const keys = fixtureKeys;
@@ -193,4 +195,231 @@ test("sign-out and account switching isolate agent history", async ({
   expect(JSON.stringify(sessions)).not.toContain(
     "private history for account one",
   );
+});
+
+test("a sign link is login-only and returns to its review after sign-in", async ({
+  page,
+}) => {
+  const ref = "cmt_contract";
+  const signer = keys.evmAddress;
+  await signInThroughUi(page, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+  });
+  const owner = (await portalAccount(page)).user!.id!;
+  await seedCommit(ref, owner, {
+    version: 1,
+    commit_id: ref,
+    thread_id: "cli-thread",
+    stage_id: "direct:contract:0",
+    chain_family: "evm",
+    chain_ref: "84532",
+    signer,
+    broadcaster: "wallet",
+    state: "needs_signature",
+    transaction_id: null,
+    failure_code: null,
+    batch: null,
+    wallet_attempt: null,
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "evm_transaction",
+        chain_id: 84532,
+        signer,
+        transaction: {
+          to: "0x2222222222222222222222222222222222222222",
+          data: "0x",
+          value: "0",
+          nonce: 0,
+          gas: "21000",
+          max_fee_per_gas: "1",
+          max_priority_fee_per_gas: "1",
+        },
+      },
+    },
+    review: {
+      version: 1,
+      revision: 1,
+      digest: "contract-digest",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 84532,
+            from: signer,
+            to: "0x2222222222222222222222222222222222222222",
+            data: "0x",
+            label: "Contract transfer",
+            kind: "transaction",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [],
+          warnings: [],
+          fees: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      },
+      legs: [],
+    },
+    origin: "cli",
+    origin_app: null,
+    initiator: "cli",
+    notify: "cli",
+    sign_url: `${portalOrigin}/sign/${ref}`,
+    created_at: Math.floor(Date.now() / 1000) - 120,
+  });
+  await signOutThroughUi(page);
+  await page.close();
+
+  // Signed out, the sign page itself opens the wallet picker with its
+  // purpose; closed, it leaves a Sign in sheet that reopens it. The wallet
+  // goes in before the page loads: sign-in below never navigates.
+  const signedOut = await page.context().newPage();
+  await installBrowserWallet(signedOut, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    evmPrivateKeys: [keys.evm[0]!],
+  });
+  await signedOut.goto(`${portalOrigin}/sign/${ref}`);
+  const picker = signedOut.getByRole("dialog", { name: "Sign in to Aomi" });
+  await expect(picker.getByText("To review a trade")).toBeVisible({
+    timeout: 30_000,
+  });
+  await picker.getByRole("button", { name: "Close" }).click();
+
+  await signInThroughUi(signedOut, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+    navigate: false,
+    expectAccountMenu: false,
+  });
+  await expect(signedOut).toHaveURL(`${portalOrigin}/sign/${ref}`);
+  const request = signedOut.getByRole("region", {
+    name: "Transaction request",
+  });
+  await expect(request).toBeVisible({ timeout: 30_000 });
+  await expect(signedOut.getByText("From CLI · 2 minutes ago")).toBeVisible();
+  await expect(
+    request.getByRole("region", { name: "Wallet impact", exact: true }),
+  ).toBeVisible();
+  await expect(request.getByText("Simulation passed")).toBeVisible();
+  await expect(
+    request.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeVisible();
+  await expect(
+    request.getByRole("button", { name: "Reject", exact: true }),
+  ).toBeVisible();
+  await expect(request.getByRole("button", { name: /Approve/ })).toHaveCount(0);
+  const read = (await upstreamRecords()).find(
+    (record) => record.path === `/v1/commits/${ref}`,
+  );
+  expect(read?.principal?.sub).toBe(owner);
+  expect(read?.headers["x-thread-id"]).toBeUndefined();
+});
+
+test("a portal session approves a parked agent-wallet commit on its sign page", async ({
+  page,
+}) => {
+  const ref = "5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60";
+  const agent = "0x7a3f00000000000000000000000000000000c41e";
+  await signInThroughUi(page, {
+    family: "evm",
+    pageOrigin: portalOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+  });
+  const owner = (await portalAccount(page)).user!.id!;
+  await seedCommit(ref, owner, {
+    version: 2,
+    commit_id: ref,
+    thread_id: "mcp-thread",
+    stage_id: "direct:approval:0",
+    chain_family: "evm",
+    chain_ref: "84532",
+    signer: agent,
+    broadcaster: "hosted",
+    state: "awaiting_approval",
+    signing_mode: "auto",
+    transaction_id: null,
+    failure_code: null,
+    batch: null,
+    wallet_attempt: null,
+    action: null,
+    approval: {
+      state: "pending",
+      client: "oauth:contract",
+      expires_at: 1_900_000_000,
+    },
+    review: {
+      version: 2,
+      revision: 1,
+      digest: "approval-digest",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 84532,
+            from: agent,
+            to: "0x2222222222222222222222222222222222222222",
+            data: "0x",
+            label: "Agent transfer",
+            kind: "transaction",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [],
+          warnings: [],
+          fees: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      },
+      legs: [],
+    },
+    origin: "mcp",
+    origin_app: null,
+    initiator: "oauth:contract",
+    notify: "oauth:contract",
+    sign_url: `${portalOrigin}/sign/${ref}`,
+    created_at: Math.floor(Date.now() / 1000) - 60,
+  });
+
+  await page.goto(`${portalOrigin}/sign/${ref}`);
+  const request = page.getByRole("region", { name: "Transaction request" });
+  await expect(request).toBeVisible({ timeout: 30_000 });
+  await expect(
+    request.getByText("Aomi signs with your agent wallet after you approve."),
+  ).toBeVisible();
+  // No wallet to connect: Aomi signs with the agent wallet after Approve.
+  await expect(
+    request.getByRole("button", { name: /Connect wallet|Switch to/ }),
+  ).toHaveCount(0);
+  await request.getByRole("button", { name: "Approve", exact: true }).click();
+  // Approve spins in place while Aomi signs; there is no "Signing…" screen.
+  await expect(request.getByRole("button", { name: /Working…/ })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // "Working…" shows as the request leaves; wait for the upstream to see it.
+  const approve = async () =>
+    (await upstreamRecords()).find(
+      (record) =>
+        record.method === "POST" &&
+        record.path === `/v1/commits/${ref}/approve`,
+    );
+  await expect.poll(async () => (await approve())?.principal?.sub).toBe(owner);
+  expect((await approve())?.principal?.auth_source).toBe("session");
 });

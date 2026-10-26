@@ -10,6 +10,14 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
+--   20261020040000_agent_wallets.sql (agent_wallets, agent_wallet_keys,
+--     users.agents_paused, account_connections and wallet_access; without
+--     the backfill and the composite same-user foreign keys)
+--   applications: only the columns wallet lists and the connections route read
+--   threads and bot_registrations: only the columns the Telegram part of
+--     GET /v1/account/connections reads
+--   20261020070000_account_link.sql (account_link_codes only: the
+--     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
 
@@ -22,6 +30,8 @@ create table if not exists users (
   tier text not null default 'free',
   status text not null default 'active',
   last_seen_at bigint,
+  -- Pause all: while set, no agent wallet of the account signs.
+  agents_paused boolean not null default false,
   created_at bigint not null default extract(epoch from now())::bigint,
   updated_at bigint not null default extract(epoch from now())::bigint
 );
@@ -80,3 +90,109 @@ create index if not exists public_keys_user_idx on public_keys (user_id);
 create unique index if not exists public_keys_primary_per_provider_uidx
   on public_keys (auth_provider_id)
   where is_primary and auth_provider_id is not null;
+
+-- Only the columns wallet lists and the connections route read.
+create table if not exists applications (
+  id bigserial primary key,
+  name text not null,
+  label text not null
+);
+
+-- The wallet the user sees. No account has one by default.
+create table if not exists agent_wallets (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null references users(id),
+  name text not null check (length(name) between 1 and 60),
+  para_subject text not null unique,
+  paused boolean not null default false,
+  archived_at bigint,
+  created_by_app bigint references applications(id),
+  last_used_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  constraint agent_wallets_id_user_key unique (id, user_id)
+);
+create index if not exists agent_wallets_user on agent_wallets (user_id);
+
+-- One row per family key of a wallet. `public_key_id` is NULL only while
+-- Para provisions the key.
+create table if not exists agent_wallet_keys (
+  agent_wallet_id uuid not null,
+  chain_type text not null check (chain_type in ('evm', 'svm')),
+  user_id text not null references users(id),
+  public_key_id bigint unique,
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (agent_wallet_id, chain_type)
+);
+create index if not exists agent_wallet_keys_user on agent_wallet_keys (user_id);
+
+-- Each connection's label, app lock, Ask-only and last use, and which agent
+-- wallets each connection may use.
+create table if not exists account_connections (
+  user_id text not null references users(id),
+  key text not null
+    check (key ~ '^(portal|cli|[a-z]+:[A-Za-z0-9._~-]{1,200})$'),
+  label text,
+  application_id bigint references applications(id),
+  ask_only boolean not null default false,
+  last_used_at bigint,
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (user_id, key)
+);
+
+create table if not exists wallet_access (
+  user_id text not null,
+  connection_key text not null,
+  agent_wallet_id uuid not null,
+  lane text not null default 'aomi' check (lane in ('aomi', 'here', 'instant')),
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (user_id, connection_key, agent_wallet_id),
+  constraint wallet_access_connection_fk foreign key (user_id, connection_key)
+    references account_connections (user_id, key) on update cascade on delete cascade
+);
+create index if not exists wallet_access_wallet on wallet_access (agent_wallet_id);
+
+create table if not exists threads (
+  id text primary key,
+  user_id text references users(id)
+);
+
+create table if not exists bot_registrations (
+  id text primary key,
+  owner_user_id text references users(id),
+  platform text not null,
+  status text not null default 'active',
+  label text,
+  platform_bot_id text not null,
+  platform_username text,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (platform, platform_bot_id)
+);
+
+-- One-time link codes (product-mono 20261020070000_account_link).
+create table if not exists account_link_codes (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),
+  source_user_id text not null references users(id),
+  provider text not null,
+  subject text not null,
+  handle text,
+  context jsonb not null default '{}',
+  state text not null default 'issued'
+    check (state in ('issued', 'linking', 'linked', 'cancelled', 'superseded')),
+  target_user_id text references users(id),
+  merge_id uuid,
+  linking_until bigint,
+  result jsonb,
+  created_at bigint not null,
+  expires_at bigint not null,
+  consumed_at bigint,
+  notified_at bigint,
+  check (expires_at = created_at + 600),
+  check (state <> 'linking' or (target_user_id is not null and merge_id is not null and linking_until is not null)),
+  check (state <> 'linked' or (target_user_id is not null and consumed_at is not null))
+);

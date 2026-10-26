@@ -9,7 +9,11 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import type { AgentSession, AomiClient } from "@aomi-labs/client";
+import type {
+  AgentSession,
+  AomiClient,
+  SessionApprovalFields,
+} from "@aomi-labs/client";
 import { UserState as UserStateHelpers } from "@aomi-labs/client";
 
 import { useThreadContext } from "../contexts/thread-context";
@@ -213,11 +217,13 @@ export function useThreadListSync({
     threadContextRef.current.setThreadMetadata((latest) => {
       const next = new Map(latest);
       for (const thread of cachedThreads) {
+        if (thread.origin === "telegram") continue;
         next.set(thread.id, {
           title: isPlaceholderTitle(thread.title ?? "") ? "" : thread.title!,
           status: thread.archived ? "archived" : "regular",
           lastActiveAt: thread.updatedAt,
           control: latest.get(thread.id)?.control ?? initRemoteThreadControl(),
+          ...(thread.origin ? { origin: thread.origin } : {}),
         });
       }
       return next;
@@ -255,6 +261,7 @@ export function useThreadListSync({
                   typeof metadata.lastActiveAt === "number"
                     ? metadata.lastActiveAt
                     : Date.parse(metadata.lastActiveAt ?? "") || Date.now(),
+                ...(metadata.origin ? { origin: metadata.origin } : {}),
               },
             ]
           : [],
@@ -422,6 +429,9 @@ export function useThreadListSync({
       let maxChatNum = baseThreadCount;
 
       for (const thread of threadList) {
+        // The server keeps Telegram chats off the portal list; an older or
+        // shared listing must not surface them either.
+        if (thread.origin === "telegram") continue;
         remoteThreadIds.add(thread.id);
         const rawTitle = thread.title ?? "";
         const title = isPlaceholderTitle(rawTitle) ? "" : rawTitle;
@@ -441,6 +451,8 @@ export function useThreadListSync({
           // target. Threads created in this client retain their exact local
           // control through existingControl and the commit-time merge.
           control: existingControl ?? initRemoteThreadControl(),
+          ...(thread.origin ? { origin: thread.origin } : {}),
+          ...threadAwaitingApproval(thread),
         });
 
         const match = title.match(/^Chat (\d+)$/);
@@ -617,4 +629,15 @@ export function useThreadListSync({
     threadListError,
     canLoadThreads,
   };
+}
+
+/** Refs waiting for approval; live listings only, never the cache. */
+function threadAwaitingApproval(
+  thread: AgentSession,
+): Pick<ThreadMetadata, "awaitingApproval"> {
+  const refs = (thread as AgentSession & SessionApprovalFields)
+    .awaitingApproval;
+  return Array.isArray(refs) && refs.length > 0
+    ? { awaitingApproval: refs.filter((ref) => typeof ref === "string") }
+    : {};
 }

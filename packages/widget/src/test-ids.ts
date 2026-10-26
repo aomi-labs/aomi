@@ -13,6 +13,7 @@ export const testIds = {
   userMessage: "aomi-user-message",
   assistantMessage: "aomi-assistant-message",
   editMessage: "aomi-edit-message",
+  editComposerInput: "aomi-edit-composer-input",
   rerun: "aomi-rerun",
   trace: "aomi-trace",
   traceStep: "aomi-trace-step",

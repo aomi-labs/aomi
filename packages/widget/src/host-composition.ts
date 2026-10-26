@@ -43,17 +43,35 @@ export {
 export { signOutAndDisconnect } from "./wallet/account/sign-out";
 export {
   requestWalletPickerOpen,
+  useWalletPicker,
+  WalletPickerProvider,
   WalletSignInOptionsContext,
+  type SheetPurpose,
 } from "./wallet/picker/wallet-picker-context";
+export { WalletPicker } from "./wallet/picker/wallet-picker";
+export { AomiSheet } from "./ui/aomi/aomi-sheet";
+export { LoadingPane } from "./ui/aomi/loading-pane";
+export { AomiButton } from "./ui/aomi/button";
+export {
+  FootnoteLink,
+  SheetAlert,
+  SheetFootnote,
+  SheetHeader,
+} from "./wallet/picker/sheet-parts";
+export { WidgetScope } from "./ui/widget-scope";
+export { ConnectionMark } from "./account/connections/connection-mark";
+export {
+  ConsentWallets,
+  type ConsentWalletsProps,
+  type ConsentWalletsState,
+  useConsentLanes,
+} from "./account/connections/consent-wallets-loader";
+export { accountDisplayName } from "./wallet/account-presentation";
 export {
   DualWalletBar,
   type DualWalletBarProps,
 } from "./wallet/dual-wallet-bar";
 export type { WalletAccountMenuOptions } from "./account/account-menu-types";
-export {
-  usePrivyDelegation,
-  type PrivyDelegationContextValue,
-} from "./wallet/providers/privy/privy-delegation-context";
 export { createWidgetX402Client } from "./wallet/payment-client";
 export { SvmWalletBindingGate } from "./wallet/svm-wallet-binding-gate";
 export { useSvmWalletBinding } from "./wallet/use-svm-wallet-binding";
@@ -68,8 +86,12 @@ export { PackageIcon } from "./library/package-row";
 export { toCatalogPackage } from "./library/packages-catalog";
 export { PackagesModal } from "./library/packages-modal";
 export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-menu";
-export type { DelegatedAccountView, WalletPolicy } from "./account/types";
 export { StatementView } from "./account/usage/statement-view";
+export { CommitSignPanel, type CommitSignPanelProps } from "./commit";
+export {
+  TelegramLinkPanel,
+  type TelegramLinkPanelProps,
+} from "./account/telegram-link";
 export {
   Chip,
   MatrixTable,
@@ -157,4 +179,3 @@ export const resolveAppIdentity: typeof appIdentity = appIdentity;
 export { AccountMenu, type AccountMenuProps } from "./account/account-menu";
 export { AccountAvatar } from "./account/account-avatar";
 export { CreditCheckoutDialog } from "./account/usage/credits/credit-checkout-dialog";
-export { WidgetScope } from "./ui/widget-scope";

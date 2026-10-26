@@ -1,8 +1,18 @@
 "use client";
-import { useEffect, useRef } from "react";
-import type { Action, ActionRequest } from "@aomi-labs/client";
-import { reviewEligibility, shortAddress } from "@aomi-labs/client";
-import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
+import type { Action, ActionRequest, MessageReview } from "@aomi-labs/client";
+import {
+  isMessageReview,
+  reviewEligibility,
+  shortAddress,
+} from "@aomi-labs/client";
+import {
+  ExternalLink,
+  Wallet,
+  Fuel,
+  ShieldCheck,
+  ShieldQuestion,
+} from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { testIds } from "@/test-ids";
@@ -16,13 +26,21 @@ import {
 
 /** The review actions keep their pill shape: they are the panel's one decision. */
 const reviewButtonClass = cn(focusRing, "h-10 rounded-full");
-// One half of the "Submit n of m | Submit all" split button. No size variant:
-// the shared pill container owns the radius, so the halves stay square.
+// One half of the "<action> · n of m | Submit all" split button. No size
+// variant: the shared pill container owns the radius, so the halves stay square.
 const splitSegment = cn(
   aomiButton({ variant: "primary", size: null }),
   focusRing,
   "type-control h-10 rounded-none px-3",
 );
+
+/** The signer isn't the active wallet: the primary action gets it ready first. */
+export type ConnectAction = {
+  label: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: "primary" | "secondary";
+};
 
 export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
   request: ActionRequest;
@@ -34,6 +52,9 @@ export function TransactionReview({
   approving = false,
   approveDisabled = false,
   approveLabel,
+  approveHref,
+  connect,
+  note,
   rejectDisabled = false,
   status,
   statusIsError = false,
@@ -42,6 +63,8 @@ export function TransactionReview({
   onApproveAll,
   approveAllDisabled = false,
   batchProgress,
+  submitting = false,
+  prompts = 0,
   onReject,
 }: {
   review: TransactionReviewData;
@@ -49,6 +72,11 @@ export function TransactionReview({
   approving?: boolean;
   approveDisabled?: boolean;
   approveLabel?: string;
+  /** Approve happens elsewhere: the primary action opens this URL. */
+  approveHref?: string;
+  connect?: ConnectAction;
+  /** One line above the actions, e.g. who signs after approval. */
+  note?: string;
   rejectDisabled?: boolean;
   status?: string;
   statusIsError?: boolean;
@@ -56,12 +84,12 @@ export function TransactionReview({
   onApprove: () => void;
   onApproveAll?: () => void;
   approveAllDisabled?: boolean;
-  batchProgress?: {
-    current: number;
-    total: number;
-    networks?: number;
-    submitting: boolean;
-  };
+  /** Which group of the queue this is. */
+  batchProgress?: { current: number; total: number };
+  /** Groups are going out one after another. */
+  submitting?: boolean;
+  /** Wallet prompts this group asks for. */
+  prompts?: number;
   onReject: () => void;
 }) {
   const reviewRef = useRef<HTMLElement>(null);
@@ -80,7 +108,17 @@ export function TransactionReview({
   const simulation =
     review.request.type === "sign" ? undefined : review.request.simulation;
   const eligibility = reviewEligibility(review.request);
-  const warnings = visibleSimulationWarnings(simulation);
+  // A message commit: its decoded rows and its check stand in for the
+  // simulation; nothing runs on chain.
+  const message = isMessageReview(review.request) ? review.request : undefined;
+  const messageReview: MessageReview | undefined = message
+    ? (message.messageReview ?? { kind: "generic", rows: [] })
+    : undefined;
+  const warnings = messageReview
+    ? messageReview.warning
+      ? [messageReview.warning]
+      : []
+    : visibleSimulationWarnings(simulation);
   const simulationFailed =
     simulation?.status === "failed" ||
     simulation?.guards.some((guard) => guard.status === "failed");
@@ -88,12 +126,41 @@ export function TransactionReview({
     !recoveringExistingAttempt &&
     (eligibility ? eligibility.state !== "eligible" : simulationFailed);
   const request = review.request;
+  // A signed Solana transaction is still sent; any other sign is a message.
+  const signs =
+    request.type === "sign" && request.executionKind !== "transaction";
+  const count = request.type === "sign" ? 1 : request.transactions.length;
+  const action =
+    approveLabel ??
+    (signs
+      ? "Sign message"
+      : count > 1
+        ? `Send ${count} transactions`
+        : "Send transaction");
+  const label =
+    approveLabel || !batchProgress
+      ? action
+      : `${action} · ${batchProgress.current} of ${batchProgress.total}`;
+  const busy = approving || submitting;
+  const busyLabel = signs ? "Signing…" : "Sending…";
+  const split = Boolean(onApproveAll && batchProgress && !busy);
   const signers =
     request.type === "sign"
       ? [request.signer]
       : request.type === "execute_evm"
         ? request.transactions.map((tx) => tx.from)
         : request.transactions.map((tx) => tx.payer);
+  // The simulation reports every account the transaction touches; the card
+  // shows what the signing wallet gains and loses (as Telegram does).
+  const ownChanges = (simulation?.balanceChanges ?? []).filter(
+    (change) =>
+      !change.account ||
+      signers.some((signer) =>
+        signer?.startsWith("0x")
+          ? signer.toLowerCase() === change.account!.toLowerCase()
+          : signer === change.account,
+      ),
+  );
   return (
     <section
       ref={reviewRef}
@@ -115,8 +182,9 @@ export function TransactionReview({
         <ImpactPanel
           key={`${review.id}-${review.revision}`}
           request={request}
-          balanceChanges={simulation?.balanceChanges ?? []}
+          balanceChanges={ownChanges}
           approvals={simulation?.approvals ?? []}
+          message={messageReview}
           supportedChains={supportedChains}
           showNetwork
           failed={simulationFailed ?? false}
@@ -134,6 +202,13 @@ export function TransactionReview({
               </dd>
             </div>
           ))}
+          {message && eligibility?.state === "eligible" ? (
+            <div className="text-aomi-success flex items-center gap-2">
+              <ShieldCheck className="size-3.5 shrink-0" />
+              <dt className="sr-only">Check</dt>
+              <dd>Check passed</dd>
+            </div>
+          ) : null}
           {simulation && !simulationFailed && (
             <div
               className={cn(
@@ -162,15 +237,31 @@ export function TransactionReview({
           </div>
         </dl>
       </div>
+      {/* The exact signed payload, always: rows summarize it, they never
+          replace it (a long message's text row is cut short). */}
       {request.type === "sign" && (
         <details className="type-meta text-aomi-muted mt-3">
           <summary
             className={cn(focusRing, "rounded-control w-fit cursor-pointer")}
           >
-            Signing request
+            {message ? "Full message" : "Signing request"}
           </summary>
           <pre className="bg-aomi-surface rounded-control mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all p-2">
-            {JSON.stringify(request, null, 2)}
+            {message
+              ? message.payloads
+                  .map((payload) =>
+                    payload.kind === "evm_personal"
+                      ? payload.message
+                      : JSON.stringify(
+                          payload.kind === "evm_typed_data"
+                            ? payload.typed_data
+                            : payload,
+                          null,
+                          2,
+                        ),
+                  )
+                  .join("\n\n")
+              : JSON.stringify(request, null, 2)}
           </pre>
         </details>
       )}
@@ -182,21 +273,20 @@ export function TransactionReview({
           {status}
         </p>
       )}
-      {!failed && batchProgress && batchProgress.total > 1 ? (
+      {note && !failed ? (
+        <p className="type-meta text-aomi-muted mt-3">{note}</p>
+      ) : null}
+      {!failed && prompts > 1 ? (
         <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
           <Wallet className="size-3.5 shrink-0" />
-          Your wallet asks for {batchProgress.total} signatures
-          {batchProgress.networks && batchProgress.networks > 1
-            ? ` across ${batchProgress.networks} networks`
-            : ""}
-          , in order.
+          Your wallet asks for {prompts} signatures, in order.
         </p>
       ) : null}
       <footer
         className={
           failed
             ? "mt-3"
-            : onApproveAll && batchProgress
+            : split
               ? "mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2"
               : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"
         }
@@ -210,20 +300,24 @@ export function TransactionReview({
           {failed ? "Reject request" : "Reject"}
         </AomiButton>
         {!failed &&
-          (onApproveAll && batchProgress ? (
+          (connect ? (
+            <AomiButton
+              variant={connect.variant ?? "secondary"}
+              className={reviewButtonClass}
+              onClick={connect.onClick}
+              disabled={approving || connect.disabled}
+            >
+              {connect.label}
+            </AomiButton>
+          ) : split ? (
             <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
               <button
                 type="button"
                 onClick={onApprove}
-                disabled={
-                  approving || approveDisabled || batchProgress.submitting
-                }
+                disabled={approveDisabled}
                 className={`${splitSegment} min-w-0 flex-1`}
               >
-                {approving
-                  ? "Working…"
-                  : (approveLabel ??
-                    `Submit ${batchProgress.current} of ${batchProgress.total}`)}
+                <span className="truncate">{label}</span>
               </button>
               <span
                 className="bg-aomi-bg/25 my-2 w-px shrink-0"
@@ -232,34 +326,36 @@ export function TransactionReview({
               <button
                 type="button"
                 onClick={onApproveAll}
-                disabled={
-                  approving ||
-                  approveDisabled ||
-                  approveAllDisabled ||
-                  batchProgress.submitting
-                }
+                disabled={approveDisabled || approveAllDisabled}
                 className={splitSegment}
               >
-                {batchProgress.submitting ? "Submitting…" : "Submit all"}
+                Submit all
               </button>
             </div>
+          ) : approveHref ? (
+            <a
+              href={approveHref}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                aomiButton({ variant: "primary" }),
+                reviewButtonClass,
+              )}
+            >
+              <span className="truncate">
+                {approveLabel ?? "Approve on Aomi"}
+              </span>
+              <ExternalLink />
+            </a>
           ) : (
             <AomiButton
               variant="primary"
               className={reviewButtonClass}
               onClick={onApprove}
-              disabled={
-                approving || approveDisabled || batchProgress?.submitting
-              }
+              disabled={busy || approveDisabled}
             >
               <Wallet />
-              {approving
-                ? "Working…"
-                : approveLabel
-                  ? approveLabel
-                  : batchProgress
-                    ? `Submit ${batchProgress.current} of ${batchProgress.total}`
-                    : "Submit"}
+              <span className="truncate">{busy ? busyLabel : label}</span>
             </AomiButton>
           ))}
       </footer>
@@ -271,57 +367,15 @@ function SigningRequestMetadata({
 }: {
   request: Extract<ActionRequest, { type: "sign" }>;
 }) {
-  const facts = [
-    request.broadcaster
-      ? { label: "Submitted by", value: request.broadcaster }
-      : undefined,
-    request.sponsorship
-      ? {
-          label: "Network funding",
-          value:
-            request.sponsorship === "required"
-              ? "Sponsorship required"
-              : "User-funded",
-        }
-      : undefined,
-    request.maxNetworkFee
-      ? {
-          label: "Network cost ceiling",
-          value: `${request.maxNetworkFee} native base units`,
-        }
-      : undefined,
-  ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
-
-  if (facts.length === 0 && !request.fees?.length) return null;
+  if (!request.broadcaster) return null;
   return (
     <dl className="border-aomi-border bg-aomi-raised rounded-card type-meta grid gap-2 border p-3">
-      {facts.map((fact) => (
-        <div
-          key={fact.label}
-          className="flex items-start justify-between gap-3"
-        >
-          <dt className="text-aomi-muted">{fact.label}</dt>
-          <dd className="max-w-[60%] break-words text-right font-medium">
-            {fact.value}
-          </dd>
-        </div>
-      ))}
-      {request.fees?.map((fee, index) => (
-        <div
-          key={`${fee.recipient}-${index}`}
-          className="border-aomi-border flex items-start justify-between gap-3 border-t pt-2"
-        >
-          <dt className="text-aomi-muted">Application fee</dt>
-          <dd className="max-w-[60%] break-all text-right font-medium">
-            {fee.amount}{" "}
-            {fee.asset.kind === "native"
-              ? "native"
-              : shortAddress(fee.asset.address, { head: 8, tail: 6 })}
-            {" → "}
-            {shortAddress(fee.recipient, { head: 8, tail: 6 })}
-          </dd>
-        </div>
-      ))}
+      <div className="flex items-start justify-between gap-3">
+        <dt className="text-aomi-muted">Submitted by</dt>
+        <dd className="max-w-[60%] break-words text-right font-medium">
+          {request.broadcaster}
+        </dd>
+      </div>
     </dl>
   );
 }

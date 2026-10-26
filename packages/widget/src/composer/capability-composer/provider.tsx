@@ -8,8 +8,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type FormEvent,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useControl, useThreadContext, useChatView } from "@aomi-labs/react";
 import {
@@ -193,30 +195,11 @@ export function CapabilityComposerProvider({
     setCapabilityPickerRequest(0);
   }, []);
 
-  const addMention = useCallback(
-    (mention: CapabilityMention) => {
-      if (!hintsEnabled) return;
-      setMentions((current) =>
-        current.some((item) => item.key === mention.key)
-          ? current
-          : [...current, mention],
-      );
-    },
-    [hintsEnabled],
+  const { addMention, retainMentions } = useMentionEdits(
+    setMentions,
+    hintsEnabled,
   );
-
-  const retainMentions = useCallback((keys: ReadonlySet<string>) => {
-    setMentions((current) => current.filter((item) => keys.has(item.key)));
-  }, []);
-
-  useEffect(() => {
-    const current = composerRuntime.getState().runConfig;
-    const custom = { ...(current.custom ?? {}) };
-    const payload = buildCapabilityHintPayload(policy, mentions);
-    if (payload) custom.aomiCapabilityHints = payload;
-    else delete custom.aomiCapabilityHints;
-    composerRuntime.setRunConfig({ ...current, custom });
-  }, [composerRuntime, policy, mentions]);
+  useHintRunConfig(policy, mentions);
 
   const prepareSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -261,6 +244,90 @@ export function CapabilityComposerProvider({
     ],
   );
 
+  return (
+    <CapabilityComposerContext.Provider value={value}>
+      {children}
+    </CapabilityComposerContext.Provider>
+  );
+}
+
+function useMentionEdits(
+  setMentions: Dispatch<SetStateAction<CapabilityMention[]>>,
+  hintsEnabled: boolean,
+) {
+  const addMention = useCallback(
+    (mention: CapabilityMention) => {
+      if (!hintsEnabled) return;
+      setMentions((current) =>
+        current.some((item) => item.key === mention.key)
+          ? current
+          : [...current, mention],
+      );
+    },
+    [hintsEnabled, setMentions],
+  );
+  const retainMentions = useCallback(
+    (keys: ReadonlySet<string>) =>
+      setMentions((current) => current.filter((item) => keys.has(item.key))),
+    [setMentions],
+  );
+  return { addMention, retainMentions };
+}
+
+/**
+ * Puts the mentions' model hints on the composer's next send. An edit always
+ * states its own (even none), so a tag removed while editing stays removed.
+ */
+function useHintRunConfig(
+  policy: ExecutionPolicy,
+  mentions: readonly CapabilityMention[],
+  edit = false,
+) {
+  const composerRuntime = useComposerRuntime();
+  useEffect(() => {
+    const current = composerRuntime.getState().runConfig;
+    const custom = { ...(current.custom ?? {}) };
+    const payload =
+      buildCapabilityHintPayload(policy, mentions) ??
+      (edit && policy === "auto" ? { capabilities: [] } : undefined);
+    if (payload) custom.aomiCapabilityHints = payload;
+    else delete custom.aomiCapabilityHints;
+    composerRuntime.setRunConfig({ ...current, custom });
+  }, [composerRuntime, edit, policy, mentions]);
+}
+
+const noop = () => {};
+
+/**
+ * An edit box's own mentions under the thread composer's routing. The thread
+ * composer's picker and app-tag requests stay with the thread composer.
+ */
+export function EditCapabilityComposerProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const thread = useCapabilityComposer();
+  const [mentions, setMentions] = useState<CapabilityMention[]>([]);
+  const { addMention, retainMentions } = useMentionEdits(
+    setMentions,
+    thread.hintsEnabled,
+  );
+  useHintRunConfig(thread.policy, mentions, true);
+  const value = useMemo<CapabilityComposerContextValue>(
+    () => ({
+      ...thread,
+      mentions,
+      addMention,
+      retainMentions,
+      capabilityPickerRequest: 0,
+      appTagRequest: null,
+      consumeAppTagRequest: noop,
+      openCapabilityPicker: noop,
+      consumeCapabilityPickerRequest: noop,
+    }),
+    [addMention, mentions, retainMentions, thread],
+  );
   return (
     <CapabilityComposerContext.Provider value={value}>
       {children}

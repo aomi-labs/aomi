@@ -20,6 +20,7 @@ import {
   usd,
 } from "./usage-shared";
 import { shortAddress } from "@aomi-labs/client";
+import { FilterChip } from "@/account/connections/wallet-view";
 
 type View = "byApp" | "itemized";
 type Subject = "all" | "model" | "tool" | "onchain";
@@ -484,29 +485,5 @@ function Dropdown({
         </>
       )}
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-3 py-[5px] text-xs transition-colors ${
-        active
-          ? "bg-aomi-surface-2 text-aomi-fg border-transparent font-medium"
-          : "border-aomi-border text-aomi-muted hover:text-aomi-fg"
-      }`}
-    >
-      {children}
-    </button>
   );
 }

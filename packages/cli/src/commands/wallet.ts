@@ -68,10 +68,7 @@ export async function signCommand(
         const review = session.commits.review(view.commit_id);
         if (!review)
           fatal(`Commit "${view.commit_id}" has no review to approve.`);
-        const aa =
-          view.action?.kind === "sign" &&
-          view.action.payload.kind === "user_operation";
-        if (config.execution && (config.execution === "aa" ? !aa : aa)) {
+        if (config.execution === "aa") {
           fatal(
             "The requested execution mode does not match the prepared commit.",
           );
@@ -247,11 +244,7 @@ function formatAction(action: Action): string {
       : request.type === "execute_svm"
         ? `${request.transactions.length} SVM transaction${request.transactions.length === 1 ? "" : "s"}`
         : `${request.chainFamily.toUpperCase()} signature`;
-  const funding =
-    request.type === "sign" && request.maxNetworkFee
-      ? ` · network ceiling ${request.maxNetworkFee} native base units (${request.sponsorship === "required" ? "sponsorship required" : "user-funded"})`
-      : "";
-  return `${action.state === "pending" ? "⏳" : "✅"} ${action.id}  ${detail}${funding}  (${action.state}, revision ${action.revision})`;
+  return `${action.state === "pending" ? "⏳" : "✅"} ${action.id}  ${detail}  (${action.state}, revision ${action.revision})`;
 }
 
 function missingCapability(action: Action): string {

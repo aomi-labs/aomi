@@ -38,6 +38,11 @@
   animation: var(--animate-aui-thread-status);
 }
 
+.aui-thread-list-item[data-awaiting-approval] .aui-thread-status {
+  opacity: 1;
+  background-color: var(--aomi-warning);
+}
+
 @keyframes auiThreadStatusPulse {
   50% {
     opacity: 0.5;

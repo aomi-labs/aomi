@@ -33,6 +33,7 @@ export type Principal = {
   resource?: string;
   auth_source?: string;
   principal_class?: string;
+  client_id?: string;
   sid?: string;
   kid?: string;
 };
@@ -56,6 +57,14 @@ export type UpstreamOptions = {
 export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const records: UpstreamRecord[] = [];
   const owners = new Map<string, string>();
+  /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
+  const commits = new Map<string, { owner: string; view: unknown }>();
+  /** Each account's pause all over its agent wallets. */
+  const pausedAll = new Map<string, boolean>();
+  /** Each account's connection settings, by connection key. */
+  const settings = new Map<string, ConnectionSetting>();
+  /** Each connection's lane per agent wallet, by account and connection key. */
+  const lanes = new Map<string, { id: string; lane: string }[]>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -87,8 +96,163 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     if (url.pathname === "/__reset" && method === "POST") {
       records.length = 0;
       owners.clear();
+      commits.clear();
+      pausedAll.clear();
+      settings.clear();
+      lanes.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
+    }
+
+    if (url.pathname === "/__commits" && method === "POST") {
+      const seed = JSON.parse(await readBody(request)) as {
+        ref: string;
+        owner: string;
+        view: unknown;
+      };
+      commits.set(seed.ref, { owner: seed.owner, view: seed.view });
+      return json(response, 204);
+    }
+
+    // Thread-less commit refs: the BFF forwards them like /api/commits, with
+    // an account bearer. A stranger's ref answers 404, never 403.
+    if (url.pathname.startsWith("/v1/commits/")) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      const [, , , ref = "", ...rest] = url.pathname.split("/");
+      const commit = commits.get(decodeURIComponent(ref));
+      if (!commit || commit.owner !== principal.sub)
+        return json(response, 404, { code: "commit_not_found", status: 404 });
+      const view = commit.view as Record<string, unknown>;
+      // A portal or CLI login approves a parked commit; an OAuth connection
+      // only its own, where its lane on the wallet is Ask in that client.
+      const own = `oauth:${principal.client_id}`;
+      const approver =
+        principal.auth_source === "session" ||
+        principal.auth_source === "cli_session" ||
+        (principal.auth_source === "oauth" &&
+          view.initiator === own &&
+          (lanes
+            .get(`${principal.sub}\0${own}`)
+            ?.some((row) => row.id === AGENT_GROUP.id && row.lane === "here") ??
+            false));
+      if (method === "GET" && rest.length === 0)
+        return json(response, 200, {
+          ...view,
+          can_approve: approver && view.state === "awaiting_approval",
+        });
+      if (method === "POST" && rest.join("/") === "approve") {
+        const body = JSON.parse(await readBody(request)) as {
+          version: number;
+          review_digest: string;
+        };
+        if (!approver)
+          return json(response, 403, {
+            code: "commit_approval_forbidden",
+            status: 403,
+          });
+        if (view.state !== "awaiting_approval")
+          return json(response, 409, {
+            code: "commit_not_awaiting_approval",
+            status: 409,
+          });
+        const digest =
+          (view.review as { digest?: string } | null)?.digest ?? "";
+        if (body.version !== view.version || body.review_digest !== digest)
+          return json(response, 409, {
+            code: "commit_version_conflict",
+            status: 409,
+          });
+        const approved = {
+          ...view,
+          version: (view.version as number) + 1,
+          state: "needs_signature",
+          approval: {
+            ...(view.approval as object),
+            state: "approved",
+            approved_at: Math.floor(Date.now() / 1000),
+            approved_by:
+              principal.auth_source === "session"
+                ? "portal"
+                : principal.auth_source === "cli_session"
+                  ? "cli"
+                  : own,
+          },
+        };
+        commit.view = approved;
+        return json(response, 200, { ...approved, can_approve: false });
+      }
+      return json(response, 404, {
+        error: { code: "fixture_route_not_found" },
+      });
+    }
+
+    // The account's wallet list: one EVM agent wallet
+    // ("Trading") per account, so Settings renders the agent band; pause-all
+    // and each connection's label and wallet lanes.
+    if (
+      url.pathname.startsWith("/v1/account/wallets") ||
+      url.pathname.startsWith("/v1/account/agent-wallets") ||
+      url.pathname === "/v1/account/pause-all" ||
+      url.pathname.startsWith("/v1/account/connection-settings/") ||
+      /^\/v1\/account\/connections\/[^/]+\/wallets$/.test(url.pathname)
+    ) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      if (method === "GET" && url.pathname === "/v1/account/wallets")
+        return json(response, 200, { wallets: [AGENT_WALLET] });
+      if (method === "GET" && url.pathname === "/v1/account/agent-wallets")
+        return json(response, 200, {
+          pause_all: pausedAll.get(principal.sub) ?? false,
+          wallets: [AGENT_GROUP],
+        });
+      // The backend's require_portal_session for writes.
+      const portalOnly = () =>
+        principal.auth_source === "session"
+          ? null
+          : json(response, 403, { error: "portal_session_required" });
+      if (method === "PUT" && url.pathname === "/v1/account/pause-all") {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const { paused } = JSON.parse(await readBody(request)) as {
+          paused: boolean;
+        };
+        pausedAll.set(principal.sub, paused);
+        return json(response, 200, { pause_all: paused });
+      }
+      if (
+        method === "PUT" &&
+        url.pathname.startsWith("/v1/account/connection-settings/")
+      ) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const key = decodeURIComponent(url.pathname.split("/").pop()!);
+        const id = `${principal.sub}\0${key}`;
+        const update = JSON.parse(await readBody(request)) as Partial<
+          Omit<ConnectionSetting, "key">
+        >;
+        const next = {
+          ...(settings.get(id) ?? { key, label: null, last_used_at: null }),
+          ...update,
+        };
+        settings.set(id, next);
+        return json(response, 200, next);
+      }
+      if (method === "PUT" && url.pathname.endsWith("/wallets")) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const key = decodeURIComponent(url.pathname.split("/").at(-2)!);
+        const update = JSON.parse(await readBody(request)) as {
+          wallets: { id: string; lane: string }[];
+        };
+        lanes.set(`${principal.sub}\0${key}`, update.wallets);
+        return json(response, 200, update);
+      }
+      return json(response, 404, { error: "wallet_not_found" });
     }
 
     if (url.pathname.startsWith("/api/")) {
@@ -205,6 +369,44 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     },
   };
 }
+
+const AGENT_WALLET = {
+  id: "w_900",
+  kind: "agent",
+  family: "evm",
+  address: "0x7a3f5e1d2c4b6a8901234567890abcdef012c41e",
+  label: "Trading",
+  custom_label: null,
+  browser_app: null,
+  provider: "para",
+  created_at: 1_760_000_000,
+  agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000900",
+  maker_app: null,
+} as const;
+
+const AGENT_GROUP = {
+  id: AGENT_WALLET.agent_wallet_id,
+  name: AGENT_WALLET.label,
+  paused: false,
+  archived_at: null,
+  app: null,
+  last_used_at: null,
+  created_at: AGENT_WALLET.created_at,
+  addresses: [
+    {
+      family: "evm",
+      address: AGENT_WALLET.address,
+      wallet_id: AGENT_WALLET.id,
+    },
+  ],
+  connections: [],
+};
+
+type ConnectionSetting = {
+  key: string;
+  label: string | null;
+  last_used_at: number | null;
+};
 
 type AccountRoute =
   | "account"

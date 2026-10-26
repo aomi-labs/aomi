@@ -79,6 +79,7 @@ export type WalletRuntime<F extends WalletFamily> = {
 };
 
 export type SvmWalletRuntime = WalletRuntime<"svm"> & {
+  selectAppNetwork?: (networkId: string | number) => void;
   supportedNetworks: readonly SvmNetworkOption[];
   selectedNetwork?: SvmNetworkOption;
   execution: SvmExecutionRuntime;
@@ -87,7 +88,11 @@ export type SvmWalletRuntime = WalletRuntime<"svm"> & {
 export type EvmExecutionRuntime = {
   sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
   preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
+  sendPreparedEvmCalls?: import("@aomi-labs/client").EvmWallet["sendPreparedCalls"];
+  waitForEvmReceipt?: import("@aomi-labs/client").EvmWallet["waitForReceipt"];
+  supportsAtomicEvmBatch?: import("@aomi-labs/client").EvmWallet["supportsAtomicBatch"];
   signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
+  signPreparedEvmMessage?: import("@aomi-labs/client").EvmWallet["signPreparedMessage"];
   sendTransaction?: (
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
