@@ -346,6 +346,9 @@ importers:
       jose:
         specifier: ^6.1.3
         version: 6.2.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       wrangler:
         specifier: ^4.114.0
