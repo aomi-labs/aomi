@@ -21,6 +21,21 @@ export type ResearchPost = {
 // Single source of truth for published writing, newest first.
 export const posts: ResearchPost[] = [
   {
+    slug: "introducing-the-agentic-fuzzer",
+    title:
+      "Introducing the Aomi Agentic Fuzzer: the agent plans the attack, deterministic code proves the bug",
+    date: "October 26, 2026",
+    isoDate: "2026-10-26",
+    tag: "launch",
+    subtitle:
+      "Agentic fuzzing for Arc Studio apps, now in preview: the AI agent writes the threat model and the attack, and a deterministic engine on a held Arc fork decides what counts as a finding.",
+    cover: "/research/introducing-the-agentic-fuzzer/figures/cover.png",
+    readMinutes: 10,
+    research: false,
+    fileName: "introducing-the-agentic-fuzzer.md",
+    format: "markdown",
+  },
+  {
     slug: "introducing-the-aomi-task-api",
     title:
       "Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc",
