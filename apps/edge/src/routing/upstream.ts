@@ -143,8 +143,11 @@ export async function constrainRouteToAvailableApp(
           "/availability",
           `?application_id=${encodeURIComponent(route.appId ?? "")}`,
         );
+        // Placement must not wait indefinitely for a hung pool member.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1_500);
         try {
-          const response = await fetchImpl(new Request(probeUrl.toString()), {
+          const response = await fetchImpl(new Request(probeUrl.toString(), { signal: controller.signal }), {
             cache: "no-store",
           });
           // Consume neither response body nor a cached answer: this is a
@@ -153,6 +156,8 @@ export async function constrainRouteToAvailableApp(
           return response.ok;
         } catch {
           return false;
+        } finally {
+          clearTimeout(timeout);
         }
       }),
     );

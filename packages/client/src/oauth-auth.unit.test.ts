@@ -129,10 +129,13 @@ describe("public API OAuth transport", () => {
 
     await authorized("https://chat.aomi.dev/v1/account/credits");
     await authorized("https://chat.aomi.dev/v1/account/statement");
-    await authorized("https://chat.aomi.dev/v1/account/credits/funding-events", {
-      method: "POST",
-      headers: { "payment-signature": "signed" },
-    });
+    await authorized(
+      "https://chat.aomi.dev/v1/account/credits/funding-events",
+      {
+        method: "POST",
+        headers: { "payment-signature": "signed" },
+      },
+    );
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
       resource: "https://chat.aomi.dev/v1/account",
@@ -369,14 +372,12 @@ describe("Better Auth guest bootstrap", () => {
     "keeps the guest identity when an App rejects access (%s)",
     async (code) => {
       vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
-      const authFetch = vi
-        .fn()
-        .mockResolvedValue(
-          Response.json({
-            session: { id: "guest-session" },
-            user: { id: "guest-user", isAnonymous: true },
-          }),
-        );
+      const authFetch = vi.fn().mockResolvedValue(
+        Response.json({
+          session: { id: "guest-session" },
+          user: { id: "guest-user", isAnonymous: true },
+        }),
+      );
       const upstream = vi
         .fn()
         .mockResolvedValue(
@@ -517,3 +518,27 @@ describe("Better Auth guest bootstrap", () => {
     );
   });
 });
+
+it.each(["/api/thread/model", "/api/thread/sim/world"])(
+  "uses the selected Agent grant for %s",
+  async (path) => {
+    const upstream = vi.fn(async () => new Response("{}"));
+    const oauth = vi.fn(async (request: AomiOAuthTokenRequest) => ({
+      accessToken: "selected-account",
+      expiresAt: Date.now() + 60000,
+      resource: request.resource,
+      scopes: request.scopes,
+    }));
+    const authorized = wrapFetchWithPublicApiAuthorization({
+      fetch: upstream,
+      baseUrl: "https://chat.aomi.dev",
+      oauth,
+    });
+    await authorized(`https://chat.aomi.dev${path}`, { method: "POST" });
+    expect(oauth).toHaveBeenCalledWith({
+      resource: "https://chat.aomi.dev/v1/agent",
+      scopes: ["agent:write"],
+      forceRefresh: false,
+    });
+  },
+);

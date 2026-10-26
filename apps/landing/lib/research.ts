@@ -14,12 +14,30 @@ export type ResearchPost = {
   // Every post appears on /blog. Only posts with lasting reference value
   // (papers, benchmarks) are also shelved on /research.
   research: boolean;
+  // Posts served at /blog/<slug>. Earlier blog posts keep their /research URLs.
+  base?: "blog";
   fileName?: string;
   format?: "markdown" | "execution-harnesses" | "three-gates";
 };
 
 // Single source of truth for published writing, newest first.
 export const posts: ResearchPost[] = [
+  {
+    slug: "agentic-fuzzer",
+    title:
+      "Announcing Agentic Fuzzer: Stateful attacks on protocol states with frontier models",
+    date: "October 26, 2026",
+    isoDate: "2026-10-26",
+    tag: "launch",
+    subtitle:
+      "Agentic fuzzing for Arc Studio apps, now in preview: the AI agent writes the threat model and the attack, and a deterministic engine on a held Arc fork decides what counts as a finding.",
+    cover: "/blog/agentic-fuzzer/figures/cover.png",
+    readMinutes: 10,
+    research: false,
+    base: "blog",
+    fileName: "introducing-the-agentic-fuzzer.md",
+    format: "markdown",
+  },
   {
     slug: "introducing-the-aomi-task-api",
     title:
@@ -94,6 +112,11 @@ export const posts: ResearchPost[] = [
 ];
 
 export const researchPosts = posts.filter((post) => post.research);
+export const blogPosts = posts.filter((post) => post.base === "blog");
+
+export function postHref(post: ResearchPost) {
+  return post.base === "blog" ? `/blog/${post.slug}` : `/research/${post.slug}`;
+}
 
 export function getResearchPost(slug: string) {
   return posts.find((post) => post.slug === slug) ?? null;
