@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   consumeWidgetOAuthBootstrapTicket,
+  readWidgetOAuthBootstrapTicket,
   issueWidgetOAuthBootstrapTicket,
   sha256Hex,
 } from "./oauth-bootstrap";
@@ -52,6 +53,12 @@ describe("widget OAuth bootstrap tickets", () => {
     expect(issued.ticket).toMatch(/^aomi_obt_[A-Za-z0-9_-]{40,}$/);
     expect([...records.keys()][0]).not.toContain(issued.ticket);
     expect(issued.expiresAt).toBe(Math.floor(now.getTime() / 1000) + 90);
+    for (let n = 0; n < 2; n++) {
+      await expect(
+        readWidgetOAuthBootstrapTicket({ ticket: issued.ticket, now, store }),
+      ).resolves.toMatchObject({ userId: "user-1" });
+    }
+    expect(store.consume).not.toHaveBeenCalled();
     await expect(
       consumeWidgetOAuthBootstrapTicket({ ticket: issued.ticket, now, store }),
     ).resolves.toMatchObject({

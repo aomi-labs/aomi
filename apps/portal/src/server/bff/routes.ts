@@ -28,7 +28,12 @@ import {
 import { authorize, policyFor, scopesOn, type Need } from "./capabilities";
 import { openWidget, publicRead } from "./cors";
 import { errorResponse, mintBearer } from "./http";
-import { oauthPrincipal, resolvePrincipal, type Principal } from "./principal";
+import {
+  isOAuthCredential,
+  oauthPrincipal,
+  resolvePrincipal,
+  type Principal,
+} from "./principal";
 import { publicCatalog } from "./public-catalog";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -338,6 +343,10 @@ const commit = (request: Request): Need => ({
   scopes: [request.method === "GET" ? "agent:read" : "agent:actions:resolve"],
 });
 const chat: Need = { capability: "chat", anonymous: true };
+const threadWrite = (request: Request, fallback: Need = chat): Need =>
+  isOAuthCredential(request)
+    ? { resource: resources().agentRest, scopes: ["agent:write"] }
+    : fallback;
 
 /** The Rust /api routes the portal forwards. Anything else is a 404. */
 export const BACKEND_ROUTES: readonly BackendRoute[] = [
@@ -390,11 +399,11 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
     methods: ["GET"],
     need: chat,
   },
-  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: chat },
+  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: threadWrite },
   {
     path: /^\/api\/thread\/sim\/world$/,
     methods: ["POST"],
-    need: { capability: "chat" },
+    need: (request) => threadWrite(request, { capability: "chat" }),
   },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
   {
