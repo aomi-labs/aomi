@@ -7,7 +7,7 @@ Rich blocks (::fuzzer-*::) render from app/(marketing)/research/[slug]/agentic-f
 Source material: the agentic fuzzer application package (October 2026).
 -->
 
-# Introducing the Aomi Agentic Fuzzer: the agent plans the attack, deterministic code proves the bug
+# Announcing Agentic Fuzzer: Stateful attacks on protocol states with frontier models
 
 _October 26, 2026. Preview for Arc Studio apps._
 

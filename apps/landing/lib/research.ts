@@ -23,7 +23,7 @@ export const posts: ResearchPost[] = [
   {
     slug: "introducing-the-agentic-fuzzer",
     title:
-      "Introducing the Aomi Agentic Fuzzer: the agent plans the attack, deterministic code proves the bug",
+      "Announcing Agentic Fuzzer: Stateful attacks on protocol states with frontier models",
     date: "October 26, 2026",
     isoDate: "2026-10-26",
     tag: "launch",
