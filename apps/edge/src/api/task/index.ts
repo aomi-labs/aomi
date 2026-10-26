@@ -61,10 +61,21 @@ export async function taskDocument(
 }
 
 /**
+ * The API Server's answer to an empty, unlabelled POST, for when no challenge
+ * can be had: what venues saw before the edge answered probes.
+ */
+function bodyRequired(): Response {
+  return jsonResponse({ error: { code: "invalid_request", message: "request body is required" } }, 422, {
+    "cache-control": "no-store",
+  });
+}
+
+/**
  * The payable build as venues probe it. GET, HEAD and an empty POST get the
  * cached body-bound 402 for the published example, or the read-only metadata
- * when no challenge can be had; a JSON body sent with the wrong label is
- * relabelled. Anything else is forwarded as it is.
+ * (an unlabelled empty POST: the 422) when no challenge can be had; a JSON
+ * body sent with the wrong label is relabelled. Anything else is forwarded as
+ * it is, and `listOnBazaar` lists what comes back.
  */
 export async function adaptTaskBuild(
   request: Request,
@@ -80,7 +91,7 @@ export async function adaptTaskBuild(
   if (!terms) return { forward: request };
   const challenge = await discoveryChallenge(apiServer, terms, env, fetchImpl);
   if (challenge) return { respond: discoveryResponse(challenge, request.method) };
-  if (!probe) return { forward: request };
+  if (!probe) return request.headers.has("content-type") ? { forward: request } : { respond: bodyRequired() };
   const metadata = jsonResponse(buildMetadata(terms));
   return { respond: request.method === "HEAD" ? new Response(null, { headers: metadata.headers }) : metadata };
 }

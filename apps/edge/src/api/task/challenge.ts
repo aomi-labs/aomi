@@ -2,6 +2,7 @@ import type { EdgeEnv } from "../../env";
 import { TwoTierCache } from "../../kernel/cache";
 import type { FetchLike } from "../../kernel/proxy";
 import { TASK_BUILD_PATH } from "../routes";
+import { withBazaar } from "./bazaar";
 import { buildMetadata } from "./documents";
 import type { TaskTerms } from "./terms";
 
@@ -12,8 +13,9 @@ import type { TaskTerms } from "./terms";
  *
  * Two rules, both tested:
  * - the Worker never invents a `Payment-Required`; it relays the one the
- *   payment service signed, and the body the venue would have to POST is in
- *   the response, so a payer who retries buys exactly that preparation;
+ *   payment service issued (listed on Bazaar, which binds nothing), and the
+ *   body the venue would have to POST is in the response, so a payer who
+ *   retries buys exactly that preparation;
  * - cache hits reuse a quote rather than creating another ledger attempt;
  *   concurrent misses and different isolates can still create extra quotes.
  */
@@ -92,9 +94,11 @@ export async function discoveryChallenge(
   } catch {
     return null;
   }
-  const paymentRequired = challenge.headers.get("Payment-Required");
-  if (challenge.status !== 402 || !paymentRequired) return null;
+  const upstreamRequired = challenge.headers.get("Payment-Required");
+  if (challenge.status !== 402 || !upstreamRequired) return null;
+  const paymentRequired = withBazaar(upstreamRequired);
   const body = (await jsonObject(challenge)) ?? {};
+  if (body.paymentRequired === upstreamRequired) body.paymentRequired = paymentRequired;
 
   const value: DiscoveryChallenge = {
     paymentRequired,
