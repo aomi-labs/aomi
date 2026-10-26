@@ -21,7 +21,7 @@ We call the method **agentic fuzzing**.
 
 The rest of this post is the technical explainer: why sequences are the problem, how the search works, what the engine owns, what we have proven so far, and what we have not.
 
-## Why sequences, not lines
+## Overview: what agentic fuzzing means
 
 A fuzzer treats a contract as a state machine and asks whether any reachable state breaks a rule that should always hold. The hard part has never been the execution. It is the setup: someone has to model the protocol, write the rules, and script every actor. For a stateful invariant fuzzer that is days of expert time per contract, and the handlers go stale the moment the contract changes.
 
@@ -30,8 +30,6 @@ The space is also larger than it looks. Take one lending pool generated in Arc S
 ::fuzzer-count::
 
 Linters and AI code review read lines and never execute anything. Invariant fuzzers execute sequences but need a human to write what the protocol should do. The gap is a tool that understands the protocol from source, searches ordered multi-actor sequences against real chain state, and needs no handler code to start.
-
-## What agentic fuzzing means
 
 **Agentic fuzzing** is stateful fuzzing where an AI agent writes the threat model, the rules and the actions, and deterministic code on a held chain fork decides what counts as a finding. The model proposes; it is never the judge.
 
@@ -55,7 +53,7 @@ Three roles share that tree.
 
 ::fuzzer-jobs::
 
-## Why the trace matters: the loop as tool calls
+### The loops that traverse attack possibilities
 
 A campaign is `arc_fuzz_start`, then `sim_replay_traces` and `arc_fuzz_round` alternating, then `arc_fuzz_report`. The trace is the audit log. Anyone reading it can see which sequences actually ran, which reverted, and which were only ideas.
 
@@ -87,24 +85,13 @@ Figure 5. The verified-finding card and the hand-off. The agent explains the fin
 
 The screens above are from the preview build, as a fixture walkthrough of the interface on the mock vault. The verified run's own figures are in the next section.
 
-## Evidence: the UnsafeVault run
+### Example: the UnsafeVault run
 
 The product's whole claim is that findings are evidence and nothing else, so here is the one verified finding we have, with its limits. The agent wrote the rule and the actors. The engine found the shortest sequence that breaks it. The fork replayed it twice before anything was reported.
 
 ::fuzzer-evidence::
 
 **How to read a report.** It is a bounded search. When nothing breaks, the report says which rules held within budget and which surfaces were not reached. Ideas the agent did not run are labelled as hypotheses. It never calls a contract safe, and nothing here presents the test-contract run as a customer finding or a mainnet finding.
-
-## Where agentic fuzzing sits
-
-| Capability                              | Linters     | AI code review | Invariant fuzzers               | Agentic Fuzzer                     |
-| --------------------------------------- | ----------- | -------------- | ------------------------------- | ---------------------------------- |
-| Understands what the protocol should do | No          | Yes            | Needs a human to write it       | Yes, from source                   |
-| Executes against real chain state       | No          | No             | Local or forked, set up by hand | Held Arc fork per campaign         |
-| Multi-actor, ordered sequences          | No          | No             | Yes                             | Yes, roles chosen by the agent     |
-| Findings proven by replay               | No          | No             | Yes                             | Minimized, replayed twice          |
-| Setup per contract                      | None        | None           | Days of handlers and properties | None: connect Arc Studio           |
-| Closes the loop with the builder        | Report only | Suggestions    | Report only                     | Drafts the fix; write-back planned |
 
 ## Built on the Aomi harness
 
@@ -118,7 +105,7 @@ Figure 6. Three owners on one runtime. The builder's Arc Studio account is the o
 
 The pairing agentic fuzzing depends on, a model that proposes next to deterministic code on a held fork, is the pairing Aomi runs in production every day.
 
-## Scope, safeguards and dual use
+## Facts, scope, and capabilities
 
 An agentic fuzzer produces concrete exploit sequences. That is the point, and it is why the product rests on three facts: where targets come from, where sequences run, and who may call something a bug.
 
@@ -127,6 +114,19 @@ An agentic fuzzer produces concrete exploit sequences. That is the point, and it
 The Arc Studio token is verified with Arc Studio, then kept only in an encrypted, httpOnly cookie on the preview site for seven days, and is revocable from Arc Studio at any time. Campaign state and findings live on Aomi's staging backend under the account that ran the campaign. Models are chosen per campaign from Aomi's catalog; the production default is a Claude model, and provider data terms apply per model.
 
 **On dual use.** An agentic fuzzer is an automated attacker. We keep it useful to defenders and useless to anyone else the same way the rest of Aomi does: it acts only on a copy of chain state, has no path to a signature, takes targets only from the account that owns them, and leaves every drafted fix in a human's hands. The planned audit log and human-review step are how we expect to meet security programs' partner requirements.
+
+### Where agentic fuzzing sits
+
+Against the tools builders already run, agentic fuzzing is the one place where protocol understanding, real chain state, multi-actor sequences and replay proof meet.
+
+| Capability                              | Linters     | AI code review | Invariant fuzzers               | Agentic Fuzzer                     |
+| --------------------------------------- | ----------- | -------------- | ------------------------------- | ---------------------------------- |
+| Understands what the protocol should do | No          | Yes            | Needs a human to write it       | Yes, from source                   |
+| Executes against real chain state       | No          | No             | Local or forked, set up by hand | Held Arc fork per campaign         |
+| Multi-actor, ordered sequences          | No          | No             | Yes                             | Yes, roles chosen by the agent     |
+| Findings proven by replay               | No          | No             | Yes                             | Minimized, replayed twice          |
+| Setup per contract                      | None        | None           | Days of handlers and properties | None: connect Arc Studio           |
+| Closes the loop with the builder        | Report only | Suggestions    | Report only                     | Drafts the fix; write-back planned |
 
 ## What's next
 
