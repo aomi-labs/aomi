@@ -6,32 +6,31 @@ import {
   authorize as decide,
   capabilitiesOf,
   type Capability,
-  type Need,
+  type Need as PolicyNeed,
 } from "@aomi-labs/account/policy";
 import { PrincipalError, type Principal } from "./principal";
 
-export type { Capability, Need };
+export type { Capability };
+
+/** Portal retains session capabilities; OAuth resources are served by Edge. */
+export type Need = Extract<PolicyNeed, { capability: Capability }>;
 
 export function capabilities(
-  principal: Exclude<Principal, { kind: "none" | "oauth" }>,
+  principal: Exclude<Principal, { kind: "none" }>,
 ): readonly Capability[] {
   return capabilitiesOf(principal.kind, principal.guest);
 }
 
-export function policyFor(resource: string): AomiOAuthResourcePolicy {
+function policyFor(resource: string): AomiOAuthResourcePolicy {
   const policy = aomiOAuthResourcePolicy(resource);
   if (!policy) throw new Error(`unknown protected resource ${resource}`);
   return policy;
 }
 
-/**
- * The one permission check, from `@aomi-labs/account/policy`. Returns the
- * scopes to mint for a protected resource (empty for capability routes), or
- * throws a PrincipalError.
- */
-export function authorize(principal: Principal, need: Need): string[] {
+/** Enforce the shared account policy for Portal's session-only routes. */
+export function authorize(principal: Principal, need: Need): void {
   const result = decide(principal, need, policyFor);
-  if ("scopes" in result) return result.scopes;
-  const { status, code, requiredScopes } = result.denied;
-  throw new PrincipalError(status, code, requiredScopes);
+  if ("scopes" in result) return;
+  const { status, code } = result.denied;
+  throw new PrincipalError(status, code);
 }
