@@ -4,15 +4,15 @@ import { TASK_BUILD_PATH } from "../routing/routes";
 
 /**
  * The Task discovery challenge: the API Server's own body-bound 402 for its
- * published example request, fetched once per validity window and served to
+ * published example request, cached for its validity window and served to
  * venue probes that cannot or will not send a body (GET, HEAD, an empty POST).
  *
  * Two rules, both tested:
  * - the Worker never invents a `Payment-Required`; it relays the one the
  *   payment service signed, and the body the venue would have to POST is in
  *   the response, so a payer who retries buys exactly that preparation;
- * - the upstream is asked at most once per window per origin, so crawler
- *   traffic does not become `quoted` attempt rows in the payment ledger.
+ * - cache hits reuse a quote rather than creating another ledger attempt;
+ *   concurrent misses and different isolates can still create extra quotes.
  */
 export type DiscoveryChallenge = {
   /** The upstream `Payment-Required` header, byte for byte. */
