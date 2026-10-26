@@ -19,8 +19,8 @@ venue-specific URL.
   - A venue's `Authorization`, cookies and router headers never reach the API
     Server (`TASK_UPSTREAM_HEADERS`).
   - `GET`, `HEAD` and an empty `POST` on `/v1/task/build` answer the API
-    Server's own body-bound 402 for its example request, fetched once per
-    validity window and cached (`EDGE_CACHE` KV, in-isolate fallback).
+    Server's own body-bound 402 for its example request, cached within its
+    validity window (`EDGE_CACHE` KV, in-isolate fallback).
   - A `text/plain` body that is JSON is relabelled `application/json`; the
     bytes are untouched so a `Payment-Signature` retry stays bound to them.
 - `src/identity.ts`: the edge as an `AomiService` over
@@ -67,12 +67,30 @@ deleted in one PR; until then both serve the same requests the same way.
 
 ## Running
 
+The example below uses local backend bindings. `dev:staging` selects the
+Wrangler environment; the copied variables still point at localhost.
+
 ```sh
 pnpm --filter aomi-edge test        # vitest, no network
 pnpm --filter aomi-edge typecheck
 cp apps/edge/.dev.vars.example apps/edge/.dev.vars
 pnpm --filter aomi-edge dev:staging
 ```
+
+To test staging origins, use an ignored `apps/edge/.dev.vars.staging` with
+the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+`EDGE_TOPOLOGY=staging` and the matching staging service private key. Obtain
+origins from the staging inventory and credentials from its secret store.
+
+Each hosted-app availability probe has a 1.5-second deadline. A timed-out
+origin is unavailable for that attempt, so healthy pool members can serve
+the request; configured warm-up retries retain their existing limit.
+
+Discovery-cache follow-up: coalesce concurrent misses per origin within an
+isolate, test that a burst creates one quote and that failure releases the
+pending entry. Cache hits already reuse quotes, but concurrent misses and
+different isolates can currently create extra quote rows. This is an
+efficiency follow-up, not a payment execution path.
 
 ## Deploying
 

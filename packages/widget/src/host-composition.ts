@@ -153,3 +153,8 @@ export const skillIconSources: typeof iconSources = iconSources;
 export const CURATED_APP_IDS: typeof curatedAppIds = curatedAppIds;
 /** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
 export const resolveAppIdentity: typeof appIdentity = appIdentity;
+
+export { AccountMenu, type AccountMenuProps } from "./account/account-menu";
+export { AccountAvatar } from "./account/account-avatar";
+export { CreditCheckoutDialog } from "./account/usage/credits/credit-checkout-dialog";
+export { WidgetScope } from "./ui/widget-scope";

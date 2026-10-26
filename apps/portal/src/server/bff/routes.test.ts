@@ -163,6 +163,9 @@ vi.mock("@better-auth/oauth-provider/resource-client", () => ({
           requiredScopes: string[];
         },
       ) => {
+        expect(new URL(request.url).origin).toBe(
+          new URL(options.verifyOptions.audience).origin,
+        );
         const claims = claimsFor(bearerToken(request) ?? "");
         if (!claims || claims.aud !== options.verifyOptions.audience)
           throw Object.assign(new Error("bad token"), { status: 401 });
@@ -340,16 +343,19 @@ const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "invalid widget session": allStatus(401),
   "OAuth user": {
     ...allStatus(401),
+    "/api chat": [200, user],
     "/api commit": [200, user],
     "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
   },
   "OAuth user, DPoP": {
     ...allStatus(401),
+    "/api chat": [200, user],
     "/api commit": [200, user],
     "/v1/agent": [200, user, "user", "agent:write custody:delegate"],
   },
   "OAuth guest": {
     ...allStatus(401),
+    "/api chat": [200, "acct-guest"],
     "/api commit": [200, "acct-guest"],
     "/v1/agent": [200, "acct-guest", "guest", "agent:write"],
   },
@@ -685,11 +691,16 @@ describe("CORS per family", () => {
       request("/v1/agent/chat", {
         method: "OPTIONS",
         origin: PARTNER,
-        headers: { "access-control-request-headers": "authorization,content-type,x-aomi-run-budget-microusd" },
+        headers: {
+          "access-control-request-headers":
+            "authorization,content-type,x-aomi-run-budget-microusd",
+        },
       }),
     );
     expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("x-aomi-run-budget-microusd");
+    expect(
+      response.headers.get("access-control-allow-headers")?.toLowerCase(),
+    ).toContain("x-aomi-run-budget-microusd");
   });
 
   it("echoes the widget origin on responses and on readable auth errors", async () => {
@@ -1166,5 +1177,37 @@ describe("simulation world setup", () => {
     );
     expect(read.status).toBe(404);
     expect(upstreamCalls()).toHaveLength(0);
+  });
+});
+
+describe("OAuth Fuzzer setup", () => {
+  it.each(["/api/thread/model", "/api/thread/sim/world"])(
+    "requires Agent write for %s",
+    async (path) => {
+      TOKENS["oauth.readonly.jwt"] = {
+        sub: "user",
+        class: "user",
+        scope: "agent:read",
+        aud: `${PORTAL}/v1/agent`,
+      };
+      const response = await routes.backend.POST(
+        request(path, {
+          method: "POST",
+          headers: { authorization: "DPoP oauth.readonly.jwt", dpop: "proof" },
+        }),
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
+      delete TOKENS["oauth.readonly.jwt"];
+    },
+  );
+  it("does not grant OAuth access to unrelated backend controls", async () => {
+    const response = await routes.backend.POST(
+      request("/api/exec/simulate", {
+        method: "POST",
+        headers: { authorization: "DPoP oauth.user.jwt", dpop: "proof" },
+      }),
+    );
+    expect(response.status).toBe(401);
   });
 });

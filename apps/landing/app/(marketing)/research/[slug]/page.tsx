@@ -7,10 +7,12 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   getResearchPost,
+  postHref,
   readResearchPost,
   researchPosts,
 } from "@/lib/research";
 import styles from "../../longform.module.css";
+import { AgenticFuzzerResearchBody } from "./agentic-fuzzer-research";
 import { ExecutionHarnessesResearch } from "./execution-harnesses-research";
 import { TaskApiResearchBody } from "./task-api-research";
 import { ThreeGatesResearch } from "./three-gates-research";
@@ -144,19 +146,21 @@ export async function generateMetadata({
     };
   }
 
+  const title = `${post.title} | ${post.research ? "Aomi Labs Research" : "Aomi Blog"}`;
+
   return {
-    title: `${post.title} | Aomi Labs Research`,
+    title,
     description: post.subtitle,
     openGraph: {
-      title: `${post.title} | Aomi Labs Research`,
+      title,
       description: post.subtitle,
       type: "article",
       publishedTime: post.isoDate,
-      url: `/research/${post.slug}`,
+      url: postHref(post),
     },
     twitter: {
       card: "summary_large_image",
-      title: `${post.title} | Aomi Labs Research`,
+      title,
       description: post.subtitle,
     },
   };
@@ -228,6 +232,11 @@ export default async function ResearchPostPage({
         <article className={articleClassName}>
           {post.slug === "introducing-the-aomi-task-api" ? (
             <TaskApiResearchBody body={post.body} components={components} />
+          ) : post.slug === "agentic-fuzzer" ? (
+            <AgenticFuzzerResearchBody
+              body={post.body}
+              components={components}
+            />
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
               {post.body}

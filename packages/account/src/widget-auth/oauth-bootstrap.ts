@@ -54,6 +54,23 @@ export async function issueWidgetOAuthBootstrapTicket(input: {
   return { ticket, expiresAt: Math.floor(expiresAt.getTime() / 1000) };
 }
 
+/** Preview does not consume the ticket; redemption remains atomic. */
+export async function readWidgetOAuthBootstrapTicket(input: {
+  ticket: string;
+  now?: Date;
+  store?: WidgetAuthStore;
+}): Promise<Extract<
+  WidgetAuthTicket,
+  { kind: "widget_oauth_bootstrap" }
+> | null> {
+  if (!input.ticket.startsWith(TICKET_PREFIX)) return null;
+  const ticket = await (input.store ?? widgetAuthStore).read({
+    identifier: ticketIdentifier(input.ticket),
+    now: input.now ?? new Date(),
+  });
+  return ticket?.kind === "widget_oauth_bootstrap" ? ticket : null;
+}
+
 export async function consumeWidgetOAuthBootstrapTicket(input: {
   ticket: string;
   now?: Date;

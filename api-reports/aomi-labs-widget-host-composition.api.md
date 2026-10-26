@@ -4,6 +4,7 @@
 
 ```ts
 
+import { AccountCreditsTransport } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
@@ -33,6 +34,40 @@ import type { WalletEip712Payload } from '@aomi-labs/react';
 import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
 import type { WalletSolanaSignPayload } from '@aomi-labs/react';
 import type { WalletTxPayload } from '@aomi-labs/react';
+
+// @public
+export function AccountAvatar(input: AccountAvatarProps): JSX.Element;
+
+// @public (undocumented)
+export function AccountMenu(input: AccountMenuProps): JSX.Element | null;
+
+// @public (undocumented)
+export type AccountMenuProps = {
+    open: boolean;
+    placement?: "above" | "below";
+    accountLabel?: string;
+    accountId?: string;
+    address?: string;
+    walletLabel?: string;
+    allowanceLine?: string;
+    planLabel?: string;
+    allowanceLoading?: boolean;
+    noticeLine?: string;
+    themeLabel?: string;
+    rows?: readonly WalletRow[];
+    unlinked?: WalletRow;
+    onClose: () => void;
+    onManageAccount?: () => void;
+    onToggleTheme?: () => void;
+    onOpenSettings?: () => void;
+    settingsLabel?: string;
+    onSignIn?: () => void;
+    onActivateWallet?: (key: string) => Promise<ActivateResult>;
+    onAddWallet?: () => void;
+    onVerify?: () => void;
+    onSignOut: () => void;
+    onDisconnect: () => void;
+};
 
 // @public @deprecated (undocumented)
 export function accountScopedFetch<T>(path: string, options?: RequestInit): Promise<T>;
@@ -307,6 +342,15 @@ export function Chip(input: {
 
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">, terms?: Parameters<typeof createEvmPaymentClient>[1]): ReturnType<typeof createEvmPaymentClient> | undefined;
+
+// @public (undocumented)
+export function CreditCheckoutDialog(input: {
+    credits?: AccountCreditsTransport;
+    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
+    open: boolean;
+    onClose: () => void;
+    onSuccess: () => Promise<void>;
+}): JSX.Element;
 
 // @public @deprecated (undocumented)
 export const CURATED_APP_IDS: typeof CURATED_APP_IDS_2;
@@ -681,6 +725,12 @@ export interface WalletPolicy {
 export const WalletSignInOptionsContext: Context<readonly (AomiWalletOption & {
 connect: () => Promise<void>;
 })[]>;
+
+// @public
+export function WidgetScope(input: {
+    children: ReactNode;
+    className?: string;
+}): JSX.Element;
 
 // (No @packageDocumentation comment for this package)
 
