@@ -146,8 +146,13 @@ export function createAomiOAuthGrantManager(input: {
     const key = grantKey(grant);
     let pending = pendingRefresh.get(key);
     if (!pending) {
+      // Refresh renews the whole grant, never just the slice this request
+      // needs: the token endpoint reissues the refresh token with the
+      // requested scopes, so a narrower request would permanently drop the
+      // grant's other scopes (a balance read would strip checkout's
+      // account:credits:fund and offline_access).
       pending = input
-        .refresh(copyGrant(grant), request)
+        .refresh(copyGrant(grant), { ...request, scopes: [...grant.scopes] })
         .then(async (refreshed) => {
           assertGrantContext(refreshed, issuer, input.clientId, input.subject);
           if (
@@ -230,9 +235,12 @@ export function createOAuthTokenProvider(input: {
       return current;
     }
     if (!current || !matches) return null;
-    pending ??= input.refresh(current, request).finally(() => {
-      pending = null;
-    });
+    // Renew the whole token set; see the grant manager above.
+    pending ??= input
+      .refresh(current, { ...request, scopes: [...current.scopes] })
+      .finally(() => {
+        pending = null;
+      });
     current = await pending;
     return current;
   };

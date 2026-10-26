@@ -2,6 +2,19 @@
 
 ## Last Updated
 
+2026-10-26 — OAUTH REFRESH KEEPS THE WHOLE GRANT; CHECKOUT RECONNECT (branch
+  `claude/refresh-keeps-grant-scopes`). `createAomiOAuthGrantManager` and
+  `createOAuthTokenProvider` now refresh with the grant's full scope set.
+  Before, a refresh triggered by a narrow request (Fuzzer's balance read,
+  `account:credits:read`) asked Better Auth for only that scope; Better Auth
+  reissues both the access and refresh token with exactly the requested
+  scopes, so the stored `/v1/account` grant lost `account:credits:fund`,
+  `payments:submit` and `offline_access` and checkout failed locally with
+  "Sign in to Aomi again". `CreditCheckoutDialog` takes `reconnect`; a 401 or
+  `reauthorization_required` error blocks payment behind Reconnect Aomi and
+  resumes with the same amount, method and idempotency key.
+  Pending: publish client/widget, bump Fuzzer, deployed sandbox card run.
+
 2026-10-23 — EMPTY PACKAGE STUBS REMOVED.
   Deleted untracked `packages/service` (stale `node_modules` only) and empty
   `apps/registry`. Neither had a `package.json` or any imports. `specs/METADATA.md`

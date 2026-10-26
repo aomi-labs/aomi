@@ -18,6 +18,7 @@ import type { WalletTxPayload } from '@aomi-labs/react';
 // @public (undocumented)
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
+    reconnect?: () => Promise<void>;
     wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
     open: boolean;
     onClose: () => void;

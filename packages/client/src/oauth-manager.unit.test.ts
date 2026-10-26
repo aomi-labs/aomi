@@ -54,6 +54,64 @@ describe("Aomi OAuth grant manager", () => {
     ]);
   });
 
+  it("refreshes the whole grant so a narrow request keeps its other scopes", async () => {
+    const accountResource = "https://portal.example/v1/account" as const;
+    const scopes = [
+      "account:credits:read",
+      "account:credits:fund",
+      "payments:submit",
+      "offline_access",
+    ];
+    // Better Auth reissues exactly the scopes a refresh asks for.
+    const refresh = vi.fn(
+      async (
+        current: AomiOAuthGrant,
+        request: { scopes: readonly string[] },
+      ) => ({
+        ...current,
+        accessToken: `${current.accessToken}-fresh`,
+        expiresAt: 100_000,
+        scopes: [...request.scopes],
+      }),
+    );
+    let now = 1;
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      initial: [
+        {
+          issuer,
+          clientId,
+          accessToken: "account",
+          refreshToken: "account-refresh",
+          expiresAt: 0,
+          resource: accountResource,
+          scopes,
+        },
+      ],
+      refresh,
+      now: () => now,
+    });
+    // The balance read lands on an expired token first.
+    const read = await manager.tokenProvider({
+      resource: accountResource,
+      scopes: ["account:credits:read"],
+    });
+    expect(read?.accessToken).toBe("account-fresh");
+    expect(refresh.mock.calls[0]![1].scopes).toEqual(scopes);
+    // Checkout must still be covered by the same grant afterwards.
+    now = 2;
+    const fund = await manager.tokenProvider({
+      resource: accountResource,
+      scopes: ["account:credits:fund"],
+      forceRefresh: true,
+    });
+    expect(fund?.scopes).toEqual(scopes);
+    expect((await manager.grants()).map((item) => item.scopes)).toEqual([
+      scopes,
+    ]);
+  });
+
   it("removes invalid grants and rejects refresh scope expansion", async () => {
     const manager = createAomiOAuthGrantManager({
       issuer,
