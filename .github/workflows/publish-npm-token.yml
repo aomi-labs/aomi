@@ -71,6 +71,14 @@ jobs:
           NPM_CONFIG_PROVENANCE: "true"
         run: |
           node scripts/publish-package-if-needed.mjs packages/client
+          # Account depends on ServiceIdentity. Older frozen candidates can
+          # predate either package's public release, so inspect their manifests.
+          for package_directory in packages/service-identity packages/account; do
+            if [[ -f "$package_directory/package.json" ]] &&
+              node -e 'process.exit(require("./" + process.argv[1] + "/package.json").private ? 1 : 0)' "$package_directory"; then
+              node scripts/publish-package-if-needed.mjs "$package_directory"
+            fi
+          done
           if [[ -f packages/cli/package.json ]]; then
             node scripts/publish-package-if-needed.mjs packages/cli
           fi

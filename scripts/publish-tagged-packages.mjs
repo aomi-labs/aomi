@@ -38,6 +38,7 @@ if (
 for (const directory of [
   "packages/client",
   "packages/react",
+  "packages/service-identity",
   "packages/account",
   "packages/deploy",
   "packages/cli",

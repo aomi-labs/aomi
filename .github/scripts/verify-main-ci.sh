@@ -45,6 +45,7 @@ git merge-base --is-ancestor "$CANDIDATE_SHA" origin/main || {
 PUBLISHABLE_PATHS=(
   packages/client
   packages/react
+  packages/service-identity
   packages/account
   packages/deploy
   packages/cli
