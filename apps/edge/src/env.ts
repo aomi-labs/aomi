@@ -9,7 +9,7 @@ export interface EdgeCache {
   delete(key: string): Promise<void>;
 }
 
-export type EdgeTopologyName = "default" | "staging" | "production";
+export type EdgeTopologyName = "default" | "staging" | "rc" | "production";
 
 /**
  * Worker bindings. Origins are injected at deploy time (see scripts/deploy.mjs);

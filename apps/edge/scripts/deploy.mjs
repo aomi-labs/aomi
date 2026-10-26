@@ -10,8 +10,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function resolveDeployEnvironment(target) {
-  if (target === "staging" || target === "production") return target;
-  throw new Error("Usage: node scripts/deploy.mjs <staging|production>");
+  if (target === "staging" || target === "rc" || target === "production") return target;
+  throw new Error("Usage: node scripts/deploy.mjs <staging|rc|production>");
 }
 
 function requireOrigins(name, env) {
