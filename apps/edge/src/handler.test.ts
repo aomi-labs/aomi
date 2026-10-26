@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EdgeCache, EdgeEnv } from "./env";
 import { handleRequest } from "./handler";
@@ -271,6 +271,40 @@ describe("multi-origin load balancing", () => {
     expect(onlyAvailableHere).not.toBe(staticHome);
     expect([...probes].sort()).toEqual([...ORIGINS].sort());
     expect(origins).toEqual([onlyAvailableHere]);
+  });
+
+  it("abandons a hung availability probe and serves from a healthy origin", async () => {
+    vi.useFakeTimers();
+    try {
+      const forwarded: string[] = [];
+      let aborted = false;
+      const pending = handleRequest(
+        new Request("https://api.aomi.dev/api/thread/state?application_id=42"),
+        multiEnv,
+        async (request) => {
+          const url = new URL(request.url);
+          if (url.pathname === "/availability") {
+            if (url.origin === ORIGINS[0]) return new Promise<Response>((_resolve, reject) => {
+              request.signal.addEventListener("abort", () => {
+                aborted = true;
+                reject(new Error("probe aborted"));
+              }, { once: true });
+            });
+            return new Response(null, { status: url.origin === ORIGINS[1] ? 200 : 404 });
+          }
+          forwarded.push(url.origin);
+          return new Response("healthy");
+        },
+      );
+      await vi.advanceTimersByTimeAsync(1_499);
+      expect(forwarded).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect((await pending).status).toBe(200);
+      expect(aborted).toBe(true);
+      expect(forwarded).toEqual([ORIGINS[1]]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("waits for a cold hosted app to materialize", async () => {

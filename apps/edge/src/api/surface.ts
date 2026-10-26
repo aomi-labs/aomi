@@ -29,12 +29,17 @@ async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl
       route.targets.map(async (url) => {
         // A dedicated probe, not /health: liveness stays a process-level signal.
         const probe = target(url.origin, "/availability", `?application_id=${encodeURIComponent(route.appId!)}`);
+        // Placement must not wait indefinitely for a hung pool member.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1_500);
         try {
-          const response = await fetchImpl(new Request(probe), { cache: "no-store" });
+          const response = await fetchImpl(new Request(probe, { signal: controller.signal }), { cache: "no-store" });
           void response.body?.cancel();
           return response.ok;
         } catch {
           return false;
+        } finally {
+          clearTimeout(timeout);
         }
       }),
     );
