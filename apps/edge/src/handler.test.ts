@@ -14,7 +14,9 @@ import agentTestnet from "./api/task/fixtures/agent.testnet.json?raw";
 import metadataTestnet from "./api/task/fixtures/build-metadata.testnet.json?raw";
 import canonicalOpenapi from "./api/task/fixtures/canonical-openapi.json?raw";
 import openapiTestnet from "./api/task/fixtures/openapi.testnet.json?raw";
+import preparationTestnet from "./api/task/fixtures/challenge.preparation.testnet.b64?raw";
 import x402Testnet from "./api/task/fixtures/well-known-x402.testnet.json?raw";
+import { sortedJson } from "./api/task/json";
 import { resetTermsCache } from "./api/task/terms";
 import { terms as taskTerms } from "./api/task/test-terms";
 
@@ -765,6 +767,44 @@ describe("Task venue adapters", () => {
     // Only the probe reached the upstream; the empty venue POST never did.
     expect(log.map((request) => request.method)).toEqual(["POST"]);
     expect(bodyOf.get(log[0])).toBe(JSON.stringify(EXAMPLE));
+  });
+
+  it("lists a preparation 402 on Bazaar in the header and the body's copy", async () => {
+    // Payment once it no longer lists itself: the same challenge minus `bazaar`.
+    const decoded = JSON.parse(atob(preparationTestnet)) as { extensions: Record<string, unknown> };
+    delete decoded.extensions.bazaar;
+    const unlisted = btoa(sortedJson(decoded));
+    const body = { ...CHALLENGE_BODY, paymentRequired: unlisted };
+    const upstream: FetchLike = async (request) =>
+      paymentTerms(request) ?? Response.json(body, { status: 402, headers: { "Payment-Required": unlisted } });
+    const paid = await handleRequest(
+      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(EXAMPLE) }),
+      env,
+      upstream,
+    );
+    expect(paid.status).toBe(402);
+    expect(paid.headers.get("Payment-Required")).toBe(preparationTestnet);
+    expect(await paid.text()).toBe(JSON.stringify({ ...CHALLENGE_BODY, paymentRequired: preparationTestnet }));
+
+    const probe = await handleRequest(new Request(url), env, upstream);
+    expect(probe.headers.get("Payment-Required")).toBe(preparationTestnet);
+    expect(((await probe.json()) as Record<string, unknown>).paymentRequired).toBe(preparationTestnet);
+  });
+
+  it("answers an unlabelled empty POST with the API Server's 422 when no challenge can be had", async () => {
+    const failing: FetchLike = async (request) => paymentTerms(request) ?? new Response("{}", { status: 500 });
+    const response = await handleRequest(new Request(url, { method: "POST" }), env, failing);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toBe('{"error":{"code":"invalid_request","message":"request body is required"}}');
+    const log: Request[] = [];
+    const labelled = await handleRequest(
+      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" } }),
+      env,
+      async (request) => paymentTerms(request) ?? (log.push(request), new Response("{}", { status: 500 })),
+    );
+    expect(labelled.status, "a labelled empty POST is the upstream's to answer").toBe(500);
+    expect(log.at(-1)?.method).toBe("POST");
   });
 
   it("relabels a text/plain JSON body as application/json with the same bytes", async () => {

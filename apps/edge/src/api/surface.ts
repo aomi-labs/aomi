@@ -12,6 +12,7 @@ import { routingKeyFor } from "../kernel/pool";
 import { proxy, target, type FetchLike } from "../kernel/proxy";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
 import { adaptTaskBuild, taskDocument } from "./task";
+import { listOnBazaar } from "./task/bazaar";
 
 export type WaitLike = (delayMs: number) => Promise<unknown>;
 export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -95,6 +96,7 @@ export async function handleApiRequest(
       headers: route.headers,
       forwarded: true,
     });
+    if (taskBuild) response = await listOnBazaar(response);
   } catch (error) {
     response = errorResponse(error, { surface: "api", operation: route.name, request });
   }
