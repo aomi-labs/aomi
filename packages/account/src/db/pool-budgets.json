@@ -23,7 +23,7 @@
   },
   "rc": {
     "project_ref": "vdbazemhoakvbbcurjmb",
-    "session_client_limit": 39,
+    "session_client_limit": 49,
     "reserved_clients": 5,
     "services": {
       "backend": { "max_connections_per_instance": 6 },
