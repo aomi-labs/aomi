@@ -30,7 +30,8 @@ describePostgres("PostgreSQL OAuth client resource binding", () => {
          id text primary key,
          client_id text not null unique,
          token_endpoint_auth_method text,
-         grant_types jsonb
+         grant_types jsonb,
+         metadata jsonb
        )`,
     );
     await pool.query(
@@ -81,6 +82,42 @@ describePostgres("PostgreSQL OAuth client resource binding", () => {
     );
     expect(links.rows).toHaveLength(1);
     expect([agent, pipeline]).toContain(links.rows[0]?.resource_id);
+  });
+  it("honors managed resource registrations without creating new bindings", async () => {
+    const clientId = `fuzzer-${randomUUID()}`;
+    await pool.query(
+      `insert into ba_oauth_clients(id,client_id,token_endpoint_auth_method,grant_types,metadata)
+       values($1,$2,'none','["authorization_code","refresh_token"]','{"aomi_client_class":"partner_widget"}')`,
+      [randomUUID(), clientId],
+    );
+    await expect(bind({ clientId, resource: agent, db: pool })).resolves.toBe(
+      "resource_conflict",
+    );
+    for (const resource of [agent, pipeline]) {
+      await pool.query(
+        `insert into ba_oauth_client_resources(id,client_id,resource_id) values($1,$2,$3)`,
+        [randomUUID(), clientId, resource],
+      );
+    }
+    expect(
+      await Promise.all(
+        [agent, pipeline].map((resource) =>
+          bind({ clientId, resource, db: pool }),
+        ),
+      ),
+    ).toEqual(["already_bound", "already_bound"]);
+    await expect(
+      bind({
+        clientId,
+        resource: "https://portal.example/v1/account",
+        db: pool,
+      }),
+    ).resolves.toBe("resource_conflict");
+    const links = await pool.query(
+      "select resource_id from ba_oauth_client_resources where client_id=$1",
+      [clientId],
+    );
+    expect(links.rows).toHaveLength(2);
   });
 });
 

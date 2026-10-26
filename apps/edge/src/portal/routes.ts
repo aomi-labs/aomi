@@ -27,7 +27,12 @@ import {
   sessionScopesOn,
   type Need,
 } from "./policy";
-import { PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import {
+  isOAuthCredential,
+  PrincipalError,
+  resolvePrincipal,
+  type Principal,
+} from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
@@ -369,6 +374,13 @@ const commit = (request: Request, ctx: PortalContext): Need => ({
   scopes: [request.method === "GET" ? "agent:read" : "agent:actions:resolve"],
 });
 const chat: Need = { capability: "chat", anonymous: true };
+/** An OAuth client (the fuzzer) needs Agent write to change a thread's model or world. */
+const threadWrite =
+  (fallback: Need = chat) =>
+  (request: Request, ctx: PortalContext): Need =>
+    isOAuthCredential(request)
+      ? { resource: ctx.resources.agentRest, scopes: ["agent:write"] }
+      : fallback;
 
 /** The Rust /api routes the portal forwards. Anything else is a 404. */
 export const BACKEND_ROUTES: readonly BackendRoute[] = [
@@ -397,8 +409,8 @@ export const BACKEND_ROUTES: readonly BackendRoute[] = [
   { path: /^\/api\/thread\/apps$/, methods: ["GET"], need: chat },
   { path: /^\/api\/thread\/models$/, methods: ["GET"], need: "public" },
   { path: /^\/api\/resource\/skills(?:\/[^/]+)?$/, methods: ["GET"], need: chat },
-  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: chat },
-  { path: /^\/api\/thread\/sim\/world$/, methods: ["POST"], need: { capability: "chat" } },
+  { path: /^\/api\/thread\/model$/, methods: ["POST"], need: threadWrite() },
+  { path: /^\/api\/thread\/sim\/world$/, methods: ["POST"], need: threadWrite({ capability: "chat" }) },
   { path: /^\/api\/exec\/simulate$/, methods: ["POST"], need: chat },
   {
     path: /^\/api\/widget\/v1\/execution-profile$/,

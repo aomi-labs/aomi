@@ -36,6 +36,8 @@ export type AomiOAuthGrant = AomiOAuthTokenSet & {
   issuer: string;
   clientId: string;
   subject?: string;
+  /** Canonical account verified by the browser grant manager, never a wallet address. */
+  accountId?: string;
 };
 
 export type AomiOAuthGrantStore = {
@@ -193,7 +195,8 @@ export function createAomiOAuthGrantManager(input: {
       await persist();
     },
     async clear() {
-      await ready;
+      // Failed restoration must not prevent explicit local sign-out.
+      await ready.catch(() => {});
       grants = [];
       await persist();
     },

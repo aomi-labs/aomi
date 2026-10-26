@@ -26,6 +26,14 @@ async function handleAuth(request: Request) {
   const isBrowserGrantEndpoint = ["/oauth2/token", "/oauth2/revoke"].some(
     (suffix) => path.endsWith(suffix),
   );
+  if (isBrowserGrantEndpoint) {
+    // Next/proxies may expose an internal host. DPoP binds to the configured
+    // public endpoint, never an untrusted Host or X-Forwarded-Host header.
+    const publicUrl = new URL(aomiOAuthResources().portalOrigin);
+    publicUrl.pathname = path;
+    publicUrl.search = new URL(request.url).search;
+    request = new Request(publicUrl, request);
+  }
   const origin = request.headers.get("origin");
   const crossOrigin =
     origin !== null && origin !== aomiOAuthResources().portalOrigin;

@@ -8,6 +8,7 @@ import {
 type RegisteredClient = {
   authMethod: string;
   grants: unknown;
+  clientClass?: string;
 };
 
 class BindingDatabase implements ClientResourceBindingDatabase {
@@ -32,6 +33,7 @@ class BindingDatabase implements ClientResourceBindingDatabase {
                   {
                     token_endpoint_auth_method: client.authMethod,
                     grant_types: client.grants,
+                    client_class: client.clientClass,
                   },
                 ] as Row[])
               : ([] as Row[]),
@@ -135,5 +137,48 @@ describe("public OAuth client resource binding", () => {
       bindAomiPublicClientResource({ clientId: "mixed", resource: agent, db }),
     ).resolves.toBe("client_not_eligible");
     expect(db.resources.size).toBe(0);
+  });
+  it("allows each explicitly registered managed-widget resource without widening it", async () => {
+    const db = new BindingDatabase();
+    db.clients.set("fuzzer", {
+      authMethod: "none",
+      grants: ["authorization_code", "refresh_token"],
+      clientClass: "partner_widget",
+    });
+    db.resources.set("fuzzer", new Set([agent, pipeline]));
+    for (const resource of [agent, pipeline]) {
+      await expect(
+        bindAomiPublicClientResource({ clientId: "fuzzer", resource, db }),
+      ).resolves.toBe("already_bound");
+    }
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "fuzzer",
+        resource: "https://portal.example/v1/account",
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
+    expect([...db.resources.get("fuzzer")!]).toEqual([agent, pipeline]);
+    db.resources.delete("fuzzer");
+    await expect(
+      bindAomiPublicClientResource({ clientId: "fuzzer", resource: agent, db }),
+    ).resolves.toBe("resource_conflict");
+    expect(db.resources.has("fuzzer")).toBe(false);
+  });
+
+  it("does not allow multiple bindings for a dynamically registered client", async () => {
+    const db = new BindingDatabase();
+    db.clients.set("dynamic", {
+      authMethod: "none",
+      grants: ["authorization_code", "refresh_token"],
+    });
+    db.resources.set("dynamic", new Set([agent, pipeline]));
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "dynamic",
+        resource: agent,
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
   });
 });

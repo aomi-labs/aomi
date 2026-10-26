@@ -425,6 +425,36 @@ describe("portal surface: OAuth tokens", () => {
     expect(write.headers.get("www-authenticate")).toContain('scope="agent:write"');
   });
 
+  it("requires Agent write from an OAuth client changing a thread's model or world", async () => {
+    const json = { "content-type": "application/json" };
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    for (const path of ["/api/thread/model", "/api/thread/sim/world"]) {
+      const denied = await portal(path, {
+        method: "POST",
+        headers: { authorization: `Bearer ${readOnly}`, ...json },
+        body: "{}",
+      });
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("www-authenticate")).toContain('scope="agent:write"');
+    }
+    expect(seen).toHaveLength(0);
+    const write = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    const allowed = await portal("/api/thread/model", {
+      method: "POST",
+      headers: { authorization: `Bearer ${write}`, ...json },
+      body: "{}",
+    });
+    expect(allowed.status).toBe(200);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    // Other backend controls stay closed to OAuth clients.
+    const unrelated = await portal("/api/exec/simulate", {
+      method: "POST",
+      headers: { authorization: `Bearer ${write}`, ...json },
+      body: "{}",
+    });
+    expect(unrelated.status).toBe(401);
+  });
+
   it("holds guests to the resource's guest ceiling", async () => {
     const token = await oauthToken({
       sub: "guest",
