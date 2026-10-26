@@ -106,3 +106,8 @@ the Vercel alias.
 The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
 `BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays
 `https://<build host>/api/bff/auth/github/callback`, which the edge now answers.
+For a deployment with its own GitHub App, set the Worker var
+`BUILD_GITHUB_CLIENT_ID` to that App's OAuth client id and configure the matching
+credentials in Manager's second `[[apps]]` entry (app index 2). The client secret
+stays in Manager. Without this override, Build uses the staging or production App
+for its topology.

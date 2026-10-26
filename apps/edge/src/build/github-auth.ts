@@ -26,8 +26,8 @@ import {
   type GitHubSession,
 } from "./session";
 
-// One-shot App OAuth client ids (app index 2). Both the browser UI and CLI
-// login use this app so the backend exchange can resolve the Builder identity.
+// Default one-shot App OAuth client ids (app index 2). A deployment may use
+// its own app, whose matching credentials stay in Manager's index-2 config.
 const STAGING_CLIENT_ID = "Iv23lilgvJz13pJekLSZ";
 const PRODUCTION_CLIENT_ID = "Iv23li4wPpAfoGOJ6v0Q";
 const GITHUB_LOGIN_APP_INDEX = 2;
@@ -119,7 +119,10 @@ async function startGitHubOAuth(
 ): Promise<Response> {
   const oauthState = randomHex(32);
   const authorize = new URL("https://github.com/login/oauth/authorize");
-  authorize.searchParams.set("client_id", ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID);
+  authorize.searchParams.set(
+    "client_id",
+    ctx.env.BUILD_GITHUB_CLIENT_ID?.trim() || (ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID),
+  );
   authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
   authorize.searchParams.set("state", oauthState);
   const response = redirect(authorize);

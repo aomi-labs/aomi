@@ -144,6 +144,34 @@ describe("build surface: GitHub sign-in", () => {
     expect(wrong.headers.get("allow")).toBe("GET");
   });
 
+  it.each([
+    { topology: "default", clientId: "  Iv-local-builder  ", expected: "Iv-local-builder" },
+    { topology: "production", clientId: "Iv-local-builder", expected: "Iv-local-builder" },
+    { topology: "default", clientId: " \t ", expected: "Iv23lilgvJz13pJekLSZ" },
+    { topology: "production", clientId: undefined, expected: "Iv23li4wPpAfoGOJ6v0Q" },
+  ] as const)("selects the deployment OAuth client ($topology, $clientId)", async ({ topology, clientId, expected }) => {
+    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology, BUILD_GITHUB_CLIENT_ID: clientId };
+    const login = await handleRequest(new Request(`${BUILD}/api/bff/auth/github/login`), deployment, world);
+    const authorize = new URL(login.headers.get("location")!);
+    expect(authorize.searchParams.get("client_id")).toBe(expected);
+    expect(authorize.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/bff/auth/github/callback`);
+
+    // The client override selects the same index-2 Manager credentials; it
+    // never changes the app index or bypasses the signed OAuth continuation.
+    const state = authorize.searchParams.get("state")!;
+    const cookie = cookiesOf(login).aomi_github_oauth_request.value;
+    const response = await handleRequest(
+      new Request(`${BUILD}/api/bff/auth/github/callback?code=custom-app&state=${state}`, {
+        headers: { cookie: `aomi_github_oauth_request=${cookie}` },
+      }),
+      deployment,
+      world,
+    );
+    expect(response.headers.get("location")).toBe(`${BUILD}/operate/deployments?launch=github`);
+    expect(new URL(seen[0].url).searchParams.get("app")).toBe("2");
+    expect(cookiesOf(response).aomi_github).toBeDefined();
+  });
+
   it("exchanges the code as the aomi-edge service and sets the session cookies", async () => {
     const login = await build("/api/bff/auth/github/login");
     const oauthCookie = cookiesOf(login).aomi_github_oauth_request.value;
