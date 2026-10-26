@@ -33,7 +33,7 @@ export async function signInWithOAuthDevice(input: {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          // One name per machine: Settings shows its grants as one connection.
+          // Named per machine so Settings tells two machines apart.
           client_name: `Aomi CLI · ${hostname()}`,
           token_endpoint_auth_method: "none",
           grant_types: [DEVICE_GRANT, "refresh_token"],

@@ -157,6 +157,13 @@ describe("OAuth request policy", () => {
       mocks.registerAppMcpResource.mock.invocationCallOrder[0],
     ).toBeLessThan(mocks.bindClientResource.mock.invocationCallOrder.at(-1)!);
 
+    expect(mocks.bindClientResource).toHaveBeenLastCalledWith({
+      clientId: "codex",
+      resource: world,
+    });
+    mocks.registerAppMcpResource.mockResolvedValueOnce(true);
+    mocks.bindClientResource.mockResolvedValueOnce("resource_conflict");
+    await expectReject(authorize("https://portal.example/v1/apps/other/mcp"));
     mocks.registerAppMcpResource.mockResolvedValueOnce(false);
     await expectReject(authorize("https://portal.example/v1/apps/gone/mcp"));
     mocks.registerAppMcpResource.mockClear();
@@ -200,8 +207,10 @@ describe("OAuth request policy", () => {
     // An active app's MCP is registered, then accepted; an unknown one is not.
     const world = "https://portal.example/v1/apps/world/mcp";
     mocks.registerAppMcpResource.mockResolvedValueOnce(true);
-    await expectContinue(register(world));
+    // The resource is bound at first authorize, so registration forwards none.
+    const registered = await expectContinue(register(world));
     expect(mocks.registerAppMcpResource).toHaveBeenLastCalledWith(world);
+    await expect(registered.json()).resolves.not.toHaveProperty("resources");
     mocks.registerAppMcpResource.mockResolvedValueOnce(false);
     await expectReject(register("https://portal.example/v1/apps/gone/mcp"));
   });

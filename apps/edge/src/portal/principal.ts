@@ -53,6 +53,7 @@ export type PrincipalCode =
   | "invalid_token"
   | "invalid_widget_session"
   | "insufficient_scope"
+  | "portal_session_required"
   | "csrf_failed"
   | "unauthenticated";
 
@@ -88,14 +89,6 @@ function bearerToken(request: Request): string | null {
 
 export function hasWidgetSessionBearer(request: Request): boolean {
   return bearerToken(request)?.startsWith(WIDGET_TOKEN_PREFIX) ?? false;
-}
-
-/**
- * A signed-in, non-guest portal browser session: the only caller that may
- * create agent wallets, change how they sign, or link a platform account.
- */
-export function isPortalSession(principal: Principal): boolean {
-  return principal.kind === "cookie" && !principal.guest;
 }
 
 export function isOAuthCredential(request: Request): boolean {

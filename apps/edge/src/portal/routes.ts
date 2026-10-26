@@ -17,7 +17,6 @@ import {
 } from "@aomi-labs/account/policy";
 
 import { edgeService } from "../identity";
-import { TwoTierCache } from "../kernel/cache";
 import { config } from "../kernel/config";
 import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
 import { minted, unreachable } from "../kernel/errors";
@@ -28,7 +27,7 @@ import { isPublicCatalogKind, publicCatalog } from "./catalog";
 import { policyFor, type PortalContext } from "./context";
 import { portalError } from "./errors";
 import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
-import { isOAuthCredential, isPortalSession, PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import { isOAuthCredential, PrincipalError, resolvePrincipal, type Principal } from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
@@ -76,8 +75,6 @@ type Row = {
   challengeScopes?: readonly string[];
   /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
   approve?: true;
-  /** Calls one account may make per minute (after authorization), by path. */
-  perMinute?: (pathname: string) => number;
 };
 
 const chat = { capability: "chat", anonymous: true } as const;
@@ -216,11 +213,7 @@ export const ROUTES: readonly Row[] = [
   wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
   wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, { PUT: PORTAL_SESSION }),
   wallets(/^\/v1\/account\/connections\/[^/]+\/wallets$/, { PUT: PORTAL_SESSION }),
-  // The code goes in the body; a code is single-use, the budget bounds retries.
-  wallets(/^\/v1\/account\/link\/[a-z]+\/(?:preview|confirm|cancel)$/, { POST: PORTAL_SESSION }, {
-    operation: "account.link",
-    perMinute: (pathname) => (pathname.endsWith("/preview") ? 20 : 5),
-  }),
+  wallets(/^\/v1\/account\/link\/[a-z]+\/(?:preview|confirm|cancel)$/, { POST: PORTAL_SESSION }, { operation: "account.link" }),
   // Thread-less commits by ref: the same account authority and backend as
   // /api/commits, with the scopes api-server asks of OAuth clients.
   { ...commit, path: new RegExp(`^\\/v1\\/commits\\/${REF}$`), methods: { GET: "agent:read" } },
@@ -274,7 +267,7 @@ function resourceOf(row: Row, request: Request, resources: Resources): string | 
 /** The resolved need, or "public". */
 function needOf(row: Row, requirement: Requirement, request: Request, resource: string | undefined): Need | "public" {
   if (requirement === "public") return "public";
-  if (requirement === PORTAL_SESSION) return { capability: "account" };
+  if (requirement === PORTAL_SESSION) return { capability: "portal_session" };
   if (typeof requirement !== "string") {
     // Fuzzer setup accepts Agent grants; browser and widget sessions retain
     // their existing capability policy, including each route's guest access.
@@ -439,40 +432,8 @@ async function toScopedApi(
   });
 }
 
-const budgets = new TwoTierCache();
-
-/** Count one call against the row's per-account budget; false once this minute's is spent. */
-async function withinBudget(row: Row, request: Request, accountId: string, ctx: PortalContext): Promise<boolean> {
-  const { pathname } = new URL(request.url);
-  if (!row.perMinute) return true;
-  const now = ctx.now();
-  const key = `budget:v1:${row.operation}:${pathname.split("/").at(-1)}:${accountId}:${Math.floor(now / 60_000)}`;
-  const used = Number(await budgets.get(key, ctx.env.EDGE_CACHE, now)) || 0;
-  if (used >= row.perMinute(pathname)) return false;
-  await budgets.put(key, String(used + 1), 60, ctx.env.EDGE_CACHE, now);
-  return true;
-}
-
-/** Why an authorized caller is still refused on this row, or null. */
-async function refusal(
-  row: Row,
-  requirement: Requirement,
-  principal: Exclude<Principal, { kind: "none" }>,
-  request: Request,
-  ctx: PortalContext,
-): Promise<Response | null> {
-  if (requirement === PORTAL_SESSION && !isPortalSession(principal))
-    return Response.json({ error: "portal_session_required" }, { status: 403 });
-  if (row.approve && !mayApprove(principal))
-    return Response.json({ code: "commit_approval_forbidden", status: 403 }, { status: 403 });
-  if (!(await withinBudget(row, request, principal.accountId, ctx)))
-    return Response.json({ error: "rate_limited" }, { status: 429 });
-  return null;
-}
-
 async function serve(
   row: Row,
-  requirement: Requirement,
   need: Need | "public",
   resource: string | undefined,
   request: Request,
@@ -483,8 +444,8 @@ async function serve(
   const principal = await resolvePrincipal(request, need, ctx);
   if (row.to === "mcp" && principal.kind !== "oauth") throw new PrincipalError(401, "invalid_token");
   const scopes = authorize(principal, need, ctx);
-  const refused = principal.kind === "none" ? null : await refusal(row, requirement, principal, request, ctx);
-  if (refused) return refused;
+  if (row.approve && principal.kind !== "none" && !mayApprove(principal))
+    return Response.json({ code: "commit_approval_forbidden", status: 403 }, { status: 403 });
   const authMs = Date.now() - started;
   let response: Response;
   if (row.to === "backend") {
@@ -530,9 +491,11 @@ async function served(rows: readonly Row[], request: Request, ctx: PortalContext
   else if (resource === null) response = Response.json({ error: "app_not_found" }, { status: 404 });
   else
     try {
-      response = await serve(row, requirement, needOf(row, requirement, request, resource), resource, request, ctx);
+      response = await serve(row, needOf(row, requirement, request, resource), resource, request, ctx);
     } catch (error) {
-      const shape = resource && { resource, challengeScopes: row.challengeScopes, jsonRpc: row.to === "mcp" };
+      // A portal-only refusal is not an OAuth challenge.
+      const plain = error instanceof PrincipalError && error.code === "portal_session_required";
+      const shape = !plain && resource && { resource, challengeScopes: row.challengeScopes, jsonRpc: row.to === "mcp" };
       response = portalError(error, request, row.operation, shape || undefined, row.to === "mcp" ? "mcp_failed" : undefined);
     }
   return withCors(cors, request, response, cfg);
@@ -571,11 +534,6 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
         ? await publicCatalog(request, kind, origin, ctx.fetchImpl)
         : Response.json({ error: "catalog_unavailable" }, { status: 502 });
   return withCors(cors, request, response, cfg);
-}
-
-/** Tests run many calls for one account within a minute; drop the budgets between them. */
-export function resetBudgets(): void {
-  budgets.clear();
 }
 
 /** Serve one request on the portal surface. */

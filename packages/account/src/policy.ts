@@ -200,6 +200,7 @@ export type Capability =
   | "chat" // threads, turns, catalogs, simulations
   | "actions" // resolve staged actions and commits
   | "account" // own profile, identities, wallets, provider links, deactivation
+  | "portal_session" // signed-in portal cookie session only: agent-wallet writes, platform links, disconnects
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
   | "settings" // installed apps, app secrets, BYOK keys
@@ -232,7 +233,7 @@ export type SessionKind = "cookie" | "session_bearer" | "widget" | "e2e";
 const GRANTS: Record<SessionKind, { user: readonly Capability[]; guest: readonly Capability[] }> = {
   // Rotating a CLI session revokes the presented one, so a browser cookie may
   // not ask for it.
-  cookie: { user: SIGNED_IN.filter((capability) => capability !== "cli_session"), guest: GUEST },
+  cookie: { user: [...SIGNED_IN.filter((capability) => capability !== "cli_session"), "portal_session"], guest: GUEST },
   session_bearer: { user: SIGNED_IN, guest: GUEST },
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
@@ -295,7 +296,7 @@ export type Need = { capability: Capability; anonymous?: true } | { resource: st
 
 export type Denial = {
   status: 401 | 403;
-  code: "unauthenticated" | "invalid_token" | "insufficient_scope";
+  code: "unauthenticated" | "invalid_token" | "insufficient_scope" | "portal_session_required";
   requiredScopes?: readonly string[];
 };
 
@@ -317,7 +318,12 @@ export function authorize(
     if (principal.kind === "oauth") return { denied: { status: 401, code: "invalid_token" } };
     return capabilitiesOf(principal.kind, principal.guest).includes(need.capability)
       ? { scopes: [] }
-      : { denied: { status: 403, code: "insufficient_scope" } };
+      : {
+          denied: {
+            status: 403,
+            code: need.capability === "portal_session" ? "portal_session_required" : "insufficient_scope",
+          },
+        };
   }
   const held = scopesOn(principal, policyFor(need.resource));
   if (need.scopes.some((scope) => !held.includes(scope))) {

@@ -272,6 +272,37 @@ describe.skipIf(!enabled)("account connections", () => {
     });
   });
 
+  it("keeps same-named clients as separate rows and disconnects only the one named", async () => {
+    await pool.query(
+      `insert into ba_oauth_clients (id, client_id, name, redirect_uris, created_at, updated_at)
+       values ('5', 'box-old', 'Aomi CLI · box', '["http://127.0.0.1/cb"]', now(), now()),
+              ('6', 'box-new', 'Aomi CLI · box', '["http://127.0.0.1/cb"]', now(), now())`,
+    );
+    await pool.query(
+      `insert into ba_oauth_refresh_tokens (id, token, client_id, user_id, scopes, expires_at, created_at, revoked)
+       values ('t5', 't5', 'box-old', 'ba-1', '["agent:read"]', now() + interval '1 day', to_timestamp(1760400500), null),
+              ('t6', 't6', 'box-new', 'ba-1', '["agent:read"]', now() + interval '1 day', to_timestamp(1760400600), null)`,
+    );
+    const keys = async () =>
+      (await connections.listAccountConnections("owner")).connections
+        .filter((row) => row.name === "box")
+        .map((row) => row.key);
+    expect(await keys()).toEqual(["oauth:box-old", "oauth:box-new"]);
+    expect(
+      await connections.revokeOAuthConnection({
+        userId: "owner",
+        clientId: "box-new",
+      }),
+    ).toBe(true);
+    expect(await keys()).toEqual(["oauth:box-old"]);
+    await pool.query(
+      `delete from ba_oauth_refresh_tokens where client_id = 'box-old'`,
+    );
+    await pool.query(
+      `delete from ba_oauth_clients where client_id in ('box-old', 'box-new')`,
+    );
+  });
+
   it("disconnects one client for this account only", async () => {
     expect(
       await connections.revokeOAuthConnection({

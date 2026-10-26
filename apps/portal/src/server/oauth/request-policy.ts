@@ -249,7 +249,9 @@ async function enforceAomiRegistration(
     // their one exact resource is enforced on authorize/token. If a client
     // declares one, it must be exactly one MCP surface: the agent or pipeline
     // MCP, or an active app's MCP (registered here, before Better Auth binds
-    // the client to it).
+    // the client to it). Better Auth's registration allowlist is static, so
+    // an app's resource is dropped here and bound at first authorize, like a
+    // client that declared none.
     const declared = requestedResources[0];
     const appMcp = declared !== undefined && Boolean(appMcpName(declared));
     if (
@@ -266,6 +268,7 @@ async function enforceAomiRegistration(
         "Authorization-code registration is limited to one MCP resource",
       );
     }
+    if (appMcp) delete metadata.resources;
     const responseTypes = stringArray(metadata.response_types);
     if (responseTypes.length > 0 && !exactStringSet(responseTypes, ["code"])) {
       return oauthError(

@@ -18,7 +18,6 @@ import { resetEdgeServices } from "../identity";
 import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
 import { resetPrincipalCaches } from "./principal";
-import { resetBudgets } from "./routes";
 
 const PORTAL = "https://portal.example";
 const UPSTREAM = "https://portal-vercel.example";
@@ -218,7 +217,6 @@ beforeEach(() => {
   resetJwksCache();
   resetPrincipalCaches();
   resetEdgeServices();
-  resetBudgets();
 });
 
 describe("portal surface: sessions", () => {
@@ -939,17 +937,6 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
     expect(response.status).toBe(404);
     expect(seen).toHaveLength(0);
     expect(principalCalls).toBe(0);
-  });
-
-  it("budgets link attempts per account and action", async () => {
-    for (let attempt = 0; attempt < 5; attempt++)
-      expect((await call("portal user", "POST", "/v1/account/link/telegram/confirm")).status).toBe(200);
-    const over = await call("portal user", "POST", "/v1/account/link/telegram/confirm");
-    expect(over.status).toBe(429);
-    expect(await over.json()).toEqual({ error: "rate_limited" });
-    expect(seen).toHaveLength(5);
-    // Preview has its own, larger budget.
-    expect((await call("portal user", "POST", "/v1/account/link/telegram/preview")).status).toBe(200);
   });
 
   it("leaves the connections list and disconnects on the portal (the account graph)", async () => {

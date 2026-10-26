@@ -41,7 +41,6 @@ import { recoverMessageAddress } from "viem";
 import { portalFailures } from "@/server/bff/failures";
 import {
   PrincipalError,
-  isPortalSession,
   type Principal,
 } from "@/server/bff/principal";
 import type { Call } from "@/server/bff/routes";
@@ -298,12 +297,11 @@ export async function listConnections({ principal }: Call): Promise<Response> {
   );
 }
 
-/** Disconnect one OAuth client. Only a signed-in portal session may. */
+/** Disconnect one OAuth client (portal session only, enforced by the route). */
 export async function disconnectOAuthConnection({
   principal,
   params,
 }: Call): Promise<Response> {
-  if (!isPortalSession(principal)) return error(403, "portal_session_required");
   const clientId = String(params.client_id ?? "");
   const revoked =
     clientId.length > 0 &&
@@ -316,11 +314,10 @@ export async function disconnectOAuthConnection({
   return Response.json({ revoked: true });
 }
 
-/** Unlink Telegram from the account. Only a signed-in portal session may. */
+/** Unlink Telegram from the account (portal session only, enforced by the route). */
 export async function disconnectTelegramConnection({
   principal,
 }: Call): Promise<Response> {
-  if (!isPortalSession(principal)) return error(403, "portal_session_required");
   const result = await unlinkTelegramConnection({
     userId: account(principal).accountId,
   });

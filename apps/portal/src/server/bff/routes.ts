@@ -136,13 +136,13 @@ export const routes = {
   }),
   connection: bind({
     operation: "account.connection",
-    need: { capability: "account" },
+    need: { capability: "portal_session" },
     handle: { DELETE: account.disconnectOAuthConnection },
     fallback: "widget_auth_failed",
   }),
   telegramConnection: bind({
     operation: "account.connection.telegram",
-    need: { capability: "account" },
+    need: { capability: "portal_session" },
     handle: { DELETE: account.disconnectTelegramConnection },
     fallback: "widget_auth_failed",
   }),

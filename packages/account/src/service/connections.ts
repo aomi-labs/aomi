@@ -62,39 +62,11 @@ export type AccountConnection = {
 /** The portal first, then by last use. */
 export type AccountConnections = { connections: AccountConnection[] };
 
-/** The Aomi CLI names its clients `Aomi CLI · <machine>` (older ones `Aomi CLI`). */
+/** The Aomi CLI names its client `Aomi CLI · <machine>` (older ones `Aomi CLI`). */
 const CLI_CLIENT_NAME = "Aomi CLI";
 const isCliClient = (name: string | null) =>
   name === CLI_CLIENT_NAME ||
   Boolean(name?.startsWith(`${CLI_CLIENT_NAME} · `));
-
-type OAuthClient = Awaited<ReturnType<typeof listOAuthConnections>>[number];
-
-/**
- * One row per OAuth connection. A CLI login holds one client per Aomi
- * resource (each client is bound to one), so a machine's CLI clients fold
- * into one row keyed by its agent client: the one whose commits the rule sees.
- */
-function oauthRows(clients: OAuthClient[], agentRest: string): OAuthClient[][] {
-  const cli = new Map<string, OAuthClient[]>();
-  const rows: OAuthClient[][] = [];
-  for (const client of clients) {
-    if (!isCliClient(client.name)) rows.push([client]);
-    else if (cli.has(client.name!)) cli.get(client.name!)!.push(client);
-    else {
-      const group = [client];
-      cli.set(client.name!, group);
-      rows.push(group);
-    }
-  }
-  return rows.map((group) =>
-    [...group].sort(
-      (a, b) =>
-        Number(b.resources.includes(agentRest)) -
-        Number(a.resources.includes(agentRest)),
-    ),
-  );
-}
 
 export async function listAccountConnections(
   userId: AomiUserId,
@@ -132,7 +104,7 @@ export async function listAccountConnections(
     ? [...telegram.bots, ...(telegram.linkedFrom ? [telegram.linkedFrom] : [])]
     : [];
   const others = [
-    ...oauthRows(oauth, resources.agentRest).map(([client, ...rest]) =>
+    ...oauth.map((client) =>
       connection(
         `oauth:${client.clientId}`,
         client.resources.some(
@@ -156,10 +128,7 @@ export async function listAccountConnections(
               ? "Agent MCP"
               : null,
           telegram: null,
-          connected_at: Math.min(
-            client.connectedAt,
-            ...rest.map((other) => other.connectedAt),
-          ),
+          connected_at: client.connectedAt,
           removable: true,
         },
       ),
@@ -197,25 +166,14 @@ export async function listAccountConnections(
 }
 
 /**
- * Disconnect one OAuth connection, with every client of the same CLI machine:
- * consents, refresh tokens and settings go at once; a JWT access token
- * already issued works until it expires.
+ * Disconnect one OAuth client: consents, refresh tokens and settings go at
+ * once; a JWT access token already issued works until it expires.
  */
 export async function revokeOAuthConnection(input: {
   userId: AomiUserId;
   clientId: string;
 }): Promise<boolean> {
-  const clients = await listOAuthConnections(input.userId);
-  const name = clients.find((c) => c.clientId === input.clientId)?.name ?? null;
-  const ids = isCliClient(name)
-    ? clients.filter((c) => c.name === name).map((c) => c.clientId)
-    : [input.clientId];
-  let revoked = false;
-  for (const clientId of ids)
-    revoked =
-      (await deleteOAuthConnection({ userId: input.userId, clientId })) ||
-      revoked;
-  return revoked;
+  return deleteOAuthConnection(input);
 }
 
 /**
