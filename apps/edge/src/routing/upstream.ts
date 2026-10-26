@@ -72,11 +72,9 @@ export async function fetchWithFailover(
 
   for (let i = 0; i < targets.length; i += 1) {
     const isLast = i === targets.length - 1;
-    // Clone only when a later attempt could replay the body; a request that
-    // is never retried is forwarded as-is so its body streams through.
-    const replayable = !isLast && IDEMPOTENT_METHODS.has(request.method);
+    // Clone per attempt so a retry still has an unconsumed body.
     const upstreamRequest = buildUpstreamRequest(
-      replayable ? request.clone() : request,
+      request.clone(),
       targets[i],
       route.upstreamHeaders,
     );

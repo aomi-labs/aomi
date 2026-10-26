@@ -119,20 +119,7 @@ export async function handleRequest(
   }
   route = placed;
 
-  let upstreamResponse: Response;
-  try {
-    upstreamResponse = await fetchWithFailover(outbound, route, fetchImpl);
-  } catch {
-    // Every eligible origin failed (or a non-replayable request failed once):
-    // answer with a gateway status that still carries CORS headers instead of
-    // surfacing an uncaught Worker exception.
-    return decorateResponse(
-      new Response("Upstream unavailable", { status: 502 }),
-      origin,
-      env,
-      corsProfile,
-    );
-  }
+  const upstreamResponse = await fetchWithFailover(outbound, route, fetchImpl);
   if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     return upstreamResponse;
   }
