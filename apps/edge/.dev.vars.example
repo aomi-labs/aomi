@@ -1,0 +1,8 @@
+# Local Wrangler dev bindings. Copy to .dev.vars (gitignored).
+# The dev signing key for topology node aomi-edge; its public key is committed
+# in src/topology-data.ts (default topology). Development only.
+EDGE_SERVICE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIAJez/5pUy9hG5xNVsHP+4GQ6ZgxHDdzFoZ2GwvkHgx/\n-----END PRIVATE KEY-----"
+EDGE_TOPOLOGY=default
+BACKEND_ORIGINS=http://127.0.0.1:8080
+API_SERVER_ORIGIN=http://127.0.0.1:8083
+CORS_ALLOWED_HOST_PATTERNS=localhost:3000,127.0.0.1:3000

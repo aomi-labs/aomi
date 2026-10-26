@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
@@ -41,7 +41,8 @@
     "viem": "^2.47.11",
     "zod": "^4.4.3",
     "toml": "^3.0.0",
-    "@aomi-labs/client": "workspace:*"
+    "@aomi-labs/client": "workspace:*",
+    "@aomi-labs/service-identity": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=15"

@@ -1,0 +1,25 @@
+{
+  "name": "aomi-edge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "aomi-cloudflare: the Cloudflare Worker that is the public edge for api.aomi.dev and the app origins' API paths.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. apps/edge",
+    "typecheck": "tsc --noEmit",
+    "generate-key": "node scripts/generate-key.mjs",
+    "dev:staging": "wrangler dev --env staging",
+    "deploy:staging": "node scripts/deploy.mjs staging",
+    "deploy:production": "node scripts/deploy.mjs production"
+  },
+  "dependencies": {
+    "@aomi-labs/service-identity": "workspace:*"
+  },
+  "devDependencies": {
+    "jose": "^6.1.3",
+    "wrangler": "^4.114.0"
+  }
+}

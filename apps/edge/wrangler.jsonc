@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aomi-edge",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-25",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "api-staging.aomi.dev/*", "zone_name": "aomi.dev" }],
+      // The Task discovery challenge cache. Create once per environment with
+      // `wrangler kv namespace create EDGE_CACHE --env staging` and paste the id;
+      // the Worker falls back to an in-isolate cache while the binding is absent.
+      // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
+      "vars": {
+        // BACKEND_ORIGINS, API_SERVER_ORIGIN and PAYMENT_ORIGIN are not
+        // configured here: scripts/deploy.mjs passes them from the deploy
+        // environment, which product-mono derives from its Terraform inventory.
+        // A placement miss wakes the backend reconciler; keep the original
+        // request at the edge while the small hosted artifact materializes.
+        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
+        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
+        "MANAGER_ORIGIN": "https://manager-staging-tunnel.aomi.dev",
+        "EDGE_TOPOLOGY": "staging",
+        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
+        // Exact browser origins allowed to read Task challenges without credentials.
+        // They receive no CORS access to the general /api routes.
+        "TASK_CORS_PUBLIC_ORIGINS": "https://stableops.dev"
+      }
+    },
+    "production": {
+      "routes": [{ "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" }],
+      // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
+      "vars": {
+        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
+        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
+        "MANAGER_ORIGIN": "https://manager-2.aomi.dev",
+        "EDGE_TOPOLOGY": "production",
+        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
+      }
+    }
+  }
+}

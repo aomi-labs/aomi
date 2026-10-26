@@ -15,6 +15,7 @@ const root = process.cwd();
 const publicPackages = [
   "client",
   "react",
+  "service-identity",
   "account",
   "deploy",
   "cli",
@@ -51,6 +52,22 @@ const publish = (env = {}) =>
       },
     },
   );
+const tokenWorkflow = readFileSync(
+  resolve(root, ".github/workflows/publish-npm-token.yml"),
+  "utf8",
+);
+const tokenPublishScript = tokenWorkflow
+  .split("      - name: Publish versions not already present\n")[1]
+  .split("        run: |\n")[1]
+  .split("\n")
+  .map((line) => line.replace(/^          /, ""))
+  .join("\n");
+const publishWithToken = () =>
+  spawnSync("bash", ["-euo", "pipefail", "-c", tokenPublishScript], {
+    cwd: directory,
+    encoding: "utf8",
+    env: { ...environment, RUNNER_TEMP: directory },
+  });
 function commitFile(path, content) {
   mkdirSync(resolve(directory, path, ".."), { recursive: true });
   writeFileSync(join(directory, path), content);
@@ -80,7 +97,7 @@ beforeEach(() => {
   mkdirSync(bin);
   writeFileSync(
     join(bin, "git"),
-    '#!/bin/sh\nif [ "$1" = fetch ]; then exit 0; fi\nexec "$REAL_GIT" "$@"\n',
+    '#!/bin/sh\nif [ "$1" = fetch ]; then exit 0; fi\nif [ "$1" = show ] && [ "$2" = origin/main:scripts/check-published-cli.mjs ]; then cat scripts/check-published-cli.mjs; exit; fi\nexec "$REAL_GIT" "$@"\n',
   );
   writeFileSync(
     join(bin, "gh"),
@@ -159,6 +176,65 @@ describe("immutable package publication policy", () => {
     expect(readFileSync(environment.GH_CALL_LOG, "utf8")).toContain(
       `widget-package-contracts.yml/runs?branch=main&head_sha=${candidate}`,
     );
+  });
+
+  it("publishes the Account dependency before Account in the token workflow", () => {
+    const result = publishWithToken();
+    expect(result.status, result.stderr).toBe(0);
+    expect(
+      readFileSync(environment.PUBLISH_LOG, "utf8").trim().split("\n"),
+    ).toEqual([
+      "packages/client",
+      "packages/service-identity",
+      "packages/account",
+      "packages/cli",
+      "packages/deploy",
+      "packages/react",
+      "packages/widget",
+      "verified-cli-install",
+    ]);
+  });
+
+  it("keeps token publication compatible with older frozen candidates", () => {
+    rmSync(join(directory, "packages/service-identity"), { recursive: true });
+    writeFileSync(
+      join(directory, "packages/account/package.json"),
+      JSON.stringify({ name: "@aomi-labs/account", private: true }),
+    );
+    const result = publishWithToken();
+    expect(result.status, result.stderr).toBe(0);
+    const published = readFileSync(environment.PUBLISH_LOG, "utf8");
+    expect(published).not.toContain("packages/service-identity");
+    expect(published).not.toContain("packages/account");
+    expect(published).toContain("verified-cli-install");
+  });
+
+  it.each([
+    ["tag", publish],
+    ["token", publishWithToken],
+  ])("publishes runtime workspace dependencies first via %s", (_, run) => {
+    const result = run();
+    expect(result.status, result.stderr).toBe(0);
+    const manifests = readFileSync(environment.PUBLISH_LOG, "utf8")
+      .trim()
+      .split("\n")
+      .filter((path) => path !== "verified-cli-install")
+      .map((path) =>
+        JSON.parse(readFileSync(resolve(root, path, "package.json"), "utf8")),
+      );
+    const published = new Set();
+    for (const manifest of manifests) {
+      for (const [name, version] of Object.entries(
+        manifest.dependencies ?? {},
+      )) {
+        if (version.startsWith("workspace:")) {
+          expect(published.has(name), `${manifest.name} requires ${name}`).toBe(
+            true,
+          );
+        }
+      }
+      published.add(manifest.name);
+    }
   });
 
   it("rejects missing tag contracts, mismatched checkout SHA and modified tracked content", () => {

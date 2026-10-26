@@ -30,7 +30,7 @@ export function assertServerOnly(): void {
     typeof (g as { document?: unknown }).document !== "undefined"
   ) {
     throw new Error(
-      "@aomi-labs/service is server-only: it signs with EdDSA private keys and " +
+      "@aomi-labs/service-identity is server-only: it signs with EdDSA private keys and " +
         "must never run in a browser. Import it from a server route handler.",
     );
   }
