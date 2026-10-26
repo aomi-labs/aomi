@@ -14,6 +14,73 @@ const env = {
 const canonical = "https://chat-staging.aomi.dev";
 
 describe("preview wallet auth origin", () => {
+  it.each(["siwe/nonce", "siwe/verify", "siws/nonce", "siws/verify"])(
+    "binds an Edge-proxied %s request to the configured public origin",
+    (path) => {
+      const observed = withPreviewWalletAuthOrigin(
+        new Request(`https://${env.VERCEL_BRANCH_URL}/api/auth/${path}`, {
+          headers: { origin: canonical },
+        }),
+        env,
+        canonical,
+        () => previewWalletAuthOrigin(),
+      );
+      expect(observed).toBe(canonical);
+    },
+  );
+
+  it("keeps direct preview login on its own origin", () => {
+    const origin = `https://${env.VERCEL_BRANCH_URL}`;
+    const observed = withPreviewWalletAuthOrigin(
+      new Request(`${origin}/api/auth/siwe/verify`, { headers: { origin } }),
+      env,
+      canonical,
+      () => previewWalletAuthOrigin(),
+    );
+    expect(observed).toBe(origin);
+  });
+
+  it.each([
+    "https://attacker.example",
+    "null",
+    `${canonical}.attacker.example`,
+    `${canonical}/`,
+  ])(
+    "rejects an unconfigured browser origin %s on an allowed transport",
+    (origin) => {
+      let called = false;
+      const result = withPreviewWalletAuthOrigin(
+        new Request(`https://${env.VERCEL_BRANCH_URL}/api/auth/siws/verify`, {
+          headers: { origin, "x-forwarded-host": "chat-staging.aomi.dev" },
+        }),
+        env,
+        canonical,
+        () => {
+          called = true;
+        },
+      );
+      expect(result).toBeInstanceOf(Response);
+      expect((result as Response).status).toBe(403);
+      expect(called).toBe(false);
+    },
+  );
+
+  it("does not select a wallet origin from forwarded headers", () => {
+    const observed = withPreviewWalletAuthOrigin(
+      new Request(`https://${env.VERCEL_BRANCH_URL}/api/auth/siwe/verify`, {
+        headers: {
+          "x-forwarded-host": "chat-staging.aomi.dev",
+          "x-forwarded-proto": "https",
+          forwarded: 'host="chat-staging.aomi.dev";proto=https',
+        },
+      }),
+      env,
+      canonical,
+      () => previewWalletAuthOrigin(),
+    );
+    expect(observed).toBe(`https://${env.VERCEL_BRANCH_URL}`);
+  });
+
   it("keeps simultaneous preview signature verifications bound to their own request host", async () => {
     const hosts = [
       "portal-immutable-aomi-labs.vercel.app",
@@ -88,6 +155,15 @@ describe("preview wallet auth origin", () => {
         () => siwe!.options.domain,
       );
       expect(domain).toBe(env.VERCEL_BRANCH_URL);
+      const edgeDomain = withPreviewWalletAuthOrigin(
+        new Request(`https://${env.VERCEL_BRANCH_URL}/api/auth/siwe/verify`, {
+          headers: { origin: canonical },
+        }),
+        env,
+        canonical,
+        () => siwe!.options.domain,
+      );
+      expect(edgeDomain).toBe("chat-staging.aomi.dev");
       expect(siwe!.options.domain).toBe("chat-staging.aomi.dev");
     } finally {
       for (const [key, value] of Object.entries(previous)) {
