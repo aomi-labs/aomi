@@ -4,12 +4,12 @@ import type {
   PromoteInput,
   PromoteResult,
 } from "@aomi-labs/deploy";
-import { BackendClient } from "@aomi-labs/internal";
+import { ManagerClient } from "@aomi-labs/internal";
 import { resolveActivationCredential } from "./commands";
 
 /**
  * The two manager calls a rollback needs. Written out rather than picked from
- * `BackendClient` so the published typings name only `@aomi-labs/deploy` types;
+ * `ManagerClient` so the published typings name only `@aomi-labs/deploy` types;
  * `@aomi-labs/internal` is private and bundled, never a dependency.
  */
 export type RollbackClient = {
@@ -90,7 +90,5 @@ export async function rollbackClientFromEnv(options: {
       "No activation token found. Set AOMI_APP_ACTIVATION_TOKEN or pass --activation-token.",
     );
   }
-  return new BackendClient({
-    aomi: { backendUrl, activationToken: activation.token },
-  });
+  return new ManagerClient({ url: backendUrl, bearer: activation.token });
 }

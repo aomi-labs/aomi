@@ -1,10 +1,9 @@
 // =============================================================================
-// Deployment watch loop — polling with backoff, shared by the server client
-// (`BackendClient.watchDeployment`) and the browser client
-// (`createLaunchClient().watch`).
+// Deployment watch loop — polling with backoff, behind the browser client's
+// `createLaunchClient().watch`.
 //
 // Browser-safe: no fetch, no env, no transport. It takes a `poll` closure so
-// each client supplies its own request and its own "this error is fatal" rule.
+// the caller supplies its own request and its own "this error is fatal" rule.
 // =============================================================================
 
 import type {

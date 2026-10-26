@@ -1,11 +1,9 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BackendClient } from "./user";
+import { ManagerClient } from "./client";
 
 function client() {
-  return new BackendClient({
-    aomi: { backendUrl: "https://api.test", activationToken: "t" },
-  });
+  return new ManagerClient({ url: "https://api.test", bearer: "t" });
 }
 
 const CREATED = {
@@ -22,7 +20,7 @@ const CREATED = {
   created_at: 1,
 };
 
-describe("BackendClient bots", () => {
+describe("manager bots", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("lists bots with bot-level command config", async () => {
@@ -252,14 +250,13 @@ describe("BackendClient bots", () => {
     );
     vi.stubGlobal("fetch", fetchImpl);
 
-    const bot = await client().createUserProjectBot({
+    const bot = await client().createUserBot({
       githubUserId: "gh-1",
-      platform: "community",
-      projectId: 42,
-      applicationId: 7,
+      applicationIds: [7],
+      handoverApplicationId: 7,
       botPlatform: "telegram",
       credential: "tok",
-    } as never);
+    });
     expect(JSON.stringify(bot)).not.toContain("LEAK");
   });
 });

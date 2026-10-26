@@ -31,7 +31,8 @@ export async function managerClient(request: Request, ctx: BuildContext): Promis
     }),
   );
   return new ManagerClient({
-    aomi: { backendUrl: managerOrigin(request, ctx), activationToken: accessToken },
+    url: managerOrigin(request, ctx),
+    bearer: accessToken,
     fetch: (input, init) => ctx.fetchImpl(new Request(input, init), { cache: "no-store" }),
   });
 }
