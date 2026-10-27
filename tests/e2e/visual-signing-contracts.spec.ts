@@ -92,7 +92,9 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   const review = sidebar.getByTestId(testIds.txReview);
   await expect(review).toBeVisible({ timeout: 30_000 });
   await expect(review).toContainText("0.000000000000000001 ETH");
-  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
+  await expect(
+    review.getByRole("button", { name: "Send transaction" }),
+  ).toBeEnabled();
   await assertSidebarDoesNotCoverComposer(page, sidebar);
   await settleVisuals(page);
   await expect(sidebar).toHaveScreenshot(
@@ -100,7 +102,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
     screenshot(),
   );
 
-  await review.getByRole("button", { name: "Submit" }).click();
+  await review.getByRole("button", { name: "Send transaction" }).click();
   await expect.poll(() => wallet.blocked.length, { timeout: 15_000 }).toBe(1);
   await expect(
     page.getByText(/signing and broadcasting are forbidden/i),
@@ -489,6 +491,8 @@ test("unfinished callback transactions animate beside a completed sibling throug
     stage_id: `evm:${id}`,
     chain_family: "evm",
     chain_ref: "8453",
+    signer: keys.evmAddress,
+    broadcaster: "wallet",
     state,
     version: state === "confirmed" ? 2 : 1,
     metadata: {},
