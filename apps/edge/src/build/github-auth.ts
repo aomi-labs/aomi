@@ -4,9 +4,12 @@
  * routes). Browser login ends in Build; CLI login resumes a signed loopback
  * continuation after minting the same browser session.
  */
+import { BackendError } from "@aomi-labs/deploy";
+
+import { randomHex } from "../kernel/crypto";
 import type { BuildContext } from "./context";
 import { appendCookie, readCookie, serializeCookie } from "./cookies";
-import { ManagerError, claimGitHubProject, exchangeGitHubCode } from "./manager";
+import { managerClient } from "./manager-client";
 import {
   CLI_SESSION_TTL_SECONDS,
   GITHUB_OAUTH_REQUEST_COOKIE,
@@ -23,8 +26,8 @@ import {
   type GitHubSession,
 } from "./session";
 
-// One-shot App OAuth client ids (app index 2). Both the browser UI and CLI
-// login use this app so the backend exchange can resolve the Builder identity.
+// Default one-shot App OAuth client ids (app index 2). A deployment may use
+// its own app, whose matching credentials stay in Manager's index-2 config.
 const STAGING_CLIENT_ID = "Iv23lilgvJz13pJekLSZ";
 const PRODUCTION_CLIENT_ID = "Iv23li4wPpAfoGOJ6v0Q";
 const GITHUB_LOGIN_APP_INDEX = 2;
@@ -76,11 +79,6 @@ function redirect(location: URL): Response {
   return new Response(null, { status: 302, headers: { location: location.toString() } });
 }
 
-function randomHex(bytes: number): string {
-  const buffer = new Uint8Array(bytes);
-  crypto.getRandomValues(buffer);
-  return [...buffer].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function validLoopbackRedirect(value: string | null): URL | null {
   if (!value) return null;
@@ -121,7 +119,10 @@ async function startGitHubOAuth(
 ): Promise<Response> {
   const oauthState = randomHex(32);
   const authorize = new URL("https://github.com/login/oauth/authorize");
-  authorize.searchParams.set("client_id", ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID);
+  authorize.searchParams.set(
+    "client_id",
+    ctx.env.BUILD_GITHUB_CLIENT_ID?.trim() || (ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID),
+  );
   authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
   authorize.searchParams.set("state", oauthState);
   const response = redirect(authorize);
@@ -215,7 +216,7 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
     if (continuation.kind === "claim") {
       const existing = await githubSessionOf(request, ctx);
       if (!existing) return oauthError(ctx, continuation, "not_signed_in");
-      const claimed = await claimGitHubProject(request, ctx, {
+      const claimed = await (await managerClient(request, ctx)).claimGitHubProject({
         code,
         projectId: continuation.projectId,
         redirectUri,
@@ -226,7 +227,11 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
       clearOAuthRequestCookie(response, ctx);
       return response;
     }
-    const identity = await exchangeGitHubCode(request, ctx, { code, app: GITHUB_LOGIN_APP_INDEX, redirectUri });
+    const identity = await (await managerClient(request, ctx)).exchangeGitHubCode({
+      code,
+      app: GITHUB_LOGIN_APP_INDEX,
+      redirectUri,
+    });
     if (!identity.githubUserId) throw new Error("GitHub identity could not be resolved");
     const session: GitHubSession = {
       githubUserId: identity.githubUserId,
@@ -239,7 +244,7 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
         : redirect(browserReturnUrl(ctx, continuation));
     clearOAuthRequestCookie(response, ctx);
     setSessionCookie(response, ctx, await signer.issueSession(session));
-    setVisibilityGrantCookie(response, ctx, identity.visibilityGrant);
+    setVisibilityGrantCookie(response, ctx, identity.visibilityGrant ?? null);
     return response;
   } catch (error) {
     console.error("edge.build.github_oauth_exchange_failed", {
@@ -250,7 +255,7 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
     return oauthError(
       ctx,
       continuation,
-      error instanceof ManagerError && error.status === 403 ? "service_auth_forbidden" : "exchange_failed",
+      error instanceof BackendError && error.status === 403 ? "service_auth_forbidden" : "exchange_failed",
     );
   }
 }

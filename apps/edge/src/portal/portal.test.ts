@@ -15,7 +15,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { EdgeEnv } from "../env";
 import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
-import type { FetchLike } from "../routing/upstream";
+import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
 import { resetPrincipalCaches } from "./principal";
 
@@ -155,6 +155,7 @@ const world: FetchLike = async (request) => {
   if (url.origin === AGENT) return echo(request, body, "agent");
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
+  if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === BACKEND) {
     if (url.pathname === "/api/thread/models") return Response.json(["gpt", 3, "claude"]);
     if (url.pathname === "/api/resource/skills")
@@ -410,6 +411,18 @@ describe("portal surface: OAuth tokens", () => {
       expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: guest ? "acct-guest" : "acct-user", aud: "aomi-backend" });
     });
 
+    it("requires Agent write and rejects another resource without forwarding", async () => {
+      for (const grant of [
+        { scope: "agent:read", aud: `${PORTAL}/v1/agent`, status: 403 },
+        { scope: "agent:write", aud: `${PORTAL}/v1/pipeline`, status: 401 },
+      ]) {
+        const token = await oauthToken({ sub: "user", ...grant });
+        const response = await portal(path, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+        expect(response.status).toBe(grant.status);
+      }
+      expect(seen).toHaveLength(0);
+    });
+
     it("binds DPoP to the public URL despite spoofed forwarding headers", async () => {
       const key = await generateKeyPair("ES256");
       const jwk = await exportJWK(key.publicKey);
@@ -447,6 +460,12 @@ describe("portal surface: OAuth tokens", () => {
     });
   });
 
+  it("does not extend Agent grants to unrelated backend controls", async () => {
+    const token = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    const response = await portal("/api/exec/simulate", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+    expect(response.status).toBe(401);
+    expect(seen).toHaveLength(0);
+  });
 
   it("verifies an access token against the portal JWKS and forwards an oauth-sourced bearer", async () => {
     const token = await oauthToken({
@@ -482,36 +501,6 @@ describe("portal surface: OAuth tokens", () => {
     expect(write.status).toBe(403);
     expect(write.headers.get("www-authenticate")).toContain('error="insufficient_scope"');
     expect(write.headers.get("www-authenticate")).toContain('scope="agent:write"');
-  });
-
-  it("requires Agent write from an OAuth client changing a thread's model or world", async () => {
-    const json = { "content-type": "application/json" };
-    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
-    for (const path of ["/api/thread/model", "/api/thread/sim/world"]) {
-      const denied = await portal(path, {
-        method: "POST",
-        headers: { authorization: `Bearer ${readOnly}`, ...json },
-        body: "{}",
-      });
-      expect(denied.status).toBe(403);
-      expect(denied.headers.get("www-authenticate")).toContain('scope="agent:write"');
-    }
-    expect(seen).toHaveLength(0);
-    const write = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
-    const allowed = await portal("/api/thread/model", {
-      method: "POST",
-      headers: { authorization: `Bearer ${write}`, ...json },
-      body: "{}",
-    });
-    expect(allowed.status).toBe(200);
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
-    // Other backend controls stay closed to OAuth clients.
-    const unrelated = await portal("/api/exec/simulate", {
-      method: "POST",
-      headers: { authorization: `Bearer ${write}`, ...json },
-      body: "{}",
-    });
-    expect(unrelated.status).toBe(401);
   });
 
   it("holds guests to the resource's guest ceiling", async () => {
@@ -628,6 +617,26 @@ describe("portal surface: MCP", () => {
 });
 
 describe("portal surface: backend /api allowlist, payment and public routes", () => {
+  it("sends the manager's control-plane routes to MANAGER_ORIGIN, still as the signed-in account", async () => {
+    const withManager = { ...env, MANAGER_ORIGIN: MANAGER };
+    const call = (path: string) =>
+      handleRequest(
+        new Request(`${PORTAL}${path}`, { headers: { cookie: "session=user", origin: PORTAL } }),
+        withManager,
+        world,
+      );
+    expect((await call("/api/account/bots")).status).toBe(200);
+    expect((await call("/api/integrations/github-app/oauth/start")).status).toBe(200);
+    expect((await call("/api/account")).status).toBe(200);
+    expect(seen.map((record) => record.url)).toEqual([
+      `${MANAGER}/api/account/bots`,
+      `${MANAGER}/api/integrations/github-app/oauth/start`,
+      `${BACKEND}/api/account`,
+    ]);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    expect(seen[0].headers.cookie).toBeUndefined();
+  });
+
   it("forwards allowlisted /api routes to the backend pool with an account bearer", async () => {
     const response = await portal("/api/thread/apps", { headers: { cookie: "session=user" }, origin: PORTAL });
     expect(response.status).toBe(200);

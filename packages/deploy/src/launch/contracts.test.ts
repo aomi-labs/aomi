@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import { DeployPayload } from "../schemas";
 import { deploymentTargets } from "./contracts";
+
+const deployment = (apps: unknown[]) => DeployPayload.parse({ platform: { apps } });
 
 describe("deploymentTargets", () => {
   it("preserves complete app/release pairs across wire shapes", () => {
     expect(
-      deploymentTargets({
-        platform: {
-          apps: [
-            { name: " alpha ", releaseTag: " release-a " },
-            { name: "beta", release_tag: "release-b" },
-          ],
-        },
-      }),
+      deploymentTargets(
+        deployment([
+          { name: " alpha ", releaseTag: " release-a " },
+          { name: "beta", release_tag: "release-b" },
+        ]),
+      ),
     ).toEqual([
       { name: "alpha", releaseTag: "release-a" },
       { name: "beta", releaseTag: "release-b" },
@@ -21,11 +22,7 @@ describe("deploymentTargets", () => {
 
   it("rejects an incomplete manifest instead of misaligning arrays", () => {
     expect(
-      deploymentTargets({
-        platform: {
-          apps: [{ name: "alpha", releaseTag: "release-a" }, { name: "beta" }],
-        },
-      }),
+      deploymentTargets(deployment([{ name: "alpha", releaseTag: "release-a" }, { name: "beta" }])),
     ).toEqual([]);
   });
 });

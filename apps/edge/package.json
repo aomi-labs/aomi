@@ -16,10 +16,12 @@
     "deploy:production": "node scripts/deploy.mjs production"
   },
   "dependencies": {
+    "@aomi-labs/account": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/internal": "workspace:*",
     "@aomi-labs/service-identity": "workspace:*",
-    "jose": "^6.1.3"
+    "jose": "^6.1.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "wrangler": "^4.114.0"

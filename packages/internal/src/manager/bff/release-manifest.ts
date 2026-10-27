@@ -1,4 +1,4 @@
-import type { BackendClient } from "../user";
+import type { ManagerClient } from "../client";
 import { BackendError } from "@aomi-labs/deploy";
 import type { ReleaseManifest, SecretSlot, UserProject } from "@aomi-labs/deploy";
 import { missingRequiredSecrets } from "@aomi-labs/deploy";
@@ -175,7 +175,7 @@ async function mapWithConcurrency<T, R>(
  * deployment's value is correct for any release tag being gated here.
  */
 export async function missingSecretsForActivation(input: {
-  client: BackendClient;
+  client: Pick<ManagerClient, "getUserProjectLatestDeployment" | "listAppSecrets">;
   githubUserId: string;
   project: UserProject;
   pairs: { app: string; releaseTag: string }[];

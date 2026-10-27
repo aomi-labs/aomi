@@ -6,7 +6,7 @@ separated layers:
 | Entry                         | Runs in     | What it is                                                                                                                     |
 | ----------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `@aomi-labs/deploy`           | any         | Wire types, errors, activation and secret helpers (the manager client moved to the workspace package `@aomi-labs/internal`)      |
-| `@aomi-labs/deploy/wire`      | any         | The request/response mappers shared with `@aomi-labs/internal`                                                                 |
+| `@aomi-labs/deploy/schemas`   | any         | The zod schemas of the manager's responses; the package root exports their inferred types without zod                        |
 | `@aomi-labs/deploy/launch`    | browser     | Typed client for the BFF routes (launch + deployments console), wizard state machine, contracts, OAuth-callback result mapping |
 | `@aomi-labs/deploy/lifecycle` | browser     | Pure helpers projecting deploy records into dashboard state                                                                    |
 

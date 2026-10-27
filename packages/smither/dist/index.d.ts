@@ -1504,7 +1504,7 @@ declare function distillIntent(options: {
 
 /**
  * The two manager calls a rollback needs. Written out rather than picked from
- * `BackendClient` so the published typings name only `@aomi-labs/deploy` types;
+ * `ManagerClient` so the published typings name only `@aomi-labs/deploy` types;
  * `@aomi-labs/internal` is private and bundled, never a dependency.
  */
 type RollbackClient = {

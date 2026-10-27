@@ -3,15 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EdgeCache, EdgeEnv } from "./env";
 import { handleRequest } from "./handler";
-import { isAllowedCorsOrigin } from "./routing/cors";
-import { rankOrigins, resolvePool, routingKeyFor } from "./routing/pool";
-import { resolveRoute } from "./routing/routes";
-import type { FetchLike } from "./routing/upstream";
-import { resetDiscoveryCache } from "./task/discovery";
+import { isAllowedCorsOrigin } from "./kernel/cors";
+import { config } from "./kernel/config";
+import { rankOrigins, resolvePool, routingKeyFor } from "./kernel/pool";
+import { resolveRoute } from "./api/routes";
+import type { FetchLike } from "./kernel/proxy";
+import { resetCanonicalCache } from "./api/task";
+import { resetDiscoveryCache } from "./api/task/challenge";
+import agentTestnet from "./api/task/fixtures/agent.testnet.json?raw";
+import metadataTestnet from "./api/task/fixtures/build-metadata.testnet.json?raw";
+import canonicalOpenapi from "./api/task/fixtures/canonical-openapi.json?raw";
+import openapiTestnet from "./api/task/fixtures/openapi.testnet.json?raw";
+import preparationTestnet from "./api/task/fixtures/challenge.preparation.testnet.b64?raw";
+import x402Testnet from "./api/task/fixtures/well-known-x402.testnet.json?raw";
+import { sortedJson } from "./api/task/json";
+import { resetTermsCache } from "./api/task/terms";
+import { terms as taskTerms } from "./api/task/test-terms";
 
 const env: EdgeEnv = {
   BACKEND_ORIGINS: "https://backend-staging-tunnel.aomi.dev",
   API_SERVER_ORIGIN: "https://agent-staging-2.aomi.dev",
+  PAYMENT_ORIGIN: "https://payment-staging.aomi.dev",
   CORS_ALLOWED_HOST_PATTERNS:
     "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
 };
@@ -29,15 +41,24 @@ const never: FetchLike = () => {
 
 beforeEach(() => {
   resetDiscoveryCache();
+  resetTermsCache();
+  resetCanonicalCache();
 });
+
+/** Payment's public Task terms, as the staging Payment service publishes them. */
+function paymentTerms(request: Request): Response | null {
+  return new URL(request.url).href === "https://payment-staging.aomi.dev/v1/payment/task/terms"
+    ? Response.json(taskTerms(false))
+    : null;
+}
 
 describe("route resolution", () => {
   it("keeps /api paths intact for backend", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/chat"), env);
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/chat",
     );
-    expect(route?.corsProfile).toBe("api");
+    expect(route?.name).toBe("api");
   });
 
   it("exposes only the admitted API Server routes", () => {
@@ -45,14 +66,14 @@ describe("route resolution", () => {
       new URL("https://api-staging.aomi.dev/v1/task/build?trace=one"),
       env,
     );
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://agent-staging-2.aomi.dev/v1/task/build?trace=one",
     );
-    expect(route?.corsProfile).toBe("task");
-    expect(route?.fallbackUrls).toEqual([]);
+    expect(route?.name).toBe("task");
+    expect(route?.targets.slice(1)).toEqual([]);
     expect(resolveRoute(new URL("https://api-staging.aomi.dev/v1/task/other"), env)).toBeNull();
     expect(
-      resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), productionEnv)?.targetUrl.toString(),
+      resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), productionEnv)?.targets[0].toString(),
     ).toBe("https://agent-2.aomi.dev/v1/task/build");
     expect(
       resolveRoute(new URL("https://api.aomi.dev/v1/task/build"), {
@@ -61,8 +82,8 @@ describe("route resolution", () => {
       }),
     ).toBeNull();
     const jwks = resolveRoute(new URL("https://api.aomi.dev/.well-known/jwks.json"), productionEnv);
-    expect(jwks?.targetUrl.toString()).toBe("https://agent-2.aomi.dev/.well-known/jwks.json");
-    expect(jwks?.corsProfile).toBe("jwks");
+    expect(jwks?.targets[0].toString()).toBe("https://agent-2.aomi.dev/.well-known/jwks.json");
+    expect(jwks?.name).toBe("jwks");
     expect(
       resolveRoute(new URL("https://api.aomi.dev/.well-known/other.json"), productionEnv),
     ).toBeNull();
@@ -70,8 +91,8 @@ describe("route resolution", () => {
 
   it("forwards /metrics to backend", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/metrics"), env);
-    expect(route?.targetUrl.toString()).toBe("https://backend-staging-tunnel.aomi.dev/metrics");
-    expect(route?.corsProfile).toBe("health");
+    expect(route?.targets[0].toString()).toBe("https://backend-staging-tunnel.aomi.dev/metrics");
+    expect(route?.name).toBe("health");
   });
 
   it("forwards registered Telegram webhooks through the backend api route", () => {
@@ -79,10 +100,10 @@ describe("route resolution", () => {
       new URL("https://api.aomi.dev/api/bots/telegram/secret-123?update_id=1"),
       productionEnv,
     );
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-tunnel.aomi.dev/api/bots/telegram/secret-123?update_id=1",
     );
-    expect(route?.corsProfile).toBe("api");
+    expect(route?.name).toBe("api");
   });
 
   it("admits only UUID Task job resources", () => {
@@ -112,7 +133,7 @@ describe("CORS", () => {
       ["https://evil.example.com", false],
     ];
     for (const [origin, allowed] of cases) {
-      expect(isAllowedCorsOrigin(origin, env), origin).toBe(allowed);
+      expect(isAllowedCorsOrigin(origin, config(env)), origin).toBe(allowed);
     }
   });
 
@@ -451,20 +472,20 @@ describe("multi-origin load balancing", () => {
     }
 
     const postAttempts: string[] = [];
-    await expect(
-      handleRequest(
-        new Request("https://api.aomi.dev/api/chat", {
-          method: "POST",
-          headers: { "X-Session-Id": "session-abc" },
-          body: JSON.stringify({ message: "hello" }),
-        }),
-        multiEnv,
-        async (request) => {
-          postAttempts.push(new URL(request.url).origin);
-          throw new Error("ambiguous origin failure");
-        },
-      ),
-    ).rejects.toThrow(/ambiguous origin failure/);
+    const ambiguous = await handleRequest(
+      new Request("https://api.aomi.dev/api/chat", {
+        method: "POST",
+        headers: { "X-Session-Id": "session-abc" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      multiEnv,
+      async (request) => {
+        postAttempts.push(new URL(request.url).origin);
+        throw new Error("ambiguous origin failure");
+      },
+    );
+    expect(ambiguous.status).toBe(502);
+    expect(await ambiguous.json()).toEqual({ error: "upstream_unavailable" });
     expect(postAttempts).toEqual([ranked[0]]);
 
     const tunnelDown = await handleRequest(
@@ -488,7 +509,7 @@ describe("manager cutover routing", () => {
 
   it("is inert while MANAGER_ORIGIN is unset", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/platforms/community/deploy"), env);
-    expect(route?.targetUrl.toString()).toBe(
+    expect(route?.targets[0].toString()).toBe(
       "https://backend-staging-tunnel.aomi.dev/api/platforms/community/deploy",
     );
   });
@@ -522,9 +543,9 @@ describe("manager cutover routing", () => {
       "/api/integrations/github-app/builder/applications/42/app-key",
     ]) {
       const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targetUrl.toString(), path).toBe(`https://manager-staging-tunnel.aomi.dev${path}`);
-      expect(route?.corsProfile).toBe("api");
-      expect(route?.fallbackUrls).toEqual([]);
+      expect(route?.targets[0].toString(), path).toBe(`https://manager-staging-tunnel.aomi.dev${path}`);
+      expect(route?.name).toBe("api");
+      expect(route?.targets.slice(1)).toEqual([]);
     }
   });
 
@@ -540,16 +561,34 @@ describe("manager cutover routing", () => {
       "/api/account/providers/para/agent-wallet",
     ]) {
       const route = resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), managerEnv);
-      expect(route?.targetUrl.toString(), path).toBe(`https://backend-staging-tunnel.aomi.dev${path}`);
+      expect(route?.targets[0].toString(), path).toBe(`https://backend-staging-tunnel.aomi.dev${path}`);
     }
   });
 });
 
 describe("Task discovery documents", () => {
-  it("admits only the public documents with read-only public CORS", async () => {
-    for (const path of ["/.well-known/agent.json", "/v1/task/openapi.json", "/.well-known/x402"]) {
-      const url = new URL(`https://api-staging.aomi.dev${path}`);
-      expect(resolveRoute(url, env)?.targetUrl.toString()).toBe(`https://agent-staging-2.aomi.dev${path}`);
+  const documents: Record<string, string> = {
+    "/.well-known/agent.json": agentTestnet,
+    "/.well-known/x402": x402Testnet,
+    "/v1/task/openapi.json": openapiTestnet,
+    // Domain crawlers get the Task contract, never the API Server's full schema.
+    "/openapi.json": openapiTestnet,
+  };
+  // Payment's terms and the API Server's canonical contract are the only inputs.
+  const upstream = (log: string[] = []): FetchLike => async (request) => {
+    log.push(request.url);
+    return (
+      paymentTerms(request) ??
+      (request.url === "https://agent-staging-2.aomi.dev/openapi.json"
+        ? new Response(canonicalOpenapi, { headers: { "Content-Type": "application/json" } })
+        : new Response("not a document input", { status: 404 }))
+    );
+  };
+
+  it("serves each document from the edge, byte for byte, with read-only public CORS", async () => {
+    for (const [path, expected] of Object.entries(documents)) {
+      const url = new URL(`https://api-staging.aomi.dev${path}?source=crawler`);
+      expect(resolveRoute(url, env)?.document).toBeDefined();
       expect(resolveRoute(url, { ...productionEnv, API_SERVER_ORIGIN: "" })).toBeNull();
       const preflight = await handleRequest(
         new Request(url, { method: "OPTIONS", headers: { Origin: "https://directory.example" } }),
@@ -560,51 +599,48 @@ describe("Task discovery documents", () => {
       expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe("*");
       expect(preflight.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, OPTIONS");
       expect(preflight.headers.get("Access-Control-Allow-Credentials")).toBeNull();
-      const document = await handleRequest(new Request(url), env, async (request) => {
-        expect(request.url).toBe(`https://agent-staging-2.aomi.dev${path}`);
-        return Response.json({ fixture: true });
-      });
+      const document = await handleRequest(new Request(url), env, upstream());
       expect(document.status).toBe(200);
+      expect(document.headers.get("Content-Type")).toBe("application/json");
       expect(document.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(await document.text(), path).toBe(expected);
+      const head = await handleRequest(new Request(url, { method: "HEAD" }), env, upstream());
+      expect(head.status).toBe(200);
+      expect(await head.text()).toBe("");
+      const post = await handleRequest(new Request(url, { method: "POST" }), env, never);
+      expect(post.status).toBe(405);
     }
-    for (const path of ["/.well-known/api-catalog", "/.well-known/keys", "/v1/payment/task/terms"]) {
+    for (const path of ["/.well-known/api-catalog", "/.well-known/keys", "/v1/payment/task/terms", "/openapi.json/extra", "/openapi.yaml"]) {
       expect(resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), env)).toBeNull();
     }
   });
 
-  it("serves only the Task document at the domain OpenAPI path", async () => {
-    const url = new URL("https://api-staging.aomi.dev/openapi.json?source=crawler");
-    const upstream = "https://agent-staging-2.aomi.dev/v1/task/openapi.json?source=crawler";
-    expect(resolveRoute(url, env)?.targetUrl.toString()).toBe(upstream);
-    for (const method of ["GET", "HEAD"]) {
-      const response = await handleRequest(new Request(url, { method }), env, async (request) => {
-        expect(request.url).toBe(upstream);
-        expect(request.method).toBe(method);
-        return new Response(method === "GET" ? '{"paths":{}}' : null, {
-          headers: { "Content-Type": "application/json" },
-        });
-      });
-      expect(response.status).toBe(200);
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  it("reads terms and the canonical contract once, then serves from cache", async () => {
+    const log: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const response = await handleRequest(new Request("https://api-staging.aomi.dev/v1/task/openapi.json"), env, upstream(log));
+      expect(await response.text()).toBe(openapiTestnet);
     }
-    for (const path of ["/openapi.json/extra", "/openapi.yaml"]) {
-      expect(resolveRoute(new URL(`https://api-staging.aomi.dev${path}`), env)).toBeNull();
-    }
+    expect(log).toEqual(["https://payment-staging.aomi.dev/v1/payment/task/terms", "https://agent-staging-2.aomi.dev/openapi.json"]);
+  });
+
+  it("fails closed when Payment cannot publish terms", async () => {
+    const response = await handleRequest(
+      new Request("https://api-staging.aomi.dev/.well-known/x402", { headers: { Origin: "https://directory.example" } }),
+      env,
+      async () => new Response("down", { status: 503 }),
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });
 
-// The API Server's real behaviour, as the venue adapters see it: GET is
-// metadata, a valid POST without a signature is a body-bound 402.
+// The API Server's real behaviour, as the venue adapters see it: a valid POST
+// without a signature is a body-bound 402. GET is the edge's business.
 const EXAMPLE = {
   intent: "Simulate a no-op on Arc Testnet. Do not sign or broadcast any transaction.",
   chainId: 5042002,
   sender: "0x000000000000000000000000000000000000dEaD",
-};
-const METADATA = {
-  endpoint: "https://api-staging.aomi.dev/v1/task/build",
-  method: "POST",
-  preparationPriceMicroUsdc: "10000",
-  exampleRequest: EXAMPLE,
 };
 const CHALLENGE_BODY = {
   status: "payment_required",
@@ -620,13 +656,15 @@ const bodyOf = new WeakMap<Request, string>();
 
 function apiServer(log: Request[] = []): FetchLike {
   return async (request) => {
+    const terms = paymentTerms(request);
+    if (terms) return terms;
     log.push(request);
     if (request.method !== "GET" && request.method !== "HEAD") {
       bodyOf.set(request, await request.text());
     }
     const url = new URL(request.url);
     if (url.pathname !== "/v1/task/build") return new Response("nope", { status: 404 });
-    if (request.method === "GET") return Response.json(METADATA);
+    if (request.method === "GET") return new Response("the API Server no longer serves GET", { status: 405 });
     if (request.headers.get("authorization")) return new Response("{}", { status: 401 });
     if (request.headers.get("content-type")?.split(";")[0] !== "application/json") {
       return new Response("{}", { status: 415 });
@@ -701,12 +739,10 @@ describe("Task venue adapters", () => {
     expect(first.headers.get("Access-Control-Allow-Origin")).toBe("*");
     expect(first.headers.get("Access-Control-Expose-Headers")).toBe("Payment-Required");
     expect(first.headers.get("Access-Control-Allow-Credentials")).toBeNull();
-    const body = (await first.json()) as Record<string, unknown>;
-    expect(body.exampleRequest).toEqual(EXAMPLE);
-    expect(body.status).toBe("payment_required");
-    expect(body.paymentRequired).toBe(CHALLENGE_BODY.paymentRequired);
-    expect(log.map((request) => request.method)).toEqual(["GET", "POST"]);
-    expect(JSON.parse(bodyOf.get(log[1]) ?? "")).toEqual(EXAMPLE);
+    // The edge's own build metadata, then the upstream 402 body over it.
+    expect(await first.text()).toBe(JSON.stringify({ ...JSON.parse(metadataTestnet), ...CHALLENGE_BODY }));
+    expect(log.map((request) => request.method)).toEqual(["POST"]);
+    expect(JSON.parse(bodyOf.get(log[0]) ?? "")).toEqual(EXAMPLE);
 
     const head = await handleRequest(new Request(url, { method: "HEAD" }), env, apiServer(log));
     expect(head.status).toBe(402);
@@ -714,7 +750,7 @@ describe("Task venue adapters", () => {
     expect(await head.text()).toBe("");
     const second = await handleRequest(new Request(url), env, apiServer(log));
     expect(second.status).toBe(402);
-    expect(log.length, "cache hit: no second probe").toBe(2);
+    expect(log.length, "cache hit: no second probe").toBe(1);
   });
 
   it("answers an empty POST with the cached 402 instead of the upstream 422", async () => {
@@ -729,8 +765,46 @@ describe("Task venue adapters", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://builder.staging.aomi.dev");
     expect(response.headers.get("Access-Control-Expose-Headers")).toBe("Payment-Required, Payment-Response");
     // Only the probe reached the upstream; the empty venue POST never did.
-    expect(log.map((request) => request.method)).toEqual(["GET", "POST"]);
-    expect(bodyOf.get(log[1])).toBe(JSON.stringify(EXAMPLE));
+    expect(log.map((request) => request.method)).toEqual(["POST"]);
+    expect(bodyOf.get(log[0])).toBe(JSON.stringify(EXAMPLE));
+  });
+
+  it("lists a preparation 402 on Bazaar in the header and the body's copy", async () => {
+    // Payment once it no longer lists itself: the same challenge minus `bazaar`.
+    const decoded = JSON.parse(atob(preparationTestnet)) as { extensions: Record<string, unknown> };
+    delete decoded.extensions.bazaar;
+    const unlisted = btoa(sortedJson(decoded));
+    const body = { ...CHALLENGE_BODY, paymentRequired: unlisted };
+    const upstream: FetchLike = async (request) =>
+      paymentTerms(request) ?? Response.json(body, { status: 402, headers: { "Payment-Required": unlisted } });
+    const paid = await handleRequest(
+      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(EXAMPLE) }),
+      env,
+      upstream,
+    );
+    expect(paid.status).toBe(402);
+    expect(paid.headers.get("Payment-Required")).toBe(preparationTestnet);
+    expect(await paid.text()).toBe(JSON.stringify({ ...CHALLENGE_BODY, paymentRequired: preparationTestnet }));
+
+    const probe = await handleRequest(new Request(url), env, upstream);
+    expect(probe.headers.get("Payment-Required")).toBe(preparationTestnet);
+    expect(((await probe.json()) as Record<string, unknown>).paymentRequired).toBe(preparationTestnet);
+  });
+
+  it("answers an unlabelled empty POST with the API Server's 422 when no challenge can be had", async () => {
+    const failing: FetchLike = async (request) => paymentTerms(request) ?? new Response("{}", { status: 500 });
+    const response = await handleRequest(new Request(url, { method: "POST" }), env, failing);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toBe('{"error":{"code":"invalid_request","message":"request body is required"}}');
+    const log: Request[] = [];
+    const labelled = await handleRequest(
+      new Request(url, { method: "POST", headers: { "Content-Type": "application/json" } }),
+      env,
+      async (request) => paymentTerms(request) ?? (log.push(request), new Response("{}", { status: 500 })),
+    );
+    expect(labelled.status, "a labelled empty POST is the upstream's to answer").toBe(500);
+    expect(log.at(-1)?.method).toBe("POST");
   });
 
   it("relabels a text/plain JSON body as application/json with the same bytes", async () => {
@@ -758,18 +832,16 @@ describe("Task venue adapters", () => {
     expect(log[0].headers.get("content-type")).toBe("text/plain");
   });
 
-  it("falls back to the metadata when the upstream yields no challenge", async () => {
-    const response = await handleRequest(
-      new Request(url, { headers: { Origin: "https://external-client.example" } }),
-      env,
-      async (request) =>
-        request.method === "GET"
-          ? Response.json({ ...METADATA, exampleRequest: undefined })
-          : new Response("{}", { status: 500 }),
-    );
+  it("answers with the edge's metadata, byte for byte, when the upstream yields no challenge", async () => {
+    const failing: FetchLike = async (request) => paymentTerms(request) ?? new Response("{}", { status: 500 });
+    const response = await handleRequest(new Request(url, { headers: { Origin: "https://external-client.example" } }), env, failing);
     expect(response.status).toBe(200);
     expect(response.headers.get("Payment-Required")).toBeNull();
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(await response.text()).toBe(metadataTestnet);
+    const head = await handleRequest(new Request(url, { method: "HEAD" }), env, failing);
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
   });
 
   it("stores the challenge in KV with the quote's margin and reads it back", async () => {
@@ -784,7 +856,10 @@ describe("Task venue adapters", () => {
     };
     const log: Request[] = [];
     await handleRequest(new Request(url), { ...env, EDGE_CACHE: cache }, apiServer(log));
-    expect(puts).toEqual([{ key: "task:discovery:v1:agent-staging-2.aomi.dev", ttl: 240 }]);
+    expect(puts).toEqual([
+      { key: "task:terms:v1:payment-staging.aomi.dev", ttl: 60 },
+      { key: "task:discovery:v1:agent-staging-2.aomi.dev", ttl: 240 },
+    ]);
     const warm = await handleRequest(new Request(url), { ...env, EDGE_CACHE: cache }, never);
     expect(warm.status).toBe(402);
     expect(warm.headers.get("Payment-Required")).toBe(CHALLENGE_BODY.paymentRequired);

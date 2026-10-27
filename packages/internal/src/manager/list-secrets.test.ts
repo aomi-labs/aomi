@@ -1,96 +1,44 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { BackendClient } from "./user";
+import { fakeManager } from "./testing";
 
-function client() {
-  return new BackendClient({
-    aomi: {
-      backendUrl: "https://staging-api.example.com/",
-      activationToken: "act-token",
-    },
-  });
-}
-
-describe("BackendClient.listSecrets", () => {
-  it("maps by_app handles and never leaks values", async () => {
-    const c = client();
-    vi.spyOn(c as unknown as { get: () => unknown }, "get").mockResolvedValue({
-      by_app: { demo: ["$SECRET:APP:demo::API_KEY"] },
-    });
-    const result = await c.listSecrets({ clientId: "abc" });
-    expect(result.byApp).toEqual({ demo: ["$SECRET:APP:demo::API_KEY"] });
-  });
-
-  it("defaults to empty byApp when backend omits it", async () => {
-    const c = client();
-    vi.spyOn(c as unknown as { get: () => unknown }, "get").mockResolvedValue(
-      {},
-    );
-    const result = await c.listSecrets();
-    expect(result.byApp).toEqual({});
-  });
-});
-
-describe("BackendClient application-scoped service secrets", () => {
+describe("application-scoped service secrets", () => {
   it("passes only application_id when listing app secrets", async () => {
-    const c = client();
-    const get = vi
-      .spyOn(c as unknown as { get: () => unknown }, "get")
-      .mockResolvedValue({
-        by_app: { demo: ["API_KEY"] },
-      });
+    const { client, sent } = fakeManager({ by_app: { demo: ["API_KEY"] } });
 
-    const result = await c.listAppSecrets({
-      applicationId: 42,
-    });
+    const result = await client.listAppSecrets({ applicationId: 42 });
 
     expect(result.byApp).toEqual({ demo: ["API_KEY"] });
-    expect(get).toHaveBeenCalledWith(
-      "/api/_internal/secrets?application_id=42",
-      "list_secrets",
-      "act-token",
-    );
+    expect(sent).toEqual([
+      {
+        method: "GET",
+        url: "/api/_internal/secrets?application_id=42",
+        body: undefined,
+        headers: { Authorization: "Bearer service-token" },
+      },
+    ]);
+  });
+
+  it("defaults to an empty byApp when the manager omits it", async () => {
+    const { client } = fakeManager({});
+    await expect(client.listAppSecrets({ applicationId: 42 })).resolves.toEqual({ byApp: {} });
   });
 
   it("tags writes and deletes with application_id", async () => {
-    const c = client();
-    const post = vi
-      .spyOn(c as unknown as { post: () => unknown }, "post")
-      .mockResolvedValue({ handles: { API_KEY: "$SECRET:APP:demo::API_KEY" } });
-    const del = vi
-      .spyOn(c as unknown as { del: () => unknown }, "del")
-      .mockResolvedValue({ removed: true });
+    const { client, sent } = fakeManager({ handles: { API_KEY: "$SECRET:APP:demo::API_KEY" } }, { removed: true });
 
-    await c.ingestSecrets({
-      app: "demo",
-      applicationId: 42,
-      secrets: { API_KEY: "secret" },
-    });
-    const removed = await c.removeAppSecret({
-      applicationId: 42,
-      name: "API_KEY",
-    });
+    await client.ingestSecrets({ app: "demo", applicationId: 42, secrets: { API_KEY: "secret" } });
+    const removed = await client.removeAppSecret({ applicationId: 42, name: "API_KEY" });
 
     expect(removed).toBe(true);
-    expect(post).toHaveBeenCalledWith(
-      "/api/_internal/secrets",
+    expect(sent.map(({ method, url, body }) => ({ method, url, body }))).toEqual([
       {
-        app: "demo",
-        application_id: 42,
-        secrets: { API_KEY: "secret" },
+        method: "POST",
+        url: "/api/_internal/secrets",
+        body: { application_id: 42, app: "demo", secrets: { API_KEY: "secret" } },
       },
-      "ingest_secrets",
-      "act-token",
-    );
-    expect(del).toHaveBeenCalledWith(
-      "/api/_internal/secrets",
-      "ingest_secrets",
-      "act-token",
-      {
-        application_id: 42,
-        name: "API_KEY",
-      },
-    );
+      { method: "DELETE", url: "/api/_internal/secrets", body: { application_id: 42, name: "API_KEY" } },
+    ]);
   });
 });
