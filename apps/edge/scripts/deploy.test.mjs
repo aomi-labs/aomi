@@ -39,5 +39,6 @@ describe("edge deploy script", () => {
       }),
     ).toThrow(/not https/);
     expect(() => resolveDeployEnvironment("preview")).toThrow(/Usage/);
+    expect(resolveDeployEnvironment("rc")).toBe("rc");
   });
 });

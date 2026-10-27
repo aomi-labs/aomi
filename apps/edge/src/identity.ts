@@ -6,6 +6,7 @@ import { EDGE_TOPOLOGIES } from "./topology-data";
 export const EDGE_SERVICE_NAME = "aomi-edge";
 
 const STAGING_HOSTS = new Set(["api-staging.aomi.dev"]);
+const RC_HOSTS = new Set(["api-rc.aomi.dev"]);
 const PRODUCTION_HOSTS = new Set(["api.aomi.dev"]);
 
 /** Which committed topology this request's deployment mints as. */
@@ -14,6 +15,7 @@ export function edgeTopologyName(env: EdgeEnv, host: string): EdgeTopologyName {
   const lower = host.toLowerCase();
   if (PRODUCTION_HOSTS.has(lower)) return "production";
   if (STAGING_HOSTS.has(lower)) return "staging";
+  if (RC_HOSTS.has(lower)) return "rc";
   return "default";
 }
 
