@@ -48,6 +48,19 @@ describe("buildCliConfig", () => {
     expect(stderr).toHaveBeenCalled();
   });
 
+  it("keeps a decimal chain id", () => {
+    expect(buildCliConfig({ chain: "8453" }).chain).toBe(8453);
+  });
+
+  it.each(["base", "0x2105", "8453abc", "84.53"])(
+    "rejects --chain %s instead of ignoring or truncating it",
+    (chain) => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+      expect(() => buildCliConfig({ chain })).toThrow(CliExit);
+    },
+  );
+
   it("does not force default backend/app when neither args nor env provide them", () => {
     const config = buildCliConfig({});
 
