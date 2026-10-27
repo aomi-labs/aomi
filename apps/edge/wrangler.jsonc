@@ -50,6 +50,25 @@
         "TASK_CORS_PUBLIC_ORIGINS": "https://stableops.dev"
       }
     },
+    "rc": {
+      // The release-candidate environment (RIC1): a separate fleet, Authority
+      // and database beside staging (Beta). API host only; there is no rc
+      // portal or Build surface, and no Beta hostname is routed here.
+      "routes": [{ "pattern": "api-rc.aomi.dev/*", "zone_name": "aomi.dev" }],
+      "vars": {
+        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
+        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
+        "MANAGER_ORIGIN": "https://manager-rc-4.aomi.dev",
+        "EDGE_TOPOLOGY": "rc",
+        "PORTAL_HOSTS": "",
+        "APP_CATALOG_PLATFORMS": "",
+        "BUILD_HOSTS": "",
+        "APP_DEPLOY_PLATFORMS": "",
+        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
+        "BUILD_CREATED_REPO_PRIVATE": "false",
+        "CORS_ALLOWED_HOST_PATTERNS": "api-rc.aomi.dev"
+      }
+    },
     "production": {
       // Production portal host routes are added at cutover once the host is
       // confirmed (chat.aomi.dev) and proxied by Cloudflare; see the README.

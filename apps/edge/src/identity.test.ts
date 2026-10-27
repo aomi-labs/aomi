@@ -13,6 +13,7 @@ describe("edge identity", () => {
   it("selects the topology from the var, then the request host", () => {
     expect(edgeTopologyName({}, "api.aomi.dev")).toBe("production");
     expect(edgeTopologyName({}, "api-staging.aomi.dev")).toBe("staging");
+    expect(edgeTopologyName({}, "api-rc.aomi.dev")).toBe("rc");
     expect(edgeTopologyName({}, "localhost:8787")).toBe("default");
     expect(edgeTopologyName({ EDGE_TOPOLOGY: "staging" }, "api.aomi.dev")).toBe("staging");
   });
@@ -45,10 +46,13 @@ describe("edge identity", () => {
   it("commits a usable dev public key and placeholders for the deployed ones", async () => {
     const dev = /public_key = """\n([\s\S]*?)"""/.exec(EDGE_TOPOLOGIES.default)?.[1] ?? "";
     await expect(importSPKI(dev.trim(), "EdDSA")).resolves.toBeDefined();
-    for (const name of ["staging", "production"] as const) {
+    for (const [name, kid] of [["staging", "staging"], ["rc", "rc"], ["production", "prod"]] as const) {
       expect(EDGE_TOPOLOGIES[name]).toMatch(/name = "aomi-edge"/);
-      expect(EDGE_TOPOLOGIES[name]).toMatch(new RegExp(`kid = "aomi-edge-${name === "staging" ? "staging" : "prod"}-1"`));
+      expect(EDGE_TOPOLOGIES[name]).toMatch(new RegExp(`kid = "aomi-edge-${kid}-1"`));
     }
+    // rc is its own environment: it never mints with Beta's (staging) key.
+    const key = (name: keyof typeof EDGE_TOPOLOGIES) => /public_key = """\n([\s\S]*?)"""/.exec(EDGE_TOPOLOGIES[name])?.[1];
+    expect(key("rc")).not.toBe(key("staging"));
     // A freshly generated SPKI has the shape the committed key has.
     const { publicKey } = await generateKeyPair("EdDSA", { extractable: true });
     expect(await exportSPKI(publicKey)).toMatch(/^-----BEGIN PUBLIC KEY-----/);
