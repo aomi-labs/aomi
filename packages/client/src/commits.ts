@@ -295,41 +295,6 @@ function assertActionRequest(value: unknown): asserts value is ActionRequest {
   validatePipelineArguments(value, actionRequestSchema, agentSchemas);
 }
 
-/** Compatibility presentation for commits admitted before typed SVM reviews
- * were persisted. Remove after every readable SVM commit carries review data. */
-function legacySvmReview(
-  view: CommitView | undefined,
-): CommitReview | undefined {
-  if (view?.chain_family !== "svm" || view.review) return undefined;
-  const action = view.action;
-  const broadcasting = action?.kind === "broadcast";
-  const payloads =
-    action?.kind === "sign" && action.payload.kind === "svm_transaction"
-      ? [
-          {
-            kind: "svm_transaction" as const,
-            transaction_base64: action.payload.transaction_base64,
-          },
-        ]
-      : broadcasting
-        ? []
-        : undefined;
-  if (!payloads) return undefined;
-  return {
-    type: "sign",
-    requestId: view.commit_id,
-    chainFamily: "svm",
-    executionKind: "transaction",
-    signer: view.signer,
-    cluster: view.chain_ref,
-    description: broadcasting
-      ? "Submit signed Solana transaction"
-      : "Review Solana transaction",
-    payloads,
-    broadcaster: view.broadcaster,
-  };
-}
-
 /** Commit Service accepts rejection diagnostics as a complete set or none. */
 function walletRejection(phase?: WalletRejection["phase"]): WalletRejection {
   return phase
@@ -640,7 +605,6 @@ export class CommitController {
   /** Compatibility reviews cover tool-result races and historical SVM rows.
    * Remove this map once every readable CommitView has a durable review. */
   private reviews = new Map<string, CommitReview>();
-  private synthesizedReviews = new Set<string>();
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<
@@ -789,13 +753,8 @@ export class CommitController {
   /** The tool result carrying a review can replay after its view already
    * arrived on an event page, so a new review republishes the snapshot. */
   ingestReview(id: string, review: CommitReview): void {
-    if (
-      this.closed ||
-      (this.reviews.has(id) && !this.synthesizedReviews.has(id))
-    )
-      return;
+    if (this.closed || this.reviews.has(id)) return;
     this.reviews.set(id, review);
-    this.synthesizedReviews.delete(id);
     this.changed();
   }
   canExecute(view: CommitView): boolean {
@@ -1133,11 +1092,6 @@ export class CommitController {
     this.views.set(view.commit_id, view);
     if (isTerminalCommit(view) || view.wallet_attempt?.state === "mismatched")
       this.dropReceipt(view.commit_id);
-    const compatibilityReview = legacySvmReview(view);
-    if (compatibilityReview && !this.reviews.has(view.commit_id)) {
-      this.reviews.set(view.commit_id, compatibilityReview);
-      this.synthesizedReviews.add(view.commit_id);
-    }
     this.snapshot = [...this.views.values()];
     this.notifyListeners();
     return view;
