@@ -346,6 +346,7 @@ export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | 
 // @public (undocumented)
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
+    reconnect?: () => Promise<void>;
     wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
     open: boolean;
     onClose: () => void;

@@ -28,14 +28,30 @@ import { useAomiWalletKit } from "@/wallet/context";
 const CardForm = lazy(() => import("./card-form"));
 const chains = [mainnet, arbitrum, base, optimism, baseSepolia];
 
+/** The host's authorization for this account lapsed; reconnecting can restore it. */
+function needsReconnect(error: unknown): boolean {
+  if (error instanceof AomiCreditApiError) return error.status === 401;
+  return (
+    error instanceof Error &&
+    (error as { code?: unknown }).code === "reauthorization_required"
+  );
+}
+
 export function CreditCheckoutDialog({
   open,
   onClose,
   onSuccess,
   credits: suppliedCredits,
   wallet: suppliedWallet,
+  reconnect,
 }: {
   credits?: AccountCreditsTransport;
+  /**
+   * Renew the host's authorization for the same account. Checkout keeps its
+   * amount, method and funding event while this runs, so the host must keep
+   * `credits` the same object and reject (never switch) a different account.
+   */
+  reconnect?: () => Promise<void>;
   wallet?: Pick<
     AomiWalletKit,
     "identity" | "signTypedData" | "switchChain" | "connect"
@@ -63,6 +79,13 @@ export function CreditCheckoutDialog({
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState<"needed" | "busy" | null>(
+    null,
+  );
+  const [reconnectError, setReconnectError] = useState<string | null>(null);
+  const [loads, setLoads] = useState(0);
+  // Set between a successful reconnect and the reload that proves it worked.
+  const recovering = useRef(false);
   const owner = useRef(creditsApi);
   const key = useRef<string>(crypto.randomUUID());
   const notified = useRef<string | null>(null);
@@ -71,7 +94,7 @@ export function CreditCheckoutDialog({
     Number.isSafeInteger(Number(credits)) &&
     amount >= (method === "card" ? 5_000_000 : 1_000_000) &&
     amount <= 1_000_000_000;
-  const locked = busy || fundingEvent !== null;
+  const locked = busy || fundingEvent !== null || reconnecting !== null;
   const selected = methods?.wallet.networks.find((n) => n.network === network);
   const chain = chains.find((c) => `eip155:${c.id}` === network);
   const connected =
@@ -100,6 +123,7 @@ export function CreditCheckoutDialog({
       setWaiting(false);
       setBusy(false);
       setMethods(null);
+      setReconnecting(null);
       key.current = crypto.randomUUID();
       notified.current = null;
     }
@@ -113,6 +137,10 @@ export function CreditCheckoutDialog({
     ])
       .then(([available, current]) => {
         if (!active) return;
+        if (recovering.current) {
+          recovering.current = false;
+          setReconnecting(null);
+        }
         setMethods(available);
         if (current) accept(current);
         else if (!fundingEvent) {
@@ -121,8 +149,19 @@ export function CreditCheckoutDialog({
           setNetwork(available.wallet.networks[0]?.network ?? "");
         }
       })
-      .catch(() => {
-        if (active)
+      .catch((e: unknown) => {
+        if (!active) return;
+        if (recovering.current) {
+          // Stay blocked: payment must not start on unverified state.
+          recovering.current = false;
+          setReconnecting("needed");
+          setReconnectError(
+            needsReconnect(e)
+              ? "Aomi still needs you to reconnect."
+              : "Payment options could not be loaded. Try reconnecting again.",
+          );
+        } else if (reconnect && needsReconnect(e)) setReconnecting("needed");
+        else
           setError(
             "Payment options could not be loaded. Close and reopen to retry.",
           );
@@ -130,7 +169,7 @@ export function CreditCheckoutDialog({
     return () => {
       active = false;
     };
-  }, [open, creditsApi, accept]);
+  }, [open, creditsApi, accept, loads]);
 
   useEffect(() => {
     setBalance(null);
@@ -160,9 +199,11 @@ export function CreditCheckoutDialog({
   useEffect(() => {
     if (
       !fundingEvent ||
+      reconnecting ||
       ["credited", "canceled", "failed"].includes(fundingEvent.status)
     )
       return;
+    // Pausing during reconnect also discards polls already in flight.
     let active = true;
     const timer = setInterval(() => {
       void creditsApi
@@ -172,16 +213,17 @@ export function CreditCheckoutDialog({
           setFundingEvent(next.funding_event);
           setWaiting(next.funding_event.status === "processing");
         })
-        .catch(() => {
-          if (active)
-            setError("Still checking your payment. Your payment is saved.");
+        .catch((e: unknown) => {
+          if (!active) return;
+          if (reconnect && needsReconnect(e)) setReconnecting("needed");
+          else setError("Still checking your payment. Your payment is saved.");
         });
     }, 3000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [creditsApi, fundingEvent?.id, fundingEvent?.status]);
+  }, [creditsApi, fundingEvent?.id, fundingEvent?.status, reconnecting]);
 
   useEffect(() => {
     if (
@@ -199,21 +241,30 @@ export function CreditCheckoutDialog({
 
   async function begin() {
     setError(null);
-    const next = await creditsApi.beginFunding({
-      amountMicrousd: amount,
-      method,
-      chain: method === "wallet" ? network : undefined,
-      idempotencyKey: key.current,
-      x402:
-        method === "wallet" && selected
-          ? createWidgetX402Client(wallet, {
-              amountMicrousd: amount,
-              network,
-              asset: selected.asset,
-              recipient: selected.recipient,
-            })
-          : undefined,
-    });
+    if (reconnecting)
+      throw new Error("Reconnect Aomi before continuing this payment.");
+    const next = await creditsApi
+      .beginFunding({
+        amountMicrousd: amount,
+        method,
+        chain: method === "wallet" ? network : undefined,
+        idempotencyKey: key.current,
+        x402:
+          method === "wallet" && selected
+            ? createWidgetX402Client(wallet, {
+                amountMicrousd: amount,
+                network,
+                asset: selected.asset,
+                recipient: selected.recipient,
+              })
+            : undefined,
+      })
+      .catch((e: unknown) => {
+        // A refused credential never reaches Payment, so no funding event
+        // exists yet; the same idempotency key is reused after reconnecting.
+        if (reconnect && needsReconnect(e)) setReconnecting("needed");
+        throw e;
+      });
     if (owner.current !== creditsApi)
       throw new Error(
         "Account changed. Reopen checkout for your current account.",
@@ -233,6 +284,24 @@ export function CreditCheckoutDialog({
       );
     } finally {
       setBusy(false);
+    }
+  }
+  async function restore() {
+    if (!reconnect) return;
+    setReconnecting("busy");
+    setReconnectError(null);
+    try {
+      await reconnect();
+      setError(null);
+      // Stay blocked until methods and any funding event Payment already
+      // holds reload with the renewed authorization.
+      recovering.current = true;
+      setLoads((count) => count + 1);
+    } catch (e) {
+      setReconnecting("needed");
+      setReconnectError(
+        e instanceof Error ? e.message : "Aomi could not be reconnected.",
+      );
     }
   }
   function reset() {
@@ -298,12 +367,33 @@ export function CreditCheckoutDialog({
           Choose {method === "card" ? "500" : "100"}–100,000 whole credits.
         </p>
       )}
-      {error && (
+      {error && !reconnecting && (
         <p role="alert" className="text-aomi-danger text-xs">
           {error}
         </p>
       )}
-      {fundingEvent && ["canceled", "failed"].includes(fundingEvent.status) ? (
+      {reconnecting ? (
+        <div className="border-aomi-border flex flex-col gap-3 rounded-xl border p-4">
+          <p role="status" className="text-sm">
+            Your Aomi sign-in for this account expired. Reconnect to continue;
+            your amount and payment method are kept, and you won’t be charged
+            twice.
+          </p>
+          {reconnectError && (
+            <p role="alert" className="text-aomi-danger text-xs">
+              {reconnectError}
+            </p>
+          )}
+          <button
+            disabled={reconnecting === "busy"}
+            className="bg-aomi-fg text-aomi-bg rounded-xl p-3 disabled:opacity-40"
+            onClick={() => void restore()}
+          >
+            {reconnecting === "busy" ? "Reconnecting…" : "Reconnect Aomi"}
+          </button>
+        </div>
+      ) : fundingEvent &&
+        ["canceled", "failed"].includes(fundingEvent.status) ? (
         <>
           <p role="status">
             This payment{" "}
