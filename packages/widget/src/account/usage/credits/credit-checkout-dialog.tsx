@@ -84,6 +84,8 @@ export function CreditCheckoutDialog({
   );
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [loads, setLoads] = useState(0);
+  // Set between a successful reconnect and the reload that proves it worked.
+  const recovering = useRef(false);
   const owner = useRef(creditsApi);
   const key = useRef<string>(crypto.randomUUID());
   const notified = useRef<string | null>(null);
@@ -135,6 +137,10 @@ export function CreditCheckoutDialog({
     ])
       .then(([available, current]) => {
         if (!active) return;
+        if (recovering.current) {
+          recovering.current = false;
+          setReconnecting(null);
+        }
         setMethods(available);
         if (current) accept(current);
         else if (!fundingEvent) {
@@ -145,7 +151,16 @@ export function CreditCheckoutDialog({
       })
       .catch((e: unknown) => {
         if (!active) return;
-        if (reconnect && needsReconnect(e)) setReconnecting("needed");
+        if (recovering.current) {
+          // Stay blocked: payment must not start on unverified state.
+          recovering.current = false;
+          setReconnecting("needed");
+          setReconnectError(
+            needsReconnect(e)
+              ? "Aomi still needs you to reconnect."
+              : "Payment options could not be loaded. Try reconnecting again.",
+          );
+        } else if (reconnect && needsReconnect(e)) setReconnecting("needed");
         else
           setError(
             "Payment options could not be loaded. Close and reopen to retry.",
@@ -184,9 +199,11 @@ export function CreditCheckoutDialog({
   useEffect(() => {
     if (
       !fundingEvent ||
+      reconnecting ||
       ["credited", "canceled", "failed"].includes(fundingEvent.status)
     )
       return;
+    // Pausing during reconnect also discards polls already in flight.
     let active = true;
     const timer = setInterval(() => {
       void creditsApi
@@ -206,7 +223,7 @@ export function CreditCheckoutDialog({
       active = false;
       clearInterval(timer);
     };
-  }, [creditsApi, fundingEvent?.id, fundingEvent?.status]);
+  }, [creditsApi, fundingEvent?.id, fundingEvent?.status, reconnecting]);
 
   useEffect(() => {
     if (
@@ -275,9 +292,10 @@ export function CreditCheckoutDialog({
     setReconnectError(null);
     try {
       await reconnect();
-      setReconnecting(null);
       setError(null);
-      // Reload methods and any funding event Payment already holds.
+      // Stay blocked until methods and any funding event Payment already
+      // holds reload with the renewed authorization.
+      recovering.current = true;
       setLoads((count) => count + 1);
     } catch (e) {
       setReconnecting("needed");

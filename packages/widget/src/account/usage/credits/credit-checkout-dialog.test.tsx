@@ -121,6 +121,25 @@ describe("Credit checkout authorization recovery", () => {
     expect(second.idempotencyKey).toBe(first.idempotencyKey);
   });
 
+  it("stays blocked until checkout reloads after reconnecting", async () => {
+    credits.beginFunding.mockRejectedValue(expired());
+    checkout(vi.fn(async () => {}));
+    await payFiveDollars();
+    credits.methods.mockRejectedValueOnce(
+      new AomiCreditApiError(503, "load payment methods"),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reconnect Aomi" }),
+    );
+    expect(
+      await screen.findByText(
+        "Payment options could not be loaded. Try reconnecting again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Pay / })).toBeNull();
+    expect(credits.beginFunding).toHaveBeenCalledTimes(1);
+  });
+
   it("stays blocked when reconnect is canceled or picks another account", async () => {
     credits.beginFunding.mockRejectedValue(expired());
     const reconnect = vi.fn(async () => {
