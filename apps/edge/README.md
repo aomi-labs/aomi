@@ -1,8 +1,8 @@
 # aomi-edge
 
 The Cloudflare Worker that is the public edge for every Aomi HTTP surface. It
-replaces `product-mono/infra/cloudflare/worker` and, over the two cutovers in
-the design doc, absorbs the proxy half of the Portal and Build BFFs.
+replaces `product-mono/infra/cloudflare/worker` and owns the proxy half of
+the Portal and Build BFFs.
 
 One rule for every route: **the Worker owns the outside shape, the Rust
 services own the inside shape.** Whatever a browser, CLI, MCP client or x402
@@ -10,17 +10,17 @@ venue sends, the Worker turns it into one typed call with a bearer it minted
 as topology node `aomi-edge`. Rust never sees a venue header, a cookie or a
 venue-specific URL.
 
-## What is here now (cutover 1, step 1)
+## Route ownership after cutover 1
 
-- `src/routing/*`: the routing core ported from product-mono: route allowlist,
+- `src/api/*` and `src/kernel/*`: the routing core ported from product-mono: route allowlist,
   CORS profiles, rendezvous hashing over `BACKEND_ORIGINS`, tunnel failover,
   the hosted-app availability probe and the manager cutover switch.
-- `src/task/*`: the Task API venue adapters.
+- `src/api/task-body.ts` and `src/api/discovery.ts`: the Task API venue adapters.
   - A venue's `Authorization`, cookies and router headers never reach the API
     Server (`TASK_UPSTREAM_HEADERS`).
   - `GET`, `HEAD` and an empty `POST` on `/v1/task/build` answer the API
-    Server's own body-bound 402 for its example request, fetched once per
-    validity window and cached (`EDGE_CACHE` KV, in-isolate fallback).
+    Server's own body-bound 402 for its example request, cached within its
+    validity window (`EDGE_CACHE` KV, in-isolate fallback).
   - A `text/plain` body that is JSON is relabelled `application/json`; the
     bytes are untouched so a `Payment-Signature` retry stays bound to them.
 - `src/identity.ts`: the edge as an `AomiService` over
@@ -37,15 +37,15 @@ venue-specific URL.
     the same JWKS key that says who the credential belongs to. The edge
     verifies and caches it until it expires (`EDGE_CACHE`), so revocation
     lands at the next refresh.
-  - `policy.ts`: capabilities per session kind, OAuth resource policies and the
-    one `authorize` check, ported unchanged from the portal.
+  - `@aomi-labs/account/policy`: shared session capabilities, OAuth resource
+    policies and the one `authorize` check used by Edge and Portal.
   - `routes.ts`: the route table. `/v1/agent/**`, `/v1/pipeline/**`,
     `/v1/account/{apps,transaction-safety,credits,statement}`, the two MCP
     transports, the `/api/*` backend allowlist, delegation begin, discovery
     and the public catalog. Bearers are minted as `aomi-edge` with the same
     delegated claims the portal minted as `aomi-bff`.
-  - `forward.ts`, `cors.ts`, `csrf.ts`: the header policies, open-widget CORS
-    and the cookie CSRF rule, copied from `@aomi-labs/account`.
+  - `headers.ts` and `src/kernel/{proxy,cors,csrf}.ts`: forwarding headers,
+    open-widget CORS and the cookie CSRF rule.
 
 - `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
   host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
@@ -59,8 +59,9 @@ venue-specific URL.
     `BUILD_SESSION_SECRET` (HS256, and a JWE for the PKCE exchange code).
     Same cookie names, audiences, claims and lifetimes as the Build BFF, so
     cookies issued by either side verify on the other during the cutover.
-  - `manager.ts`: the GitHub code exchange and project claim, called as the
-    `aomi-edge` service.
+  - `manager-client.ts`: the GitHub code exchange and project claim, called
+    as the `aomi-edge` service. `src/kernel/manager.ts` is the single resolver
+    for Manager destinations across the API and Build surfaces.
   - `deploy.ts`, `operate.ts`: the launch, deployments and operate routes,
     each one `endpoint()` (auth, a zod input, a handler) with the ownership
     checks of the Build BFF. The manager is called through
@@ -70,10 +71,17 @@ venue-specific URL.
   - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
     (local only) and `internal/sentry-smoke`.
 
-The Vercel route files for the moved families stay until cutover day and are
-deleted in one PR; until then both serve the same requests the same way.
+The Vercel handlers for the moved proxy families have been deleted. Portal
+retains the Better Auth authorization server, session and account management,
+widget authentication, delegation callbacks and the Edge principal attestation
+endpoint. Its account routes accept session credentials; OAuth access-token
+verification for protected resources happens at Edge. Build retains its sandbox
+and sidecar authentication; sidecar bearers still use the `aomi-sidecar` audience.
 
 ## Running
+
+The example below uses local backend bindings. `dev:staging` selects the
+Wrangler environment; the copied variables still point at localhost.
 
 ```sh
 pnpm --filter aomi-edge test        # vitest, no network
@@ -81,6 +89,21 @@ pnpm --filter aomi-edge typecheck
 cp apps/edge/.dev.vars.example apps/edge/.dev.vars
 pnpm --filter aomi-edge dev:staging
 ```
+
+To test staging origins, use an ignored `apps/edge/.dev.vars.staging` with
+the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+`EDGE_TOPOLOGY=staging` and the matching staging service private key. Obtain
+origins from the staging inventory and credentials from its secret store.
+
+Each hosted-app availability probe has a 1.5-second deadline. A timed-out
+origin is unavailable for that attempt, so healthy pool members can serve
+the request; configured warm-up retries retain their existing limit.
+
+Discovery-cache follow-up: coalesce concurrent misses per origin within an
+isolate, test that a burst creates one quote and that failure releases the
+pending entry. Cache hits already reuse quotes, but concurrent misses and
+different isolates can currently create extra quote rows. This is an
+efficiency follow-up, not a payment execution path.
 
 ## Deploying
 

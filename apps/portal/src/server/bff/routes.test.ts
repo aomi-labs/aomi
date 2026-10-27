@@ -5,8 +5,6 @@ const PORTAL = "https://portal.example";
 const PARTNER = "https://partner.example";
 
 const mocks = vi.hoisted(() => ({
-  mintAccountBearer: vi.fn(),
-  mintDelegatedBearer: vi.fn(),
   fetch: vi.fn(),
   managedClient: vi.fn(),
   e2eAccountId: vi.fn(),
@@ -14,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
 }));
 
-// One table of credentials stands in for Better Auth, widget sessions and the
-// OAuth resource server; everything above them (resolver, capabilities,
+// One table of credentials stands in for Better Auth and widget sessions;
+// everything above them (resolver, capabilities,
 // error mapping, CORS) is the real pipeline. The proxy families (/api, /v1/agent,
 // /v1/pipeline, credits, statement, apps, transaction safety, MCP) left for the
 // edge Worker; apps/edge/src/portal/portal.test.ts covers them.
@@ -47,47 +45,10 @@ const WIDGETS: Record<
     authMethod: "anonymous",
   },
 };
-const TOKENS: Record<
-  string,
-  { sub: string; class: "user" | "guest"; scope: string; aud: string }
-> = {
-  "oauth.user.jwt": {
-    sub: "user",
-    class: "user",
-    scope: "agent:read agent:write agent:actions:resolve custody:delegate",
-    aud: `${PORTAL}/v1/agent`,
-  },
-  "oauth.guest.jwt": {
-    sub: "guest",
-    class: "guest",
-    scope: "agent:read agent:write",
-    aud: `${PORTAL}/v1/agent`,
-  },
-};
-
-function claimsFor(token: string) {
-  const entry = TOKENS[token];
-  if (!entry) return null;
-  return {
-    sub: entry.sub,
-    iss: `${PORTAL}/api/auth`,
-    aud: entry.aud,
-    scope: entry.scope,
-    client_id: "client-1",
-    jti: "grant-1",
-    "https://aomi.dev/canonical_user_id": `acct-${entry.sub}`,
-    "https://aomi.dev/principal_class": entry.class,
-  };
-}
-
 function bearerToken(request: Request): string | undefined {
   return request.headers.get("authorization")?.split(/\s+/)[1];
 }
 
-vi.mock("@aomi-labs/account", () => ({
-  mintAccountBearer: mocks.mintAccountBearer,
-  mintDelegatedBearer: mocks.mintDelegatedBearer,
-}));
 vi.mock("@aomi-labs/account/account", () => ({
   getOrCreateAomiUserForBetterAuthSession: async ({
     betterAuthUserId,
@@ -149,30 +110,6 @@ vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => {
     },
   };
 });
-vi.mock("@better-auth/oauth-provider/resource-client", () => ({
-  oauthProviderResourceClient: () => ({
-    getActions: () => ({
-      verifyAccessTokenRequest: async (
-        request: Request,
-        options: {
-          verifyOptions: { audience: string };
-          requiredScopes: string[];
-        },
-      ) => {
-        expect(new URL(request.url).origin).toBe(
-          new URL(options.verifyOptions.audience).origin,
-        );
-        const claims = claimsFor(bearerToken(request) ?? "");
-        if (!claims || claims.aud !== options.verifyOptions.audience)
-          throw Object.assign(new Error("bad token"), { status: 401 });
-        const granted = claims.scope.split(" ");
-        if (options.requiredScopes.some((scope) => !granted.includes(scope)))
-          throw Object.assign(new Error("scope"), { status: 403 });
-        return claims;
-      },
-    }),
-  }),
-}));
 vi.mock("@/server/bff/dev/e2e-wallet", () => ({
   e2eAccountId: mocks.e2eAccountId,
 }));
@@ -189,12 +126,6 @@ vi.mock("@/server/bff/failures", () => ({
 
 import { NextRequest } from "next/server";
 import { routes } from "./routes";
-
-type Family = {
-  call: () => Promise<Response>;
-  method: string;
-  url: string;
-};
 
 function request(path: string, init: RequestInit & { origin?: string } = {}) {
   const headers = new Headers(init.headers);
@@ -252,9 +183,7 @@ const FAMILIES = {
 } as const;
 type FamilyName = keyof typeof FAMILIES;
 
-// Minted: the account bearer subject, where the route mints one.
-type Outcome = number | [200, string];
-const user = "acct-user";
+type Outcome = number;
 const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "cookie user": {
     "/v1/account": 200,
@@ -301,13 +230,6 @@ function allStatus(status: number): Record<FamilyName, Outcome> {
   ) as Record<FamilyName, Outcome>;
 }
 
-function upstreamCalls() {
-  return mocks.fetch.mock.calls.map(([url, init]) => ({
-    url: String(url),
-    headers: new Headers((init as RequestInit).headers),
-  }));
-}
-
 beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
   vi.stubEnv("DATABASE_URL", "postgres://unused");
@@ -320,18 +242,6 @@ beforeEach(() => {
   mocks.fetch
     .mockReset()
     .mockImplementation(async () => Response.json({ ok: true }));
-  mocks.mintAccountBearer
-    .mockReset()
-    .mockImplementation(async (accountId: string) => ({
-      bearer: `account:${accountId}`,
-      expiresAt: 1,
-    }));
-  mocks.mintDelegatedBearer
-    .mockReset()
-    .mockImplementation(async (accountId: string) => ({
-      bearer: `agent:${accountId}`,
-      expiresAt: 1,
-    }));
   mocks.managedClient.mockReset().mockResolvedValue(null);
   mocks.e2eAccountId
     .mockReset()
@@ -368,17 +278,23 @@ describe("principal × route family", () => {
       const response = await handler(
         request(path, { method, headers, origin }),
       );
-      const [status, subject] = Array.isArray(outcome) ? outcome : [outcome];
-      expect(response.status).toBe(status);
-      if (status !== 200) {
-        expect(mocks.fetch).not.toHaveBeenCalled();
-        expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-        return;
-      }
-      if (subject) expect(mocks.mintAccountBearer).toHaveBeenCalledWith(subject);
-      else expect(mocks.mintAccountBearer).not.toHaveBeenCalled();
-      for (const call of upstreamCalls())
-        expect(call.headers.has("cookie")).toBe(false);
+      expect(response.status).toBe(outcome);
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["Bearer oauth.user.jwt", "DPoP oauth.user.jwt"])(
+    "rejects %s without falling back to a valid session cookie",
+    async (authorization) => {
+      const response = await routes.account.GET(
+        request("/v1/account", {
+          headers: { authorization, cookie: "session=user", dpop: "proof" },
+          origin: PORTAL,
+        }),
+      );
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "invalid_token" });
+      expect(mocks.fetch).not.toHaveBeenCalled();
     },
   );
 

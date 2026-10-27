@@ -1,24 +1,28 @@
-import type { EdgeEnv } from "../env";
-import { TwoTierCache } from "../kernel/cache";
-import type { FetchLike } from "../kernel/proxy";
-import { TASK_BUILD_PATH } from "./routes";
+import type { EdgeEnv } from "../../env";
+import { TwoTierCache } from "../../kernel/cache";
+import type { FetchLike } from "../../kernel/proxy";
+import { TASK_BUILD_PATH } from "../routes";
+import { withBazaar } from "./bazaar";
+import { buildMetadata } from "./documents";
+import type { TaskTerms } from "./terms";
 
 /**
  * The Task discovery challenge: the API Server's own body-bound 402 for its
- * published example request, fetched once per validity window and served to
+ * published example request, cached for its validity window and served to
  * venue probes that cannot or will not send a body (GET, HEAD, an empty POST).
  *
  * Two rules, both tested:
  * - the Worker never invents a `Payment-Required`; it relays the one the
- *   payment service signed, and the body the venue would have to POST is in
- *   the response, so a payer who retries buys exactly that preparation;
- * - the upstream is asked at most once per window per origin, so crawler
- *   traffic does not become `quoted` attempt rows in the payment ledger.
+ *   payment service issued (listed on Bazaar, which binds nothing), and the
+ *   body the venue would have to POST is in the response, so a payer who
+ *   retries buys exactly that preparation;
+ * - cache hits reuse a quote rather than creating another ledger attempt;
+ *   concurrent misses and different isolates can still create extra quotes.
  */
 export type DiscoveryChallenge = {
   /** The upstream `Payment-Required` header, byte for byte. */
   paymentRequired: string;
-  /** Metadata from the upstream GET merged with the upstream 402 body. */
+  /** The build metadata merged with the upstream 402 body. */
   body: Record<string, unknown>;
 };
 
@@ -58,12 +62,13 @@ async function jsonObject(
 
 /**
  * Resolve the discovery challenge for one API Server origin, from cache or by
- * asking the upstream for its metadata and then its 402 for the example body.
- * Returns null when the upstream cannot produce one; callers then fall back to
- * forwarding the request as it is.
+ * asking the upstream for its 402 for the published example body. Returns
+ * null when the upstream cannot produce one; callers then answer with the
+ * read-only metadata.
  */
 export async function discoveryChallenge(
   apiServerOrigin: URL,
+  terms: TaskTerms,
   env: EdgeEnv,
   fetchImpl: FetchLike,
   now: number = Date.now(),
@@ -73,18 +78,8 @@ export async function discoveryChallenge(
   if (cached) return cached;
 
   const buildUrl = new URL(TASK_BUILD_PATH, apiServerOrigin);
-  let metadata: Record<string, unknown> | null;
-  try {
-    const response = await fetchImpl(
-      new Request(buildUrl, { headers: { accept: "application/json" } }),
-      { cache: "no-store" },
-    );
-    metadata = response.ok ? await jsonObject(response) : null;
-  } catch {
-    return null;
-  }
-  const example = metadata?.exampleRequest;
-  if (!metadata || !example || typeof example !== "object") return null;
+  const metadata = buildMetadata(terms);
+  const example = metadata.exampleRequest;
 
   let challenge: Response;
   try {
@@ -99,9 +94,11 @@ export async function discoveryChallenge(
   } catch {
     return null;
   }
-  const paymentRequired = challenge.headers.get("Payment-Required");
-  if (challenge.status !== 402 || !paymentRequired) return null;
+  const upstreamRequired = challenge.headers.get("Payment-Required");
+  if (challenge.status !== 402 || !upstreamRequired) return null;
+  const paymentRequired = withBazaar(upstreamRequired);
   const body = (await jsonObject(challenge)) ?? {};
+  if (body.paymentRequired === upstreamRequired) body.paymentRequired = paymentRequired;
 
   const value: DiscoveryChallenge = {
     paymentRequired,

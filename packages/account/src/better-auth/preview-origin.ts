@@ -8,7 +8,9 @@ export function previewWalletAuthOrigin(): string | undefined {
 
 /** Bind wallet challenges to the host that served this preview request. The
  *  accepted hosts are exact deployment/branch aliases or the configured
- *  canonical Portal; a caller-supplied Origin header never selects a domain. */
+ *  canonical Portal. Behind Edge, the exact configured canonical Origin may
+ *  select that public domain after the transport host is verified. Forwarded
+ *  headers never select a wallet domain. */
 export function withPreviewWalletAuthOrigin<T>(
   request: Request,
   env: Record<string, string | undefined>,
@@ -26,7 +28,18 @@ export function withPreviewWalletAuthOrigin<T>(
       { status: 403 },
     );
   }
-  return previewOrigin.run(url.origin, handler);
+  const origin = request.headers.get("origin");
+  const canonicalOrigin = originFromConfig(canonicalUrl);
+  if (origin && origin !== url.origin && origin !== canonicalOrigin) {
+    return Response.json(
+      { code: "PREVIEW_AUTH_ORIGIN_NOT_ALLOWED" },
+      { status: 403 },
+    );
+  }
+  return previewOrigin.run(
+    origin === canonicalOrigin ? canonicalOrigin : url.origin,
+    handler,
+  );
 }
 
 function originFromConfig(value: string | undefined): string | undefined {
