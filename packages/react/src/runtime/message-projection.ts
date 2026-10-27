@@ -2,6 +2,7 @@ import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
   projectConversationEvents,
+  type Action,
   type ContextCompactedEvent,
   type ContextCompactingEvent,
   type Event,
@@ -328,6 +329,19 @@ function commitContinuationOwners(
     }
   }
   return owners;
+}
+
+/** Pending Actions of the visible conversation. An Edit or Rerun hides the
+ * Action events of the turns it replaced, so their Actions go with them. */
+export function conversationPendingActions(
+  pending: Action[],
+  events: readonly Event[],
+): Action[] {
+  const visible = new Set(
+    events.flatMap((event) => (event.type === "action" ? [event.id] : [])),
+  );
+  const kept = pending.filter((action) => visible.has(action.id));
+  return kept.length === pending.length ? pending : kept;
 }
 
 /** The logical turn stays open while its wallet callback has not finished. */
@@ -697,7 +711,22 @@ export function projectRuntimeMessages(
       occurred_at: Date.now() / 1000,
     });
   }
-  const projected = projectAssistantMessages(visible);
+  // The Stopped trace already says a user's own Stop ended the turn; the
+  // interrupt notice is for runs something else interrupted.
+  const userStopped = new Set(
+    terminalTurns.filter((t) => t.state === "interrupted").map((t) => t.turnId),
+  );
+  const projected = projectAssistantMessages(
+    visible.filter(
+      (event) =>
+        !(
+          event.type === "message" &&
+          event.sender === "notice" &&
+          event.code === "execution_interrupted" &&
+          userStopped.has(event.turn_id ?? "")
+        ),
+    ),
+  );
   if (pendingUserMessage === undefined) return projected;
   // Edit and Rerun replace the conversation from this user message onward.
   const replaced = projected.findIndex(

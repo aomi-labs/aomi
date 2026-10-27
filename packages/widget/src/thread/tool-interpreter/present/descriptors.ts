@@ -237,6 +237,17 @@ const descriptorById: Record<string, Descriptor> = {
     "chain",
     "txId",
   ),
+  "sign.message": {
+    title: "fixed",
+    fixedTitle: "Sign message",
+    icon: SHAPE_ICONS.signature,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "count" },
+      { kind: "status" },
+    ],
+  },
   "skill.activate": {
     title: "fixed",
     fixedTitle: "Activate skill",

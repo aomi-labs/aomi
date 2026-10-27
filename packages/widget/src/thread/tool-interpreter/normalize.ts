@@ -146,6 +146,7 @@ export const statusFact = (
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
   const statuses: Record<string, string> = {
     "pending approval": "pending_approval",
+    "awaiting approval": "pending_approval",
     "attestation ready": "attestation_ready",
     "needs signature": "needs_signature",
     "awaiting broadcast": "awaiting_broadcast",

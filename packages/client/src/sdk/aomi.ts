@@ -15,6 +15,8 @@ import {
   type AomiAuthStrategy,
 } from "./auth";
 import { AomiPipeline } from "./pipeline";
+import { AomiCommits } from "./commits";
+import { AomiWallets } from "./wallets";
 import type { TransactionSafetyTransport } from "../transaction-safety";
 import type { AccountTransport } from "../account/credits";
 import { createEvmPaymentClient } from "../payment";
@@ -45,6 +47,10 @@ export class Aomi {
   readonly raw: AomiClient;
   readonly pipeline: AomiPipeline;
   readonly agent: AomiAgent;
+  /** Thread-less commits by ref (`/v1/commits/:ref`). */
+  readonly commits: AomiCommits;
+  /** The account's wallets and their balances (not this process's signer). */
+  readonly wallets: AomiWallets;
   readonly account: AccountTransport;
   readonly transactionSafety: TransactionSafetyTransport;
   readonly auth: AomiAuthController;
@@ -113,6 +119,8 @@ export class Aomi {
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
     const commitOps = commits ?? (wallet ? commitCapabilities(wallet) : {});
     this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
+    this.commits = new AomiCommits(this.raw, commitOps);
+    this.wallets = new AomiWallets(this.raw);
     this.account = this.raw.account;
     this.transactionSafety = this.raw.transactionSafety;
     this.agent = new AomiAgent(

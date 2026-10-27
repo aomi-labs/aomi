@@ -1,3 +1,4 @@
+import { aomiOAuthResources } from "@aomi-labs/account/better-auth";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -164,6 +165,29 @@ describe("public OAuth client resource binding", () => {
       bindAomiPublicClientResource({ clientId: "fuzzer", resource: agent, db }),
     ).resolves.toBe("resource_conflict");
     expect(db.resources.has("fuzzer")).toBe(false);
+  });
+
+  it("lets a managed widget registered for a REST API use the /v1 sign-in", async () => {
+    const { agentRest, agentMcp, apiRest } = aomiOAuthResources();
+    const db = new BindingDatabase();
+    for (const [id, registered] of [
+      ["rest", agentRest],
+      ["mcp", agentMcp],
+    ] as const) {
+      db.clients.set(id, {
+        authMethod: "none",
+        grants: ["authorization_code", "refresh_token"],
+        clientClass: "partner_widget",
+      });
+      db.resources.set(id, new Set([registered]));
+    }
+    await expect(
+      bindAomiPublicClientResource({ clientId: "rest", resource: apiRest, db }),
+    ).resolves.toBe("already_bound");
+    // An MCP-only widget never gets the REST umbrella.
+    await expect(
+      bindAomiPublicClientResource({ clientId: "mcp", resource: apiRest, db }),
+    ).resolves.toBe("resource_conflict");
   });
 
   it("does not allow multiple bindings for a dynamically registered client", async () => {

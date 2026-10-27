@@ -177,6 +177,36 @@ describe("CORS", () => {
     expect(response.headers.get("Access-Control-Allow-Headers")).not.toMatch(/Authorization/);
   });
 
+  it("a bot's Mini App can ask for its user's wallet from any site, without credentials", async () => {
+    let forwarded: string | null = null;
+    const response = await handleRequest(
+      new Request("https://api.aomi.dev/api/bots/telegram/mini-app/7202441045/wallet", {
+        method: "POST",
+        headers: { Origin: "https://mini.partner.example", "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: "auth_date=1&hash=00" }),
+      }),
+      productionEnv,
+      async (request) => {
+        forwarded = request.url;
+        return new Response(JSON.stringify({ wallet: null }), { status: 200 });
+      },
+    );
+    expect(new URL(forwarded ?? "").pathname).toBe("/api/bots/telegram/mini-app/7202441045/wallet");
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://mini.partner.example");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+    // Every other bot route keeps the allowlist.
+    const webhook = await handleRequest(
+      new Request("https://api.aomi.dev/api/bots/telegram/secret/wallet", {
+        method: "POST",
+        headers: { Origin: "https://mini.partner.example", "Content-Type": "application/json" },
+        body: "{}",
+      }),
+      productionEnv,
+      async () => new Response("{}", { status: 200 }),
+    );
+    expect(webhook.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
   it("JWKS is readable cross-origin without credentials", async () => {
     const response = await handleRequest(
       new Request("https://api.aomi.dev/.well-known/jwks.json", {
@@ -524,10 +554,6 @@ describe("manager cutover routing", () => {
       "/api/platforms/community/deployments/dep_1_2_3/status",
       "/api/platforms/community/apps/geckoterminal/records",
       "/api/platforms/community/tokens/42",
-      "/api/platforms/community/venue",
-      "/api/platforms/community/telegram/handover",
-      "/api/platforms/community/telegram/handover/nonce",
-      "/api/platforms/community/telegram/handover/world-bot/42/status",
       "/api/projects/42/deploy",
       "/api/integrations/github-app/webhook",
       "/api/integrations/github-app/oauth/claim",

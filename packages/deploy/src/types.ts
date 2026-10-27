@@ -286,8 +286,10 @@ export interface CreateUserBotInput extends BuilderBotsInput {
   credential: string;
   label?: string;
   threadMode?: string;
-  /** Omitted = platform default; null or "" clears. */
+  /** Omitted = no Mini App; null or "" clears. */
   miniAppUrl?: string | null;
+  /** Omitted = "Open"; null or "" clears. */
+  miniAppLabel?: string | null;
   /** Omitted = custom commands unsupported; null or "" clears. */
   commandEndpoint?: string | null;
   commands?: string[];
@@ -303,6 +305,8 @@ export interface UpdateUserBotInput extends BuilderBotsInput {
   threadMode?: string;
   /** Omitted = unchanged; null or "" clears. */
   miniAppUrl?: string | null;
+  /** Omitted = unchanged; null or "" clears. */
+  miniAppLabel?: string | null;
   /** Omitted = unchanged; null or "" clears. */
   commandEndpoint?: string | null;
   /** Omitted = unchanged; [] clears. */

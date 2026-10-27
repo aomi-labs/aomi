@@ -5,6 +5,7 @@ import {
   memo,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -313,9 +314,20 @@ export const WorkingTrace: FC<{
     return () => clearInterval(timer);
   }, [running, startedAtMs]);
 
+  // The open interval is server-stamped but measured against this clock. Read
+  // the offset off the newest event as it lands (delivery lag is seconds); a
+  // skewed server clock would otherwise inflate the live count by the skew.
+  const latestEventMs = (phaseEvents ?? []).reduce(
+    (latest, event) => Math.max(latest, phaseTimeMs(event.occurred_at) || 0),
+    0,
+  );
+  const clockSkewMs = useMemo(() => {
+    const skew = Date.now() - latestEventMs;
+    return latestEventMs > 0 && Math.abs(skew) > 60_000 ? skew : 0;
+  }, [latestEventMs]);
   const persistedActiveMs =
     phaseEvents && phaseTurnIds
-      ? activeWorkDurationMs(phaseEvents, phaseTurnIds, clockMs)
+      ? activeWorkDurationMs(phaseEvents, phaseTurnIds, clockMs - clockSkewMs)
       : null;
   const runningSeconds = Math.max(
     0,

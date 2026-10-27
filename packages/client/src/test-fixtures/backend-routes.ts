@@ -70,11 +70,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
-    path: "/api/platforms/:name/venue",
-    auth: ["activation-admin"],
-  },
-  {
-    method: "DELETE",
     path: "/api/secrets",
     auth: ["thread"],
   },
@@ -405,16 +400,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/telegram/handover/bot",
-    auth: ["public"],
-  },
-  {
-    method: "GET",
     path: "/api/platforms/:name/tokens",
     auth: ["activation"],
   },
@@ -524,6 +509,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
+    method: "GET",
+    path: "/v1/account/agent-wallets",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/v1/account/agent-wallets/:wallet_id/balances",
+    auth: ["account"],
+  },
+  {
     method: "PATCH",
     path: "/api/_internal/agent/sessions/:thread_id",
     auth: ["delegated"],
@@ -537,6 +532,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PATCH",
     path: "/api/threads/:thread_id",
     auth: ["account","thread"],
+  },
+  {
+    method: "PATCH",
+    path: "/v1/account/agent-wallets/:wallet_id",
+    auth: ["account"],
   },
   {
     method: "POST",
@@ -610,11 +610,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/providers/:provider/agent-wallet",
-    auth: ["account"],
-  },
-  {
-    method: "POST",
     path: "/api/admin/apps/:app/reload",
     auth: ["admin"],
   },
@@ -635,32 +630,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/auth/para/begin",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/auth/para/callback",
-    auth: [],
-  },
-  {
-    method: "POST",
-    path: "/api/auth/privy/begin",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/auth/privy/callback",
-    auth: [],
-  },
-  {
-    method: "POST",
     path: "/api/bots/telegram/:webhook_secret",
     auth: [],
   },
   {
     method: "POST",
-    path: "/api/bots/telegram/:webhook_secret/binding",
+    path: "/api/bots/telegram/:webhook_secret/wallet",
     auth: [],
   },
   {
@@ -860,31 +835,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/platforms/:name/telegram/handover",
-    auth: ["activation-or-wallet"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id/activate",
-    auth: ["activation-or-wallet"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id/revoke",
-    auth: ["activation-or-wallet"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id/status",
-    auth: ["wallet-session"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/nonce",
-    auth: ["wallet"],
-  },
-  {
-    method: "POST",
     path: "/api/platforms/:name/tokens",
     auth: ["activation"],
   },
@@ -939,6 +889,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["account","thread"],
   },
   {
+    method: "POST",
+    path: "/v1/account/agent-wallets",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/v1/account/agent-wallets/:wallet_id/withdraw",
+    auth: ["account"],
+  },
+  {
     method: "PUT",
     path: "/api/account/transaction-safety",
     auth: ["account"],
@@ -965,11 +925,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "PUT",
-    path: "/api/platforms/:name/venue",
-    auth: ["activation-admin"],
-  },
-  {
-    method: "PUT",
     path: "/api/thread/transaction-safety",
     auth: ["account","thread"],
   },
@@ -977,5 +932,10 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PUT",
     path: "/api/widget/v1/aa-accounts/:chain_id",
     auth: ["account","thread"],
+  },
+  {
+    method: "PUT",
+    path: "/v1/account/connections/:key/wallets",
+    auth: ["account"],
   },
 ] as const satisfies readonly AomiEndpointSpec[];

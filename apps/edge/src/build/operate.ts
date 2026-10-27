@@ -415,6 +415,7 @@ const botMapping = z.object({
   applicationIds: z.array(z.number()).min(1).refine(unique, "`applicationIds` must be unique"),
   handoverApplicationId: z.number(),
   miniAppUrl: commandUrl,
+  miniAppLabel: commandUrl,
   commandEndpoint: commandUrl,
   commands: z.array(z.string()).optional(),
 });

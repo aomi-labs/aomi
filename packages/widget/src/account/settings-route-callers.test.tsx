@@ -106,20 +106,6 @@ vi.mock("@/wallet/context", () => ({
   }),
 }));
 
-vi.mock("@/account/use-account-acl", () => ({
-  useAccountAcl: () => ({
-    status: "ready",
-    wallets: [],
-    delegatedAccounts: [],
-    refresh: vi.fn(),
-    commitMode: vi.fn(),
-    revokeDelegation: vi.fn(),
-    stopAllAuto: vi.fn(),
-    renewDelegation: vi.fn(),
-    blockedReason: () => null,
-  }),
-}));
-
 function requestUrl(input: FetchCall["input"]): URL {
   if (input instanceof Request) return new URL(input.url);
   return new URL(input.toString(), "https://portal.test");
@@ -170,11 +156,6 @@ function installFetchRecorder() {
   return { calls, fetchMock };
 }
 
-// NOTE (settings redesign): the Apps/Bots/App Keys/Secrets/BYOK tabs were
-// removed with the three-tab settings redesign. Account is now wired to real
-// routes and covered by features/account/account-acl.test.tsx; Usage still
-// renders from local fixtures (see docs/SETTINGS-REDESIGN-GAPS.md) — add its
-// route-caller test here when /api/account/usage binds.
 let accountSequence = 0;
 describe("settings route callers", () => {
   beforeEach(() => {

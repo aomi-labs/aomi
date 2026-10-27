@@ -1,5 +1,6 @@
 import {
   AomiOAuthError,
+  apiResource,
   type AomiOAuthGrant,
   type AomiOAuthGrantManager,
   type AomiOAuthGrantStore,
@@ -109,6 +110,7 @@ export function createOAuthAuthRuntime(input: {
             redirectUri: configured.redirectUri,
             getWidgetBearer: configured.getWidgetBearer,
             subject: configured.subject,
+            scopes: SIGN_IN_SCOPES,
             fetch: input.fetch,
             popup: configured.popup,
             signal: configured.signal,
@@ -119,6 +121,7 @@ export function createOAuthAuthRuntime(input: {
             portalBaseUrl,
             clientId: configured.clientId,
             subject: configured.subject,
+            scopes: SIGN_IN_SCOPES,
             store: configured.store,
             initial: configured.initial,
             fetch: input.fetch,
@@ -152,18 +155,18 @@ export function createOAuthAuthRuntime(input: {
       status,
       async login(options) {
         const targets = uniqueTargets(options?.for ?? "agent");
-        const active = await manager();
-        for (const target of targets) {
-          const grant = await tokenProvider({
-            resource: resourceFor(portalBaseUrl, target),
-            scopes: AUTH_SCOPES[target],
-          });
-          if (!grant) {
-            throw new AomiOAuthError(
-              "interaction_required",
-              `OAuth did not return a ${target} grant`,
-            );
-          }
+        // One sign-in covers every target: Agent and Pipeline share `/v1`.
+        const grant = await tokenProvider({
+          resource: resourceFor(portalBaseUrl, targets[0] ?? "agent"),
+          scopes: [
+            ...new Set(targets.flatMap((target) => AUTH_SCOPES[target])),
+          ],
+        });
+        if (!grant) {
+          throw new AomiOAuthError(
+            "interaction_required",
+            `OAuth did not return a grant for ${targets.join(" and ")}`,
+          );
         }
         return status();
       },
@@ -236,6 +239,11 @@ const AUTH_SCOPES = {
   pipeline: ["pipeline:catalog", "pipeline:execute", "offline_access"],
 } as const;
 
+/** What the SDK asks for at its first sign-in: Agent and Pipeline. */
+const SIGN_IN_SCOPES = [
+  ...new Set([...AUTH_SCOPES.agent, ...AUTH_SCOPES.pipeline]),
+];
+
 function resourceFor(
   portalBaseUrl: string,
   target: AomiAuthTarget,
@@ -258,11 +266,14 @@ function authorizedTargets(
 ): AomiAuthTarget[] {
   const targets = new Set<AomiAuthTarget>();
   for (const grant of grants) {
-    if (grant.resource === resourceFor(portalBaseUrl, "agent")) {
-      targets.add("agent");
-    }
-    if (grant.resource === resourceFor(portalBaseUrl, "pipeline")) {
-      targets.add("pipeline");
+    for (const target of ["agent", "pipeline"] as const) {
+      const resource = resourceFor(portalBaseUrl, target);
+      // Only the `/v1` sign-in is used now; older per-resource grants aren't.
+      if (
+        grant.resource === apiResource(resource) &&
+        grant.scopes.includes(AUTH_SCOPES[target][0])
+      )
+        targets.add(target);
     }
   }
   return [...targets];

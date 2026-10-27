@@ -12,7 +12,7 @@ const previewEnv = (branch, pullRequestId = "") => ({
 });
 
 test("preserves standalone previews on agent and temporary branches", () => {
-  const telegramProject = "prj_siJXojKKJ3tnqn7ZtLzvImKQGgnQ";
+  const portalProject = "prj_JFlrYJshAAVu7U5BxFhLUUpzjegK";
   for (const branch of [
     "codex/cost-audit",
     "codex-queue/repair",
@@ -33,9 +33,9 @@ test("preserves standalone previews on agent and temporary branches", () => {
           ...previewEnv(branch),
           VERCEL_GIT_COMMIT_SHA: "head",
           VERCEL_GIT_PREVIOUS_SHA: "base",
-          VERCEL_PROJECT_ID: telegramProject,
+          VERCEL_PROJECT_ID: portalProject,
         },
-        () => ["apps/telegram/src/app/page.tsx"],
+        () => ["apps/portal/src/app/page.tsx"],
       ).ignore,
       false,
       branch,
@@ -165,30 +165,46 @@ test("fails open when Vercel Git metadata is unavailable", () => {
   );
 });
 
-test("skips unnecessary Telegram staging PR builds but preserves QA and main", () => {
+test("preserves Telegram deployments while skipping builds for removed source", () => {
+  const primary = "prj_siJXojKKJ3tnqn7ZtLzvImKQGgnQ";
   const staging = "prj_AWIwZJ8VT0YS20VVN2wQn822mIhS";
-  const preview = {
-    ...previewEnv("codex/telegram-fix", "1366"),
-    VERCEL_PROJECT_ID: staging,
-  };
-  assert.equal(deploymentDecision(preview).ignore, true);
-  for (const branch of ["preview/test", "qa/smoke", "release/rc", "prod"]) {
-    assert.equal(
-      deploymentDecision({ ...preview, VERCEL_GIT_COMMIT_REF: branch }).ignore,
-      false,
-    );
+  for (const projectId of [primary, staging]) {
+    for (const branch of [
+      "feature/agent-wallets",
+      "main",
+      "preview/test",
+      "qa/smoke",
+      "release/candidate",
+    ]) {
+      assert.equal(
+        deploymentDecision({
+          ...previewEnv(branch, "752"),
+          VERCEL_GIT_COMMIT_SHA: "head",
+          VERCEL_PROJECT_ID: projectId,
+        }).ignore,
+        true,
+        `${projectId} must skip ${branch} after Telegram source removal`,
+      );
+    }
   }
+
   assert.equal(
     deploymentDecision({
-      ...preview,
+      ...previewEnv("main"),
       VERCEL_ENV: "production",
-      VERCEL_GIT_COMMIT_REF: "main",
+      VERCEL_PROJECT_ID: staging,
     }).ignore,
-    false,
+    true,
+    "the Telegram staging project must keep its last deployment",
   );
   assert.equal(
-    deploymentDecision({ ...preview, VERCEL_GIT_PULL_REQUEST_ID: "" }).ignore,
+    deploymentDecision({
+      ...previewEnv("prod"),
+      VERCEL_ENV: "production",
+      VERCEL_PROJECT_ID: primary,
+    }).ignore,
     false,
+    "the primary Telegram Production deployment remains unchanged",
   );
 });
 

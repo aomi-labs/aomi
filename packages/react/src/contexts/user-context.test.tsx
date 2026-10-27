@@ -32,7 +32,9 @@ describe("ExtUserProvider.setUser", () => {
     const ref = renderHarness();
     act(() => ref.current!.setUser({ connection: { is_connected: false } }));
     act(() =>
-      ref.current!.setUser({ svm: { address: "Agent", broadcaster: "hosted" } }),
+      ref.current!.setUser({
+        svm: { address: "Agent", broadcaster: "hosted" },
+      }),
     );
     // A refresh that carries no is_connected must not wipe the selection.
     act(() =>
@@ -74,6 +76,24 @@ describe("ExtUserProvider.setUser", () => {
     expect(ref.current!.user.evm?.broadcaster).toBe("hosted");
     act(() => ref.current!.setUser({ evm: { broadcaster: undefined } }));
     expect(ref.current!.user.evm?.broadcaster).toBeUndefined();
+  });
+
+  it("keeps this device's wallet pick and presence across a disconnect", () => {
+    const ref = renderHarness();
+    act(() =>
+      ref.current!.setUser({
+        connection: { is_connected: true },
+        evm: { address: "0x1111111111111111111111111111111111111111" },
+        wallet_pick: { evm: "w_12", svm: null },
+        wallet_presence: ["w_4"],
+      }),
+    );
+    act(() => ref.current!.setUser({ connection: { is_connected: false } }));
+    expect(ref.current!.user.evm?.address).toBeUndefined();
+    expect(ref.current!.user.wallet_pick).toEqual({ evm: "w_12", svm: null });
+    expect(ref.current!.user.wallet_presence).toEqual(["w_4"]);
+    act(() => ref.current!.setUser({ wallet_presence: [] }));
+    expect(ref.current!.user.wallet_presence).toEqual([]);
   });
 
   it("wipes wallet identity and rejects runtime pending state on disconnect", () => {

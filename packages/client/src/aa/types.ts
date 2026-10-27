@@ -68,6 +68,8 @@ export type PartialWalletExecution = {
 export interface AtomicBatchArgs {
   calls: AACallPayload[];
   chainId?: number;
+  /** The reviewed signer; without it a connector sends from its first account. */
+  account?: Hex;
   connector?: unknown;
   capabilities?: {
     atomic?: {
@@ -123,6 +125,13 @@ export interface ExecuteWalletCallsParams {
   capabilities: Record<string, WalletCapabilities> | undefined;
   localPrivateKey: `0x${string}` | null;
   nativeWalletExecution?: NativeWalletExecutionPolicy;
+  /** Send the calls with one `wallet_sendCalls`, even a single call, whatever
+   * the capabilities say; atomicity is required only for several calls. They
+   * go one by one only when the wallet refuses the bundle before sending
+   * anything: 5700, 5760, -32601 or 4200. */
+  bundle?: boolean;
+  /** A failure after the wallet answered a call id carries that `callsId`
+   * (on it or a cause): the calls may be out, so they are never sent again. */
   sendCallsSyncAsync: (args: AtomicBatchArgs) => Promise<unknown>;
   sendTransactionAsync: (args: {
     chainId: number;

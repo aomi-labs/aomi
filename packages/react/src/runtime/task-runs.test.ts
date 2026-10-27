@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Event } from "@aomi-labs/client";
+import { projectConversationEvents, type Event } from "@aomi-labs/client";
 
 import { selectTaskRuns } from "./task-runs";
 
@@ -177,5 +177,58 @@ describe("selectTaskRuns", () => {
       "new-child",
     ]);
     expect(Object.keys(selectTaskRuns(events, "turn"))).toEqual(["new-child"]);
+  });
+
+  it("leaves out the runs of turns an Edit or Rerun replaced", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message"),
+        type: "message",
+        sender: "user",
+        message_key: "turn-1:user",
+        content: "Swap on Arc",
+      },
+      {
+        ...meta(2, "task_started"),
+        type: "task_started",
+        call_id: "old",
+        agent_id: "old-child",
+        label: "Old",
+        app: "default",
+        resumed: false,
+      },
+      {
+        ...meta(3, "branch"),
+        type: "branch",
+        turn_id: "turn-2",
+        kind: "edit",
+        target_message_key: "turn-1:user",
+        user_message_key: "turn-1:user",
+        content: "Swap on Base",
+        removed_message_keys: ["turn-1:user"],
+        removed_turn_ids: ["turn-1"],
+      },
+      {
+        ...meta(4, "message"),
+        type: "message",
+        sender: "user",
+        turn_id: "turn-2",
+        message_key: "turn-2:user",
+        content: "Swap on Base",
+      },
+      {
+        ...meta(5, "task_started"),
+        type: "task_started",
+        call_id: "new",
+        turn_id: "turn-2",
+        agent_id: "new-child",
+        label: "New",
+        app: "default",
+        resumed: false,
+      },
+    ];
+    const visible = projectConversationEvents(events);
+    expect(Object.keys(selectTaskRuns(visible))).toEqual(["new-child"]);
+    expect(Object.keys(selectTaskRuns(visible, "turn"))).toEqual(["new-child"]);
   });
 });

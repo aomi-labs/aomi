@@ -8,7 +8,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testIds } from "@/test-ids";
 import { CapabilityMentionInput } from "./input";
-import { CapabilityComposerProvider, useCapabilityComposer } from "./provider";
+import {
+  CapabilityComposerProvider,
+  EditCapabilityComposerProvider,
+  useCapabilityComposer,
+} from "./provider";
 import type { PickerItem } from "./model";
 import type { DirectRoutingApp } from "@/controls/routing";
 import { AppIndicator } from "@/controls/app-indicator";
@@ -410,9 +414,91 @@ it("mounts the picker outside the composer overflow boundary", async () => {
   });
 
   const listbox = screen.getByRole("listbox", {
-    name: "Apps, skills, and chains",
+    name: "Apps, skills, chains, and wallets",
   });
   expect(listbox.closest(".overflow-x-hidden")).toBeNull();
+});
+
+it("tags a wallet from the picker with its w_N id and name", async () => {
+  fixture.items = [
+    {
+      kind: "chain",
+      id: "eip155:8453",
+      key: "chain:eip155:8453",
+      label: "Base",
+      searchText: "Base",
+      Icon: () => <span aria-hidden="true" />,
+    },
+    {
+      kind: "wallet",
+      id: "w_12",
+      key: "wallet:w_12",
+      label: "Trading",
+      description: "0x1234…5678 · Agent wallet",
+      searchText: "Trading 0x1234",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Open picker"));
+  });
+  expect(screen.getByRole("region", { name: "Wallets" })).toHaveTextContent(
+    "0x1234…5678 · Agent wallet",
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByRole("option", { name: /Trading/ }));
+  });
+
+  expect(fixture.setText).toHaveBeenLastCalledWith("◈ Trading ");
+  expect(screen.getByTestId("selections")).toHaveTextContent("Trading");
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toEqual({
+    capabilities: [{ kind: "wallet", id: "w_12", label: "Trading" }],
+  });
+});
+
+it("shows an edited message's tags as tags and sends only what is left", async () => {
+  fixture.items = [
+    {
+      kind: "wallet",
+      id: "w_12",
+      key: "wallet:w_12",
+      label: "Main",
+      searchText: "Main",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  fixture.text = "swap 0.02 usdc to weth ◈ Main on base";
+  render(
+    <CapabilityComposerProvider>
+      <EditCapabilityComposerProvider>
+        <CapabilityMentionInput
+          placeholder=""
+          ariaLabel="Edit message"
+          testId={testIds.editComposerInput}
+          className="aui-edit-composer-input"
+        />
+      </EditCapabilityComposerProvider>
+    </CapabilityComposerProvider>,
+  );
+  await act(async () => {});
+
+  const editor = screen.getByTestId(testIds.editComposerInput);
+  expect(editor).toHaveTextContent("swap 0.02 usdc to weth Main on base");
+  expect(editor.querySelector('[data-capability-key="wallet:w_12"]')).not.toBe(
+    null,
+  );
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toEqual({
+    capabilities: [{ kind: "wallet", id: "w_12", label: "Main" }],
+  });
+
+  await act(async () => {
+    editor.querySelector("[data-capability-key]")!.remove();
+    fireEvent.input(editor);
+  });
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toEqual({
+    capabilities: [],
+  });
 });
 
 it("pre-tags a host-requested app once, like a + picker choice", async () => {

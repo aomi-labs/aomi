@@ -6,7 +6,7 @@ test("a chain picked from the composer is sent as one hint and leaves no chip be
 }) => {
   const page = widget.page;
   const picker = page.getByRole("listbox", {
-    name: "Apps, skills, and chains",
+    name: "Apps, skills, chains, and wallets",
   });
   const base = widget.input.getByLabel("chain Base", { exact: true });
   const baseOption = picker

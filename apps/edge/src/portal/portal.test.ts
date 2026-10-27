@@ -309,14 +309,14 @@ describe("portal surface: sessions", () => {
     );
   });
 
-  it("adds custody:delegate to a signed-in user's agent write and withholds it from guests", async () => {
+  it("mints only the scope a write needs (never custody:delegate) and refuses a guest's paid write", async () => {
     await portal("/v1/agent/chat", {
       method: "POST",
       headers: { cookie: "session=user", "content-type": "application/json" },
       origin: PORTAL,
       body: "{}",
     });
-    expect((await upstreamBearer(seen[0])).payload.scope).toBe("agent:write custody:delegate");
+    expect((await upstreamBearer(seen[0])).payload.scope).toBe("agent:write");
     await portal("/v1/agent/chat", {
       method: "POST",
       headers: { cookie: "session=guest", "content-type": "application/json", "payment-signature": "p" },
@@ -353,7 +353,8 @@ describe("portal surface: widget sessions", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();
     expect(response.headers.get("vary")).toContain("Origin");
     const { payload } = await upstreamBearer(seen[0]);
-    expect(payload).toMatchObject({ sub: "acct-widget", auth_source: "session", scope: "agent:write custody:delegate" });
+    // A widget-started chat is the widget's, never the portal's (its lane may be Instant).
+    expect(payload).toMatchObject({ sub: "acct-widget", auth_source: "widget", scope: "agent:write" });
     expect(seen[0].body).toBe('{"message":"hi"}');
   });
 
@@ -470,7 +471,7 @@ describe("portal surface: OAuth tokens", () => {
   it("verifies an access token against the portal JWKS and forwards an oauth-sourced bearer", async () => {
     const token = await oauthToken({
       sub: "user",
-      scope: "agent:read agent:write custody:delegate",
+      scope: "agent:read agent:write",
       aud: `${PORTAL}/v1/agent`,
     });
     const response = await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } });
@@ -507,7 +508,7 @@ describe("portal surface: OAuth tokens", () => {
     const token = await oauthToken({
       sub: "guest",
       guest: true,
-      scope: "agent:read custody:delegate",
+      scope: "agent:read payments:submit",
       aud: `${PORTAL}/v1/agent`,
     });
     const response = await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } });
@@ -814,5 +815,259 @@ describe("portal surface: host selection", () => {
     await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
     const first = decodeJwt(seen[0].headers.authorization.slice(7));
     expect(first.iss).toBe("aomi-edge");
+  });
+});
+
+/** Callers by name: how each one presents itself to the edge. */
+async function caller(name: string): Promise<{ headers: Record<string, string>; origin?: string }> {
+  switch (name) {
+    case "portal user":
+      return { headers: { cookie: "session=user" }, origin: PORTAL };
+    case "portal guest":
+      return { headers: { cookie: "session=guest" }, origin: PORTAL };
+    case "CLI session":
+      return { headers: { authorization: "Bearer user" } };
+    case "widget user":
+      return { headers: { authorization: "Bearer aomi_wst_user" }, origin: PARTNER };
+    case "widget guest":
+      return { headers: { authorization: "Bearer aomi_wst_guest" }, origin: PARTNER };
+    case "OAuth user":
+      return { headers: { authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}` } };
+    case "OAuth guest":
+      return { headers: { authorization: `Bearer ${await oauthToken({ sub: "guest", guest: true, scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}` } };
+    default:
+      throw new Error(name);
+  }
+}
+
+async function call(name: string, method: string, path: string) {
+  const { headers, origin } = await caller(name);
+  const body = method === "GET" ? undefined : "{}";
+  return portal(path, { method, origin, headers: { ...headers, ...(body ? { "content-type": "application/json" } : {}) }, body });
+}
+
+describe("portal surface: the backend bearer says who is calling", () => {
+  it.each([
+    ["portal user", { auth_source: "session", principal_class: "user" }],
+    ["portal guest", { auth_source: "session", principal_class: "guest" }],
+    ["CLI session", { auth_source: "cli_session", principal_class: "user" }],
+    ["widget user", { auth_source: "widget", principal_class: "user" }],
+    ["widget guest", { auth_source: "widget", principal_class: "guest" }],
+    ["OAuth user", { auth_source: "oauth", principal_class: "user", client_id: "client-1" }],
+  ])("%s", async (name, claims) => {
+    const response = await call(name, "GET", "/v1/commits/c-1");
+    expect(response.status).toBe(200);
+    expect(seen[0].url).toBe(`${BACKEND}/v1/commits/c-1`);
+    const { payload } = await upstreamBearer(seen[0]);
+    expect(payload).toMatchObject({ aud: "aomi-backend", role: "user", ...claims });
+    // No scope: the backend reads a scope-less aomi-edge bearer as first-party by its auth_source.
+    expect(payload.scope).toBeUndefined();
+    if (!("client_id" in claims)) expect(payload.client_id).toBeUndefined();
+  });
+
+  it("names the widget on the agent API too, so its chats are never recorded as portal chats", async () => {
+    await call("widget user", "GET", "/v1/agent/sessions");
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ aud: "aomi-api-server", auth_source: "widget" });
+    await call("CLI session", "GET", "/v1/agent/sessions");
+    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ auth_source: "cli_session" });
+  });
+});
+
+describe("portal surface: wallets, agent wallets and connection lanes", () => {
+  const READS = ["/v1/account/wallets", "/v1/account/agent-wallets", "/v1/account/agent-wallets/g-1/balances"];
+  const WRITES = [
+    ["POST", "/v1/account/agent-wallets"],
+    ["PATCH", "/v1/account/agent-wallets/g-1"],
+    ["POST", "/v1/account/agent-wallets/g-1/withdraw"],
+    ["PUT", "/v1/account/pause-all"],
+    ["PUT", "/v1/account/connection-settings/portal"],
+    ["PUT", "/v1/account/connections/oauth%3Acodex/wallets"],
+    ["POST", "/v1/account/link/telegram/preview"],
+    ["POST", "/v1/account/link/telegram/confirm"],
+    ["POST", "/v1/account/link/telegram/cancel"],
+  ] as const;
+
+  it.each(READS)("reads %s from the backend for any session and an OAuth agent:read grant", async (path) => {
+    for (const name of ["portal user", "widget user", "CLI session", "OAuth user"]) {
+      expect((await call(name, "GET", path)).status).toBe(200);
+    }
+    expect(seen.map((record) => record.url)).toEqual(Array(4).fill(`${BACKEND}${path}`));
+    expect(seen.every((record) => record.headers.cookie === undefined)).toBe(true);
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    const refused = await portal(path, { headers: { authorization: `Bearer ${readOnly}` } });
+    expect(refused.status).toBe(403);
+    expect(seen).toHaveLength(4);
+  });
+
+  it.each(WRITES)("lets only a signed-in portal session %s %s", async (method, path) => {
+    const ok = await call("portal user", method, path);
+    expect(ok.status).toBe(200);
+    expect(seen[0]).toMatchObject({ url: `${BACKEND}${path}`, method });
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ auth_source: "session", principal_class: "user" });
+    for (const name of ["portal guest", "CLI session", "widget user", "widget guest"]) {
+      const refused = await call(name, method, path);
+      expect([name, refused.status, await refused.json()]).toEqual([name, 403, { error: "portal_session_required" }]);
+    }
+    // An OAuth grant never reaches a portal-only write.
+    expect((await call("OAuth user", method, path)).status).toBe(401);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("refuses a cross-site cookie write before forwarding", async () => {
+    const response = await portal("/v1/account/pause-all", {
+      method: "PUT",
+      headers: { cookie: "session=user", "content-type": "application/json" },
+      origin: "https://evil.example",
+      body: "{}",
+    });
+    expect(response.status).toBe(403);
+    expect(seen).toHaveLength(0);
+  });
+
+  it.each([
+    ["POST", "/v1/account/wallets"],
+    ["PATCH", "/v1/account/agent-wallets"],
+    ["POST", "/v1/account/agent-wallets/g-1"],
+    ["GET", "/v1/account/agent-wallets/g-1/withdraw"],
+    ["GET", "/v1/account/connections/portal/wallets"],
+    ["GET", "/v1/account/pause-all"],
+    ["GET", "/v1/account/link/telegram/confirm"],
+  ] as const)("answers %s %s with 404 before identifying the caller", async (method, path) => {
+    const response = await call("portal user", method, path);
+    expect(response.status).toBe(404);
+    expect(seen).toHaveLength(0);
+    expect(principalCalls).toBe(0);
+  });
+
+  it("leaves the connections list and disconnects on the portal (the account graph)", async () => {
+    for (const [method, path] of [
+      ["GET", "/v1/account/connections"],
+      ["DELETE", "/v1/account/connections/oauth/client-1"],
+      ["DELETE", "/v1/account/connections/telegram"],
+      ["PATCH", "/v1/account/wallets/w-1"],
+    ] as const) {
+      const response = await call("portal user", method, path);
+      expect(((await response.json()) as { tag: string; url: string })).toMatchObject({ tag: "vercel", url: `${UPSTREAM}${path}` });
+    }
+  });
+
+  it("lets a CLI or OAuth login switch its own thread's wallet with agent:write", async () => {
+    for (const name of ["portal user", "CLI session", "OAuth user"])
+      expect((await call(name, "PUT", "/api/thread/wallet")).status).toBe(200);
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    const refused = await portal("/api/thread/wallet", { method: "PUT", headers: { authorization: `Bearer ${readOnly}` }, body: "{}" });
+    expect(refused.status).toBe(403);
+    expect(seen).toHaveLength(3);
+  });
+});
+
+describe("portal surface: thread-less commits", () => {
+  it.each([
+    "/v1/commits/c-1/sign",
+    "/v1/commits/c-1/broadcast",
+    "/v1/commits/c-1/attempts",
+    "/v1/commits/c-1/attempts/a-1/report",
+    "/v1/commits/c-1/reject",
+  ])("forwards POST %s with agent:write", async (path) => {
+    expect((await call("widget user", "POST", path)).status).toBe(200);
+    expect(seen[0].url).toBe(`${BACKEND}${path}`);
+    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    expect((await portal(path, { method: "POST", headers: { authorization: `Bearer ${readOnly}` }, body: "{}" })).status).toBe(403);
+    expect(seen).toHaveLength(1);
+  });
+
+  it.each(["portal user", "CLI session", "OAuth user"])("lets a %s approve", async (name) => {
+    expect((await call(name, "POST", "/v1/commits/c-1/approve")).status).toBe(200);
+    expect(seen[0].url).toBe(`${BACKEND}/v1/commits/c-1/approve`);
+  });
+
+  it.each(["portal guest", "widget user", "widget guest", "OAuth guest"])("never lets a %s approve", async (name) => {
+    const response = await call(name, "POST", "/v1/commits/c-1/approve");
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ code: "commit_approval_forbidden", status: 403 });
+    expect(seen).toHaveLength(0);
+  });
+
+  it("requires a principal and knows no other actions", async () => {
+    expect((await portal("/v1/commits/c-1")).status).toBe(401);
+    expect((await call("portal user", "POST", "/v1/commits/c-1")).status).toBe(404);
+    expect((await call("portal user", "GET", "/v1/commits/c-1/approve")).status).toBe(404);
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe("portal surface: the /v1 sign-in and app-locked MCP", () => {
+  it("takes a /v1 token on REST, narrowed to the route's scopes, and never on MCP", async () => {
+    const token = await oauthToken({
+      sub: "user",
+      scope: "agent:read pipeline:catalog account:apps:read offline_access",
+      aud: `${PORTAL}/v1`,
+    });
+    const headers = { authorization: `Bearer ${token}` };
+    expect((await portal("/v1/agent/sessions", { headers })).status).toBe(200);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ scope: "agent:read", resource: `${PORTAL}/v1/agent` });
+    expect((await portal("/v1/account/apps", { headers })).status).toBe(200);
+    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ scope: "account:apps:read", resource: `${PORTAL}/v1/account` });
+    expect((await portal("/v1/account/wallets", { headers })).status).toBe(200);
+    // A scope the token lacks is still refused.
+    expect((await portal("/v1/agent/chat", { method: "POST", headers, body: "{}" })).status).toBe(403);
+    const mcp = await portal("/v1/agent/mcp", { method: "POST", headers, body: "{}" });
+    expect(mcp.status).toBe(401);
+    expect(seen).toHaveLength(3);
+  });
+
+  it("holds a /v1 guest token to the route's own guest ceiling", async () => {
+    const token = await oauthToken({ sub: "guest", guest: true, scope: "agent:read account:apps:read", aud: `${PORTAL}/v1` });
+    // On /v1/agent the account scope is dropped, so the guest reads.
+    expect((await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } })).status).toBe(200);
+    // On /v1/account it is kept, and a guest may not carry it.
+    expect((await portal("/v1/account/apps", { headers: { authorization: `Bearer ${token}` } })).status).toBe(403);
+  });
+
+  it("forwards an app MCP grant for exactly its own path with every scope it holds", async () => {
+    const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud: `${PORTAL}/v1/apps/hoodit/mcp` });
+    const response = await portal("/v1/apps/hoodit/mcp", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: '{"jsonrpc":"2.0","method":"tools/list","id":1}',
+    });
+    expect(response.status).toBe(200);
+    expect(seen[0].url).toBe(`${AGENT}/v1/apps/hoodit/mcp`);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      scope: "mcp:agent agent:read",
+      resource: `${PORTAL}/v1/apps/hoodit/mcp`,
+      auth_source: "oauth",
+    });
+  });
+
+  it("locks app MCP to its own path: another resource's token and bad names fail", async () => {
+    for (const aud of [`${PORTAL}/v1/agent/mcp`, `${PORTAL}/v1/apps/other/mcp`, `${PORTAL}/v1`]) {
+      const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud });
+      const response = await portal("/v1/apps/hoodit/mcp", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+      expect(response.status).toBe(401);
+    }
+    const anonymous = await portal("/v1/apps/hoodit/mcp", { method: "POST", body: "{}" });
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.headers.get("www-authenticate")).toBe(
+      `Bearer error="invalid_token", resource_metadata="${PORTAL}/.well-known/oauth-protected-resource/v1/apps/hoodit/mcp", scope="mcp:agent agent:read agent:write offline_access"`,
+    );
+    const badName = await portal("/v1/apps/Bad.App/mcp", { method: "POST", body: "{}" });
+    expect(badName.status).toBe(404);
+    expect(await badName.json()).toEqual({ error: "app_not_found" });
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe("portal surface: removed routes", () => {
+  it.each([
+    ["POST", "/api/delegation/privy/begin"],
+    ["POST", "/api/delegation/para/begin"],
+    ["GET", "/api/widget/v1/execution-profile"],
+    ["PUT", "/api/widget/v1/aa-accounts/8453"],
+    ["POST", "/api/widget/v1/signing-requests/sign%3Aabc"],
+  ] as const)("no longer serves %s %s at the edge", async (method, path) => {
+    const response = await call("portal user", method, path);
+    expect(((await response.json()) as { tag: string }).tag).toBe("vercel");
+    expect(seen.every((record) => !record.url.startsWith(BACKEND))).toBe(true);
   });
 });

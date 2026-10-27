@@ -4,13 +4,21 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(112);
+    // The two-purchase Task API (product-mono #1356): prepare, then status
+    // and result by quote.
+    for (const route of [
+      "POST /v1/task/build",
+      "POST /v1/task/{quoteId}/status",
+      "POST /v1/task/{quoteId}/result",
+    ])
+      expect(publicApi["x-aomi-route-manifest"]).toContain(route);
     expect(publicApi["x-aomi-route-manifest"]).toContain(
       "GET /v1/builder/credits",
     );
     expect(publicApi["x-aomi-route-manifest"]).toContain(
       "POST /v1/account/credits/funding-events",
     );
-    expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
       operationId: "prepareTask",
       security: [],
@@ -30,6 +38,10 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       name: "Payment-Signature",
       schema: { type: "string" },
     });
+    // The agent MCP locked to one app.
+    expect(publicApi.paths["/v1/apps/{app}/mcp"].post.operationId).toBe(
+      "appMcp",
+    );
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(
       ([path, operations]) =>
@@ -176,13 +188,16 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     }
   });
 
-  it("limits client UserState to connection, wallets, preferences, and extensions", () => {
+  it("limits client UserState to connection, wallets, wallet picks, preferences, and extensions", () => {
     expect(publicApi.components.schemas.UserState.properties).toEqual({
       connection: { $ref: "#/components/schemas/UserStateConnection" },
       evm: { $ref: "#/components/schemas/UserStateEvm" },
       svm: { $ref: "#/components/schemas/UserStateSvm" },
       preferences: { type: "object", additionalProperties: true },
       ext: { type: "object", additionalProperties: true },
+      wallet_pick: expect.objectContaining({ type: "object" }),
+      wallet_presence: expect.objectContaining({ type: "array" }),
+      active_wallet: { $ref: "#/components/schemas/ActiveWallet" },
     });
     expect(
       publicApi.components.schemas.UserStateConnection.additionalProperties,

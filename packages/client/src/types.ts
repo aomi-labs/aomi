@@ -228,7 +228,7 @@ export interface AomiUserAccount {
 
 export interface AomiSigningPolicy {
   address: AomiOnchainAddress;
-  mode: "auto" | "manual" | "client_auto" | "denied";
+  mode: "auto" | "manual" | "denied";
   authorization_version: number;
   last_authorized_at: number | null;
   last_authorized_by: AomiOnchainAddress | null;
@@ -352,16 +352,7 @@ export interface AomiAccountProfile {
   onchain_policy_bindings: AomiOnchainPolicyBinding[];
 }
 
-export interface AomiBeginAccountAuthResponse {
-  state_token: string;
-  auth_url: string;
-  expires_at: number;
-}
-
 export type AomiWalletFamily = "evm" | "svm";
-export type AomiAuthWalletFamily = "evm" | "solana";
-/** Provider login intent. Linking ownership never implies delegated signing. */
-export type AomiAuthPurpose = "link_wallet" | "delegate_signing";
 
 /**
  * POST /api/secrets

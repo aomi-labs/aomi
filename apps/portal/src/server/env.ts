@@ -26,18 +26,6 @@ export function agentApiUrl(): string {
   return "http://127.0.0.1:8082";
 }
 
-export type DeploymentTier = "development" | "staging" | "production";
-
-/** Which Aomi environment this portal serves, judged by the backend it talks to. */
-export function deploymentTier(): DeploymentTier {
-  const host = new URL(backendUrl()).hostname;
-  if (host === "api.aomi.dev") return "production";
-  if (host === "api-staging.aomi.dev") return "staging";
-  if (process.env.VERCEL_ENV === "production") return "production";
-  if (process.env.VERCEL_ENV === "preview") return "staging";
-  return "development";
-}
-
 /** Origins whose cookie-carrying requests count as the portal itself. */
 export function portalOrigins(): string[] {
   return readAccountAuthEnv(process.env).trustedOrigins;
@@ -46,19 +34,6 @@ export function portalOrigins(): string[] {
 /** The header the hosting edge overwrites with the client IP (AOMI_CLIENT_IP_HEADER). */
 export function clientIpHeader(): string | null {
   return readAccountAuthEnv(process.env).clientIpHeader;
-}
-
-/** Telegram bots whose Mini App launches may sign in. */
-export function telegramWidgetBotIds(): string[] {
-  return (process.env.TELEGRAM_WIDGET_BOT_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => /^\d+$/.test(value));
-}
-
-/** Signs Privy custom-auth JWTs for Telegram users. */
-export function telegramCustomAuthPrivateKey(): string | undefined {
-  return process.env.PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY || undefined;
 }
 
 /** Local-only test tools (E2E wallet). Never on Vercel or a production build. */

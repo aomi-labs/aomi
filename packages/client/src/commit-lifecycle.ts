@@ -3,11 +3,15 @@ import type {
   CommitRecoveryRecord,
   CommitSubmissionPhase,
   CommitView,
+  MessageCommitReview,
+  OnChainOutcome,
 } from "./commits";
 
 export type CommitPresentation = {
   phase:
     | "ready"
+    | "awaiting_approval"
+    | "signing"
     | "waiting_predecessor"
     | "unavailable"
     | "preparing"
@@ -21,7 +25,28 @@ export type CommitPresentation = {
     | "expired";
   label: string;
   transactionId?: string;
+  /** Set when the chain's receipt, not Commit Service, supplies the label.
+   * The phase stays `submitted`; Commit Service's terminal state replaces it. */
+  onChain?: OnChainOutcome;
 };
+
+/** A message commit's review: a `sign` request for an `evm_message`. */
+export function isMessageReview(
+  review: ActionRequest | undefined,
+): review is MessageCommitReview {
+  return review?.type === "sign" && review.executionKind === "evm_message";
+}
+
+/** An off-chain message signature: nothing is sent, so a confirmed one has a
+ * `signature` and no transaction. */
+export function isMessageCommit(view: CommitView): boolean {
+  return (
+    isMessageReview(view.review?.request) ||
+    (view.action?.kind === "sign" &&
+      view.action.payload.kind === "evm_message") ||
+    typeof view.signature === "string"
+  );
+}
 
 /** Consumes only eligibility facts already present in a review. The current
  * wire contract does not say whether simulation/guards were required when
@@ -81,11 +106,14 @@ export function projectCommitLifecycle(
   view: CommitView,
   phase?: CommitSubmissionPhase,
   recovery?: CommitRecoveryRecord,
+  onChain?: OnChainOutcome,
 ): CommitPresentation {
+  if (isMessageCommit(view)) return projectMessageLifecycle(view, phase);
   const transactionId =
     view.transaction_id ??
     view.wallet_attempt?.transaction_id ??
     recovery?.transactionId ??
+    recovery?.transactionIds?.at(-1) ??
     undefined;
   if (view.state === "confirmed")
     return { phase: "confirmed", label: "Confirmed", transactionId };
@@ -100,7 +128,9 @@ export function projectCommitLifecycle(
             : "Wallet rejected the request"
         : view.wallet_attempt
           ? "Wallet request rejected"
-          : "Request rejected";
+          : view.approval?.state === "cancelled"
+            ? "Cancelled · nothing was signed"
+            : "Request rejected";
     return { phase: "rejected", label, transactionId };
   }
   if (view.state === "failed")
@@ -112,7 +142,25 @@ export function projectCommitLifecycle(
       transactionId,
     };
   if (view.state === "expired")
-    return { phase: "expired", label: "Request expired", transactionId };
+    return {
+      phase: "expired",
+      label:
+        view.approval?.state === "expired"
+          ? "Expired · nothing was signed"
+          : "Request expired",
+      transactionId,
+    };
+  if (view.state === "awaiting_approval")
+    return { phase: "awaiting_approval", label: "Waiting for your approval" };
+  // The chain's receipt, until Commit Service settles. It never outranks a
+  // terminal state above, and a mismatched attempt drops it.
+  if (onChain && view.wallet_attempt?.state !== "mismatched")
+    return {
+      phase: "submitted",
+      label: onChain === "success" ? "Confirmed on chain" : "Failed on chain",
+      transactionId,
+      onChain,
+    };
   if (view.state === "submitted")
     return {
       phase: "submitted",
@@ -152,6 +200,9 @@ export function projectCommitLifecycle(
       label: "Wallet outcome unknown; check status before submitting again",
       transactionId,
     };
+  // Approved: Aomi signs with the agent wallet; nothing for the browser to do.
+  if (view.approval?.state === "approved" && view.state === "needs_signature")
+    return { phase: "signing", label: "Signing…" };
   if (!view.action && view.batch?.predecessor_commit_id)
     return {
       phase: "waiting_predecessor",
@@ -160,4 +211,40 @@ export function projectCommitLifecycle(
   if (!view.action)
     return { phase: "unavailable", label: "Transaction not ready" };
   return { phase: "ready", label: "Ready to submit" };
+}
+
+/** A message has no wallet attempt, broadcast or transaction: it is signed
+ * (by Aomi, or the wallet through `sign`) or it is not. */
+function projectMessageLifecycle(
+  view: CommitView,
+  phase?: CommitSubmissionPhase,
+): CommitPresentation {
+  switch (view.state) {
+    case "confirmed":
+      return { phase: "confirmed", label: "Signed" };
+    case "rejected":
+      return {
+        phase: "rejected",
+        label:
+          view.approval?.state === "cancelled"
+            ? "Cancelled · nothing was signed"
+            : "Request rejected",
+      };
+    case "failed":
+      return {
+        phase: "failed",
+        label: view.failure_code
+          ? `Signature failed: ${view.failure_code}`
+          : "Signature failed",
+      };
+    case "expired":
+      return { phase: "expired", label: "Expired · nothing was signed" };
+    case "awaiting_approval":
+      return { phase: "awaiting_approval", label: "Waiting for your approval" };
+  }
+  // The only local step is the wallet's own signature prompt.
+  if (phase) return { phase: "awaiting_wallet", label: "Sign in your wallet" };
+  if (view.approval?.state === "approved" || !view.action)
+    return { phase: "signing", label: "Signing…" };
+  return { phase: "ready", label: "Ready to sign" };
 }

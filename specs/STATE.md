@@ -24,6 +24,52 @@
   Published compatibility stays: `widget-lib`, the widget 3.x deprecated exports,
   and the client `aomi` bin shim.
 
+2026-10-23 — M6 REVIEW FIXES (FRONTEND, uncommitted on `feat/agent-wallets`).
+  Legacy wallet-kit sends pass the active `account` (F1). The sign page
+  follows `CommitHandle.next` (first live batch member once it asks or is in
+  flight) and labels the result from `settled` (F2). `PUT /api/thread/wallet`
+  takes `agent:write` in `publicApiPolicy` and the BFF, so `aomi wallets use`
+  works for OAuth/CLI logins (F3). Message commits fall back to
+  `signTypedData` / `signMessage` when a wallet has no `signPreparedMessage`
+  (F4; covers CLI, headless, Privy, Para). The device page keeps an unsaved
+  lane pick with Try again (F5), shows the client's registered name, the
+  resource and scope lines, warns when it isn't `Aomi CLI · <host>`, and
+  device grants are refused outside the `/v1` REST scopes (F6). One
+  `walletRequest` helper for wallets/connections; the e2e fake backend lets
+  an OAuth connection approve its own commit on a `here` lane.
+
+2026-10-22 — MESSAGE SIGNING AS COMMITS (FRONTEND, uncommitted on
+  `feat/agent-wallets`, paired with product-mono's `evm_message` commits).
+  Hand-written wire additions in `packages/client/src/commits.ts`
+  (`EvmMessageCommit` signable, `CommitView.signature`, `MessageReview` rows
+  + `tokens`, `MessageCommitReview`); alias after `pnpm generate:agent-api`.
+  `EvmWallet.signPreparedMessage` (widget: `signPreparedEvmMessage`, wagmi
+  pinned to the active connector) signs a browser-wallet message; the
+  controller reports `{kind:"signed", payloads, version, review_digest}`.
+  `isMessageReview` / `isMessageCommit`; a confirmed message reads "Signed".
+  The sidebar and sign page reuse TransactionReview / TransactionCard: pen
+  icon, Stage · Check · Commit · Signed, message rows in the impact box,
+  "Check passed", backend warning, "Sign in <Wallet>". Pending: Privy
+  embedded EOAs have no connector, so they can't sign a browser-wallet
+  message commit yet (fixed 2026-10-23: plain signer fallback).
+
+2026-10-21 — AGENT WALLETS CLEANUP (FRONTEND; supersedes the 2026-10-16 and
+  2026-10-19 agent-wallet entries below). Branch `feat/agent-wallets` (#752),
+  paired with product-mono #1368. Wire: `/v1/account/wallets` items carry
+  `browser_app`, `agent_wallet_id`, `maker_app` (no `status`, `name`,
+  `wallet_app`, `group_id`, `app`); `agentWallets()` is `{pause_all, wallets}`;
+  `pauseAll(paused)` → `PUT /v1/account/pause-all` (agent-rule is gone);
+  connections carry `ask_only` and `setConnectionWallets(key, {wallets,
+  application?, new_app_wallet?, ask_only?})`; refusals name
+  `agent_wallet_id`. Consent pre-fills the client's current access, writes
+  nothing when unchanged, and Allow waits for the list. The refusal card's
+  Resume never lifts Pause all (its own "Resume all"). `aomi.commits.get`
+  loads the whole batch; `CommitHandle.batch` / `settled` drive withdraw, the
+  sign page and `aomi tx approve`, which works from a normal device login.
+  Embeds can't create agent wallets. Telegram chats show in the thread list
+  with the plug mark. Pending (ops): delete the retired `telegram` Vercel
+  projects (their previews stay ignored by `vercel-ignore-build`).
+
 2026-10-15 — PRIVATE PROJECT APP BUILD KEY (branch
   `fix/private-app-owner-access-1358`, with product-mono PR #1362, issue #1358).
   Build's Chat tab shows an "App key" panel for a private live app
@@ -42,6 +88,219 @@
   `NPM_CONFIG_PROVENANCE`). Patch bumps: client 0.10.4, react 0.8.5,
   deploy 0.9.2; widget 3.1.7 is still unpublished. Requested by the ACR
   integration (kaustubh76/ACR---Arc-Compute-Rate#67).
+2026-10-19 — ACCOUNT & CONNECTIONS UI KIT (branch `feat/agent-wallets`).
+  One menu: `ActionsMenu` items are `{label, icon, danger?}` (no subtext, no
+  "…"), danger always last after a divider. Every rename is a dialog
+  (`useRenameDialog`, body lazy in `ui/aomi/rename-dialog-body.tsx`;
+  `ConfirmDialog` and it share `DialogFrame`). Expandable rows get an
+  `ExpandToggle` chevron gutter; a login or agent wallet with one address
+  renders as a single `AddressRow`; parents read `N addresses · state`.
+  Words: Manage, Make active, Rename, Sign out on this device, Archive,
+  Remove from account, Disconnect. Agent wallet: Details → `AgentWalletManage`
+  (Receive row → Receive step with family tabs only for two families, Who can
+  use it + "Manage in Connections" via `SettingsNavContext`, Withdraw / Rename
+  / Pause rows, Archive alone); band ⋯ gone ("Show all N" link, Pause all in
+  the lazy Show all sheet). Connections: Telegram bots grouped under one
+  Telegram row (bot title = app label unless renamed, @handle in subtext);
+  connections carry `telegram: {user, bot}`; Wallets… → `ConnectionManage`
+  with Rename / Disconnect rows. Add a wallet: "Agent wallet" section.
+  Thread ⋯: divider + red Archive. The Account tab now loads lazily like
+  Connections (host-composition 340,426 / 358,400 gzip). Families stay the
+  app's choice (`[wallets] families`); migrated Hoodit stays EVM-only.
+  Follow-up: "Show all" opens the rest inline (no sheet; Pause all gone,
+  "Resume all" only while `pause_all` is set); Ask/Instant flip at once
+  (optimistic) and dialogs over a sheet get a light dim (`InSheetContext`);
+  standalone pages show `LoadingPane` while restoring and a signed-in visit
+  no longer waits for the wallet providers (`needsWallet` keeps /sign
+  waiting).
+  Labels (`account-management/labels.tsx`): no pills. Families are mono
+  (`Mono`, `AddressSummary`); an app sits in the grey line as its logo
+  (`getAppIcon(app.name)`, else `LayoutGrid`) + name (`AppLabel`/`withApp`);
+  Instant and Paused sit at the row's end (`StateMeta`), Paused greys the
+  mark. A locked
+  connection's sheet stays plain. Child rows indent `CHILD_INDENT` (logo
+  under the parent's name); sheet action rows use a 32px icon box.
+  One sign-in for the CLI and SDK: the `/v1` OAuth resource (`apiRest`,
+  every REST scope) is accepted on /v1/agent, /v1/pipeline and /v1/account
+  (never MCP; `acceptsAomiApiToken`), narrowed to the route's scopes in the
+  BFF principal. `aomi account login` asks once (one device code); the SDK
+  grant manager maps REST resources onto `/v1` (`apiResource`) and widens one
+  grant. Thread rows show their origin icon at the end, before the ⋯.
+  Known, pre-existing: dev "setState while rendering" warning from
+  `useDisplayQuery` (react `display-cache.tsx:254`) under AgentWalletsSection.
+
+2026-10-19 — WALLET ACCESS REWORK (FRONTEND): MANY AGENT WALLETS, PAIRS
+  (branch `feat/agent-wallets`; `notes/rework-contract.md` §5, §7-FE, §8).
+  Client: `client.account.wallets.agentWallets()` / `createAgentWallet` /
+  `updateAgentWallet` / `agentWalletBalances` / `withdrawAgentWallet`
+  (hand-written wire types in `account/agent-wallets.ts`); connections lose
+  `instant`, gain `application`, `ceiling`, `wallets` and
+  `setConnectionWallets(key, {wallets, application?, ceiling?})`;
+  `/v1/account/wallets` agent entries carry `group_id`, `name`, `app`
+  (`is_default` and `createAgentWallets` are gone); commit refusals
+  `commit_wallet_paused|archived|no_access` keep their extras as `details`.
+  Widget: Settings › Account = Profile, Wallets & access (Signs-with strip,
+  one "Sign-in wallets" band, "Agent wallets" band: 3 most recent + Show all
+  sheet with search and Pause all, Archived collapsed, ⋯ Details / Use in
+  chats / Withdraw… / Rename / Pause / Archive), Details sheet (QR via `uqr`,
+  networks, per-connection Ask/Instant), 3-step Withdraw sheet (approves the
+  ref at once); picker "New agent wallet" step; Connections ⋯ → Wallets…
+  sheet (app badge, ceiling); refusal cards on approvals and refused trace
+  steps. Removed: Lock/Unlock group, auto-create on read, Ask/Instant menu
+  items, the sign page's lock panel, `accountWalletsQuery`/`agentRuleQuery`.
+  Account/portal: connections list reads pairs, app and ceiling; agent rows
+  named after their wallet, archived ones hidden; `appMcp` OAuth resources
+  (`/v1/apps/<app>/mcp`) with metadata and a BFF proxy; consent writes pairs
+  after the grant (`mode=ask` → ceiling). App MCP resources register lazily
+  on authorize when their app is active (`server/oauth/app-mcp-resource.ts`).
+  Agent API types regenerated (AccountWallet/WalletBalance now generated;
+  Task API snapshot follows product-mono #1356). Consent sends
+  `app_wallet_instant` and never reports success when the pair write fails;
+  withdraw retries reuse the returned ref; archived wallets' pairs are kept
+  (marked) through full replacements. Pending: `update-backend-openapi.mjs`
+  points at a deleted backend export test (now `manager hosted_backend`) and
+  spawns raw cargo; the route fixtures were hand-updated for the rework only.
+  CI (#752): lazy-loaded the agent wallet Details/Withdraw sheets, the
+  Wallets… sheet, the New agent wallet step and ConsentWallets to fit the
+  widget bundle budgets (host-composition 357,922/358,400 — tight); API
+  reports regenerated; browser contracts and the device-auth worker test
+  follow the branch's flows. Pending (ops): the retired `telegram` Vercel
+  projects now build on every change.
+
+2026-10-16 — AGENT WALLETS REDESIGN (FRONTEND): ONE RULE, CONNECTIONS, ONE
+  POPUP (branch `feat/agent-wallets`; `notes/redesign-contract.md` §4).
+  Client: `agentRule()` / `setAgentRule({locked, version})` replace the
+  per-wallet rule; connections are `{connections: AomiAccountConnection[]}`
+  with `setConnectionSettings(key, {label?, instant?})`. Display cache keys
+  `agent-rule` and `connections` (factories in `account/account-queries.ts`,
+  warmed by `DisplayPrefetch`); `account-acl` and `wallet-balance` are gone.
+  Widget: `AomiSheet` (the wallet popup's card) and a picker `purpose` line;
+  Settings › Account nests agent addresses under one "Agent wallet" row with
+  Lock/Unlock and one LoadingPane gate; new Connections tab (Ask/Instant,
+  Rename, Remove, Add sheet); Safety is Guard policy (+ Swig) only. Deleted:
+  Deposit sheet, balances, signs-with strip, Telegram row, Safety rule cards,
+  Connected apps, Locked wallets/permit UI. Portal: `/oauth/authorize`,
+  `/oauth/consent`, `/oauth/device`, `/link/telegram`, `/sign/:ref` render one
+  sheet on a blank page (`StandalonePage`), opening the real wallet picker
+  when signed out (no more `?return_to=`); `GET /v1/account/connections`
+  joins `account_connections`; BFF proxies `/v1/account/agent-rule` and
+  `/v1/account/connection-settings/:key`. CLI: `account login --provider`
+  removed. Pending: live check on the stack; browser contracts for the new
+  pages.
+
+2026-10-16 — AGENT WALLETS STEP 5 (FRONTEND): LINK TELEGRAM ↔ PORTAL (branch
+  `feat/agent-wallets`; backend half built against `notes/step5-contract.md`).
+  Portal: login-only `/link/telegram?code=` page (`referrer: no-referrer`,
+  malformed code → invalid state with no backend call) hosting the widget's
+  `TelegramLinkPanel`; `safeReturn` allows `/sign/:ref` and
+  `/link/telegram?code=<43>`; BFF `routes.telegramLink` forwards
+  `POST /v1/account/link/telegram/(preview|confirm|cancel)` as portal-only
+  writes (`maxDuration = 60`); `/settings/account` → `/?settings=account`
+  opens Settings on Account. Client: `client.account.telegramLink`
+  (`TelegramLinkError`, `isTelegramLinkCode`), connections `linked_from` /
+  `linked_at`, wallets `pinned_telegram`. Account: connections read the latest
+  `linked` `telegram_link_codes` row; merges retry
+  `account_merge_commits_in_flight` / `account_merge_in_progress` for 8 s and
+  answer them as 409s. Widget: Social sign-in Telegram row, "Used by your
+  Telegram bots" on the pinned extra wallet, Connected apps /link footer,
+  merge-step copy. Fixtures: canonical schema gains `telegram_link_codes`;
+  `tests/fixtures/account-merge/20261019070000_telegram_link.sql` carries
+  `merge_accounts` v3 (admission barrier, foreign-fence refusal, signed
+  in-flight refusal, unsigned cancel as `commit_account_merged`, World
+  handover conflict, fences lifted). Pending: align the fixture with the
+  backend's final migration; browser contract for `/link/telegram`.
+
+2026-10-15 — AGENT WALLETS STEP 4 (FRONTEND): APPROVALS EVERYWHERE (branch
+  `feat/agent-wallets`; backend half built against `notes/step4-contract.md`).
+  Client: `CommitView` gains state `awaiting_approval` and `approval`,
+  `CommitRefView.can_approve`; `CommitHandle.approve()` /
+  `CommitController.approve(id, review?)` always post to the thread-less
+  `/v1/commits/:ref/approve` (one call per batch) and `refView(id)` reads
+  `sign_url`; `CommitApprovalForbiddenError` / `CommitExpiredError` /
+  `CommitNotAwaitingApprovalError`; lifecycle phases `awaiting_approval` and
+  `signing`; wallet rules (`walletRule` / `setWalletRule`, `aomi.wallets.rule`
+  / `setRule`) and `client.account.connections`. Hand-written wire types stay
+  in `commit-ref.ts`, `account/wallets.ts` and `account/connections.ts`.
+  React: `ThreadMetadata.awaitingApproval` from live listings. Widget: lazy
+  `commit/approval.tsx` (sidebar "Approve N transactions", "Approve on Aomi"
+  link in embeds via `ApprovalAuthorityContext` = false in `AomiWidget`,
+  Retry after expiry, scheduled-run strip, sign page Approve); amber dot for
+  `awaiting_approval` and `data-awaiting-approval` rows; Safety (`PolicyPage`)
+  lazy-loads `account/safety/*`: one compact card per agent wallet (Pause, Ask
+  always on, Instant per client, 409 refetch), "Locked wallets" with Unlock
+  (legacy denied browser/embedded keys only; permit ceremony kept), Connected
+  apps with Disconnect; the per-wallet Ask me / Locked rows and
+  `wallet-policy-row.tsx` / `provider-policy-settings.tsx` are gone; agent
+  wallet menu "Signing rule" opens Safety at its card. Portal BFF: approve
+  (portal/CLI sessions only), `auth_source` on every `/v1/commits/*` mint,
+  rule GET/PUT, connections GET/DELETE (served from Better Auth tables);
+  `custody:delegate` removed. CLI: `aomi tx approve`, `aomi wallets [use]`,
+  chat approval hint. Pending: regenerate the agent API; journey
+  `tx-review-sign` has no commit model in its fake backend, so approve is
+  covered by unit tests and the sign-page browser contract.
+
+2026-10-15 — AGENT WALLETS STEP 3 (FRONTEND): AGENT WALLET PER ACCOUNT
+  (branch `feat/agent-wallets`; backend half built against
+  `notes/step3-contract.md`). Client: `client.account.wallets`
+  (`listWallets`, `createAgentWallets`, `walletBalance`, `setThreadWallet`,
+  `AomiWalletError`) and `aomi.wallets.list()/balance()`; wire types
+  hand-written in `packages/client/src/account/wallets.ts` (incl. the
+  `UserState` fields `wallet_pick` / `wallet_presence` / `active_wallet` and
+  `EventPage.active_wallet` → `SessionSnapshot.activeWallet`). Portal BFF:
+  `accountWallets` binding (`GET /v1/account/wallets`, `POST …/agent`,
+  `GET …/w_<id>/balance`) and `PUT /api/thread/wallet`. `packages/account`:
+  `kind: "agent"` via a LEFT JOIN on active `agent_wallets`, unlink 409
+  `agent_wallet_not_removable`, provider-managed keys are not login factors,
+  account deletion keeps agent keys, PATCH/DELETE accept `w_<id>`, 40-char
+  label limit. Widget: wallet kit `kind: "agent"` rows (ready once the
+  account is, pick-only, never default/stand-in, registry never overrides
+  the pick; no local signing for that family), `wallet_pick` /
+  `wallet_presence` in `setUser`; Settings Agent wallet group
+  (`agent-wallet-group.tsx`) and lazy `deposit-sheet.tsx` (`uqr` QR); thread
+  banner "This chat uses … · Switch"; the Para "Create agent wallet" offer and
+  `provisionProviderAgentWallet` are gone. Removed stale committed
+  `packages/react/src/query/display-cache.d.ts` / `display-persistence.d.ts`
+  that shadowed the source in the react d.ts build. Pending: regenerate the
+  agent API and alias the hand-written types; Signing rule / approvals UI is
+  step 4; the FE must deploy after the `agent_wallets` migration (the
+  account graph query joins it).
+
+2026-10-15 — AGENT WALLETS STEP 2 (FRONTEND): COMMIT REFS, ORIGIN, SIGNING
+  PAGE (branch `feat/agent-wallets`; backend half in product-mono, built
+  against `notes/step2-contract.md`). `aomi.commits.get(ref)` →
+  `CommitHandle` (`packages/client/src/sdk/commits.ts`) over the
+  thread-less `/v1/commits/:ref` family via `CommitController`'s new `"ref"`
+  route family: no X-Thread-Id, writes carry `version` (+ `review_digest` for
+  sign/broadcast), typed `CommitNotFoundError` / `CommitStaleError`. The
+  hand-written wire types (`CommitRefView`, `ThreadOrigin`, request bodies,
+  paths) live only in `packages/client/src/commit-ref.ts` until the generated
+  OpenAPI has them. Portal: BFF `/v1/commits/*` → backend like
+  `/api/commits`; login-only `/sign/:ref` (server redirect to
+  `/?return_to=/sign/<ref>`, `SignInReturn` brings the user back) hosting the
+  widget's new `CommitSignPanel` (`./host-composition`). Thread rows show a
+  muted origin icon from optional `origin` / `origin_app`; Telegram threads
+  are skipped client-side. CLI `aomi tx show <ref>`. Reconciled with
+  product-mono 2b801a8f6: refs are commit UUIDs, `created_at` is unix
+  seconds, errors parse both the backend `{code, status}` and api-server
+  `{error: {code, message, details}}` bodies, OAuth asks agent:read /
+  agent:write for `/v1/commits`, and the BFF mints `auth_source` "widget" /
+  "cli_session" / "session" / "oauth" per principal. Pending: regenerate the
+  agent API and swap the hand-written types in `commit-ref.ts` for
+  `components["schemas"]["CommitRefView"]` etc.; sessions carry no
+  `origin_app`, so the app badge stays dark until a later step.
+
+2026-10-15 — AGENT WALLETS STEP 1: DELETE AUTOMATIC SIGNING (branch
+  `feat/agent-wallets`; backend half in product-mono). Removed the Telegram
+  Mini App (`apps/telegram`, portal `/api/auth/widget/telegram/*`, the
+  account `./telegram` helpers, CI/scripts entries), the portal
+  `/api/delegation/*` routes and unused `managed_signing` backend routes,
+  Privy delegation (`privy-delegation*`, `usePrivyDelegation`) and the Privy
+  SmartWalletsProvider path, and every Settings auto/delegation control:
+  Safety now offers Ask me / Locked per wallet; an agent wallet already on
+  Automatic shows it read-only and can still be locked; the Para "Create agent
+  wallet" action stays; the General "Review wallet signing" banner is gone.
+  `client_auto` reads as Ask me. Pending: steps 3-4 (Aomi agent wallet with
+  Ask/Instant rules) rework the agent-wallet section.
 
 2026-10-14 — TRACE: TRANSACTION HISTORY TOOLS (branch `feat/tx-history`, with
   product-mono `feat/tx-history`). The backend's new `list_transactions` and
@@ -5698,3 +5957,8 @@ Controls disabled while isProcessing === true
 - Bumped the account package patch version for its shipped budget JSON.
 - Local managed builds are blocked by disk headroom; PR CI is the test gate.
 - Scope is main only. This work does not promote production or publish npm.
+
+## 2026-10-20 — Wallets made in an app
+
+- The Manage sheet drops "Used by"; its header reads "Agent wallet · made in <app> · used …". `AomiAgentWallet.app` is the app that made the wallet.
+- Card groups keep their height inside scrolling sheets (`listGroupClass` `shrink-0`), so long Manage sheets scroll instead of clipping.

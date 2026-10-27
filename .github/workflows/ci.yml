@@ -22,7 +22,6 @@ jobs:
       portal: ${{ steps.select.outputs.portal }}
       build: ${{ steps.select.outputs.build }}
       landing: ${{ steps.select.outputs.landing }}
-      telegram: ${{ steps.select.outputs.telegram }}
       journeys: ${{ steps.select.outputs.journeys }}
       browser_contracts: ${{ steps.select.outputs.browser_contracts }}
       consumer_compat: ${{ steps.select.outputs.consumer_compat }}
@@ -194,7 +193,6 @@ jobs:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
           CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
@@ -213,18 +211,12 @@ jobs:
             pnpm run lint:landing
             pnpm run typecheck:landing
           fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            pnpm run lint:telegram
-            pnpm run typecheck:telegram
-            pnpm run test:telegram
-          fi
 
       - name: Build affected apps
         env:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
           CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
@@ -244,9 +236,6 @@ jobs:
           fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run build:landing
-          fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            pnpm run build:telegram
           fi
 
   journeys:

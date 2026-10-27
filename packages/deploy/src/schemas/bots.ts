@@ -22,11 +22,13 @@ export const BotRegistration = wire({
   platform: text(),
   status: text(),
   label: maybeText,
-  /** The app a new chat starts on; also picks the operating account for a handover. */
+  /** The app a new chat starts on. */
   handoverApp: text(),
   handoverAppId: num(0),
-  /** null = the Aomi platform default, resolved by the manager at read time. */
+  /** null = no Mini App. Telegram's menu button opens it. */
   miniAppUrl: maybeText,
+  /** The menu button's label; null reads "Open". */
+  miniAppLabel: maybeText,
   /** null = custom commands unsupported. Commands post to `{commandEndpoint}/{command}`. */
   commandEndpoint: maybeText,
   commands: strings,

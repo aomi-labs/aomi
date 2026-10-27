@@ -9,7 +9,6 @@ import {
   deleteBetterAuthSiwsWallet,
   findAuthIdentityById,
   findAomiUserById,
-  claimTelegramSessionOwner as claimTelegramSessionOwnerQuery,
   findSignalOwner,
   findWalletById,
   listBetterAuthSiweWallets,
@@ -17,6 +16,7 @@ import {
   listWalletsForUser,
   lockIdentityResolutionKeys,
   logAccountEvent,
+  denyAgentWalletsForUser,
   revokeAllAuthIdentitiesForUser,
   revokeAllWalletsForUser,
   revokeAuthIdentity,
@@ -80,28 +80,6 @@ export async function ensureAccountSchema(): Promise<void> {
     });
   }
   await accountSchemaReady;
-}
-
-export async function claimTelegramSessionOwner(input: {
-  sessionId: string;
-  telegramUserId: string;
-  db?: import("pg").Pool | PoolClient;
-}): Promise<AomiUserId | null> {
-  if (!input.db) await ensureAccountSchema();
-  return claimTelegramSessionOwnerQuery(input);
-}
-
-/** Finds the canonical account that has explicitly linked this Telegram ID. */
-export async function findAomiUserForTelegram(
-  telegramUserId: string,
-): Promise<AomiUserId | null> {
-  await ensureAccountSchema();
-  return findSignalOwner({
-    type: "identity",
-    provider: "telegram",
-    ...IDENTITY_SCOPES.telegram,
-    subject: telegramUserId,
-  });
 }
 
 export async function getOrCreateAomiUserForBetterAuthSession(input: {
@@ -1044,7 +1022,7 @@ export async function unlinkWallet(input: {
   userId: AomiUserId;
   walletId: string;
   betterAuthUserId?: string | null;
-}): Promise<"revoked" | "not_found" | "last_factor"> {
+}): Promise<"revoked" | "not_found" | "last_factor" | "agent_wallet"> {
   const status = await withTransaction(async (db) => {
     await lockIdentityResolutionKeys(
       [`aomi-login-factors:${input.userId}`],
@@ -1052,6 +1030,8 @@ export async function unlinkWallet(input: {
     );
     const wallet = await findWalletById(input.walletId, db);
     if (!wallet || wallet.userId !== input.userId) return "not_found" as const;
+    // An agent wallet may hold funds; it is withdrawn from, never removed.
+    if (wallet.kind === "agent") return "agent_wallet" as const;
     const provider = wallet.family === "evm" ? "siwe" : "siws";
     await lockSignalRefs(
       [
@@ -1149,6 +1129,7 @@ export async function deactivateAomiAccount(input: {
     // Deleting an account is meant to revoke every remaining factor, so a
     // Para-only/SIWE-only single-factor user must still be able to delete.
 
+    await denyAgentWalletsForUser({ userId: input.userId, db });
     const revokedIdentities = await revokeAllAuthIdentitiesForUser({
       userId: input.userId,
       db,

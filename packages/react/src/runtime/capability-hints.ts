@@ -1,7 +1,7 @@
 const HINTS_START = "<AOMI_UI_CAPABILITY_HINTS>";
 const HINTS_END = "</AOMI_UI_CAPABILITY_HINTS>";
 
-type CapabilityKind = "app" | "skill" | "chain";
+type CapabilityKind = "app" | "skill" | "chain" | "wallet";
 
 export type CapabilityHint = {
   kind: CapabilityKind;
@@ -23,7 +23,10 @@ function parseHint(raw: unknown): CapabilityHint | null {
   const kind = candidate.kind;
   const id = candidate.id;
   if (
-    (kind !== "app" && kind !== "skill" && kind !== "chain") ||
+    (kind !== "app" &&
+      kind !== "skill" &&
+      kind !== "chain" &&
+      kind !== "wallet") ||
     typeof id !== "string" ||
     !SAFE_ID.test(id)
   ) {
@@ -145,6 +148,20 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
   if (chains.length > 0) {
     lines.push(`Preferred execution chain ids: ${chains.join(", ")}.`);
   }
+  const wallets = envelope.capabilities.filter(
+    (hint) => hint.kind === "wallet",
+  );
+  if (wallets.length > 0) {
+    lines.push(`Preferred wallet ids: ${wallets.map((w) => w.id).join(", ")}.`);
+    for (const wallet of wallets) {
+      lines.push(
+        `User tagged wallet ${wallet.id}${wallet.label ? ` (${JSON.stringify(wallet.label)})` : ""}.`,
+      );
+    }
+    lines.push(
+      "Act for a tagged wallet by passing its id as wallet_id on that call; the ids are in [[WALLETS]]. A wallet tagged with two ids (same name) is one wallet with an address per chain family: pass the id whose family matches the call. Tagging a wallet never signs: its own signing rules still apply.",
+    );
+  }
   lines.push(
     "App selections guide relevant delegation, not unrelated work. Authorization and compatibility checks still apply. If a selected app fails, report the failure and any verified partial results; offer alternatives without silently substituting another app.",
     HINTS_END,
@@ -165,6 +182,7 @@ const HINT_LINES = [
   ["app", "Preferred app ids: "],
   ["skill", "Preferred skill ids: "],
   ["chain", "Preferred execution chain ids: "],
+  ["wallet", "Preferred wallet ids: "],
 ] as const satisfies readonly (readonly [CapabilityKind, string])[];
 
 /** Recover the validated capability identities used by a user message. */

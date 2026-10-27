@@ -270,6 +270,7 @@ describe("active transaction presentation", () => {
       card("Supply USDC").querySelector('[title="Commit"] [data-active-phase]'),
     ).not.toBeNull();
     runtime.commitController = {
+      review: () => undefined,
       submissionPhase: () => "awaiting_wallet",
     } as unknown as typeof runtime.commitController;
     rerender(<ActivitySidebar />);
@@ -670,7 +671,7 @@ describe("unified live transaction review", () => {
     expect(
       screen.queryByText(/Wallet request: 1 transaction/),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("first"),
     );
@@ -698,7 +699,7 @@ describe("unified live transaction review", () => {
     runtime.events = [failed];
     render(<ActivitySidebar />);
     expect(
-      screen.queryByRole("button", { name: "Submit" }),
+      screen.queryByRole("button", { name: /Send/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^Transactions/ }),

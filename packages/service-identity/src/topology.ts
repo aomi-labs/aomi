@@ -65,7 +65,9 @@ export type AccountBearerClaims = {
   scope?: string;
   resource?: string;
   client_id?: string;
-  auth_source?: "session" | "oauth" | "legacy_mcp" | "cli_session";
+  /** Client the user authenticated through; the backend records it as a
+   * commit's initiator. */
+  auth_source?: "session" | "widget" | "oauth" | "legacy_mcp" | "cli_session";
   principal_class?: "user" | "guest";
   grant_id?: string;
   sid?: string;

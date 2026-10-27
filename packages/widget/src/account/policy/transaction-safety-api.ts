@@ -3,7 +3,21 @@ import type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
+import type { DisplayQuery } from "@aomi-labs/react";
 import type { ShellRequest } from "@/account/transport";
+
+/**
+ * The account's default policy. Saves write it straight into the cache, so it
+ * never goes stale on its own.
+ */
+export const accountSafetyQuery = (
+  request: ShellRequest,
+): DisplayQuery<TransactionSafetyPolicy> => ({
+  resource: "transaction-safety",
+  parameters: ["account"],
+  staleTime: Infinity,
+  fetcher: () => fetchTransactionSafety(request),
+});
 
 export async function fetchTransactionSafety(
   request: ShellRequest,
@@ -58,7 +72,7 @@ export function safetyErrorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
-export type TransactionSafetySave =
+type TransactionSafetySave =
   | { ok: true; policy: TransactionSafetyPolicy }
   | { ok: false; error: unknown; latest?: TransactionSafetyPolicy };
 

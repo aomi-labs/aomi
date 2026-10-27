@@ -33,6 +33,8 @@ export type WalletProviderPlugin = {
     auth?: AuthConfig;
     children: ReactNode;
     providers?: ProvidersConfig;
+    /** The host's EVM networks, so the SDK's own wallets can switch to them. */
+    supportedChains?: readonly Chain[];
     onFailure?: (message: string | null) => void;
   }) => ReactNode;
   isAvailable?: (props: {

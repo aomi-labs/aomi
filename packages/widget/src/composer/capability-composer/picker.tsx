@@ -73,7 +73,7 @@ export function CapabilityPicker({
         <div
           id={pickerId}
           role="listbox"
-          aria-label="Apps, skills, and chains"
+          aria-label="Apps, skills, chains, and wallets"
           ref={pickerRef}
           className="aui-command-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pr-1"
         >
@@ -140,7 +140,7 @@ export function CapabilityPicker({
         <div
           id={pickerId}
           role="listbox"
-          aria-label="Apps, skills, and chains"
+          aria-label="Apps, skills, chains, and wallets"
           className="min-h-0 flex-1 py-1"
         >
           <div
@@ -153,7 +153,7 @@ export function CapabilityPicker({
       )}
       <div className="border-aomi-border/70 text-aomi-muted mt-1.5 flex min-h-8 shrink-0 items-center justify-between gap-3 border-t px-2.5 pb-0.5 pt-2 text-[11px]">
         <span className="truncate">
-          Type to search apps, skills, and chains
+          Type to search apps, skills, chains, and wallets
         </span>
         <span
           aria-hidden="true"

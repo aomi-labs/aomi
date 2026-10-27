@@ -24,7 +24,7 @@ describe("device auth provider selection", () => {
   it("only applies the query selection to provider-auth routes", () => {
     const params = new URLSearchParams("provider=para");
     expect(requestedDeviceAuthProvider("/device-auth", params)).toBe("para");
-    expect(requestedDeviceAuthProvider("/oauth/device", params)).toBe("para");
+    expect(requestedDeviceAuthProvider("/oauth/device", params)).toBeNull();
     expect(requestedDeviceAuthProvider("/settings", params)).toBeNull();
   });
 
@@ -53,10 +53,10 @@ describe("device auth provider selection", () => {
     expect(
       classifyProviderInitializationFailure(
         "para",
-        new DeviceAuthHandoffError("provider_account_conflict", 409),
+        new DeviceAuthHandoffError("device_link_failed", 409),
         configured,
       ),
-    ).toMatchObject({ code: "provider_account_conflict" });
+    ).toMatchObject({ code: "device_link_failed" });
     expect(
       classifyProviderInitializationFailure(
         "privy",

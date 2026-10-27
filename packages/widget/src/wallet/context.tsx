@@ -59,10 +59,41 @@ function toSvmCapabilities(
     );
 }
 
+/**
+ * This device's wallet choice as the backend's wallet ids: the operating row
+ * per family (`wallet_pick`, null when it is not in the account) and the
+ * linked rows connected here (`wallet_presence`).
+ */
+export function walletChoice(wallets: AomiWalletKit["wallets"] = []): {
+  pick: Record<"evm" | "svm", string | null>;
+  presence: string[];
+} {
+  const id = (row: (typeof wallets)[number] | undefined) =>
+    row?.linkedWalletId ? `w_${row.linkedWalletId}` : null;
+  return {
+    pick: {
+      evm: id(wallets.find((row) => row.family === "evm" && row.operating)),
+      svm: id(wallets.find((row) => row.family === "svm" && row.operating)),
+    },
+    presence: wallets
+      .filter((row) => row.linked && row.connected && row.kind !== "agent")
+      .map((row) => `w_${row.linkedWalletId}`),
+  };
+}
+
 function AomiWalletKitSync({ walletKit }: { walletKit: AomiWalletKit }) {
   const { setUser } = useUser();
   const identity = walletKit.identity;
   const previous = useRef<typeof identity | null>(null);
+  // Compared as text, so a re-render with the same choice sends nothing.
+  const choice = JSON.stringify(walletChoice(walletKit.wallets));
+
+  useEffect(() => {
+    const { pick, presence } = JSON.parse(choice) as ReturnType<
+      typeof walletChoice
+    >;
+    setUser({ wallet_pick: pick, wallet_presence: presence });
+  }, [choice, setUser]);
 
   useEffect(() => {
     // Account-abstraction and sponsorship are backend authority: they are

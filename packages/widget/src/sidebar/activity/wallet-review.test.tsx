@@ -10,10 +10,13 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { testIds } from "@/test-ids";
 import {
+  CommitApprovalForbiddenError,
   CommitController,
   type CommitView,
   type Event,
+  type GroupPlan,
 } from "@aomi-labs/client";
+import { ApprovalAuthorityContext } from "@/commit/approval-authority";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
 import { WalletReview } from "./wallet-review";
@@ -165,6 +168,7 @@ describe("WalletReview", () => {
     runtime.pendingActions = [action(request)];
     const execute = vi.fn().mockResolvedValue(undefined);
     runtime.commitController = {
+      threadId: "thread-1",
       review: (id: string) =>
         runtime.commits.find((candidate) => candidate.commit_id === id)?.review
           ?.request,
@@ -181,7 +185,9 @@ describe("WalletReview", () => {
       "+100.000118",
     );
     expect(screen.getAllByTestId(testIds.txReview)).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Submit 1 of 2" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
     expect(runtime.executeAction).not.toHaveBeenCalled();
 
@@ -211,7 +217,7 @@ describe("WalletReview", () => {
     rerender(<ActivitySidebar />);
 
     expect(
-      screen.queryByRole("button", { name: "Submit" }),
+      screen.queryByRole("button", { name: /Send/ }),
     ).not.toBeInTheDocument();
 
     runtime.pendingActions = [
@@ -223,7 +229,9 @@ describe("WalletReview", () => {
       },
     ];
     rerender(<ActivitySidebar />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-2"),
     );
@@ -380,7 +388,7 @@ describe("WalletReview", () => {
     runtime.commits = [initial];
 
     const view = render(<ActivitySidebar />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
     await waitFor(() =>
       expect(runtime.showNotification).toHaveBeenCalledWith(
         expect.objectContaining({ title: "report transport failed" }),
@@ -551,10 +559,8 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
-    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
-      "devnet",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent("devnet");
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
     const signAction = commit.action;
     if (signAction?.kind !== "sign") throw new Error("expected sign action");
     await waitFor(() =>
@@ -615,7 +621,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
     await waitFor(() =>
       expect(walletBroadcast).toHaveBeenCalledWith(
         commit,
@@ -652,7 +658,7 @@ describe("WalletReview", () => {
     expect(runtime.executeAction).not.toHaveBeenCalled();
     expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
     );
@@ -679,7 +685,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send transaction" }));
 
     await waitFor(() =>
       expect(runtime.showNotification).toHaveBeenCalledWith(
@@ -697,19 +703,10 @@ describe("WalletReview", () => {
         chainFamily: "evm",
         executionKind: "erc4337",
         broadcaster: "hosted",
-        sponsorship: "required",
-        maxNetworkFee: "123456",
         signer: "0x1111111111111111111111111111111111111111",
         chainId: 1,
         description: "Authorize account execution",
         payloads: [{ kind: "evm_personal", message: "0x01" }],
-        fees: [
-          {
-            asset: { kind: "native" },
-            amount: "42",
-            recipient: "0x2222222222222222222222222222222222222222",
-          },
-        ],
       }),
     ];
 
@@ -720,11 +717,8 @@ describe("WalletReview", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByText("hosted")).toBeInTheDocument();
-    expect(screen.getByText("Sponsorship required")).toBeInTheDocument();
-    expect(screen.getByText("123456 native base units")).toBeInTheDocument();
-    expect(screen.getByText("Application fee")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign message" }));
 
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
@@ -748,7 +742,7 @@ describe("WalletReview", () => {
     expect(
       screen.getByText(/fresh safety admission cannot be claimed/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sign message" })).toBeDisabled();
     expect(runtime.executeAction).not.toHaveBeenCalled();
   });
 
@@ -1158,7 +1152,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(
-      screen.queryByRole("button", { name: "Submit" }),
+      screen.queryByRole("button", { name: /Send/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Reject request" }),
@@ -1242,24 +1236,51 @@ describe("ordered batch submission", () => {
   });
   afterEach(cleanup);
 
-  function controller(execute: ReturnType<typeof vi.fn>) {
+  // Each batch here goes out one prompt per member (browser_send).
+  function controller(
+    execute: ReturnType<typeof vi.fn>,
+    plan: GroupPlan = { transport: "browser_send", prompts: 2, atomic: false },
+  ) {
     runtime.commitController = {
       threadId: "thread-1",
       review: () => request,
+      plan: () => plan,
       canExecute: (view: CommitView) => view.action != null,
       execute,
       reject: vi.fn(),
     } as unknown as CommitController;
   }
-
-  it("submits each reviewed leg once, after its predecessor confirms", async () => {
-    const execute = vi.fn((id: string) =>
+  const echo = () =>
+    vi.fn((id: string) =>
       Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
     );
+  /** A batch of one on another chain: its own group. */
+  const lone = (id: string, chainRef: string, digest: string): CommitView => ({
+    ...commit(0),
+    commit_id: id,
+    stage_id: `evm:${id}`,
+    chain_ref: chainRef,
+    batch: {
+      ...commit(0).batch!,
+      batch_id: `batch-${id}`,
+      ordered_stage_ids: [`evm:${id}`],
+      ordered_commit_ids: [id],
+      review_digest: digest,
+    },
+    review: { ...commit(0).review!, digest },
+  });
+
+  it("sends a group's members in order with one click, one label", async () => {
+    const execute = echo();
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    expect(screen.getByRole("button", { name: "Submit 1 of 2" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    expect(
+      screen.getByText("Your wallet asks for 2 signatures, in order."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit all" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
     expect(execute).toHaveBeenCalledTimes(1);
 
@@ -1269,9 +1290,9 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("button", { name: "Submit 2 of 2" }),
-    ).toBeDisabled();
+    // One button, one label while the group is in flight.
+    expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Submit/ })).toBeNull();
 
     runtime.commits = [
       { ...runtime.commits[0], state: "confirmed" },
@@ -1279,7 +1300,6 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     await waitFor(() => expect(execute).toHaveBeenNthCalledWith(2, "commit-2"));
-    expect(execute).toHaveBeenCalledTimes(2);
 
     runtime.commits = [
       runtime.commits[0],
@@ -1289,42 +1309,39 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
-  it("carries Submit all across batches on other chains, in order", async () => {
-    const otherChain: CommitView = {
-      ...commit(0),
-      commit_id: "commit-arb",
-      stage_id: "evm:arb",
-      chain_ref: "42161",
-      batch: {
-        ...commit(0).batch!,
-        batch_id: "batch-2",
-        ordered_stage_ids: ["evm:arb"],
-        ordered_commit_ids: ["commit-arb"],
-        review_digest: "digest-2",
-      },
-      review: { ...commit(0).review!, digest: "digest-2" },
-    };
+  it("says nothing about signatures when the group bundles", () => {
+    controller(vi.fn(), { transport: "send_calls", prompts: 1, atomic: true });
+    render(<WalletReview />);
+    expect(screen.queryByText(/Your wallet asks for/)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    ).toBeEnabled();
+  });
+
+  it("carries Submit all across groups on other chains, in order", async () => {
+    const otherChain = lone("commit-arb", "42161", "digest-2");
     runtime.commits = [commit(0), commit(1), otherChain];
-    const execute = vi.fn((id: string) =>
-      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
-    );
+    const execute = echo();
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    expect(screen.getByRole("button", { name: "Submit 1 of 3" })).toBeEnabled();
+    // The queue counts groups, not transactions.
     expect(
-      screen.getByText(/3 signatures across 2 networks, in order/),
+      screen.getByRole("button", { name: "Send 2 transactions · 1 of 2" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText("Your wallet asks for 2 signatures, in order."),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
 
-    // The other chain's batch must not cut in while leg 2 waits.
+    // The other chain's group must not cut in while leg 2 waits.
     runtime.commits = [
       { ...commit(0), state: "submitted" },
       { ...commit(1), action: null },
       otherChain,
     ];
     rerender(<WalletReview />);
-    expect(screen.getByRole("button", { name: /Waiting…/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();
     expect(execute).toHaveBeenCalledTimes(1);
 
     runtime.commits = [commit(0, "confirmed"), commit(1), otherChain];
@@ -1364,30 +1381,25 @@ describe("ordered batch submission", () => {
       submissionPhase: () => "awaiting_wallet",
     } as unknown as CommitController;
     render(<WalletReview />);
-    expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();
     expect(
       screen.queryByText("Approve in your wallet"),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("keeps Submit next scoped to one transaction", async () => {
-    const execute = vi.fn((id: string) =>
-      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
-    );
-    controller(execute);
-    const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit 1 of 2" }));
-    await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
-
+  it("keeps a group's send scoped to that group", async () => {
     runtime.commits = [
-      { ...runtime.commits[0], state: "submitted" },
-      runtime.commits[1],
+      lone("commit-a", "8453", "digest-a"),
+      lone("commit-b", "42161", "digest-b"),
     ];
-    rerender(<WalletReview />);
-    expect(
-      screen.getByRole("button", { name: "Submit 2 of 2" }),
-    ).toBeInTheDocument();
+    const execute = echo();
+    controller(execute, { transport: "send_calls", prompts: 1, atomic: true });
+    const { rerender } = render(<WalletReview />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions · 1 of 2" }),
+    );
+    await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-a"));
 
     runtime.commits = [
       { ...runtime.commits[0], state: "confirmed" },
@@ -1395,21 +1407,25 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Submit 2 of 2" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    ).toBeEnabled();
     expect(
       screen.queryByRole("button", { name: "Submit all" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Submit 2 of 2" }));
-    await waitFor(() => expect(execute).toHaveBeenNthCalledWith(2, "commit-2"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
+    await waitFor(() => expect(execute).toHaveBeenNthCalledWith(2, "commit-b"));
   });
 
-  it("stops the batch after a wallet mismatch", async () => {
-    const execute = vi.fn((id: string) =>
-      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
-    );
+  it("stops the group after a wallet mismatch", async () => {
+    const execute = echo();
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
 
     runtime.commits = [
@@ -1428,7 +1444,7 @@ describe("ordered batch submission", () => {
     rerender(<WalletReview />);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Submit 2 of 2" }),
+        screen.getByRole("button", { name: "Send 2 transactions" }),
       ).toBeEnabled(),
     );
     runtime.commits = [
@@ -1451,10 +1467,14 @@ describe("ordered batch submission", () => {
     );
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Submit all" })).toBeEnabled(),
+      expect(
+        screen.getByRole("button", { name: "Send 2 transactions" }),
+      ).toBeEnabled(),
     );
 
     runtime.commits = [
@@ -1476,7 +1496,9 @@ describe("ordered batch submission", () => {
     controller(execute);
     const original = runtime.commitController;
     const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
 
     controller(vi.fn());
@@ -1491,19 +1513,19 @@ describe("ordered batch submission", () => {
     rerender(<WalletReview />);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Submit 2 of 2" }),
+        screen.getByRole("button", { name: "Send 2 transactions" }),
       ).toBeEnabled(),
     );
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it("requires fresh batch consent after the review closes", async () => {
-    const execute = vi.fn((id: string) =>
-      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
-    );
+  it("requires fresh consent after the review closes", async () => {
+    const execute = echo();
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
 
     const remaining = runtime.commits[1];
@@ -1515,28 +1537,22 @@ describe("ordered batch submission", () => {
 
     runtime.commits = [commit(0, "confirmed"), remaining];
     rerender(<WalletReview />);
-    expect(screen.getByRole("button", { name: "Submit 2 of 2" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    ).toBeEnabled();
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it("cancels when a batch outside the consent becomes the visible review", async () => {
-    const execute = vi.fn((id: string) =>
-      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
-    );
+  it("cancels when a group outside the consent becomes the visible review", async () => {
+    const execute = echo();
     controller(execute);
     const { rerender } = render(<WalletReview />);
-    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send 2 transactions" }),
+    );
     await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
 
-    const unrelated: CommitView = {
-      ...commit(0),
-      commit_id: "other-commit",
-      batch: {
-        ...commit(0).batch!,
-        batch_id: "other-batch",
-        ordered_commit_ids: ["other-commit"],
-      },
-    };
+    const unrelated = lone("other-commit", "8453", "digest-1");
     runtime.commits = [
       unrelated,
       { ...runtime.commits[0], state: "submitted" },
@@ -1545,7 +1561,7 @@ describe("ordered batch submission", () => {
     rerender(<WalletReview />);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Submit 1 of 3" }),
+        screen.getByRole("button", { name: "Send 2 transactions · 1 of 2" }),
       ).toBeEnabled(),
     );
 
@@ -1555,5 +1571,191 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("approvals (agent wallet commits parked for the user)", () => {
+  const REF = "5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60";
+  const SIGN_URL = `https://portal.example/sign/${REF}`;
+  const request = {
+    type: "execute_evm" as const,
+    transactions: [1, 2].map((index) => ({
+      chain_id: 8453,
+      from: "0x7a3f00000000000000000000000000000000c41e",
+      to: "0x2222222222222222222222222222222222222222",
+      data: `0x0${index}`,
+      label: `Swap ${index}`,
+      kind: "swap",
+    })),
+    simulation: simulation(),
+  };
+  const parked = (
+    index: number,
+    legs = 2,
+    overrides: Partial<CommitView> = {},
+  ): CommitView => ({
+    version: 2,
+    commit_id: index ? `leg-${index}` : REF,
+    thread_id: "thread-1",
+    stage_id: `evm:${index + 1}`,
+    chain_family: "evm",
+    chain_ref: "8453",
+    signer: request.transactions[0].from,
+    broadcaster: "hosted",
+    state: "awaiting_approval",
+    transaction_id: null,
+    failure_code: null,
+    batch:
+      legs > 1
+        ? {
+            batch_id: "batch-1",
+            index,
+            ordered_stage_ids: ["evm:1", "evm:2"],
+            ordered_commit_ids: [REF, "leg-1"],
+            sources: [],
+            predecessor_commit_id: index ? REF : null,
+            review_digest: "digest-2",
+          }
+        : null,
+    review: {
+      version: 2,
+      revision: 1,
+      digest: "digest-2",
+      request,
+      legs: [],
+    },
+    wallet_attempt: null,
+    action: null,
+    signing_mode: "auto",
+    approval: {
+      state: "pending",
+      client: "portal",
+      expires_at: 1_760_530_200,
+      approved_at: null,
+      approved_by: null,
+    },
+    ...overrides,
+  });
+
+  const approve = vi.fn();
+  const reject = vi.fn();
+  const execute = vi.fn();
+  const refView = vi.fn(async () => ({ sign_url: SIGN_URL }));
+  beforeEach(() => {
+    runtime.pendingActions = [];
+    runtime.events = [];
+    runtime.commits = [parked(0), parked(1)];
+    runtime.isRunning = false;
+    runtime.sendMessage.mockReset().mockResolvedValue(undefined);
+    runtime.getThreadMetadata.mockReset().mockReturnValue(undefined);
+    approve.mockReset().mockResolvedValue(parked(0));
+    reject.mockReset().mockResolvedValue(parked(0));
+    execute.mockReset();
+    refView.mockClear();
+    runtime.commitController = {
+      threadId: "thread-1",
+      review: () => request,
+      canExecute: () => false,
+      execute,
+      approve,
+      reject,
+      refView,
+      refresh: vi.fn(async () => parked(0)),
+    } as unknown as CommitController;
+  });
+  afterEach(cleanup);
+
+  it("approves a whole parked batch with one call, never through the wallet", async () => {
+    render(<WalletReview />);
+    const button = await screen.findByRole("button", {
+      name: "Approve 2 transactions",
+    });
+    expect(
+      screen.getByText("Aomi signs with your agent wallet after you approve."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Submit/)).toBeNull();
+    expect(screen.queryByText(/Your wallet asks for/)).toBeNull();
+
+    await act(async () => fireEvent.click(button));
+
+    expect(approve).toHaveBeenCalledExactlyOnceWith(REF, {
+      expectedVersion: 2,
+      expectedReviewDigest: "digest-2",
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("labels a single parked commit Approve transaction and rejects it", async () => {
+    runtime.commits = [parked(0, 1)];
+    render(<WalletReview />);
+    expect(
+      await screen.findByRole("button", { name: "Approve transaction" }),
+    ).toBeEnabled();
+    const rejectButton = screen.getByRole("button", { name: "Reject" });
+    expect(rejectButton).toBeEnabled();
+    await act(async () => fireEvent.click(rejectButton));
+    expect(reject).toHaveBeenCalledExactlyOnceWith(REF);
+  });
+
+  it("links an embed to Approve on Aomi instead of approving", async () => {
+    render(
+      <ApprovalAuthorityContext.Provider value={false}>
+        <WalletReview />
+      </ApprovalAuthorityContext.Provider>,
+    );
+    const link = await screen.findByRole("link", { name: "Approve on Aomi" });
+    expect(link).toHaveAttribute("href", SIGN_URL);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(refView).toHaveBeenCalledWith(REF);
+    expect(approve).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the link when the server refuses this session", async () => {
+    approve.mockRejectedValueOnce(
+      new CommitApprovalForbiddenError("HTTP 403: commit_approval_forbidden"),
+    );
+    render(<WalletReview />);
+    await act(async () =>
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Approve 2 transactions" }),
+      ),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Approve on Aomi" }),
+    ).toHaveAttribute("href", SIGN_URL);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows nothing once the approval window ends; the chat says it expired", async () => {
+    runtime.commits = [
+      parked(0, 1, {
+        state: "expired",
+        approval: {
+          state: "expired",
+          client: null,
+          expires_at: 1,
+          approved_at: null,
+          approved_by: null,
+        },
+      }),
+    ];
+    const { container } = render(<WalletReview />);
+    await act(async () => undefined);
+    expect(screen.queryByText("Expired · nothing was signed")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it("points at a scheduled run's parked commit from the parent chat", async () => {
+    runtime.commits = [];
+    runtime.getThreadMetadata.mockReturnValue({ awaitingApproval: [REF] });
+    render(<ActivitySidebar />);
+    expect(
+      await screen.findByText("A scheduled run is waiting for your approval"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute(
+      "href",
+      `/sign/${REF}`,
+    );
   });
 });

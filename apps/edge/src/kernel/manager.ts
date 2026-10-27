@@ -42,12 +42,6 @@ const MANAGER_ROUTE_PATTERNS: readonly RegExp[] = [
   /^\/api\/platforms\/[^/]+\/apps\/[^/]+\/records$/,
   /^\/api\/platforms\/[^/]+\/projects$/,
   /^\/api\/platforms\/[^/]+\/tokens(\/[^/]+)?$/,
-  // Admin-only partner venue row; the backend has no such route.
-  /^\/api\/platforms\/[^/]+\/venue$/,
-  // Handover, plus the wallet channel's own endpoints: `/nonce` and `/bot`
-  // are one segment where the others are two, and `/status` joins activate
-  // and revoke as a third.
-  /^\/api\/platforms\/[^/]+\/telegram\/handover(?:\/(?:nonce|bot)|\/[^/]+\/[^/]+(?:\/(?:activate|revoke|status))?)?$/,
   /^\/api\/projects\/[^/]+\/deploy$/,
   // Account-owned bots. The rest of `/api/account/*` stays on the backend.
   /^\/api\/account\/bots(?:\/[^/]+)?$/,

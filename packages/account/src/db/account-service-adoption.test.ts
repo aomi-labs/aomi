@@ -22,6 +22,7 @@ const queryMocks = vi.hoisted(() => ({
   listWalletsForUser: vi.fn(),
   lockIdentityResolutionKeys: vi.fn(),
   logAccountEvent: vi.fn(),
+  denyAgentWalletsForUser: vi.fn(),
   revokeAllAuthIdentitiesForUser: vi.fn(),
   revokeAllWalletsForUser: vi.fn(),
   revokeAuthIdentity: vi.fn(),
@@ -52,8 +53,7 @@ describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
     queryMocks.upsertAuthIdentity.mockResolvedValue({ id: "provider-row" });
     queryMocks.upsertEmailIdentity.mockResolvedValue({ id: "email-row" });
 
-    const { linkProviderIdentity } =
-      await import("../service/account-service");
+    const { linkProviderIdentity } = await import("../service/account-service");
     await expect(
       linkProviderIdentity({
         userId: "canonical-user",

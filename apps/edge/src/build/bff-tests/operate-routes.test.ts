@@ -279,6 +279,7 @@ describe("operateBotsCreateRoute", () => {
         credential: "secret-token",
         label: "My Bot",
         miniAppUrl: "",
+        miniAppLabel: " Portfolio ",
         commandEndpoint: "https://api.world.inc/commands/",
         commands: ["/B", "p"],
       }),
@@ -298,6 +299,7 @@ describe("operateBotsCreateRoute", () => {
         credential: "secret-token",
         label: "My Bot",
         miniAppUrl: null,
+        miniAppLabel: "Portfolio",
         commandEndpoint: "https://api.world.inc/commands/",
         commands: ["/B", "p"],
       }),
@@ -317,6 +319,7 @@ describe("operateBotsCreateRoute", () => {
     );
     const input = client.createUserBot.mock.calls[0][0];
     expect(input).not.toHaveProperty("miniAppUrl");
+    expect(input).not.toHaveProperty("miniAppLabel");
     expect(input).not.toHaveProperty("commandEndpoint");
     expect(input).not.toHaveProperty("commands");
   });

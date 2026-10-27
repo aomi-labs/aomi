@@ -1,3 +1,4 @@
+import type { Chain } from "viem";
 import type { ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,10 +7,6 @@ const mounted = vi.hoisted(() => ({ config: undefined as unknown }));
 
 // Stub the heavy composer provider so importing the plugin does not pull in
 // the full wallet-kit runtime tree.
-vi.mock("./privy-delegation", () => ({
-  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 vi.mock("./privy-plugin-provider", () => ({
   AomiPrivyPluginProvider: ({ children }: { children: ReactNode }) => children,
 }));
@@ -32,7 +29,8 @@ vi.mock("@privy-io/react-auth/smart-wallets", () => ({
 }));
 
 // Imported after the mocks are registered.
-const { getWalletProvider } = await import("@/wallet/providers/plugin-registry");
+const { getWalletProvider } =
+  await import("@/wallet/providers/plugin-registry");
 const { privyPlugin } = await import("./privy-plugin");
 const { setPrivySdk } = await import("./privy-sdk");
 setPrivySdk({
@@ -91,6 +89,21 @@ describe("Privy plugin registration (route-level mount contract)", () => {
       externalWallets: { walletConnect: { enabled: false } },
     });
     expect(screen.getByText("widget-body")).toBeTruthy();
+  });
+
+  it("lets the embedded wallet switch to the host's chains (Robinhood Chain)", () => {
+    const robinhood = { id: 4663, name: "Robinhood Chain" } as Chain;
+    render(
+      <>
+        {privyPlugin.wrap?.({
+          auth: { provider: "privy" },
+          providers: { privy: { appId: "host-supplied-app-id" } },
+          supportedChains: [robinhood],
+          children: <div>widget-body</div>,
+        })}
+      </>,
+    );
+    expect(mounted.config).toMatchObject({ supportedChains: [robinhood] });
   });
 
   it("is unavailable without an appId and available with one", () => {

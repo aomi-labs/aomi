@@ -11,15 +11,6 @@ const request = vi.hoisted(() => vi.fn());
 vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: request }),
 }));
-vi.mock("@/account/provider-policy-settings", async () => {
-  const { useEffect } = await import("react");
-  return {
-    SigningSettings: ({ onLoad }: { onLoad?: () => void }) => {
-      useEffect(() => onLoad?.(), [onLoad]);
-      return <div>Signing rows</div>;
-    },
-  };
-});
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
     identity: { svmAddress: "RootWa11et", svmCluster: "solana:mainnet" },
@@ -62,7 +53,6 @@ describe("Safety page", () => {
     expect(
       await screen.findByRole("radiogroup", { name: "Guard policy" }),
     ).toBeTruthy();
-    expect(screen.getByText("Signing rows")).toBeTruthy();
     await waitFor(() =>
       expect(
         request.mock.calls.some(([path]) =>
@@ -94,7 +84,7 @@ describe("Safety page", () => {
       return guardPolicy;
     });
     render(<PolicyPage />);
-    // The page reveals its sections once guard and signing settings load.
+    // The page reveals its sections once the guard policy loads.
     await screen.findByRole("radiogroup", { name: "Guard policy" });
     expect(await screen.findByText("Swig on Solana")).toBeTruthy();
     expect(screen.getByText("Jupiter")).toBeTruthy();

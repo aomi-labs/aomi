@@ -40,10 +40,17 @@ venue-specific URL.
   - `@aomi-labs/account/policy`: shared session capabilities, OAuth resource
     policies and the one `authorize` check used by Edge and Portal.
   - `routes.ts`: the route table. `/v1/agent/**`, `/v1/pipeline/**`,
-    `/v1/account/{apps,transaction-safety,credits,statement}`, the two MCP
-    transports, the `/api/*` backend allowlist, delegation begin, discovery
-    and the public catalog. Bearers are minted as `aomi-edge` with the same
-    delegated claims the portal minted as `aomi-bff`.
+    `/v1/account/{apps,transaction-safety,credits,statement}`, the account's
+    wallets, agent wallets, lanes and platform links (`/v1/account/{wallets,
+    agent-wallets,pause-all,connection-settings,connections/:key/wallets,
+    link}`), thread-less commits (`/v1/commits/:ref/**`), the agent, pipeline
+    and app-locked (`/v1/apps/:app/mcp`) MCP transports, the `/api/*` backend
+    allowlist, discovery and the public catalog. Bearers are minted as
+    `aomi-edge` with the same delegated claims the portal minted as
+    `aomi-bff`; a backend bearer carries no scope, only how the caller signed
+    in (`auth_source`: `session`, `cli_session`, `widget`, `oauth`), its
+    class and its OAuth client, which decide portal-only writes, approvals
+    and a thread's origin.
   - `headers.ts` and `src/kernel/{proxy,cors,csrf}.ts`: forwarding headers,
     open-widget CORS and the cookie CSRF rule.
 
@@ -73,8 +80,8 @@ venue-specific URL.
 
 The Vercel handlers for the moved proxy families have been deleted. Portal
 retains the Better Auth authorization server, session and account management,
-widget authentication, delegation callbacks and the Edge principal attestation
-endpoint. Its account routes accept session credentials; OAuth access-token
+widget authentication, connections (`/v1/account/connections/**`) and the
+Edge principal attestation endpoint. Its account routes accept session credentials; OAuth access-token
 verification for protected resources happens at Edge. Build retains its sandbox
 and sidecar authentication; sidecar bearers still use the `aomi-sidecar` audience.
 

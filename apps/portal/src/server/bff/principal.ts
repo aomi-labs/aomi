@@ -40,6 +40,7 @@ export type PrincipalCode =
   | "invalid_token"
   | "invalid_widget_session"
   | "insufficient_scope"
+  | "portal_session_required"
   | "csrf_failed"
   | "unauthenticated";
 

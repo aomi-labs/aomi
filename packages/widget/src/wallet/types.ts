@@ -62,7 +62,9 @@ export type WalletSource =
   | "coinbase"
   | "baseAccount"
   | "embedded"
-  | "stored";
+  | "stored"
+  /** An Aomi agent wallet: signs on the server, never in this browser. */
+  | "agent";
 
 export type AomiLoginMethod =
   | "google"
@@ -280,6 +282,7 @@ export type AomiWalletKit = {
   /** Canonical account-aware wallet state. Transport-only accounts stay above. */
   wallets: readonly WalletRow[];
   accountStatus?: AccountRuntimeStatus;
+  refreshAccount?: () => Promise<void>;
   accountError?: string;
   accountConflict?: AccountConflict;
   /** The current Portal session is temporary and must not own linked wallets. */
@@ -377,7 +380,11 @@ export type AomiWalletKit = {
   ) => Promise<AomiTxResult>;
   sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
   preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
+  sendPreparedEvmCalls?: import("@aomi-labs/client").EvmWallet["sendPreparedCalls"];
+  waitForEvmReceipt?: import("@aomi-labs/client").EvmWallet["waitForReceipt"];
+  supportsAtomicEvmBatch?: import("@aomi-labs/client").EvmWallet["supportsAtomicBatch"];
   signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
+  signPreparedEvmMessage?: import("@aomi-labs/client").EvmWallet["signPreparedMessage"];
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;

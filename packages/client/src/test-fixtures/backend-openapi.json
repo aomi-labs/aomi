@@ -546,62 +546,6 @@
         ]
       }
     },
-    "/api/auth/privy/begin": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/auth/privy/callback": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
-      }
-    },
-    "/api/auth/para/begin": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/auth/para/callback": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
-      }
-    },
     "/api/secrets": {
       "delete": {
         "responses": {
@@ -869,7 +813,7 @@
                               ]
                             },
                             {
-                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
+                              "description": "Anonymous device \u2014 no DB record, metered in memory by client_id.",
                               "type": "string",
                               "enum": [
                                 "anon"
@@ -1016,12 +960,11 @@
                             ]
                           },
                           "mode": {
-                            "description": "Durable signing authority. Client automation never grants server custody.",
+                            "description": "Durable signing authority.",
                             "type": "string",
                             "enum": [
                               "denied",
                               "manual",
-                              "client_auto",
                               "auto"
                             ]
                           },
@@ -1895,23 +1838,6 @@
         ]
       }
     },
-    "/api/account/providers/{provider}/agent-wallet": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
     "/api/account/providers/{provider}/delegation": {
       "delete": {
         "responses": {
@@ -2572,7 +2498,7 @@
         "x-aomi-auth": []
       }
     },
-    "/api/bots/telegram/{webhook_secret}/binding": {
+    "/api/bots/telegram/{webhook_secret}/wallet": {
       "post": {
         "responses": {
           "200": {
@@ -3740,118 +3666,103 @@
         ]
       }
     },
-    "/api/platforms/{name}/venue": {
+    "/v1/account/agent-wallets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/balances": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/withdraw": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/v1/account/connections/{key}/wallets": {
       "put": {
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-admin"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "OK"
+        "security": [
+          {
+            "accountBearer": []
           }
-        },
-        "security": [],
+        ],
         "x-aomi-auth": [
-          "activation-admin"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/bot": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "public"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/nonce": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/status": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "wallet-session"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
+          "account"
         ]
       }
     }

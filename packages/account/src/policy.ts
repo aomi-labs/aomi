@@ -17,14 +17,12 @@ export const AGENT_SCOPES = [
   "agent:actions:resolve",
   "mcp:agent",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const PIPELINE_SCOPES = [
   "pipeline:catalog",
   "pipeline:execute",
   "mcp:pipeline",
   "payments:submit",
-  "custody:delegate",
 ] as const;
 export const ACCOUNT_SCOPES = [
   "account:credits:read",
@@ -41,7 +39,14 @@ export const ACCOUNT_SCOPES = [
 export const AGENT_REST_SCOPES = AGENT_SCOPES.filter((scope) => scope !== "mcp:agent");
 export const PIPELINE_REST_SCOPES = PIPELINE_SCOPES.filter((scope) => scope !== "mcp:pipeline");
 
-export type ResourceKind = "agentRest" | "pipelineRest" | "agentMcp" | "pipelineMcp" | "accountRest";
+export type ResourceKind =
+  | "apiRest"
+  | "agentRest"
+  | "pipelineRest"
+  | "agentMcp"
+  | "pipelineMcp"
+  | "appMcp"
+  | "accountRest";
 
 export type ResourcePolicy = {
   kind: ResourceKind;
@@ -72,6 +77,8 @@ export type Resources = {
   agentRest: string;
   pipelineRest: string;
   accountRest: string;
+  /** One sign-in for Aomi's own CLI and SDK, accepted on the three REST APIs. */
+  apiRest: string;
 };
 
 export function resourcesFor(portalOrigin: string): Resources {
@@ -83,11 +90,29 @@ export function resourcesFor(portalOrigin: string): Resources {
     agentRest: `${portalOrigin}/v1/agent`,
     pipelineRest: `${portalOrigin}/v1/pipeline`,
     accountRest: `${portalOrigin}/v1/account`,
+    apiRest: `${portalOrigin}/v1`,
   };
 }
 
 export function resourcePolicies(resources: Resources, dpopRequired: boolean): readonly ResourcePolicy[] {
   const base: Omit<ResourcePolicy, "grantableScopes">[] = [
+    {
+      // One sign-in for Aomi's own CLI and SDK: every REST scope, accepted
+      // on /v1/agent, /v1/pipeline and /v1/account (never on an MCP server),
+      // and narrowed to the route's own scopes before it reaches the API.
+      kind: "apiRest",
+      identifier: resources.apiRest,
+      allowedScopes: [...new Set([...AGENT_REST_SCOPES, ...PIPELINE_REST_SCOPES, ...ACCOUNT_SCOPES])],
+      guestScopes: [
+        "agent:read",
+        "agent:write",
+        "agent:actions:resolve",
+        "pipeline:catalog",
+        "pipeline:execute",
+        OFFLINE_ACCESS_SCOPE,
+      ],
+      dpopBoundAccessTokensRequired: false,
+    },
     {
       kind: "agentRest",
       identifier: resources.agentRest,
@@ -127,6 +152,43 @@ export function resourcePolicies(resources: Resources, dpopRequired: boolean): r
   return base.map((policy) => ({ ...policy, grantableScopes: [...policy.allowedScopes, OFFLINE_ACCESS_SCOPE] }));
 }
 
+/** An app's name as it appears in its MCP path, `/v1/apps/<name>/mcp`. */
+const APP_NAME = /^[a-z0-9][a-z0-9-_]{0,62}$/;
+
+/** The MCP resource locked to one app: the agent MCP with that app forced. */
+export function appMcpResource(resources: Pick<Resources, "portalOrigin">, name: string): string {
+  return `${resources.portalOrigin}/v1/apps/${name}/mcp`;
+}
+
+/** The app an app-locked MCP resource names; undefined for any other resource. */
+export function appMcpName(resources: Pick<Resources, "portalOrigin">, resource: string): string | undefined {
+  const prefix = `${resources.portalOrigin}/v1/apps/`;
+  if (!resource.startsWith(prefix) || !resource.endsWith("/mcp")) return undefined;
+  const name = resource.slice(prefix.length, -"/mcp".length);
+  return APP_NAME.test(name) ? name : undefined;
+}
+
+/**
+ * The policy of one resource: a fixed one, or an app-locked MCP resource,
+ * which carries the agent MCP's scopes. Null for anything else.
+ */
+export function resourcePolicy(
+  resources: Resources,
+  dpopRequired: boolean,
+  resource: string,
+): ResourcePolicy | null {
+  const policies = resourcePolicies(resources, dpopRequired);
+  const fixed = policies.find((policy) => policy.identifier === resource);
+  if (fixed) return fixed;
+  const agentMcp = policies.find((policy) => policy.kind === "agentMcp")!;
+  return appMcpName(resources, resource) ? { ...agentMcp, kind: "appMcp", identifier: resource } : null;
+}
+
+/** Whether a `/v1` (CLI and SDK) token also opens this resource: the three REST APIs, never an MCP server. */
+export function acceptsApiToken(policy: Pick<ResourcePolicy, "kind">): boolean {
+  return policy.kind === "agentRest" || policy.kind === "pipelineRest" || policy.kind === "accountRest";
+}
+
 /** Reduce a guest grant to what the resource lets a guest carry. */
 export function guestScopesFor(policy: ResourcePolicy, requested: readonly string[]): string[] {
   const ceiling = new Set(policy.guestScopes);
@@ -138,15 +200,14 @@ export type Capability =
   | "chat" // threads, turns, catalogs, simulations
   | "actions" // resolve staged actions and commits
   | "account" // own profile, identities, wallets, provider links, deactivation
+  | "portal_session" // signed-in portal cookie session only: agent-wallet writes, platform links, disconnects
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
-  | "custody" // delegated custody
   | "settings" // installed apps, app secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
-  | "managed_signing" // execution profile, AA accounts, signing requests
   | "backend_bearer" // a raw 15-minute backend token
   | "cli_session" // a separate one-day CLI session
-  | "device_login" // grant a CLI device login
+  | "device_login" // start a CLI device link for Privy or Para
   | "mcp"; // MCP transport, OAuth grants only
 
 const SIGNED_IN: readonly Capability[] = [
@@ -155,10 +216,8 @@ const SIGNED_IN: readonly Capability[] = [
   "account",
   "account_read",
   "payments",
-  "custody",
   "settings",
   "safety_policy",
-  "managed_signing",
   "backend_bearer",
   "cli_session",
   "device_login",
@@ -174,7 +233,7 @@ export type SessionKind = "cookie" | "session_bearer" | "widget" | "e2e";
 const GRANTS: Record<SessionKind, { user: readonly Capability[]; guest: readonly Capability[] }> = {
   // Rotating a CLI session revokes the presented one, so a browser cookie may
   // not ask for it.
-  cookie: { user: SIGNED_IN.filter((capability) => capability !== "cli_session"), guest: GUEST },
+  cookie: { user: [...SIGNED_IN.filter((capability) => capability !== "cli_session"), "portal_session"], guest: GUEST },
   session_bearer: { user: SIGNED_IN, guest: GUEST },
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
@@ -195,7 +254,6 @@ const SCOPE_CAPABILITY: Record<string, Capability> = {
   "agent:actions:resolve": "actions",
   "payments:submit": "payments",
   "account:credits:fund": "payments",
-  "custody:delegate": "custody",
   "account:credits:read": "account_read",
   "account:usage:read": "account_read",
   "account:transaction-safety:read": "safety_policy",
@@ -236,12 +294,9 @@ export function scopesOn(principal: Exclude<PolicyPrincipal, { kind: "none" }>, 
 /** What a route needs: a capability, or scopes on a protected resource. */
 export type Need = { capability: Capability; anonymous?: true } | { resource: string; scopes: readonly string[] };
 
-/** A grant for one of these also carries `custody:delegate` when the caller holds it. */
-const DELEGATING_SCOPES: readonly string[] = ["agent:write", "pipeline:execute"];
-
 export type Denial = {
   status: 401 | 403;
-  code: "unauthenticated" | "invalid_token" | "insufficient_scope";
+  code: "unauthenticated" | "invalid_token" | "insufficient_scope" | "portal_session_required";
   requiredScopes?: readonly string[];
 };
 
@@ -263,15 +318,16 @@ export function authorize(
     if (principal.kind === "oauth") return { denied: { status: 401, code: "invalid_token" } };
     return capabilitiesOf(principal.kind, principal.guest).includes(need.capability)
       ? { scopes: [] }
-      : { denied: { status: 403, code: "insufficient_scope" } };
+      : {
+          denied: {
+            status: 403,
+            code: need.capability === "portal_session" ? "portal_session_required" : "insufficient_scope",
+          },
+        };
   }
   const held = scopesOn(principal, policyFor(need.resource));
   if (need.scopes.some((scope) => !held.includes(scope))) {
     return { denied: { status: 403, code: "insufficient_scope", requiredScopes: need.scopes } };
   }
-  const scopes = [...new Set(need.scopes)];
-  if (need.scopes.some((scope) => DELEGATING_SCOPES.includes(scope)) && held.includes("custody:delegate")) {
-    scopes.push("custody:delegate");
-  }
-  return { scopes };
+  return { scopes: [...new Set(need.scopes)] };
 }

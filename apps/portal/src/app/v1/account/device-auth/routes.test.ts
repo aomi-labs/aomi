@@ -3,9 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
-  createCliSession: vi.fn(),
-  revokeSession: vi.fn(),
-  issueGrant: vi.fn(),
   issueLinkIntent: vi.fn(),
   issueLinkGrant: vi.fn(),
   exchangeGrant: vi.fn(),
@@ -19,13 +16,7 @@ vi.mock("@/server/account/session", async (importOriginal) => {
   return { ...actual, getBetterAuthSession: mocks.getSession };
 });
 
-vi.mock("@/server/account/cli-session", () => ({
-  createCliSession: mocks.createCliSession,
-  revokeSession: mocks.revokeSession,
-}));
-
 vi.mock("@/server/device-auth/grants", () => ({
-  issueDeviceAuthGrant: mocks.issueGrant,
   issueDeviceAuthLinkIntent: mocks.issueLinkIntent,
   issueDeviceAuthLinkGrant: mocks.issueLinkGrant,
   exchangeDeviceAuthGrant: mocks.exchangeGrant,
@@ -62,7 +53,6 @@ vi.mock("@/server/bff/failures", () => ({
 }));
 
 import { POST as exchange } from "./exchange/route";
-import { POST as grant } from "./grant/route";
 import { POST as linkGrant } from "./link-grant/route";
 import { POST as linkIntent } from "./link-intent/route";
 
@@ -84,22 +74,12 @@ function post(path: string, body: unknown): Request {
 describe("device-auth route error ownership", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
-    mocks.createCliSession.mockResolvedValue({
-      sessionToken: "cli-session-token",
-      expiresAt: new Date(Date.now() + 86400000),
-    });
     mocks.getSession.mockResolvedValue({
       user: { id: "better-auth-user" },
       session: {
         token: "session-token",
         expiresAt: new Date(Date.now() + 60_000),
       },
-    });
-    mocks.issueGrant.mockReturnValue({
-      code: "code",
-      state: VALID_STATE,
-      redirectUri: REDIRECT_URI,
-      expiresAt: new Date(Date.now() + 60_000),
     });
     mocks.issueLinkIntent.mockReturnValue({
       id: "intent",
@@ -113,59 +93,18 @@ describe("device-auth route error ownership", () => {
       redirectUri: REDIRECT_URI,
       provider: "para",
     });
-    mocks.exchangeGrant.mockReturnValue({
-      purpose: "login",
-      sessionToken: "session-token",
-      expiresAt: new Date(Date.now() + 60_000),
-      betterAuthUserId: "better-auth-user",
-      provider: "para",
-    });
-  });
-
-  it("keeps grant validation failures as ignored 400 responses", async () => {
-    mocks.issueGrant.mockImplementation(() => {
-      throw new Error("invalid_state");
-    });
-
-    const response = await grant(
-      post("/v1/account/device-auth/grant", {
-        state: VALID_STATE,
-        codeChallenge: VALID_CHALLENGE,
-        redirectUri: REDIRECT_URI,
-        provider: "para",
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "invalid_state" });
-    expect(mocks.capture).not.toHaveBeenCalled();
-  });
-
-  it("requires a provider when issuing an ordinary grant", async () => {
-    const response = await grant(
-      post("/v1/account/device-auth/grant", {
-        state: VALID_STATE,
-        codeChallenge: VALID_CHALLENGE,
-        redirectUri: REDIRECT_URI,
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: "invalid_request",
-    });
-    expect(mocks.issueGrant).not.toHaveBeenCalled();
   });
 
   it("reports a session lookup failure without its message", async () => {
     const failure = new Error("private database detail");
     mocks.getSession.mockRejectedValue(failure);
 
-    const response = await grant(
-      post("/v1/account/device-auth/grant", {
+    const response = await linkIntent(
+      post("/v1/account/device-auth/link-intent", {
         state: VALID_STATE,
         codeChallenge: VALID_CHALLENGE,
         redirectUri: REDIRECT_URI,
+        provider: "para",
       }),
     );
     expect(response.status).toBe(500);
@@ -176,22 +115,6 @@ describe("device-auth route error ownership", () => {
       failure,
       expect.objectContaining({ status: 500 }),
     );
-  });
-
-  it("revokes the CLI session it minted when the grant cannot be issued", async () => {
-    mocks.issueGrant.mockImplementation(() => {
-      throw new Error("private storage detail");
-    });
-    const response = await grant(
-      post("/v1/account/device-auth/grant", {
-        state: VALID_STATE,
-        codeChallenge: VALID_CHALLENGE,
-        redirectUri: REDIRECT_URI,
-        provider: "para",
-      }),
-    );
-    expect(response.status).toBe(500);
-    expect(mocks.revokeSession).toHaveBeenCalledWith("cli-session-token");
   });
 
   it("keeps link-intent validation errors public and storage failures private", async () => {

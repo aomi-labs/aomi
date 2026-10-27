@@ -60,41 +60,6 @@ export async function findAomiUserById(
   return result.rows[0] ? mapUser(result.rows[0]) : null;
 }
 
-/** Resolve the verified Telegram identity and claim an unowned runtime session
- * for that same canonical user. A session already owned by anyone else is
- * rejected, preventing a valid Telegram launch from crossing accounts. */
-export async function claimTelegramSessionOwner(input: {
-  sessionId: string;
-  telegramUserId: string;
-  db?: Db;
-}): Promise<AomiUserId | null> {
-  const db = input.db ?? getPool();
-  const result = await db.query(
-    `with telegram_owner as (
-       select ap.user_id
-         from auth_providers ap
-         join users u on u.id = ap.user_id
-        where ap.provider = 'telegram'
-          and ap.issuer_environment = 'aomi'
-          and ap.tenant_id = 'global'
-          and ap.subject = $2
-          and coalesce(u.status, 'active') = 'active'
-        limit 1
-     ), claimed as (
-       update threads t
-          set user_id = owner.user_id
-         from telegram_owner owner
-        where t.id = $1
-          and (t.user_id is null or t.user_id = owner.user_id)
-       returning t.user_id
-     )
-     select user_id from claimed`,
-    [input.sessionId, input.telegramUserId],
-  );
-  const userId = result.rows[0]?.user_id;
-  return typeof userId === "string" ? userId : null;
-}
-
 export async function createAomiUser(input: {
   userId?: AomiUserId;
   email?: string | null;
@@ -299,7 +264,10 @@ export async function countLoginFactors(
     `select count(*)::int as count
        from auth_providers
       where user_id = $1
-        and provider not in ('betterauth', 'better_auth', 'wallet')`,
+        and provider not in ('betterauth', 'better_auth', 'wallet')
+        -- The identity behind a provider-managed agent key signs; nobody
+        -- logs in with it.
+        and method <> 'agent'`,
     [userId],
   );
   return Number(result.rows[0]?.count ?? 0);
@@ -529,8 +497,9 @@ export async function listIdentitiesForUser(
   db: Db = getPool(),
 ): Promise<DbAomiAuthIdentity[]> {
   const result = await db.query(
+    // Agent wallets' Para identities are internal to signing, never logins.
     `select * from auth_providers
-      where user_id = $1
+      where user_id = $1 and method <> 'agent'
       order by is_primary desc, created_at asc`,
     [userId],
   );
@@ -544,10 +513,14 @@ export async function listWalletsForUser(
   const result = await db.query(
     `select pk.*,
             ap.provider as wallet_provider,
-            ap.provider_metadata as wallet_provider_metadata
+            ap.provider_metadata as wallet_provider_metadata,
+            aw.id::text as agent_wallet_id,
+            aw.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
-      where pk.user_id = $1
+       ${AGENT_WALLET_JOIN}
+      -- Archived agent wallets are hidden from every wallet list.
+      where pk.user_id = $1 and aw.archived_at is null
       order by pk.is_primary desc, pk.created_at asc`,
     [userId],
   );
@@ -665,20 +638,80 @@ export async function revokeWallet(input: {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function denyAgentWalletsForUser(input: {
+  userId: AomiUserId;
+  db: Db;
+}): Promise<void> {
+  await input.db.query(`select id from users where id = $1 for update`, [
+    input.userId,
+  ]);
+  // Match DbPublicKey::authorization_lock_key and advisory_xact_lock exactly.
+  // Stable ordering also keeps simultaneous revocations from deadlocking.
+  const keys = await input.db.query(
+    `select pk.id, pk.chain_type, pk.address from public_keys pk
+      join agent_wallet_keys awk on awk.public_key_id = pk.id
+     where pk.user_id = $1 order by pk.chain_type, pk.address`,
+    [input.userId],
+  );
+  for (const key of keys.rows) {
+    const family = String(key.chain_type).trim().toLowerCase();
+    const address = String(key.address).trim();
+    const lock = `signing-authorization:${family}:${family === "evm" ? address.toLowerCase() : address}`;
+    await input.db.query(
+      `select pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [lock],
+    );
+    await input.db.query(
+      `update public_keys set signing_mode = 'denied',
+          authorization_version = authorization_version + 1,
+          authorization_metadata = coalesce(authorization_metadata, '{}'::jsonb) || jsonb_build_object('reason', 'account_deactivated', 'mode', 'denied', 'at', extract(epoch from now())::bigint),
+          updated_at = extract(epoch from now())::bigint where id = $1`,
+      [key.id],
+    );
+    await input.db.query(
+      `update signing_delegations set revoked_at = extract(epoch from now())::bigint,
+          revocation_reason = 'account_deactivated', updated_at = extract(epoch from now())::bigint
+        where public_key_id = $1 and revoked_at is null`,
+      [key.id],
+    );
+  }
+  // Pause all and put every connection back on Ask on Aomi.
+  await input.db.query(`update users set agents_paused = true where id = $1`, [
+    input.userId,
+  ]);
+  await input.db.query(
+    `update wallet_access set lane = 'portal',
+        updated_at = extract(epoch from now())::bigint
+      where user_id = $1 and lane <> 'portal'`,
+    [input.userId],
+  );
+}
+
 export async function revokeAllAuthIdentitiesForUser(input: {
   userId: AomiUserId;
   db?: Db;
 }): Promise<number> {
   const db = input.db ?? getPool();
+  // Agent wallet keys (and the identities they sign through) stay with the
+  // deactivated account: they may hold funds and are never removed.
   await db.query(
     `delete from public_keys
       where auth_provider_id in (
         select id from auth_providers where user_id = $1
-      )`,
+      )
+        and not exists (
+          select 1 from agent_wallet_keys awk
+           where awk.public_key_id = public_keys.id
+        )`,
     [input.userId],
   );
   const result = await db.query(
-    `delete from auth_providers where user_id = $1`,
+    `delete from auth_providers
+      where user_id = $1
+        and not exists (
+          select 1 from public_keys pk
+           where pk.auth_provider_id = auth_providers.id
+        )`,
     [input.userId],
   );
   return result.rowCount ?? 0;
@@ -689,9 +722,15 @@ export async function revokeAllWalletsForUser(input: {
   db?: Db;
 }): Promise<number> {
   const db = input.db ?? getPool();
-  const result = await db.query(`delete from public_keys where user_id = $1`, [
-    input.userId,
-  ]);
+  const result = await db.query(
+    `delete from public_keys
+      where user_id = $1
+        and not exists (
+          select 1 from agent_wallet_keys awk
+           where awk.public_key_id = public_keys.id
+        )`,
+    [input.userId],
+  );
   return result.rowCount ?? 0;
 }
 
@@ -702,9 +741,12 @@ export async function findWalletById(
   const result = await db.query(
     `select pk.*,
             ap.provider as wallet_provider,
-            ap.provider_metadata as wallet_provider_metadata
+            ap.provider_metadata as wallet_provider_metadata,
+            aw.id::text as agent_wallet_id,
+            aw.name as agent_wallet_name
        from public_keys pk
        left join auth_providers ap on ap.id = pk.auth_provider_id
+       ${AGENT_WALLET_JOIN}
       where pk.id = $1
       limit 1`,
     [Number(walletId)],
@@ -1005,6 +1047,247 @@ export async function deleteBetterAuthSessions(
   ]);
 }
 
+/** The Better Auth users that resolve to an account, as a SQL subquery on $1. */
+const ACCOUNT_BETTER_AUTH_USERS = `select subject from auth_providers
+      where user_id = $1 and provider in ('betterauth', 'better_auth')
+        and subject is not null`;
+
+/**
+ * The OAuth clients that hold a consent or a live refresh token for any of the
+ * account's Better Auth users, oldest grant first. `resources` joins the
+ * client's bound resources with the ones its grants name.
+ */
+export async function listOAuthConnections(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<
+  {
+    clientId: string;
+    name: string | null;
+    connectedAt: number;
+    resources: string[];
+  }[]
+> {
+  const result = await db.query(
+    `with grants as (
+       select client_id, created_at, resources from ba_oauth_consents
+        where user_id in (${ACCOUNT_BETTER_AUTH_USERS})
+       union all
+       select client_id, created_at, resources from ba_oauth_refresh_tokens
+        where user_id in (${ACCOUNT_BETTER_AUTH_USERS})
+          and revoked is null and expires_at > now()
+     )
+     select c.client_id, c.name,
+            extract(epoch from min(g.created_at))::bigint as connected_at,
+            array(
+              select r.resource_id from ba_oauth_client_resources r
+               where r.client_id = c.client_id
+              union
+              select jsonb_array_elements_text(g2.resources) from grants g2
+               where g2.client_id = c.client_id
+                 and jsonb_typeof(g2.resources) = 'array'
+            ) as resources
+       from grants g
+       join ba_oauth_clients c on c.client_id = g.client_id
+      group by c.client_id, c.name
+      order by min(g.created_at), c.client_id`,
+    [userId],
+  );
+  return result.rows.map((row) => ({
+    clientId: String(row.client_id),
+    name: optionalString(row.name),
+    connectedAt: Number(row.connected_at),
+    resources: (row.resources as unknown[]).map(String),
+  }));
+}
+
+/**
+ * The account's own connection settings: label, last use, the app it is
+ * locked to, whether it may only Ask, and the agent wallets it may use. Pairs of archived
+ * wallets come back marked, so a full replacement keeps them for a restore.
+ */
+export async function listConnectionSettings(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<
+  {
+    key: string;
+    label: string | null;
+    lastUsedAt: number | null;
+    application: { id: number; name: string; label: string } | null;
+    askOnly: boolean;
+    wallets: {
+      id: string;
+      name: string;
+      lane: "portal" | "here" | "instant";
+      archived: boolean;
+    }[];
+  }[]
+> {
+  const result = await db.query(
+    `select c.key, c.label, c.last_used_at, c.ask_only,
+            a.id as app_id, a.name as app_name, a.label as app_label,
+            coalesce((
+              select json_agg(json_build_object(
+                       'id', aw.id::text, 'name', aw.name, 'lane', wa.lane,
+                       'archived', aw.archived_at is not null)
+                     order by aw.created_at, aw.id)
+                from wallet_access wa
+                join agent_wallets aw on aw.id = wa.agent_wallet_id
+               where wa.user_id = c.user_id and wa.connection_key = c.key),
+              '[]'::json) as wallets
+       from account_connections c
+       left join applications a on a.id = c.application_id
+      where c.user_id = $1`,
+    [userId],
+  );
+  return result.rows.map((row) => ({
+    key: String(row.key),
+    label: optionalString(row.label),
+    lastUsedAt: row.last_used_at == null ? null : Number(row.last_used_at),
+    application:
+      row.app_id == null
+        ? null
+        : {
+            id: Number(row.app_id),
+            name: String(row.app_name),
+            label: optionalString(row.app_label) ?? String(row.app_name),
+          },
+    askOnly: row.ask_only === true,
+    wallets: (
+      row.wallets as {
+        id: string;
+        name: string;
+        lane: string;
+        archived: boolean;
+      }[]
+    ).map(({ id, name, lane, archived }) => ({
+      id,
+      name,
+      lane: lane === "here" || lane === "instant" ? lane : "portal",
+      archived: archived === true,
+    })),
+  }));
+}
+
+/**
+ * Remove one OAuth client's consent, refresh tokens and stored access tokens
+ * for every Better Auth user of the account. False when it had none.
+ */
+export async function deleteOAuthConnection(input: {
+  userId: AomiUserId;
+  clientId: string;
+}): Promise<boolean> {
+  return withTransaction(async (db) => {
+    let deleted = 0;
+    for (const table of [
+      "ba_oauth_access_tokens",
+      "ba_oauth_refresh_tokens",
+      "ba_oauth_consents",
+    ]) {
+      const result = await db.query(
+        `delete from ${table}
+          where client_id = $2 and user_id in (${ACCOUNT_BETTER_AUTH_USERS})`,
+        [input.userId, input.clientId],
+      );
+      deleted += result.rowCount ?? 0;
+    }
+    await db.query(
+      `delete from account_connections where user_id = $1 and key = 'oauth:' || $2`,
+      [input.userId, input.clientId],
+    );
+    return deleted > 0;
+  });
+}
+
+/** The account's Telegram sign-in identities (one per Telegram user). */
+export async function listTelegramIdentityIds(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<string[]> {
+  const result = await db.query(
+    `select id::text from auth_providers
+      where user_id = $1 and provider = 'telegram'`,
+    [userId],
+  );
+  return result.rows.map((row) => String(row.id));
+}
+
+/**
+ * Drop every Telegram bot's label and, by cascade, its wallet lanes, which
+ * then read as the default lane.
+ */
+export async function deleteTelegramConnectionSettings(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<void> {
+  await db.query(
+    `delete from account_connections
+      where user_id = $1 and starts_with(key, 'telegram:')`,
+    [userId],
+  );
+}
+
+/**
+ * The account's Telegram user, the active Telegram bots it has chatted with
+ * (a `telegram:bot:<platform bot id>:…` thread), and the bot whose `/link`
+ * code last linked it to this account. Null without a Telegram identity.
+ */
+export async function findTelegramConnection(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<{
+  username: string | null;
+  bots: { botId: string; label: string }[];
+  linkedFrom: { botId: string; label: string } | null;
+  linkedAt: number | null;
+} | null> {
+  const identity = await db.query(
+    `select provider_metadata->>'handle' as handle from auth_providers
+      where user_id = $1 and provider = 'telegram'
+      order by is_primary desc, updated_at desc, id desc
+      limit 1`,
+    [userId],
+  );
+  if (!identity.rows[0]) return null;
+  const bots = await db.query(
+    `select b.platform_bot_id,
+            coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
+                     b.platform_bot_id) as label
+       from bot_registrations b
+      where b.platform = 'telegram' and b.status = 'active'
+        and exists (select 1 from threads t
+                     where t.user_id = $1
+                       and starts_with(t.id, 'telegram:bot:' || b.platform_bot_id || ':'))
+      order by b.created_at, b.platform_bot_id`,
+    [userId],
+  );
+  // A link code keeps the issuing bot; the confirmed one names this account.
+  const link = await db.query(
+    `select c.context->>'bot_id' as bot_id, c.consumed_at,
+            coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
+                     c.context->>'bot_id') as label
+       from account_link_codes c
+       left join bot_registrations b on b.id = c.context->>'bot_registration_id'
+      where c.provider = 'telegram' and c.target_user_id = $1 and c.state = 'linked'
+      order by c.consumed_at desc, c.id
+      limit 1`,
+    [userId],
+  );
+  const linked = link.rows[0];
+  return {
+    username: optionalString(identity.rows[0].handle),
+    bots: bots.rows.map((row) => ({
+      botId: String(row.platform_bot_id),
+      label: String(row.label),
+    })),
+    linkedFrom: linked
+      ? { botId: String(linked.bot_id), label: String(linked.label) }
+      : null,
+    linkedAt: linked ? Number(linked.consumed_at) : null,
+  };
+}
+
 /** A short-lived single-use value in Better Auth's verification table. */
 export async function storeVerification(input: {
   identifier: string;
@@ -1133,10 +1416,18 @@ function mapIdentity(row: Row): DbAomiAuthIdentity {
   };
 }
 
+/**
+ * An `agent_wallet_keys` row makes a key an agent wallet, named after its
+ * agent wallet. Provider-managed keys without one keep their provider mapping.
+ */
+const AGENT_WALLET_JOIN = `left join agent_wallet_keys awk on awk.public_key_id = pk.id
+       left join agent_wallets aw on aw.id = awk.agent_wallet_id`;
+
 function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));
   const address = String(row.address);
   const walletMetadata = asRecord(row.authorization_metadata);
+  const agent = row.agent_wallet_id != null;
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -1145,14 +1436,17 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     normalizedAddress: normalizeWalletAddress(family, address),
     caip10: null,
     chainScope: null,
-    kind:
-      provider && provider !== "siwe" && provider !== "siws"
+    kind: agent
+      ? "agent"
+      : provider && provider !== "siwe" && provider !== "siws"
         ? "embedded"
         : "external",
     provider: provider ? publicProvider(provider) : null,
     providerWalletId: null,
     linkedVia: provider ? publicProvider(provider) : "import",
-    label: optionalString(walletMetadata.display_label),
+    label: agent
+      ? optionalString(row.agent_wallet_name)
+      : optionalString(walletMetadata.display_label),
     walletApp: optionalString(walletMetadata.wallet_app),
     displayMetadata: walletMetadata,
     verifiedAt: secondsToDate(row.created_at),

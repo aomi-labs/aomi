@@ -15,6 +15,9 @@ vi.mock("./internal/browser-grant-storage", () => ({
 }));
 const portal = "https://portal.example";
 const resource = `${portal}/v1/agent` as const;
+// Agent, Pipeline and Account share one `/v1` sign-in; MCP keeps its own.
+const apiResource = `${portal}/v1` as const;
+const mcpResource = `${portal}/v1/agent/mcp` as const;
 afterEach(() => {
   vi.unstubAllGlobals();
   savedSessions.clear();
@@ -86,8 +89,8 @@ async function fixture(
           new URLSearchParams(String(init?.body)).get("scope") ??
           (new URLSearchParams(String(init?.body))
             .get("resource")
-            ?.endsWith("/v1/account")
-            ? "account:credits:read"
+            ?.endsWith("/mcp")
+            ? "mcp:agent"
             : "agent:read"),
       });
     }
@@ -159,7 +162,7 @@ it("restores DPoP credentials without opening a popup and clears durable grants 
   const saved = [...savedSessions.values()][0] as {
     keys: Map<string, CryptoKeyPair>;
   };
-  expect(saved.keys.get(resource)?.privateKey.extractable).toBe(false);
+  expect(saved.keys.get(apiResource)?.privateKey.extractable).toBe(false);
   const popup = vi.fn();
   const restored = await createAomiBrowserGrantManager({
     portalBaseUrl: portal,
@@ -216,26 +219,25 @@ function restore(fetcher: typeof fetch) {
 
 it("drops only the rejected saved grant and restores the other resource", async () => {
   const { manager, fetcher } = await fixture({ persistenceKey: "tab-session" });
-  const accountResource = `${portal}/v1/account` as const;
   await manager.tokenProvider({ resource, scopes: ["agent:read"] });
   await manager.tokenProvider({
-    resource: accountResource,
-    scopes: ["account:credits:read"],
+    resource: mcpResource,
+    scopes: ["mcp:agent"],
   });
   const restored = await restore(async (url, init) => {
     if (
       String(url).endsWith("/token") &&
-      new URLSearchParams(String(init?.body)).get("resource") === resource
+      new URLSearchParams(String(init?.body)).get("resource") === apiResource
     )
       return Response.json({ error: "invalid_grant" }, { status: 400 });
     return fetcher(url, init);
   });
   expect((await restored.grants()).map((grant) => grant.resource)).toEqual([
-    accountResource,
+    mcpResource,
   ]);
   const reloaded = await restore(fetcher);
   expect((await reloaded.grants()).map((grant) => grant.resource)).toEqual([
-    accountResource,
+    mcpResource,
   ]);
   await reloaded.clear();
   expect(savedSessions.size).toBe(0);
@@ -245,11 +247,10 @@ it("removes an account-changing grant while preserving unrelated saved authoriza
   const { manager, fetcher, changeOwner } = await fixture({
     persistenceKey: "tab-session",
   });
-  const accountResource = `${portal}/v1/account` as const;
   await manager.tokenProvider({ resource, scopes: ["agent:read"] });
   await manager.tokenProvider({
-    resource: accountResource,
-    scopes: ["account:credits:read"],
+    resource: mcpResource,
+    scopes: ["mcp:agent"],
   });
   changeOwner("changed");
   const restored = await restore(fetcher);
@@ -258,12 +259,12 @@ it("removes an account-changing grant while preserving unrelated saved authoriza
     grants: { resource: string }[];
   };
   expect(saved.grants.map((grant) => grant.resource)).toEqual([
-    accountResource,
+    mcpResource,
   ]);
   changeOwner("account-b");
   const reloaded = await restore(fetcher);
   expect((await reloaded.grants()).map((grant) => grant.resource)).toEqual([
-    accountResource,
+    mcpResource,
   ]);
   await restored.clear();
   expect(savedSessions.size).toBe(0);
