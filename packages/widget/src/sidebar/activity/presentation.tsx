@@ -288,9 +288,52 @@ export function formatInteger(value: string): string {
 
 export function assetFallback(asset: string): string {
   if (!asset || asset === "native") return "Asset";
-  return asset.startsWith("0x")
-    ? shortAddress(asset, { head: 8, tail: 6 })
+  if (asset.startsWith("0x")) return shortAddress(asset, { head: 8, tail: 6 });
+  // A Solana mint: base58, 32–44 characters.
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(asset)
+    ? shortAddress(asset, { head: 4, tail: 4 })
     : asset;
+}
+
+const SOLANA_PROGRAMS: Record<string, string> = {
+  "11111111111111111111111111111111": "System",
+  ComputeBudget111111111111111111111111111111: "Compute budget",
+  TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: "Token",
+  TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb: "Token-2022",
+  ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL: "Token account",
+  AddressLookupTab1e1111111111111111111111111: "Lookup table",
+  JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4: "Jupiter",
+  routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS: "Raydium",
+  "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium AMM",
+  KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD: "Kamino",
+  "3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br": "LI.FI",
+  "99vQwtBwYtrqqD9YSXbdum3KBdxPAVxYTaQ3cfnJSrN2": "Relay",
+};
+
+/** What a Solana review runs: the programs it calls, by name where known
+ * (setup programs after the venue's), and how many instructions. */
+export function solanaProgramsSummary(
+  request: Extract<ActionRequest, { type: "execute_svm" }>,
+): { programs: string[]; instructions: number } {
+  const ids = request.transactions.flatMap((tx) =>
+    tx.instructions.map((ix) => ix.program_id),
+  );
+  const setup = new Set([
+    "11111111111111111111111111111111",
+    "ComputeBudget111111111111111111111111111111",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+  ]);
+  const unique = [...new Set(ids)].sort(
+    (a, b) => Number(setup.has(a)) - Number(setup.has(b)),
+  );
+  return {
+    programs: unique.map(
+      (id) => SOLANA_PROGRAMS[id] ?? shortAddress(id, { head: 4, tail: 4 }),
+    ),
+    instructions: ids.length,
+  };
 }
 
 export function firstEvmChainId(request: ActionRequest): number | undefined {

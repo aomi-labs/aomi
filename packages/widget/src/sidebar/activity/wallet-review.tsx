@@ -12,6 +12,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import type { CommitController, CommitView } from "@aomi-labs/client";
 import {
+  normalizeSolanaCluster,
   projectCommitLifecycle,
   reviewEligibility,
   requiresSignatureAdmission,
@@ -21,6 +22,7 @@ import { useAomiWalletKit } from "@/wallet/context";
 import { selectLegacyReviewAction, selectReviewQueue } from "./model";
 import { TransactionReview } from "./transaction-review";
 import { useSignerSwitch } from "./signer-switch";
+import { signDeadline, useBlockhashCountdown } from "./blockhash-countdown";
 
 const ParkedReview = lazy(() =>
   import("@/commit/approval").then((module) => ({
@@ -127,6 +129,7 @@ export function WalletReview() {
     executeAction,
     rejectAction,
     showNotification,
+    sendMessage,
   } = useAomiRuntime();
   const wallet = useAomiWalletKit();
   const queue = selectReviewQueue(commits, commitController);
@@ -177,6 +180,16 @@ export function WalletReview() {
         lifecycle.phase,
       ),
     );
+
+  // A Solana transaction can be signed only until its blockhash expires.
+  const solanaRpc = wallet.supportedNetworks?.solana.find(
+    (network) =>
+      liveCommit &&
+      network.cluster === normalizeSolanaCluster(liveCommit.chain_ref),
+  )?.rpcHttpUrl;
+  const secondsToSign = useBlockhashCountdown(liveCommit, solanaRpc);
+  const blockhashExpired =
+    secondsToSign === 0 && signDeadline(liveCommit) != null;
 
   // Awaiting this browser's wallet with another wallet active: switch, not Submit.
   const signerSwitch = useSignerSwitch(
@@ -445,8 +458,25 @@ export function WalletReview() {
           signatureAdmissionUnavailable ||
           Boolean(signerSwitch.note)
         }
-        connect={signerSwitch.connect}
-        note={signerSwitch.note}
+        connect={
+          blockhashExpired
+            ? {
+                label: "Refresh",
+                variant: "primary",
+                onClick: () =>
+                  void sendMessage(
+                    "The Solana transaction expired before I signed it. Stage it again with a fresh blockhash, simulate it, and commit it.",
+                  ),
+              }
+            : signerSwitch.connect
+        }
+        note={
+          blockhashExpired
+            ? "This transaction expired before it was signed."
+            : secondsToSign != null && !signerSwitch.note
+              ? `Sign within ${secondsToSign}s`
+              : signerSwitch.note
+        }
         rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
         status={status ?? signerSwitch.error}
         statusIsError={

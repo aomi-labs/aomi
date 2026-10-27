@@ -6057,6 +6057,10 @@
               },
               "transaction_base64": {
                 "type": "string"
+              },
+              "last_valid_block_height": {
+                "type": ["integer", "null"],
+                "description": "The last block height its blockhash can land at; a wallet counts down to it."
               }
             }
           },

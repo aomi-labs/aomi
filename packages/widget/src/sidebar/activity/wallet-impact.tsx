@@ -38,6 +38,7 @@ import {
   approvalTitle,
   approvalScope,
   focusRing,
+  solanaProgramsSummary,
 } from "./presentation";
 import { shortAddress } from "@aomi-labs/client";
 const REVIEW_PAGE_SIZE = 2;
@@ -212,7 +213,41 @@ export function ImpactPanel({
           </div>
         ) : null}
       </div>
+      {request.type === "execute_svm" && !message ? (
+        <SolanaRuns request={request} />
+      ) : null}
     </section>
+  );
+}
+
+/** The programs a Solana transaction runs, its instruction count and the
+ * compute it measured: what an EVM review shows as the contract and gas. */
+function SolanaRuns({
+  request,
+}: {
+  request: Extract<ActionRequest, { type: "execute_svm" }>;
+}) {
+  const { programs, instructions } = solanaProgramsSummary(request);
+  if (!instructions) return null;
+  const units = Number(request.simulation.gas?.units);
+  const detail = [
+    `${instructions} instruction${instructions === 1 ? "" : "s"}`,
+    Number.isFinite(units) && units > 0
+      ? `${units.toLocaleString("en-US")} compute units`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div
+      data-testid="solana-programs"
+      className="border-aomi-border mt-2 border-t px-1 pt-2"
+    >
+      <p className="type-meta truncate" title={programs.join(", ")}>
+        Runs {programs.join(", ")}
+      </p>
+      <p className="type-meta text-aomi-muted">{detail}</p>
+    </div>
   );
 }
 
@@ -531,7 +566,9 @@ const untilFormat = new Intl.DateTimeFormat("en", {
 /** Permit2's "never" (2^48 - 1) is past what a JS date can hold. */
 function until(seconds: number): string {
   const at = new Date(seconds * 1000);
-  return Number.isNaN(at.getTime()) ? "no expiry" : `until ${untilFormat.format(at)}`;
+  return Number.isNaN(at.getTime())
+    ? "no expiry"
+    : `until ${untilFormat.format(at)}`;
 }
 
 /** One row of what a message signature allows, in the trade rows' layout. */
@@ -587,9 +624,7 @@ function MessageEffect({
             : `≤ ${messageAmount(tokens, row.token, row.amount)}`,
           // A symbol is whatever the token contract says; the address isn't.
           `${shortAddress(row.spender, { head: 8, tail: 6 })} may spend token ${shortAddress(row.token)}${
-            row.expires_at
-              ? ` · ${until(row.expires_at)}`
-              : ""
+            row.expires_at ? ` · ${until(row.expires_at)}` : ""
           }`,
           row.unlimited ? "warning" : "accent",
         ]
