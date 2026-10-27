@@ -41,7 +41,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
     for (const migration of [
       "20261007000000_account_merge.sql",
-      "20261020070000_account_link.sql",
+      "20261026060000_account_link.sql",
     ])
       await db.query(readFileSync(new URL(migration, fixtureUrl), "utf8"));
   });

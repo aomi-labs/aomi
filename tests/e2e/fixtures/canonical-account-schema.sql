@@ -16,7 +16,7 @@
 --   applications: only the columns wallet lists and the connections route read
 --   threads and bot_registrations: only the columns the Telegram part of
 --     GET /v1/account/connections reads
---   20261020070000_account_link.sql (account_link_codes only: the
+--   20261026060000_account_link.sql (account_link_codes only: the
 --     connections route reads linked_from/linked_at from it)
 -- Keep this provenance list and the post-migration assertions in
 -- migrate-browser-contract-db.ts aligned when the backend graph changes.
@@ -146,7 +146,7 @@ create table if not exists wallet_access (
   user_id text not null,
   connection_key text not null,
   agent_wallet_id uuid not null,
-  lane text not null default 'aomi' check (lane in ('aomi', 'here', 'instant')),
+  lane text not null default 'portal' check (lane in ('portal', 'here', 'instant')),
   created_at bigint not null,
   updated_at bigint not null,
   primary key (user_id, connection_key, agent_wallet_id),
@@ -173,7 +173,7 @@ create table if not exists bot_registrations (
   unique (platform, platform_bot_id)
 );
 
--- One-time link codes (product-mono 20261020070000_account_link).
+-- One-time link codes (product-mono 20261026060000_account_link).
 create table if not exists account_link_codes (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[0-9a-f]{64}$'),

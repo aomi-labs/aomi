@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS public.telegram_approval_cards (
     updated_at     BIGINT  NOT NULL,
     UNIQUE (commit_id, version, bot_id)
 );
+
+ALTER TABLE public.telegram_approval_cards ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS telegram_approval_cards_live ON public.telegram_approval_cards (bot_id, state)
     WHERE state IN ('sending', 'open', 'approving', 'approved');
 
@@ -251,8 +253,8 @@ BEGIN
     -- A connection both accounts have keeps the target's row; the source's
     -- wallet access moves onto it first (the target's row wins a real
     -- conflict), so deleting the source row loses none.
-    INSERT INTO wallet_access (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
-    SELECT target_user_id, p.connection_key, p.agent_wallet_id, p.instant, p.created_at, now_s
+    INSERT INTO wallet_access (user_id, connection_key, agent_wallet_id, lane, created_at, updated_at)
+    SELECT target_user_id, p.connection_key, p.agent_wallet_id, p.lane, p.created_at, now_s
       FROM wallet_access p
      WHERE p.user_id = source_user_id
        AND EXISTS (SELECT 1 FROM account_connections t

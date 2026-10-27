@@ -162,10 +162,10 @@ describe.skipIf(!enabled)("account connections", () => {
     );
     await pool.query(
       `insert into wallet_access
-         (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
-       values ('owner', 'oauth:claude', $1, true, 1, 1),
-              ('owner', 'oauth:claude', $3, true, 1, 1),
-              ('owner', 'telegram:88', $2, false, 1, 1)`,
+         (user_id, connection_key, agent_wallet_id, lane, created_at, updated_at)
+       values ('owner', 'oauth:claude', $1, 'instant', 1, 1),
+              ('owner', 'oauth:claude', $3, 'instant', 1, 1),
+              ('owner', 'telegram:88', $2, 'portal', 1, 1)`,
       [TRADING, HOODIT, OLD],
     );
     // Owner was linked from Hoodit, then a later code from the side bot was
@@ -197,6 +197,7 @@ describe.skipIf(!enabled)("account connections", () => {
     last_used_at: null,
     connected_at: null,
     removable: false,
+    telegram: null,
   };
   const oauth = (
     client: string,
@@ -215,6 +216,7 @@ describe.skipIf(!enabled)("account connections", () => {
     last_used_at: null,
     connected_at: connected,
     removable: true,
+    telegram: null,
     ...extra,
   });
   const bot = (
@@ -232,6 +234,7 @@ describe.skipIf(!enabled)("account connections", () => {
     last_used_at: null,
     connected_at: null,
     removable: true,
+    telegram: { bot: name, user: "@arixon" },
     ...extra,
   });
 
@@ -240,10 +243,11 @@ describe.skipIf(!enabled)("account connections", () => {
       connections: [
         portal,
         oauth("claude", "ai", "Laptop Claude", 1760400000, {
+          detail: "Agent MCP",
           // The archived wallet's pair stays, marked, for a restore.
           wallets: [
-            { id: TRADING, name: "Trading", instant: true, archived: false },
-            { id: OLD, name: "Old", instant: true, archived: true },
+            { id: TRADING, name: "Trading", lane: "instant", archived: false },
+            { id: OLD, name: "Old", lane: "instant", archived: true },
           ],
           last_used_at: 1760409000,
         }),
@@ -251,13 +255,13 @@ describe.skipIf(!enabled)("account connections", () => {
           application: { id: 86, name: "hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
-            { id: HOODIT, name: "Hoodit", instant: false, archived: false },
+            { id: HOODIT, name: "Hoodit", lane: "portal", archived: false },
           ],
           last_used_at: 1760408000,
         }),
         oauth("partner", "app", "Partner app", 1760400100),
         oauth("cli", "cli", "Aomi CLI", 1760400200),
-        oauth("codex", "ai", "codex", 1760400300),
+        oauth("codex", "ai", "codex", 1760400300, { detail: "Pipeline MCP" }),
         bot("7712345678", "@HooditBot"),
       ],
     });
@@ -265,7 +269,12 @@ describe.skipIf(!enabled)("account connections", () => {
 
   it("lists only the portal and its own clients for another account", async () => {
     expect(await connections.listAccountConnections("other")).toEqual({
-      connections: [portal, oauth("claude", "ai", "Claude Code", 1760400000)],
+      connections: [
+        portal,
+        oauth("claude", "ai", "Claude Code", 1760400000, {
+          detail: "Agent MCP",
+        }),
+      ],
     });
     expect(await connections.listAccountConnections("no-telegram")).toEqual({
       connections: [portal],

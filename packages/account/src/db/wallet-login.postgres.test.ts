@@ -327,8 +327,8 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     );
     await pool.query(
       `insert into wallet_access
-         (user_id, connection_key, agent_wallet_id, instant, created_at, updated_at)
-       values ($1, 'telegram:77', $2, true, 1, 1)`,
+         (user_id, connection_key, agent_wallet_id, lane, created_at, updated_at)
+       values ($1, 'telegram:77', $2, 'instant', 1, 1)`,
       [owner.userId, agentWalletId],
     );
     // Deleting the account keeps funds but revokes all signing authority.
@@ -350,11 +350,11 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     expect(Number(authority.rows[0].authorization_version)).toBeGreaterThan(0);
     // Pause all, and every lane back on Aomi.
     const paused = await pool.query(
-      `select u.agents_paused, wa.instant from users u
+      `select u.agents_paused, wa.lane from users u
          join wallet_access wa on wa.user_id = u.id where u.id = $1`,
       [owner.userId],
     );
-    expect(paused.rows).toEqual([{ agents_paused: true, instant: false }]);
+    expect(paused.rows).toEqual([{ agents_paused: true, lane: "portal" }]);
     const grants = await pool.query(
       `select count(*)::int as count from signing_delegations where public_key_id=$1 and revoked_at is null`,
       [agentId],

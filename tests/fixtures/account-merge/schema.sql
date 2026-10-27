@@ -1,5 +1,5 @@
 -- Prerequisites for the unmodified account-merge migration below and the
--- step 5 `merge_accounts` v3 (20261020070000_account_link.sql).
+-- step 5 `merge_accounts` v3 (20261026060000_account_link.sql).
 -- The account graph comes from tests/e2e/fixtures/canonical-account-schema.sql.
 -- Wallet tables/constraints are copied from product-mono's
 -- 20260825010000_public_key_swig_bindings.sql; other tables retain the columns
