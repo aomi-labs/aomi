@@ -7,7 +7,7 @@ import { isManagerPath } from "../kernel/manager";
 import { rankOrigins } from "../kernel/pool";
 
 /** The api surface (api.aomi.dev): which upstream a path goes to and under which CORS policy. */
-export type RouteName = "api" | "health" | "task" | "task-discovery" | "jwks" | "payment";
+export type RouteName = "api" | "bot-mini-app" | "health" | "task" | "task-discovery" | "jwks" | "payment";
 
 export type Route = {
   name: RouteName;
@@ -58,7 +58,12 @@ export const CORS: Record<RouteName, CorsPolicy> = {
     maxAge: 1728000,
   },
   jwks: { origin: "any", methods: ["GET"], headers: ["Content-Type"], maxAge: 1728000 },
+  // A bot's Mini App asks which wallet its Telegram user has, from its own page.
+  // Telegram's signed initData in the body is the only proof; no credentials.
+  "bot-mini-app": { origin: "echo", methods: ["POST"], headers: ["Content-Type"], maxAge: 1728000 },
 };
+
+const BOT_MINI_APP_PATH = /^\/api\/bots\/telegram\/mini-app\/\d+\/wallet$/;
 
 export const TASK_BUILD_PATH = "/v1/task/build";
 
@@ -133,6 +138,7 @@ export function resolveRoute(url: URL, env: EdgeEnv, routingKey: string | null =
     if (pathname === "/.well-known/jwks.json") return one("jwks", cfg.apiServer, pathname, search);
     if (isTaskPath(pathname)) return one("task", cfg.apiServer, pathname, search, { headers: TASK_HEADERS });
   }
+  if (BOT_MINI_APP_PATH.test(pathname)) return backend("bot-mini-app", url, env, routingKey);
   if (pathname.startsWith("/api/")) {
     // Manager cutover switch: MANAGER_ORIGIN moves the control-plane routes off
     // the backend pool. The manager is stateless, so one origin is enough.

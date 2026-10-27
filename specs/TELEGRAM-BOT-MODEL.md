@@ -30,7 +30,8 @@ bot_thread_selections (bot_registration_id, thread_id) ──> applications   (t
 | column             | type     | rule                                                        |
 | ------------------ | -------- | ----------------------------------------------------------- |
 | `handover_app_id`  | bigint   | renamed from `default_app_id`. Picks the operating account for a handover AND is the app a new chat starts on. UI label: "Handover app — new chats start here". |
-| `mini_app_url`     | text ∅   | null = platform default `AOMI_TELEGRAM_DEFAULT_MINI_APP_URL`, resolved at read time, never stored. |
+| `mini_app_url`     | text ∅   | null = no Mini App. Telegram's menu button opens it; `/wallet` stays Aomi's panel. |
+| `mini_app_label`   | text ∅   | the menu button's label, 1–32 characters; null reads "Open". |
 | `command_endpoint` | text ∅   | null = custom commands unsupported. Commands post to `{command_endpoint}/{command}`. |
 | `commands`         | text[]   | not null, default `'{}'`. Bot-level, no per-app override. |
 
@@ -140,8 +141,7 @@ mapped-app set, so a live `TelegramBot` reloads its config.
 
 - `seed.sh` writes the four bot columns instead of app metadata. `mini_app_url`
   points at World's existing local signing page so World code is unchanged.
-- `up.sh` exports `AOMI_TELEGRAM_COMMAND_SECRET_BASE` and
-  `AOMI_TELEGRAM_DEFAULT_MINI_APP_URL`, computes the derived secret in shell
+- `up.sh` exports `AOMI_TELEGRAM_COMMAND_SECRET_BASE`, computes the derived secret in shell
   from the seeded bot id, and hands it to the World service.
 - The Rust integration test seeds through the bot row and sets the base secret
   itself.

@@ -303,6 +303,7 @@ describe("BotsView", () => {
       expect(body).not.toHaveProperty("commandEndpoint");
       expect(body).not.toHaveProperty("commands");
       expect(body).not.toHaveProperty("miniAppUrl");
+      expect(body).not.toHaveProperty("miniAppLabel");
     }
     fetchSpy.mockRestore();
   });
@@ -330,6 +331,9 @@ describe("BotsView", () => {
     fireEvent.change(screen.getByLabelText(/mini app url/i), {
       target: { value: "  " },
     });
+    fireEvent.change(screen.getByLabelText(/menu button label/i), {
+      target: { value: " Portfolio " },
+    });
     fireEvent.change(screen.getByLabelText(/custom commands/i), {
       target: { value: "/B, r chart" },
     });
@@ -342,6 +346,7 @@ describe("BotsView", () => {
     const body = JSON.parse(String(patchInit?.body));
     expect(body).toMatchObject({
       miniAppUrl: null,
+      miniAppLabel: "Portfolio",
       commands: ["b", "r", "chart"],
     });
     expect(body).not.toHaveProperty("commandEndpoint");
@@ -537,7 +542,7 @@ describe("BotsView", () => {
     });
     render(<BotsView />);
     const summaries = await screen.findAllByTestId("bot-command-summary");
-    expect(summaries[0]).toHaveTextContent("Mini App: Aomi default");
+    expect(summaries[0]).toHaveTextContent("Mini App: none");
     expect(summaries[0]).not.toHaveTextContent("endpoint");
     expect(summaries[1]).toHaveTextContent(
       "endpoint: https://api.world.inc/commands · /b /p",

@@ -252,6 +252,7 @@ function botBody(input: CreateUserBotInput | UpdateUserBotInput) {
     label: input.label,
     thread_mode: input.threadMode,
     mini_app_url: input.miniAppUrl,
+    mini_app_label: input.miniAppLabel,
     command_endpoint: input.commandEndpoint,
     commands: input.commands,
   };
