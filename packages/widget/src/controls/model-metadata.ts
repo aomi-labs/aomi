@@ -48,7 +48,7 @@ const VENDOR_PATTERNS: [RegExp, string][] = [
 ];
 
 export function getVendorForModel(model: string): VendorInfo {
-  const lower = (model.split(":").at(-1) ?? model).toLowerCase();
+  const lower = modelName(model).toLowerCase();
   for (const [pattern, vendorId] of VENDOR_PATTERNS) {
     if (pattern.test(lower)) {
       return VENDORS[vendorId]!;
@@ -69,11 +69,10 @@ const WORD_CASE: Record<string, string> = {
  * itself is what gets selected, this is display only.
  */
 export function modelLabel(model: string): string {
-  const name = (model.split(":").at(-1) ?? model)
-    .split("/")
-    .at(-1)!
-    .replace(/^~/, "")
-    .replace(/-latest$/, "");
+  const name = modelName(model).replace(
+    /^(deepseek-v[\d.]+-(?:flash|pro))-\d{4}$/i,
+    "$1",
+  );
   const claude = /^claude-([a-z]+)-(\d+)-(\d+)$/i.exec(name);
   if (claude)
     return `Claude ${capitalize(claude[1]!)} ${claude[2]}.${claude[3]}`;
@@ -85,6 +84,15 @@ export function modelLabel(model: string): string {
       ...words(versioned[3] ?? ""),
     ].join(" ");
   return words(name).join(" ");
+}
+
+function modelName(model: string): string {
+  return model
+    .replace(/^(?:anthropic|openai|openrouter|blockrun):/i, "")
+    .split("/")
+    .at(-1)!
+    .replace(/^~/, "")
+    .replace(/-latest$/, "");
 }
 
 function words(name: string): string[] {
