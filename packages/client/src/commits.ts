@@ -437,11 +437,13 @@ export function commitCapabilities(
   const supportsAtomicBatch = evm?.supportsAtomicBatch;
   const canSign = (commit: CommitView, payload: SignableCommit): boolean => {
     if (!payloadMatchesCommit(commit, payload)) return false;
-    if (payload.kind === "svm_transaction")
+    if (payload.kind === "svm_transaction" || payload.kind === "svm_message")
       return Boolean(
-        wallets.svm?.signTransaction &&
+        (payload.kind === "svm_transaction"
+          ? wallets.svm?.signTransaction
+          : wallets.svm?.signMessage) &&
         commit.chain_family === "svm" &&
-        wallets.svm.address === commit.signer,
+        wallets.svm?.address === commit.signer,
       );
     return Boolean(
       commit.chain_family === "evm" &&
@@ -596,8 +598,18 @@ export function commitCapabilities(
         }
         case "wallet_calls":
           throw new Error("Wallet call batches are sent, not signed");
-        case "svm_message":
-          throw new Error("Agent wallets sign Solana messages on the server");
+        case "svm_message": {
+          if (!wallets.svm?.signMessage)
+            throw new Error("Wallet does not support Solana message signing");
+          if (wallets.svm.address !== payload.signer)
+            throw new Error("Connect the expected signing wallet");
+          // The service verifies a base64 ed25519 signature over these bytes.
+          const signed = await wallets.svm.signMessage({
+            messageBase64: payload.message_base64,
+            cluster: commit.chain_ref,
+          });
+          return [typeof signed === "string" ? signed : signed.signature];
+        }
       }
     },
     async walletBroadcast(commit, bytes) {

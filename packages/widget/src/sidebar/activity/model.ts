@@ -209,10 +209,21 @@ export function selectActivity(
       for (const id of result.activated)
         if (typeof id === "string") skills.add(id);
     }
-    const family =
-      /svm|solana|jupiter/.test(name) || result.chain_kind === "svm"
-        ? "svm"
-        : "evm";
+    // The family comes from the payload: prepared records name it, Solana
+    // records carry a cluster, EVM ones a chain id. A tool's name says
+    // nothing (a "jupiter" app may stage on EVM).
+    const familyOf = (
+      value: Record<string, unknown>,
+      fallback: "svm" | "evm",
+    ) =>
+      value.chain_kind === "svm" || value.chain_kind === "evm"
+        ? value.chain_kind
+        : typeof value.cluster === "string"
+          ? "svm"
+          : value.chain_id != null
+            ? "evm"
+            : fallback;
+    const family = familyOf(result, name.startsWith("svm_") ? "svm" : "evm");
     if (name === "evm_discard_tx" || name === "svm_discard_tx") {
       const discarded = new Set(ids(result.discarded));
       // Pending ids are unique per family and thread across networks, not
@@ -240,10 +251,7 @@ export function selectActivity(
       const tx = record(raw);
       if (!tx) continue;
       const pendingId = number(tx.pending_tx_id) ?? number(tx.pending_ix_id);
-      const txFamily =
-        tx.chain_kind === "svm" || tx.chain_kind === "evm"
-          ? tx.chain_kind
-          : family;
+      const txFamily = familyOf(tx, family);
       if (pendingId != null && tx.current_lifecycle === "queued") {
         const id = `${event.turn_id}:${txFamily}:${pendingId}`;
         const previous = staged.get(id);

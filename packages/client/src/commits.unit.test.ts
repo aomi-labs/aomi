@@ -535,6 +535,45 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
+  it("signs a Solana message commit with the browser wallet", async () => {
+    const payload = {
+      kind: "svm_message" as const,
+      cluster: "localnet",
+      signer: "payer",
+      message_base64: "aGVsbG8=",
+    };
+    const message: CommitView = {
+      ...unsigned,
+      action: { kind: "sign", payload },
+    };
+    const signMessage = vi.fn().mockResolvedValue({ signature: "c2ln" });
+    const capabilities = commitCapabilities({
+      svm: { address: "payer", signMessage },
+    });
+    const controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      message.thread_id,
+      capabilities,
+    );
+    expect(controller.canExecute(message)).toBe(true);
+    controller.close();
+    await expect(capabilities.sign?.(message, payload)).resolves.toEqual([
+      "c2ln",
+    ]);
+    expect(signMessage).toHaveBeenCalledWith({
+      messageBase64: "aGVsbG8=",
+      cluster: "localnet",
+    });
+    // Another key cannot sign it.
+    expect(
+      new CommitController(
+        { request: vi.fn() } as unknown as AomiClient,
+        message.thread_id,
+        commitCapabilities({ svm: { address: "other", signMessage } }),
+      ).canExecute(message),
+    ).toBe(false);
+  });
+
   it("advertises only wallet operations available for the commit chain", () => {
     const empty = new CommitController(
       { request: vi.fn() } as unknown as AomiClient,

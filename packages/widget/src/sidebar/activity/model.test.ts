@@ -134,6 +134,29 @@ describe("activity projection", () => {
     ).toEqual(["commit-2", "commit-1"]);
   });
 
+  it("takes the family from the staged record, not the tool name", () => {
+    const evmApp = tool(1, "stage_jupiter_perps_order", {
+      staged: [{ ...tx, pending_tx_id: 1, current_lifecycle: "queued" }],
+    });
+    const solApp = tool(2, "stage_kamino_lend", {
+      staged: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          description: "Kamino deposit SOL",
+          pending_ix_id: 1,
+          current_lifecycle: "queued",
+          chain_kind: "svm",
+        },
+      ],
+    });
+    const result = selectActivity([evmApp, solApp], [], []);
+    expect(result.transactions.map((item) => item.family)).toEqual([
+      "evm",
+      "svm",
+    ]);
+  });
+
   it("binds an unbatched commit by its own stage id, also a later turn's", () => {
     // As svm_stage_ix reports it; the commit tool's model-facing result names
     // no sources, so the commit's own stage id is the link.

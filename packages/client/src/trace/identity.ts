@@ -34,6 +34,7 @@ const coreTitles: Record<string, string> = {
   sleep: "Sleep",
   get_contract: "Get contract details",
   svm_get_program: "Get program details",
+  svm_derive_address: "Derive address",
   encode_and_call: "Call contract",
   sim_call: "Call contract",
   sim_open: "Open simulation",
