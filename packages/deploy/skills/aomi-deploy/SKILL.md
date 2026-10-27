@@ -34,7 +34,7 @@ entry points are **server-only**:
 
 | Import                        | Runs            | Holds                                                  |
 | ----------------------------- | --------------- | ------------------------------------------------------ |
-| `@aomi-labs/deploy`           | **server only** | `BackendClient` + the activation bearer                |
+| `@aomi-labs/deploy`           | **server only** | `ManagerClient` (from `@aomi-labs/internal`) + the activation bearer                |
 | `@aomi-labs/deploy/bff`       | **server only** | helpers for your BFF routes, which hold the bearer     |
 | `@aomi-labs/deploy/launch`    | browser         | typed fetch client to your own BFF routes — no secrets |
 | `@aomi-labs/deploy/lifecycle` | browser         | pure helpers projecting deploy records into UI state   |

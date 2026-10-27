@@ -111,16 +111,14 @@ export async function signInWithCliSiwe({
   now = Date.now,
 }: CliSiweLoginOptions): Promise<CliSiweLoginResult> {
   const portalUrl = normalizeBaseUrl(baseUrl);
+  const headers = walletAuthHeaders(portalUrl);
   const account = privateKeyToAccount(privateKey);
   const address = account.address;
   const nonceHttpResponse = await fetchImpl(
     joinUrl(portalUrl, "/api/auth/siwe/nonce"),
     {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
+      headers,
       credentials: "include",
       body: JSON.stringify({}),
     },
@@ -148,15 +146,11 @@ export async function signInWithCliSiwe({
     uri: normalizeUri(nonceResponse.uri) ?? portalUrl,
   });
   const signature = await account.signMessage({ message });
-  const verifyHeaders = new Headers({
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  });
   const verifyResponse = await fetchImpl(
     joinUrl(portalUrl, "/api/auth/siwe/verify"),
     {
       method: "POST",
-      headers: verifyHeaders,
+      headers,
       credentials: "include",
       body: JSON.stringify({
         message,
@@ -358,10 +352,7 @@ async function performCliSiws(input: {
   betterAuthUserId?: string;
 }> {
   const portalUrl = normalizeBaseUrl(input.baseUrl);
-  const headers = new Headers({
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  });
+  const headers = walletAuthHeaders(portalUrl);
   if (input.sessionToken) {
     headers.set("Authorization", `Bearer ${input.sessionToken}`);
   }
@@ -465,6 +456,19 @@ export function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   if (!trimmed) throw new Error("Portal URL is required");
   return trimmed;
+}
+
+/** Carry the configured public origin through the Portal's Edge proxy. */
+function walletAuthHeaders(portalUrl: string): Headers {
+  const url = new URL(portalUrl);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Portal URL must use HTTP or HTTPS");
+  }
+  return new Headers({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Origin: url.origin,
+  });
 }
 
 export function joinUrl(baseUrl: string, path: string): string {

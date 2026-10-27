@@ -9,7 +9,7 @@ export interface EdgeCache {
   delete(key: string): Promise<void>;
 }
 
-export type EdgeTopologyName = "default" | "staging" | "production";
+export type EdgeTopologyName = "default" | "staging" | "rc" | "production";
 
 /**
  * Worker bindings. Origins are injected at deploy time (see scripts/deploy.mjs);
@@ -47,4 +47,28 @@ export interface EdgeEnv {
   APP_CATALOG_PLATFORMS?: string;
   /** "true" when MCP resources require DPoP-bound access tokens. */
   AOMI_MCP_DPOP_REQUIRED?: string;
+
+  // Build surface: the edge is routed on these hosts' /api/* and /v1/* paths.
+  /** Comma-separated public Build hosts (for example build.aomi.dev). */
+  BUILD_HOSTS?: string;
+  /** Where the Vercel Build app is reached from the edge (its *.vercel.app alias). */
+  BUILD_UPSTREAM_ORIGIN?: string;
+  /** Extra origins whose cookie writes Build trusts (its own host is implied). */
+  BUILD_TRUSTED_ORIGINS?: string;
+  /**
+   * HS256 secret of Build's GitHub session cookies (a Wrangler secret, at least
+   * 16 characters). Until the Vercel routes are deleted it must equal Build's
+   * PORTAL_ONLY_SESSION_SECRET so both sides read the same cookies.
+   */
+  BUILD_SESSION_SECRET?: string;
+  /** OAuth client id for Manager's GitHub App at index 2; defaults to the deployed app for this topology. */
+  BUILD_GITHUB_CLIENT_ID?: string;
+  /** Platforms Build deploys to; the first is the default for the GitHub App install start. */
+  APP_DEPLOY_PLATFORMS?: string;
+  /** Template repository new Build projects are scaffolded from. */
+  BUILD_TEMPLATE_REPO?: string;
+  /** "true" when scaffolded repositories are created private. */
+  BUILD_CREATED_REPO_PRIVATE?: string;
+  /** GitHub token the release-manifest secret gate reads with (a Wrangler secret). */
+  BUILD_GITHUB_TOKEN?: string;
 }

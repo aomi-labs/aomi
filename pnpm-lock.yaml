@@ -213,6 +213,9 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../../packages/deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../../packages/internal
       '@aomi-labs/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -331,12 +334,24 @@ importers:
 
   apps/edge:
     dependencies:
+      '@aomi-labs/account':
+        specifier: workspace:*
+        version: link:../../packages/account
+      '@aomi-labs/deploy':
+        specifier: workspace:*
+        version: link:../../packages/deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../../packages/internal
       '@aomi-labs/service-identity':
         specifier: workspace:*
         version: link:../../packages/service-identity
       jose:
         specifier: ^6.1.3
         version: 6.2.3
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       wrangler:
         specifier: ^4.114.0
@@ -1011,6 +1026,19 @@ importers:
       jose:
         specifier: ^5.9.6
         version: 5.10.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      fast-check:
+        specifier: ^4.8.0
+        version: 4.8.0
+
+  packages/internal:
+    dependencies:
+      '@aomi-labs/deploy':
+        specifier: workspace:*
+        version: link:../deploy
     devDependencies:
       fast-check:
         specifier: ^4.8.0
@@ -1024,6 +1052,9 @@ importers:
       '@aomi-labs/deploy':
         specifier: workspace:*
         version: link:../deploy
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../internal
     devDependencies:
       '@sentry/nextjs':
         specifier: 10.69.0
@@ -1103,6 +1134,10 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.4.3
+    devDependencies:
+      '@aomi-labs/internal':
+        specifier: workspace:*
+        version: link:../internal
 
   packages/widget:
     dependencies:

@@ -50,31 +50,16 @@ export type LaunchDeployPayload = DeployPayload;
 
 export type DeploymentTarget = { name: string; releaseTag: string };
 
-type DeploymentWithApps = {
-  platform?: {
-    apps?: readonly {
-      name?: string | null;
-      releaseTag?: string | null;
-      release_tag?: string | null;
-    }[];
-  };
-};
-
 /**
  * Return complete app/release pairs in their original order. An incomplete
  * manifest yields no targets so independently filtered arrays cannot drift.
  */
-export function deploymentTargets(
-  deployment?: DeploymentWithApps,
-): DeploymentTarget[] {
-  const targets = (deployment?.platform?.apps ?? []).map((app) => ({
-    name: app.name?.trim() ?? "",
-    releaseTag: (app.releaseTag ?? app.release_tag)?.trim() ?? "",
+export function deploymentTargets(deployment: Pick<DeployPayload, "platform"> | null): DeploymentTarget[] {
+  const targets = (deployment?.platform.apps ?? []).map((app) => ({
+    name: app.name.trim(),
+    releaseTag: app.releaseTag.trim(),
   }));
-  return targets.length > 0 &&
-    targets.every((target) => target.name && target.releaseTag)
-    ? targets
-    : [];
+  return targets.every((target) => target.name && target.releaseTag) ? targets : [];
 }
 
 export type LaunchProgress = {

@@ -15,6 +15,21 @@
   resumes with the same amount, method and idempotency key.
   Pending: publish client/widget, bump Fuzzer, deployed sandbox card run.
 
+2026-10-25 — EDGE WORKER DESLOP STACK (draft PRs #781–#785, stacked on the
+  cutover-1 stack #776–#780). #781 adds the `apps/edge/src/kernel` (env schema,
+  EdgeError, CORS, one proxy, `endpoint()` routes). #782 moves the first-party
+  routes onto it, #783 the Build deploy/operate/auth routes (isolate caches and
+  per-project fan-out removed). #784 makes `ManagerClient` one `ENDPOINTS`
+  table in `@aomi-labs/internal`. #785 adds `@aomi-labs/deploy/schemas` (zod)
+  and infers every response type from it; the `camel*` converters and
+  `@aomi-labs/deploy/wire` are gone. First-party shapes may change (fields
+  read `null`/`[]` instead of optional); external contracts stay byte-identical.
+  Pending: rebase onto the review fixes of #776–#780 (published packages that
+  depend on unpublished ones, the manager-route destination in portal, bearer
+  issuer, production routing, the KV cache expiry); don't duplicate the
+  authorization policy in the edge. The deploy README and skill still document
+  a server `BackendClient`, so partners have no published server client.
+
 2026-10-23 — EMPTY PACKAGE STUBS REMOVED.
   Deleted untracked `packages/service` (stale `node_modules` only) and empty
   `apps/registry`. Neither had a `package.json` or any imports. `specs/METADATA.md`

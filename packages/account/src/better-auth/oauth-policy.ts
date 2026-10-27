@@ -1,13 +1,24 @@
+import {
+  AGENT_SCOPES,
+  OFFLINE_ACCESS_SCOPE,
+  resourcePolicies,
+  resourcesFor,
+  type ResourceKind,
+  type ResourcePolicy,
+} from "../policy";
 import { readAccountAuthEnv } from "./env";
 
-export const AOMI_CANONICAL_USER_CLAIM =
-  "https://aomi.dev/canonical_user_id" as const;
-export const AOMI_PRINCIPAL_CLASS_CLAIM =
-  "https://aomi.dev/principal_class" as const;
-
-export const AOMI_OAUTH_BASE_PATH = "/api/auth" as const;
-
-export const OFFLINE_ACCESS_SCOPE = "offline_access" as const;
+export {
+  ACCOUNT_SCOPES,
+  AGENT_REST_SCOPES,
+  AGENT_SCOPES,
+  AOMI_CANONICAL_USER_CLAIM,
+  AOMI_OAUTH_BASE_PATH,
+  AOMI_PRINCIPAL_CLASS_CLAIM,
+  OFFLINE_ACCESS_SCOPE,
+  PIPELINE_REST_SCOPES,
+  PIPELINE_SCOPES,
+} from "../policy";
 
 export const AOMI_SCOPES = [
   "agent:read",
@@ -34,34 +45,6 @@ export const AOMI_SCOPES = [
   "offline_access",
 ] as const;
 
-export const AGENT_SCOPES = [
-  "agent:read",
-  "agent:write",
-  "agent:actions:resolve",
-  "mcp:agent",
-  "payments:submit",
-  "custody:delegate",
-] as const;
-export const PIPELINE_SCOPES = [
-  "pipeline:catalog",
-  "pipeline:execute",
-  "mcp:pipeline",
-  "payments:submit",
-  "custody:delegate",
-] as const;
-export const ACCOUNT_SCOPES = [
-  "account:credits:read",
-  "account:credits:fund",
-  "account:usage:read",
-  "account:transaction-safety:read",
-  "account:transaction-safety:write",
-  "account:apps:read",
-  "account:apps:write",
-  "account:credentials:read",
-  "account:credentials:write",
-  "payments:submit",
-] as const;
-
 /**
  * What a dynamically registered client is granted when it asks for nothing.
  * Agent MCP is the documented primary path, and this set must stay valid for
@@ -77,44 +60,8 @@ export const MCP_CLIENT_REGISTRATION_SCOPES = [
   OFFLINE_ACCESS_SCOPE,
 ] as const;
 
-export const AGENT_REST_SCOPES = AGENT_SCOPES.filter(
-  (scope) => scope !== "mcp:agent",
-);
-export const PIPELINE_REST_SCOPES = PIPELINE_SCOPES.filter(
-  (scope) => scope !== "mcp:pipeline",
-);
-
-export type AomiOAuthResourceKind =
-  | "agentRest"
-  | "pipelineRest"
-  | "agentMcp"
-  | "pipelineMcp"
-  | "accountRest";
-
-export type AomiOAuthResourcePolicy = {
-  kind: AomiOAuthResourceKind;
-  identifier: string;
-  /** The API capabilities this resource exposes, and the ceiling on what an
-   * authenticated principal may DO with a grant for it. */
-  allowedScopes: readonly string[];
-  /**
-   * Everything a grant for this resource may CARRY: `allowedScopes` plus
-   * `offline_access`. A client builds its authorization request out of what
-   * the resource advertises, so advertising only the capabilities got the
-   * server asked for exactly those, issued no refresh token, and left every
-   * session dead one access-token lifetime later with nothing to refresh.
-   * This is the set to advertise, to seed the resource row with, and to
-   * narrow a request down to.
-   */
-  grantableScopes: readonly string[];
-  guestScopes: readonly string[];
-  dpopBoundAccessTokensRequired: boolean;
-};
-
-type AomiOAuthResourceCapabilities = Omit<
-  AomiOAuthResourcePolicy,
-  "grantableScopes"
->;
+export type AomiOAuthResourceKind = ResourceKind;
+export type AomiOAuthResourcePolicy = ResourcePolicy;
 
 export function isMcpDpopRequired(
   env: Record<string, string | undefined> = process.env,
@@ -125,75 +72,13 @@ export function isMcpDpopRequired(
 export function aomiOAuthResources(
   env: Record<string, string | undefined> = process.env,
 ) {
-  const portalOrigin = new URL(readAccountAuthEnv(env).betterAuthUrl).origin;
-  const authorizationServerIssuer = `${portalOrigin}${AOMI_OAUTH_BASE_PATH}`;
-  return {
-    portalOrigin,
-    authorizationServerIssuer,
-    agentMcp: `${portalOrigin}/v1/agent/mcp`,
-    pipelineMcp: `${portalOrigin}/v1/pipeline/mcp`,
-    agentRest: `${portalOrigin}/v1/agent`,
-    pipelineRest: `${portalOrigin}/v1/pipeline`,
-    accountRest: `${portalOrigin}/v1/account`,
-  } as const;
+  return resourcesFor(new URL(readAccountAuthEnv(env).betterAuthUrl).origin);
 }
 
 export function aomiOAuthResourcePolicies(
   env: Record<string, string | undefined> = process.env,
 ): readonly AomiOAuthResourcePolicy[] {
-  const resources = aomiOAuthResources(env);
-  const dpopRequired = isMcpDpopRequired(env);
-  const capabilities: readonly AomiOAuthResourceCapabilities[] = [
-    {
-      kind: "agentRest",
-      identifier: resources.agentRest,
-      allowedScopes: AGENT_REST_SCOPES,
-      guestScopes: [
-        "agent:read",
-        "agent:write",
-        "agent:actions:resolve",
-        "offline_access",
-      ],
-      dpopBoundAccessTokensRequired: false,
-    },
-    {
-      kind: "pipelineRest",
-      identifier: resources.pipelineRest,
-      allowedScopes: PIPELINE_REST_SCOPES,
-      guestScopes: ["pipeline:catalog", "pipeline:execute", "offline_access"],
-      dpopBoundAccessTokensRequired: false,
-    },
-    {
-      kind: "accountRest",
-      identifier: resources.accountRest,
-      allowedScopes: ACCOUNT_SCOPES,
-      guestScopes: [],
-      dpopBoundAccessTokensRequired: false,
-    },
-    {
-      kind: "agentMcp",
-      identifier: resources.agentMcp,
-      allowedScopes: AGENT_SCOPES,
-      guestScopes: ["mcp:agent", "agent:read", "agent:write", "offline_access"],
-      dpopBoundAccessTokensRequired: dpopRequired,
-    },
-    {
-      kind: "pipelineMcp",
-      identifier: resources.pipelineMcp,
-      allowedScopes: PIPELINE_SCOPES,
-      guestScopes: [
-        "mcp:pipeline",
-        "pipeline:catalog",
-        "pipeline:execute",
-        "offline_access",
-      ],
-      dpopBoundAccessTokensRequired: dpopRequired,
-    },
-  ];
-  return capabilities.map((policy) => ({
-    ...policy,
-    grantableScopes: [...policy.allowedScopes, OFFLINE_ACCESS_SCOPE],
-  }));
+  return resourcePolicies(aomiOAuthResources(env), isMcpDpopRequired(env));
 }
 
 export function aomiOAuthResourcePolicy(

@@ -1,20 +1,11 @@
 import "server-only";
 import { getOrCreateAomiUserForBetterAuthSession } from "@aomi-labs/account/account";
-import {
-  AOMI_CANONICAL_USER_CLAIM,
-  AOMI_PRINCIPAL_CLASS_CLAIM,
-  auth,
-  aomiOAuthResources,
-  guestScopesForAomiResource,
-} from "@aomi-labs/account/better-auth";
 import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import {
   hasWidgetSessionBearer,
   observedWidgetOrigin,
   resolveWidgetSession,
 } from "@aomi-labs/account/widget-auth";
-import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
-import type { JWTPayload } from "jose";
 
 import {
   getBetterAuthSession,
@@ -22,8 +13,7 @@ import {
   type BetterAuthSession,
 } from "@/server/account/session";
 import { devToolsAllowed, portalOrigins } from "@/server/env";
-import { capabilities, policyFor, type Need } from "./capabilities";
-import { isManagedWidgetClientOrigin } from "./cors";
+import { capabilities, type Need } from "./capabilities";
 
 /** Who is calling, from exactly one credential. */
 export type Principal =
@@ -44,16 +34,6 @@ export type Principal =
       expiresAt: number;
       providerIdentityId?: string;
     }
-  | {
-      kind: "oauth";
-      accountId: string;
-      guest: boolean;
-      resource: string;
-      scopes: readonly string[];
-      clientId?: string;
-      grantId?: string;
-      sessionBound: boolean;
-    }
   | { kind: "e2e"; accountId: string; guest: false };
 
 export type PrincipalCode =
@@ -67,8 +47,6 @@ export class PrincipalError extends Error {
   constructor(
     readonly status: 401 | 403,
     readonly code: PrincipalCode,
-    readonly requiredScopes: readonly string[] = [],
-    readonly challengeHeaders: Headers = new Headers(),
   ) {
     super(code);
     this.name = "PrincipalError";
@@ -86,10 +64,9 @@ export async function resolvePrincipal(
   need: Need,
 ): Promise<Principal> {
   if (hasWidgetSessionBearer(request)) return widgetPrincipal(request);
-  if (isOAuthCredential(request)) {
-    if (!("resource" in need)) throw new PrincipalError(401, "invalid_token");
-    return oauthRequestPrincipal(request, need.resource, need.scopes);
-  }
+  // OAuth protected resources live at Edge; Portal only accepts sessions.
+  if (isOAuthCredential(request))
+    throw new PrincipalError(401, "invalid_token");
   if (request.headers.has("authorization"))
     return sessionPrincipal(request, "session_bearer");
   const e2e = await devPrincipal(request, need);
@@ -143,13 +120,7 @@ async function devPrincipal(
 ): Promise<Principal | null> {
   if (!devToolsAllowed()) return null;
   const e2e: Principal = { kind: "e2e", accountId: "", guest: false };
-  const covered =
-    "capability" in need
-      ? capabilities(e2e).includes(need.capability)
-      : need.scopes.every((scope) =>
-          policyFor(need.resource).allowedScopes.includes(scope),
-        );
-  if (!covered) return null;
+  if (!capabilities(e2e).includes(need.capability)) return null;
   const { e2eAccountId } = await import("@/server/bff/dev/e2e-wallet");
   const accountId = e2eAccountId(request);
   if (!accountId) return null;
@@ -175,137 +146,4 @@ export function isOAuthCredential(request: Request): boolean {
     scheme?.toLowerCase() === "dpop" ||
     (scheme?.toLowerCase() === "bearer" && credential?.split(".").length === 3)
   );
-}
-
-let resourceClient:
-  | ReturnType<ReturnType<typeof oauthProviderResourceClient>["getActions"]>
-  | undefined;
-
-async function oauthRequestPrincipal(
-  request: Request,
-  resource: string,
-  requiredScopes: readonly string[],
-): Promise<Principal> {
-  if (
-    policyFor(resource).dpopBoundAccessTokensRequired &&
-    !hasDpopPresentation(request)
-  ) {
-    throw new PrincipalError(
-      401,
-      "invalid_token",
-      requiredScopes,
-      new Headers({
-        "www-authenticate": `DPoP error="invalid_token", resource_metadata="${protectedResourceMetadataUrl(resource)}"`,
-      }),
-    );
-  }
-  const issuer = aomiOAuthResources().authorizationServerIssuer;
-  resourceClient ??= oauthProviderResourceClient(auth).getActions();
-  let claims: JWTPayload;
-  try {
-    const publicUrl = new URL(request.url);
-    const portal = new URL(aomiOAuthResources().portalOrigin);
-    publicUrl.protocol = portal.protocol;
-    publicUrl.host = portal.host;
-    claims = await resourceClient.verifyAccessTokenRequest(
-      new Request(publicUrl, request.clone()),
-      {
-        // Pass both values explicitly: the helper otherwise rebuilds the JWKS
-        // URL from Better Auth's base path, which separately published 1.7
-        // peers can apply twice.
-        jwksUrl: `${issuer}/jwks`,
-        verifyOptions: { audience: resource, issuer },
-        requiredScopes: [...requiredScopes],
-        dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
-      },
-    );
-  } catch (error) {
-    const status = Number((error as { status?: unknown })?.status);
-    const code = String((error as { code?: unknown })?.code ?? "");
-    if (status !== 401 && status !== 403 && !/^ERR_(JWT|JWS|JOSE)/.test(code))
-      throw error;
-    throw new PrincipalError(
-      status === 403 ? 403 : 401,
-      status === 403 ? "insufficient_scope" : "invalid_token",
-      requiredScopes,
-      challengeHeaders(error),
-    );
-  }
-  const principal = await oauthPrincipal(claims, resource);
-  const origin = request.headers.get("origin");
-  if (
-    origin &&
-    origin !== new URL(request.url).origin &&
-    !portalOrigins().includes(origin) &&
-    !(await isManagedWidgetClientOrigin(origin, principal.clientId))
-  )
-    throw new PrincipalError(401, "invalid_token");
-  return principal;
-}
-
-/** The principal an OAuth access token's verified claims describe. */
-export async function oauthPrincipal(
-  claims: JWTPayload,
-  resource: string,
-): Promise<Extract<Principal, { kind: "oauth" }>> {
-  const accountId = claims[AOMI_CANONICAL_USER_CLAIM];
-  const principalClass = claims[AOMI_PRINCIPAL_CLASS_CLAIM];
-  if (
-    typeof claims.sub !== "string" ||
-    claims.iss !== aomiOAuthResources().authorizationServerIssuer ||
-    claims.aud !== resource ||
-    typeof accountId !== "string" ||
-    (principalClass !== "user" && principalClass !== "guest")
-  )
-    throw new PrincipalError(401, "invalid_token");
-  const account = await getOrCreateAomiUserForBetterAuthSession({
-    betterAuthUserId: claims.sub,
-  });
-  if (account.id !== accountId) throw new PrincipalError(401, "invalid_token");
-  const scopes = String(claims.scope ?? "")
-    .split(/\s+/)
-    .filter(Boolean);
-  const guest = principalClass === "guest";
-  if (
-    guest &&
-    guestScopesForAomiResource(resource, scopes).length !== scopes.length
-  )
-    throw new PrincipalError(403, "insufficient_scope");
-  return {
-    kind: "oauth",
-    accountId,
-    guest,
-    resource,
-    scopes,
-    clientId: stringClaim(claims.client_id) ?? stringClaim(claims.azp),
-    grantId: stringClaim(claims.jti),
-    sessionBound: stringClaim(claims.sid) !== undefined,
-  };
-}
-
-export function protectedResourceMetadataUrl(resource: string): string {
-  return new URL(
-    `/.well-known/oauth-protected-resource${new URL(resource).pathname}`,
-    resource,
-  ).toString();
-}
-
-function hasDpopPresentation(request: Request): boolean {
-  return (
-    /^dpop\s/i.test(request.headers.get("authorization")?.trim() ?? "") &&
-    request.headers.has("dpop")
-  );
-}
-
-function stringClaim(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function challengeHeaders(error: unknown): Headers {
-  const headers = (error as { headers?: unknown })?.headers;
-  try {
-    return new Headers((headers ?? undefined) as HeadersInit | undefined);
-  } catch {
-    return new Headers();
-  }
 }

@@ -1,5 +1,5 @@
 import type { ProxyFailure } from "@aomi-labs/account";
-import { identifyLaunchError } from "@aomi-labs/deploy/bff/errors";
+import { identifyLaunchError } from "@aomi-labs/internal";
 
 import type { FailureInput, IdentifiedFailure } from "./failure";
 
