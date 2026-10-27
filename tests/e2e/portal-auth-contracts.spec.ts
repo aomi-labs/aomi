@@ -314,7 +314,7 @@ test("a sign link is login-only and returns to its review after sign-in", async 
   ).toBeVisible();
   await expect(request.getByText("Simulation passed")).toBeVisible();
   await expect(
-    request.getByRole("button", { name: "Submit", exact: true }),
+    request.getByRole("button", { name: "Send transaction", exact: true }),
   ).toBeVisible();
   await expect(
     request.getByRole("button", { name: "Reject", exact: true }),
@@ -407,13 +407,15 @@ test("a portal session approves a parked agent-wallet commit on its sign page", 
   await expect(
     request.getByRole("button", { name: /Connect wallet|Switch to/ }),
   ).toHaveCount(0);
-  await request.getByRole("button", { name: "Approve", exact: true }).click();
+  await request
+    .getByRole("button", { name: "Approve transaction", exact: true })
+    .click();
   // Approve spins in place while Aomi signs; there is no "Signing…" screen.
-  await expect(request.getByRole("button", { name: /Working…/ })).toBeVisible({
+  await expect(request.getByRole("button", { name: /Sending…/ })).toBeVisible({
     timeout: 30_000,
   });
 
-  // "Working…" shows as the request leaves; wait for the upstream to see it.
+  // "Sending…" shows as the request leaves; wait for the upstream to see it.
   const approve = async () =>
     (await upstreamRecords()).find(
       (record) =>
