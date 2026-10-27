@@ -58,7 +58,7 @@ function BarChart({
   );
 }
 
-function LineChart({
+export function LatencyChart({
   values,
   height = 96,
 }: {
@@ -74,7 +74,7 @@ function LineChart({
         className="text-dim flex items-center justify-center text-xs"
         style={{ height }}
       >
-        No data in this window.
+        No latency samples in the last 24 hours.
       </div>
     );
   }
@@ -96,38 +96,47 @@ function LineChart({
     [[]],
   );
   return (
-    <svg
-      viewBox={`0 0 100 ${height}`}
-      preserveAspectRatio="none"
-      className="text-dim w-full"
+    <div
+      className="relative"
       style={{ height }}
-      aria-hidden
+      role="img"
+      aria-label={`P95 turn latency: ${samples.length} hourly sample${samples.length === 1 ? "" : "s"} in the last 24 hours`}
     >
-      {segments.map((segment, index) =>
-        segment.length > 1 ? (
-          <polyline
+      <svg
+        viewBox={`0 0 100 ${height}`}
+        preserveAspectRatio="none"
+        className="text-dim w-full"
+        style={{ height }}
+        aria-hidden
+      >
+        {segments.map((segment, index) =>
+          segment.length > 1 ? (
+            <polyline
+              key={index}
+              points={segment.map(({ x, y }) => `${x},${y}`).join(" ")}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null,
+        )}
+      </svg>
+      {values.map((value, index) => {
+        if (value === null || !Number.isFinite(value)) return null;
+        const { x, y } = point(value, index);
+        const hoursAgo = values.length - 1 - index;
+        const label = `${hoursAgo ? `${hoursAgo}h ago` : "Now"}: ${value.toFixed(1)} s`;
+        return (
+          <span
             key={index}
-            points={segment.map(({ x, y }) => `${x},${y}`).join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
+            title={label}
+            className="bg-foreground absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ left: `${x}%`, top: y }}
           />
-        ) : segment.length === 1 ? (
-          <line
-            key={index}
-            x1={segment[0]?.x}
-            y1={segment[0]?.y}
-            x2={segment[0]?.x}
-            y2={segment[0]?.y}
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : null,
-      )}
-    </svg>
+        );
+      })}
+    </div>
   );
 }
 
@@ -214,6 +223,9 @@ export function AppDetailView({
   onOpenTx: (txId: string) => void;
 }) {
   const { meta, detail } = app;
+  const latencySamples = detail.p95Hourly.filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
   const recentTx = app.transactions.slice(0, 4);
   const recentEvents = app.logs
     .filter((log) => log.kind === "event")
@@ -370,26 +382,26 @@ export function AppDetailView({
         </Panel>
         <Panel
           title="P95 turn latency"
-          right={<span className="text-dim text-xs">seconds</span>}
+          right={
+            <span className="text-dim text-xs">seconds · hourly · 24h</span>
+          }
         >
-          <LineChart values={detail.p95Hourly} />
+          <LatencyChart values={detail.p95Hourly} />
           <div className="text-dim mt-1 flex justify-between text-[10px]">
-            <span>00:00</span>
+            <span>23h ago</span>
             <span>
               peak{" "}
-              {detail.p95Hourly.some(
-                (value) => value !== null && Number.isFinite(value),
-              )
-                ? `${Math.max(
-                    ...detail.p95Hourly.filter(
-                      (value): value is number =>
-                        value !== null && Number.isFinite(value),
-                    ),
-                  ).toFixed(1)} s`
+              {latencySamples.length
+                ? `${Math.max(...latencySamples).toFixed(1)} s`
                 : "—"}
             </span>
-            <span>23:00</span>
+            <span>Now</span>
           </div>
+          <p className="text-dim mt-2 text-xs">
+            {latencySamples.length} hourly sample
+            {latencySamples.length === 1 ? "" : "s"} · Gaps mean no
+            measurements.
+          </p>
         </Panel>
         <Panel
           title="Credits per day"
