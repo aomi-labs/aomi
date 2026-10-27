@@ -6,9 +6,11 @@ const SLOT_SECONDS = 0.4;
 const POLL_MS = 4_000;
 
 /** Seconds until a blockhash valid through `lastValid` stops landing, given
- * the cluster's current block height. */
+ * the cluster's current block height. Zero only once the chain is past it:
+ * while a block is left, at least one second is. */
 export function secondsUntilExpiry(lastValid: number, height: number): number {
-  return Math.max(0, Math.round((lastValid - height) * SLOT_SECONDS));
+  if (height > lastValid) return 0;
+  return Math.max(1, Math.round((lastValid - height) * SLOT_SECONDS));
 }
 
 /** The last valid block height of a Solana commit the wallet still has to
@@ -60,8 +62,13 @@ export function useBlockhashCountdown(
     };
     void read();
     const poll = setInterval(read, POLL_MS);
+    // Between polls the clock only estimates, so it never claims expiry:
+    // that comes from a block height past the deadline.
     const tick = setInterval(
-      () => setLeft((current) => (current ? current - 1 : current)),
+      () =>
+        setLeft((current) =>
+          current != null && current > 1 ? current - 1 : current,
+        ),
       1_000,
     );
     return () => {

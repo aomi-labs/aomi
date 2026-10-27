@@ -31,6 +31,8 @@ afterEach(() => {
 describe("blockhash countdown", () => {
   it("turns remaining blocks into seconds and never goes below zero", () => {
     expect(secondsUntilExpiry(1_150, 1_000)).toBe(60);
+    // One block left is still time to sign; only a height past it is expiry.
+    expect(secondsUntilExpiry(1_150, 1_150)).toBe(1);
     expect(secondsUntilExpiry(1_000, 1_010)).toBe(0);
   });
 
@@ -43,11 +45,12 @@ describe("blockhash countdown", () => {
     expect(signDeadline(undefined)).toBeUndefined();
   });
 
-  it("counts down from the cluster's height and reaches zero", async () => {
+  it("counts down from the cluster's height and expires only from a poll", async () => {
     vi.useFakeTimers();
+    let height = 1_145;
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ json: async () => ({ result: 1_145 }) }),
+      vi.fn(async () => ({ json: async () => ({ result: height }) })),
     );
     const { result } = renderHook(() =>
       useBlockhashCountdown(commit(1_150), "https://rpc.example"),
@@ -56,8 +59,15 @@ describe("blockhash countdown", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(result.current).toBe(2);
+    // The clock alone stops at a second left.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_000);
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+    expect(result.current).toBe(1);
+    // The next poll sees the chain past the deadline.
+    height = 1_151;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(result.current).toBe(0);
   });
