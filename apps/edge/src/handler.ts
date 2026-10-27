@@ -1,8 +1,9 @@
 import { handleApiRequest, wait, type WaitLike } from "./api/surface";
-import { buildContext } from "./build/context";
+import { buildContext, isBuildHost } from "./build/context";
 import { handleBuildRequest } from "./build/routes";
 import type { EdgeEnv } from "./env";
 import { withSecurityHeaders } from "./kernel/cors";
+import { EdgeError, errorResponse } from "./kernel/errors";
 import type { FetchLike } from "./kernel/proxy";
 import { portalContext } from "./portal/context";
 import { handlePortalRequest } from "./portal/routes";
@@ -22,6 +23,11 @@ export async function handleRequest(
 ): Promise<Response> {
   const portal = portalContext(request, env, fetchImpl);
   const build = portal ? null : buildContext(request, env, fetchImpl);
+  // A Build host without its upstream fails closed instead of falling to the public API.
+  if (!portal && !build && isBuildHost(env, new URL(request.url).host)) {
+    const error = new EdgeError(503, "build_unconfigured");
+    return withSecurityHeaders(errorResponse(error, { surface: "build", operation: "context", request }));
+  }
   const response = portal
     ? await handlePortalRequest(request, portal)
     : build
