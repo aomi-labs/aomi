@@ -54,3 +54,14 @@ it("keeps status variables on each widget root and scopes their animation", () =
   );
   expect(result).toContain(".aomi-widget .aui-thread-status");
 });
+
+it("keeps divide and space child rules above the scoped reset", () => {
+  const css = postcss.parse(
+    `@layer base { * {border:0 solid} } @layer utilities { .divide-y { :where(& > :not(:last-child)) {border-bottom-width:1px} } .sm\\:space-y-0 { @media (width >= 40rem) { :where(& > :not(:last-child)) {margin-block-end:0} } } }`,
+  );
+  scopePackageCss(css);
+  const result = css.toString();
+  expect(result).toContain("& > :where(:not(:last-child))");
+  expect(result).not.toContain(":where(& >");
+  expect(result).not.toContain(".aomi-widget &");
+});

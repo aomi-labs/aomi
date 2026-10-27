@@ -9,12 +9,21 @@ export function scopePackageCss(root) {
   root.walkRules((rule) => {
     if (rule.parent?.type === "atrule" && /keyframes$/.test(rule.parent.name))
       return;
-    // Tailwind v4 keeps nested selectors; their parent has already been scoped.
-    if (rule.parent?.type === "rule") {
-      rule.selector = rule.selector.replace(
-        /:is\(\.dark \*\)/g,
-        ":is(.aomi-widget.dark *, .dark .aomi-widget:not(.light) *)",
-      );
+    // Tailwind v4 keeps nested selectors (also under a variant's @media);
+    // their parent has already been scoped.
+    if (rule.parent?.type === "rule" || rule.selector.includes("&")) {
+      rule.selector = rule.selector
+        .replace(
+          /:is\(\.dark \*\)/g,
+          ":is(.aomi-widget.dark *, .dark .aomi-widget:not(.light) *)",
+        )
+        // Without layers, the scoped reset (`.aomi-widget *`) outranks the
+        // zero-specificity child rules of divide-* and space-*. Keep the
+        // parent's specificity so they win.
+        .replace(
+          /:where\(& > ([^()]*(?:\([^()]*\))?[^()]*)\)/g,
+          "& > :where($1)",
+        );
       return;
     }
     rule.selectors = rule.selectors.map((selector) => {
