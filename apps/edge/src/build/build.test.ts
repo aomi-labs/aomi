@@ -427,4 +427,12 @@ describe("build surface: install start and passthrough", () => {
     expect(body.headers["x-forwarded-host"]).toBe("build.example");
     expect(response.headers.get("set-cookie")).toBe("vercel=1");
   });
+
+  it("fails closed on a Build host without an upstream instead of serving the public API", async () => {
+    const { BUILD_UPSTREAM_ORIGIN: _, ...unconfigured } = env;
+    const response = await handleRequest(new Request(`${BUILD}/api/thread`), unconfigured, world);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "build_unconfigured" });
+    expect(seen).toEqual([]);
+  });
 });
