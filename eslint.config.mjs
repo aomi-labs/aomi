@@ -13,7 +13,7 @@ const fetchOf = (callee) => [
   `CallExpression[${callee}][arguments.0.type='Literal'][arguments.0.value=${AOMI_PATH}]`,
   `CallExpression[${callee}][arguments.0.type='TemplateLiteral'][arguments.0.quasis.0.value.raw=${AOMI_PATH}]`,
 ];
-export const oneAomi = {
+const oneAomi = {
   files: [
     "apps/*/src/**/*.{ts,tsx}",
     "packages/widget/src/**/*.{ts,tsx}",
