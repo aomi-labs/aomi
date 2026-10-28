@@ -1933,7 +1933,6 @@ export class Build {
     get balanceChanges(): PipelineBalanceChange[];
     // (undocumented)
     get chainFamily(): "evm" | "svm";
-    // (undocumented)
     commit(options?: PipelineCommitOptions): Promise<CommitHandle>;
     // (undocumented)
     get digest(): string;
@@ -2219,6 +2218,13 @@ export type CommitReview = Exclude<ActionRequest, {
 
 // @public
 export type CommitRouteFamily = "agent" | "pipeline" | "ref";
+
+// @public
+export class CommitSettleError extends AomiError {
+    constructor(view: CommitRefView);
+    // (undocumented)
+    readonly view: CommitRefView;
+}
 
 // @public
 export type CommitSettlement = {
@@ -4232,6 +4238,7 @@ export class Turn implements PromiseLike<TurnResult> {
 
 // @public (undocumented)
 export type TurnResult = {
+    state: "completed" | "interrupted" | "awaiting_approval";
     reply: string;
     commits: CommitHandle[];
     threadId: string;
