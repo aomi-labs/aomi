@@ -73,4 +73,21 @@ describe("edge deploy script", () => {
     expect(() => deployArgs({ ...staging, BACKEND_ORIGINS: "http://b1.example" })).toThrow(/not https/);
     expect(() => deployArgs({ ...staging, MANAGER_ORIGIN: "http://manager.example" })).toThrow(/not https/);
   });
+
+  it("passes the RC test identity to the rc topology only, and only as a complete set", () => {
+    const rc = { ...staging, EDGE_TOPOLOGY: "rc", EDGE_WORKER_NAME: "aomi-edge-rc", EDGE_ROUTES: "api-rc.aomi.dev/*" };
+    const identity = {
+      RC_OIDC_ACCOUNT_ID: "acct-1",
+      RC_OIDC_SUBJECT: "repo:o/r:environment:rc",
+      RC_OIDC_WORKFLOWS: "o/r/.github/workflows/w.yml@refs/heads/main",
+    };
+    const args = deployArgs({ ...rc, ...identity });
+    expect(args.slice(0, 4)).toEqual(["wrangler", "deploy", "--config", "wrangler.rc.jsonc"]);
+    expect(deployArgs(staging)).not.toContain("--config");
+    expect(args).toContain("RC_OIDC_SUBJECT:repo:o/r:environment:rc");
+    expect(args).toContain("RC_OIDC_ACCOUNT_ID:acct-1");
+    expect(() => deployArgs({ ...staging, ...identity })).toThrow(/only valid for the rc topology/);
+    expect(() => deployArgs({ ...rc, RC_OIDC_ACCOUNT_ID: "acct-1" })).toThrow(/must be set together/);
+    expect(deployArgs(rc).join(" ")).not.toContain("RC_OIDC");
+  });
 });

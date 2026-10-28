@@ -10,6 +10,7 @@ import { preflight, withCors } from "../kernel/cors";
 import { EdgeError, errorResponse } from "../kernel/errors";
 import { routingKeyFor } from "../kernel/pool";
 import { proxy, target, type FetchLike } from "../kernel/proxy";
+import { exchangeRcToken, RC_TOKEN_PATH, rcOidcConfig } from "./rc-oidc";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
 import { adaptTaskBuild, taskDocument } from "./task";
 import { listOnBazaar } from "./task/bazaar";
@@ -58,6 +59,7 @@ export async function handleApiRequest(
   waitImpl: WaitLike,
 ): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === RC_TOKEN_PATH) return handleRcToken(request, env);
   const route = resolveRoute(url, env, routingKeyFor(request, url));
   if (!route) return new Response("Not found", { status: 404 });
 
@@ -101,4 +103,19 @@ export async function handleApiRequest(
     response = errorResponse(error, { surface: "api", operation: route.name, request });
   }
   return response.status === 101 ? response : withCors(policy, request, response, cfg);
+}
+
+/** The RC token exchange; a deployment that is not RC answers like any unknown path. */
+async function handleRcToken(request: Request, env: EdgeEnv): Promise<Response> {
+  const cfg = rcOidcConfig(env, new URL(request.url).host);
+  if (!cfg) return new Response("Not found", { status: 404 });
+  const edge = config(env);
+  if (request.method === "OPTIONS") return preflight(CORS.agent, request, edge);
+  let response: Response;
+  try {
+    response = await exchangeRcToken(request, env, cfg);
+  } catch (error) {
+    response = errorResponse(error, { surface: "api", operation: "rc-token", request });
+  }
+  return withCors(CORS.agent, request, response, edge);
 }

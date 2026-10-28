@@ -9,6 +9,12 @@ export interface EdgeCache {
   delete(key: string): Promise<void>;
 }
 
+/** The subset of a Durable Object namespace the RC replay store uses. */
+export interface ReplayStore {
+  idFromName(name: string): unknown;
+  get(id: unknown): { fetch(request: Request): Promise<Response> };
+}
+
 export type EdgeTopologyName = "default" | "staging" | "rc" | "production";
 
 /**
@@ -35,6 +41,16 @@ export interface EdgeEnv {
   EDGE_TOPOLOGY?: EdgeTopologyName;
   /** PKCS#8 PEM of the `aomi-edge` signing key (a Wrangler secret). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
+
+  // RC-only test identity (rc topology; see api/rc-oidc.ts). All three or the path is off.
+  /** Canonical account id of the one RC test account the OIDC exchange resolves to. */
+  /** Durable Object namespace that remembers used OIDC `jti` values (rc only). */
+  RC_OIDC_REPLAY?: ReplayStore;
+  RC_OIDC_ACCOUNT_ID?: string;
+  /** Exact GitHub Actions `sub` claim accepted, e.g. repo:aomi-labs/product-mono:environment:rc. */
+  RC_OIDC_SUBJECT?: string;
+  /** Comma-separated accepted `job_workflow_ref` values. */
+  RC_OIDC_WORKFLOWS?: string;
 
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example chat.aomi.dev). */

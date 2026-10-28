@@ -27,6 +27,8 @@ const SETTINGS = [
   "APP_DEPLOY_PLATFORMS",
 ];
 
+const RC_IDENTITY = ["RC_OIDC_ACCOUNT_ID", "RC_OIDC_SUBJECT", "RC_OIDC_WORKFLOWS"];
+
 function value(name, env) {
   return (env[name] || "").trim();
 }
@@ -64,9 +66,17 @@ export function deployArgs(env = process.env) {
   for (const key of REQUIRED_ORIGINS) vars[key] = origins(key, required(key, env));
   for (const key of OPTIONAL_ORIGINS) if (value(key, env)) vars[key] = origins(key, value(key, env));
   for (const key of SETTINGS) if (value(key, env)) vars[key] = value(key, env);
+  // The RC test identity (api/rc-oidc.ts) is configured for rc alone, all three or none.
+  const present = RC_IDENTITY.filter((key) => value(key, env));
+  if (present.length && topology !== "rc") throw new Error(`${present[0]} is only valid for the rc topology`);
+  if (present.length && present.length !== RC_IDENTITY.length)
+    throw new Error(`${RC_IDENTITY.join(", ")} must be set together`);
+  for (const key of present) vars[key] = value(key, env);
   return [
     "wrangler",
     "deploy",
+    // rc alone binds the replay Durable Object; see wrangler.rc.jsonc.
+    ...(topology === "rc" ? ["--config", "wrangler.rc.jsonc"] : []),
     "--name",
     name,
     ...routes(required("EDGE_ROUTES", env)).flatMap((route) => ["--route", route]),

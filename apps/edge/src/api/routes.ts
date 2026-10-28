@@ -5,9 +5,10 @@ import type { HeaderPolicy } from "../kernel/proxy";
 import { target } from "../kernel/proxy";
 import { isManagerPath } from "../kernel/manager";
 import { rankOrigins } from "../kernel/pool";
+import { rcOidcConfig } from "./rc-oidc";
 
 /** The api surface (api.aomi.dev): which upstream a path goes to and under which CORS policy. */
-export type RouteName = "api" | "bot-mini-app" | "health" | "task" | "task-discovery" | "jwks" | "payment";
+export type RouteName = "api" | "bot-mini-app" | "health" | "task" | "task-discovery" | "jwks" | "payment" | "agent";
 
 export type Route = {
   name: RouteName;
@@ -61,6 +62,17 @@ export const CORS: Record<RouteName, CorsPolicy> = {
   // A bot's Mini App asks which wallet its Telegram user has, from its own page.
   // Telegram's signed initData in the body is the only proof; no credentials.
   "bot-mini-app": { origin: "echo", methods: ["POST"], headers: ["Content-Type"], maxAge: 1728000 },
+  // RC test identity only: the token exchange and the Agent REST routes it authorizes.
+  agent: {
+    origin: "allowlist",
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    headers: [
+      "Authorization", "Content-Type", "Accept", "Last-Event-ID", "Idempotency-Key", "X-Request-Id",
+      "X-Aomi-Inference-Funding", "X-Aomi-Run-Budget-Microusd",
+    ],
+    expose: ["Retry-After", "X-Request-Id"],
+    maxAge: 600,
+  },
 };
 
 const BOT_MINI_APP_PATH = /^\/api\/bots\/telegram\/mini-app\/\d+\/wallet$/;
@@ -88,6 +100,15 @@ const TASK_JOB_PATH =
 const TASK_HEADERS: HeaderPolicy = {
   request: new Set(["accept", "content-type", "content-length", "payment-signature", "user-agent", "x-request-id"]),
 };
+
+/** Agent REST carries its own bearer; cookies and router headers never reach the API Server. */
+const AGENT_HEADERS: HeaderPolicy = {
+  request: new Set([
+    "authorization", "accept", "content-type", "content-length", "last-event-id", "idempotency-key",
+    "user-agent", "x-request-id", "x-aomi-inference-funding", "x-aomi-run-budget-microusd",
+  ]),
+};
+const AGENT_PATH = /^\/v1\/agent(?:\/(?!mcp$).*)?$/;
 
 // The same Payment process serves public account routes and private
 // accounting. Only these exact routes (and the signed Stripe webhook) are public.
@@ -132,6 +153,12 @@ export function resolveRoute(url: URL, env: EdgeEnv, routingKey: string | null =
   const { pathname, search } = url;
   const payment = PAYMENT_ROUTES.find(([path]) => path.test(pathname));
   if (payment) return one("payment", cfg.payment, pathname, search, { methods: payment[1] });
+  // Agent REST is public only where the RC identity path exists to authorize it.
+  if (cfg.apiServer && AGENT_PATH.test(pathname) && rcOidcConfig(env, url.host))
+    return one("agent", cfg.apiServer, pathname, search, {
+      headers: AGENT_HEADERS,
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    });
   if (cfg.apiServer) {
     if (Object.hasOwn(TASK_DOCUMENTS, pathname))
       return one("task-discovery", cfg.apiServer, "/", "", { document: TASK_DOCUMENTS[pathname], methods: ["GET", "HEAD"] });
