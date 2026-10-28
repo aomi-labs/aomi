@@ -135,12 +135,15 @@ export function AomiRuntimeProvider({
     [clientOptions],
   );
 
+  const confirmedCookieSession = useRef(accountSessionAvailable);
+  confirmedCookieSession.current = accountSessionAvailable;
   const aomi = useMemo(
     () =>
       suppliedAomi ??
       new Aomi({
         baseUrl: backendUrl,
         ...resolvedClientOptions,
+        cookieSession: () => confirmedCookieSession.current,
         // An account bearer alone is the session; it gets no guest beside it.
         guest:
           resolvedClientOptions.guest ??

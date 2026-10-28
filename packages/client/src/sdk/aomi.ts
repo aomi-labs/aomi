@@ -30,6 +30,11 @@ import { createEvmPaymentClient } from "../payment";
 /** `baseUrl` defaults to https://chat.aomi.dev. */
 type AomiConnectionOptions = Omit<AomiClientOptions, "baseUrl"> & {
   baseUrl?: string;
+  /**
+   * A same-origin browser host that already confirmed a cookie session: the
+   * guest then skips its own session check.
+   */
+  cookieSession?: () => boolean;
 };
 
 type AomiManagedAuthOptions = Omit<
@@ -92,8 +97,14 @@ export class Aomi {
   readonly wallet?: Wallets;
 
   constructor(options: AomiOptions = {}) {
-    const { actions, commits, signer, auth, ...unmanagedClientOptions } =
-      options;
+    const {
+      actions,
+      commits,
+      signer,
+      auth,
+      cookieSession,
+      ...unmanagedClientOptions
+    } = options;
     const wallet = signer ?? options.wallet;
     const clientOptions: AomiClientOptions = {
       baseUrl: DEFAULT_BASE_URL,
@@ -165,6 +176,7 @@ export class Aomi {
           : createGuestSessionProvider({
               baseUrl: clientOptions.baseUrl,
               fetch: fetchImpl,
+              getCookieSessionAvailable: cookieSession,
             });
       this.auth = createGuestAuthController(guest);
       this.raw = new AomiClient({ ...paidClientOptions, guest });
