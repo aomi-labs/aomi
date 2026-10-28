@@ -21,7 +21,7 @@ const navigation = vi.hoisted(() => ({
   chains: undefined as readonly [Chain, ...Chain[]] | undefined,
 }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("@/lib/navigation", () => ({
   usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(navigation.search),
   useRouter: () => ({ replace: walletKit.replace }),
@@ -338,7 +338,7 @@ describe("WalletProviders Privy configuration", () => {
       navigation.search = `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`;
       const [{ WalletProviders }, { DeviceAuthClient }] = await Promise.all([
         import("./wallet-providers"),
-        import("@/app/device-auth/device-auth-client"),
+        import("@/features/device-auth/device-auth-client"),
       ]);
 
       const view = render(

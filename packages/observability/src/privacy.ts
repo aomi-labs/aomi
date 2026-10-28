@@ -1,4 +1,4 @@
-import type { Event, Log } from "@sentry/nextjs";
+import type { Event, Log } from "@sentry/node";
 
 const SAFE_EVENT_TAGS = new Set([
   "duration_ms",

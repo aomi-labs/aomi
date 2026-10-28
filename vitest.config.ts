@@ -38,7 +38,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@build": resolve(currentDir, "apps/build/src"),
-      "@portal": resolve(currentDir, "apps/portal/src"),
       "@aomi-labs/account/better-auth/client": resolve(
         currentDir,
         "packages/client/src/browser-auth.ts",
@@ -80,13 +79,6 @@ export default defineConfig({
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/edge/src/**/*.{test,spec}.ts",
       "apps/edge/scripts/**/*.{test,spec}.mjs",
-      "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
-      "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/oauth/consent/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/lib/widget-auth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/api/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
     ],
     exclude: [
       ".claude/**",

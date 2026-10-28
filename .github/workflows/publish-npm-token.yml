@@ -79,10 +79,10 @@ jobs:
               node scripts/publish-package-if-needed.mjs "$package_directory"
             fi
           done
+          node scripts/publish-package-if-needed.mjs packages/deploy
           if [[ -f packages/cli/package.json ]]; then
             node scripts/publish-package-if-needed.mjs packages/cli
           fi
-          node scripts/publish-package-if-needed.mjs packages/deploy
           node scripts/publish-package-if-needed.mjs packages/react
           # A frozen candidate can predate the widget package-directory move.
           # Resolve its package path from that exact checkout; never substitute

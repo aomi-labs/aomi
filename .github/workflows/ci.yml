@@ -231,6 +231,7 @@ jobs:
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
             pnpm run build:portal
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter portal build:app
           fi
           # Start apps build for Vercel (deployed) and Cloudflare Workers.
           if [ "$CHECK_BUILD" = true ]; then

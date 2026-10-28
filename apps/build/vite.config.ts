@@ -69,11 +69,6 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     resolve: {
-      // @aomi-labs/observability imports the Next SDK for the portal; Build
-      // runs on Node, so the same calls go to the Node SDK.
-      alias: {
-        "@sentry/nextjs": fileURLToPath(import.meta.resolve("@sentry/node")),
-      },
       dedupe: ["@assistant-ui/react", "viem", "wagmi", "zustand"],
     },
     optimizeDeps: { exclude: serverWorkflows },

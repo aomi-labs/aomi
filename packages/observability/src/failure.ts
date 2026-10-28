@@ -50,19 +50,6 @@ export type FailureContext = {
   smokeTest?: boolean;
 };
 
-export type RequestErrorDetails = {
-  request: {
-    path: string;
-    method: string;
-    headers: Record<string, string | string[] | undefined>;
-  };
-  errorContext: {
-    routerKind: string;
-    routePath: string;
-    routeType: string;
-  };
-};
-
 type ContextualFailure = { context: FailureContext };
 
 export type FailureInput =
@@ -100,11 +87,10 @@ export type FailureInput =
       source: "artifact";
       error: unknown;
     })
-  | (ContextualFailure &
-      Partial<RequestErrorDetails> & {
-        source: "uncaught";
-        error: unknown;
-      });
+  | (ContextualFailure & {
+      source: "uncaught";
+      error: unknown;
+    });
 
 export type IdentifiedFailure = {
   origin: "expected" | "local" | "upstream_request" | "upstream_response";
@@ -115,7 +101,6 @@ export type IdentifiedFailure = {
   upstreamStatus?: number;
   credential?: "service" | "user";
   responseHint?: PublicFailure;
-  requestError?: RequestErrorDetails;
   localDiagnostic?: LocalDiagnostic;
 };
 
@@ -132,7 +117,6 @@ export type FailureDecision = {
   responseDeployError?: DeployErrorDetail;
   upstream?: BffUpstream;
   upstreamStatus?: number;
-  requestError?: RequestErrorDetails;
   localDiagnostic?: LocalDiagnostic;
 };
 

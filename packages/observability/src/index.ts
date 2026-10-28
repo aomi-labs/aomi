@@ -13,7 +13,6 @@ export type {
   LocalDiagnostic,
   LocalDiagnosticValue,
   PublicFailure,
-  RequestErrorDetails,
 } from "./failure";
 export { identifyFailure } from "./identify";
 export { createFailurePipeline } from "./pipeline";

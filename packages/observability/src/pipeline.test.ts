@@ -4,7 +4,6 @@ import { RequiredSecretsCheckError } from "@aomi-labs/internal";
 
 const sentry = vi.hoisted(() => ({
   captureException: vi.fn(),
-  captureRequestError: vi.fn(),
   init: vi.fn(),
   logger: { error: vi.fn() },
   requestDataIntegration: vi.fn(() => ({ name: "RequestData" })),
@@ -12,9 +11,8 @@ const sentry = vi.hoisted(() => ({
   withIsolationScope: vi.fn(),
 }));
 
-vi.mock("@sentry/nextjs", () => ({
+vi.mock("@sentry/node", () => ({
   captureException: sentry.captureException,
-  captureRequestError: sentry.captureRequestError,
   init: sentry.init,
   logger: sentry.logger,
   requestDataIntegration: sentry.requestDataIntegration,
@@ -302,33 +300,14 @@ describe("three-layer failure pipeline", () => {
     );
   });
 
-  it("uses Sentry's request-error adapter for uncaught framework errors", () => {
+  it("captures uncaught framework errors as exceptions", () => {
     const error = new Error("uncaught");
-    const request = { path: "/api/private", method: "GET", headers: {} };
-    const errorContext = {
-      routerKind: "App Router",
-      routePath: "/api/[id]",
-      routeType: "route",
-    };
-
     createFailurePipeline("build-bff").handle({
       source: "uncaught",
       error,
-      request,
-      errorContext,
-      context: {
-        routeFamily: errorContext.routePath,
-        operation: "next.request_error",
-        method: request.method,
-      },
+      context: { routeFamily: "/ssr", operation: "start.render_error" },
     });
-
-    expect(sentry.captureRequestError).toHaveBeenCalledWith(
-      error,
-      request,
-      errorContext,
-    );
-    expect(sentry.captureException).not.toHaveBeenCalled();
+    expect(sentry.captureException).toHaveBeenCalledWith(error);
   });
 
   it("does not let a broken local console change routing", () => {
