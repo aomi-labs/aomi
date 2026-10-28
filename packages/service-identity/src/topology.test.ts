@@ -132,3 +132,14 @@ async function bearerWithKid(kid: string): Promise<string> {
     .setExpirationTime(now + 60)
     .sign(privateKey);
 }
+
+describe("tierOf", () => {
+  it("prefers the named tier, then the API host, then the Vercel environment", async () => {
+    const { tierOf } = await import("./topologies");
+    expect(tierOf({ tier: "rc", host: "api.aomi.dev" })).toBe("rc");
+    expect(tierOf({ host: "API-STAGING.aomi.dev" })).toBe("staging");
+    expect(tierOf({ host: "api.aomi.dev.evil.example" })).toBe("default");
+    expect(tierOf({ vercelEnv: "preview" })).toBe("staging");
+    expect(tierOf({})).toBe("default");
+  });
+});

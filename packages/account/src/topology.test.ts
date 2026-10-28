@@ -23,23 +23,12 @@ describe("account topology", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("selects staging and production topology by exact backend host", async () => {
-    const { portalTopologyName } = await import("./topology");
-
-    process.env.BACKEND_URL = "https://api-staging.aomi.dev";
-    expect(portalTopologyName()).toBe("staging");
-
-    process.env.BACKEND_URL = "https://api.aomi.dev";
-    expect(portalTopologyName()).toBe("production");
-  });
-
   it("authorizes aomi-bff for the sidecar audience in every topology", async () => {
     // The aomi-build live-files sidecar verifies bearers minted by aomi-bff
     // with audience "aomi-sidecar" (never "aomi-backend", so a bearer leaked
     // from the sandbox is useless at the backend).
-    const { PORTAL_TOPOLOGIES } = await import("./topology-data");
-    const { parseTopology } = await import("./service-topology");
-    for (const toml of Object.values(PORTAL_TOPOLOGIES)) {
+    const { parseTopology, TOPOLOGIES } = await import("@aomi-labs/service-identity");
+    for (const toml of Object.values(TOPOLOGIES["aomi-bff"])) {
       const bff = parseTopology(toml).services.find(
         (node) => node.name === "aomi-bff",
       );
