@@ -1,4 +1,9 @@
-import { Aomi, type CreditBalance, type CreditLedger } from "@aomi-labs/client";
+import {
+  Aomi,
+  isAomiError,
+  type CreditBalance,
+  type CreditLedger,
+} from "@aomi-labs/client";
 import {
   baseUrlOf,
   CliError,
@@ -41,7 +46,15 @@ export async function whoami(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   const via = SIGN_IN[aomi.auth.mode] ?? aomi.auth.mode;
   // Device grants are capability tokens: the profile route answers 401.
-  const me = await aomi.account.me().catch(() => null);
+  const me = await aomi.account.me().catch((error: unknown) => {
+    if (
+      aomi.auth.mode === "oauth" &&
+      isAomiError(error) &&
+      error.status === 401
+    )
+      return null;
+    throw error;
+  });
   if (flags.json) return json({ signIn: aomi.auth.mode, account: me });
   out(
     `Signed in  ${via}${aomi.auth.mode === "wallet" ? ` ${aomi.wallet?.evm?.address}` : ""}`,
