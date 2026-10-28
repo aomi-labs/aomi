@@ -17,7 +17,7 @@ import {
   type TaskRunStep,
 } from "@aomi-labs/react";
 import { useTraceAttribution } from "./trace-attribution";
-import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { interpretToolStep } from "./attribution";
 import {
   prefersReducedMotion,
   ToolStepRow,

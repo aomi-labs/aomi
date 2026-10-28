@@ -29,6 +29,8 @@ import { ClassValue } from 'clsx';
 import { CommitCapabilities } from '@aomi-labs/client';
 import { CommitController } from '@aomi-labs/client';
 import { CommitView } from '@aomi-labs/client';
+import { CONTEXT_STEP_TOOL } from '@aomi-labs/client/trace';
+import { ContextStep } from '@aomi-labs/client/trace';
 import { CreditBalance } from '@aomi-labs/client';
 import { CreditLedger } from '@aomi-labs/client';
 import { Event as Event_2 } from '@aomi-labs/client';
@@ -190,26 +192,9 @@ export { ChainInfo }
 // @public
 export function cn(...inputs: ClassValue[]): string;
 
-// @public
-export const CONTEXT_STEP_TOOL = "aomi:context";
+export { CONTEXT_STEP_TOOL }
 
-// @public (undocumented)
-export type ContextStep = {
-    kind: "compacting";
-    tokensBefore: number;
-} | {
-    kind: "compacted";
-    published: boolean;
-    tokensBefore: number;
-    tokensAfter: number;
-    durationMs: number;
-} | {
-    kind: "trimmed";
-    tool: string;
-    id: string;
-    bytes: number;
-    tokens: number;
-};
+export { ContextStep }
 
 // @public (undocumented)
 export type ControlContextApi = ApiKeyActions & SecretsActions & AppSecretsActions & AuthEndpointsActions & PerThreadControlActions & {
