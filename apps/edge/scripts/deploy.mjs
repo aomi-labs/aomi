@@ -29,8 +29,17 @@ export function deployArgs(environment, env = process.env) {
     BACKEND_ORIGINS: requireOrigins("BACKEND_ORIGINS", env),
     API_SERVER_ORIGIN: requireOrigins("API_SERVER_ORIGIN", env),
   };
+  // Production routes aomi.dev/api/*: without Landing's origin its own /api
+  // routes (og images, fixtures) would have nowhere to go.
+  if (environment === "production")
+    vars.LANDING_UPSTREAM_ORIGIN = requireOrigins("LANDING_UPSTREAM_ORIGIN", env);
   // Optional surfaces: present only where that environment runs them.
-  for (const name of ["PAYMENT_ORIGIN", "PORTAL_UPSTREAM_ORIGIN", "BUILD_UPSTREAM_ORIGIN"]) {
+  for (const name of [
+    "PAYMENT_ORIGIN",
+    "PORTAL_UPSTREAM_ORIGIN",
+    "BUILD_UPSTREAM_ORIGIN",
+    "LANDING_UPSTREAM_ORIGIN",
+  ]) {
     if ((env[name] || "").trim()) vars[name] = requireOrigins(name, env);
   }
   return [

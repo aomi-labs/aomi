@@ -34,6 +34,12 @@ describe("edge deploy script", () => {
     expect(() => deployArgs("production", {})).toThrow(/BACKEND_ORIGINS must be set/);
     expect(() =>
       deployArgs("production", {
+        BACKEND_ORIGINS: "https://b1.example",
+        API_SERVER_ORIGIN: "https://agent.example",
+      }),
+    ).toThrow(/LANDING_UPSTREAM_ORIGIN must be set/);
+    expect(() =>
+      deployArgs("production", {
         BACKEND_ORIGINS: "http://b1.example",
         API_SERVER_ORIGIN: "https://agent.example",
       }),

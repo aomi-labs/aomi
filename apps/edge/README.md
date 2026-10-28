@@ -122,7 +122,8 @@ efficiency follow-up, not a payment execution path.
 
 `scripts/deploy.mjs <staging|production>` runs `wrangler deploy` with
 `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
-`PORTAL_UPSTREAM_ORIGIN` and `BUILD_UPSTREAM_ORIGIN` taken from the deploy environment. product-mono's deploy pipeline derives those from its
+`PORTAL_UPSTREAM_ORIGIN`, `BUILD_UPSTREAM_ORIGIN` and `LANDING_UPSTREAM_ORIGIN`
+(required for production, which routes `aomi.dev/api/*`) taken from the deploy environment. product-mono's deploy pipeline derives those from its
 Terraform inventory and exports them before calling this script. Secrets:
 `EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
 `BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing

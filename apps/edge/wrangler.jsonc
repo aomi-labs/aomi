@@ -7,6 +7,9 @@
   // AsyncLocalStorage; process.env carries the vars and secrets.
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  // Minified, with source maps uploaded so stack traces keep their names.
+  "minify": true,
+  "upload_source_maps": true,
   "observability": { "enabled": true },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Local development: the account database through a local Hyperdrive. Point
@@ -64,6 +67,10 @@
         "APP_DEPLOY_PLATFORMS": "community,somm.finance,world-market-apps",
         "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
         "BUILD_CREATED_REPO_PRIVATE": "false",
+        // The Landing surface. Staging has no Landing host of its own yet; name it
+        // here and route its /api/* like chat-staging's to give its consoles the
+        // backend. LANDING_UPSTREAM_ORIGIN comes from the deploy environment.
+        "LANDING_HOSTS": "",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,build-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
         // Exact browser origins allowed to read Task challenges without credentials.
         // They receive no CORS access to the general /api routes.
@@ -92,7 +99,13 @@
     "production": {
       // Production portal host routes are added at cutover once the host is
       // confirmed (chat.aomi.dev) and proxied by Cloudflare; see the README.
-      "routes": [{ "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" }],
+      // aomi.dev/api/* gives Landing's API consoles the backend; every other
+      // Landing path passes through to LANDING_UPSTREAM_ORIGIN (its Vercel
+      // alias, from the deploy environment).
+      "routes": [
+        { "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" },
+        { "pattern": "aomi.dev/api/*", "zone_name": "aomi.dev" }
+      ],
       // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
       "vars": {
         "HOSTED_APP_WARMUP_ATTEMPTS": "10",
@@ -106,6 +119,7 @@
         "APP_DEPLOY_PLATFORMS": "",
         "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
         "BUILD_CREATED_REPO_PRIVATE": "false",
+        "LANDING_HOSTS": "aomi.dev",
         "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
       }
     }
