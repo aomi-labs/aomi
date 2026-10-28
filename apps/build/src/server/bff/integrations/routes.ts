@@ -1,6 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { NextResponse } from "next/server";
 import { authorize } from "@/server/bff/auth";
 import {
   INTEGRATION_PROVIDERS,
@@ -13,7 +12,7 @@ export async function integrationsStatusRoute(req: Request) {
 
   // TODO(integrations): report real connection status once a backend credential
   // store exists. Until then every provider reports disconnected.
-  return NextResponse.json({
+  return Response.json({
     statuses: INTEGRATION_PROVIDERS.map((provider) => ({
       provider: provider.id,
       connected: false,
@@ -34,7 +33,7 @@ export async function integrationsConnectRoute(req: Request) {
       ? getIntegrationProvider(body.provider)
       : undefined;
   if (!provider) {
-    return NextResponse.json(
+    return Response.json(
       { error: "unknown integration provider" },
       { status: 400 },
     );
@@ -47,7 +46,7 @@ export async function integrationsConnectRoute(req: Request) {
     )
     .map((field) => field.label);
   if (missing.length > 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: `Missing required field(s): ${missing.join(", ")}` },
       { status: 400 },
     );
@@ -57,7 +56,7 @@ export async function integrationsConnectRoute(req: Request) {
   // secret store keyed by the GitHub-scoped account. No such store exists yet,
   // so we validate the request shape and return not-implemented rather than
   // silently accepting (and dropping) the tokens.
-  return NextResponse.json(
+  return Response.json(
     {
       error: `Saving ${provider.name} credentials is not available yet.`,
     },

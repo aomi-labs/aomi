@@ -1,5 +1,10 @@
 import type { ActionCapabilities } from "../actions";
-import { commitCapabilities, type CommitCapabilities } from "../commits";
+import {
+  commitCapabilities,
+  type CommitCapabilities,
+  type CommitRecoveryRecord,
+  type CommitRecoveryStore,
+} from "../commits";
 import { AomiClient } from "../client";
 import { createGuestSessionProvider } from "../guest-auth";
 import type { AomiClientOptions } from "../types";
@@ -18,29 +23,58 @@ import { AomiPipeline } from "./pipeline";
 import { AomiCommits } from "./commits";
 import { AomiWallets } from "./wallets";
 import type { TransactionSafetyTransport } from "../transaction-safety";
-import type { AccountTransport } from "../account/credits";
+import { AomiAccount } from "./account";
 import { createEvmPaymentClient } from "../payment";
 
+/** `baseUrl` defaults to https://chat.aomi.dev. */
+type AomiConnectionOptions = Omit<AomiClientOptions, "baseUrl"> & {
+  baseUrl?: string;
+};
+
 type AomiManagedAuthOptions = Omit<
-  AomiClientOptions,
+  AomiConnectionOptions,
   "getAccountBearer" | "guest" | "oauth" | "x402"
 > & {
   auth: AomiAuthStrategy;
 };
 
 type AomiExecutionOptions =
-  | { wallet?: Wallets; actions?: never; commits?: CommitCapabilities }
+  | {
+      /** What signs this process's commits: `viemSigner(...)`, `solanaSigner(...)`. */
+      signer?: Wallets;
+      /** @deprecated Use `signer`. */
+      wallet?: Wallets;
+      actions?: never;
+      commits?: CommitCapabilities;
+    }
   | {
       actions?: ActionCapabilities;
+      signer?: never;
       wallet?: never;
       commits?: CommitCapabilities;
     };
 
 export type AomiOptions = (
   | AomiManagedAuthOptions
-  | (Omit<AomiClientOptions, "x402"> & { auth?: never })
+  | (Omit<AomiConnectionOptions, "x402"> & { auth?: never })
 ) &
   AomiExecutionOptions;
+
+/** Where `new Aomi()` talks when no `baseUrl` is given. */
+const DEFAULT_BASE_URL = "https://chat.aomi.dev";
+
+function memoryRecovery(): CommitRecoveryStore {
+  const records = new Map<string, CommitRecoveryRecord>();
+  return {
+    load: (thread, commit) => records.get(`${thread}:${commit}`),
+    save: (thread, commit, record) => {
+      records.set(`${thread}:${commit}`, record);
+    },
+    remove: (thread, commit) => {
+      records.delete(`${thread}:${commit}`);
+    },
+  };
+}
 
 /** Product-oriented SDK facade. Use `raw` for wire-close protocol control. */
 export class Aomi {
@@ -51,15 +85,19 @@ export class Aomi {
   readonly commits: AomiCommits;
   /** The account's wallets and their balances (not this process's signer). */
   readonly wallets: AomiWallets;
-  readonly account: AccountTransport;
+  readonly account: AomiAccount;
   readonly transactionSafety: TransactionSafetyTransport;
   readonly auth: AomiAuthController;
   readonly wallet?: Wallets;
 
-  constructor(options: AomiOptions) {
-    const { actions, commits, wallet, auth, ...unmanagedClientOptions } =
+  constructor(options: AomiOptions = {}) {
+    const { actions, commits, signer, auth, ...unmanagedClientOptions } =
       options;
-    const clientOptions: AomiClientOptions = unmanagedClientOptions;
+    const wallet = signer ?? options.wallet;
+    const clientOptions: AomiClientOptions = {
+      baseUrl: DEFAULT_BASE_URL,
+      ...unmanagedClientOptions,
+    };
     const fetchImpl = clientOptions.fetch ?? globalThis.fetch.bind(globalThis);
     const paidClientOptions: AomiClientOptions = {
       ...clientOptions,
@@ -67,7 +105,19 @@ export class Aomi {
       x402: wallet?.evm ? createEvmPaymentClient(wallet.evm) : undefined,
     };
 
-    if (auth) {
+    if (auth?.kind === "bearer") {
+      this.auth = createPassiveAuthController("custom");
+      this.raw = new AomiClient({
+        ...paidClientOptions,
+        oauth: async ({ resource, scopes }) => ({
+          accessToken: auth.token,
+          resource,
+          scopes,
+          expiresAt: Number.MAX_SAFE_INTEGER,
+        }),
+        guest: false,
+      });
+    } else if (auth) {
       if (
         clientOptions.oauth ||
         clientOptions.getAccountBearer ||
@@ -117,11 +167,21 @@ export class Aomi {
 
     this.wallet = wallet;
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
-    const commitOps = commits ?? (wallet ? commitCapabilities(wallet) : {});
+    // A signer keeps its wallet attempts in memory, which lets browser
+    // wallets send (and bundle with EIP-5792) instead of only signing.
+    const commitOps =
+      commits ??
+      (signer
+        ? commitCapabilities(signer, memoryRecovery())
+        : wallet
+          ? commitCapabilities(wallet)
+          : {});
     this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.commits = new AomiCommits(this.raw, commitOps);
     this.wallets = new AomiWallets(this.raw);
-    this.account = this.raw.account;
+    this.account = new AomiAccount((method, path, requestOptions) =>
+      this.raw.requestResponse(method, path, requestOptions),
+    );
     this.transactionSafety = this.raw.transactionSafety;
     this.agent = new AomiAgent(
       this.raw.agent,

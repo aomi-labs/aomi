@@ -1,8 +1,8 @@
-import "server-only";
+import { appendCookie } from "@/server/http-response";
+import "@tanstack/react-start/server-only";
 
 import { createHash } from "crypto";
-import { cookies } from "next/headers";
-import type { NextResponse } from "next/server";
+import { getCookie } from "@tanstack/react-start/server";
 import { githubSessionSecret, secureCookies } from "@/server/env";
 import {
   CompactEncrypt,
@@ -183,19 +183,17 @@ export async function readGitHubSession(
 }
 
 export function setGitHubVisibilityGrantCookie(
-  response: NextResponse,
+  response: Response,
   grant: string | null | undefined,
 ): void {
-  response.cookies.set(GITHUB_VISIBILITY_GRANT_COOKIE, grant?.trim() ?? "", {
+  appendCookie(response, GITHUB_VISIBILITY_GRANT_COOKIE, grant?.trim() ?? "", {
     ...SESSION_COOKIE_OPTIONS,
     maxAge: grant?.trim() ? 10 * 60 : 0,
   });
 }
 
 export async function getGitHubVisibilityGrant(): Promise<string | null> {
-  return (
-    (await cookies()).get(GITHUB_VISIBILITY_GRANT_COOKIE)?.value?.trim() || null
-  );
+  return getCookie(GITHUB_VISIBILITY_GRANT_COOKIE)?.trim() || null;
 }
 
 export async function issueGitHubCliSession(
@@ -316,8 +314,7 @@ export async function readGitHubCliExchange(
 }
 
 export async function getGitHubSession(): Promise<GitHubSession | null> {
-  const jar = await cookies();
-  return readGitHubSession(jar.get(GITHUB_SESSION_COOKIE)?.value);
+  return readGitHubSession(getCookie(GITHUB_SESSION_COOKIE));
 }
 
 export async function getGitHubCliSessionFromRequest(
@@ -332,18 +329,18 @@ export async function getGitHubCliSessionFromRequest(
 }
 
 export async function setGitHubSessionCookie(
-  response: NextResponse,
+  response: Response,
   session: GitHubSession,
 ): Promise<void> {
   const token = await issueGitHubSession(session);
-  response.cookies.set(GITHUB_SESSION_COOKIE, token, {
+  appendCookie(response, GITHUB_SESSION_COOKIE, token, {
     ...SESSION_COOKIE_OPTIONS,
     maxAge: SESSION_TTL_SECONDS,
   });
 }
 
-export function clearGitHubSessionCookie(response: NextResponse): void {
-  response.cookies.set(GITHUB_SESSION_COOKIE, "", {
+export function clearGitHubSessionCookie(response: Response): void {
+  appendCookie(response, GITHUB_SESSION_COOKIE, "", {
     ...SESSION_COOKIE_OPTIONS,
     maxAge: 0,
   });

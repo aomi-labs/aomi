@@ -1,10 +1,9 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { NextResponse } from "next/server";
 import type { FailureInput } from "@aomi-labs/observability";
 import { authorize } from "@/server/bff/auth";
 import type {
@@ -68,17 +67,17 @@ export async function createBuildRunRoute(req: Request): Promise<Response> {
   try {
     body = (await req.json()) as CreateBuildRunRequest;
   } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+    return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   if (!prompt || prompt.length > 4000) {
-    return NextResponse.json(
+    return Response.json(
       { error: "prompt must be 1–4000 characters" },
       { status: 400 },
     );
   }
   if (body.app !== undefined && !APP_NAME.test(body.app)) {
-    return NextResponse.json(
+    return Response.json(
       { error: "app must match [a-zA-Z0-9_-]{1,64}" },
       { status: 400 },
     );
@@ -87,7 +86,7 @@ export async function createBuildRunRoute(req: Request): Promise<Response> {
     body.builder !== undefined &&
     !["claude", "codex", "none"].includes(body.builder)
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "builder must be claude, codex, or none" },
       { status: 400 },
     );
@@ -102,7 +101,7 @@ export async function createBuildRunRoute(req: Request): Promise<Response> {
       builder: body.builder,
     });
     const snapshot = await snapshotBuildRun(handle);
-    return NextResponse.json({
+    return Response.json({
       runId: snapshot.runId,
       app: snapshot.app,
       stages: snapshot.stages,
@@ -120,16 +119,16 @@ export async function buildRunStatusRoute(req: Request): Promise<Response> {
 
   const runId = new URL(req.url).searchParams.get("id");
   if (!runId) {
-    return NextResponse.json({ error: "missing id" }, { status: 400 });
+    return Response.json({ error: "missing id" }, { status: 400 });
   }
   // Registry miss ≠ unknown run: another instance (or a past process life)
   // may own it — reconstruct an observer handle from the durable store.
   try {
     const handle = getBuildRun(runId) ?? (await reconstructBuildRun(runId));
     if (!handle) {
-      return NextResponse.json({ error: "unknown run" }, { status: 404 });
+      return Response.json({ error: "unknown run" }, { status: 404 });
     }
-    return NextResponse.json(await snapshotBuildRun(handle));
+    return Response.json(await snapshotBuildRun(handle));
   } catch (error) {
     return buildFailures.handle(
       identifyBuildRouteFailure(error, req, "build.status"),
@@ -147,14 +146,14 @@ export async function buildRunCancelRoute(req: Request): Promise<Response> {
   try {
     body = (await req.json()) as { runId?: unknown };
   } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+    return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
   if (typeof body.runId !== "string") {
-    return NextResponse.json({ error: "runId is required" }, { status: 400 });
+    return Response.json({ error: "runId is required" }, { status: 400 });
   }
   try {
     await cancelBuildRun(body.runId);
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (error) {
     return buildFailures.handle(
       identifyBuildRouteFailure(error, req, "build.cancel"),
@@ -165,18 +164,18 @@ export async function buildRunCancelRoute(req: Request): Promise<Response> {
 /** Stream the generated crate (apps/<app>) as a tarball. */
 export async function buildRunDownloadRoute(
   req: Request,
-): Promise<NextResponse | Response> {
+): Promise<Response | Response> {
   const auth = await authorize(req, { allowAnon: true });
   if ("response" in auth) return auth.response;
 
   const runId = new URL(req.url).searchParams.get("id");
   if (!runId) {
-    return NextResponse.json({ error: "missing id" }, { status: 400 });
+    return Response.json({ error: "missing id" }, { status: 400 });
   }
   try {
     const handle = getBuildRun(runId) ?? (await reconstructBuildRun(runId));
     if (!handle) {
-      return NextResponse.json({ error: "unknown run" }, { status: 404 });
+      return Response.json({ error: "unknown run" }, { status: 404 });
     }
     const appsDir = path.join(handle.plan.sdkRoot, "apps");
     if (!existsSync(path.join(appsDir, handle.app))) {
@@ -208,7 +207,7 @@ export async function buildRunDownloadRoute(
           },
         });
       }
-      return NextResponse.json(
+      return Response.json(
         { error: "no generated crate yet — run the build first" },
         { status: 409 },
       );
@@ -266,7 +265,7 @@ export async function buildRunDownloadRoute(
  *  live sidecar, or the store's embedded tarball, whichever is freshest. */
 export async function buildRunFileRoute(
   req: Request,
-): Promise<NextResponse | Response> {
+): Promise<Response | Response> {
   const auth = await authorize(req, { allowAnon: true });
   if ("response" in auth) return auth.response;
 
@@ -274,16 +273,16 @@ export async function buildRunFileRoute(
   const runId = url.searchParams.get("id");
   const filePath = url.searchParams.get("path");
   if (!runId || !filePath) {
-    return NextResponse.json({ error: "missing id or path" }, { status: 400 });
+    return Response.json({ error: "missing id or path" }, { status: 400 });
   }
   try {
     const handle = getBuildRun(runId) ?? (await reconstructBuildRun(runId));
     if (!handle) {
-      return NextResponse.json({ error: "unknown run" }, { status: 404 });
+      return Response.json({ error: "unknown run" }, { status: 404 });
     }
     const body = await readRunFile(handle, filePath);
     if (!body) {
-      return NextResponse.json({ error: "file not found" }, { status: 404 });
+      return Response.json({ error: "file not found" }, { status: 404 });
     }
     return new Response(new Uint8Array(body), {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -303,7 +302,7 @@ export async function buildRunDecisionRoute(req: Request): Promise<Response> {
   try {
     body = (await req.json()) as BuildRunDecisionRequest;
   } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+    return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
   if (
     typeof body.runId !== "string" ||
@@ -312,7 +311,7 @@ export async function buildRunDecisionRoute(req: Request): Promise<Response> {
     body.iteration < 0 ||
     typeof body.approve !== "boolean"
   ) {
-    return NextResponse.json(
+    return Response.json(
       { error: "runId, nodeId, iteration, approve are required" },
       { status: 400 },
     );
@@ -327,7 +326,7 @@ export async function buildRunDecisionRoute(req: Request): Promise<Response> {
       note: body.note,
       selection: body.selection,
     });
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (error) {
     return buildFailures.handle(
       identifyBuildRouteFailure(error, req, "build.decision"),

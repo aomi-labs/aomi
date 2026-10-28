@@ -1,8 +1,6 @@
-"use client";
-
 import { useId } from "react";
 
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 export function HelpBadge({
   label,

@@ -101,7 +101,7 @@ export type FailureInput =
       error: unknown;
     })
   | (ContextualFailure &
-      RequestErrorDetails & {
+      Partial<RequestErrorDetails> & {
         source: "uncaught";
         error: unknown;
       });

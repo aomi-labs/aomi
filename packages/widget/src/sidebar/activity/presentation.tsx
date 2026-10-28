@@ -2,7 +2,8 @@ import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
 import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
 import { FileSignature, Layers3 } from "lucide-react";
-import { STAGED_ACTION_ICON_REGISTRY } from "@/thread/tool-registry";
+import { STAGED_ACTION_ICON_REGISTRY } from "@aomi-labs/client/trace";
+import { traceIcon } from "@/thread/trace-icons";
 import { getDefaultSvmNetworkLabel } from "@/wallet/catalog/svm-networks";
 import type { SvmCluster } from "@/wallet/types";
 
@@ -43,9 +44,10 @@ export function transactionSemantic(
   kind?: string,
 ): Pick<TransactionView, "kind" | "Icon"> {
   const text = `${kind ?? ""} ${label}`.toLowerCase().replaceAll("_", " ");
-  const Icon =
-    STAGED_ACTION_ICON_REGISTRY.find(([pattern]) => pattern.test(text))?.[1] ??
-    Layers3;
+  const icon = STAGED_ACTION_ICON_REGISTRY.find(([pattern]) =>
+    pattern.test(text),
+  )?.[1];
+  const Icon = icon ? traceIcon(icon) : Layers3;
   return {
     kind: /approv|allowance|permit/.test(text) ? "approval" : "action",
     Icon,

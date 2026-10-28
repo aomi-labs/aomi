@@ -1,5 +1,3 @@
-"use client";
-
 // The global Providers page: builder-owned LLM model keys, provider-centric.
 // One flat card per provider (header + divide-y key rows). Each key row is an
 // accordion: click to expand an inline panel with key metadata, project
@@ -28,7 +26,7 @@ import {
 } from "@/features/deploy/query-keys";
 import { modelKeysFetch } from "@/features/operate/client";
 import { API_PATHS } from "@/lib/api-paths";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 import { readJsonResponse } from "@/lib/request-retry";
 
 export const PROVIDERS = ["openai", "anthropic", "openrouter"] as const;

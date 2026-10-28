@@ -7,7 +7,7 @@ import type {
   PipelineTransport,
   SvmPipelineTransport,
 } from "../pipeline/transport";
-import { validatePipelineArguments } from "../pipeline/schema";
+import { validatePipelineArguments, withTopic } from "../pipeline/schema";
 import type {
   EvmCommitResult,
   EvmDirectInput,
@@ -15,6 +15,7 @@ import type {
   EvmStageInput,
   EvmStagedBuild,
   PipelineCommitOptions,
+  PipelineDirectory,
   PipelineInvokeOptions,
   PipelineMutationOptions,
   PipelineOperationBuildInput,
@@ -25,7 +26,8 @@ import type {
   SvmStageInput,
   SvmStagedBuild,
 } from "../pipeline/types";
-import { EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./build";
+import { Build, EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./build";
+import { CommitHandle } from "./commits";
 
 export class AomiEvmPipeline {
   constructor(
@@ -252,10 +254,13 @@ export class AomiPipelineOperationScope {
     options: AomiOperationBuildOptions = {},
   ): Promise<EvmBuild | SvmBuild> {
     const descriptor = await this.raw.operation(name);
+    args = withTopic(args, name, descriptor.inputSchema);
     validatePipelineArguments(args, descriptor.inputSchema);
     const { chainFamily: requestedChainFamily, ...mutationOptions } = options;
     const chainFamily =
-      requestedChainFamily ?? descriptor.chainFamily ?? inferChainFamily(args);
+      requestedChainFamily ??
+      descriptor.chainFamily ??
+      inferChainFamily(name, args);
     const transportOptions =
       Object.keys(mutationOptions).length > 0 ? mutationOptions : undefined;
     const input = {
@@ -283,9 +288,14 @@ export class AomiPipelineSkillScope extends AomiPipelineOperationScope {
   }
 }
 
+/** The app a build runs in when none is named, like Auto in the portal. */
+const DEFAULT_APP = "default";
+
 export class AomiPipeline {
   readonly evm: AomiEvmPipeline;
   readonly svm: AomiSvmPipeline;
+  /** The skill catalog. */
+  readonly skills: { list(): Promise<PipelineDirectory> };
 
   constructor(
     readonly raw: PipelineTransport,
@@ -294,6 +304,43 @@ export class AomiPipeline {
   ) {
     this.evm = new AomiEvmPipeline(raw.evm, client, capabilities);
     this.svm = new AomiSvmPipeline(raw.svm);
+    this.skills = { list: () => raw.skills.list() };
+  }
+
+  /** Operations of `app`, the default app unless named. */
+  operations(options: { app?: string } = {}): Promise<PipelineDirectory> {
+    return this.app(options.app ?? DEFAULT_APP).operations();
+  }
+
+  invoke<T = unknown>(
+    name: string,
+    args: Record<string, unknown>,
+    options: PipelineInvokeOptions & { app?: string } = {},
+  ): Promise<T> {
+    const { app, ...invokeOptions } = options;
+    return this.app(app ?? DEFAULT_APP).invoke<T>(name, args, invokeOptions);
+  }
+
+  /**
+   * Stage and simulate one operation. Nothing is signed until `commit()`.
+   * EVM or Solana follows from the operation; `app` defaults to the default
+   * app.
+   */
+  async build(
+    name: string,
+    args: Record<string, unknown>,
+    options: AomiOperationBuildOptions & { app?: string } = {},
+  ): Promise<Build> {
+    const { app, ...buildOptions } = options;
+    return new Build(
+      await this.app(app ?? DEFAULT_APP).build(name, args, buildOptions),
+      (result) => {
+        const controller = this.evm.commits(result);
+        const leader = controller.all().find((view) => !view.batch?.index);
+        if (!leader) throw new Error("Pipeline commit has no commits");
+        return new CommitHandle(leader.commit_id, controller);
+      },
+    );
   }
 
   app(name: string): AomiPipelineOperationScope {
@@ -309,8 +356,14 @@ export class AomiPipeline {
   }
 }
 
-function inferChainFamily(args: Record<string, unknown>): "evm" | "svm" {
-  return "cluster" in args || "instructions" in args || "transaction" in args
+function inferChainFamily(
+  operation: string,
+  args: Record<string, unknown>,
+): "evm" | "svm" {
+  return operation.startsWith("svm_") ||
+    "cluster" in args ||
+    "instructions" in args ||
+    "transaction" in args
     ? "svm"
     : "evm";
 }

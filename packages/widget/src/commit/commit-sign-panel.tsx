@@ -140,7 +140,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   // A batch (a two-asset withdraw, an ordered cohort) is done only when every
   // member is; until then a finished first member still reads as in flight.
   // The result is the batch's: its first failed member, else its last.
-  const settled = handle.settled;
+  const settled = handle.settlement;
   const terminal = settled.done;
   const outcome = projectCommitLifecycle(settled.failed ?? settled.last);
   const inFlight =

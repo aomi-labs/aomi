@@ -1,5 +1,3 @@
-"use client";
-
 // Dense log viewer: one line per record, click to expand. Handles both
 // record kinds — invocation traces (tool, args, result, duration) and
 // control-plane events. The backend combines both record types on this

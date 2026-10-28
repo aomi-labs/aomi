@@ -1,8 +1,8 @@
-"use client";
-
 import {
   createContext,
   useContext,
+  useCallback,
+  useRef,
   useEffect,
   useMemo,
   useState,
@@ -11,6 +11,8 @@ import {
 
 import { launchFetchGitHubSession } from "@/features/deploy/client";
 import { type GitHubSessionInfo } from "@aomi-labs/deploy/launch";
+
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { BUILD_SESSION_EXPIRED } from "@/lib/session-expiry";
 
@@ -41,22 +43,65 @@ const GitHubSessionContext = createContext<GitHubSessionContextValue | null>(
   null,
 );
 
+// A router cache can outlive this layout. Retain its confirmed identity so a
+// same-account remount reuses reads, while an account change clears all families.
+const accountScopes = new WeakMap<QueryClient, string>();
+
 export function signedOutGitHubAccount(): GitHubAccountState {
   return signedOutState;
 }
 
 export function GitHubSessionProvider({ children }: { children: ReactNode }) {
-  const [account, setAccount] = useState<GitHubAccountState>(initialState);
+  const [account, updateAccount] = useState<GitHubAccountState>(initialState);
+  const currentAccount = useRef(initialState);
+  const sessionEpoch = useRef(0);
+  const queryClient = useQueryClient();
+
+  const clearAccountQueries = useCallback(() => {
+    // Attempts and runtime reads use key families outside `aomi-build`.
+    void queryClient.cancelQueries();
+    queryClient.clear();
+  }, [queryClient]);
+
+  const setAccount = useCallback(
+    (
+      value:
+        | GitHubAccountState
+        | ((current: GitHubAccountState) => GitHubAccountState),
+    ) => {
+      const previous = currentAccount.current;
+      const next = typeof value === "function" ? value(previous) : value;
+      if (next === previous) return;
+      if (!next.loading) {
+        const scope = JSON.stringify([
+          next.signedIn,
+          next.githubLogin,
+          next.installationId ?? null,
+        ]);
+        const previousScope = accountScopes.get(queryClient);
+        // The first resolved session only records its scope; clear on a switch.
+        if (previousScope !== undefined && previousScope !== scope)
+          clearAccountQueries();
+        accountScopes.set(queryClient, scope);
+      }
+      sessionEpoch.current += 1;
+      currentAccount.current = next;
+      updateAccount(next);
+    },
+    [clearAccountQueries, queryClient],
+  );
 
   useEffect(() => {
     let cancelled = false;
+    const epoch = sessionEpoch.current;
     launchFetchGitHubSession().then((session) => {
-      if (!cancelled) setAccount({ ...session, loading: false });
+      if (!cancelled && epoch === sessionEpoch.current)
+        setAccount({ ...session, loading: false });
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setAccount]);
 
   useEffect(() => {
     const expire = () =>
@@ -65,14 +110,15 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
       );
     window.addEventListener(BUILD_SESSION_EXPIRED, expire);
     return () => window.removeEventListener(BUILD_SESSION_EXPIRED, expire);
-  }, []);
+  }, [setAccount]);
 
   useEffect(() => {
     if (!account.expired) return;
     let cancelled = false;
     const resume = () => {
+      const epoch = sessionEpoch.current;
       void launchFetchGitHubSession().then((session) => {
-        if (!cancelled && session.signedIn) {
+        if (!cancelled && epoch === sessionEpoch.current && session.signedIn) {
           setAccount({ ...session, loading: false });
         }
       });
@@ -82,14 +128,14 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.removeEventListener("focus", resume);
     };
-  }, [account.expired]);
+  }, [account.expired, setAccount]);
 
   const value = useMemo(
     () => ({
       account,
       setAccount,
     }),
-    [account],
+    [account, setAccount],
   );
 
   return (

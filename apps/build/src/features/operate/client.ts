@@ -1,5 +1,3 @@
-"use client";
-
 import { buildFetch } from "@/lib/session-expiry";
 import { API_PATHS } from "@/lib/api-paths";
 import { HttpRequestError, readJsonResponse } from "@/lib/request-retry";

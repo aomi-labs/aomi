@@ -184,8 +184,9 @@ export {
 // ======================================================================
 export { Aomi } from "./sdk/aomi";
 export type { AomiOptions } from "./sdk/aomi";
-export { oauth } from "./sdk/auth";
+export { bearer, oauth } from "./sdk/auth";
 export type {
+  AomiBearerStrategy,
   AomiAuthController,
   AomiAuthLoginOptions,
   AomiAuthMode,
@@ -197,8 +198,27 @@ export type {
   AomiOAuthStrategy,
 } from "./sdk/auth";
 export { AomiAgent, AgentRun } from "./sdk/agent";
-export { AomiCommits, CommitHandle } from "./sdk/commits";
-export type { CommitSigner } from "./sdk/commits";
+export {
+  AomiCommits,
+  Commit,
+  CommitHandle,
+} from "./sdk/commits";
+export type { CommitKind, CommitSettlement, CommitSigner } from "./sdk/commits";
+export { Thread, Turn } from "./sdk/thread";
+export type {
+  StepDecoder,
+  ThreadSummary,
+  ToolStep,
+  TurnResult,
+} from "./sdk/thread";
+export {
+  AomiAccount,
+  AomiAccountApps,
+  AomiAccountWallets,
+  AomiGuard,
+} from "./sdk/account";
+export type { AomiAccountStatement } from "./sdk/account";
+export { AomiError, isAomiError } from "./api-error";
 export {
   COMMIT_REF_ERROR_CODES,
   CommitApprovalForbiddenError,
@@ -217,7 +237,7 @@ export type {
   AgentRunOptions,
   AgentRunResult,
 } from "./sdk/agent";
-export { EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./sdk/build";
+export { Build, EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./sdk/build";
 export {
   AomiEvmPipeline,
   AomiPipeline,
@@ -515,7 +535,7 @@ export {
 export { wrapFetchWithPublicApiAuthorization } from "./client";
 export { commitCapabilities, isTerminalCommit } from "./commits";
 export type { CommitView } from "./commits";
-export type { ResolvedAccountLink } from "./account/graph";
+export type { AccountMergeOffer, ResolvedAccountLink } from "./account/graph";
 
 export { buildSiweMessage, buildWalletLinkMessage } from "./siwe";
 export type { SiweMessageInput } from "./siwe";

@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { portalService } from "@aomi-labs/account";
 import { buildFailures } from "@/server/bff/failures";

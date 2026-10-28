@@ -64,11 +64,11 @@ async function waitForOutcome(
   timing: TxApproveTiming,
 ): Promise<CommitRefView> {
   const deadline = Date.now() + timing.timeoutMs;
-  while (!handle.settled.done && Date.now() < deadline) {
+  while (!handle.settlement.done && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, timing.intervalMs));
     await handle.refresh();
   }
-  const { done, failed, last } = handle.settled;
+  const { done, failed, last } = handle.settlement;
   // The member that did not confirm, else the last one; a pending batch
   // reports where its first unfinished member is.
   return done

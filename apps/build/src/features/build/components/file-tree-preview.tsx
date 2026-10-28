@@ -1,10 +1,8 @@
-"use client";
-
 import { ChevronDown, ChevronRight, File, Folder } from "lucide-react";
 import { useState } from "react";
 
 import type { BuildFileNode } from "@/features/build/contracts";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 function FileTreeNode({
   node,

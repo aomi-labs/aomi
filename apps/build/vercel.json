@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "outputDirectory": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter aomi-build build"
+}

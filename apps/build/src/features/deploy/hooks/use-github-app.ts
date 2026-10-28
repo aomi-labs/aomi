@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { GitHubAppInstallationsResult } from "@aomi-labs/deploy";

@@ -18,6 +18,10 @@ const eslintConfig = [
     ignores: [
       "**/.next*/**",
       "**/output/**",
+      "**/.output/**",
+      "**/.vercel/**",
+      "**/.tanstack/**",
+      "**/routeTree.gen.ts",
       "**/dist/**",
       "**/build/**",
       "**/.turbo/**",
