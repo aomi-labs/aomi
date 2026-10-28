@@ -1,14 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { withBrowserSessionTransition } from "@aomi-labs/client";
+import {
+  Aomi,
+  withBrowserSessionTransition,
+  type GetAccountBearer,
+} from "@aomi-labs/client";
 import type { AuthRuntime, SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
-import type { AccountRuntime, AccountWallet } from "./types";
-import {
-  createAomiBackendAccountClient,
-  type AomiBackendAccountResponse,
-} from "./aomi-backend-client";
+import type {
+  AccountRuntime,
+  AccountWallet,
+  AomiBackendAccountResponse,
+} from "./types";
 import {
   useAccountSessionProvider,
   widgetCredentialsReady,
@@ -48,14 +52,26 @@ export function useAomiBackendAccountRuntime(input: {
     evm: input.evm,
     svm: input.svm,
   });
+  // The cookie session, or (embedded) the widget session; the SDK attaches it
+  // and retries a 401 once with a refreshed one.
   const accountClient = useMemo(
     () =>
-      createAomiBackendAccountClient({
-        baseUrl: input.baseUrl,
-        auth: accountSessionProvider
-          ? { credentials: "omit", getAuthorization: accountSessionProvider }
-          : { credentials: "include" },
-      }),
+      new Aomi({
+        baseUrl: input.baseUrl?.replace(/\/+$/, "") ?? "",
+        guest: false,
+        fetch: (url, init) =>
+          fetch(url, {
+            ...init,
+            credentials: accountSessionProvider ? "omit" : "include",
+          }),
+        getAccountBearer: accountSessionProvider
+          ? Object.assign(
+              (options?: Parameters<GetAccountBearer>[0]) =>
+                accountSessionProvider(options),
+              { required: true as const },
+            )
+          : undefined,
+      }).account,
     [input.baseUrl, accountSessionProvider],
   );
   const authMessageConfig = useMemo(
@@ -140,7 +156,7 @@ export function useAomiBackendAccountRuntime(input: {
       // test double or future client implementation throws synchronously.
       await Promise.resolve();
       try {
-        const next = await accountClient.getAccount();
+        const next = (await accountClient.getAccount()) as AomiBackendAccountResponse;
         const latest = latestRefreshContext.current;
         if (
           latest.accountClient !== accountClient ||
@@ -345,11 +361,11 @@ export function useAomiBackendAccountRuntime(input: {
       await refresh();
     },
     updateWallet: async ({ walletId, label }) => {
-      await accountClient.renameWallet(walletId, label ?? null);
+      await accountClient.updateWallet(walletId, { label: label ?? null });
       await refresh();
     },
     updateAuthIdentity: async ({ identityId, displayLabel }) => {
-      await accountClient.updateAuthIdentity(identityId, { displayLabel });
+      await accountClient.updateIdentity(identityId, { displayLabel });
       await refresh();
     },
     unlinkWallet: async (walletId) => {
@@ -357,13 +373,13 @@ export function useAomiBackendAccountRuntime(input: {
       await refresh();
     },
     unlinkAuthIdentity: async (identityId) => {
-      await accountClient.unlinkAuthIdentity(identityId);
+      await accountClient.unlinkIdentity(identityId);
       await refresh();
     },
     mergeAccount: async (ticket) => {
-      const result = await accountClient.mergeAccount(ticket);
+      const result = await accountClient.merge(ticket);
       exchange.resumeAfterMerge();
-      setAccount(result.account);
+      setAccount(result.account as AomiBackendAccountResponse);
       await refresh();
       return { chats: result.moved.chats };
     },
@@ -373,7 +389,7 @@ export function useAomiBackendAccountRuntime(input: {
       ? undefined
       : async (ticket) => {
           await withBrowserSessionTransition(() =>
-            accountClient.switchToMergeSource(ticket),
+            accountClient.switchTo(ticket),
           );
           await refresh();
         },

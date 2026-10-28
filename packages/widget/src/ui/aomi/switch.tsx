@@ -1,6 +1,6 @@
+import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 
-import { cn } from "@aomi-labs/react";
 
 /** A small on/off control for settings rows. */
 export function Switch({

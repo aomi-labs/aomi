@@ -1,7 +1,7 @@
+import { cn } from "@aomi-labs/widget";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { cn } from "@aomi-labs/react";
 
 /**
  * UI-only Create composer model list.

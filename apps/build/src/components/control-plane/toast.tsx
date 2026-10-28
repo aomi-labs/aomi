@@ -1,3 +1,4 @@
+import { cn } from "@aomi-labs/widget";
 import {
   createContext,
   useCallback,
@@ -8,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { cn } from "@aomi-labs/react";
 
 export type ToastTone = "success" | "error" | "info";
 

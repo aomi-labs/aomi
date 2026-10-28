@@ -1,7 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { FC } from "react";
-import { cn } from "@aomi-labs/react";
 import type { ToolChip } from "@aomi-labs/client/trace";
 import { traceIcon } from "./trace-icons";
 

@@ -3,20 +3,25 @@ import {
   buildSiwsMessage,
   buildWalletLinkMessage,
   withBrowserSessionTransition,
+  type AomiAccount,
 } from "@aomi-labs/client";
 import type { SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import type { SvmCluster } from "../types";
-import type { AccountRuntime } from "./types";
-import type {
-  AomiBackendAccountResponse,
-  createAomiBackendAccountClient,
-} from "./aomi-backend-client";
+import type { AccountRuntime, AomiBackendAccountResponse } from "./types";
 import { messageConfigFromNonce, type AuthMessageConfig } from "./auth-message";
 import { resolveLinkedWalletName, walletAppName } from "./wallet-labels";
 import { utf8ToBase64 } from "./encoding";
 
-type AccountClient = ReturnType<typeof createAomiBackendAccountClient>;
+type AccountClient = Pick<
+  AomiAccount,
+  | "getWalletLinkNonce"
+  | "linkWallet"
+  | "siweNonce"
+  | "verifySiwe"
+  | "siwsNonce"
+  | "verifySiws"
+>;
 
 /** The active Solana signer, when one is connected. */
 export type ActiveSvmSigner = {
@@ -106,7 +111,7 @@ export async function linkAccountWallet(
       signature: await sign(message),
       nonce: nonceResult.nonce,
     });
-    return result.account;
+    return result.account as AomiBackendAccountResponse | undefined;
   }
   if (!evm.signMessageForAccount && !evm.signMessageAsync) {
     throw new Error("Wallet linking requires an active EVM signer");
@@ -160,7 +165,7 @@ export async function linkAccountWallet(
     signature,
     nonce: nonceResult.nonce,
   });
-  return result.account;
+  return result.account as AomiBackendAccountResponse | undefined;
 }
 
 async function signMessageWithActiveEvm(
@@ -184,7 +189,7 @@ async function signInWithEvmWallet(input: {
   messageConfig: AuthMessageConfig;
 }): Promise<void> {
   await withBrowserSessionTransition(async () => {
-    const nonceResult = await input.accountClient.createSiweNonce();
+    const nonceResult = await input.accountClient.siweNonce();
     const message = buildSiweMessage({
       address: input.address,
       chainId: input.chainId,
@@ -222,7 +227,7 @@ async function signInWithSvmWallet(input: {
   messageConfig: AuthMessageConfig;
 }): Promise<void> {
   await withBrowserSessionTransition(async () => {
-    const nonceResult = await input.accountClient.createSiwsNonce({
+    const nonceResult = await input.accountClient.siwsNonce({
       walletAddress: input.address,
       chainId: input.chainId,
     });

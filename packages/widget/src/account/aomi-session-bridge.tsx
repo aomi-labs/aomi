@@ -110,20 +110,10 @@ export function useAomiSession(): {
               queryKey: cache.key("profile"),
               staleTime: 5 * 60_000,
               retry: false,
-              queryFn: async ({ signal }) => {
-                const response = await transport.fetch("/api/account", {
-                  signal,
-                  cache: "no-store",
-                  headers: { "X-Thread-Id": "settings-session-probe" },
-                });
-                if (!response.ok)
-                  throw Object.assign(
-                    new Error("Account display unavailable"),
-                    {
-                      status: response.status,
-                    },
-                  );
-                const profile = (await response.json()) as AccountOverview;
+              queryFn: async () => {
+                const profile: AccountOverview = await transport.aomi.raw.getAccount(
+                  transport.settingsThread(),
+                );
                 if (profile.user.user_id !== accountUserId)
                   throw new Error(
                     "Account changed while its profile was loading",
@@ -134,32 +124,15 @@ export function useAomiSession(): {
             if (!cancelled) setProbeStatus("ready");
             return;
           }
-          const response = await transport.fetch("/api/account", {
-            cache: "no-store",
-            headers: { "X-Thread-Id": "settings-session-probe" },
-          });
+          const profile: AccountOverview = await transport.aomi.raw.getAccount(
+                  transport.settingsThread(),
+                );
           if (cancelled) return;
-          if (response.ok) {
-            // The probe already paid for the account payload — share it so
-            // the settings tabs don't refetch /api/account individually.
-            try {
-              seedAccountOverview((await response.json()) as AccountOverview);
-            } catch {
-              // Non-JSON body; consumers fetch on demand instead.
-            }
-            setProbeStatus("ready");
-            return;
-          }
-          if (response.status === 401 && waitedMs < retryBudgetMs) {
-            setProbeStatus("establishing");
-          } else if (response.status === 401) {
-            seedAccountOverview(null);
-            setProbeStatus("anonymous");
-            return;
-          } else {
-            setProbeStatus("error");
-            return;
-          }
+          // The probe already paid for the account payload — share it so
+          // the settings tabs don't refetch /api/account individually.
+          seedAccountOverview(profile);
+          setProbeStatus("ready");
+          return;
         } catch (error) {
           if (cancelled) return;
           const status =

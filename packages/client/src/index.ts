@@ -15,6 +15,11 @@ export type {
   AomiCreditListOptions,
   CreditBalance,
 } from "./account/credits";
+export {
+  AccountKeysTransport,
+  AccountPoliciesTransport,
+} from "./account/keys";
+export type { AccountKeyScope } from "./account/keys";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
 export { AomiCreditApiError } from "./account/credits";
@@ -538,7 +543,11 @@ export {
 export { wrapFetchWithPublicApiAuthorization } from "./client";
 export { commitCapabilities, isTerminalCommit } from "./commits";
 export type { CommitView } from "./commits";
-export type { AccountMergeOffer, ResolvedAccountLink } from "./account/graph";
+export type {
+  AccountMergeOffer,
+  AccountNonce,
+  ResolvedAccountLink,
+} from "./account/graph";
 
 export { buildSiweMessage, buildWalletLinkMessage } from "./siwe";
 export type { SiweMessageInput } from "./siwe";

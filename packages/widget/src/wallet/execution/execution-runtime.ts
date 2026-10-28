@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  toViemSignMessageArgs,
-  toViemSignTypedDataArgs,
-} from "@aomi-labs/react";
+import { toViemSignMessageArgs, toViemSignTypedDataArgs } from "@aomi-labs/client";
 import { walletDebug } from "@/wallet/wallet-debug";
 import type { EvmExecutionRuntime } from "@/wallet/composer/types";
 import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";

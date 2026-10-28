@@ -1,3 +1,4 @@
+import { cn } from "@aomi-labs/widget";
 import { UrlLink as Link } from "@/components/url-link";
 import { useLocation } from "@tanstack/react-router";
 import {
@@ -43,7 +44,6 @@ import {
 } from "@/components/control-plane/github-session-context";
 import { ToastProvider } from "@/components/control-plane/toast";
 import { githubSigninUrl, launchSignOutGitHub } from "@/features/deploy/client";
-import { cn } from "@aomi-labs/react";
 
 type NavItem = {
   label: string;

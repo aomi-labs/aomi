@@ -11,6 +11,7 @@
 // and the button ramp (accent commit + accent repair in flow, solid red pill
 // for the destructive commit).
 
+import { cn } from "@aomi-labs/widget";
 import { Check, ChevronDown, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,7 +27,6 @@ import {
 } from "@/features/deploy/query-keys";
 import { modelKeysFetch } from "@/features/operate/client";
 import { API_PATHS } from "@/lib/api-paths";
-import { cn } from "@aomi-labs/react";
 import { readJsonResponse } from "@/lib/request-retry";
 
 export const PROVIDERS = ["openai", "anthropic", "openrouter"] as const;

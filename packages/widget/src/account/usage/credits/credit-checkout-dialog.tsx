@@ -46,7 +46,7 @@ export function CreditCheckoutDialog({
 }) {
   const overlay = useWidgetOverlay();
   const transport = useShellTransport();
-  const creditsApi = suppliedCredits ?? transport.client.account.credits;
+  const creditsApi = suppliedCredits ?? transport.aomi.account.credits;
   const connectedWallet = useAomiWalletKit();
   const wallet = suppliedWallet ?? connectedWallet;
   const [methods, setMethods] = useState<AomiCreditMethods | null>(null);

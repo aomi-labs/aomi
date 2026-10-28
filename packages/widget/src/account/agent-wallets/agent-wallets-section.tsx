@@ -1,13 +1,14 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { lazy, Suspense, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { AomiAgentWallet } from "@aomi-labs/client";
-import { cn, useDisplayQuery } from "@aomi-labs/react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { AomiButton } from "@/ui/aomi/button";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { agentWalletsQuery } from "@/account/account-queries";
 import { Divider } from "@/account/account-management/controls";
 import { plural } from "@/account/account-management/wallet-model";
@@ -59,8 +60,8 @@ export function AgentWalletsSection({
   pending: string | null;
   onActivate?: (row: WalletRow) => void;
 }) {
-  const { client } = useShellTransport();
-  const query = useDisplayQuery(agentWalletsQuery(client));
+  const aomi = useShellAomi();
+  const query = useDisplayQuery(agentWalletsQuery(aomi));
   const refresh = useRefreshWallets();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,19 +93,19 @@ export function AgentWalletsSection({
   };
   const update = (
     wallet: AomiAgentWallet,
-    change: Parameters<typeof client.account.wallets.updateAgentWallet>[1],
+    change: Parameters<typeof aomi.account.wallets.updateAgentWallet>[1],
   ) =>
     run(`agent:${wallet.id}`, () =>
-      client.account.wallets.updateAgentWallet(wallet.id, change),
+      aomi.account.wallets.updateAgentWallet(wallet.id, change),
     );
   const resumeAll = () =>
-    void run("agent:all", () => client.account.wallets.pauseAll(false));
+    void run("agent:all", () => aomi.account.wallets.pauseAll(false));
   const archive = async (wallet: AomiAgentWallet) => {
     if (pending) return;
     setBusy(`agent:${wallet.id}`);
     const balances = await Promise.all(
       wallet.addresses.map(({ family }) =>
-        client.account.wallets
+        aomi.account.wallets
           .agentWalletBalances(wallet.id, family)
           .catch(() => ({ networks: [] })),
       ),

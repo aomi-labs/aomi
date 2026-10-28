@@ -9,9 +9,9 @@
  * client owns payment retries and recovery probes.
  */
 
+import { type AomiClientOptions } from "@aomi-labs/client";
 import { hostedPortalOrigin } from "./hosted-portal";
 import { useEffect, useMemo, useState } from "react";
-import { type AomiClientOptions } from "@aomi-labs/react";
 import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
 import {
   createWidgetX402Client,

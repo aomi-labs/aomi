@@ -1,5 +1,6 @@
 "use client";
 
+import { type WalletEip712Payload, type WalletSolanaSignMessagePayload, type WalletSolanaSignPayload, type WalletTxPayload } from "@aomi-labs/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
@@ -7,13 +8,7 @@ import {
   type AomiWalletKit,
   type AomiSessionIdentity,
 } from "@aomi-labs/widget/host-composition";
-import {
-  ExtUserProvider,
-  type WalletEip712Payload,
-  type WalletSolanaSignMessagePayload,
-  type WalletSolanaSignPayload,
-  type WalletTxPayload,
-} from "@aomi-labs/react";
+import { ExtUserProvider } from "@aomi-labs/react";
 import { http, type Chain } from "viem";
 import { createConfig, WagmiProvider } from "wagmi";
 

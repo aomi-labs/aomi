@@ -1,3 +1,4 @@
+import { cn } from "@aomi-labs/widget";
 import { ArrowUp, Laptop, Loader2, Square } from "lucide-react";
 import {
   forwardRef,
@@ -8,7 +9,6 @@ import {
 } from "react";
 
 import { ComposerModelPicker } from "@/features/build/components/composer-model-picker";
-import { cn } from "@aomi-labs/react";
 
 type ActionPill = {
   label: string;

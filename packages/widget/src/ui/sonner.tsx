@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 import { Toaster as Sonner } from "sonner";
 
-import { cn } from "@aomi-labs/react";
 
 type ToasterProps = ComponentProps<typeof Sonner>;
 

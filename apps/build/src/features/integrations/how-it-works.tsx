@@ -2,9 +2,9 @@
 // left, a Telegram-styled mock of the real BotFather /setcommands exchange on
 // the right. Ported from the /mock-integration design session.
 
+import { cn } from "@aomi-labs/widget";
 import { BadgeCheck, Bot, Copy, ExternalLink } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { cn } from "@aomi-labs/react";
 
 /** The /setcommands list we tell builders to paste into BotFather: exactly
  *  the commands the bot handles itself (the Telegram crate's panels, and the

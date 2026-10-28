@@ -4,8 +4,7 @@ import { useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
 import {
-  AomiClient,
-  createGuestSessionProvider,
+  Aomi,
   type ActionCapabilities,
   type CommitCapabilities,
   type AgentTarget,
@@ -46,6 +45,8 @@ export type AomiRuntimeProviderProps = {
   /** What to save across reloads. Defaults to the public catalogs. */
   displayPersistence?: DisplayPersistence;
   backendUrl?: string;
+  /** The `Aomi` to run on; otherwise one is made from `backendUrl` and `clientOptions`. */
+  aomi?: Aomi;
   /** Credentials stay in memory unless a host opts into tab-scoped persistence. */
   apiKeyPersistence?: "memory" | "session";
   applicationId?: number | string | null;
@@ -80,6 +81,7 @@ export function AomiRuntimeProvider({
   account,
   displayPersistence,
   backendUrl,
+  aomi: suppliedAomi,
   apiKeyPersistence,
   applicationId,
   agentTarget,
@@ -133,26 +135,18 @@ export function AomiRuntimeProvider({
     [clientOptions],
   );
 
-  const confirmedCookieSession = useRef(accountSessionAvailable);
-  confirmedCookieSession.current = accountSessionAvailable;
-  const aomiClient = useMemo(
+  const aomi = useMemo(
     () =>
-      new AomiClient({
+      suppliedAomi ??
+      new Aomi({
         baseUrl: backendUrl,
         ...resolvedClientOptions,
+        // An account bearer alone is the session; it gets no guest beside it.
         guest:
-          resolvedClientOptions.guest === true ||
-          (resolvedClientOptions.guest === undefined &&
-            !resolvedClientOptions.oauth &&
-            !resolvedClientOptions.getAccountBearer)
-            ? createGuestSessionProvider({
-                baseUrl: backendUrl,
-                fetch: resolvedClientOptions.fetch,
-                getCookieSessionAvailable: () => confirmedCookieSession.current,
-              })
-            : resolvedClientOptions.guest,
+          resolvedClientOptions.guest ??
+          (resolvedClientOptions.getAccountBearer ? false : undefined),
       }),
-    [backendUrl, resolvedClientOptions],
+    [suppliedAomi, backendUrl, resolvedClientOptions],
   );
 
   return (
@@ -161,7 +155,7 @@ export function AomiRuntimeProvider({
       applicationId={applicationId}
       account={account}
       persistence={displayPersistence}
-      apiClient={aomiClient}
+      aomi={aomi}
     >
       <ThreadContextProvider initialThreadId={threadId ?? restoredThreadId}>
         <NotificationContextProvider>
@@ -170,7 +164,7 @@ export function AomiRuntimeProvider({
               account={account}
               threadId={threadId}
               onThreadChange={onThreadChange}
-              aomiClient={aomiClient}
+              aomi={aomi}
               accountAuthSource={
                 resolvedClientOptions.getAccountBearer?.required
                   ? resolvedClientOptions.getAccountBearer
@@ -203,7 +197,7 @@ export function AomiRuntimeProvider({
 type AomiRuntimeInnerProps = {
   children: ReactNode;
   account?: RuntimeAccount | null;
-  aomiClient: AomiClient;
+  aomi: Aomi;
   accountAuthSource?:
     | AomiClientOptions["getAccountBearer"]
     | AomiClientOptions["oauth"];
@@ -224,7 +218,7 @@ type AomiRuntimeInnerProps = {
 function AomiRuntimeInner({
   children,
   account,
-  aomiClient,
+  aomi,
   accountAuthSource,
   apiKeyPersistence,
   backendUrl,
@@ -245,7 +239,7 @@ function AomiRuntimeInner({
 
   return (
     <ControlContextProvider
-      aomiClient={aomiClient}
+      aomi={aomi}
       backendUrl={backendUrl}
       apiKeyPersistence={apiKeyPersistence}
       sessionId={threadContext.currentThreadId}
@@ -258,7 +252,7 @@ function AomiRuntimeInner({
     >
       <AomiRuntimeCore
         account={account}
-        aomiClient={aomiClient}
+        aomiClient={aomi.raw}
         accountAuthSource={accountAuthSource}
         agentTarget={agentTarget}
         accountSessionAvailable={accountSessionAvailable}

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { type FC, useEffect, useMemo, useRef, useState } from "react";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
 import {
@@ -10,12 +11,7 @@ import {
   XIcon,
 } from "lucide-react";
 
-import {
-  cn,
-  type TaskRunState,
-  type TaskRunStatus,
-  type TaskRunStep,
-} from "@aomi-labs/react";
+import { type TaskRunState, type TaskRunStatus, type TaskRunStep } from "@aomi-labs/react";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "./attribution";
 import {

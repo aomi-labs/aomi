@@ -1,7 +1,5 @@
 "use client";
 
-import { createContext, useContext } from "react";
-
 export type SkillSummary = {
   id: string;
   name: string;
@@ -13,20 +11,9 @@ export type SkillSummary = {
   estimatedTokens?: number;
 };
 
-export type SkillDetail = SkillSummary & {
-  toolNames: string[];
-  instructions: string;
-  activation?: string;
-};
-
-import {
-  useDisplayQuery,
-  useAomiDisplayCache,
-  type DisplayQuery,
-} from "@aomi-labs/react";
-import type { AomiClient } from "@aomi-labs/client";
-
-const CATALOG_PATH = "/api/resource/skills?limit=100";
+import { useDisplayQuery, type DisplayQuery } from "@aomi-labs/react";
+import type { Aomi } from "@aomi-labs/client";
+import { useAomi } from "@/account/transport";
 
 function strings(value: unknown): string[] {
   return Array.isArray(value)
@@ -70,49 +57,13 @@ export function parseSkillCatalog(value: unknown): SkillSummary[] {
     .filter((skill): skill is SkillSummary => skill !== null);
 }
 
-async function requestJson(
-  path: string,
-  options?: RequestInit,
-): Promise<unknown> {
-  const response = await fetch(path, {
-    credentials: "include",
-    ...options,
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<unknown>;
-}
-
-export const SkillCatalogTransportContext = createContext(requestJson);
-
-export async function fetchSkillCatalog(
-  _force = false,
-  request: (path: string) => Promise<unknown> = requestJson,
-): Promise<SkillSummary[]> {
-  return parseSkillCatalog(await request(CATALOG_PATH));
-}
-
-export async function fetchSkillDetail(
+/** The pipeline operations a skill offers, beside the tools it injects. */
+export async function fetchSkillOperations(
+  aomi: Aomi,
   id: string,
-  request: (path: string) => Promise<unknown> = requestJson,
-): Promise<SkillDetail> {
-  const value = await request(`/api/resource/skills/${encodeURIComponent(id)}`);
-  const summary = parseSkill(value);
-  if (!summary || !value || typeof value !== "object") {
-    throw new Error("Skill details were not available.");
-  }
-  const row = value as Record<string, unknown>;
-  return {
-    ...summary,
-    toolNames: strings(row.tool_names),
-    instructions: typeof row.instructions === "string" ? row.instructions : "",
-    ...(typeof row.activation === "string"
-      ? { activation: row.activation }
-      : {}),
-  };
+): Promise<string[]> {
+  const { entries } = await aomi.pipeline.skill(id).operations();
+  return entries.map((entry) => entry.name);
 }
 
 export { skillLabel } from "./skill-label";
@@ -146,29 +97,17 @@ export function conciseSkillDescription(description: string): string {
   return `${summary.slice(0, boundary >= 42 ? boundary : 61).trimEnd()}…`;
 }
 
-/** Skills from the runtime's public catalog, or from the host's route without a runtime. */
-export function skillCatalogQuery(
-  api: AomiClient | undefined,
-  request: (path: string, options?: RequestInit) => Promise<unknown>,
-): DisplayQuery<SkillSummary[]> {
+/** The public skill catalog: credential-free, so every viewer shares it. */
+export function skillCatalogQuery(aomi: Aomi): DisplayQuery<SkillSummary[]> {
   return {
     resource: "skills",
     fetcher: (signal) =>
-      (api
-        ? api.getPublicCatalog("skills", { signal })
-        : request(CATALOG_PATH, { signal })
-      ).then(parseSkillCatalog),
+      aomi.raw.getPublicCatalog("skills", { signal }).then(parseSkillCatalog),
   };
 }
 
-export function useSkillCatalog(
-  fetcher?: (path: string, options?: RequestInit) => Promise<unknown>,
-) {
-  const api = useAomiDisplayCache()?.apiClient;
-  const contextRequest = useContext(SkillCatalogTransportContext);
-  const query = useDisplayQuery(
-    skillCatalogQuery(api, fetcher ?? contextRequest),
-  );
+export function useSkillCatalog() {
+  const query = useDisplayQuery(skillCatalogQuery(useAomi()));
   return {
     skills: query.data ?? (query.error ? [] : null),
     error: query.error ? "Couldn’t load skills." : null,

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
 import { AccountStatusLine } from "./account-status-line";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
@@ -13,7 +14,6 @@ import {
   WalletCardsIcon,
 } from "lucide-react";
 import { shortAddress } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { PendingMark } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";

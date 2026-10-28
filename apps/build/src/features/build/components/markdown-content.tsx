@@ -1,6 +1,6 @@
+import { cn } from "@aomi-labs/widget";
 import type { ReactNode } from "react";
 
-import { cn } from "@aomi-labs/react";
 
 function renderInline(text: string): ReactNode[] {
   const parts: ReactNode[] = [];

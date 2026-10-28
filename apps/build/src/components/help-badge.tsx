@@ -1,6 +1,6 @@
+import { cn } from "@aomi-labs/widget";
 import { useId } from "react";
 
-import { cn } from "@aomi-labs/react";
 
 export function HelpBadge({
   label,

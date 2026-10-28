@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   AnimatePresence,
   LazyMotion,
@@ -22,7 +23,7 @@ import {
   type RefObject,
 } from "react";
 import { ChevronDown, X } from "lucide-react";
-import { cn, useAomiRuntime } from "@aomi-labs/react";
+import { useAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "@/thread/trace-attribution";
 import { skillChip } from "@/thread/attribution";

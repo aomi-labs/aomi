@@ -1,8 +1,8 @@
+import { cn } from "@aomi-labs/widget";
 import { UrlLink as Link } from "@/components/url-link";
 import { useLocation } from "@tanstack/react-router";
 import { LayoutGrid } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 
 import {
   settingsSections,

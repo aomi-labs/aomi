@@ -1,5 +1,7 @@
 "use client";
 
+import { type AomiClientOptions } from "@aomi-labs/client";
+import { cn } from "@/lib/cn";
 import {
   useEffect,
   useMemo,
@@ -20,9 +22,6 @@ export {
   type ParaAuthOptions,
   type PrivyAuthOptions,
 } from "./widget-auth";
-import type {
-  AomiClientOptions,
-} from "@aomi-labs/react";
 import { createWidgetX402Client } from "@/wallet/payment-client";
 import { SvmWalletBindingGate } from "@/wallet/svm-wallet-binding-gate";
 import { AomiFrame, type AomiFrameControlBarProps } from "./aomi-frame";
@@ -30,7 +29,6 @@ import { ApprovalAuthorityContext } from "@/commit/approval-authority";
 import { AomiWalletKitProvider } from "@/wallet/config/aomi-wallet-kit-provider";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletsConfig } from "@/wallet/config/types";
-import { cn } from "@aomi-labs/react";
 import {
   resolveWidgetAuth,
   type AomiWidgetAuth,

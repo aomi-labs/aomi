@@ -1,7 +1,7 @@
 import {
   normalizeAppDescriptor,
   type AomiAppDescriptor,
-  type AomiClient,
+  type Aomi,
   type CreditBalance,
   type CreditLedger,
   type AomiPlatformFilter,
@@ -16,35 +16,35 @@ const normalizedApps = (rows: unknown[]) =>
     .map(normalizeAppDescriptor)
     .filter((app): app is AomiAppDescriptor => app !== null);
 
-/** Display reads the runtime loads through AomiClient. */
+/** Display reads the runtime loads through its `Aomi`. */
 export const displayQueries = {
-  models: (api: AomiClient): DisplayQuery<string[]> => ({
+  models: (aomi: Aomi): DisplayQuery<string[]> => ({
     resource: "models",
-    fetcher: (signal) => api.getPublicCatalog<string[]>("models", { signal }),
+    fetcher: (signal) => aomi.raw.getPublicCatalog<string[]>("models", { signal }),
   }),
   appCatalog: (
-    api: AomiClient,
+    aomi: Aomi,
     platforms?: AomiPlatformFilter,
   ): DisplayQuery<AomiAppDescriptor[]> => ({
     resource: "app-catalog",
     parameters: [platformKey(platforms)],
     fetcher: async (signal) =>
       normalizedApps(
-        await api.getPublicCatalog<unknown[]>("apps", { signal, platforms }),
+        await aomi.raw.getPublicCatalog<unknown[]>("apps", { signal, platforms }),
       ),
   }),
   /** Models this app key or account may use. `credential` changes with the key. */
   authorizedModels: (
-    api: AomiClient,
+    aomi: Aomi,
     input: { sessionId: () => string; appId: string; credential: number },
   ): DisplayQuery<string[]> => ({
     resource: "authorized-models",
     parameters: [input.appId, input.credential],
     fetcher: (signal) =>
-      api.getModels(input.sessionId(), { applicationId: input.appId, signal }),
+      aomi.raw.getModels(input.sessionId(), { applicationId: input.appId, signal }),
   }),
   authorizedApps: (
-    api: AomiClient,
+    aomi: Aomi,
     input: {
       sessionId: () => string;
       appId: string;
@@ -56,24 +56,24 @@ export const displayQueries = {
     resource: "authorized-apps",
     parameters: [input.appId, platformKey(input.platforms), input.credential],
     fetcher: (signal) =>
-      api.getApps(input.sessionId(), {
+      aomi.raw.getApps(input.sessionId(), {
         apiKey: input.apiKey() ?? undefined,
         platforms: input.platforms,
         applicationId: input.appId,
         signal,
       }),
   }),
-  credits: (api: AomiClient, enabled = true): DisplayQuery<CreditBalance> => ({
+  credits: (aomi: Aomi, enabled = true): DisplayQuery<CreditBalance> => ({
     resource: "credits",
     enabled,
-    fetcher: (signal) => api.account.credits.get({ signal }),
+    fetcher: (signal) => aomi.account.credits.get({ signal }),
   }),
   creditLedger: (
-    api: AomiClient,
+    aomi: Aomi,
     enabled = true,
   ): DisplayQuery<CreditLedger> => ({
     resource: "credit-ledger",
     enabled,
-    fetcher: (signal) => api.account.credits.ledger({ limit: 25, signal }),
+    fetcher: (signal) => aomi.account.credits.ledger({ limit: 25, signal }),
   }),
 };

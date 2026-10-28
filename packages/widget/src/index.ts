@@ -19,6 +19,8 @@ export type {
   DirectRoutingApp,
 } from "./controls/routing";
 export { preloadWalletProvider } from "./wallet/providers/plugin-registry";
+/** Merge Tailwind classes, aware of the Aomi theme's names. */
+export { cn } from "./lib/cn";
 
 // Everything below was exported before the API was narrowed. Each name keeps
 // working until the next major release; none of it is used inside the widget.
@@ -166,9 +168,6 @@ export const createWidgetX402Client: typeof host.createWidgetX402Client =
 export type ChainInfo = aomiReact.ChainInfo;
 /** @deprecated Import from "@aomi-labs/react". Removed in @aomi-labs/widget 4.0. */
 export type UserConfig = aomiReact.UserConfig;
-/** @deprecated Import from "@aomi-labs/react". Removed in @aomi-labs/widget 4.0. */
-export const formatAddress: typeof aomiReact.formatAddress =
-  aomiReact.formatAddress;
 /** @deprecated Import from "@aomi-labs/react". Removed in @aomi-labs/widget 4.0. */
 export const getChainInfo: typeof aomiReact.getChainInfo =
   aomiReact.getChainInfo;

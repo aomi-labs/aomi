@@ -4,8 +4,8 @@
 // features/operate because bots-view already imports from
 // features/integrations — the other direction would be a cycle.
 
+import { cn } from "@aomi-labs/widget";
 import { HelpBadge } from "@/components/help-badge";
-import { cn } from "@aomi-labs/react";
 
 export function ThreadModeToggle({
   value,

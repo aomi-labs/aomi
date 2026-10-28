@@ -1,4 +1,4 @@
-import { cn } from "@aomi-labs/react";
+import { cn } from "@aomi-labs/widget";
 
 type SidebarNavProps = {
   sections: {

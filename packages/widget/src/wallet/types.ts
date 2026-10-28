@@ -1,12 +1,7 @@
 "use client";
 
+import { type WalletEip712Payload, type WalletSolanaSignMessagePayload, type WalletSolanaSignPayload, type WalletTxPayload } from "@aomi-labs/client";
 import type { Chain } from "viem";
-import type {
-  WalletEip712Payload,
-  WalletSolanaSignMessagePayload,
-  WalletSolanaSignPayload,
-  WalletTxPayload,
-} from "@aomi-labs/react";
 import type {
   AccountRuntimeStatus,
   AccountConflict,

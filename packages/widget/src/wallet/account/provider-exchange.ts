@@ -2,13 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuthRuntime } from "../composer/types";
-import type { AccountConflict, AccountRuntime } from "./types";
+import { AccountGraphApiError, type AomiAccount } from "@aomi-labs/client";
 import {
-  AomiAccountRequestError,
   mergeOfferFrom,
+  type AccountConflict,
+  type AccountConflictSignal,
+  type AccountRuntime,
   type AomiBackendAccountResponse,
-  type createAomiBackendAccountClient,
-} from "./aomi-backend-client";
+} from "./types";
+
+// Links that hit another account return a merge offer instead; these remain
+// for sign-ins that match two accounts at once.
+const CONFLICT_MESSAGES: Record<AccountConflictSignal, string> = {
+  wallet: "This wallet already signs in to another Aomi account.",
+  identity: "This sign-in method already opens another Aomi account.",
+  email: "This email already belongs to another Aomi account.",
+};
 
 const FAILED_EXCHANGE_RETRY_MS = 30_000;
 const LINK_INTENT_MS = 5 * 60_000;
@@ -53,7 +62,7 @@ export function useProviderCredentialExchange(input: {
   auth: AuthRuntime;
   status: AccountRuntime["status"];
   account: AomiBackendAccountResponse | null;
-  accountClient: ReturnType<typeof createAomiBackendAccountClient>;
+  accountClient: Pick<AomiAccount, "getAccount" | "exchangeProviderCredential">;
   onAccount: (account: AomiBackendAccountResponse) => void;
   refresh: () => Promise<void>;
   onFailure: () => void;
@@ -83,7 +92,7 @@ export function useProviderCredentialExchange(input: {
       // A newly selected provider may still be loading the browser account.
       const target =
         current.enabled && current.status === "loading"
-          ? await current.accountClient.getAccount()
+          ? ((await current.accountClient.getAccount()) as AomiBackendAccountResponse)
           : current.account;
       const intent =
         target?.user && !target.guest
@@ -183,10 +192,13 @@ export function useProviderCredentialExchange(input: {
         setConflict(undefined);
         const result = await accountClient.exchangeProviderCredential(
           credential,
-          { hasAccount },
+          { newSession: !hasAccount },
         );
         exchanged.current = attempt;
-        if (result.account) latest.current.onAccount(result.account);
+        if (result.status === "linked" && result.account)
+          latest.current.onAccount(
+            result.account as AomiBackendAccountResponse,
+          );
         await latest.current.refresh();
       } catch (cause) {
         const mergeOffer = mergeOfferFrom(cause);
@@ -206,14 +218,23 @@ export function useProviderCredentialExchange(input: {
         }
         failed.current = { attempt, at: Date.now() };
         if (
-          cause instanceof AomiAccountRequestError &&
+          cause instanceof AccountGraphApiError &&
           cause.status === 409 &&
           cause.code === "already_linked_to_another_account"
         ) {
-          setError(cause.message);
+          const signal = (cause.body as { signalType?: unknown } | undefined)
+            ?.signalType;
+          const signalType =
+            signal === "wallet" || signal === "identity" || signal === "email"
+              ? signal
+              : null;
+          setError(
+            (signalType && CONFLICT_MESSAGES[signalType]) ??
+              "This wallet or sign-in method already opens another Aomi account.",
+          );
           setConflict({
             code: "already_linked_to_another_account",
-            signalType: cause.signalType,
+            signalType,
             provider: auth.provider,
           });
         } else {

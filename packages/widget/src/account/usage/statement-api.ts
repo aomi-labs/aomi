@@ -8,16 +8,9 @@
  * month/app view while amounts are still integer micro-USD.
  */
 
-import type { ShellRequest } from "@/account/transport";
-import { MICROUSD_PER_CREDIT } from "@aomi-labs/client";
-import { accountScopedFetch } from "@/account/settings-api";
-import type { CreditAllowance } from "@/account/account-overview";
+import type { AomiAccount } from "@aomi-labs/client";
 import type { AppUsageEntry, MonthlyStatement } from "./types";
 
-type AccountStatementResponse = {
-  entries: unknown[];
-  next_cursor: string | null;
-};
 
 type FundingKind = "platform" | "user_key" | "builder_key";
 
@@ -71,26 +64,22 @@ export function recentMonthKeys(count: number, now = new Date()): string[] {
  */
 export async function fetchStatementCharges(
   monthKey: string,
-  request: ShellRequest = accountScopedFetch,
+  account: AomiAccount,
   signal?: AbortSignal,
 ): Promise<UsageCharge[]> {
   const { from, to } = monthRange(monthKey);
   const start = Date.parse(`${from}T00:00:00Z`) / 1000;
   const end = Date.parse(`${to}T23:59:59Z`) / 1000 + 1;
-  const rawRows: AccountStatementResponse["entries"] = [];
+  const rawRows: unknown[] = [];
   let cursor: string | null = null;
   do {
-    const query = new URLSearchParams({
-      limit: "100",
-      from: String(start),
-      to: String(end),
+    const page = await account.statement({
+      limit: 100,
+      from: start,
+      to: end,
+      cursor: cursor ?? undefined,
+      signal,
     });
-    if (cursor) query.set("cursor", cursor);
-    const page: AccountStatementResponse =
-      await request<AccountStatementResponse>(
-        `/v1/account/statement?${query.toString()}`,
-        { signal },
-      );
     if (!Array.isArray(page.entries)) {
       throw new TypeError(
         "Invalid account statement response: entries must be an array",
@@ -104,14 +93,16 @@ export async function fetchStatementCharges(
 
 export async function fetchMonthlyStatement(
   monthKey: string,
-  request: ShellRequest = accountScopedFetch,
+  account: AomiAccount,
 ): Promise<MonthlyStatement> {
-  const rows = await fetchStatementCharges(monthKey, request);
-  return buildMonthlyStatement(
-    monthKey,
-    rows,
-    await fetchApplicationNames(rows, request),
-  );
+  const rows = await fetchStatementCharges(monthKey, account);
+  const names = rows.some((row) => row.applicationId !== null)
+    ? await account.apps
+        .list()
+        .then(applicationNamesFrom)
+        .catch(() => new Map<number, string>())
+    : new Map<number, string>();
+  return buildMonthlyStatement(monthKey, rows, names);
 }
 
 /** Application ids → display names, from the account's app rows. */
@@ -308,32 +299,6 @@ function isOwnKeyFunding(funding: FundingKind): boolean {
   return funding === "user_key" || funding === "builder_key";
 }
 
-async function fetchApplicationNames(
-  rows: UsageCharge[],
-  request: ShellRequest,
-): Promise<Map<number, string>> {
-  if (!rows.some((row) => row.applicationId !== null)) return new Map();
-  try {
-    const apps = await request<unknown[]>("/api/account/apps");
-    const names = new Map<number, string>();
-    for (const value of apps) {
-      const app = statementObject(value, "application");
-      const id = app.application_id;
-      if (
-        typeof id === "number" &&
-        Number.isSafeInteger(id) &&
-        typeof app.name === "string" &&
-        app.name.trim()
-      ) {
-        names.set(id, app.name.trim());
-      }
-    }
-    return names;
-  } catch {
-    return new Map();
-  }
-}
-
 function statementObject(
   value: unknown,
   field: string,
@@ -367,23 +332,6 @@ function statementNumber(value: unknown, field: string): number {
 function statementNullableNumber(value: unknown, field: string): number | null {
   if (value === null || value === undefined) return null;
   return statementNumber(value, field);
-}
-
-export async function fetchCreditAllowance(
-  request: ShellRequest = accountScopedFetch,
-): Promise<CreditAllowance> {
-  const position = statementObject(
-    await request<unknown>("/v1/account/credits?limit=1"),
-    "account credits",
-  );
-  return {
-    included:
-      statementNumber(position.included_limit, "included_limit") /
-      MICROUSD_PER_CREDIT,
-    used:
-      statementNumber(position.included_used, "included_used") /
-      MICROUSD_PER_CREDIT,
-  };
 }
 
 const MONTH_NAMES = [

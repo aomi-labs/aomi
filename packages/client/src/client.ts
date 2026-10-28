@@ -1,4 +1,4 @@
-import { AomiError } from "./api-error";
+import { AomiApiError, AomiError } from "./api-error";
 import { SimulationApiError } from "./simulation";
 import { ROUTE_SCOPES } from "./generated/route-scopes";
 import type {
@@ -644,6 +644,27 @@ export class AomiClient {
       .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
+  /** The one private app an App key opens. Credential-free. */
+  async resolveAppKey(
+    appKey: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiAppDescriptor[]> {
+    const response = await this.publicFetchImpl(
+      buildApiUrl(this.baseUrl, "/api/thread/apps", { resolve_key: "true" }),
+      { headers: { [APP_KEY_HEADER]: appKey }, signal: options.signal },
+    );
+    if (!response.ok)
+      throw new AomiApiError(
+        response.status,
+        "app_key_unresolved",
+        `Failed to resolve the App key: HTTP ${response.status}`,
+      );
+    const rows: unknown = await response.json();
+    return (Array.isArray(rows) ? rows : []).flatMap(
+      (row) => normalizeAppDescriptor(row) ?? [],
+    );
+  }
+
   /**
    * Fetch the account bound to the authenticated request (resolved from the
    * account bearer). Returns `null` when the session is not bound to a real
@@ -702,7 +723,11 @@ export class AomiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch account: HTTP ${response.status}`);
+      throw new AomiApiError(
+        response.status,
+        "account_request_failed",
+        `Failed to fetch account: HTTP ${response.status}`,
+      );
     }
 
     return (await response.json()) as AomiAccountResponse;
@@ -726,19 +751,22 @@ export class AomiClient {
       .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
-  /** Atomically install one exact application row. */
+  /**
+   * Atomically install one exact application row. A private app the account
+   * cannot see yet needs its `apiKey`; the backend reads it on its own route.
+   */
   async addAccountApp(
     sessionId: string,
     applicationId: ApplicationId,
+    options: { apiKey?: string } = {},
   ): Promise<AomiAccountAppMutationResponse> {
     const url = buildApiUrl(
       this.baseUrl,
-      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
+      `${options.apiKey ? "/api/account/apps" : this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
     );
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId),
-    });
+    const headers = new Headers(withSessionHeader(sessionId));
+    if (options.apiKey) headers.set(APP_KEY_HEADER, options.apiKey);
+    const response = await this.fetchImpl(url, { method: "POST", headers });
 
     if (!response.ok) {
       throw new Error(`Failed to install account app: HTTP ${response.status}`);

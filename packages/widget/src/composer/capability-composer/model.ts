@@ -1,5 +1,5 @@
+import { type AgentMode } from "@aomi-labs/client";
 import type { FC } from "react";
-import type { AgentMode } from "@aomi-labs/react";
 
 export type ExecutionPolicy = AgentMode;
 export type CapabilityKind = "app" | "skill" | "chain" | "wallet";

@@ -1,62 +1,37 @@
-import { transactionSafetyPolicy } from "@aomi-labs/client";
 import type {
+  AomiGuard,
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
 import type { DisplayQuery } from "@aomi-labs/react";
-import type { ShellRequest } from "@/account/transport";
 
 /**
  * The account's default policy. Saves write it straight into the cache, so it
  * never goes stale on its own.
  */
 export const accountSafetyQuery = (
-  request: ShellRequest,
+  guard: AomiGuard,
 ): DisplayQuery<TransactionSafetyPolicy> => ({
   resource: "transaction-safety",
   parameters: ["account"],
   staleTime: Infinity,
-  fetcher: () => fetchTransactionSafety(request),
+  fetcher: () => guard.get(),
 });
 
-export async function fetchTransactionSafety(
-  request: ShellRequest,
+export function fetchTransactionSafety(
+  guard: AomiGuard,
   threadId?: string,
 ): Promise<TransactionSafetyPolicy> {
-  return transactionSafetyPolicy(
-    await request(
-      threadId
-        ? "/api/thread/transaction-safety"
-        : "/api/account/transaction-safety",
-      {
-        headers: threadId
-          ? { "X-Thread-Id": threadId, "X-Session-Id": threadId }
-          : undefined,
-      },
-    ),
-  );
+  return guard.get({ thread: threadId });
 }
 
 export async function saveTransactionSafety(
-  request: ShellRequest,
+  guard: AomiGuard,
   mode: TransactionSafetyMode,
   revision: number,
   threadId?: string,
 ): Promise<TransactionSafetyPolicy> {
-  const policy = transactionSafetyPolicy(
-    await request<TransactionSafetyPolicy>(
-      threadId
-        ? "/api/thread/transaction-safety"
-        : "/api/account/transaction-safety",
-      {
-        method: "PUT",
-        headers: threadId
-          ? { "X-Thread-Id": threadId, "X-Session-Id": threadId }
-          : undefined,
-        body: JSON.stringify({ mode, expectedRevision: revision }),
-      },
-    ),
-  );
+  const policy = await guard.set({ mode, revision, thread: threadId });
   if (!threadId && typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent<TransactionSafetyPolicy>(DEFAULT_CHANGED_EVENT, {
@@ -81,7 +56,7 @@ type TransactionSafetySave =
  * conflict) read the latest policy instead; a write is never silently retried.
  */
 export async function saveOrReloadTransactionSafety(
-  request: ShellRequest,
+  guard: AomiGuard,
   mode: TransactionSafetyMode,
   revision: number,
   threadId?: string,
@@ -89,12 +64,12 @@ export async function saveOrReloadTransactionSafety(
   try {
     return {
       ok: true,
-      policy: await saveTransactionSafety(request, mode, revision, threadId),
+      policy: await saveTransactionSafety(guard, mode, revision, threadId),
     };
   } catch (error) {
     // Keep the original error if the re-read fails; admission stays
     // server-owned.
-    const latest = await fetchTransactionSafety(request, threadId).catch(
+    const latest = await fetchTransactionSafety(guard, threadId).catch(
       () => undefined,
     );
     return { ok: false, error, latest };

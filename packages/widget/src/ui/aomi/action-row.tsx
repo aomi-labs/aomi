@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 
 /**
  * One action in a Manage sheet: icon, label, an optional line, and a › when

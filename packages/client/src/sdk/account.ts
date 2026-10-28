@@ -18,6 +18,7 @@ import {
 import type {
   AomiAccountAppMutationResponse,
   AomiAppDescriptor,
+  AomiClearAppSecretsResponse,
   AomiDeleteSecretResponse,
   AomiHttpMethod,
   AomiRequestOptions,
@@ -56,53 +57,71 @@ export class AomiAccountWallets extends AccountWalletsTransport {
 
 type AccountRequest = <T>(path: string, init: RequestInit) => Promise<T>;
 
+/** An app by name, or by its application id. */
+type AppRef = string | number;
+
 /** Installed apps by name, and each app's per-account credentials. */
 export class AomiAccountApps {
   constructor(private readonly request: AccountRequest) {}
 
   /** Every app the account can see, with `isInstalled`. */
-  async list(): Promise<AomiAppDescriptor[]> {
+  async list(
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiAppDescriptor[]> {
     const rows = await this.request<unknown>("/v1/account/apps", {
       method: "GET",
+      signal: options.signal,
     });
     return (Array.isArray(rows) ? rows : []).flatMap(
       (row) => normalizeAppDescriptor(row) ?? [],
     );
   }
 
-  async install(name: string): Promise<AomiAccountAppMutationResponse> {
-    return this.request(await this.path(name), { method: "POST" });
+  async install(app: AppRef): Promise<AomiAccountAppMutationResponse> {
+    return this.request(await this.path(app), { method: "POST" });
   }
 
-  async uninstall(name: string): Promise<AomiAccountAppMutationResponse> {
-    return this.request(await this.path(name), { method: "DELETE" });
+  async uninstall(app: AppRef): Promise<AomiAccountAppMutationResponse> {
+    return this.request(await this.path(app), { method: "DELETE" });
   }
 
-  /** The credential slots `name` declares (never their values), and setting them. */
-  credentials(name: string) {
-    const secrets = async () => `${await this.path(name)}/secrets`;
+  /** The credential slots `app` declares (never their values), and setting them. */
+  credentials(app: AppRef) {
+    const secrets = async () => `${await this.path(app)}/secrets`;
+    const save = async (
+      values: Record<string, string>,
+    ): Promise<AomiUserAppSecrets> =>
+      this.request(await secrets(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secrets: values }),
+      });
     return {
       list: async (): Promise<AomiUserAppSecrets> =>
         this.request(await secrets(), { method: "GET" }),
-      set: async (key: string, value: string): Promise<AomiUserAppSecrets> =>
-        this.request(await secrets(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ secrets: { [key]: value } }),
-        }),
+      set: (key: string, value: string) => save({ [key]: value }),
+      /** Set several slots at once; the others stay as they are. */
+      save,
       remove: async (key: string): Promise<AomiDeleteSecretResponse> =>
         this.request(`${await secrets()}/${encodeURIComponent(key)}`, {
           method: "DELETE",
         }),
+      /** Remove every value the account stored for the app. */
+      clear: async (): Promise<AomiClearAppSecretsResponse> =>
+        this.request(await secrets(), { method: "DELETE" }),
     };
   }
 
-  /** `/v1/account/apps/:id` takes the application id, so look the name up. */
-  private async path(name: string): Promise<string> {
-    const app = (await this.list()).find((entry) => entry.name === name);
-    if (app?.applicationId == null)
-      throw new AomiError("app_not_found", `No app named ${name}`, 404);
-    return `/v1/account/apps/${encodeURIComponent(String(app.applicationId))}`;
+  /** `/v1/account/apps/:id` takes the application id, so look a name up. */
+  private async path(app: AppRef): Promise<string> {
+    const id =
+      typeof app === "number"
+        ? app
+        : (await this.list()).find((entry) => entry.name === app)
+            ?.applicationId;
+    if (id == null)
+      throw new AomiError("app_not_found", `No app named ${app}`, 404);
+    return `/v1/account/apps/${encodeURIComponent(String(id))}`;
   }
 }
 
@@ -173,11 +192,15 @@ export class AomiAccount extends AccountTransport {
   }
 
   statement(
-    options: {
+    {
+      signal,
+      ...options
+    }: {
       limit?: number;
       cursor?: string;
       from?: number;
       to?: number;
+      signal?: AbortSignal;
     } = {},
   ): Promise<AomiAccountStatement> {
     const query = new URLSearchParams(
@@ -187,6 +210,16 @@ export class AomiAccount extends AccountTransport {
     ).toString();
     return this.request(`/v1/account/statement${query ? `?${query}` : ""}`, {
       method: "GET",
+      signal,
+    });
+  }
+
+  /** Sign this browser in to the other account (a merge offer's ticket) instead of merging. */
+  async switchTo(ticket: string): Promise<void> {
+    await this.request("/v1/account/merge/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket }),
     });
   }
 

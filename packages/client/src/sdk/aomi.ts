@@ -57,7 +57,7 @@ type AomiExecutionOptions =
 
 export type AomiOptions = (
   | AomiManagedAuthOptions
-  | (Omit<AomiConnectionOptions, "x402"> & { auth?: never })
+  | (AomiConnectionOptions & { auth?: never })
 ) &
   AomiExecutionOptions;
 
@@ -103,7 +103,10 @@ export class Aomi {
     const paidClientOptions: AomiClientOptions = {
       ...clientOptions,
       fetch: fetchImpl,
-      x402: wallet?.evm ? createEvmPaymentClient(wallet.evm) : undefined,
+      // A signer pays with its EVM wallet; without one, the caller's x402 client.
+      x402: wallet?.evm
+        ? createEvmPaymentClient(wallet.evm)
+        : clientOptions.x402,
     };
 
     if (

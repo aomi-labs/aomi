@@ -1,10 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { ChevronDown } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 
 const Accordion = AccordionPrimitive.Root;
 

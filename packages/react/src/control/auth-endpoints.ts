@@ -7,7 +7,7 @@ import { useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
 import type {
   AomiAppDescriptor,
-  AomiClient,
+  Aomi,
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -33,7 +33,7 @@ export type AuthEndpointsActions = {
 };
 
 type UseAuthEndpointsOptions = {
-  aomiClientRef: MutableRefObject<AomiClient>;
+  aomiRef: MutableRefObject<Aomi>;
   apiKeyRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
@@ -60,7 +60,7 @@ const appNames = (apps: ReadonlyArray<{ name: string }>) =>
 
 /** Provider-internal: consumers use `useAuthEndpoints` from control-context. */
 export function useAuthEndpointsImpl({
-  aomiClientRef,
+  aomiRef,
   apiKeyRef,
   getControlSessionId,
   apiKey,
@@ -72,7 +72,7 @@ export function useAuthEndpointsImpl({
   state: AuthEndpointsState;
   actions: AuthEndpointsActions;
 } {
-  const api = aomiClientRef.current;
+  const api = aomiRef.current;
   const appId = applicationId?.toString() ?? "";
   const credential = {
     sessionId: getControlSessionId,

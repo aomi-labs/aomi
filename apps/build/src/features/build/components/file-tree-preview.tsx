@@ -1,8 +1,8 @@
+import { cn } from "@aomi-labs/widget";
 import { ChevronDown, ChevronRight, File, Folder } from "lucide-react";
 import { useState } from "react";
 
 import type { BuildFileNode } from "@/features/build/contracts";
-import { cn } from "@aomi-labs/react";
 
 function FileTreeNode({
   node,

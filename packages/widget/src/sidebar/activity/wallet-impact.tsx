@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@/lib/cn";
 import { useTokenMetadata } from "./token-metadata";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { useState } from "react";
@@ -7,7 +8,7 @@ import type {
   MessageReview,
   MessageReviewRow,
 } from "@aomi-labs/client";
-import { cn, getChainInfo } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import {
   ArrowDownLeft,
   ArrowUpRight,

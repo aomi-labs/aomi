@@ -1,14 +1,11 @@
 "use client";
 
+import { type WalletSolanaSignMessagePayload, type WalletSolanaSignPayload } from "@aomi-labs/client";
 import {
   Connection as SolanaConnection,
   Transaction as SolanaTransaction,
   VersionedTransaction,
 } from "@solana/web3.js";
-import type {
-  WalletSolanaSignMessagePayload,
-  WalletSolanaSignPayload,
-} from "@aomi-labs/react";
 import type { SafeSvmWalletState } from "./wallet-runtime";
 
 function decodeBase64(value: string): Uint8Array {

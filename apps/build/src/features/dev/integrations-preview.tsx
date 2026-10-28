@@ -5,6 +5,7 @@
 // session or backend. Design iteration happened here before the port; this
 // file now only carries fixtures + the theme switch.
 
+import { cn } from "@aomi-labs/widget";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,7 +16,6 @@ import {
   saveColorTheme,
   type ColorTheme,
 } from "@/lib/color-theme";
-import { cn } from "@aomi-labs/react";
 
 const SESSION = {
   signedIn: true,

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   type FC,
   memo,
@@ -24,15 +25,7 @@ import {
   XIcon,
 } from "lucide-react";
 
-import {
-  cn,
-  useChatViewFlag,
-  useChatView,
-  useOptionalAomiRuntime,
-  useThreadTaskRuns,
-  walletContinuationPending,
-  type TaskRunState,
-} from "@aomi-labs/react";
+import { useChatViewFlag, useChatView, useOptionalAomiRuntime, useThreadTaskRuns, walletContinuationPending, type TaskRunState } from "@aomi-labs/react";
 import type { Event, TurnState } from "@aomi-labs/client";
 import {
   buildTraceItems,

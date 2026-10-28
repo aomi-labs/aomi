@@ -1,11 +1,7 @@
 "use client";
 
-import {
-  displayQueries,
-  useAomiDisplayCache,
-  useDisplayQuery,
-} from "@aomi-labs/react";
-import { useShellTransport } from "./transport";
+import { displayQueries, useDisplayQuery } from "@aomi-labs/react";
+import { useAomi } from "./transport";
 import { useAomiWalletKit } from "../wallet/context";
 
 /**
@@ -14,11 +10,10 @@ import { useAomiWalletKit } from "../wallet/context";
  * context, so the chip does not re-render for every streamed token.
  */
 function useCreditClient(enabled?: boolean) {
-  const runtimeClient = useAomiDisplayCache()?.apiClient;
-  const transport = useShellTransport();
+  const aomi = useAomi();
   const wallet = useAomiWalletKit();
   return {
-    client: runtimeClient ?? transport.client,
+    aomi,
     enabled: enabled ?? Boolean(wallet.accountUser && !wallet.accountGuest),
   };
 }
@@ -26,13 +21,13 @@ function useCreditClient(enabled?: boolean) {
 export function useAccountCredits(enabled?: boolean) {
   const context = useCreditClient(enabled);
   return useDisplayQuery(
-    displayQueries.credits(context.client, context.enabled),
+    displayQueries.credits(context.aomi, context.enabled),
   );
 }
 
 export function useAccountCreditLedger(enabled?: boolean) {
   const context = useCreditClient(enabled);
   return useDisplayQuery(
-    displayQueries.creditLedger(context.client, context.enabled),
+    displayQueries.creditLedger(context.aomi, context.enabled),
   );
 }

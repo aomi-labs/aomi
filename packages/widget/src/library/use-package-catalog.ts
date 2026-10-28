@@ -4,34 +4,31 @@ import {
   displayQueries,
   useDisplayQuery,
   usePrivateApps,
-  useAomiDisplayCache,
   type DisplayQuery,
 } from "@aomi-labs/react";
-import type { AomiAppDescriptor, AomiClient } from "@aomi-labs/client";
-import { useShellTransport, type ShellRequest } from "@/account/transport";
-import { fetchAppCatalog } from "@/account/shell/packages-api";
+import type { Aomi, AomiAppDescriptor } from "@aomi-labs/client";
+import { useAomi, useShellAomi } from "@/account/transport";
 import { explainPackageLoadError, toCatalogPackage } from "./packages-catalog";
 
 /** The public app catalog, or a signed-in account's apps with install state. */
 export function packageCatalogQuery(
-  api: AomiClient | undefined,
-  request: ShellRequest,
+  aomi: Aomi,
   accountUserId?: string,
 ): DisplayQuery<AomiAppDescriptor[]> {
-  if (api && !accountUserId) return displayQueries.appCatalog(api);
+  if (!accountUserId) return displayQueries.appCatalog(aomi);
   return {
-    resource: accountUserId ? "account-apps" : "app-catalog",
-    parameters: ["library", accountUserId ?? "guest"],
-    fetcher: (signal) => fetchAppCatalog(accountUserId, request, signal),
+    resource: "account-apps",
+    parameters: ["library", accountUserId],
+    fetcher: (signal) => aomi.account.apps.list({ signal }),
   };
 }
 
 export function usePackageCatalog(accountUserId?: string) {
-  const transport = useShellTransport();
   const privateApps = usePrivateApps();
-  const api = useAomiDisplayCache()?.apiClient;
+  const runtime = useAomi();
+  const shell = useShellAomi();
   const query = useDisplayQuery(
-    packageCatalogQuery(api, transport.json, accountUserId),
+    packageCatalogQuery(accountUserId ? shell : runtime, accountUserId),
   );
   return {
     catalog: query.data

@@ -1,6 +1,6 @@
+import { cn } from "@/lib/cn";
 import { Children, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { rowStart } from "./controls";
 
 /**

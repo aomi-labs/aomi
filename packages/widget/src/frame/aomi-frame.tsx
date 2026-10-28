@@ -1,5 +1,7 @@
 "use client";
 
+import { type AgentTarget, type AomiClientOptions } from "@aomi-labs/client";
+import { cn } from "@/lib/cn";
 import {
   type CSSProperties,
   type ReactNode,
@@ -7,16 +9,7 @@ import {
   createContext,
   useContext,
 } from "react";
-import {
-  AomiRuntimeProvider,
-  AomiChatBoundary,
-  cn,
-  useAomiRuntime,
-  type AomiClientOptions,
-  type AgentTarget,
-  type DisplayPersistence,
-  type RuntimeAccount,
-} from "@aomi-labs/react";
+import { AomiRuntimeProvider, AomiChatBoundary, useAomiRuntime, type DisplayPersistence, type RuntimeAccount } from "@aomi-labs/react";
 import { DisplayPrefetch } from "../account/display-prefetch";
 import { WidgetStorageProvider } from "../lib/widget-storage";
 import { WidgetScope } from "../ui/widget-scope";

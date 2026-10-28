@@ -1,7 +1,18 @@
 "use client";
 
+import {
+  AccountGraphApiError,
+  type AccountMergeOffer,
+} from "@aomi-labs/client";
 import type { WalletFamily } from "../types";
-import type { MergeOffer } from "./aomi-backend-client";
+
+/** A link proved a sign-in method of another account; confirming merges it in. */
+export type MergeOffer = AccountMergeOffer;
+
+/** The merge offer carried by a failed link or provider exchange, if any. */
+export function mergeOfferFrom(error: unknown): MergeOffer | undefined {
+  return error instanceof AccountGraphApiError ? error.mergeOffer : undefined;
+}
 
 export type AccountRuntimeStatus = "disabled" | "loading" | "ready" | "error";
 
@@ -81,6 +92,19 @@ export type UpdateLinkedAccountInput = {
 export type UpdateAccountInput = {
   displayName?: string | null;
   avatarUrl?: string | null;
+};
+
+/** `/v1/account`: who is signed in and how. */
+export type AomiBackendAccountResponse = {
+  /** A temporary Better Auth guest. It is intentionally not an account owner. */
+  guest?: boolean;
+  user: AomiUserRef | null;
+  linkedAccounts: LinkedAuthAccount[];
+  wallets: AccountWallet[];
+  session:
+    | { carrier: "better_auth"; betterAuthUserId: string; expiresAt?: number }
+    | { carrier: "widget"; expiresAt: number; authMethod: string }
+    | null;
 };
 
 export type AccountRuntime = {

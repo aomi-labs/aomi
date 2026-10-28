@@ -1,10 +1,10 @@
+import { cn } from "@aomi-labs/widget";
 import { Check, Circle, Loader2 } from "lucide-react";
 
 import {
   STREAM_STAGE_LABELS,
   type BuildStreamEvent,
 } from "@/features/build/contracts";
-import { cn } from "@aomi-labs/react";
 
 type BuildStreamTimelineProps = {
   events: BuildStreamEvent[];

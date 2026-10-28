@@ -3,6 +3,7 @@
 // bot with in-place app editing. UI ported from the /mock-integration design
 // session; data layer (react-query + BFF operate/bots routes) unchanged.
 
+import { cn } from "@aomi-labs/widget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
 import { useCallback, useId, useMemo, useState } from "react";
@@ -20,7 +21,6 @@ import {
 import { TelegramHowItWorks } from "@/features/integrations/how-it-works";
 import { ThreadModeControl } from "@/features/integrations/thread-mode-control";
 import { API_PATHS } from "@/lib/api-paths";
-import { cn } from "@aomi-labs/react";
 import { operateFetch } from "./client";
 import { readJsonResponse } from "@/lib/request-retry";
 

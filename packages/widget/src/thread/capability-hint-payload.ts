@@ -1,4 +1,4 @@
-import type { AgentMode } from "@aomi-labs/react";
+import { type AgentMode } from "@aomi-labs/client";
 
 export type CapabilityHintSelection = {
   kind: "app" | "skill" | "chain" | "wallet";

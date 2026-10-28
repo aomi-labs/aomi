@@ -1,6 +1,6 @@
+import { cn } from "@/lib/cn";
 import { LoaderCircle } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 
 /**
  * The one loading state for a pane or section: a quiet spinner centered on

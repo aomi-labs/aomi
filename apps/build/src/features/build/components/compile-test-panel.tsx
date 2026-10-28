@@ -1,6 +1,6 @@
+import { cn } from "@aomi-labs/widget";
 import { Check, Play, Terminal } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 
 type CompileTestPanelProps = {
   compileDone: boolean;

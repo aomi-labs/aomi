@@ -1,7 +1,7 @@
+import { cn } from "@aomi-labs/widget";
 import { CheckCircle2, CircleAlert, Terminal } from "lucide-react";
 
 import { AomiLogo } from "@/components/brand/aomi-logo";
-import { cn } from "@aomi-labs/react";
 
 export default function CliAuthCompletePage({
   searchParams,
