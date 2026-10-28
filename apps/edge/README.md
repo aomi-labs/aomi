@@ -87,18 +87,17 @@ and sidecar authentication; sidecar bearers still use the `aomi-sidecar` audienc
 
 ## Running
 
-The example below uses local backend bindings. `dev:staging` selects the
-Wrangler environment; the copied variables still point at localhost.
+The example below uses local backend bindings from `.dev.vars`.
 
 ```sh
 pnpm --filter aomi-edge test        # vitest, no network
 pnpm --filter aomi-edge typecheck
 cp apps/edge/.dev.vars.example apps/edge/.dev.vars
-pnpm --filter aomi-edge dev:staging
+pnpm --filter aomi-edge dev
 ```
 
-To test staging origins, use an ignored `apps/edge/.dev.vars.staging` with
-the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+To test staging origins, run `pnpm --filter aomi-edge dev --env-file
+.dev.vars.staging` with an ignored `apps/edge/.dev.vars.staging` holding the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
 `EDGE_TOPOLOGY=staging` and the matching staging service private key. Obtain
 origins from the staging inventory and credentials from its secret store.
 
@@ -114,18 +113,33 @@ efficiency follow-up, not a payment execution path.
 
 ## Deploying
 
-`scripts/deploy.mjs <staging|production>` runs `wrangler deploy` with
-`BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
-`PORTAL_UPSTREAM_ORIGIN` and `BUILD_UPSTREAM_ORIGIN` taken from the deploy environment. product-mono's deploy pipeline derives those from its
-Terraform inventory and exports them before calling this script. Secrets:
-`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
+`wrangler.jsonc` is one configuration for every environment: staging, rc and
+production deploy the same revision with the same settings. What differs per
+environment is inventory and comes from the deploy environment, never from
+this repository:
+
+- `EDGE_WORKER_NAME` (`aomi-edge-<env>`), `EDGE_ROUTES` (comma-separated route
+  patterns) and `EDGE_TOPOLOGY` (`staging`, `rc` or `production`);
+- the origins `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+  `PORTAL_UPSTREAM_ORIGIN`, `BUILD_UPSTREAM_ORIGIN` and `MANAGER_ORIGIN`;
+- the hosts and policies `PORTAL_HOSTS`, `BUILD_HOSTS`,
+  `CORS_ALLOWED_HOST_PATTERNS`, `TASK_CORS_PUBLIC_ORIGINS`,
+  `APP_CATALOG_PLATFORMS` and `APP_DEPLOY_PLATFORMS`.
+
+`scripts/deploy.mjs` passes them to `wrangler deploy` as `--name`, `--route`
+and `--var`. product-mono's deploy pipeline reads them from
+`infra/cloudflare/edge-environments.json` and its Terraform inventory, so
+routing a new host (the production portal at cutover, for example) is a
+product-mono change plus a deploy, with no change here. Secrets, per Worker
+(`wrangler secret put <NAME> --name aomi-edge-<env>`):
+`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`),
 `BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
 GitHub sessions survive the cutover) and `BUILD_GITHUB_TOKEN` (Build's
 `GITHUB_TOKEN`, read access for the release-manifest secret gate).
 
 ## Portal and Build host prerequisites
 
-The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev/api/*`, `/v1/*`,
+An environment's portal routes (`<portal host>/api/*`, `/v1/*`,
 `/.well-known/*`) only take effect when that hostname is proxied by Cloudflare
 (orange cloud) in the `aomi.dev` zone; a DNS-only CNAME to Vercel bypasses the
 Worker. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the
