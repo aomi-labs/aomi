@@ -95,23 +95,16 @@ export function useAuthEndpointsImpl({
       : displayQueries.appCatalog(api, appPlatforms),
   );
   const appDescriptors = apps.data ?? (apps.error ? DEFAULT_APPS : NO_APPS);
-  const availableModels = useMemo(
-    () => [...new Set([
-      ...(models.data ?? NO_MODELS),
-      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
-    ])],
-    [models.data, appDescriptors],
-  );
+  // App sponsorship describes that app's funding, not general chat model
+  // availability. Supplier selection belongs to the backend routing policy.
+  const availableModels = models.data ?? NO_MODELS;
   const authorizedApps = useMemo(
     () => appNames(appDescriptors),
     [appDescriptors],
   );
   const getAvailableModels = useCallback(
-    async () => [...new Set([
-      ...((await models.refetch()).data ?? []),
-      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
-    ])],
-    [models.refetch, appDescriptors],
+    async () => (await models.refetch()).data ?? NO_MODELS,
+    [models.refetch],
   );
   const getAuthorizedApps = useCallback(
     async () => appNames((await apps.refetch()).data ?? DEFAULT_APPS),
