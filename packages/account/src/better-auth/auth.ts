@@ -160,7 +160,6 @@ export function createAuth(input: Env) {
     // browser after ten total attempts. Hosted environments remain limited.
     enabled: !isLoopbackAuthRuntime,
     customRules: {
-      "/sign-in/anonymous": { window: 60 * 60, max: 10 },
       "/oauth2/register": { window: 60 * 60, max: 30 },
       "/oauth2/authorize": { window: 60, max: 30 },
       "/oauth2/token": { window: 60, max: 60 },

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createCanonicalUser: vi.fn(),
   issueWidgetSession: vi.fn(),
   signInAnonymous: vi.fn(),
+  getSession: vi.fn(),
 }));
 
 vi.mock("@aomi-labs/account/account", async (importOriginal) => ({
@@ -12,7 +13,7 @@ vi.mock("@aomi-labs/account/account", async (importOriginal) => ({
 }));
 vi.mock("../server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../server")>()),
-  authServer: () => ({ api: { signInAnonymous: mocks.signInAnonymous } }),
+  authServer: () => ({ api: { signInAnonymous: mocks.signInAnonymous, getSession: mocks.getSession } }),
 }));
 vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/widget-auth")>()),
@@ -46,10 +47,10 @@ beforeEach(() => {
   });
 });
 
-describe("widget guest bootstrap", () => {
-  it("returns only an origin-bound widget session", async () => {
+describe("guest sign-in", () => {
+  it.each(["/api/auth/guest", "/api/auth/widget/guest"])("returns only an origin-bound widget session to an embed (%s)", async (path) => {
     const response = await POST(
-      new Request("https://portal.example/api/auth/widget/guest", {
+      new Request(`https://portal.example${path}`, {
         method: "POST",
         headers: {
           origin: "https://partner.example",
@@ -72,5 +73,31 @@ describe("widget guest bootstrap", () => {
       access_token: "aomi_wst_guest",
       user: { id: "user-1" },
     });
+  });
+
+  it.each(["/api/auth/guest", "/api/auth/sign-in/anonymous"])(
+    "gives the portal's own origin a Better Auth guest cookie and bearer (%s)",
+    async (path) => {
+      mocks.getSession.mockResolvedValue(null);
+      mocks.signInAnonymous.mockResolvedValue({
+        headers: new Headers({ "set-cookie": "better-auth.session_token=t", "set-auth-token": "t" }),
+        response: { token: "t", user: { id: "better-auth-guest" } },
+      });
+      const response = await POST(
+        new Request(`https://portal.example${path}`, { method: "POST", headers: { origin: "https://portal.example" } }),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("set-cookie")).toContain("better-auth.session_token=t");
+      await expect(response.json()).resolves.toMatchObject({ token: "t" });
+      expect(mocks.issueWidgetSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it("cannot replace an existing session", async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: "user-1", isAnonymous: false }, session: {} });
+    const response = await POST(new Request("https://portal.example/api/auth/guest", { method: "POST" }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ code: "session_exists" });
+    expect(mocks.signInAnonymous).not.toHaveBeenCalled();
   });
 });

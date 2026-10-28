@@ -293,7 +293,7 @@ describe("CLI session lifecycle", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = new URL(String(input)).pathname;
-        if (path === "/api/auth/sign-in/anonymous") {
+        if (path === "/api/auth/guest") {
           return Response.json({ token: "guest-session" });
         }
         if (path === "/v1/agent/sessions") {
@@ -326,7 +326,7 @@ describe("CLI session lifecycle", () => {
 
     expect(
       fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname),
-    ).toEqual(["/api/auth/sign-in/anonymous", "/v1/agent/sessions"]);
+    ).toEqual(["/api/auth/guest", "/v1/agent/sessions"]);
   });
 
   it("reuses the anonymous bearer across CLI process sessions", async () => {
@@ -334,7 +334,7 @@ describe("CLI session lifecycle", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = new URL(String(input)).pathname;
-        if (path === "/api/auth/sign-in/anonymous") {
+        if (path === "/api/auth/guest") {
           return Response.json({ token: "guest-session" });
         }
         if (path === "/v1/agent/sessions") {
@@ -366,7 +366,7 @@ describe("CLI session lifecycle", () => {
     expect(
       fetchMock.mock.calls.filter(
         ([input]) =>
-          new URL(String(input)).pathname === "/api/auth/sign-in/anonymous",
+          new URL(String(input)).pathname === "/api/auth/guest",
       ),
     ).toHaveLength(1);
   });
@@ -376,7 +376,7 @@ describe("CLI session lifecycle", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = new URL(String(input)).pathname;
-        if (path === "/api/auth/sign-in/anonymous") {
+        if (path === "/api/auth/guest") {
           throw new Error("signed-in requests must not bootstrap a guest");
         }
         expect(new Headers(init?.headers).get("authorization")).toBe(
@@ -490,7 +490,7 @@ describe("CLI session lifecycle", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const path = new URL(String(input)).pathname;
-        if (path === "/api/auth/sign-in/anonymous") {
+        if (path === "/api/auth/guest") {
           return Response.json({ token: "guest-session" });
         }
         if (path === "/v1/agent/sessions") {

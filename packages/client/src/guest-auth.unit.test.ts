@@ -30,11 +30,11 @@ describe("guest connection diagnostics", () => {
       });
 
       await expect(guest()).rejects.toThrow(
-        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl.`,
+        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl.`,
       );
       expect(fetch).toHaveBeenCalledOnce();
       expect(String(fetch.mock.calls[0]?.[0])).toBe(
-        `https://${backend}/api/auth/sign-in/anonymous`,
+        `https://${backend}/api/auth/guest`,
       );
     },
   );
@@ -47,7 +47,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/sign-in\/anonymous\)\. Check that baseUrl points to the Portal\/BFF\.$/,
+      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/guest\)\. Check that baseUrl points to the Portal\/BFF\.$/,
     );
   });
 
@@ -59,7 +59,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      "Aomi guest sign-in failed with HTTP 403 at https://api-staging.aomi.dev (/api/auth/sign-in/anonymous).",
+      "Aomi guest sign-in failed with HTTP 403 at https://api-staging.aomi.dev (/api/auth/guest).",
     );
   });
 
@@ -71,7 +71,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      "HTTP 404 at https://chat.aomi.dev (/api/auth/widget/guest).",
+      "HTTP 404 at https://chat.aomi.dev (/api/auth/guest).",
     );
   });
 
@@ -88,7 +88,7 @@ describe("guest connection diagnostics", () => {
     await expect(
       client.requestResponse("POST", "/v1/agent/chat", {}),
     ).rejects.toThrow(
-      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/sign-in/anonymous). This is a backend origin; guest sign-in requires the Portal/BFF at https://chat-staging.aomi.dev. Check baseUrl.",
+      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal/BFF at https://chat-staging.aomi.dev. Check baseUrl.",
     );
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -102,7 +102,7 @@ describe("interactive guest preparation", () => {
     const posts: string[] = [];
     const fetch = vi.fn(
       async (url: string | URL | Request, init?: RequestInit) => {
-        if (String(url).endsWith("/widget/guest"))
+        if (String(url).endsWith("/api/auth/guest"))
           return Response.json({
             access_token: `aomi_wst_${++subject}`,
             user: { id: `guest-${subject}` },
@@ -150,7 +150,7 @@ describe("interactive guest preparation", () => {
       vi.stubGlobal("location", { origin: "https://vendor.example" });
       let acquisitions = 0;
       const fetch = vi.fn(async (url: string | URL | Request) => {
-        if (String(url).endsWith("/widget/guest")) {
+        if (String(url).endsWith("/api/auth/guest")) {
           acquisitions++;
           return Response.json({
             access_token: "aomi_wst_guest",
@@ -212,7 +212,7 @@ describe("interactive guest preparation", () => {
       `${origin}/api/auth/get-session`,
     );
     expect(String(fetch.mock.calls[1][0])).toBe(
-      `${origin}/api/auth/sign-in/anonymous`,
+      `${origin}/api/auth/guest`,
     );
     expect(upstream).toHaveBeenCalledOnce();
   });
@@ -245,7 +245,7 @@ describe("interactive guest preparation", () => {
       const path = new URL(String(url)).pathname;
       paths.push(path);
       if (path.endsWith("get-session")) return Response.json(null);
-      if (path.endsWith("sign-in/anonymous")) {
+      if (path.endsWith("/api/auth/guest")) {
         cookieReady = true;
         return Response.json({});
       }
@@ -265,7 +265,7 @@ describe("interactive guest preparation", () => {
     ).toBe(200);
     expect(paths).toEqual([
       "/api/auth/get-session",
-      "/api/auth/sign-in/anonymous",
+      "/api/auth/guest",
       "/v1/agent/chat",
     ]);
   });
@@ -298,7 +298,7 @@ describe("interactive guest preparation", () => {
     expect(upstream).toHaveBeenCalledTimes(2);
     expect(fetch).toHaveBeenCalledOnce();
     expect(String(fetch.mock.calls[0][0])).toBe(
-      `${origin}/api/auth/sign-in/anonymous`,
+      `${origin}/api/auth/guest`,
     );
   });
 
@@ -339,7 +339,7 @@ describe("interactive guest preparation", () => {
     vi.stubGlobal("location", { origin: "https://vendor.example" });
     const fetch = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
-        if (String(url).endsWith("/widget/guest")) {
+        if (String(url).endsWith("/api/auth/guest")) {
           expect(options?.credentials).toBe("omit");
           return Response.json({ access_token: "aomi_wst_interactive" });
         }
@@ -368,7 +368,7 @@ describe("interactive guest preparation", () => {
     });
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(String(fetch.mock.calls[0][0])).toBe(
-      `${origin}/api/auth/widget/guest`,
+      `${origin}/api/auth/guest`,
     );
   });
 

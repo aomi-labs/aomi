@@ -76,7 +76,7 @@ describePostgres("MCP grants keep a refresh token", () => {
       expect(registration.response.status).toBe(201);
       const clientId = requiredString(registration.body, "client_id");
 
-      const signedIn = await jsonRequest("/sign-in/anonymous", {});
+      const signedIn = await jsonRequest("/guest", {});
       expect(signedIn.response.status).toBe(200);
       const sessionCookie = responseCookie(signedIn.response);
 

@@ -25,7 +25,7 @@ export const test = base.extend<
       // bootstrap, so sign in the real guest first; reloads then read the
       // same Better Auth cookie a real turn would.
       const signIn = await request.post(
-        `${portal}/api/auth/sign-in/anonymous`,
+        `${portal}/api/auth/guest`,
         {
           headers: { origin: new URL(portal).origin },
           data: {},
@@ -53,7 +53,7 @@ export const test = base.extend<
     const guests: string[] = [];
     const onResponse = (response: Response) => {
       if (
-        new URL(response.url()).pathname !== "/api/auth/widget/guest" ||
+        new URL(response.url()).pathname !== "/api/auth/guest" ||
         response.status() !== 200
       )
         return;

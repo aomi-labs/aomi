@@ -58,13 +58,26 @@ async function json(request: Request): Promise<unknown> {
   return request.json().catch(() => null);
 }
 
+/**
+ * The one guest sign-in. On the portal's own origin (or from a server, with no
+ * Origin) it is a Better Auth guest session: a cookie, and the same token as a
+ * bearer. An embed on another site gets an origin-bound widget session
+ * instead, since its browser never sends the portal's cookies.
+ */
 export async function signInGuest({ request, auth }: Call): Promise<Response> {
+  const claimed = request.headers.get("origin");
+  if (!claimed || claimed === new URL(request.url).origin) {
+    if (await auth.api.getSession({ headers: request.headers }))
+      return Response.json({ code: "session_exists" }, { status: 409 });
+    const { headers, response } = await auth.api.signInAnonymous({ headers: request.headers, returnHeaders: true });
+    return Response.json(response, { headers });
+  }
   const origin = requireWidgetOrigin(request);
-  // The widget origin was checked above; Better Auth must not read that
-  // third-party Origin as a call to one of its own browser endpoints.
+  // The embedding site's Origin is not a call to Better Auth's own browser endpoints.
   const headers = new Headers(request.headers);
   headers.delete("origin");
   headers.delete("referer");
+  headers.delete("cookie");
   const anonymous = await auth.api.signInAnonymous({ headers });
   const user = await getOrCreateAomiUserForBetterAuthSession({
     betterAuthUserId: anonymous.user.id,

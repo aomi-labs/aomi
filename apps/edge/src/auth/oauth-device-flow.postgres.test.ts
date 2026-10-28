@@ -99,7 +99,7 @@ describePostgres("production Better Auth OAuth device route", () => {
     const deviceCode = requiredString(issued.body, "device_code");
     const userCode = requiredString(issued.body, "user_code");
 
-    const signedIn = await jsonRequest("/sign-in/anonymous", {});
+    const signedIn = await jsonRequest("/guest", {});
     expect(signedIn.response.status).toBe(200);
     const sessionCookie = responseCookie(signedIn.response);
     const user = recordValue(signedIn.body, "user");

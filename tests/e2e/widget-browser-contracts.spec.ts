@@ -41,7 +41,7 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
   page,
 }) => {
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
-  const firstGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
+  const firstGuest = waitForWidgetSession(page, "/api/auth/guest");
   const chatResponse = await sendPrompt(
     page,
     "anonymous cross-origin contract",
@@ -58,7 +58,7 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
   );
   expectVerifiedBffRecord(chat, first.session.user.id, "widget", "guest");
 
-  const secondGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
+  const secondGuest = waitForWidgetSession(page, "/api/auth/guest");
   await page.reload({ waitUntil: "domcontentloaded" });
   await sendPrompt(page, "fresh anonymous widget session");
   const second = await secondGuest;
@@ -78,7 +78,7 @@ test("an invalid explicit widget credential fails closed and preserves upstream 
   page,
 }) => {
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
-  const issued = await rawWidgetFetch(page, "/api/auth/widget/guest", {
+  const issued = await rawWidgetFetch(page, "/api/auth/guest", {
     method: "POST",
     body: {},
   });
@@ -86,7 +86,7 @@ test("an invalid explicit widget credential fails closed and preserves upstream 
   const valid = (issued.body as WidgetSession).access_token;
   let guestRefreshes = 0;
   page.on("response", (response) => {
-    if (new URL(response.url()).pathname === "/api/auth/widget/guest") {
+    if (new URL(response.url()).pathname === "/api/auth/guest") {
       guestRefreshes += 1;
     }
   });
@@ -126,7 +126,7 @@ test("rejected widget origins receive a readable 403 without credentials", async
   const rejectedNetworkResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      new URL(response.url()).pathname === "/api/auth/widget/guest",
+      new URL(response.url()).pathname === "/api/auth/guest",
   );
   const result = await page.evaluate(async (endpoint) => {
     const response = await fetch(endpoint, {
@@ -141,7 +141,7 @@ test("rejected widget origins receive a readable 403 without credentials", async
         "access-control-allow-credentials",
       ),
     };
-  }, `${portalOrigin}/api/auth/widget/guest`);
+  }, `${portalOrigin}/api/auth/guest`);
   const rejectedResponse = await rejectedNetworkResponse;
   expect(result).toEqual({
     status: 403,
@@ -165,14 +165,14 @@ test("anonymous widget renews an expired session after the first 401", async ({
     await endsAt;
     await route.continue();
   });
-  const guest = waitForWidgetSession(page, "/api/auth/widget/guest");
+  const guest = waitForWidgetSession(page, "/api/auth/guest");
   await sendPrompt(page, "establish anonymous widget session");
   const first = await guest;
   await page.unroute(`${portalOrigin}/v1/agent/chat`);
   expect(endsAt).toBeDefined();
   await page.waitForTimeout(Math.max(0, (await endsAt!) + 1000 - Date.now()));
   const statuses: number[] = [];
-  const renewed = waitForWidgetSession(page, "/api/auth/widget/guest");
+  const renewed = waitForWidgetSession(page, "/api/auth/guest");
   page.on("response", (response) => {
     if (new URL(response.url()).pathname === "/v1/agent/chat") {
       statuses.push(response.status());

@@ -434,7 +434,7 @@ describe("account changes without remounting the shell", () => {
       ),
     ).toBe(true);
     expect(paths.filter((path) => path === "/v1/agent/chat")).toHaveLength(1);
-    expect(paths.some((path) => path.includes("anonymous"))).toBe(false);
+    expect(paths.some((path) => path === "/api/auth/guest")).toBe(false);
   });
   it.each(["guest-a", "account-b"])(
     "closes the guest's chat unless the cookie guest becomes the same user (%s)",

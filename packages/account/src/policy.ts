@@ -571,7 +571,8 @@ export const ROUTES: readonly Route[] = [
   own(/^\/v1\/account\/device-auth\/link-intent$/, "device_auth.link_intent", { POST: { capability: "device_login" } }),
   own(/^\/v1\/account\/device-auth\/link-grant$/, "device_auth.link_grant", { POST: "public" }),
   own(/^\/v1\/account\/device-auth\/exchange$/, "device_auth.exchange", { POST: "public" }),
-  own(/^\/api\/auth\/widget\/guest$/, "widget.guest", { POST: "public" }),
+  // One guest sign-in; the two older paths stay for published SDKs (<= 0.11).
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", { POST: "public" }),
   own(/^\/api\/auth\/widget\/siwe\/nonce$/, "widget.siwe.nonce", { POST: "public" }),
   own(/^\/api\/auth\/widget\/siwe\/verify$/, "widget.siwe.verify", { POST: "public" }),

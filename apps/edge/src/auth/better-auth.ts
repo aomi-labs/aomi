@@ -65,12 +65,6 @@ export async function handleBetterAuth(request: Request, ctx: PortalContext): Pr
   const policy = await enforceAomiOAuthRequestPolicy(request);
   if (policy.kind === "reject") return policy.response;
   request = policy.request;
-  if (request.method === "POST" && path.endsWith("/sign-in/anonymous")) {
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (session) {
-      return Response.json({ code: "session_exists" }, { status: 409 });
-    }
-  }
   if (request.method === "POST" && path.endsWith("/oauth2/consent")) {
     const session = await auth.api.getSession({ headers: request.headers });
     if (session?.user.isAnonymous === true) {

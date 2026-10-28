@@ -68,7 +68,7 @@ export const HANDLERS: Record<string, Handler> = {
   "device_auth.link_intent": device(deviceAuth.startDeviceLink),
   "device_auth.link_grant": device(deviceAuth.grantDeviceLink),
   "device_auth.exchange": device(deviceAuth.exchangeDeviceGrant),
-  "widget.guest": signIn(widgetAuth.signInGuest, WIDGET_BUDGETS.guest),
+  guest: signIn(widgetAuth.signInGuest, WIDGET_BUDGETS.guest),
   "widget.provider.exchange": signIn(widgetAuth.exchangeProvider),
   "widget.siwe.nonce": signIn(widgetAuth.siweNonce),
   "widget.siwe.verify": signIn(widgetAuth.siweVerify),

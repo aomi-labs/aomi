@@ -12,7 +12,7 @@ const guest = (request: Request) =>
   handleRequest(request, { PORTAL_HOSTS: "portal.example", PORTAL_UPSTREAM_ORIGIN: "https://pages.example" }, fetch);
 
 const request = (host = "portal.example") =>
-  new Request(`https://${host}/api/auth/widget/guest`, {
+  new Request(`https://${host}/api/auth/guest`, {
     method: "POST",
     headers: {
       origin: "https://partner.example",
