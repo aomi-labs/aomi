@@ -3,7 +3,9 @@ import { decodeProtectedHeader, exportPKCS8, exportSPKI, generateKeyPair, import
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { edgeService, edgeTopologyName, resetEdgeServices } from "./identity";
-import { EDGE_TOPOLOGIES } from "./topology-data";
+import { TOPOLOGIES } from "@aomi-labs/service-identity";
+
+const EDGE_TOPOLOGIES = TOPOLOGIES["aomi-edge"];
 
 beforeEach(() => {
   resetEdgeServices();

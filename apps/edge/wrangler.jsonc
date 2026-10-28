@@ -3,9 +3,22 @@
   "name": "aomi-edge",
   "main": "src/index.ts",
   "compatibility_date": "2026-03-25",
+  // pg, Better Auth and the account package use node:crypto, node:net and
+  // AsyncLocalStorage; process.env carries the vars and secrets.
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "observability": { "enabled": true },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  // Local development: the account database through a local Hyperdrive. Point
+  // it at your Postgres with CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE.
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],
   "env": {
+    // Local development only: adds the E2E wallet harness (src/dev.ts). Never deployed.
+    "dev": {
+      "main": "src/dev.ts",
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" }
+    },
     "staging": {
       // api-staging is the venue, CLI and MCP host. The portal host is routed on
       // its API paths only (cookies stay host-only; the UI stays on Vercel).
@@ -23,6 +36,10 @@
       // `wrangler kv namespace create EDGE_CACHE --env staging` and paste the id;
       // the Worker falls back to an in-isolate cache while the binding is absent.
       // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
+      // The account database (sign-in, sessions, OAuth). Create once with
+      // `wrangler hyperdrive create aomi-staging-db --connection-string=... --caching-disabled`
+      // (device-code polling and session reads must never see a cached row).
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "" }],
       "vars": {
         // BACKEND_ORIGINS, API_SERVER_ORIGIN and PAYMENT_ORIGIN are not
         // configured here: scripts/deploy.mjs passes them from the deploy
@@ -36,6 +53,9 @@
         // The portal surface. PORTAL_UPSTREAM_ORIGIN (the portal's Vercel
         // alias) comes from the deploy environment like the other origins.
         "PORTAL_HOSTS": "chat-staging.aomi.dev",
+        // Better Auth issues for the portal host. BETTER_AUTH_SECRET (the
+        // portal's, so sessions survive), Privy and Para keys are secrets.
+        "BETTER_AUTH_URL": "https://chat-staging.aomi.dev",
         "APP_CATALOG_PLATFORMS": "",
         // The Build surface. BUILD_UPSTREAM_ORIGIN (Build's Vercel alias) comes
         // from the deploy environment; BUILD_SESSION_SECRET is a Wrangler secret.

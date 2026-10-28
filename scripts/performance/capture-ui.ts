@@ -211,7 +211,7 @@ try {
 
 async function signInGuest(request: Page["request"]) {
   const guest = await request.post(
-    new URL("/api/auth/sign-in/anonymous", url).href,
+    new URL("/api/auth/guest", url).href,
     { headers: { origin: new URL(url!).origin }, data: {} },
   );
   if (!guest.ok()) throw new Error(`Guest sign-in failed (${guest.status()})`);

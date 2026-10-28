@@ -19,7 +19,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@aomi-labs/account": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/internal": "workspace:*"
   },

@@ -1,161 +1,64 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool } from "pg";
 
-import budgets from "./pool-budgets.json";
-
 /**
- * The single Postgres pool for this environment's database: BetterAuth's
- * session tables and the canonical account graph (`users` /
- * `auth_providers` / `public_keys`) live side by side, so a user the portal
- * creates is immediately found by the backend connected to the same
- * environment. Staging and production use different databases.
+ * The Postgres pool for this environment's database: BetterAuth's session
+ * tables and the canonical account graph (`users` / `auth_providers` /
+ * `public_keys`) live side by side, so a user the edge creates is immediately
+ * found by the backend connected to the same environment.
  *
- * Connection string comes from `DATABASE_URL` — the only DB env var in this
- * package. Never hard-code it; it carries the DB password. Node runtime only
- * (not Edge). Lazy: constructed on first use, so importing query/service
- * modules never requires the env (pg also defers connecting until the first
- * query).
+ * On the edge every request gets its own pool over Hyperdrive
+ * ({@link withDatabase}): workerd forbids reusing one request's sockets in
+ * another. Outside a request scope (Node tests and scripts) one lazy pool is
+ * built from `DATABASE_URL`. Never hard-code the URL; it carries the password.
  */
-let cachedPool: Pool | undefined;
+type Scope = { connectionString: string; pool?: Pool };
 
-export type AccountPoolOptions = {
-  max: number;
-  idleTimeoutMillis: number;
-  connectionTimeoutMillis: number;
-};
+const scope = new AsyncLocalStorage<Scope>();
+let nodePool: Pool | undefined;
 
-type PortalBudget = (typeof budgets)["production"]["portal"];
-
-/** A Supabase project ref: 20 lowercase alphanumerics. */
-const PROJECT_REF = /^[a-z0-9]{20}$/;
-
-function supabaseProjectRef(url: URL): string | undefined {
-  const host = url.hostname.toLowerCase();
-  const direct = /^db\.([a-z0-9]{20})\.supabase\.co$/.exec(host);
-  if (direct) return direct[1];
-  if (!host.endsWith(".pooler.supabase.com")) return undefined;
-  const ref = decodeURIComponent(url.username).split(".").pop() ?? "";
-  if (!PROJECT_REF.test(ref)) {
-    throw new Error("Supabase pooler URL must contain a valid project ref");
-  }
-  return ref;
-}
-
-/**
- * The portal's connection allowance, from the budget product-mono's database
- * crate owns (synced by `pnpm sync:db-pool-budgets`). The environment is chosen
- * by the connection string's project ref, the same way the backend chooses
- * its pools, so the portal can never be sized for the other database. A
- * hosted project with no budget is configuration drift and fails loudly.
- */
-const portals = Object.values(budgets).map((environment) => environment.portal);
-
-/**
- * The allowance for a connection string no budget names (not a Supabase
- * project): the strictest value of each field across environments, so a later
- * divergence between the environment blocks can only tighten it.
- */
-const UNBUDGETED_PORTAL: PortalBudget = {
-  pooler_port: portals[0].pooler_port,
-  max_connections_per_instance: Math.min(
-    ...portals.map((portal) => portal.max_connections_per_instance),
-  ),
-  idle_timeout_ms: Math.min(...portals.map((portal) => portal.idle_timeout_ms)),
-  connection_timeout_ms: Math.min(
-    ...portals.map((portal) => portal.connection_timeout_ms),
-  ),
-};
-
-export function resolvePortalBudget(connectionString: string): PortalBudget {
-  let url: URL | undefined;
-  try {
-    url = new URL(connectionString);
-  } catch {
-    url = undefined;
-  }
-  const ref = url && supabaseProjectRef(url);
-  if (!ref) return UNBUDGETED_PORTAL;
-  const budget = Object.values(budgets).find(
-    (environment) => environment.project_ref === ref,
-  );
-  if (!budget) {
-    throw new Error(
-      `Supabase project ${ref} has no entry in pool-budgets.json`,
-    );
-  }
-  return budget.portal;
-}
-
-/**
- * Supabase's port 5432 pooler is session mode: every warm Vercel function can
- * consume one of its small fixed client allowance. The budget's transaction
- * pooler port multiplexes those short serverless queries instead. Preserve all
- * credentials and target identity while selecting the serverless-safe mode.
- */
-export function resolveAccountConnectionString(
+/** Run `fn` with a pool of its own; the pool, if one was opened, closes after it. */
+export async function withDatabase<T>(
   connectionString: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  if (!env.VERCEL) return connectionString;
-
-  let url: URL;
+  fn: () => Promise<T>,
+  waitUntil: (closing: Promise<unknown>) => void = () => undefined,
+): Promise<T> {
+  const current: Scope = { connectionString };
   try {
-    url = new URL(connectionString);
-  } catch {
-    return connectionString;
+    return await scope.run(current, fn);
+  } finally {
+    if (current.pool) waitUntil(current.pool.end().catch(() => undefined));
   }
-  const host = url.hostname.toLowerCase();
-  if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
-    throw new Error(
-      "Vercel account connections must use the Supabase transaction pooler, not a direct database URL",
-    );
-  }
-  if (
-    host.endsWith(".pooler.supabase.com") &&
-    (url.port === "" || url.port === "5432")
-  ) {
-    url.port = String(resolvePortalBudget(connectionString).pooler_port);
-    return url.toString();
-  }
-  return connectionString;
-}
-
-/**
- * Vercel can keep a separate warm function instance for each API route. A
- * transaction pooler is still shared infrastructure, so each instance keeps
- * the budget's per-instance cap with short-lived clients instead of
- * multiplying a larger local pool.
- */
-export function resolveAccountPoolOptions(
-  env: NodeJS.ProcessEnv = process.env,
-  connectionString = "",
-): AccountPoolOptions {
-  if (!env.VERCEL) {
-    return {
-      max: 4,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
-    };
-  }
-  const portal = resolvePortalBudget(connectionString);
-  return {
-    max: portal.max_connections_per_instance,
-    idleTimeoutMillis: portal.idle_timeout_ms,
-    connectionTimeoutMillis: portal.connection_timeout_ms,
-  };
 }
 
 export function getPool(): Pool {
-  if (cachedPool) return cachedPool;
+  const current = scope.getStore();
+  if (current) {
+    current.pool ??= new Pool({
+      connectionString: current.connectionString,
+      application_name: "aomi-edge",
+      max: 5,
+    });
+    return current.pool;
+  }
+  if (nodePool) return nodePool;
   const connectionString = process.env.DATABASE_URL?.trim();
   if (!connectionString) {
     throw new Error(
       "DATABASE_URL is not set — the account package needs the one shared Postgres URL",
     );
   }
-  cachedPool = new Pool({
-    connectionString: resolveAccountConnectionString(connectionString),
-    application_name: "aomi-portal",
-    ...resolveAccountPoolOptions(process.env, connectionString),
-  });
-  return cachedPool;
+  nodePool = new Pool({ connectionString, application_name: "aomi-account", max: 4 });
+  return nodePool;
 }
+
+/**
+ * A pool-shaped handle that always reaches the current request's pool, for
+ * long-lived holders such as Better Auth's Kysely dialect.
+ */
+export const currentPool: Pick<Pool, "connect" | "query" | "end"> = {
+  connect: () => getPool().connect(),
+  query: ((...args: unknown[]) =>
+    (getPool().query as (...a: unknown[]) => unknown)(...args)) as Pool["query"],
+  end: async () => undefined,
+};

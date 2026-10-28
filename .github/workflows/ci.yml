@@ -86,7 +86,7 @@ jobs:
         run: pnpm run check:frontend-boundaries
 
       - name: Lint and typecheck workspace
-        run: pnpm run lint && pnpm run typecheck
+        run: pnpm run lint && pnpm run typecheck && pnpm run check:route-scopes
 
       - name: Build every publishable package
         run: pnpm run build:packages

@@ -23,30 +23,6 @@
       }
     ],
     "paths": {
-      "@aomi-labs/account": [
-        "../../packages/account/src/index.ts"
-      ],
-      "@aomi-labs/account/account": [
-        "../../packages/account/src/account.ts"
-      ],
-      "@aomi-labs/account/better-auth": [
-        "../../packages/account/src/better-auth/index.ts"
-      ],
-      "@aomi-labs/account/better-auth/client": [
-        "../../packages/client/src/browser-auth.ts"
-      ],
-      "@aomi-labs/account/better-auth/env": [
-        "../../packages/account/src/better-auth/env.ts"
-      ],
-      "@aomi-labs/account/better-auth/siwe": [
-        "../../packages/account/src/better-auth/siwe.ts"
-      ],
-      "@aomi-labs/account/providers": [
-        "../../packages/account/src/providers/index.ts"
-      ],
-      "@aomi-labs/account/*": [
-        "../../packages/account/src/*"
-      ],
       "@aomi-labs/client": [
         "../../packages/client/src/index.ts"
       ],

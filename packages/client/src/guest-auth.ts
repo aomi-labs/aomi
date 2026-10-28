@@ -173,10 +173,10 @@ async function requestAnonymousSession(
   onIdentity?: (identity: string | null) => void,
 ) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
-  const authPath =
-    runtime === "cross-origin-browser"
-      ? "/api/auth/widget/guest"
-      : "/api/auth/sign-in/anonymous";
+  // One guest route: on the portal's own origin it sets the session cookie,
+  // from a server it returns that session's bearer, and for an embed on
+  // another site an origin-bound widget session.
+  const authPath = "/api/auth/guest";
   const response = await fetchImpl(`${normalizedBase}${authPath}`, {
     method: "POST",
     headers: {
@@ -209,10 +209,9 @@ async function requestAnonymousSession(
   if (runtime !== "server") onIdentity?.(stringProperty(body?.user, "id"));
   if (runtime === "same-origin-browser") return null;
   const token =
-    runtime === "cross-origin-browser"
-      ? stringProperty(body, "access_token")
-      : (stringProperty(body, "token") ??
-        response.headers.get("set-auth-token"));
+    stringProperty(body, "access_token") ??
+    stringProperty(body, "token") ??
+    response.headers.get("set-auth-token");
   if (!token) throw new Error("Aomi guest sign-in returned no bearer session");
   return token;
 }

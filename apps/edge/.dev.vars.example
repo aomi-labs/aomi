@@ -20,3 +20,8 @@ APP_DEPLOY_PLATFORMS=web
 BUILD_TEMPLATE_REPO=aomi-labs/playground-example
 # Read access to the template and project repos for the release-manifest secret gate.
 BUILD_GITHUB_TOKEN=
+# Account surface: Better Auth on the local database (the Hyperdrive binding's
+# local connection string, CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE).
+BETTER_AUTH_URL=http://localhost:8787
+BETTER_AUTH_SECRET=development-only-better-auth-secret-32-bytes
+AOMI_TRUSTED_ORIGINS=http://localhost:8787

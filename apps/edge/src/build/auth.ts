@@ -1,4 +1,4 @@
-import { cookieWriteAllowed } from "../kernel/csrf";
+import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import { EdgeError } from "../kernel/errors";
 import type { BuildContext } from "./context";
 import { githubSessionOf, signerFor, visibilityGrantOf } from "./github-auth";

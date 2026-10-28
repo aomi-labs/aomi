@@ -1,5 +1,8 @@
 import { resourcePolicy, resourcesFor, type ResourcePolicy, type Resources } from "@aomi-labs/account/policy";
 
+import type { Auth } from "@aomi-labs/account/better-auth";
+
+import { authServer } from "../auth/server";
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
 import type { FetchLike } from "../kernel/proxy";
@@ -9,8 +12,10 @@ export type PortalContext = {
   env: EdgeEnv;
   /** The public portal origin this request arrived on (its own host). */
   portalOrigin: string;
-  /** Where the Vercel portal is reached from the edge (never the public host). */
+  /** Where the portal's pages are reached from the edge (never the public host). */
   upstreamOrigin: string;
+  /** The Better Auth server (sessions, OAuth, signing keys). */
+  auth: () => Auth;
   /** Origins whose cookie writes and reads the portal trusts. */
   trustedOrigins: readonly string[];
   resources: Resources;
@@ -37,6 +42,7 @@ export function portalContext(
     portalOrigin: url.origin,
     upstreamOrigin: portal.upstream,
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
+    auth: () => authServer(env),
     resources: resourcesFor(url.origin),
     dpopRequired: portal.dpopRequired,
     fetchImpl,

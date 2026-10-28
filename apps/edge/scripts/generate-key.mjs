@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Generate an Ed25519 keypair for the `aomi-edge` topology node. Paste the
-// public key into src/topology-data.ts and product-mono's
+// public key into packages/service-identity/src/topologies.ts and product-mono's
 // aomi/bin/{backend,api-server,payment}/service.<env>.toml; store the private
 // key with `wrangler secret put EDGE_SERVICE_PRIVATE_KEY --env <env>`.
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";

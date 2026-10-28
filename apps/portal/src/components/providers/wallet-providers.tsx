@@ -43,7 +43,7 @@ import {
 } from "@aomi-labs/widget/host-composition";
 import {
   E2EWalletProvider,
-  type E2EWalletSeedClient,
+  useE2EWalletSeed,
 } from "@/components/providers/e2e-wallet-provider";
 import {
   isDeviceAuthRoute,
@@ -135,7 +135,6 @@ const solanaNetworks = [
 type Props = {
   children: ReactNode;
   cookies?: string | null;
-  e2eWallet?: E2EWalletSeedClient | null;
 };
 
 type BrowserAuthOrigin = {
@@ -151,7 +150,8 @@ function getBrowserAuthOrigin(): BrowserAuthOrigin | null {
   };
 }
 
-export function WalletProviders({ children, e2eWallet }: Props) {
+export function WalletProviders({ children }: Props) {
+  const e2eWallet = useE2EWalletSeed();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const applicationId =
