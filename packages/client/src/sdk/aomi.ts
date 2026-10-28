@@ -210,15 +210,10 @@ export class Aomi {
     this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.commits = new AomiCommits(this.raw, commitOps);
     this.wallets = new AomiWallets(this.raw);
-    this.account = new AomiAccount((method, path, requestOptions) =>
-      this.raw.requestResponse(method, path, requestOptions),
-    );
+    const request = this.raw.requestResponse.bind(this.raw);
+    this.account = new AomiAccount(request);
     this.builder = {
-      credits: new AccountCreditsTransport(
-        (method, path, requestOptions) =>
-          this.raw.requestResponse(method, path, requestOptions),
-        "/v1/builder/credits",
-      ),
+      credits: new AccountCreditsTransport(request, "/v1/builder/credits"),
     };
     this.transactionSafety = this.raw.transactionSafety;
     this.agent = new AomiAgent(
