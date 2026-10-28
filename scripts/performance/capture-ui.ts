@@ -28,7 +28,9 @@ const option = (name: string, fallback?: string) => {
 const url = option("--url");
 if (!url || !/^https?:\/\//.test(url))
   throw new Error("Pass --url for a production Portal");
-const buildOutput = resolve(option("--build-output", "apps/portal/.next")!);
+const buildOutput = resolve(
+  option("--build-output", "apps/portal/.vercel/output/static")!,
+);
 const directory = resolve(option("--output", "output/performance")!);
 await mkdir(directory, { recursive: true });
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -210,10 +212,10 @@ try {
 }
 
 async function signInGuest(request: Page["request"]) {
-  const guest = await request.post(
-    new URL("/api/auth/guest", url).href,
-    { headers: { origin: new URL(url!).origin }, data: {} },
-  );
+  const guest = await request.post(new URL("/api/auth/guest", url).href, {
+    headers: { origin: new URL(url!).origin },
+    data: {},
+  });
   if (!guest.ok()) throw new Error(`Guest sign-in failed (${guest.status()})`);
   const session = await request.get(new URL("/api/auth/get-session", url).href);
   const identity = await session.json();
@@ -233,16 +235,11 @@ async function firstLoadScripts(page: Page) {
       .map((entry) => new URL(entry.name).pathname),
   );
   return [...new Set(paths)]
-    .filter((path) => path.startsWith("/_next/static/"))
+    .filter((path) => path.startsWith("/_build/"))
     .map((path) => ({
       path,
       gzipBytes: gzipSync(
-        readFileSync(
-          resolve(
-            buildOutput,
-            decodeURIComponent(path.slice("/_next/".length)),
-          ),
-        ),
+        readFileSync(resolve(buildOutput, decodeURIComponent(path.slice(1)))),
       ).length,
     }));
 }

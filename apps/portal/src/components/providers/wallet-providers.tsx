@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Component,
   type ErrorInfo,
@@ -9,7 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { hostedPortalOrigin, hostedPortalApiOrigin } from "@/lib/hosted-portal";
 import {
   arc,
   arcTestnet,
@@ -20,7 +17,7 @@ import {
   robinhood,
 } from "@aomi-labs/client";
 import { ExtUserProvider } from "@aomi-labs/react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "@/lib/navigation";
 import {
   mainnet,
   arbitrum,
@@ -36,8 +33,6 @@ import { type Chain } from "viem";
 import {
   AomiWalletKitProvider,
   parseRpcOverrides,
-  ShellTransportProvider,
-  useAomiWalletKit,
   useFullTestnet,
   WalletSignInOptionsContext,
 } from "@aomi-labs/widget/host-composition";
@@ -230,18 +225,9 @@ export function WalletProviders({ children }: Props) {
   // UI still reads "Ethereum · Mainnet" while transactions hit a local fork.
   // Inert unless NEXT_PUBLIC_USE_FULL_TESTNET=true and the RPC map parses.
   const { routedChains } = useFullTestnet(networks, fullTestnet);
-  const hostedOrigin = hostedPortalOrigin();
   const account = useMemo(
-    () => ({
-      mode: "aomi-backend" as const,
-      ...(hostedOrigin
-        ? {
-            baseUrl: hostedPortalApiOrigin(),
-            widgetAuth: { mode: "wallet" as const },
-          }
-        : (browserAuthOrigin ?? {})),
-    }),
-    [browserAuthOrigin, hostedOrigin],
+    () => ({ mode: "aomi-backend" as const, ...browserAuthOrigin }),
+    [browserAuthOrigin],
   );
   const evmWallets = useMemo(
     () =>
@@ -317,20 +303,18 @@ export function WalletProviders({ children }: Props) {
   const providerTree = (
     <WalletSignInOptionsContext.Provider
       value={
-        !providerRestored || isDeviceAuthRoute(pathname) || hostedOrigin
-          ? []
-          : signInOptions
+        !providerRestored || isDeviceAuthRoute(pathname) ? [] : signInOptions
       }
     >
       <AomiWalletKitProvider
         fullTestnet={fullTestnet}
         initializing={!providerRestored}
-        auth={hostedOrigin ? false : auth}
+        auth={auth}
         account={account}
         providers={providers}
         wallets={wallets}
       >
-        <HostedPortalShell>{children}</HostedPortalShell>
+        {children}
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
   );
@@ -398,17 +382,3 @@ const providerConfiguration = {
   paraEnvironment: paraEnvironmentSetting,
   privyAppId,
 };
-
-function HostedPortalShell({ children }: { children: ReactNode }) {
-  const origin = hostedPortalOrigin();
-  const kit = useAomiWalletKit();
-  if (!origin) return <>{children}</>;
-  return (
-    <ShellTransportProvider
-      baseUrl={hostedPortalApiOrigin()}
-      getBearer={kit.getAccountBearer}
-    >
-      {children}
-    </ShellTransportProvider>
-  );
-}

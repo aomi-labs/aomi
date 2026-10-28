@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * The portal's runtime fetch stack, extracted from the frame shell so the
  * component file stays presentational.
@@ -9,7 +7,6 @@
  * client owns payment retries and recovery probes.
  */
 
-import { hostedPortalOrigin } from "./hosted-portal";
 import { useEffect, useMemo, useState } from "react";
 import { type AomiClientOptions } from "@aomi-labs/react";
 import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
@@ -205,18 +202,18 @@ export function usePortalClientOptions(
   const nativeFetch = useMemo(() => globalThis.fetch.bind(globalThis), []);
   const {
     getAccountCredential,
-    getAccountBearer,
     identity,
     signTypedData,
     switchChain: switchWalletChain,
   } = useAomiWalletKit();
 
-  const accountAccessTokenProvider = useMemo(() => {
-    if (hostedPortalOrigin()) return null;
-    return createPortalAccountBearerProvider(getAccountCredential, {
-      fetch: nativeFetch,
-    });
-  }, [getAccountCredential, nativeFetch]);
+  const accountAccessTokenProvider = useMemo(
+    () =>
+      createPortalAccountBearerProvider(getAccountCredential, {
+        fetch: nativeFetch,
+      }),
+    [getAccountCredential, nativeFetch],
+  );
 
   useEffect(
     () => () => {
@@ -247,13 +244,10 @@ export function usePortalClientOptions(
     return {
       fetch: routedFetch,
       x402: paymentClient,
-      getAccountBearer: hostedPortalOrigin()
-        ? getAccountBearer
-        : (accountAccessTokenProvider ?? undefined),
+      getAccountBearer: accountAccessTokenProvider ?? undefined,
     };
   }, [
     accountAccessTokenProvider,
-    getAccountBearer,
     lockedApp,
     lockedApplicationId,
     nativeFetch,

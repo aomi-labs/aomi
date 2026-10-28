@@ -1,5 +1,6 @@
 {
-  "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm --filter portal build",
-  "outputDirectory": ".next"
+  "framework": null,
+  "outputDirectory": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter portal build"
 }
