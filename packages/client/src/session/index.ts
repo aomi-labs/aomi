@@ -99,6 +99,7 @@ export class ClientSession {
   >();
   private supersededTurns = new Set<string>();
   private callbackOwners = new Map<string, string>();
+  private pendingSteers: string[] = [];
   private pendingUserMessage?: {
     content: string;
     sinceSequence: number;
@@ -279,6 +280,33 @@ export class ClientSession {
       this.startStreaming();
     }
     return page;
+  }
+
+  /**
+   * Add a follow-up to the running turn; the turn takes it at its next model
+   * call. Resolves `false` when no turn is running: send it instead.
+   */
+  async steer(message: string): Promise<boolean> {
+    this.assertOpen();
+    const text = message.trim();
+    if (!text) throw new TypeError("message is required");
+    this.pendingSteers.push(text);
+    this.publish();
+    try {
+      await this.client.agent.steer(this.sessionId, text);
+      this.startStreaming();
+      return true;
+    } catch (error) {
+      this.pendingSteers.splice(this.pendingSteers.indexOf(text), 1);
+      this.publish();
+      // A chat the server has not seen yet has no running turn either.
+      if (
+        error instanceof AgentApiError &&
+        (error.code === "no_active_turn" || error.status === 404)
+      )
+        return false;
+      throw error;
+    }
   }
 
   interrupt(): Promise<void> {
@@ -878,6 +906,10 @@ export class ClientSession {
               }
             }
             this.applyMessage(event);
+            if (event.message_key?.includes(":steer:")) {
+              const index = this.pendingSteers.indexOf(event.content);
+              if (index >= 0) this.pendingSteers.splice(index, 1);
+            }
             if (
               event.sender === "user" &&
               ownsActiveTurn &&
@@ -916,6 +948,8 @@ export class ClientSession {
             }
             if (TERMINAL_TURN_STATES.has(event.state)) {
               this.terminalTurnId = event.turn_id ?? this.turnId;
+              // A turn that ended keeps the follow-ups it took in its events.
+              this.pendingSteers = [];
             }
             break;
           case "branch":
@@ -1426,6 +1460,9 @@ export class ClientSession {
         : {}),
       ...(this.pendingUserMessage?.replaces
         ? { pendingReplacesMessageKey: this.pendingUserMessage.replaces }
+        : {}),
+      ...(this.pendingSteers.length
+        ? { pendingSteers: [...this.pendingSteers] }
         : {}),
       actionAttempts: this.actions.allAttempts(),
       ...(this.error === undefined ? {} : { error: this.error }),

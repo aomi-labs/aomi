@@ -64,6 +64,8 @@ export type SessionSnapshot = Readonly<{
   pendingUserMessage?: string;
   /** User message key that `pendingUserMessage` replaces (Edit or Rerun). */
   pendingReplacesMessageKey?: string;
+  /** Follow-ups sent with `steer` that the running turn has not taken yet. */
+  pendingSteers?: readonly string[];
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** Per-turn browser-clock durations; receipt is distinct from rendering. */
   timing?: Readonly<{
