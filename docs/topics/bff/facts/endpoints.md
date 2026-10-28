@@ -5,18 +5,19 @@ status: authoritative
 area: bff
 review_after_days: 30
 sources_of_truth:
-  - apps/portal/src/app/api
-  - apps/build/src/app/api/bff
-  - apps/build/src/server/bff/deploy/routes.ts
-  - apps/build/src/server/bff/deploy/config.ts
+  - apps/edge/src/portal/routes.ts
+  - apps/edge/src/auth/routes.ts
+  - apps/edge/src/build/routes.ts
+  - apps/edge/src/kernel/config.ts
 ---
 
 # BFF Endpoints
 
-The portal BFF routes translate browser-facing portal calls into backend
+The Edge Worker (`apps/edge`) serves the portal's server routes; the portal app is
+pages only. They translate browser-facing portal calls into backend
 requests: `/api/auth/widget/*` (widget sign-in), `/api/delegation/{para,privy}/*`,
 `/api/public/catalog/[kind]`, `/api/bff/e2e/*` (test wallets) and the
-`/api/[...slug]` proxy to the Rust backend. Public developer routes also live at
+`/api/[...slug]` proxy to the Rust backend, all in `apps/edge`. Public developer routes also live at
 `/v1/agent/*`, `/v1/pipeline/*`, `/v1/agent/mcp`, and `/v1/pipeline/mcp`.
 The deploy and launch routes below belong to Aomi Build, not the portal.
 
@@ -46,10 +47,10 @@ and custody boundaries.
 
 ## Operational Notes
 
-- `/api/bff/launch/*` is Build's launch flow and uses `apps/build/src/server/bff/deploy/routes.ts` for backend authorization and request helpers. Build also serves `/api/bff/deployments/*` (project console) and `/api/bff/launch/{attempts,sdk-status}`.
+- `/api/bff/launch/*` is Build's launch flow, served by the Edge Worker (`apps/edge/src/build/routes.ts`). Build also serves `/api/bff/deployments/*` (project console) and `/api/bff/launch/{attempts,sdk-status}`.
 - There is no `/sources` route family and no `app_source_id`: the persisted identity is the Project (`projectId`), and project-scoped reads never accept a caller platform — the backend derives each project's bound platform. See `docs/topics/deploy/facts/projects.md`.
-- Onboarding backend calls use Build's service identity: `aomi-bff` mints a short-lived `service` bearer with `PORTAL_SERVICE_PRIVATE_KEY`. The committed service-topology TOML is selected automatically from the backend target / Vercel environment.
+- Onboarding backend calls use Build's service identity: `aomi-bff` mints a short-lived `service` bearer with `EDGE_SERVICE_PRIVATE_KEY`. The committed service-topology TOML is selected automatically from the backend target / Vercel environment.
 - The Build onboarding BFF does not use `AOMI_ADMIN_SECRET` or `APP_DEPLOY_ACTIVATION_TOKEN`. Activation tokens remain the CLI/update-path credential, not the browser onboarding credential.
-- Launch defaults are env-driven server-side config read in `apps/build/src/server/env.ts`: `APP_DEPLOY_PLATFORMS` (default `community`, JSON array or comma-separated; the first is the primary deploy target), `APP_DEPLOY_TEMPLATE_REPO` and `APP_DEPLOY_CREATED_REPO_PRIVATE`. Aomi Build does not expose platform names as a directory. Its switcher sends one exact platform name through the signed-in user's source read; the manager returns `404` for an unknown name, and the browser changes context only after a successful response. Existing-repository connection signs the exact platform, `owner/repo`, and an allowlisted Build Projects return URL into GitHub OAuth state; the callback proves repo access, claims the source, and returns success or an actionable error to the scoped Projects page.
+- Launch defaults are env-driven server-side config read in `apps/edge/src/kernel/config.ts`: `APP_DEPLOY_PLATFORMS` (default `community`, JSON array or comma-separated; the first is the primary deploy target), `APP_DEPLOY_TEMPLATE_REPO` and `APP_DEPLOY_CREATED_REPO_PRIVATE`. Aomi Build does not expose platform names as a directory. Its switcher sends one exact platform name through the signed-in user's source read; the manager returns `404` for an unknown name, and the browser changes context only after a successful response. Existing-repository connection signs the exact platform, `owner/repo`, and an allowlisted Build Projects return URL into GitHub OAuth state; the callback proves repo access, claims the source, and returns success or an actionable error to the scoped Projects page.
 - Chat links use `NEXT_PUBLIC_CHAT_URL`, defaulting to `https://chat.aomi.dev`.
 - Redeploy requires a Build-side `GITHUB_TOKEN` because it calls GitHub's workflow-run rerun endpoint directly.

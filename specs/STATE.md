@@ -2,6 +2,30 @@
 
 ## Last Updated
 
+2026-10-28 — TS REFORM (branch `feat/ts-reform`, one PR into main).
+  Portal, Build and Landing run on TanStack Start (Vite + Nitro) instead of
+  Next.js; every app builds for the `vercel` and `cloudflare-module` Nitro
+  presets (`AOMI_DEPLOY_TARGET`), shared config in `@aomi-labs/app-kit`. The
+  Edge Worker (`apps/edge`) is the only TypeScript server: Better Auth (over
+  Hyperdrive), account, widget auth, device login and the Landing proxy moved
+  into it, the portal server is deleted and Portal is pages only. One guest
+  route, `POST /api/auth/guest`. The `/api` twins of `/v1` routes (secrets,
+  transaction safety, on-chain policies, skill resources) are deleted; kept:
+  `/api/account/apps`, `/api/thread/apps`, `/api/commits`, `/api/account`.
+  Client: the `Aomi` facade (threads and turns, one `Commit`, `aomi.account`,
+  `aomi.builder.credits`), `/viem` `/solana` `/node` subpaths, and the trace
+  decoder at `@aomi-labs/client/trace` (widget keeps attribution). A lint rule
+  (`oneAomi`) bans hand-wired clients in first-party code. The CLI is Stricli
+  plus a pi-tui chat; sign-in is `aomi login` (device code) or `--private-key`.
+  React no longer re-exports `AomiClient`, wallet helpers or `cn`. Pending:
+  the Cloudflare cutover and `LANDING_UPSTREAM_ORIGIN` for production Landing
+  (Han); deploy the Edge before publishing client/cli (the new guest route);
+  product-mono `/v1/pipeline/evm/build` returns 422 for an empty action list.
+  Build ships 4.66 MB gzip of emitted JS, nearly all lazy wallet chunks that
+  no route loads (first load about 147 KB): the widget root and
+  `host-composition` entries keep the wallet plugin chunks alive, so a `cn`
+  and `Button` entry free of them would drop it to about 0.46 MB.
+
 2026-10-25 — EDGE WORKER DESLOP STACK (draft PRs #781–#785, stacked on the
   cutover-1 stack #776–#780). #781 adds the `apps/edge/src/kernel` (env schema,
   EdgeError, CORS, one proxy, `endpoint()` routes). #782 moves the first-party

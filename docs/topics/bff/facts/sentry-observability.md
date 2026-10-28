@@ -5,11 +5,10 @@ status: authoritative
 area: bff
 review_after_days: 30
 sources_of_truth:
-  - apps/portal/src/app/api
-  - apps/build/src/app/api
-  - apps/build/src/instrumentation.ts
-  - packages/account/src/proxy.ts
-  - packages/account/src/token.ts
+  - apps/portal/src/sentry.server.config.ts
+  - apps/build/src/sentry.server.config.ts
+  - apps/edge/src/index.ts
+  - packages/observability/src
 ---
 
 # BFF Sentry Observability Decision Record
@@ -22,6 +21,14 @@ Implementation status: **local code complete and verified on 2026-07-30;
 external Sentry, Vercel, dashboard, staging-smoke, and production-rollout work
 remains pending**. No external state was changed during the local
 implementation.
+
+## Current wiring
+
+This record describes the Next.js design. The apps have since left Next.js:
+Portal and Build use `@sentry/tanstackstart-react` (`src/sentry.server.config.ts`),
+the Edge Worker uses `@sentry/cloudflare`, and `@aomi-labs/observability` builds on
+`@sentry/node`. The failure classification and privacy rules below still apply;
+the Next.js file and config names are historical.
 
 ## Outcome
 

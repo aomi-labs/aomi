@@ -7,15 +7,16 @@
 | `@aomi-labs/react` | React runtime provider, contexts, hooks, and public widget integration surface |
 | `@aomi-labs/client` | `AomiClient`, `ClientSession`/`Session`, user-state types, wallet helpers, AA helpers |
 | `@aomi-labs/cli` | The `aomi` terminal command |
-| `@aomi-labs/account` | Account graph, Better Auth, SIWE/provider exchange, bearer minting, service topology, same-origin backend proxy |
+| `@aomi-labs/account` | Server-only account graph, Better Auth, SIWE/provider exchange, authorization policy, service topology. Runs inside the Edge Worker |
+| `@aomi-labs/app-kit` | Shared Vite/Nitro config for the TanStack Start apps (`vite`, `platform`, `http`, `url-search`) |
 | `@aomi-labs/widget` | Chat UI and wallet provider adapters |
 
 ## Stack
 
-- React 19 / Next.js 15 / TypeScript
+- React 19 / TanStack Start (Vite + Nitro, `vercel` and `cloudflare-module` presets) / TypeScript
 - `@assistant-ui/react` for chat primitives
 - Radix UI + Tailwind CSS 4 for styling
-- Better Auth for browser/device sessions
+- Better Auth for browser/device sessions, served by the Edge Worker (`apps/edge`)
 - `tsup` for publishable package bundles
 
 ## Package Entrypoints
@@ -23,9 +24,9 @@
 | Package | Main exports |
 | --- | --- |
 | `@aomi-labs/react` | `AomiRuntimeProvider`, runtime hooks, handlers, re-exported `AomiClient`/client types |
-| `@aomi-labs/client` | `AomiClient`, `Session` (`ClientSession`), `createAccountAccessTokenProvider`. The `aomi` bin forwards to `@aomi-labs/cli` |
-| `@aomi-labs/cli` | `aomi` terminal command |
-| `@aomi-labs/account` | Bearer minting, backend proxy, `./account`, `./better-auth`, `./providers` |
+| `@aomi-labs/client` | `Aomi` (threads, turns, commits, `aomi.account`), `AomiClient`, `/viem`, `/solana`, `/node` signer helpers, `/trace` decoder. The `aomi` bin forwards to `@aomi-labs/cli` |
+| `@aomi-labs/cli` | `aomi` terminal command (Stricli commands, pi-tui chat; `aomi login` device code or `--private-key`) |
+| `@aomi-labs/account` | `./account`, `./better-auth`, `./policy`, `./principal`, `./providers`, `./widget-auth` |
 
 ## Directory Structure
 
@@ -48,17 +49,20 @@ packages/react/src/
 └── runtime/                       # React shell around AomiClient + ClientSession
 
 packages/account/src/
-├── bearer.ts                      # AccountBearer minting
-├── proxy.ts                       # Same-origin backend proxy
+├── policy.ts                      # Capabilities, OAuth resource policies, authorize
+├── principal.ts                   # Caller identity from one credential
 ├── better-auth/                   # Better Auth config, SIWE, provider plugin, env
 ├── providers/                     # Privy/Para token verification and embedded-wallet listing
 ├── service/                       # account graph, provider exchange, wallet linking
 ├── db/                            # Account graph schema and queries
-└── topology-data.ts               # trusted service public keys
+└── widget-auth/                   # Widget sessions and tickets
+
+apps/edge/src/                     # The Cloudflare Worker: proxy, auth, account, Build BFF
 
 packages/widget/src/wallet/        # Wallet provider adapters
-apps/landing/                      # Demo Next.js app consuming built packages
-apps/portal/                       # Portal app and auth/BFF routes
+apps/landing/                      # Marketing, docs and registry (TanStack Start, prerendered)
+apps/portal/                       # Chat portal pages (TanStack Start; no server routes)
+apps/build/                        # Aomi Build control plane (TanStack Start)
 ```
 
 ## Commands
@@ -76,16 +80,23 @@ pnpm run lint
 
 ## Environment
 
+Apps (public, inlined at build; keys in `apps/*/public-env.keys.json`):
+
 ```
-NEXT_PUBLIC_BACKEND_URL       # Browser backend base; "/" uses same-origin BFF proxy
+NEXT_PUBLIC_BACKEND_URL       # Browser backend base; "/" uses the Edge on the same origin
 NEXT_PUBLIC_PROJECT_ID        # Reown/WalletConnect project id for demos
+AOMI_DEPLOY_TARGET            # vercel (default) or cloudflare: the Nitro preset
+```
+
+Edge Worker (`apps/edge/src/env.ts`; secrets via Wrangler, Hyperdrive binding):
+
+```
+HYPERDRIVE                    # Postgres for auth and the account graph
 BETTER_AUTH_SECRET            # Better Auth secret
-BETTER_AUTH_URL               # Better Auth base URL
-DATABASE_URL                  # Auth DB URL
-PORTAL_SERVICE_PRIVATE_KEY    # Ed25519 service key used to mint AccountBearer
-PRIVY_APP_ID                  # Privy app id for provider token verification
-PRIVY_APP_SECRET              # Privy REST secret for embedded-wallet listing
-PARA_API_KEY                  # Para REST key for embedded-wallet listing
+BETTER_AUTH_URL               # Public portal origin Better Auth issues for
+EDGE_SERVICE_PRIVATE_KEY      # Ed25519 key the edge mints service bearers with
+PORTAL_HOSTS, PORTAL_UPSTREAM_ORIGIN   # likewise LANDING_* and BUILD_*
+PRIVY_APP_ID, PRIVY_APP_SECRET, PARA_API_KEY   # provider verification
 ```
 
 The real Better Auth browser cookie is `better-auth.session_token`.
@@ -154,4 +165,4 @@ POST   /api/auth/aomi/provider/exchange
 POST   /v1/account/provider/exchange
 ```
 
-All backend session/thread endpoints carry `X-Session-Id`. Same-origin browser calls rely on the BFF proxy to translate the Better Auth cookie into a backend `AccountBearer`; direct cross-origin calls can opt into `createAccountAccessTokenProvider`.
+All backend session/thread endpoints carry `X-Session-Id`. Same-origin browser calls rely on the Edge Worker to translate the Better Auth cookie into a backend `AccountBearer`; direct cross-origin calls can opt into `createAccountAccessTokenProvider`.
