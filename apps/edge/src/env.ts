@@ -36,6 +36,14 @@ export interface EdgeEnv {
   /** PKCS#8 PEM of the `aomi-edge` signing key (a Wrangler secret). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
 
+  // RC-only test identity (rc topology; see api/rc-oidc.ts). All three or the path is off.
+  /** Canonical account id of the one RC test account the OIDC exchange resolves to. */
+  RC_OIDC_ACCOUNT_ID?: string;
+  /** Exact GitHub Actions `sub` claim accepted, e.g. repo:aomi-labs/product-mono:environment:rc. */
+  RC_OIDC_SUBJECT?: string;
+  /** Comma-separated accepted `job_workflow_ref` values. */
+  RC_OIDC_WORKFLOWS?: string;
+
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example chat.aomi.dev). */
   PORTAL_HOSTS?: string;
