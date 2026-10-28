@@ -28,6 +28,7 @@ export type AomiAuthorizationServerMetadata = {
   device_authorization_endpoint: string;
   jwks_uri: string;
   code_challenge_methods_supported?: readonly string[];
+  registration_endpoint?: string;
 };
 
 export type AomiDeviceVerification = {
@@ -95,6 +96,7 @@ export async function discoverAomiAuthorizationServer(input: {
     code_challenge_methods_supported: stringArray(
       body.code_challenge_methods_supported,
     ),
+    registration_endpoint: optionalUrl(body.registration_endpoint),
   } satisfies AomiAuthorizationServerMetadata;
   if (new URL(metadata.issuer).origin !== portal.origin) {
     throw new AomiOAuthError(
@@ -121,7 +123,9 @@ export async function discoverAomiAuthorizationServer(input: {
 
 export async function createAomiDeviceGrantManager(input: {
   portalBaseUrl: string;
-  clientId: string;
+  /** Omit to register a public device client (named `clientName`) first. */
+  clientId?: string;
+  clientName?: string;
   subject?: string;
   /** Asked for at the first sign-in too, so one approval covers the app. */
   scopes?: readonly string[];
@@ -138,23 +142,21 @@ export async function createAomiDeviceGrantManager(input: {
 }): Promise<
   AomiOAuthGrantManager & { metadata: AomiAuthorizationServerMetadata }
 > {
-  if (!input.clientId?.trim()) {
-    throw new AomiOAuthError(
-      "invalid_client",
-      "An OAuth client ID is required. Register a public device client once " +
-        "with POST /api/auth/oauth2/register on the Aomi Portal (see " +
-        '"Register an OAuth client" in the @aomi-labs/client README) and pass ' +
-        "its client_id.",
-    );
-  }
   const fetchImpl = input.fetch ?? fetch;
   const metadata = await discoverAomiAuthorizationServer({
     portalBaseUrl: input.portalBaseUrl,
     fetch: fetchImpl,
   });
+  const clientId =
+    input.clientId?.trim() ||
+    (await registerDeviceClient(
+      metadata,
+      { ...input, resource: `${normalizedPortal(input.portalBaseUrl).origin}/v1` },
+      fetchImpl,
+    ));
   const manager = createAomiOAuthGrantManager({
     issuer: metadata.issuer,
-    clientId: input.clientId,
+    clientId,
     subject: input.subject,
     scopes: input.scopes,
     initial: input.initial,
@@ -163,7 +165,7 @@ export async function createAomiDeviceGrantManager(input: {
     acquire: (request) =>
       acquireAomiDeviceGrant({
         metadata,
-        clientId: input.clientId,
+        clientId,
         subject: input.subject,
         request,
         fetch: fetchImpl,
@@ -185,6 +187,39 @@ export async function createAomiDeviceGrantManager(input: {
       revokeAomiOAuthGrant({ metadata, grant, fetch: fetchImpl }),
   });
   return Object.assign(manager, { metadata });
+}
+
+/** Dynamic registration of a public device client, for hosts that ship none. */
+async function registerDeviceClient(
+  metadata: AomiAuthorizationServerMetadata,
+  input: {
+    clientName?: string;
+    resource: string;
+    scopes?: readonly string[];
+    signal?: AbortSignal;
+  },
+  fetchImpl: typeof fetch,
+): Promise<string> {
+  if (!metadata.registration_endpoint)
+    throw new AomiOAuthError(
+      "invalid_client",
+      "An OAuth client ID is required: this server has no client registration",
+    );
+  const response = await fetchImpl(metadata.registration_endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      client_name: input.clientName ?? "Aomi device client",
+      token_endpoint_auth_method: "none",
+      grant_types: [DEVICE_GRANT, "refresh_token"],
+      resources: [input.resource],
+      ...(input.scopes ? { scope: input.scopes.join(" ") } : {}),
+    }),
+    signal: input.signal,
+  });
+  const body = await jsonRecord(response);
+  if (!response.ok) throw oauthResponseError("invalid_client", body);
+  return requiredString(body.client_id, "client_id");
 }
 
 /** Browser public-client authorization-code + PKCE flow. The popup carries no

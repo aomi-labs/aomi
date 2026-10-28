@@ -184,7 +184,7 @@ export {
 // ======================================================================
 export { Aomi } from "./sdk/aomi";
 export type { AomiOptions } from "./sdk/aomi";
-export { bearer, oauth } from "./sdk/auth";
+export { bearer, oauth, wallet } from "./sdk/auth";
 export type {
   AomiBearerStrategy,
   AomiAuthController,
@@ -196,6 +196,8 @@ export type {
   AomiBrowserOAuthOptions,
   AomiDeviceOAuthOptions,
   AomiOAuthStrategy,
+  AomiWalletSigner,
+  AomiWalletStrategy,
 } from "./sdk/auth";
 export { AomiAgent, AgentRun } from "./sdk/agent";
 export {

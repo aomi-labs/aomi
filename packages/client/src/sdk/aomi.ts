@@ -16,6 +16,7 @@ import {
   createGuestAuthController,
   createOAuthAuthRuntime,
   createPassiveAuthController,
+  createWalletAuthRuntime,
   type AomiAuthController,
   type AomiAuthStrategy,
 } from "./auth";
@@ -105,7 +106,19 @@ export class Aomi {
       x402: wallet?.evm ? createEvmPaymentClient(wallet.evm) : undefined,
     };
 
-    if (auth?.kind === "bearer") {
+    if (auth?.kind === "wallet") {
+      const runtime = createWalletAuthRuntime({
+        baseUrl: clientOptions.baseUrl,
+        fetch: fetchImpl,
+        strategy: auth,
+      });
+      this.auth = runtime.controller;
+      this.raw = new AomiClient({
+        ...paidClientOptions,
+        getAccountBearer: runtime.bearer,
+        guest: false,
+      });
+    } else if (auth?.kind === "bearer") {
       this.auth = createPassiveAuthController("custom");
       this.raw = new AomiClient({
         ...paidClientOptions,
