@@ -23,13 +23,13 @@ export async function list(flags: Flags): Promise<void> {
 
 /** Continue `id` from the next `aomi` or `aomi -p`. */
 export async function open(_flags: Flags, id: string): Promise<void> {
-  updateState({ thread: id });
+  updateState({ thread: id, owner: undefined });
   out(`Continuing ${id}`);
 }
 
 /** Start the next message in a new thread. */
 export async function start(): Promise<void> {
-  updateState({ thread: undefined });
+  updateState({ thread: undefined, owner: undefined });
   out("The next message starts a new thread");
 }
 

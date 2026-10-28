@@ -6,6 +6,7 @@ import {
   err,
   json,
   out,
+  ownerOf,
   turnOptions,
   usage,
   type ConnectFlags,
@@ -60,7 +61,7 @@ export async function ask(flags: ChatFlags, text: string): Promise<void> {
       else err(stepLine(step, color));
     }
     const result = await turn;
-    updateState({ thread: result.threadId });
+    updateState({ thread: result.threadId, owner: ownerOf(aomi) });
     if (flags.json) {
       json({ type: "reply", thread: result.threadId, text: result.reply });
       for (const commit of result.commits)

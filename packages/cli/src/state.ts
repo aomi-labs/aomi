@@ -9,8 +9,9 @@ export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
 /** Everything the CLI remembers between runs, in one private file. */
 export type CliState = {
   baseUrl?: string;
-  /** The thread `aomi` continues. */
+  /** The thread `aomi` continues, and who started it (see `ownerOf`). */
   thread?: string;
+  owner?: string;
   model?: string;
   /** Direct app; none means Auto. */
   app?: string;

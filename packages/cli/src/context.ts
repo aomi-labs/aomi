@@ -208,13 +208,24 @@ export function turnOptions(
     CLIENT_TYPE_TS_CLI,
   );
   return {
-    sessionId: overrides.thread ?? state.thread ?? randomUUID(),
+    sessionId:
+      overrides.thread ??
+      (!state.owner || state.owner === ownerOf(aomi)
+        ? state.thread
+        : undefined) ??
+      randomUUID(),
     target,
     model: overrides.model ?? state.model,
     clientId: clientIdOf(state),
     userState,
   };
 }
+
+/** Who a thread belongs to: another sign-in can't continue it. */
+export const ownerOf = (aomi: Aomi) =>
+  aomi.auth.mode === "wallet"
+    ? `wallet:${aomi.wallet?.evm?.address}`
+    : aomi.auth.mode;
 
 /** The secrets vault id, made once. */
 export function clientIdOf(state = loadState()): string {

@@ -701,14 +701,8 @@ const root = routes(
       [arg("bash or zsh", "shell", true)],
       completion,
     ),
-    __complete: command(
-      "Completions for the words so far",
-      {},
-      { rest: arg("Words so far", "word") },
-      complete,
-    ),
   },
-  { aliases: ALIASES, hidden: ["__complete"] },
+  { aliases: ALIASES },
 );
 
 export const app = buildApplication(root, {
@@ -781,10 +775,12 @@ async function completion(_flags: object, shell = "bash"): Promise<void> {
   );
 }
 
-async function complete(_flags: object, ...words: string[]): Promise<void> {
+/** `aomi __complete <words…>`, for the script above. Not parsed: words may look like flags. */
+async function complete(words: string[]): Promise<void> {
+  // A half-typed flag is not an error while completing.
   const proposals = await proposeCompletions(app, words.length ? words : [""], {
     process,
-  });
+  }).catch(() => []);
   for (const proposal of proposals)
     process.stdout.write(`${proposal.completion}\n`);
 }
@@ -804,6 +800,10 @@ function routed(argv: string[]): string[] {
 /** Usage errors from the parser are 2; everything else keeps its code. */
 export async function main(argv: string[]): Promise<number> {
   process.exitCode = undefined;
+  if (argv[0] === "__complete") {
+    await complete(argv.slice(1));
+    return 0;
+  }
   if (argv.length === 1 && ["-h", "--help"].includes(argv[0]!)) {
     process.stdout.write(rootHelp());
     return 0;

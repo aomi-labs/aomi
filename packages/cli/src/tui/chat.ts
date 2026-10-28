@@ -19,7 +19,7 @@ import { decode, type InterpretedToolStep } from "@aomi-labs/client/trace";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { reviewLines, reviewSummary } from "../commands/tx";
-import { connect, openUrl, turnOptions } from "../context";
+import { connect, openUrl, ownerOf, turnOptions } from "../context";
 import { loadState, updateState } from "../state";
 import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
 
@@ -58,7 +58,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const aomi = await connect(flags);
   let thread = flags.new
     ? crypto.randomUUID()
-    : (flags.thread ?? loadState().thread);
+    : turnOptions(aomi, loadState(), { thread: flags.thread }).sessionId;
   let title = "new thread";
   const turns: TurnView[] = [];
   let running: Turn | undefined;
@@ -253,7 +253,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       for (const commit of result.commits)
         commit.subscribe(() => tui.requestRender());
       title = result.title || title;
-      updateState({ thread: result.threadId });
+      updateState({ thread: result.threadId, owner: ownerOf(aomi) });
     } catch (error) {
       view.error = error instanceof Error ? error.message : String(error);
     } finally {
@@ -303,6 +303,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   void statusBar(aomi, bar).then(() => tui.requestRender());
+  if (thread)
+    void aomi.agent.threads
+      .list({ limit: 50 })
+      .then(({ threads }) => {
+        title = threads.find((entry) => entry.id === thread)?.title || title;
+        tui.requestRender();
+      })
+      .catch(() => undefined);
   tui.start();
   await done;
 }
