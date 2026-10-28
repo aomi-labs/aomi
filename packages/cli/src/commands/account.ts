@@ -43,9 +43,13 @@ export async function whoami(flags: Flags): Promise<void> {
   // Device grants are capability tokens: the profile route answers 401.
   const me = await aomi.account.me().catch(() => null);
   if (flags.json) return json({ signIn: aomi.auth.mode, account: me });
-  out(`Signed in  ${via}${aomi.auth.mode === "wallet" ? ` ${aomi.wallet?.evm?.address}` : ""}`);
+  out(
+    `Signed in  ${via}${aomi.auth.mode === "wallet" ? ` ${aomi.wallet?.evm?.address}` : ""}`,
+  );
   if (me?.user)
-    out(`Account    ${me.user.displayName ?? me.user.email ?? ""} (${me.user.id})`);
+    out(
+      `Account    ${me.user.displayName ?? me.user.email ?? ""} (${me.user.id})`,
+    );
 }
 
 /** `aomi account`: profile, connections and credits. */
@@ -58,12 +62,20 @@ export async function show(flags: Flags): Promise<void> {
   if (flags.json) return json({ account: me, credits: balance });
   if (!me.user) throw new CliError("Not signed in: aomi login", 3);
   out(`Account      ${me.user.displayName ?? ""} (${me.user.id})`);
-  for (const login of me.linkedAccounts) out(`Login        ${loginLine(login)}`);
-  for (const wallet of me.wallets) out(`Wallet       ${wallet.family} ${wallet.address}`);
+  for (const login of me.linkedAccounts)
+    out(`Login        ${loginLine(login)}`);
+  for (const wallet of me.wallets)
+    out(`Wallet       ${wallet.family} ${wallet.address}`);
   if (balance) out(`Credits      ${credits(balance.balance_microusd)}`);
 }
 
-const loginLine = (login: { id: string; provider: string; displayLabel?: string; email?: string; subject: string }) =>
+const loginLine = (login: {
+  id: string;
+  provider: string;
+  displayLabel?: string;
+  email?: string;
+  subject: string;
+}) =>
   `${login.id}  ${login.provider}  ${login.displayLabel ?? login.email ?? login.subject}`;
 
 export async function connections(flags: Flags): Promise<void> {
@@ -73,8 +85,14 @@ export async function connections(flags: Flags): Promise<void> {
   for (const login of logins) out(loginLine(login));
 }
 
-export async function unlink(flags: Flags & { yes?: boolean }, id: string): Promise<void> {
-  if (!flags.yes) throw usage(`Unlinking removes a way to sign in; pass --yes to unlink ${id}`);
+export async function unlink(
+  flags: Flags & { yes?: boolean },
+  id: string,
+): Promise<void> {
+  if (!flags.yes)
+    throw usage(
+      `Unlinking removes a way to sign in; pass --yes to unlink ${id}`,
+    );
   const aomi = await connect(flags);
   await aomi.account.logins.remove(id);
   out(`Unlinked ${id}`);
@@ -84,7 +102,9 @@ const credits = (microusd: number) =>
   (microusd / 10_000).toLocaleString("en-US", { maximumFractionDigits: 4 });
 
 function printCredits(balance: CreditBalance, ledger: CreditLedger) {
-  out(`Monthly   ${credits(balance.included.used_microusd)} / ${credits(balance.included.limit_microusd)} used`);
+  out(
+    `Monthly   ${credits(balance.included.used_microusd)} / ${credits(balance.included.limit_microusd)} used`,
+  );
   out(`Balance   ${credits(balance.balance_microusd)} credits`);
   for (const entry of ledger.entries)
     out(
@@ -92,7 +112,9 @@ function printCredits(balance: CreditBalance, ledger: CreditLedger) {
     );
 }
 
-export async function showCredits(flags: Flags & { limit?: number }): Promise<void> {
+export async function showCredits(
+  flags: Flags & { limit?: number },
+): Promise<void> {
   const aomi = await connect(flags);
   const [balance, ledger] = await Promise.all([
     aomi.account.credits.get(),
@@ -121,9 +143,14 @@ export async function fund(
   out(`Funding ${result.funding_event.id}  ${result.funding_event.status}`);
 }
 
-export async function statement(flags: Flags & { limit?: number; cursor?: string }): Promise<void> {
+export async function statement(
+  flags: Flags & { limit?: number; cursor?: string },
+): Promise<void> {
   const aomi = await connect(flags);
-  const page = await aomi.account.statement({ limit: flags.limit, cursor: flags.cursor });
+  const page = await aomi.account.statement({
+    limit: flags.limit,
+    cursor: flags.cursor,
+  });
   if (flags.json) return json(page);
   for (const entry of page.entries) out(JSON.stringify(entry));
   if (page.next_cursor) out(`next  --cursor ${page.next_cursor}`);

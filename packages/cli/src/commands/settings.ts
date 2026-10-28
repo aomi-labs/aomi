@@ -40,7 +40,10 @@ export async function chains(flags: Flags): Promise<void> {
   const current = loadState().chain;
   for (const id of SUPPORTED_CHAIN_IDS)
     if (flags.json) json({ id, name: CHAIN_NAMES[id] });
-    else out(`${id === current ? "*" : " "} ${String(id).padEnd(9)} ${CHAIN_NAMES[id]}`);
+    else
+      out(
+        `${id === current ? "*" : " "} ${String(id).padEnd(9)} ${CHAIN_NAMES[id]}`,
+      );
 }
 
 export async function setChain(_flags: Flags, chain: number): Promise<void> {
@@ -61,8 +64,10 @@ async function vault(flags: Flags) {
   const thread = threadOf();
   const clientId = clientIdOf();
   return {
-    names: async () => secretNamesFrom(await aomi.raw.listSecrets(thread, clientId)),
-    add: (secrets: Record<string, string>) => aomi.raw.ingestSecrets(thread, clientId, secrets),
+    names: async () =>
+      secretNamesFrom(await aomi.raw.listSecrets(thread, clientId)),
+    add: (secrets: Record<string, string>) =>
+      aomi.raw.ingestSecrets(thread, clientId, secrets),
     remove: (name: string) => aomi.raw.deleteSecret(thread, clientId, name),
     clear: () => aomi.raw.clearSecrets(thread, clientId),
   };
@@ -71,9 +76,12 @@ async function vault(flags: Flags) {
 const BYOK = "BYOK:";
 
 export async function keys(flags: Flags): Promise<void> {
-  const names = (await (await vault(flags)).names()).filter((name) => name.startsWith(BYOK));
+  const names = (await (await vault(flags)).names()).filter((name) =>
+    name.startsWith(BYOK),
+  );
   for (const name of names) out(name.slice(BYOK.length));
-  if (!names.length && !flags.json) out("No provider keys; aomi keys set <provider>");
+  if (!names.length && !flags.json)
+    out("No provider keys; aomi keys set <provider>");
 }
 
 /** Your own provider key (e.g. `anthropic`), read from stdin or a hidden prompt. */
@@ -89,12 +97,17 @@ export async function removeKey(flags: Flags, provider: string): Promise<void> {
 }
 
 export async function secrets(flags: Flags): Promise<void> {
-  const names = (await (await vault(flags)).names()).filter((name) => !name.startsWith(BYOK));
+  const names = (await (await vault(flags)).names()).filter(
+    (name) => !name.startsWith(BYOK),
+  );
   for (const name of names) flags.json ? json(name) : out(name);
 }
 
 /** `aomi secret add NAME=value …`: values the agent's tools can use by handle. */
-export async function addSecrets(flags: Flags, ...pairs: string[]): Promise<void> {
+export async function addSecrets(
+  flags: Flags,
+  ...pairs: string[]
+): Promise<void> {
   const secrets = Object.fromEntries(
     pairs.map((pair) => {
       const at = pair.indexOf("=");
@@ -103,7 +116,8 @@ export async function addSecrets(flags: Flags, ...pairs: string[]): Promise<void
     }),
   );
   const { handles } = await (await vault(flags)).add(secrets);
-  for (const [name, handle] of Object.entries(handles)) out(`${name}  ${handle}`);
+  for (const [name, handle] of Object.entries(handles))
+    out(`${name}  ${handle}`);
 }
 
 export async function clearSecrets(flags: Flags): Promise<void> {
@@ -121,7 +135,8 @@ export async function config(flags: Flags): Promise<void> {
     chain: state.chain ?? null,
   };
   if (flags.json) return json(view);
-  for (const [key, value] of Object.entries(view)) out(`${key.padEnd(8)} ${value ?? "-"}`);
+  for (const [key, value] of Object.entries(view))
+    out(`${key.padEnd(8)} ${value ?? "-"}`);
 }
 
 export async function setBackend(_flags: Flags, url: string): Promise<void> {

@@ -75,7 +75,10 @@ function migrate(): CliState {
   try {
     const id = readFileSync(join(STATE_DIR, "active-session.txt"), "utf8");
     old = JSON.parse(
-      readFileSync(join(STATE_DIR, "sessions", `session-${id.trim()}.json`), "utf8"),
+      readFileSync(
+        join(STATE_DIR, "sessions", `session-${id.trim()}.json`),
+        "utf8",
+      ),
     ) as OldSession;
   } catch {
     return {};

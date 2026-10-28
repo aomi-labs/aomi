@@ -33,7 +33,8 @@ export const chipsOf = (step: InterpretedToolStep) =>
 /** One decoded step as one line: `✓ Simulate transaction  Base · 2 txs`. */
 export function stepLine(step: InterpretedToolStep, color: boolean): string {
   const status = statusOf(step);
-  const line = `${GLYPHS[status]} ${step.title.padEnd(21)} ${chipsOf(step)}`.trimEnd();
+  const line =
+    `${GLYPHS[status]} ${step.title.padEnd(21)} ${chipsOf(step)}`.trimEnd();
   if (!color) return line;
   return status === "waiting"
     ? paint.yellow(line)

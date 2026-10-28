@@ -63,16 +63,17 @@ export async function ask(flags: ChatFlags, text: string): Promise<void> {
     updateState({ thread: result.threadId });
     if (flags.json) {
       json({ type: "reply", thread: result.threadId, text: result.reply });
-      for (const commit of result.commits) json({ type: "commit", ...commitEvent(commit) });
+      for (const commit of result.commits)
+        json({ type: "commit", ...commitEvent(commit) });
     } else {
       if (steps && result.reply) err();
       if (result.reply) out(result.reply);
       for (const commit of result.commits) err(commitHint(commit, color));
     }
-    if (!result.reply && result.commits.length === 0)
-      throw new CliError("The agent returned no reply");
     for (const commit of result.commits) commit.close();
+    if (result.state === "interrupted") throw new CliError("Interrupted");
     if (result.commits.length) process.exitCode = 3;
+    else if (!result.reply) throw new CliError("The agent returned no reply");
   } finally {
     process.off("SIGINT", stop);
   }

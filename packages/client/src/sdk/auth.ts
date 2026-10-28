@@ -303,7 +303,10 @@ export function createWalletAuthRuntime(input: {
       uri: portal.origin,
     });
     const signature = await signer.signMessage({ message });
-    const verified = await post("/api/auth/siwe/verify", { message, signature });
+    const verified = await post("/api/auth/siwe/verify", {
+      message,
+      signature,
+    });
     const token =
       verified.headers.get("set-auth-token") ??
       ((await verified.json()) as { token?: string }).token;

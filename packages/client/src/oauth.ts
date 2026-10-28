@@ -151,7 +151,10 @@ export async function createAomiDeviceGrantManager(input: {
     input.clientId?.trim() ||
     (await registerDeviceClient(
       metadata,
-      { ...input, resource: `${normalizedPortal(input.portalBaseUrl).origin}/v1` },
+      {
+        ...input,
+        resource: `${normalizedPortal(input.portalBaseUrl).origin}/v1`,
+      },
       fetchImpl,
     ));
   const manager = createAomiOAuthGrantManager({
@@ -195,7 +198,6 @@ async function registerDeviceClient(
   input: {
     clientName?: string;
     resource: string;
-    scopes?: readonly string[];
     signal?: AbortSignal;
   },
   fetchImpl: typeof fetch,
@@ -212,8 +214,9 @@ async function registerDeviceClient(
       client_name: input.clientName ?? "Aomi device client",
       token_endpoint_auth_method: "none",
       grant_types: [DEVICE_GRANT, "refresh_token"],
+      // No `scope`: the server registers the client for every REST scope;
+      // what a grant gets is decided at the device approval.
       resources: [input.resource],
-      ...(input.scopes ? { scope: input.scopes.join(" ") } : {}),
     }),
     signal: input.signal,
   });

@@ -207,18 +207,28 @@ describe("Aomi OAuth grant manager", () => {
 
 describe("createAomiDeviceGrantManager", () => {
   it.each([undefined, "", "  "])(
-    "explains how to register when the client ID is %j",
+    "needs a client ID (%j) when the server registers none",
     async (missing) => {
-      const fetch = vi.fn();
+      const portal = "https://portal.example";
+      const fetch = vi.fn(async () =>
+        Response.json({
+          issuer: `${portal}/api/auth`,
+          authorization_endpoint: `${portal}/api/auth/oauth2/authorize`,
+          token_endpoint: `${portal}/api/auth/oauth2/token`,
+          revocation_endpoint: `${portal}/api/auth/oauth2/revoke`,
+          device_authorization_endpoint: `${portal}/api/auth/device/code`,
+          jwks_uri: `${portal}/api/auth/jwks`,
+        }),
+      );
       await expect(
         createAomiDeviceGrantManager({
-          portalBaseUrl: "https://portal.example",
-          clientId: missing as unknown as string,
+          portalBaseUrl: portal,
+          clientId: missing,
           fetch,
           onVerification: () => {},
         }),
-      ).rejects.toThrow(/POST \/api\/auth\/oauth2\/register/);
-      expect(fetch).not.toHaveBeenCalled();
+      ).rejects.toThrow(/no client registration/);
+      expect(fetch).toHaveBeenCalledTimes(1);
     },
   );
 });

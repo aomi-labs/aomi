@@ -12,7 +12,7 @@ export async function list(flags: Flags): Promise<void> {
   const current = loadState().app;
   for (const app of apps)
     out(
-      `${app.name === current ? "*" : " "} ${app.name}${app.isInstalled ? "  installed" : ""}${app.description ? `  ${app.description}` : ""}`.trimEnd(),
+      `${app.name === current ? "*" : " "} ${app.name}${app.isInstalled ? "  installed" : ""}`,
     );
 }
 
@@ -36,19 +36,31 @@ export async function credentials(flags: Flags, name: string): Promise<void> {
   const status = await aomi.account.apps.credentials(name).list();
   if (flags.json) return json(status);
   for (const slot of status.slots)
-    out(`${slot.name}  ${slot.configured ? "set" : slot.required ? "missing" : "optional"}  ${slot.description}`);
+    out(
+      `${slot.name}  ${slot.configured ? "set" : slot.required ? "missing" : "optional"}  ${slot.description}`,
+    );
 }
 
 /** The value comes from stdin or a hidden prompt, never the command line. */
-export async function setCredential(flags: Flags, name: string, key: string): Promise<void> {
+export async function setCredential(
+  flags: Flags,
+  name: string,
+  key: string,
+): Promise<void> {
   const value = await readSecret(`${key}: `);
   const aomi = await connect(flags);
   const status = await aomi.account.apps.credentials(name).set(key, value);
   if (flags.json) return json(status);
-  out(`${key} set${status.ready ? "" : `; still missing ${status.missing_required.join(", ")}`}`);
+  out(
+    `${key} set${status.ready ? "" : `; still missing ${status.missing_required.join(", ")}`}`,
+  );
 }
 
-export async function removeCredential(flags: Flags, name: string, key: string): Promise<void> {
+export async function removeCredential(
+  flags: Flags,
+  name: string,
+  key: string,
+): Promise<void> {
   const aomi = await connect(flags);
   await aomi.account.apps.credentials(name).remove(key);
   out(`${key} removed`);
@@ -80,7 +92,10 @@ export async function readSecret(prompt: string): Promise<string> {
       for (const character of chunk) {
         if (character === "\u0003") return done(usage("Cancelled"));
         if (character === "\r" || character === "\n") return done();
-        value = character === "\u007f" || character === "\b" ? value.slice(0, -1) : value + character;
+        value =
+          character === "\u007f" || character === "\b"
+            ? value.slice(0, -1)
+            : value + character;
       }
     };
     stdin.on("data", onData);

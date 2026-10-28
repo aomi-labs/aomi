@@ -15,7 +15,9 @@ function print(flags: Flags, threads: ThreadSummary[]) {
 
 export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
-  const { threads } = await aomi.agent.threads.list({ limit: flags.limit ?? 20 });
+  const { threads } = await aomi.agent.threads.list({
+    limit: flags.limit ?? 20,
+  });
   print(flags, threads);
 }
 
@@ -31,7 +33,11 @@ export async function start(): Promise<void> {
   out("The next message starts a new thread");
 }
 
-export async function rename(flags: Flags, id: string, title: string): Promise<void> {
+export async function rename(
+  flags: Flags,
+  id: string,
+  title: string,
+): Promise<void> {
   const aomi = await connect(flags);
   print(flags, [await aomi.agent.thread(id).rename(title)]);
 }

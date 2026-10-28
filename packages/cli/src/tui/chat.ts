@@ -9,7 +9,12 @@ import {
   wrapTextWithAnsi,
   type Component,
 } from "@earendil-works/pi-tui";
-import { CHAIN_NAMES, Turn, type Aomi, type CommitHandle } from "@aomi-labs/client";
+import {
+  CHAIN_NAMES,
+  Turn,
+  type Aomi,
+  type CommitHandle,
+} from "@aomi-labs/client";
 import { decode, type InterpretedToolStep } from "@aomi-labs/client/trace";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
@@ -45,12 +50,15 @@ const HELP = [
   "a r o d on an approval: approve, reject, open, details",
 ].join("\n");
 
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+const short = (address: string) =>
+  `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 /** The chat screen: turns with their steps, approvals, the input and a status bar. */
 export async function runTui(flags: ChatFlags): Promise<void> {
   const aomi = await connect(flags);
-  let thread = flags.new ? crypto.randomUUID() : (flags.thread ?? loadState().thread);
+  let thread = flags.new
+    ? crypto.randomUUID()
+    : (flags.thread ?? loadState().thread);
   let title = "new thread";
   const turns: TurnView[] = [];
   let running: Turn | undefined;
@@ -70,41 +78,71 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       noMatch: paint.dim,
     },
   });
-  editor.setAutocompleteProvider(new CombinedAutocompleteProvider(SLASH, process.cwd()));
+  editor.setAutocompleteProvider(
+    new CombinedAutocompleteProvider(SLASH, process.cwd()),
+  );
 
   const pending = () =>
-    turns.at(-1)?.commits.find((commit) => commit.state === "awaiting_approval");
+    turns
+      .at(-1)
+      ?.commits.find((commit) => commit.state === "awaiting_approval");
 
   const transcript: Component = {
     invalidate() {},
     render(width) {
-      const lines = [paint.dim(`aomi ${packageJson.version} · thread "${title}"`)];
-      turns.forEach((turn, index) => lines.push("", ...turnLines(turn, index === turns.length - 1)));
+      const lines = [
+        paint.dim(`aomi ${packageJson.version} · thread "${title}"`),
+      ];
+      turns.forEach((turn, index) =>
+        lines.push("", ...turnLines(turn, index === turns.length - 1)),
+      );
       const commit = pending();
-      if (commit) lines.push("", ...approveBox(commit, Math.min(width, 60), details));
-      return lines.flatMap((line) => wrapTextWithAnsi(line, width)).map((line) => truncateToWidth(line, width));
+      if (commit)
+        lines.push("", ...approveBox(commit, Math.min(width, 60), details));
+      lines.push("");
+      return lines
+        .flatMap((line) => wrapTextWithAnsi(line, width))
+        .map((line) => truncateToWidth(line, width));
     },
   };
 
   function turnLines(turn: TurnView, last: boolean): string[] {
     if (turn.note) return turn.note.split("\n").map(paint.dim);
-    const seconds = Math.round(((turn.ms ?? Date.now() - turn.started) as number) / 1000);
-    const head = turn.ms === undefined
-      ? `${paint.yellow("●")} ${paint.bold(`Working ${seconds}s`)}`
-      : `${paint.green("●")} ${paint.bold(`Worked ${seconds}s`)}`;
+    const seconds = Math.round(
+      ((turn.ms ?? Date.now() - turn.started) as number) / 1000,
+    );
+    const head =
+      turn.ms === undefined
+        ? `${paint.yellow("●")} ${paint.bold(`Working ${seconds}s`)}`
+        : `${paint.green("●")} ${paint.bold(`Worked ${seconds}s`)}`;
     const lines = [`${paint.cyan(paint.bold("›"))} ${turn.text}`, ""];
-    lines.push(`${head} ${paint.dim(`· ${turn.steps.length} steps`)}  ${paint.dim(`ctrl+o ${expanded ? "collapse" : "expand"}`)}`);
+    lines.push(
+      `${head} ${paint.dim(`· ${turn.steps.length} step${turn.steps.length === 1 ? "" : "s"}`)}  ${paint.dim(`ctrl+o ${expanded ? "collapse" : "expand"}`)}`,
+    );
     if (expanded || last || turn.ms === undefined)
       for (const step of turn.steps) {
         const status = statusOf(step);
-        const glyph = status === "success" ? paint.green(GLYPHS.success) : status === "waiting" ? paint.yellow(GLYPHS.waiting) : paint.red(GLYPHS.failed);
-        lines.push(`  ${glyph} ${step.title.padEnd(22)} ${paint.dim(chipsOf(step))}`);
+        const glyph =
+          status === "success"
+            ? paint.green(GLYPHS.success)
+            : status === "waiting"
+              ? paint.yellow(GLYPHS.waiting)
+              : paint.red(GLYPHS.failed);
+        lines.push(
+          `  ${glyph} ${step.title.padEnd(22)} ${paint.dim(chipsOf(step))}`,
+        );
       }
     if (turn.reply) lines.push("", turn.reply);
     if (turn.error) lines.push("", paint.red(turn.error));
     for (const commit of turn.commits)
-      if (commit.state !== "awaiting_approval" && !["confirmed", "failed", "rejected", "expired"].includes(commit.state))
-        lines.push("", `${paint.yellow("Sign it")}  aomi tx sign ${commit.ref}`);
+      if (
+        commit.state !== "awaiting_approval" &&
+        !["confirmed", "failed", "rejected", "expired"].includes(commit.state)
+      )
+        lines.push(
+          "",
+          `${paint.yellow("Sign it")}  aomi tx sign ${commit.ref}`,
+        );
     return lines;
   }
 
@@ -114,14 +152,20 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const state = loadState();
       const left = [
         bar.who,
-        state.chain ? (CHAIN_NAMES[state.chain] ?? `chain ${state.chain}`) : undefined,
+        state.chain
+          ? (CHAIN_NAMES[state.chain] ?? `chain ${state.chain}`)
+          : undefined,
         state.model ?? "default model",
         state.app ? `Direct ${state.app}` : "Auto",
         bar.credits,
-      ].filter(Boolean).join(" · ");
+      ]
+        .filter(Boolean)
+        .join(" · ");
       const right = `${running ? "esc stop" : "ctrl+c quit"} · /help`;
       const gap = Math.max(1, width - visibleWidth(left) - visibleWidth(right));
-      return [truncateToWidth(paint.dim(`${left}${" ".repeat(gap)}${right}`), width)];
+      return [
+        truncateToWidth(paint.dim(`${left}${" ".repeat(gap)}${right}`), width),
+      ];
     },
   };
 
@@ -144,8 +188,9 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   tui.addInputListener((data) => {
-    if (matchesKey(data, "ctrl+c")) return exit(), { consume: true };
-    if (matchesKey(data, "escape") && running) return void running.interrupt(), { consume: true };
+    if (matchesKey(data, "ctrl+c")) return (exit(), { consume: true });
+    if (matchesKey(data, "escape") && running)
+      return (void running.interrupt(), { consume: true });
     if (matchesKey(data, "ctrl+o")) {
       expanded = !expanded;
       tui.requestRender();
@@ -169,20 +214,35 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       await commit.approve(commit.view);
       note("Approved · signing…");
       const last = await commit.settled();
-      note(last.signature ? `Signed · ${last.signature}` : `Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`);
+      note(
+        last.signature
+          ? `Signed · ${last.signature}`
+          : `Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`,
+      );
     } catch (error) {
       note(error instanceof Error ? error.message : String(error));
     }
   }
 
   async function send(text: string) {
-    const view: TurnView = { text, steps: [], started: Date.now(), commits: [] };
+    const view: TurnView = {
+      text,
+      steps: [],
+      started: Date.now(),
+      commits: [],
+    };
     turns.push(view);
     const ticker = setInterval(() => tui.requestRender(), 1000);
     try {
-      const options = turnOptions(aomi, loadState(), { thread, app: flags.app, model: flags.model });
+      const options = turnOptions(aomi, loadState(), {
+        thread,
+        app: flags.app,
+        model: flags.model,
+      });
       thread = options.sessionId;
-      running = new Turn(aomi.agent.run(text, options), (ref) => aomi.commits.get(ref));
+      running = new Turn(aomi.agent.run(text, options), (ref) =>
+        aomi.commits.get(ref),
+      );
       for await (const step of running.steps({ decode })) {
         view.steps.push(step);
         tui.requestRender();
@@ -190,7 +250,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const result = await running;
       view.reply = result.reply;
       view.commits = result.commits;
-      for (const commit of result.commits) commit.subscribe(() => tui.requestRender());
+      for (const commit of result.commits)
+        commit.subscribe(() => tui.requestRender());
       title = result.title || title;
       updateState({ thread: result.threadId });
     } catch (error) {
@@ -215,14 +276,18 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return note("New thread");
     }
     if (name === "model") {
-      if (arg) return updateState({ model: arg }), note(`Model ${arg}`);
-      const models = await aomi.raw.getModels(thread ?? crypto.randomUUID()).catch(() => []);
+      if (arg) return (updateState({ model: arg }), note(`Model ${arg}`));
+      const models = await aomi.raw
+        .getModels(thread ?? crypto.randomUUID())
+        .catch(() => []);
       return note(models.join("\n") || "No models listed");
     }
     if (name === "mode") {
       const [mode, app] = rest;
-      if (mode === "auto") return updateState({ app: undefined }), note("Auto");
-      if (mode === "direct" && app) return updateState({ app }), note(`Direct · ${app}`);
+      if (mode === "auto")
+        return (updateState({ app: undefined }), note("Auto"));
+      if (mode === "direct" && app)
+        return (updateState({ app }), note(`Direct · ${app}`));
       return note("/mode auto | /mode direct <app>");
     }
     note(`Unknown command /${name}; /help`);
@@ -253,24 +318,37 @@ async function statusBar(aomi: Aomi, bar: { who: string; credits: string }) {
   ]);
   const agent = wallets.find((wallet) => wallet.kind === "agent");
   if (!signer && agent) bar.who = agent.label;
-  if (credits) bar.credits = `${(credits.balance_microusd / 10_000).toLocaleString("en-US", { maximumFractionDigits: 2 })} credits`;
+  if (credits)
+    bar.credits = `${(credits.balance_microusd / 10_000).toLocaleString("en-US", { maximumFractionDigits: 2 })} credits`;
 }
 
 /** The commit waiting for you, with its keys. */
-function approveBox(commit: CommitHandle, width: number, details: boolean): string[] {
+function approveBox(
+  commit: CommitHandle,
+  width: number,
+  details: boolean,
+): string[] {
   const inner = width - 4;
   const row = (text: string) =>
     `${paint.yellow("│")} ${truncateToWidth(text, inner, "…", true)} ${paint.yellow("│")}`;
   const label = commit.kind.endsWith("message") ? "message" : "transaction";
   const titleText = `┌ Approve ${label} `;
   const lines = [
-    paint.yellow(`${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`),
+    paint.yellow(
+      `${titleText}${"─".repeat(Math.max(0, width - visibleWidth(titleText) - 1))}┐`,
+    ),
     row(reviewSummary(commit.review)),
-    row(`${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim("· Ask")}`),
+    row(
+      `${paint.dim("Signs with")} ${short(commit.view.signer)} ${paint.dim("· Ask")}`,
+    ),
   ];
-  if (details) for (const line of reviewLines(commit.view, commit.review)) lines.push(row(paint.dim(line)));
+  if (details)
+    for (const line of reviewLines(commit.view, commit.review))
+      lines.push(row(paint.dim(line)));
   lines.push(
-    row(`${paint.cyan(paint.bold("a"))} Approve   ${paint.cyan(paint.bold("r"))} Reject   ${paint.cyan(paint.bold("o"))} Open in browser   ${paint.cyan(paint.bold("d"))} Details`),
+    row(
+      `${paint.cyan(paint.bold("a"))} Approve   ${paint.cyan(paint.bold("r"))} Reject   ${paint.cyan(paint.bold("o"))} Open in browser   ${paint.cyan(paint.bold("d"))} Details`,
+    ),
     paint.yellow(`└${"─".repeat(width - 2)}┘`),
   );
   return lines;

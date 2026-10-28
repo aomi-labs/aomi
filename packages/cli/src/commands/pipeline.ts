@@ -61,10 +61,14 @@ export async function skills(flags: Flags): Promise<void> {
   printDirectory(flags, await aomi.pipeline.skills.list());
 }
 
-export async function skill(flags: Flags & { instructions?: boolean }, name: string): Promise<void> {
+export async function skill(
+  flags: Flags & { instructions?: boolean },
+  name: string,
+): Promise<void> {
   const aomi = await connect(flags);
   const selected = aomi.pipeline.skill(name);
-  if (flags.instructions) return void process.stdout.write(await selected.instructions());
+  if (flags.instructions)
+    return void process.stdout.write(await selected.instructions());
   printDirectory(flags, await selected.directory());
 }
 
@@ -94,9 +98,13 @@ export async function build(
   });
   if (flags.json) json({ type: "build", ...built.raw.toJSON() });
   else {
-    out(`Build ${built.digest}  ${built.chainFamily}  expires ${new Date(built.expiresAt).toISOString()}`);
-    for (const change of built.balanceChanges) out(`Balance   ${JSON.stringify(change)}`);
-    for (const approval of built.approvals) out(`Approval  ${JSON.stringify(approval)}`);
+    out(
+      `Build ${built.digest}  ${built.chainFamily}  expires ${new Date(built.expiresAt).toISOString()}`,
+    );
+    for (const change of built.balanceChanges)
+      out(`Balance   ${JSON.stringify(change)}`);
+    for (const approval of built.approvals)
+      out(`Approval  ${JSON.stringify(approval)}`);
   }
   if (!flags.commit) return;
   const commit = await built.commit();
