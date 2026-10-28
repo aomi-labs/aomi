@@ -77,12 +77,6 @@ export type ToolChip = {
 };
 
 // @public (undocumented)
-export type ToolConfidence = "high" | "medium" | "fallback";
-
-// @public (undocumented)
-export type ToolOutcome = "success" | "waiting" | "failed" | "cancelled" | "incomplete" | "unknown";
-
-// @public (undocumented)
 export type ToolStepInput = {
     toolName: string;
     argsText?: string;
@@ -135,28 +129,6 @@ export const tracePart: (event: Event_2) => {
     key: string;
     part: TracePart;
 } | null;
-
-// @public
-export type TraceRun = {
-    agentId: string;
-    callId: string;
-};
-
-// @public
-export type TraceTextPart = {
-    type: "text";
-    text: string;
-};
-
-// @public
-export type TraceToolPart = {
-    type: "tool-call";
-    toolCallId: string;
-    toolName: string;
-    args?: unknown;
-    argsText?: string;
-    result?: unknown;
-};
 
 // @public (undocumented)
 export const unwrapToolStep: (input: ToolStepInput) => ToolContext;

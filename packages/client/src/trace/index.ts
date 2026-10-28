@@ -22,13 +22,8 @@ export { STAGED_ACTION_ICON_REGISTRY } from "./registry";
 export type {
   InterpretedToolStep,
   ToolChip,
-  ToolConfidence,
-  ToolOutcome,
   ToolStepInput,
   TraceGlyph,
   TraceIcon,
   TracePart,
-  TraceRun,
-  TraceTextPart,
-  TraceToolPart,
 } from "./types";

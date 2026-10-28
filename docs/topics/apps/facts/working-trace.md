@@ -85,9 +85,8 @@ core tools. `protocols` holds one adapter per integration, with its exact tool
 names, result validation, and semantic facts. `pipeline.ts` only asks the core
 and protocol registries for a matcher; it contains no protocol rules. To add a
 protocol such as Curve, add `protocols/curve.ts` and register its adapter in
-`protocols/index.ts`. The widget registry discovers protocol source files when
-it builds, so no second source-file manifest update is needed. A protocol
-adapter must return neutral fallback when its result is invalid.
+`protocols/protocol-matchers.ts`. A protocol adapter must return neutral
+fallback when its result is invalid.
 
 ## Verification
 
@@ -96,5 +95,3 @@ count units, incomplete simulations, commit progress, pending row markers,
 and overflow. `packages/client/src/trace/decode.test.ts` covers supported tool
 payloads.
 `tests/e2e/journeys/tx-review-sign.spec.ts` verifies review, rejection and replay on the Portal and embedded widget using the shared agent ledger. Real wallet authorization and signing remain in `visual-signing-contracts.spec.ts`. The image above is a historical illustration.
-The widget registry manifest must include every interpreter source dependency
-before generating or packing the registry.
