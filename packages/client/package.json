@@ -12,9 +12,6 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "aomi": "./bin/aomi.js"
-  },
   "exports": {
     ".": {
       "import": {
@@ -39,7 +36,6 @@
   },
   "files": [
     "dist",
-    "bin",
     "skills",
     "README.md"
   ],

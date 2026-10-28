@@ -150,7 +150,6 @@ code = [
     "packages/react/src/runtime/**",
     "packages/react/src/state/**",
     "packages/react/src/utils/**",
-    "packages/client/bin/**",
     "packages/cli/src/bin.ts",
     "packages/cli/src/**",
     "packages/client/src/client.ts",

@@ -65,7 +65,6 @@
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
     "test": "vitest",
-    "generate:theme": "node ./scripts/generate-theme.mjs",
     "repowiki": "./scripts/repowiki",
     "repowiki:refresh": "./scripts/repowiki refresh",
     "repowiki:doctor": "./scripts/repowiki doctor",
