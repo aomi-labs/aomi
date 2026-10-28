@@ -36,7 +36,6 @@
     "@solana-program/system": "0.8.0",
     "@solana-program/token": "0.6.0",
     "@solana/kit": "3.0.3",
-    "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "5.104.1",
     "@tanstack/react-router": "1.170.42",
     "@tanstack/react-start": "1.168.61",
@@ -56,7 +55,6 @@
     "tailwind-merge": "^3.4.0",
     "viem": "^2.47.11",
     "wagmi": "^2.19.5",
-    "zod": "^3.25.76",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
