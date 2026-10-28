@@ -49,7 +49,7 @@ export interface EdgeEnv {
   RC_OIDC_ACCOUNT_ID?: string;
   /** Exact GitHub Actions `sub` claim accepted, e.g. repo:aomi-labs/product-mono:environment:rc. */
   RC_OIDC_SUBJECT?: string;
-  /** Comma-separated accepted `job_workflow_ref` values. */
+  /** Comma-separated accepted `workflow_ref` values. */
   RC_OIDC_WORKFLOWS?: string;
 
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.

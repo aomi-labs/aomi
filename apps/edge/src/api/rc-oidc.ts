@@ -74,7 +74,7 @@ async function verified(token: string, cfg: RcOidcConfig, key: VerifyKey, now: n
   } catch (cause) {
     // jose errors carry ERR_JOSE_* / ERR_JW* codes; anything else is a JWKS fetch fault.
     const code = (cause as { code?: unknown }).code;
-    if (typeof code === "string" && /^ERR_(JOSE|JW[SEKT])/.test(code)) throw new EdgeError(401, "invalid_token", { cause });
+    if (typeof code === "string" && code !== "ERR_JWKS_TIMEOUT" && /^ERR_(JOSE|JW[SEKT])/.test(code)) throw new EdgeError(401, "invalid_token", { cause });
     throw new EdgeError(502, "oidc_unavailable", { cause });
   }
   const bound =
@@ -83,8 +83,9 @@ async function verified(token: string, cfg: RcOidcConfig, key: VerifyKey, now: n
     payload.repository_id === REPOSITORY_ID &&
     payload.ref === REF &&
     payload.environment === ENVIRONMENT &&
-    typeof payload.job_workflow_ref === "string" &&
-    cfg.workflows.includes(payload.job_workflow_ref);
+    typeof payload.workflow_ref === "string" &&
+    cfg.workflows.includes(payload.workflow_ref);
+  if (typeof payload.jti !== "string" || !payload.jti.trim()) throw new EdgeError(401, "invalid_token");
   if (!bound) throw new EdgeError(403, "forbidden_identity");
   return { jti: payload.jti as string, exp: payload.exp as number };
 }
