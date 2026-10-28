@@ -637,7 +637,7 @@ function Sent({
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   useEffect(() => () => handle.close(), [handle]);
-  const { done, confirmed, failed } = handle.settled;
+  const { done, confirmed, failed } = handle.settlement;
   const transfers = handle.batch;
   const sent = transfers.filter((view) => view.state === "confirmed").length;
   return (

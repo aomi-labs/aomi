@@ -1,3 +1,4 @@
+import { AomiError } from "../api-error";
 import type { AomiClient } from "../client";
 import {
   CommitController,
@@ -12,6 +13,16 @@ import {
 } from "../commits";
 import type { CommitRefView } from "../commit-ref";
 import type { Wallets } from "../wallet/types";
+
+export type CommitKind = `${"evm" | "svm"}_${"tx" | "message"}`;
+
+/** Where a commit's batch stands; see `CommitHandle.settlement`. */
+export type CommitSettlement = {
+  done: boolean;
+  confirmed: boolean;
+  failed?: CommitRefView;
+  last: CommitRefView;
+};
 
 /** A wallet, or the commit operations already adapted from one. */
 export type CommitSigner = Wallets | CommitCapabilities;
@@ -59,12 +70,7 @@ export class CommitHandle {
    * `confirmed` only when every one confirmed, and the first member that
    * did not (failed, rejected, expired) once done.
    */
-  get settled(): {
-    done: boolean;
-    confirmed: boolean;
-    failed?: CommitRefView;
-    last: CommitRefView;
-  } {
+  get settlement(): CommitSettlement {
     const batch = this.batch;
     const done = batch.every(isTerminalCommit);
     const failed = done
@@ -76,6 +82,60 @@ export class CommitHandle {
       failed,
       last: batch[batch.length - 1] ?? this.view,
     };
+  }
+
+  /**
+   * Wait until the whole batch is over. Answers the last member once every
+   * one confirmed; throws an AomiError (`commit_failed`, `commit_rejected`,
+   * `commit_expired`) for the first that did not.
+   */
+  async settled(
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CommitRefView> {
+    while (!this.settlement.done) {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, 1000);
+        options.signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            reject(options.signal!.reason);
+          },
+          { once: true },
+        );
+      });
+      await this.refresh();
+    }
+    const { failed, last } = this.settlement;
+    if (failed)
+      throw new AomiError(
+        `commit_${failed.state}`,
+        `Commit ${failed.commit_id} ${failed.state}${failed.failure_code ? `: ${failed.failure_code}` : ""}`,
+      );
+    return last;
+  }
+
+  /** evm_tx · evm_message · svm_tx · svm_message */
+  get kind(): CommitKind {
+    const view = this.view;
+    const payload =
+      view.action && "payload" in view.action
+        ? view.action.payload.kind
+        : undefined;
+    const message =
+      view.review?.request.type === "sign" ||
+      Boolean(payload?.endsWith("_message")) ||
+      typeof view.signature === "string";
+    return `${view.chain_family}_${message ? "message" : "tx"}`;
+  }
+
+  get state(): CommitRefView["state"] {
+    return this.view.state;
+  }
+
+  /** The Aomi page where a person reviews, signs or approves it. */
+  get signUrl(): string | undefined {
+    return this.view.sign_url;
   }
 
   /**

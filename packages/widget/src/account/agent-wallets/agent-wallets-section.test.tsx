@@ -54,7 +54,7 @@ vi.mock("@aomi-labs/client", async (original) => ({
         get batch() {
           return batch();
         },
-        get settled() {
+        get settlement() {
           const all = batch();
           const done = all.every((view) => terminal(view.state));
           const failed = done
