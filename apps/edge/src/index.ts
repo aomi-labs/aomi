@@ -5,6 +5,7 @@ import { handleRequest, type EdgeEnv } from "./handler";
 
 export { handleRequest } from "./handler";
 export type { EdgeEnv } from "./env";
+export { RcReplayStore } from "./api/rc-replay";
 
 export default {
   async fetch(request: Request, env: EdgeEnv): Promise<Response> {

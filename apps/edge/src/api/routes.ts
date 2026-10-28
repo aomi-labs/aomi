@@ -155,7 +155,10 @@ export function resolveRoute(url: URL, env: EdgeEnv, routingKey: string | null =
   if (payment) return one("payment", cfg.payment, pathname, search, { methods: payment[1] });
   // Agent REST is public only where the RC identity path exists to authorize it.
   if (cfg.apiServer && AGENT_PATH.test(pathname) && rcOidcConfig(env, url.host))
-    return one("agent", cfg.apiServer, pathname, search, { headers: AGENT_HEADERS });
+    return one("agent", cfg.apiServer, pathname, search, {
+      headers: AGENT_HEADERS,
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    });
   if (cfg.apiServer) {
     if (Object.hasOwn(TASK_DOCUMENTS, pathname))
       return one("task-discovery", cfg.apiServer, "/", "", { document: TASK_DOCUMENTS[pathname], methods: ["GET", "HEAD"] });

@@ -2,7 +2,8 @@
 import { exportPKCS8, generateKeyPair, SignJWT, decodeJwt, type CryptoKey } from "jose";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { EdgeCache, EdgeEnv } from "../env";
+import type { EdgeEnv, ReplayStore } from "../env";
+import { RcReplayStore } from "./rc-replay";
 import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
 import { EdgeError } from "../kernel/errors";
@@ -17,13 +18,19 @@ const NOW = 1_800_000_000_000;
 let oidcPrivate: CryptoKey;
 let oidcPublic: CryptoKey;
 let env: EdgeEnv;
-let store: Map<string, string>;
-
-const cache = (map: Map<string, string>): EdgeCache => ({
-  get: async (key) => map.get(key) ?? null,
-  put: async (key, value) => void map.set(key, value),
-  delete: async (key) => void map.delete(key),
-});
+/** An in-memory Durable Object: one RcReplayStore over a Map-backed storage. */
+function replayStore(): ReplayStore {
+  const map = new Map<string, unknown>();
+  const object = new RcReplayStore({
+    storage: {
+      get: async (key) => map.get(key),
+      put: async (key, value) => void map.set(key, value),
+      list: async ({ prefix = "" } = {}) => new Map([...map].filter(([key]) => key.startsWith(prefix))),
+      delete: async (keys) => keys.forEach((key) => map.delete(key)),
+    },
+  });
+  return { idFromName: (name) => name, get: () => ({ fetch: (request) => object.fetch(request) }) };
+}
 
 beforeAll(async () => {
   ({ privateKey: oidcPrivate, publicKey: oidcPublic } = await generateKeyPair("RS256", { extractable: true }));
@@ -32,7 +39,6 @@ beforeAll(async () => {
 beforeEach(async () => {
   resetEdgeServices();
   const edge = await generateKeyPair("EdDSA", { extractable: true });
-  store = new Map();
   env = {
     EDGE_TOPOLOGY: "rc",
     EDGE_SERVICE_PRIVATE_KEY: await exportPKCS8(edge.privateKey),
@@ -42,7 +48,7 @@ beforeEach(async () => {
     RC_OIDC_ACCOUNT_ID: ACCOUNT,
     RC_OIDC_SUBJECT: SUBJECT,
     RC_OIDC_WORKFLOWS: WORKFLOW,
-    EDGE_CACHE: cache(store),
+    RC_OIDC_REPLAY: replayStore(),
   };
 });
 
@@ -51,6 +57,7 @@ async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: strin
   const iat = options.iat ?? Math.floor(NOW / 1000);
   return new SignJWT({
     repository: "aomi-labs/product-mono",
+    repository_id: "1033482171",
     ref: "refs/heads/main",
     environment: "rc",
     job_workflow_ref: WORKFLOW,
@@ -115,6 +122,7 @@ describe("rc oidc exchange", () => {
     ["wrong ref", () => oidc({ ref: "refs/heads/feature" }), 403],
     ["wrong environment", () => oidc({ environment: "staging" }), 403],
     ["wrong repository", () => oidc({ repository: "aomi-labs/other" }), 403],
+    ["renamed-in repository id", () => oidc({ repository_id: "1" }), 403],
     ["unlisted workflow", () => oidc({ job_workflow_ref: "aomi-labs/product-mono/.github/workflows/x.yml@refs/heads/main" }), 403],
   ] as const)("rejects %s", async (_name, make, status) => {
     expect((await exchange(await make())).status).toBe(status);
@@ -134,8 +142,14 @@ describe("rc oidc exchange", () => {
     expect(response.status).toBe(401);
   });
 
+  it("lets exactly one of two concurrent exchanges of a token succeed", async () => {
+    const token = await oidc();
+    const statuses = (await Promise.all([exchange(token), exchange(token)])).map((r) => r.status).sort();
+    expect(statuses).toEqual([200, 401]);
+  });
+
   it("fails closed without a replay store", async () => {
-    delete env.EDGE_CACHE;
+    delete env.RC_OIDC_REPLAY;
     const response = await exchange(await oidc());
     expect(response.status).toBe(503);
   });

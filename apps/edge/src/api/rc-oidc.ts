@@ -15,11 +15,13 @@ import type { EdgeEnv } from "../env";
 import { edgeService, edgeTopologyName } from "../identity";
 import { list } from "../kernel/config";
 import { EdgeError, minted } from "../kernel/errors";
+import { claimJti } from "./rc-replay";
 
 export const RC_TOKEN_PATH = "/v1/rc/token";
 export const RC_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 export const RC_OIDC_AUDIENCE = "aomi-rc-edge";
 const REPOSITORY = "aomi-labs/product-mono";
+const REPOSITORY_ID = "1033482171";
 const REF = "refs/heads/main";
 const ENVIRONMENT = "rc";
 const MAX_TOKEN_AGE = "15m";
@@ -62,17 +64,19 @@ async function verified(token: string, cfg: RcOidcConfig, key: VerifyKey, now: n
       algorithms: ["RS256"],
       maxTokenAge: MAX_TOKEN_AGE,
       currentDate: new Date(now),
+      clockTolerance: 30,
       requiredClaims: ["exp", "iat", "jti", "sub"],
     }));
   } catch (cause) {
     // jose errors carry ERR_JOSE_* / ERR_JW* codes; anything else is a JWKS fetch fault.
     const code = (cause as { code?: unknown }).code;
-    if (typeof code === "string" && /^ERR_(JOSE|JW[ST])/.test(code)) throw new EdgeError(401, "invalid_token", { cause });
+    if (typeof code === "string" && /^ERR_(JOSE|JW[SEKT])/.test(code)) throw new EdgeError(401, "invalid_token", { cause });
     throw new EdgeError(502, "oidc_unavailable", { cause });
   }
   const bound =
     payload.sub === cfg.subject &&
     payload.repository === REPOSITORY &&
+    payload.repository_id === REPOSITORY_ID &&
     payload.ref === REF &&
     payload.environment === ENVIRONMENT &&
     typeof payload.job_workflow_ref === "string" &&
@@ -91,14 +95,16 @@ export async function exchangeRcToken(
 ): Promise<Response> {
   if (request.method !== "POST")
     return new Response("Method not allowed", { status: 405, headers: { allow: "POST, OPTIONS" } });
-  const cache = env.EDGE_CACHE;
+  const replay = env.RC_OIDC_REPLAY;
   // Without a place to remember tokens, a replay cannot be refused.
-  if (!cache) throw new EdgeError(503, "replay_store_unavailable");
+  if (!replay) throw new EdgeError(503, "replay_store_unavailable");
   const { jti, exp } = await verified(bearer(request), cfg, key, now);
 
-  const replayKey = `rc-oidc:jti:${jti}`;
-  if (await cache.get(replayKey)) throw new EdgeError(401, "replayed_token");
-  await cache.put(replayKey, "1", { expirationTtl: Math.max(60, exp - Math.floor(now / 1000) + 60) });
+  // Held past `exp` so clock skew cannot reopen the window.
+  const claimed = await claimJti(replay, jti, (exp + 60) * 1000).catch((cause) => {
+    throw new EdgeError(503, "replay_store_unavailable", { cause });
+  });
+  if (!claimed) throw new EdgeError(401, "replayed_token");
 
   const origin = new URL(request.url).origin;
   const { accessToken } = await minted(() =>
