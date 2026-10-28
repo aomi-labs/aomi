@@ -21,6 +21,10 @@ export type Config = {
     catalogPlatforms: readonly string[];
     dpopRequired: boolean;
   };
+  landing: {
+    hosts: ReadonlySet<string>;
+    upstream: string | null;
+  };
   build: {
     hosts: ReadonlySet<string>;
     upstream: string | null;
@@ -85,6 +89,10 @@ export function config(env: EdgeEnv): Config {
       trustedOrigins: list(env.PORTAL_TRUSTED_ORIGINS),
       catalogPlatforms: list(env.APP_CATALOG_PLATFORMS),
       dpopRequired: flag(env.AOMI_MCP_DPOP_REQUIRED),
+    },
+    landing: {
+      hosts: hosts(env.LANDING_HOSTS),
+      upstream: origin(env.LANDING_UPSTREAM_ORIGIN),
     },
     build: {
       hosts: hosts(env.BUILD_HOSTS),

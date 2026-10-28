@@ -1,7 +1,7 @@
 {
   "name": "@aomi-labs/account",
   "version": "0.4.0",
-  "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
+  "description": "Server-only account graph and Better Auth: resolve-or-create the canonical user for the edge. Never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -10,18 +10,16 @@
     ".": "./src/index.ts",
     "./account": "./src/account.ts",
     "./better-auth": "./src/better-auth/index.ts",
-    "./better-auth/client": "./src/better-auth/auth-client.ts",
     "./better-auth/env": "./src/better-auth/env.ts",
     "./better-auth/siwe": "./src/better-auth/siwe.ts",
     "./policy": "./src/policy.ts",
+    "./principal": "./src/principal.ts",
     "./providers": "./src/providers/index.ts",
     "./observability": "./src/observability.ts",
     "./widget-auth": "./src/widget-auth/index.ts",
-    "./forward": "./src/forward.ts",
     "./csrf": "./src/csrf.ts",
     "./rate-limit": "./src/rate-limit.ts",
-    "./rate-limits.sql": "./src/db/rate-limits.sql",
-    "./service-topology": "./src/service-topology/index.ts"
+    "./rate-limits.sql": "./src/db/rate-limits.sql"
   },
   "scripts": {
     "type-check": "tsc --noEmit"
@@ -40,15 +38,9 @@
     "tweetnacl": "^1.0.3",
     "viem": "^2.47.11",
     "zod": "^4.4.3",
-    "toml": "^3.0.0",
-    "@aomi-labs/client": "workspace:*",
     "@aomi-labs/service-identity": "workspace:*"
   },
-  "peerDependencies": {
-    "next": ">=15"
-  },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
-    "next": "16.1.0"
+    "@types/pg": "^8.20.0"
   }
 }

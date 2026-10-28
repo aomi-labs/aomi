@@ -7,7 +7,7 @@ export { handleRequest } from "./handler";
 export type { EdgeEnv } from "./env";
 
 export default {
-  async fetch(request: Request, env: EdgeEnv): Promise<Response> {
-    return handleRequest(request, env);
+  async fetch(request: Request, env: EdgeEnv, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<Response> {
+    return handleRequest(request, env, undefined, undefined, (promise) => ctx.waitUntil(promise));
   },
 };

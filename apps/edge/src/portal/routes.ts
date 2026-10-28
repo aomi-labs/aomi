@@ -2,15 +2,13 @@
  * The portal surface at the edge. One table names every route the edge serves
  * on a portal host: what the caller needs per method and which upstream gets
  * the request. The edge identifies the caller, checks that need, mints the
- * bearer as `aomi-edge` and forwards under a header policy. Anything not in
- * the table passes through to the Vercel portal unchanged (sign-in, the
- * account graph, Better Auth, device auth).
+ * bearer as `aomi-edge` and forwards under a header policy. Sign-in, the
+ * account graph, widget and device auth are served here too (`../auth`);
+ * anything else passes through to the portal's pages.
  */
 import {
   appMcpName,
   appMcpResource,
-  authorize as decide,
-  scopesOn as heldScopes,
   type Capability,
   type Need,
   type Resources,
@@ -18,16 +16,18 @@ import {
 
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";
-import { preflight, withCors, type CorsPolicy } from "../kernel/cors";
+import { openWidget, preflight, publicRead, withCors } from "../kernel/cors";
 import { minted, unreachable } from "../kernel/errors";
 import { apiOrigins } from "../kernel/manager";
 import { rankedPool } from "../kernel/pool";
 import { passThrough, proxy, target } from "../kernel/proxy";
+import { handleAuthRequest } from "../auth/routes";
 import { isPublicCatalogKind, publicCatalog } from "./catalog";
-import { policyFor, type PortalContext } from "./context";
+import type { PortalContext } from "./context";
 import { portalError } from "./errors";
 import { AGENT_API_HEADERS, BACKEND_API_HEADERS, PUBLIC_DISCOVERY_HEADERS } from "./headers";
-import { isOAuthCredential, PrincipalError, resolvePrincipal, type Principal } from "./principal";
+import { isOAuthCredential, type Principal } from "@aomi-labs/account/principal";
+import { authorize, PrincipalError, resolvePrincipal, scopesOn } from "./principal";
 
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
@@ -279,46 +279,6 @@ function needOf(row: Row, requirement: Requirement, request: Request, resource: 
   return { resource: resource!, scopes };
 }
 
-/** The one permission check, from `@aomi-labs/account/policy`: the scopes to mint, or a PrincipalError. */
-export function authorize(principal: Principal, need: Need, ctx: PortalContext): string[] {
-  const result = decide(principal, need, (resource) => policyFor(resource, ctx));
-  if ("scopes" in result) return result.scopes;
-  const { status, code, requiredScopes } = result.denied;
-  throw new PrincipalError(status, code, requiredScopes);
-}
-
-/** The scopes a principal holds on a protected resource. */
-export function scopesOn(
-  principal: Exclude<Principal, { kind: "none" }>,
-  resource: string,
-  ctx: PortalContext,
-): readonly string[] {
-  return heldScopes(principal, policyFor(resource, ctx));
-}
-
-/**
- * The open widget: any https site (or a local dev host) may embed it without
- * registering. Nothing allows credentials, so only an explicit widget session
- * or OAuth token can authorize a cross-origin call.
- */
-const openWidget = (methods: readonly string[]): CorsPolicy => ({
-  origin: "echo",
-  methods,
-  headers: [
-    "Authorization", "Content-Type", "Aomi-App-Key", "Last-Event-ID", "DPoP", "Idempotency-Key",
-    "Payment-Signature", "X-Aomi-Inference-Funding", "X-Aomi-Run-Budget-Microusd", "X-Aomi-CSRF",
-    "X-Request-Id", "X-Session-Id", "X-Thread-Id",
-  ],
-  expose: [
-    "DPoP-Nonce", "WWW-Authenticate", "Payment-Required", "Payment-Receipt", "Payment-Response",
-    "X-Payment-Response", "Retry-After", "X-Request-Id",
-  ],
-  maxAge: 600,
-});
-
-/** Credential-free documents anyone may read (catalogs, discovery). */
-const publicRead = (methods: readonly string[] = ["GET", "HEAD"]): CorsPolicy => ({ origin: "any", methods });
-
 /** The backend's thread extractors read X-Thread-Id; widgets send X-Session-Id. */
 function threadId(request: Request): Record<string, string> | undefined {
   const session = request.headers.get("x-session-id");
@@ -539,6 +499,8 @@ async function catalog(request: Request, kind: string, ctx: PortalContext): Prom
 /** Serve one request on the portal surface. */
 export async function handlePortalRequest(request: Request, ctx: PortalContext): Promise<Response> {
   const { pathname } = new URL(request.url);
+  const account = await handleAuthRequest(request, ctx);
+  if (account) return account;
   if (pathname === "/.well-known/api-catalog") return discovery(request, ctx);
   const catalogKind = /^\/api\/public\/catalog\/([^/]+)$/.exec(pathname)?.[1];
   if (catalogKind) return catalog(request, catalogKind, ctx);

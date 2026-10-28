@@ -1,9 +1,9 @@
 // The edge Worker in front of a Portal under browser test, the way Cloudflare
 // routes it in production: the Worker (apps/edge under `wrangler dev --local`)
-// answers the portal host's /api/*, /v1/* and /.well-known/* paths and passes
-// what it does not serve to the Next.js portal; every other path reaches the
-// portal directly. One public origin, host-only cookies, the Worker as the only
-// bearer issuer.
+// answers the portal host's /api/*, /v1/* and /.well-known/* paths, sign-in
+// included, against the test database; every other path reaches the portal's
+// pages directly. One public origin, host-only cookies, the Worker as the only
+// server.
 import { spawn, type ChildProcess } from "node:child_process";
 import {
   createServer,
@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { edgePrivateKey } from "./edge-keys";
+import { BROWSER_TEST_AUTH_SECRET } from "./portal-env";
 
 export const EDGE_ROOT = fileURLToPath(new URL("../../apps/edge/", import.meta.url));
 
@@ -40,6 +41,8 @@ export type EdgeHostInput = {
   agentUpstream: string;
   /** Embedding origins whose cookie reads and writes the portal trusts. */
   trustedOrigins?: readonly string[];
+  /** The disposable account database the Worker's Hyperdrive binding reaches. */
+  databaseUrl: string;
   log?: (text: string) => void;
 };
 
@@ -56,6 +59,9 @@ export function edgeVars(input: EdgeHostInput): Record<string, string> {
     PORTAL_UPSTREAM_ORIGIN: input.portalUpstream,
     PORTAL_TRUSTED_ORIGINS: (input.trustedOrigins ?? []).join(","),
     CORS_ALLOWED_HOST_PATTERNS: publicHost,
+    BETTER_AUTH_URL: `http://${publicHost}`,
+    BETTER_AUTH_SECRET: BROWSER_TEST_AUTH_SECRET,
+    AOMI_TRUSTED_ORIGINS: [`http://${publicHost}`, ...(input.trustedOrigins ?? [])].join(","),
   };
 }
 
@@ -90,7 +96,12 @@ export async function startEdgeHost(input: EdgeHostInput): Promise<EdgeHost> {
   // and its workerd with it; wrangler stops workerd itself on SIGTERM.
   const worker = spawn(join(EDGE_ROOT, "node_modules/.bin/wrangler"), args, {
     cwd: EDGE_ROOT,
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" },
+    env: {
+      ...process.env,
+      WRANGLER_SEND_METRICS: "false",
+      CI: "1",
+      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: input.databaseUrl,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   worker.stdout?.on("data", (chunk) => log(`edge: ${chunk}`));

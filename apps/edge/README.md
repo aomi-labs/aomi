@@ -25,20 +25,15 @@ venue-specific URL.
     bytes are untouched so a `Payment-Signature` retry stays bound to them.
 - `src/identity.ts`: the edge as an `AomiService` over
   `@aomi-labs/service-identity`; every bearer the proxies send is minted here.
-- `src/portal/*`: the portal surface (cutover 1, step 2). On a `PORTAL_HOSTS`
-  host the edge is the portal's BFF for every route family the design marks
-  "moves"; everything else passes through to `PORTAL_UPSTREAM_ORIGIN` (the
-  Vercel portal) unchanged, cookies included.
+- `src/portal/*`: the portal surface. On a `PORTAL_HOSTS` host the edge is
+  the portal's only server; page paths pass through to `PORTAL_UPSTREAM_ORIGIN`
+  (the portal app) unchanged, cookies included.
   - `principal.ts`: who is calling, from exactly one credential. OAuth access
-    tokens (Bearer or DPoP) are verified at the edge against the portal's
-    Better Auth JWKS. A session cookie, Better Auth bearer or widget session
-    token is a database question, so the edge asks the portal once:
-    `POST /api/auth/edge/principal` answers with a five-minute JWT signed by
-    the same JWKS key that says who the credential belongs to. The edge
-    verifies and caches it until it expires (`EDGE_CACHE`), so revocation
-    lands at the next refresh.
+    tokens (Bearer or DPoP) are verified against Better Auth's JWKS (isolate
+    and `EDGE_CACHE`). A session cookie, Better Auth bearer or widget session
+    token is read from the database in-process (`src/auth/server.ts`).
   - `@aomi-labs/account/policy`: shared session capabilities, OAuth resource
-    policies and the one `authorize` check used by Edge and Portal.
+    policies and the one `authorize` check.
   - `routes.ts`: the route table. `/v1/agent/**`, `/v1/pipeline/**`,
     `/v1/account/{apps,transaction-safety,credits,statement}`, the account's
     wallets, agent wallets, lanes and platform links (`/v1/account/{wallets,
@@ -51,8 +46,21 @@ venue-specific URL.
     in (`auth_source`: `session`, `cli_session`, `widget`, `oauth`), its
     class and its OAuth client, which decide portal-only writes, approvals
     and a thread's origin.
-  - `headers.ts` and `src/kernel/{proxy,cors,csrf}.ts`: forwarding headers,
-    open-widget CORS and the cookie CSRF rule.
+  - `headers.ts` and `src/kernel/{proxy,cors}.ts`: forwarding headers and
+    open-widget CORS; the cookie CSRF rule is `@aomi-labs/account/csrf`.
+- `src/auth/*`: the account surface on a portal host. Better Auth
+  (`@aomi-labs/account/better-auth`, built once per isolate) and its OAuth
+  server, device login and consent under `/api/auth/**`, widget sign-in
+  (`/api/auth/widget/**`), the account graph (`/v1/account`, identities,
+  wallets, connections, merge, provider links, CLI session), device auth
+  (`/v1/account/device-auth/**`), the OAuth discovery documents and
+  `/openapi.json`. Every request that needs the database gets its own pg
+  pool over the `HYPERDRIVE` binding (`withDatabase`), closed when it ends.
+- `src/landing.ts`: the Landing surface. On a `LANDING_HOSTS` host the edge
+  forwards the API consoles' public thread routes to the backend anonymously
+  and passes every other path to `LANDING_UPSTREAM_ORIGIN`.
+- `src/dev.ts`: the local development entry (`wrangler dev --env dev`), the
+  Worker plus the E2E wallet harness (`/api/bff/e2e/*`). Never deployed.
 
 - `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
   host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
@@ -78,12 +86,9 @@ venue-specific URL.
   - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
     (local only) and `internal/sentry-smoke`.
 
-The Vercel handlers for the moved proxy families have been deleted. Portal
-retains the Better Auth authorization server, session and account management,
-widget authentication, connections (`/v1/account/connections/**`) and the
-Edge principal attestation endpoint. Its account routes accept session credentials; OAuth access-token
-verification for protected resources happens at Edge. Build retains its sandbox
-and sidecar authentication; sidecar bearers still use the `aomi-sidecar` audience.
+The portal has no server code: every portal API path is served here. Build
+retains its sandbox and sidecar authentication; sidecar bearers still use the
+`aomi-sidecar` audience.
 
 ## Running
 
@@ -94,7 +99,8 @@ Wrangler environment; the copied variables still point at localhost.
 pnpm --filter aomi-edge test        # vitest, no network
 pnpm --filter aomi-edge typecheck
 cp apps/edge/.dev.vars.example apps/edge/.dev.vars
-pnpm --filter aomi-edge dev:staging
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:postgres@127.0.0.1:54322/<db> \
+  pnpm --filter aomi-edge dev
 ```
 
 To test staging origins, use an ignored `apps/edge/.dev.vars.staging` with
@@ -120,8 +126,12 @@ efficiency follow-up, not a payment execution path.
 Terraform inventory and exports them before calling this script. Secrets:
 `EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
 `BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
-GitHub sessions survive the cutover) and `BUILD_GITHUB_TOKEN` (Build's
-`GITHUB_TOKEN`, read access for the release-manifest secret gate).
+GitHub sessions survive the cutover), `BUILD_GITHUB_TOKEN` (Build's
+`GITHUB_TOKEN`, read access for the release-manifest secret gate),
+`BETTER_AUTH_SECRET` (the portal's, so sessions and the encrypted JWKS keys
+survive the move) and the Privy and Para keys the portal reads today. The
+`HYPERDRIVE` binding needs a Hyperdrive config per environment, created with
+caching disabled.
 
 ## Portal and Build host prerequisites
 
@@ -129,9 +139,7 @@ The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev/api/*`, `/v1/*`,
 `/.well-known/*`) only take effect when that hostname is proxied by Cloudflare
 (orange cloud) in the `aomi.dev` zone; a DNS-only CNAME to Vercel bypasses the
 Worker. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the
-public host, or the Worker would call itself. The portal's `AOMI_TRUSTED_ORIGINS`
-must include the public host so Better Auth accepts requests whose `Host` is
-the Vercel alias.
+public host, or the Worker would call itself.
 
 The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
 `BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays

@@ -4,7 +4,7 @@
  */
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";
-import { cookieWriteAllowed } from "../kernel/csrf";
+import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import { EdgeError, minted, unreachable } from "../kernel/errors";
 import { proxy, target } from "../kernel/proxy";
 import { AGENT_API_HEADERS } from "../portal/headers";

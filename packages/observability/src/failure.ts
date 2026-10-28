@@ -1,4 +1,3 @@
-import type { ProxyFailure } from "@aomi-labs/account";
 import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
 export type BffService = "portal-bff" | "build-bff";
@@ -97,10 +96,6 @@ export type FailureInput =
       source: "launch";
       error: unknown;
     })
-  | {
-      source: "proxy";
-      failure: ProxyFailure;
-    }
   | (ContextualFailure & {
       source: "artifact";
       error: unknown;

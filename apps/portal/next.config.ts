@@ -7,7 +7,6 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(appRoot, "../..");
 const appNodeModules = path.join(appRoot, "node_modules");
 const portalSrc = path.join(appRoot, "src");
-const accountSrc = path.join(workspaceRoot, "packages/account/src");
 const managedBuildJobs = Number(process.env.AOMI_DEV_BUILD_JOBS);
 const managedBuildCpus =
   Number.isInteger(managedBuildJobs) && managedBuildJobs > 0
@@ -93,7 +92,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   transpilePackages: [
-    "@aomi-labs/account",
     "@aomi-labs/observability",
     "@aomi-labs/client",
     "@aomi-labs/react",
@@ -104,14 +102,6 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       "@": "./src",
 
-      "@aomi-labs/account/account": "../../packages/account/src/account.ts",
-      "@aomi-labs/account/better-auth":
-        "../../packages/account/src/better-auth/index.ts",
-      "@aomi-labs/account/observability":
-        "../../packages/account/src/observability.ts",
-      "@aomi-labs/account/providers":
-        "../../packages/account/src/providers/index.ts",
-      "@aomi-labs/account": "../../packages/account/src/index.ts",
       "@aomi-labs/client": "../../packages/client/src/index.ts",
       "@aomi-labs/react": "../../packages/react/src/index.ts",
       "@assistant-ui/react": "./node_modules/@assistant-ui/react",
@@ -133,20 +123,6 @@ const nextConfig: NextConfig = {
       ...(config.resolve.alias ?? {}),
       "@": portalSrc,
 
-      "@aomi-labs/account/account": path.join(accountSrc, "account.ts"),
-      "@aomi-labs/account/better-auth": path.join(
-        accountSrc,
-        "better-auth/index.ts",
-      ),
-      "@aomi-labs/account/observability": path.join(
-        accountSrc,
-        "observability.ts",
-      ),
-      "@aomi-labs/account/providers": path.join(
-        accountSrc,
-        "providers/index.ts",
-      ),
-      "@aomi-labs/account": path.join(accountSrc, "index.ts"),
       "@aomi-labs/client": path.join(
         workspaceRoot,
         "packages/client/src/index.ts",

@@ -11,19 +11,27 @@
     "test": "vitest run --root ../.. apps/edge",
     "typecheck": "tsc --noEmit",
     "generate-key": "node scripts/generate-key.mjs",
+    "dev": "wrangler dev --env dev",
     "dev:staging": "wrangler dev --env staging",
     "deploy:staging": "node scripts/deploy.mjs staging",
     "deploy:production": "node scripts/deploy.mjs production"
   },
   "dependencies": {
     "@aomi-labs/account": "workspace:*",
+    "@better-auth/oauth-provider": "1.7.1",
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/internal": "workspace:*",
     "@aomi-labs/service-identity": "workspace:*",
     "jose": "^6.1.3",
+    "viem": "^2.47.11",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@aomi-labs/client": "workspace:*",
+    "@solana/web3.js": "^1.98.4",
+    "better-auth": "1.7.1",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3",
     "wrangler": "^4.114.0"
   }
 }

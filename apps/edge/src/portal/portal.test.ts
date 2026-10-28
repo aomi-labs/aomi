@@ -10,18 +10,65 @@ import {
   type JWK,
   type KeyLike,
 } from "jose";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EdgeEnv } from "../env";
 import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
 import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
-import { resetPrincipalCaches } from "./principal";
+
+// The account layer, faked in-process: who a cookie, session bearer or widget
+// session belongs to, which partner widget a client registered, and the keys.
+const account = vi.hoisted(() => ({ lookups: 0, sessionFails: false }));
+vi.mock("../auth/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../auth/server")>()),
+  authServer: () => ({
+    api: {
+      getSession: async ({ headers }: { headers: Headers }) => {
+        account.lookups += 1;
+        if (account.sessionFails) throw new Error("database unavailable");
+        const authorization = headers.get("authorization");
+        const name = authorization
+          ? authorization.slice("Bearer ".length)
+          : /session=(\w+)/.exec(headers.get("cookie") ?? "")?.[1];
+        const session = name ? SESSIONS[name] : undefined;
+        return session ? { user: { id: `ba-${name}`, isAnonymous: session.guest }, session: { token: `t-${name}` } } : null;
+      },
+    },
+    handler: async () => Response.json(portalKey.jwks),
+  }),
+}));
+vi.mock("@aomi-labs/account/account", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/account")>()),
+  getOrCreateAomiUserForBetterAuthSession: async ({ betterAuthUserId }: { betterAuthUserId: string }) => ({
+    id: SESSIONS[betterAuthUserId.slice(3)]!.sub,
+  }),
+}));
+vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/widget-auth")>()),
+  resolveWidgetSession: async ({ request }: { request: Request }) => {
+    account.lookups += 1;
+    const widget = WIDGETS[(request.headers.get("authorization") ?? "").slice("Bearer ".length)];
+    if (!widget || widget.origin !== request.headers.get("origin") || (widget.expiresAt ?? 2e9) * 1000 < Date.now())
+      return null;
+    return {
+      userId: widget.sub,
+      origin: widget.origin,
+      authMethod: widget.guest ? "anonymous" : "siwe",
+      expiresAt: widget.expiresAt ?? 1_900_000_000,
+    };
+  },
+}));
+vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
+  readManagedOAuthClient: async (clientId: string) =>
+    clientId === "client-1" ? { clientClass: "partner_widget", disabled: false, origins: [PARTNER] } : null,
+}));
 
 const PORTAL = "https://portal.example";
 const UPSTREAM = "https://portal-vercel.example";
-const PARTNER = "https://partner.example";
+var PARTNER = "https://partner.example";
 const AGENT = "https://agent.example";
 const PAYMENT = "https://payment.example";
 const BACKEND = "https://backend.example";
@@ -51,14 +98,14 @@ const env: EdgeEnv = {
 };
 
 // The portal's Better Auth signing key, as its JWKS publishes it.
-let portalKey: { privateKey: KeyLike; jwks: { keys: JWK[] } };
+var portalKey: { privateKey: KeyLike; jwks: { keys: JWK[] } };
 let edgePublicKey: KeyLike;
 
-const SESSIONS: Record<string, { sub: string; guest: boolean }> = {
+var SESSIONS: Record<string, { sub: string; guest: boolean }> = {
   user: { sub: "acct-user", guest: false },
   guest: { sub: "acct-guest", guest: true },
 };
-const WIDGETS: Record<string, { sub: string; origin: string; guest: boolean; expiresAt?: number }> = {
+var WIDGETS: Record<string, { sub: string; origin: string; guest: boolean; expiresAt?: number }> = {
   aomi_wst_user: { sub: "acct-widget", origin: PARTNER, guest: false },
   aomi_wst_guest: { sub: "acct-widget-guest", origin: PARTNER, guest: true },
   // A session the portal still describes but whose own lifetime has ended.
@@ -99,7 +146,6 @@ async function oauthToken(input: {
 
 type Seen = { url: string; method: string; headers: Record<string, string>; body: string };
 let seen: Seen[];
-let principalCalls: number;
 
 function echo(request: Request, body: string, tag: string): Response {
   const headers: Record<string, string> = {};
@@ -114,42 +160,6 @@ const world: FetchLike = async (request) => {
   const url = new URL(request.url);
   const body = request.method === "GET" || request.method === "HEAD" ? "" : await request.text();
   if (url.origin === UPSTREAM) {
-    if (url.pathname === "/api/auth/jwks") return Response.json(portalKey.jwks);
-    if (url.pathname === "/api/auth/edge/principal") {
-      principalCalls += 1;
-      const authorization = request.headers.get("authorization") ?? "";
-      if (authorization.startsWith("Bearer aomi_wst_")) {
-        const widget = WIDGETS[authorization.slice("Bearer ".length)];
-        if (!widget || widget.origin !== request.headers.get("origin"))
-          return Response.json({ error: "invalid_widget_session" }, { status: 401 });
-        return Response.json({
-          token: await signPortal({
-            sub: widget.sub,
-            kind: "widget",
-            guest: widget.guest,
-            origin: widget.origin,
-            auth_method: widget.guest ? "anonymous" : "siwe",
-            expires_at: widget.expiresAt ?? 1_900_000_000,
-          }),
-        });
-      }
-      if (authorization) {
-        const session = SESSIONS[authorization.slice("Bearer ".length)];
-        if (!session) return Response.json({ error: "invalid_token" }, { status: 401 });
-        return Response.json({ token: await signPortal({ ...session, kind: "session_bearer" }) });
-      }
-      const cookie = /session=(\w+)/.exec(request.headers.get("cookie") ?? "")?.[1];
-      const session = cookie ? SESSIONS[cookie] : undefined;
-      if (!session) return new Response(null, { status: 204 });
-      return Response.json({ token: await signPortal({ ...session, kind: "cookie" }) });
-    }
-    if (url.pathname === "/api/auth/edge/managed-origin") {
-      return Response.json({
-        allowed:
-          url.searchParams.get("client_id") === "client-1" &&
-          url.searchParams.get("origin") === PARTNER,
-      });
-    }
     return echo(request, body, "vercel");
   }
   if (url.origin === AGENT) return echo(request, body, "agent");
@@ -169,28 +179,6 @@ function portal(path: string, init: RequestInit & { origin?: string; env?: Parti
   const headers = new Headers(init.headers);
   if (init.origin) headers.set("origin", init.origin);
   return handleRequest(new Request(`${PORTAL}${path}`, { ...init, headers }), { ...env, ...init.env }, world);
-}
-
-/** An EDGE_CACHE binding that remembers everything and records what it was told. */
-function fakeCache(seed: Record<string, string> = {}) {
-  const store = new Map(Object.entries(seed));
-  const log: string[] = [];
-  return {
-    store,
-    log,
-    async get(key: string) {
-      log.push(`get ${key}`);
-      return store.get(key) ?? null;
-    },
-    async put(key: string, value: string) {
-      log.push(`put ${key}`);
-      store.set(key, value);
-    },
-    async delete(key: string) {
-      log.push(`delete ${key}`);
-      store.delete(key);
-    },
-  };
 }
 
 async function upstreamBearer(record: Seen) {
@@ -213,9 +201,9 @@ beforeAll(async () => {
 
 beforeEach(() => {
   seen = [];
-  principalCalls = 0;
+  account.lookups = 0;
+  account.sessionFails = false;
   resetJwksCache();
-  resetPrincipalCaches();
   resetEdgeServices();
 });
 
@@ -247,43 +235,6 @@ describe("portal surface: sessions", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(response.headers.get("x-request-id")).toBe("rid-1");
     expect(response.headers.get("server-timing")).toMatch(/edge_auth;dur=/);
-  });
-
-  it("exchanges the cookie once and reuses the signed principal until it expires", async () => {
-    await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
-    await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
-    expect(principalCalls).toBe(1);
-    await portal("/v1/agent/sessions", { headers: { cookie: "session=guest" }, origin: PORTAL });
-    expect(principalCalls).toBe(2);
-  });
-
-  it("treats a cached principal whose signature has lapsed as a miss, not an outage", async () => {
-    // KV keeps an entry for at least a minute, so it can hand back a principal
-    // token that expired seconds ago. The Worker must exchange again, not 502.
-    const stale = await signPortal(
-      { sub: "acct-user", kind: "cookie", guest: false },
-      { aud: "aomi-edge", exp: Math.floor(Date.now() / 1000) - 5 },
-    );
-    const cache = fakeCache();
-    const probe = fakeCache();
-    // Learn the cache key the Worker derives for this cookie, then plant the stale token under it.
-    await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL, env: { EDGE_CACHE: probe } });
-    const key = probe.log.find((entry) => entry.startsWith("put principal:"))!.slice(4);
-    cache.store.set(key, stale);
-    resetPrincipalCaches();
-    principalCalls = 0;
-    seen = [];
-
-    const response = await portal("/v1/agent/sessions", {
-      headers: { cookie: "session=user" },
-      origin: PORTAL,
-      env: { EDGE_CACHE: cache },
-    });
-    expect(response.status).toBe(200);
-    expect(principalCalls).toBe(1);
-    expect(cache.log.filter((entry) => entry.includes("principal:"))).toEqual([`get ${key}`, `delete ${key}`, `put ${key}`]);
-    expect(cache.store.get(key)).not.toBe(stale);
-    expect((await upstreamBearer(seen[0])).payload.sub).toBe("acct-user");
   });
 
   it("refuses a cookie write without a trusted origin (CSRF)", async () => {
@@ -358,7 +309,7 @@ describe("portal surface: widget sessions", () => {
     expect(seen[0].body).toBe('{"message":"hi"}');
   });
 
-  it("refuses a widget session past its own expiry even while the signed principal is fresh", async () => {
+  it("refuses a widget session past its own expiry", async () => {
     const response = await portal("/v1/agent/sessions", {
       headers: { authorization: "Bearer aomi_wst_stale" },
       origin: PARTNER,
@@ -366,9 +317,6 @@ describe("portal surface: widget sessions", () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ error: { code: "invalid_widget_session" } });
     expect(seen).toHaveLength(0);
-    // Not remembered: the next call asks the portal again.
-    await portal("/v1/agent/sessions", { headers: { authorization: "Bearer aomi_wst_stale" }, origin: PARTNER });
-    expect(principalCalls).toBe(2);
   });
 
   it("refuses a widget session from another origin and never falls back to a cookie", async () => {
@@ -715,7 +663,7 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   it("answers 404 for an /api method the allowlist does not name and passes unknown paths to Vercel", async () => {
     const wrongMethod = await portal("/api/thread/models", { method: "POST" });
     expect(wrongMethod.status).toBe(404);
-    const vercel = await portal("/api/auth/sign-in/anonymous", {
+    const vercel = await portal("/api/not-moved", {
       method: "POST",
       headers: { cookie: "session=user", "content-type": "application/json" },
       body: "{}",
@@ -723,7 +671,7 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(vercel.status).toBe(200);
     const body = (await vercel.json()) as Seen & { tag: string };
     expect(body.tag).toBe("vercel");
-    expect(body.url).toBe(`${UPSTREAM}/api/auth/sign-in/anonymous`);
+    expect(body.url).toBe(`${UPSTREAM}/api/not-moved`);
     expect(body.headers.cookie).toBe("session=user");
     expect(body.headers["x-forwarded-host"]).toBe("portal.example");
     // The portal's own Set-Cookie reaches the browser untouched.
@@ -784,18 +732,11 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
-  it("reports the portal as unavailable rather than guessing when the principal exchange fails", async () => {
-    const broken: FetchLike = async (request) => {
-      if (new URL(request.url).pathname === "/api/auth/edge/principal") return new Response("boom", { status: 500 });
-      return world(request);
-    };
-    const response = await handleRequest(
-      new Request(`${PORTAL}/v1/agent/sessions`, { headers: { cookie: "session=user", origin: PORTAL } }),
-      env,
-      broken,
-    );
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "auth_unavailable" });
+  it("fails closed as a server fault when the session store is down", async () => {
+    account.sessionFails = true;
+    const response = await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
+    expect(response.status).toBe(500);
+    expect(seen).toHaveLength(0);
   });
 });
 
@@ -808,7 +749,7 @@ describe("portal surface: host selection", () => {
     );
     expect(response.status).toBe(200);
     expect(seen).toHaveLength(0);
-    expect(principalCalls).toBe(0);
+    expect(account.lookups).toBe(0);
   });
 
   it("decodes nothing it did not mint: the upstream bearer is a fresh edge JWT per request", async () => {
@@ -936,19 +877,18 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
     const response = await call("portal user", method, path);
     expect(response.status).toBe(404);
     expect(seen).toHaveLength(0);
-    expect(principalCalls).toBe(0);
+    expect(account.lookups).toBe(0);
   });
 
-  it("leaves the connections list and disconnects on the portal (the account graph)", async () => {
+  it("serves the connections list and disconnects itself (the account graph), never the pages upstream", async () => {
     for (const [method, path] of [
       ["GET", "/v1/account/connections"],
       ["DELETE", "/v1/account/connections/oauth/client-1"],
       ["DELETE", "/v1/account/connections/telegram"],
       ["PATCH", "/v1/account/wallets/w-1"],
-    ] as const) {
-      const response = await call("portal user", method, path);
-      expect(((await response.json()) as { tag: string; url: string })).toMatchObject({ tag: "vercel", url: `${UPSTREAM}${path}` });
-    }
+    ] as const)
+      await call("portal user", method, path);
+    expect(seen.filter((record) => record.url.startsWith(UPSTREAM))).toEqual([]);
   });
 
   it("lets a CLI or OAuth login switch its own thread's wallet with agent:write", async () => {

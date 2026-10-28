@@ -9,7 +9,7 @@ export interface EdgeCache {
   delete(key: string): Promise<void>;
 }
 
-export type EdgeTopologyName = "default" | "staging" | "rc" | "production";
+export type EdgeTopologyName = import("@aomi-labs/service-identity").Tier;
 
 /**
  * Worker bindings. Origins are injected at deploy time (see scripts/deploy.mjs);
@@ -36,6 +36,16 @@ export interface EdgeEnv {
   /** PKCS#8 PEM of the `aomi-edge` signing key (a Wrangler secret). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
 
+  // Account surface (sign-in, OAuth server, account graph) on the portal hosts.
+  /** Hyperdrive in front of the environment's Postgres; one pool per request. */
+  HYPERDRIVE?: { connectionString: string };
+  /** Better Auth's session and cookie signing secret (a Wrangler secret, 32+ characters). */
+  BETTER_AUTH_SECRET?: string;
+  /** The public portal origin Better Auth issues for (cookies, OAuth issuer, SIWE domain). */
+  BETTER_AUTH_URL?: string;
+  /** This deployment's version, for diagnostics. */
+  CF_VERSION_METADATA?: { id: string };
+
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example chat.aomi.dev). */
   PORTAL_HOSTS?: string;
@@ -47,6 +57,12 @@ export interface EdgeEnv {
   APP_CATALOG_PLATFORMS?: string;
   /** "true" when MCP resources require DPoP-bound access tokens. */
   AOMI_MCP_DPOP_REQUIRED?: string;
+
+  // Landing surface: the edge is routed on these hosts' /api/* paths.
+  /** Comma-separated public Landing hosts (for example aomi.dev). */
+  LANDING_HOSTS?: string;
+  /** Where the Landing app is reached from the edge. */
+  LANDING_UPSTREAM_ORIGIN?: string;
 
   // Build surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public Build hosts (for example build.aomi.dev). */

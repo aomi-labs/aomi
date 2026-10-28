@@ -111,6 +111,7 @@ vi.mock("@aomi-labs/widget/browser-auth", () => ({
 }));
 vi.mock("@/components/providers/e2e-wallet-provider", () => ({
   E2EWalletProvider: ({ children }: { children: ReactNode }) => children,
+  useE2EWalletSeed: () => null,
 }));
 
 describe("WalletProviders Privy configuration", () => {
