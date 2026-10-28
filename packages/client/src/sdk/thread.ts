@@ -1,5 +1,6 @@
 import type { Event, Session } from "../agent/types";
 import type { AgentSessionsTransport } from "../agent/transport";
+import type { ToolStepInput } from "../trace/types";
 import { isTerminalCommit } from "../commits";
 import type { AgentRun } from "./agent";
 import type { CommitHandle } from "./commits";
@@ -15,14 +16,10 @@ export type ToolStep = {
 };
 
 /**
- * Turns a raw step into what a reader shows (title, chips, status). Wire it to
- * `decode` from `@aomi-labs/client/trace`. `earlier` holds the turn's previous
- * steps, for steps that refer back to them.
+ * Turns a step into what a reader shows (title, chips, outcome): `decode`
+ * from `@aomi-labs/client/trace`.
  */
-export type StepDecoder<T> = (
-  step: ToolStep,
-  earlier: readonly ToolStep[],
-) => T;
+export type StepDecoder<T> = (input: ToolStepInput) => T;
 
 export type TurnResult = {
   /** The agent's last answer. */
@@ -102,7 +99,15 @@ export class Turn implements PromiseLike<TurnResult> {
       for (const step of toolSteps(snapshot.events, snapshot.turnId).slice(
         earlier.length,
       )) {
-        yield options?.decode ? options.decode(step, earlier) : step;
+        yield options?.decode
+          ? options.decode({
+              toolName: step.name,
+              argsText:
+                step.args === undefined ? undefined : JSON.stringify(step.args),
+              result: step.result,
+              relatedResults: earlier.map((previous) => previous.result),
+            })
+          : step;
         earlier.push(step);
       }
       if (over) return;

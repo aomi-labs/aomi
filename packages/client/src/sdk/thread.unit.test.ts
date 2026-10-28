@@ -160,10 +160,14 @@ describe("aomi.agent threads and turns", () => {
     const turn = aomi.agent.thread("thread-1").send("hi");
     const titles: string[] = [];
     for await (const title of turn.steps({
-      decode: (step, earlier) => `${earlier.length}:${step.name}`,
+      decode: (input) =>
+        `${input.relatedResults?.length}:${input.toolName}:${input.argsText}`,
     }))
       titles.push(title);
-    expect(titles).toEqual(["0:get_balance", "1:evm_commit_txs"]);
+    expect(titles).toEqual([
+      '0:get_balance:{"chain_id":8453}',
+      "1:evm_commit_txs:undefined",
+    ]);
     for (const open of (await turn).commits) open.close();
   });
 

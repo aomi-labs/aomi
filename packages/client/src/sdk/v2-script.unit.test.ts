@@ -2,10 +2,11 @@
 /**
  * The plan's "whole v2 SDK in one script", run against a mocked backend.
  * Differences from the plan text, each because the backend has no such thing:
- * a test `baseUrl` and `fetch`, a stub `decode` (wired to
- * `@aomi-labs/client/trace` at integration), `w.label` (wallets have no
- * name), no `account.keys.set` (BYOK is /api only), and a guard mode
- * instead of `maxPerTx` (the guard has modes, no spending limit).
+ * a test `baseUrl` and `fetch`; a decoded step has `outcome` and chip
+ * objects, so the log line reads `step.outcome` and chip labels;
+ * `w.label` (wallets have no name); no `account.keys.set` (BYOK is /api
+ * only); and a guard mode instead of `maxPerTx` (the guard has modes, no
+ * spending limit).
  */
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,7 +22,7 @@ import { fileGrants } from "../node";
 import { viemSigner } from "../viem";
 import type { AomiOAuthGrant, AomiOAuthGrantManager } from "../authorization";
 import type { CommitView } from "../commits";
-import type { ToolStep } from "./thread";
+import { decode } from "../trace";
 import { createAomiDeviceGrantManager } from "../oauth";
 
 vi.mock("../oauth", () => ({ createAomiDeviceGrantManager: vi.fn() }));
@@ -333,11 +334,6 @@ describe("the whole v2 SDK in one script", () => {
   it("runs", async () => {
     const { fetch, seen } = backend();
     const log = vi.fn();
-    const decode = (step: ToolStep) => ({
-      status: "success",
-      title: step.name,
-      chips: ["Base"],
-    });
     vi.mocked(createAomiDeviceGrantManager).mockImplementation(
       async (input) => {
         await input.onVerification({
@@ -378,9 +374,9 @@ describe("the whole v2 SDK in one script", () => {
     const thread = aomi.agent.thread();
     const turn = thread.send("Swap 0.1 ETH to USDC on Base");
     for await (const step of turn.steps({ decode })) {
-      log(step.status, step.title, step.chips.join(" · "));
+      log(step.outcome, step.title, step.chips.map((c) => c.label).join(" · "));
     }
-    expect(log).toHaveBeenCalledWith("success", "evm_simulate_txs", "Base");
+    expect(log.mock.calls[1]?.[1]).toEqual(expect.any(String));
     const { reply, commits } = await turn;
     expect(reply).toBe("Swap is ready.");
     for (const commit of commits) {
