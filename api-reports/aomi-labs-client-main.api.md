@@ -830,7 +830,7 @@ export type AomiAuthLoginOptions = {
 };
 
 // @public (undocumented)
-export type AomiAuthMode = "guest" | "oauth" | "session" | "custom" | "none";
+export type AomiAuthMode = "guest" | "oauth" | "wallet" | "session" | "custom" | "none";
 
 // @public (undocumented)
 export type AomiAuthorizationChallenge = {
@@ -859,6 +859,7 @@ export type AomiAuthorizationServerMetadata = {
     device_authorization_endpoint: string;
     jwks_uri: string;
     code_challenge_methods_supported?: readonly string[];
+    registration_endpoint?: string;
 };
 
 // @public (undocumented)
@@ -892,7 +893,7 @@ export type AomiAuthStatus = {
 };
 
 // @public (undocumented)
-export type AomiAuthStrategy = AomiOAuthStrategy | AomiBearerStrategy;
+export type AomiAuthStrategy = AomiOAuthStrategy | AomiBearerStrategy | AomiWalletStrategy;
 
 // @public (undocumented)
 export type AomiAuthTarget = "agent" | "pipeline";
@@ -1170,8 +1171,10 @@ export interface AomiDeleteSecretResponse {
 }
 
 // @public (undocumented)
-export type AomiDeviceOAuthOptions = CommonOAuthOptions & {
+export type AomiDeviceOAuthOptions = Omit<CommonOAuthOptions, "clientId"> & {
     flow?: "device";
+    clientId?: string;
+    clientName?: string;
     store?: AomiOAuthGrantStore;
     initial?: readonly AomiOAuthGrant[];
     openBrowser?: (url: string) => void | Promise<void>;
@@ -1724,6 +1727,21 @@ export class AomiWallets {
         pause_all: boolean;
     }>;
 }
+
+// @public
+export type AomiWalletSigner = {
+    address: string;
+    signMessage(args: {
+        message: string;
+    }): Promise<string>;
+};
+
+// @public
+export type AomiWalletStrategy = {
+    readonly kind: "wallet";
+    readonly signer: AomiWalletSigner;
+    readonly chainId: number;
+};
 
 // @public (undocumented)
 export type ApiErrorFields = {
@@ -2290,7 +2308,8 @@ export function createAomiBrowserGrantManager(input: AomiBrowserGrantOptions): P
 // @public (undocumented)
 export function createAomiDeviceGrantManager(input: {
     portalBaseUrl: string;
-    clientId: string;
+    clientId?: string;
+    clientName?: string;
     subject?: string;
     scopes?: readonly string[];
     store?: AomiOAuthGrantStore;
@@ -4327,6 +4346,11 @@ export type ViemSignTypedDataArgs = {
     primaryType: string;
     message?: Record<string, unknown>;
 };
+
+// @public (undocumented)
+export function wallet(signer: AomiWalletSigner, options?: {
+    chainId?: number;
+}): AomiWalletStrategy;
 
 // @public (undocumented)
 export const WALLET_ERROR_CODES: {
