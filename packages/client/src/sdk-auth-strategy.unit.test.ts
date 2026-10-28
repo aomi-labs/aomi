@@ -99,12 +99,16 @@ describe("high-level OAuth strategy", () => {
     expect(requests[0]?.scopes).toEqual(["pipeline:catalog", "offline_access"]);
   });
 
-  it("shows the device code through onCode and asks once for agent, pipeline and account", async () => {
+  it("shows the device code through onCode and asks for extra scopes only when told", async () => {
     const onCode = vi.fn();
     const runtime = createOAuthAuthRuntime({
       baseUrl,
       fetch,
-      strategy: oauth({ clientId: "managed-client", onCode }),
+      strategy: oauth({
+        clientId: "managed-client",
+        onCode,
+        scopes: ["account:apps:read"],
+      }),
     });
     await runtime.controller.login();
 
@@ -113,11 +117,10 @@ describe("high-level OAuth strategy", () => {
       expect.arrayContaining([
         "agent:write",
         "pipeline:execute",
-        "account:apps:write",
-        "account:credentials:write",
-        "account:transaction-safety:write",
+        "account:apps:read",
       ]),
     );
+    expect(input.scopes).not.toContain("account:apps:write");
     await input.onVerification({
       verificationUri: `${baseUrl}/oauth/device`,
       verificationUriComplete: `${baseUrl}/oauth/device?user_code=ABCD`,

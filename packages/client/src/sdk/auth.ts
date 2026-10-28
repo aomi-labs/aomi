@@ -43,6 +43,11 @@ export type AomiAuthController = {
 type CommonOAuthOptions = {
   /** Provisioned public-client ID. Never pass a client secret. */
   clientId: string;
+  /**
+   * More scopes to ask for at the first sign-in, besides Agent and Pipeline,
+   * e.g. `account:apps:write`, so one approval covers them too.
+   */
+  scopes?: readonly string[];
   subject?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -128,7 +133,7 @@ export function createOAuthAuthRuntime(input: {
             redirectUri: configured.redirectUri,
             getWidgetBearer: configured.getWidgetBearer,
             subject: configured.subject,
-            scopes: SIGN_IN_SCOPES,
+            scopes: [...SIGN_IN_SCOPES, ...(configured.scopes ?? [])],
             fetch: input.fetch,
             popup: configured.popup,
             signal: configured.signal,
@@ -139,7 +144,7 @@ export function createOAuthAuthRuntime(input: {
             portalBaseUrl,
             clientId: configured.clientId,
             subject: configured.subject,
-            scopes: SIGN_IN_SCOPES,
+            scopes: [...SIGN_IN_SCOPES, ...(configured.scopes ?? [])],
             store: configured.store,
             initial: configured.initial,
             fetch: input.fetch,
@@ -269,22 +274,9 @@ const AUTH_SCOPES = {
   pipeline: ["pipeline:catalog", "pipeline:execute", "offline_access"],
 } as const;
 
-/** What the SDK asks for at its first sign-in: Agent, Pipeline and the
- * account settings, so one approval covers the SDK. Moving money (funding,
- * x402) is asked for when first used. */
+/** What the SDK asks for at its first sign-in: Agent and Pipeline. */
 const SIGN_IN_SCOPES = [
-  ...new Set([
-    ...AUTH_SCOPES.agent,
-    ...AUTH_SCOPES.pipeline,
-    "account:apps:read",
-    "account:apps:write",
-    "account:credentials:read",
-    "account:credentials:write",
-    "account:transaction-safety:read",
-    "account:transaction-safety:write",
-    "account:credits:read",
-    "account:usage:read",
-  ]),
+  ...new Set([...AUTH_SCOPES.agent, ...AUTH_SCOPES.pipeline]),
 ];
 
 function resourceFor(

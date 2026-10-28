@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Aomi } from "./aomi";
 import { AccountGraphApiError } from "../account/graph";
-import { isAomiError } from "../api-error";
+import { AomiError, isAomiError } from "../api-error";
+import { bearer } from "./auth";
 
 type Call = { method: string; path: string; body: unknown; csrf: boolean };
 
@@ -189,5 +190,29 @@ describe("aomi.account", () => {
     await expect(aomi.account.merge(offer.ticket)).resolves.toMatchObject({
       moved: { chats: 2, wallets: 1 },
     });
+  });
+});
+
+describe("new Aomi auth options", () => {
+  it("refuses bearer() next to another credential", () => {
+    expect(
+      () =>
+        new Aomi({
+          baseUrl: "https://chat.example",
+          auth: bearer("token"),
+          oauth: async () => null,
+        } as never),
+    ).toThrow(/cannot be combined/);
+  });
+
+  it("turns a missing OAuth grant into insufficient_scope with a hint", async () => {
+    const aomi = new Aomi({
+      baseUrl: "https://chat.example",
+      oauth: async () => null,
+      fetch: vi.fn<typeof globalThis.fetch>(),
+    });
+    const error = await aomi.account.credits.get().catch((e: unknown) => e);
+    expect(isAomiError(error, "insufficient_scope")).toBe(true);
+    expect((error as AomiError).hint).toMatch(/Sign in again/);
   });
 });

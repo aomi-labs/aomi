@@ -1,3 +1,4 @@
+import { AomiError } from "./api-error";
 import { SimulationApiError } from "./simulation";
 import type {
   AomiAccountProfile,
@@ -220,7 +221,8 @@ export function wrapFetchWithPublicApiAuthorization(input: {
           forceRefresh,
         });
         if (!token)
-          throw new Error(
+          throw new AomiError(
+            "insufficient_scope",
             "No OAuth grant covers this Aomi resource and scope set",
           );
         const tokenType = token.tokenType ?? "Bearer";
@@ -387,7 +389,10 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
           : "account:apps:write";
     } else if (url.pathname === "/v1/account/statement") {
       scope = "account:usage:read";
-    } else if (url.pathname.startsWith("/v1/account/credits/funding-events") && method.toUpperCase() === "POST") {
+    } else if (
+      url.pathname.startsWith("/v1/account/credits/funding-events") &&
+      method.toUpperCase() === "POST"
+    ) {
       scope = "account:credits:fund";
     } else {
       scope = "account:credits:read";
@@ -515,9 +520,8 @@ export class AomiClient {
     // may already have settled.
     this.rawFetchImpl = authenticatedRawFetch;
     this.logger = options.logger;
-    this.agent = new AgentTransport(
-      (method, path, requestOptions) =>
-        this.requestResponse(method, path, requestOptions),
+    this.agent = new AgentTransport((method, path, requestOptions) =>
+      this.requestResponse(method, path, requestOptions),
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
@@ -594,16 +598,15 @@ export class AomiClient {
 
     const requestFetch = options?.x402
       ? wrapFetchWithPaymentChallenges(this.rawFetchImpl, options.x402)
-      : options?.raw ? this.rawFetchImpl : this.fetchImpl;
-    const response = await requestFetch(
-      url,
-      {
-        method,
-        headers,
-        body: encodeJsonBody(options?.body),
-        signal: options?.signal,
-      },
-    );
+      : options?.raw
+        ? this.rawFetchImpl
+        : this.fetchImpl;
+    const response = await requestFetch(url, {
+      method,
+      headers,
+      body: encodeJsonBody(options?.body),
+      signal: options?.signal,
+    });
 
     return response;
   }
