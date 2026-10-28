@@ -21,11 +21,11 @@ vi.mock("./markdown-text", async () => {
 
 import {
   activeWorkDurationMs,
-  buildTraceItems,
   MinimalWorkingTrace,
   RenderedText,
   WorkingTrace,
 } from "./working-trace";
+import { buildTraceItems } from "@aomi-labs/client/trace";
 import { TraceAttributionContext } from "./trace-attribution";
 import { ToolStepRow } from "./working-trace-rows";
 
