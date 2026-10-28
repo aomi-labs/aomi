@@ -1000,7 +1000,9 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() =>
-      expect(result.current.error).toContain("already signs in to another Aomi account"),
+      expect(result.current.error).toContain(
+        "already signs in to another Aomi account",
+      ),
     );
     expect(result.current.conflict).toEqual({
       code: "already_linked_to_another_account",

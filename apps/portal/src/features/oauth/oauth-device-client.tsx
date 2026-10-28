@@ -12,7 +12,7 @@ import {
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { scopeLines } from "./oauth-consent-client";
-import { createPortalClient } from "@/lib/portal-client";
+import { createPortalAomi } from "@/lib/portal-client";
 
 /** A device request, as Better Auth verified it, and the client's registered name. */
 type DeviceRequest = {
@@ -106,7 +106,7 @@ export function DeviceSheet() {
   const [state, setState] = useState<Step>({ step: "enter" });
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const client = useMemo(() => createPortalClient(), []);
+  const client = useMemo(() => createPortalAomi(), []);
   // The terminal's lanes, written once the login went through.
   const lanes = useConsentLanes(client);
 

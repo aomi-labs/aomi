@@ -2,7 +2,6 @@ import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
-
 /**
  * Aomi action buttons, built only from `aomi-*` tokens. `ui/button` keeps the
  * shadcn vocabulary for registry consumers; redesigned surfaces use this.

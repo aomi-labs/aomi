@@ -8,7 +8,7 @@ import {
 } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "@/lib/navigation";
-import { AccountGraphApiError, AomiAccount } from "@aomi-labs/client";
+import { AccountGraphApiError } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
 import {
   classifyProviderInitializationFailure,
@@ -21,7 +21,7 @@ import {
   deviceLinkFailure,
   waitForProviderCredential,
 } from "@/lib/device-auth-handoff";
-import { createPortalClient } from "@/lib/portal-client";
+import { createPortalAomi } from "@/lib/portal-client";
 
 const providerLabels = {
   privy: "Privy",
@@ -176,11 +176,8 @@ function DeviceAuthProviderPanel({
           { isCancelled: () => !live() },
         );
         if (!live()) return;
-        const client = createPortalClient();
-        const grant = await new AomiAccount((method, path, options) =>
-          client.requestResponse(method, path, options),
-        )
-          .grantDeviceLink({
+        const grant = await createPortalAomi()
+          .account.grantDeviceLink({
             linkIntent: request.linkIntent,
             state: request.state,
             redirectUri: request.redirectUri,

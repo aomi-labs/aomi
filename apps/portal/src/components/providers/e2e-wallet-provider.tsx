@@ -1,4 +1,9 @@
-import { type WalletEip712Payload, type WalletSolanaSignMessagePayload, type WalletSolanaSignPayload, type WalletTxPayload } from "@aomi-labs/client";
+import {
+  type WalletEip712Payload,
+  type WalletSolanaSignMessagePayload,
+  type WalletSolanaSignPayload,
+  type WalletTxPayload,
+} from "@aomi-labs/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {

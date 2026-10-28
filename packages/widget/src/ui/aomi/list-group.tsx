@@ -1,7 +1,6 @@
 import { cn } from "@/lib/cn";
 import type { ComponentProps, ReactNode } from "react";
 
-
 /**
  * The card surface of a row group, without the row dividers — for panels
  * that place their own `Divider`s or hold non-row content.

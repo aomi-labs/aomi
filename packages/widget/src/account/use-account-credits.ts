@@ -20,9 +20,7 @@ function useCreditClient(enabled?: boolean) {
 
 export function useAccountCredits(enabled?: boolean) {
   const context = useCreditClient(enabled);
-  return useDisplayQuery(
-    displayQueries.credits(context.aomi, context.enabled),
-  );
+  return useDisplayQuery(displayQueries.credits(context.aomi, context.enabled));
 }
 
 export function useAccountCreditLedger(enabled?: boolean) {

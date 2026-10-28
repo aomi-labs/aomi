@@ -1,6 +1,9 @@
 "use client";
 
-import { toViemSignTypedDataArgs, type WalletEip712Payload } from "@aomi-labs/client";
+import {
+  toViemSignTypedDataArgs,
+  type WalletEip712Payload,
+} from "@aomi-labs/client";
 import { useWidgetStorage } from "@/lib/widget-storage";
 
 import {

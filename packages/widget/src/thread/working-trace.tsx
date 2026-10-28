@@ -25,7 +25,14 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { useChatViewFlag, useChatView, useOptionalAomiRuntime, useThreadTaskRuns, walletContinuationPending, type TaskRunState } from "@aomi-labs/react";
+import {
+  useChatViewFlag,
+  useChatView,
+  useOptionalAomiRuntime,
+  useThreadTaskRuns,
+  walletContinuationPending,
+  type TaskRunState,
+} from "@aomi-labs/react";
 import type { Event, TurnState } from "@aomi-labs/client";
 import {
   buildTraceItems,

@@ -232,7 +232,11 @@ describe("aomi.account", () => {
         ],
         ["GET", "/v1/account/keys?client_id=c1", undefined],
         ["DELETE", "/v1/account/keys/BYOK%3Aopenai?client_id=c1", undefined],
-        ["GET", "/v1/account/policies/swig?chain_ref=solana%3Amainnet", undefined],
+        [
+          "GET",
+          "/v1/account/policies/swig?chain_ref=solana%3Amainnet",
+          undefined,
+        ],
         [
           "POST",
           "/v1/account/policies/swig/4/revoke/confirm",

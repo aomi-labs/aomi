@@ -45,7 +45,11 @@ import { AssistantTurnParts } from "./working-trace";
 import { isWorkLimitPause } from "./notice-codes";
 import { TooltipIconButton } from "./tooltip-icon-button";
 
-import { useOptionalAomiRuntime, useThreadContext, useThreadTaskRuns } from "@aomi-labs/react";
+import {
+  useOptionalAomiRuntime,
+  useThreadContext,
+  useThreadTaskRuns,
+} from "@aomi-labs/react";
 import { AppIndicator } from "@/controls/app-indicator";
 import { useComposerControl } from "@/frame/aomi-frame";
 import { AomiMark } from "@/ui/aomi-mark";

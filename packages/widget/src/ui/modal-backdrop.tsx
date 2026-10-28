@@ -1,7 +1,6 @@
 import { cn } from "@/lib/cn";
 import type { ButtonHTMLAttributes } from "react";
 
-
 export function ModalBackdrop({
   className,
   ...props

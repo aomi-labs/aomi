@@ -3,7 +3,6 @@ import { UrlLink as Link } from "@/components/url-link";
 import { useLocation } from "@tanstack/react-router";
 import { LayoutGrid } from "lucide-react";
 
-
 import {
   settingsSections,
   settingsStatusLabel,

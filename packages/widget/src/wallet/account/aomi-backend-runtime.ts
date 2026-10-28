@@ -156,7 +156,8 @@ export function useAomiBackendAccountRuntime(input: {
       // test double or future client implementation throws synchronously.
       await Promise.resolve();
       try {
-        const next = (await accountClient.getAccount()) as AomiBackendAccountResponse;
+        const next =
+          (await accountClient.getAccount()) as AomiBackendAccountResponse;
         const latest = latestRefreshContext.current;
         if (
           latest.accountClient !== accountClient ||

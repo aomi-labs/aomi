@@ -3,7 +3,6 @@
 import { cn } from "@/lib/cn";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
-
 export type SegmentedOption<T extends string> = {
   value: T;
   label: ReactNode;

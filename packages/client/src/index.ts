@@ -15,10 +15,7 @@ export type {
   AomiCreditListOptions,
   CreditBalance,
 } from "./account/credits";
-export {
-  AccountKeysTransport,
-  AccountPoliciesTransport,
-} from "./account/keys";
+export { AccountKeysTransport, AccountPoliciesTransport } from "./account/keys";
 export type { AccountKeyScope } from "./account/keys";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";

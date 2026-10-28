@@ -4,7 +4,6 @@ import { cn } from "@/lib/cn";
 import * as React from "react";
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
 
-
 function Separator({
   className,
   orientation = "horizontal",

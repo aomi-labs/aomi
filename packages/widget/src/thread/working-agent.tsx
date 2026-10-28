@@ -11,7 +11,11 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { type TaskRunState, type TaskRunStatus, type TaskRunStep } from "@aomi-labs/react";
+import {
+  type TaskRunState,
+  type TaskRunStatus,
+  type TaskRunStep,
+} from "@aomi-labs/react";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "./attribution";
 import {

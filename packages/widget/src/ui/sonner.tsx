@@ -4,7 +4,6 @@ import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 import { Toaster as Sonner } from "sonner";
 
-
 type ToasterProps = ComponentProps<typeof Sonner>;
 
 export function Toaster({ className, toastOptions, ...props }: ToasterProps) {

@@ -5,7 +5,6 @@ import { useWidgetOverlay } from "./widget-scope";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
-
 const Drawer = ({
   shouldScaleBackground = false,
   ...props

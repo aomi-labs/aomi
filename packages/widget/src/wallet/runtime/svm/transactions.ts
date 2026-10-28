@@ -1,6 +1,9 @@
 "use client";
 
-import { type WalletSolanaSignMessagePayload, type WalletSolanaSignPayload } from "@aomi-labs/client";
+import {
+  type WalletSolanaSignMessagePayload,
+  type WalletSolanaSignPayload,
+} from "@aomi-labs/client";
 import {
   Connection as SolanaConnection,
   Transaction as SolanaTransaction,

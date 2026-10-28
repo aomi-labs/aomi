@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Aomi,
-  type CreditLedger,
-  type CreditBalance,
-} from "@aomi-labs/client";
+import { Aomi, type CreditLedger, type CreditBalance } from "@aomi-labs/client";
 import type { OperateStatementResult } from "@aomi-labs/deploy";
 import { operateFetch } from "@/features/operate/client";
 import { CreditCheckoutDialog } from "@aomi-labs/widget/checkout";

@@ -142,10 +142,7 @@ function installFetchRecorder(
           })),
         });
       }
-      if (
-        url.pathname === "/v1/account/apps/12/secrets" &&
-        method === "POST"
-      ) {
+      if (url.pathname === "/v1/account/apps/12/secrets" && method === "POST") {
         if (failNextVenueSave) {
           failNextVenueSave = false;
           return new Response("temporary failure", { status: 503 });
@@ -766,10 +763,7 @@ describe("packages modal wiring", () => {
       "fetch",
       vi.fn((input: string | URL | Request, init?: RequestInit) => {
         const path = new URL(input.toString(), "https://portal.test").pathname;
-        if (
-          path === "/v1/account/apps/12/secrets" &&
-          init?.method === "POST"
-        ) {
+        if (path === "/v1/account/apps/12/secrets" && init?.method === "POST") {
           return new Promise<Response>((resolve) => {
             finishSave = resolve;
           });

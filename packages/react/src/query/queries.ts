@@ -20,7 +20,8 @@ const normalizedApps = (rows: unknown[]) =>
 export const displayQueries = {
   models: (aomi: Aomi): DisplayQuery<string[]> => ({
     resource: "models",
-    fetcher: (signal) => aomi.raw.getPublicCatalog<string[]>("models", { signal }),
+    fetcher: (signal) =>
+      aomi.raw.getPublicCatalog<string[]>("models", { signal }),
   }),
   appCatalog: (
     aomi: Aomi,
@@ -30,7 +31,10 @@ export const displayQueries = {
     parameters: [platformKey(platforms)],
     fetcher: async (signal) =>
       normalizedApps(
-        await aomi.raw.getPublicCatalog<unknown[]>("apps", { signal, platforms }),
+        await aomi.raw.getPublicCatalog<unknown[]>("apps", {
+          signal,
+          platforms,
+        }),
       ),
   }),
   /** Models this app key or account may use. `credential` changes with the key. */
@@ -41,7 +45,10 @@ export const displayQueries = {
     resource: "authorized-models",
     parameters: [input.appId, input.credential],
     fetcher: (signal) =>
-      aomi.raw.getModels(input.sessionId(), { applicationId: input.appId, signal }),
+      aomi.raw.getModels(input.sessionId(), {
+        applicationId: input.appId,
+        signal,
+      }),
   }),
   authorizedApps: (
     aomi: Aomi,
@@ -68,10 +75,7 @@ export const displayQueries = {
     enabled,
     fetcher: (signal) => aomi.account.credits.get({ signal }),
   }),
-  creditLedger: (
-    aomi: Aomi,
-    enabled = true,
-  ): DisplayQuery<CreditLedger> => ({
+  creditLedger: (aomi: Aomi, enabled = true): DisplayQuery<CreditLedger> => ({
     resource: "credit-ledger",
     enabled,
     fetcher: (signal) => aomi.account.credits.ledger({ limit: 25, signal }),

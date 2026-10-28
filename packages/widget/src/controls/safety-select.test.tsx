@@ -128,9 +128,7 @@ beforeEach(() => {
         return Promise.resolve(state.thread);
       }
       return Promise.resolve(
-        path.includes("/threads/")
-          ? state.thread
-          : state.account,
+        path.includes("/threads/") ? state.thread : state.account,
       );
     });
 });
@@ -231,9 +229,7 @@ describe("SafetySelect", () => {
 
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
-      path.includes("/threads/")
-        ? new Promise(() => {})
-        : request(path, init),
+      path.includes("/threads/") ? new Promise(() => {}) : request(path, init),
     );
     render(
       <WidgetStorageProvider
@@ -320,7 +316,9 @@ describe("SafetySelect", () => {
 
     // Only the save event can move the footer: the account GET still answers
     // Balanced.
-    await act(() => saveTransactionSafety(state.aomi.account.guard, "guarded_only", 1));
+    await act(() =>
+      saveTransactionSafety(state.aomi.account.guard, "guarded_only", 1),
+    );
     expect(
       await screen.findByText("New chats start on Strict"),
     ).toBeInTheDocument();

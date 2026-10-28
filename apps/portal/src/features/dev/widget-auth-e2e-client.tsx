@@ -1,5 +1,6 @@
 import "@aomi-labs/widget/providers/para";
 
+import { createPortalAomi } from "@/lib/portal-client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildSiweMessage, buildWalletLinkMessage } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
@@ -35,10 +36,7 @@ function WidgetAuthE2EPanel() {
 
   const refreshAccount = useCallback(async () => {
     try {
-      const response = await fetch("/v1/account", {
-        credentials: "include",
-      });
-      setAccountSnapshot(await response.json());
+      setAccountSnapshot(await createPortalAomi().account.getAccount());
     } catch (error) {
       setAccountSnapshot({
         error: error instanceof Error ? error.message : "refresh failed",
@@ -142,19 +140,11 @@ function WidgetAuthE2EPanel() {
   }, [pushLog, walletKit]);
 
   const linkSecondTestWallet = useCallback(async () => {
-    const nonceResponse = await fetch(
-      `/v1/account/wallets/link?address=${encodeURIComponent(
-        testWalletTwo.address,
-      )}&chainId=${encodeURIComponent(String(testChainId))}`,
-      {
-        method: "GET",
-        credentials: "include",
-      },
-    );
-    const { nonce } = await readJsonOrThrow<{ nonce: string }>(
-      nonceResponse,
-      "wallet link nonce",
-    );
+    const account = createPortalAomi().account;
+    const { nonce } = await account.getWalletLinkNonce({
+      address: testWalletTwo.address,
+      chainId: testChainId,
+    });
     const message = buildWalletLinkMessage({
       address: testWalletTwo.address,
       chainId: testChainId,
@@ -163,23 +153,14 @@ function WidgetAuthE2EPanel() {
       uri: window.location.origin,
     });
     const signature = await testWalletTwo.signMessage({ message });
-    const response = await fetch("/v1/account/wallets/link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        family: "evm",
-        address: testWalletTwo.address,
-        chainId: testChainId,
-        nonce,
-        message,
-        signature,
-      }),
+    const body = await account.linkWallet({
+      family: "evm",
+      address: testWalletTwo.address,
+      chainId: testChainId,
+      nonce,
+      message,
+      signature,
     });
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(`wallet link failed: ${response.status}`);
-    }
     pushLog(`link second wallet response: ${JSON.stringify(body)}`);
   }, [pushLog]);
 

@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
-import {
-  AomiCommits,
-  CommitNotFoundError,
-  type CommitHandle,
-} from "@aomi-labs/client";
+import { CommitNotFoundError, type CommitHandle } from "@aomi-labs/client";
 import {
   AomiSheet,
   CommitSignPanel,
   LoadingPane,
   SheetHeader,
 } from "@aomi-labs/widget/host-composition";
-import { createPortalClient } from "@/lib/portal-client";
+import { createPortalAomi } from "@/lib/portal-client";
 import { StandalonePage } from "@/components/shell/standalone-page";
 
 type LoadState =
@@ -36,30 +32,32 @@ function Review({ commitRef }: { commitRef: string }) {
     let cancelled = false;
     let opened: CommitHandle | undefined;
     setState({ kind: "loading" });
-    new AomiCommits(createPortalClient()).get(commitRef).then(
-      (handle) => {
-        if (cancelled) return handle.close();
-        opened = handle;
-        setState({ kind: "ready", handle });
-      },
-      (error: unknown) => {
-        if (cancelled) return;
-        setState(
-          error instanceof CommitNotFoundError
-            ? {
-                kind: "failed",
-                title: "This request doesn’t exist",
-                detail: "It may belong to another account.",
-              }
-            : {
-                kind: "failed",
-                title: "This request couldn’t be loaded",
-                detail:
-                  error instanceof Error ? error.message : "Try again later.",
-              },
-        );
-      },
-    );
+    createPortalAomi()
+      .commits.get(commitRef)
+      .then(
+        (handle) => {
+          if (cancelled) return handle.close();
+          opened = handle;
+          setState({ kind: "ready", handle });
+        },
+        (error: unknown) => {
+          if (cancelled) return;
+          setState(
+            error instanceof CommitNotFoundError
+              ? {
+                  kind: "failed",
+                  title: "This request doesn’t exist",
+                  detail: "It may belong to another account.",
+                }
+              : {
+                  kind: "failed",
+                  title: "This request couldn’t be loaded",
+                  detail:
+                    error instanceof Error ? error.message : "Try again later.",
+                },
+          );
+        },
+      );
     return () => {
       cancelled = true;
       opened?.close();

@@ -6,7 +6,6 @@ import { useWidgetOverlay } from "./widget-scope";
 import * as React from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 
-
 function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {

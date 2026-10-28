@@ -22,8 +22,9 @@ describe("shared account transport", () => {
   });
 
   it("keeps ordinary Portal requests same-origin", async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      Response.json({ apps: [] }),
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json({ apps: [] }),
     );
     vi.stubGlobal("fetch", fetcher);
     await createShellTransport().aomi.account.apps.list();
@@ -38,7 +39,12 @@ describe("shared account transport", () => {
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(
-        Response.json({ mode: "balanced", revision: 2, scope: "thread", source: "user" }),
+        Response.json({
+          mode: "balanced",
+          revision: 2,
+          scope: "thread",
+          source: "user",
+        }),
       );
     vi.stubGlobal("fetch", fetcher);
     const bearer = vi

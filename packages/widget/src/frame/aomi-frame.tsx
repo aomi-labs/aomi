@@ -9,7 +9,13 @@ import {
   createContext,
   useContext,
 } from "react";
-import { AomiRuntimeProvider, AomiChatBoundary, useAomiRuntime, type DisplayPersistence, type RuntimeAccount } from "@aomi-labs/react";
+import {
+  AomiRuntimeProvider,
+  AomiChatBoundary,
+  useAomiRuntime,
+  type DisplayPersistence,
+  type RuntimeAccount,
+} from "@aomi-labs/react";
 import { DisplayPrefetch } from "../account/display-prefetch";
 import { WidgetStorageProvider } from "../lib/widget-storage";
 import { WidgetScope } from "../ui/widget-scope";

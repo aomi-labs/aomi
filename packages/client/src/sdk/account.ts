@@ -191,18 +191,16 @@ export class AomiAccount extends AccountTransport {
     return this.getAccount();
   }
 
-  statement(
-    {
-      signal,
-      ...options
-    }: {
-      limit?: number;
-      cursor?: string;
-      from?: number;
-      to?: number;
-      signal?: AbortSignal;
-    } = {},
-  ): Promise<AomiAccountStatement> {
+  statement({
+    signal,
+    ...options
+  }: {
+    limit?: number;
+    cursor?: string;
+    from?: number;
+    to?: number;
+    signal?: AbortSignal;
+  } = {}): Promise<AomiAccountStatement> {
     const query = new URLSearchParams(
       Object.entries(options).flatMap(([key, value]) =>
         value === undefined ? [] : [[key, String(value)]],

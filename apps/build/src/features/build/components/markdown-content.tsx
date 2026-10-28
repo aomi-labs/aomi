@@ -1,7 +1,6 @@
 import { cn } from "@aomi-labs/widget";
 import type { ReactNode } from "react";
 
-
 function renderInline(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
   const regex = /(`[^`]+`|\*\*[^*]+\*\*)/g;

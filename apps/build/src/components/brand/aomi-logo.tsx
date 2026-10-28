@@ -1,7 +1,6 @@
 import { cn } from "@aomi-labs/widget";
 import { UrlLink as Link } from "@/components/url-link";
 
-
 type AomiLogoProps = {
   href?: string;
   markOnly?: boolean;

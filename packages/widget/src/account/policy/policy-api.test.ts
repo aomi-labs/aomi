@@ -1,4 +1,7 @@
-import { AccountGraphApiError, type AccountPoliciesTransport } from "@aomi-labs/client";
+import {
+  AccountGraphApiError,
+  type AccountPoliciesTransport,
+} from "@aomi-labs/client";
 import { describe, expect, it, vi } from "vitest";
 
 import {

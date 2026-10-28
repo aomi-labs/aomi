@@ -9,7 +9,9 @@ import {
 import { useAomiSession } from "./aomi-session-bridge";
 
 const state = vi.hoisted(() => ({
-  fetch: vi.fn(async (_thread?: string) => ({ user: { user_id: "account-a" } })),
+  fetch: vi.fn(async (_thread?: string) => ({
+    user: { user_id: "account-a" },
+  })),
 }));
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({

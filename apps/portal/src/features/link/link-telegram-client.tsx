@@ -3,12 +3,12 @@ import {
   ConnectionMark,
   TelegramLinkPanel,
 } from "@aomi-labs/widget/host-composition";
-import { createPortalClient } from "@/lib/portal-client";
+import { createPortalAomi } from "@/lib/portal-client";
 import { StandalonePage } from "@/components/shell/standalone-page";
 
 /** `/link/telegram?code=`: the wallet picker if needed, then the link sheet. */
 export function LinkTelegramClient({ code }: { code: string | null }) {
-  const client = useMemo(() => createPortalClient(), []);
+  const client = useMemo(() => createPortalAomi(), []);
   return (
     <StandalonePage
       purpose={{

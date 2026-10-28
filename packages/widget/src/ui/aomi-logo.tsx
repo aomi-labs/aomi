@@ -1,7 +1,6 @@
 import { cn } from "@/lib/cn";
 import * as React from "react";
 
-
 import { AomiMark } from "./aomi-mark";
 
 export type AomiLogoProps = React.ComponentProps<"span"> & {

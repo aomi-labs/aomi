@@ -1,7 +1,6 @@
 import { cn } from "@/lib/cn";
 import { LoaderCircle } from "lucide-react";
 
-
 /**
  * The one loading state for a pane or section: a quiet spinner centered on
  * both axes of whatever space its flex parent gives it. The label is for

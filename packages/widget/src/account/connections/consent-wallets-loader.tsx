@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useCallback, useRef, useState } from "react";
-import type { AomiClient } from "@aomi-labs/client";
+import type { AccountTransport } from "@aomi-labs/client";
 import type {
   ConsentWalletsProps,
   ConsentWalletsState,
@@ -34,7 +34,7 @@ export function ConsentWallets(props: ConsentWalletsProps) {
  * granted. Nothing is written when nothing changed; a failed write leaves
  * the connection on its default lanes.
  */
-export function useConsentLanes(client: AomiClient) {
+export function useConsentLanes(client: { account: AccountTransport }) {
   const state = useRef<ConsentWalletsState>({ ready: false, update: null });
   const [ready, setReady] = useState(false);
   const onChange = useCallback((next: ConsentWalletsState) => {

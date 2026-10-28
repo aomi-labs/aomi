@@ -1,9 +1,9 @@
-import { AomiClient } from "@aomi-labs/client";
+import { Aomi } from "@aomi-labs/client";
 import { getBackendUrl } from "@aomi-labs/widget/host-composition";
 
-/** Same-origin BFF: the Better Auth cookie is the credential. */
-export function createPortalClient(): AomiClient {
-  return new AomiClient({
+/** Same-origin Edge: the Better Auth cookie is the credential. */
+export function createPortalAomi(): Aomi {
+  return new Aomi({
     baseUrl: getBackendUrl(),
     guest: false,
     fetch: (input, init) =>

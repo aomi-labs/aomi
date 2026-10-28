@@ -18,7 +18,7 @@ import {
 } from "@aomi-labs/widget/host-composition";
 import { StandalonePage } from "@/components/shell/standalone-page";
 import { useOAuthClientName } from "./oauth-client-name";
-import { createPortalClient } from "@/lib/portal-client";
+import { createPortalAomi } from "@/lib/portal-client";
 
 export function oauthConsentRedirect(body: unknown): string | null {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
@@ -124,7 +124,7 @@ export function ConsentSheet({ name }: { name: string }) {
   const [error, setError] = useState<string | null>(null);
   // The grant went through but the wallet settings did not: where to go next.
   const [unsaved, setUnsaved] = useState<string | null>(null);
-  const client = useMemo(() => createPortalClient(), []);
+  const client = useMemo(() => createPortalAomi(), []);
   const resource = params.get("resource");
   const app = consentApp(resource);
   const askOnly = params.get("mode") === "ask";

@@ -111,9 +111,10 @@ export function useAomiSession(): {
               staleTime: 5 * 60_000,
               retry: false,
               queryFn: async () => {
-                const profile: AccountOverview = await transport.aomi.raw.getAccount(
-                  transport.settingsThread(),
-                );
+                const profile: AccountOverview =
+                  await transport.aomi.raw.getAccount(
+                    transport.settingsThread(),
+                  );
                 if (profile.user.user_id !== accountUserId)
                   throw new Error(
                     "Account changed while its profile was loading",
@@ -125,8 +126,8 @@ export function useAomiSession(): {
             return;
           }
           const profile: AccountOverview = await transport.aomi.raw.getAccount(
-                  transport.settingsThread(),
-                );
+            transport.settingsThread(),
+          );
           if (cancelled) return;
           // The probe already paid for the account payload — share it so
           // the settings tabs don't refetch /api/account individually.

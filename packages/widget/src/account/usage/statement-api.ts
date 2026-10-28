@@ -11,7 +11,6 @@
 import type { AomiAccount } from "@aomi-labs/client";
 import type { AppUsageEntry, MonthlyStatement } from "./types";
 
-
 type FundingKind = "platform" | "user_key" | "builder_key";
 
 export type UsageCharge = {
