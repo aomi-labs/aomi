@@ -39,6 +39,76 @@ const researchFiles: Plugin = {
     return `export default ${JSON.stringify(entries)};`;
   },
 };
+// Retired docs paths, served before the Mintlify proxy on every preset.
+// Pages also redirect their `.md` twin; a `:md` target keeps that suffix.
+const docsPages: Record<string, string> = {
+  introduction: "",
+  "start-here": "",
+  "about-aomi": "/build",
+  "agentic-application": "/build",
+  "non-custodial-wallet": "/concepts/non-custodial-wallets:md",
+  changelog: "/resources/changelog:md",
+  troubleshooting: "/guides/troubleshooting:md",
+  "advanced/cli": "/reference/cli:md",
+  "advanced/evals": "/build/plugins/evals:md",
+  "advanced/execution": "/trade/execution:md",
+  "advanced/script-generation": "/concepts/how-it-works:md",
+  "advanced/sdk": "/build/plugins/sdk:md",
+  "build/cli": "/build/toolchain/aomi-build:md",
+  "build/frontend-setup": "/guides/frontend-setup:md",
+  "build/getting-started": "/build",
+  "build/headless-library": "/guides/headless-library:md",
+  "build/how-it-works": "/concepts/how-it-works:md",
+  "build/integration-guide": "/guides/integration:md",
+  "build/namespaces": "/build/plugins/anatomy:md",
+  "build/overview": "/build",
+  "build/widget-installation": "/guides/widget-installation:md",
+  "build/services/api-reference": "/reference/api-reference:md",
+  "build/services/building-apps": "/build/plugins/anatomy:md",
+  "build/services/sessions": "/reference/sessions:md",
+  "build/services/telegram-bot": "/build/telegram-bot:md",
+  "build/services/wallet-integration": "/concepts/non-custodial-wallets:md",
+  "build/ui/headless/hooks": "/guides/headless/hooks:md",
+  "build/ui/headless/build-custom-ui": "/guides/headless/build-custom-ui:md",
+  "reference/account-abstraction": "/trade/execution:md",
+  "reference/architecture": "/concepts/architecture:md",
+  "reference/sdk": "/build/plugins/sdk:md",
+  "reference/sdk-api": "/build/plugins/sdk:md",
+  "reference/building-apps": "/build/plugins/anatomy:md",
+  "reference/cli-toolchain": "/build/toolchain/aomi-build:md",
+  "build/deploy-cli": "/build/toolchain/aomi-build:md",
+  "guides/custom-tools": "/build/plugins/custom-tools:md",
+  "guides/evals-testing": "/build/plugins/evals:md",
+  "use-aomi/quickstart": "/reference/cli:md",
+  "getting-started/quickstart": "/reference/cli:md",
+  "use-aomi/faq": "/resources/faq:md",
+};
+// Whole retired sections.
+const docsSections: Record<string, string> = {
+  "build/ui/headless": "/guides/headless-library",
+  "build/ui/widget": "/guides/widget-installation",
+  transact: "/trade",
+  "use-aomi/telegram": "/getting-started/telegram",
+  "use-aomi/web": "/getting-started/web-app",
+  "use-aomi/discord": "/getting-started/discord",
+  "use-aomi/ios": "/getting-started/ios",
+};
+const permanent = (to: string) => ({
+  redirect: { to: `/docs${to}`, status: 308 },
+});
+const docsRedirects = Object.fromEntries([
+  ...Object.entries(docsPages).flatMap(([from, to]) => {
+    const page = to.replace(/:md$/, "");
+    return [
+      [`/docs/${from}`, permanent(page)],
+      [`/docs/${from}.md`, permanent(to === page ? page : `${page}.md`)],
+    ];
+  }),
+  ...Object.entries(docsSections).flatMap(([from, to]) => [
+    [`/docs/${from}`, permanent(to)],
+    [`/docs/${from}/**`, permanent(to)],
+  ]),
+]);
 export default defineConfig(async ({ mode }) => {
   const env = loadAppEnv(root, mode);
   const docsMdx = await mdx(await import("./source.config.ts"));
@@ -107,6 +177,7 @@ export default defineConfig(async ({ mode }) => {
         ],
       },
       routeRules: {
+        ...docsRedirects,
         // Public files bypass Start; keep the registry handler's cache policy on existing assets.
         ...Object.fromEntries(
           globSync("**/*.json", { cwd: resolve(root, "public/r") }).map(
