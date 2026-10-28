@@ -24,6 +24,9 @@
       ],
       "@aomi-labs/client": [
         "./packages/client/src/index.ts"
+      ],
+      "@aomi-labs/client/trace": [
+        "./packages/client/src/trace/index.ts"
       ]
     },
     "baseUrl": "."

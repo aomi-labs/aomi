@@ -32,6 +32,16 @@
         "types": "./dist/browser-auth.d.cts",
         "default": "./dist/browser-auth.cjs"
       }
+    },
+    "./trace": {
+      "import": {
+        "types": "./dist/trace.d.ts",
+        "default": "./dist/trace.js"
+      },
+      "require": {
+        "types": "./dist/trace.d.cts",
+        "default": "./dist/trace.cjs"
+      }
     }
   },
   "files": [
@@ -40,7 +50,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm run clean:dist && tsup",
     "clean:dist": "rm -rf dist",
     "prepack": "pnpm run build",
     "typecheck": "tsc --project tsconfig.typecheck.json"
