@@ -58,9 +58,16 @@ export type AomiDeviceOAuthOptions = CommonOAuthOptions & {
   store?: AomiOAuthGrantStore;
   initial?: readonly AomiOAuthGrant[];
   openBrowser?: (url: string) => void | Promise<void>;
-  onVerification: (
+  /** Show the person where to approve. One of this or `onCode` is required. */
+  onVerification?: (
     verification: AomiDeviceVerification,
   ) => void | Promise<void>;
+  /** Show the person the page and code to approve with. */
+  onCode?: (prompt: {
+    url: string;
+    code: string;
+    expiresAt: number;
+  }) => void | Promise<void>;
 };
 
 export type AomiBrowserOAuthOptions = CommonOAuthOptions & {
@@ -85,7 +92,18 @@ export function oauth(
   return { kind: "oauth", options };
 }
 
-export type AomiAuthStrategy = AomiOAuthStrategy;
+/** A token minted elsewhere, for server use: sent as-is, never refreshed. */
+export type AomiBearerStrategy = {
+  readonly kind: "bearer";
+  readonly token: string;
+};
+
+export function bearer(token: string): AomiBearerStrategy {
+  if (!token.trim()) throw new TypeError("bearer token is required");
+  return { kind: "bearer", token };
+}
+
+export type AomiAuthStrategy = AomiOAuthStrategy | AomiBearerStrategy;
 
 type ManagedOAuth = AomiOAuthGrantManager;
 
@@ -126,7 +144,19 @@ export function createOAuthAuthRuntime(input: {
             initial: configured.initial,
             fetch: input.fetch,
             openBrowser: configured.openBrowser,
-            onVerification: configured.onVerification,
+            onVerification: async (verification) => {
+              const { onVerification, onCode } = configured;
+              if (onVerification) return onVerification(verification);
+              if (!onCode)
+                throw new TypeError("oauth() needs onCode or onVerification");
+              return onCode({
+                url:
+                  verification.verificationUriComplete ??
+                  verification.verificationUri,
+                code: verification.userCode,
+                expiresAt: verification.expiresAt,
+              });
+            },
             signal: configured.signal,
             timeoutMs: configured.timeoutMs,
             now: configured.now,
@@ -239,9 +269,22 @@ const AUTH_SCOPES = {
   pipeline: ["pipeline:catalog", "pipeline:execute", "offline_access"],
 } as const;
 
-/** What the SDK asks for at its first sign-in: Agent and Pipeline. */
+/** What the SDK asks for at its first sign-in: Agent, Pipeline and the
+ * account settings, so one approval covers the SDK. Moving money (funding,
+ * x402) is asked for when first used. */
 const SIGN_IN_SCOPES = [
-  ...new Set([...AUTH_SCOPES.agent, ...AUTH_SCOPES.pipeline]),
+  ...new Set([
+    ...AUTH_SCOPES.agent,
+    ...AUTH_SCOPES.pipeline,
+    "account:apps:read",
+    "account:apps:write",
+    "account:credentials:read",
+    "account:credentials:write",
+    "account:transaction-safety:read",
+    "account:transaction-safety:write",
+    "account:credits:read",
+    "account:usage:read",
+  ]),
 ];
 
 function resourceFor(

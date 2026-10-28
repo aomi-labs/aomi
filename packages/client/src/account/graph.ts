@@ -216,11 +216,32 @@ export class AccountGraphTransport {
     } catch {
       body = undefined;
     }
-    if (!response.ok)
-      throw new AccountGraphApiError(response.status, body, text);
+    if (!response.ok) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      throw new AccountGraphApiError(
+        response.status,
+        body,
+        text,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+      );
+    }
     return body as T;
   }
 }
+
+/** A link that proved a sign-in method of another account: `merge(ticket)` moves it in. */
+export type AccountMergeOffer = {
+  ticket: string;
+  other: {
+    name: string;
+    created_at: string;
+    chats: number;
+    wallets: number;
+    credits: string;
+    /** What the other account loses because this one already has it. */
+    dropped: string[];
+  };
+};
 
 export class AccountGraphApiError extends AomiApiError {
   override name = "AccountGraphApiError";
@@ -229,11 +250,23 @@ export class AccountGraphApiError extends AomiApiError {
     status: number,
     readonly body: unknown,
     detail: string,
+    /** Seconds to wait before retrying, from `Retry-After`. */
+    readonly retryAfter?: number,
   ) {
     super(
       status,
       apiErrorFields(body).code ?? "account_request_failed",
       detail || `Account request failed: HTTP ${status}`,
     );
+  }
+
+  /** Set on `account_merge_available`. */
+  get mergeOffer(): AccountMergeOffer | undefined {
+    const { ticket, other } = (this.body ?? {}) as Partial<AccountMergeOffer>;
+    return this.code === "account_merge_available" &&
+      typeof ticket === "string" &&
+      other
+      ? { ticket, other }
+      : undefined;
   }
 }

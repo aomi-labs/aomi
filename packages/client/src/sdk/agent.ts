@@ -10,6 +10,8 @@ import { TypedEventEmitter } from "../event";
 import { ClientSession } from "../session";
 import type { SendResult, SessionOptions } from "../session/types";
 import type { UserState as UserStateShape } from "../user-state";
+import { AomiCommits } from "./commits";
+import { Thread, type ThreadSummary } from "./thread";
 
 export interface AgentRunOptions extends Omit<
   SessionOptions,
@@ -21,6 +23,10 @@ export interface AgentRunOptions extends Omit<
 
 export interface AgentRunResult extends SendResult {
   sessionId: string;
+  /** Same as `sessionId`. */
+  threadId: string;
+  /** The agent's last answer. */
+  reply: string;
   actions: readonly Action[];
   commits: readonly CommitView[];
 }
@@ -79,6 +85,14 @@ export class AgentRun
         const completed = {
           ...result,
           sessionId: this.session.sessionId,
+          threadId: this.session.sessionId,
+          reply:
+            result.messages.findLast(
+              (message) =>
+                message.sender === "agent" &&
+                !message.tool_result &&
+                message.content.trim(),
+            )?.content ?? "",
           actions: this.session.actions.all(),
           commits: this.session.commits.all(),
         };
@@ -148,6 +162,15 @@ export class AgentRun
 }
 
 export class AomiAgent {
+  /** The account's threads, newest first. */
+  readonly threads: {
+    list(options?: {
+      cursor?: string;
+      limit?: number;
+      signal?: AbortSignal;
+    }): Promise<{ threads: ThreadSummary[]; nextCursor?: string }>;
+  };
+
   constructor(
     readonly raw: AomiClient["agent"],
     private readonly client: AomiClient,
@@ -155,7 +178,28 @@ export class AomiAgent {
     private readonly defaultUserState: () => UserStateShape | undefined = () =>
       undefined,
     private readonly commits: CommitCapabilities = {},
-  ) {}
+  ) {
+    this.threads = {
+      list: async (options) => {
+        const page = await raw.sessions.list(options);
+        return {
+          threads: page.sessions,
+          nextCursor: page.nextCursor ?? undefined,
+        };
+      },
+    };
+  }
+
+  /** A new thread, or the thread `id` to continue. */
+  thread(id: string = crypto.randomUUID()): Thread {
+    const commits = new AomiCommits(this.client, this.commits);
+    return new Thread(
+      id,
+      (text, threadId) => this.run(text, { sessionId: threadId }),
+      (ref) => commits.get(ref),
+      this.raw.sessions,
+    );
+  }
 
   run(prompt: string, options?: AgentRunOptions): AgentRun {
     const normalized = prompt.trim();
