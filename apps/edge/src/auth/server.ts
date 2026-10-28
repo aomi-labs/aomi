@@ -2,6 +2,7 @@ import { createAuth, type Auth } from "@aomi-labs/account/better-auth";
 import type { BetterAuthSession } from "@aomi-labs/account/principal";
 
 import type { EdgeEnv } from "../env";
+import { assertAuthBindings } from "../kernel/config";
 
 const servers = new WeakMap<EdgeEnv, Auth>();
 
@@ -14,6 +15,7 @@ const servers = new WeakMap<EdgeEnv, Auth>();
 export function authServer(env: EdgeEnv): Auth {
   let auth = servers.get(env);
   if (!auth) {
+    assertAuthBindings(env);
     auth = createAuth(env as unknown as Record<string, string | undefined>);
     servers.set(env, auth);
   }

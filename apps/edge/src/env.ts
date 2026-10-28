@@ -43,6 +43,8 @@ export interface EdgeEnv {
   BETTER_AUTH_SECRET?: string;
   /** The public portal origin Better Auth issues for (cookies, OAuth issuer, SIWE domain). */
   BETTER_AUTH_URL?: string;
+  /** Sentry project DSN; unset leaves error reporting off. */
+  SENTRY_DSN?: string;
   /** This deployment's version, for diagnostics. */
   CF_VERSION_METADATA?: { id: string };
 
