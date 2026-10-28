@@ -3763,7 +3763,7 @@ export type SponsorshipPaymasterServiceContext = Record<string, unknown> & {
 export type StartTurnIntent = Schemas$3["StartTurnIntent"];
 
 // @public
-export type StepDecoder<T> = (step: ToolStep, earlier: readonly ToolStep[]) => T;
+export type StepDecoder<T> = (input: ToolStepInput) => T;
 
 // @public
 export type StorageScope = {
