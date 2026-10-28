@@ -1,88 +1,87 @@
 # Aomi CLI
 
-Install `@aomi-labs/cli` to use the `aomi` terminal command. The CLI depends on
-the public `@aomi-labs/client` transport, account graph and conversation model.
+The Aomi agent in your terminal. Install `@aomi-labs/cli` for the `aomi`
+command. It is a thin client of `new Aomi()` from `@aomi-labs/client`.
 
 ```sh
 npm install -g @aomi-labs/cli
-aomi --help
-aomi account login
-aomi session list
+aomi                                  # the chat screen
+aomi -p "swap 0.1 eth to usdc on base"  # ask once, print the answer
+aomi --help                           # every command
 ```
 
-`AOMI_BACKEND_URL` selects a Portal/BFF origin. The CLI defaults to
-`https://chat.aomi.dev`. Account login creates a separate session lasting 24
-hours. Local state lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it).
+`aomi <command> --help` lists a command's flags; `--help-all` adds the hidden
+ones (`--backend-url`, `--api-key`, `--rpc-url`, `--solana-private-key`).
 
-Use `https://chat-staging.aomi.dev` for staging. The `api.aomi.dev` and
-`api-staging.aomi.dev` origins serve the backend and do not host guest login.
-An HTTP 404 during guest sign-in reports the selected origin and the missing
-route. `aomi config current --json` reports the effective origin and whether it
-comes from `--backend-url`, `AOMI_BACKEND_URL`, the saved session, or the default.
-The output omits URL credentials, paths and query strings. A shell override
-takes precedence over saved configuration. Keep these overrides local to the
-CLI when other tools need a direct backend origin.
+## Sign in
 
-The `aomi` bin shipped by `@aomi-labs/client` is a migration shim that asks you
-to install `@aomi-labs/cli`; install the CLI package directly for new setups.
+Two ways, nothing else:
 
-## Check funding before a payment
+- `aomi login` shows a device code and opens the approval page. Pick the wallet
+  or provider there. One approval covers chat, Pipeline and account settings;
+  the grant refreshes silently and lives in `~/.aomi/grants.json`.
+  `aomi logout` revokes it.
+- `--private-key <hex>` (or `AOMI_PRIVATE_KEY`) signs in with SIWE using that
+  key, without a browser, and signs what the agent prepares. For bots.
 
-`aomi tx preflight intent.json` reads each listed wallet's live token and native
-balance on its own RPC and reports whether it can fund the transfer: `funded`,
-`insufficient_token`, `insufficient_gas`, or `unavailable` with a short reason.
-It never signs. List every chain the wallet is funded on; an empty Ethereum
-balance does not mean the wallet is empty. The gas budget is the estimated gas
-times twice the current gas price, in native base units, and is an estimate
-rather than a quote. A failed RPC is `unavailable`, not a zero balance.
+Without either you are a guest: chat and public reads work, and the guest's
+threads stay yours on this machine.
 
-```json
-{
-  "recipient": "0x2222222222222222222222222222222222222222",
-  "amount": "1500",
-  "wallets": [
-    {
-      "address": "0x1111111111111111111111111111111111111111",
-      "chainId": 1,
-      "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      "decimals": 6,
-      "rpcUrl": "https://ethereum-rpc.publicnode.com"
-    },
-    {
-      "address": "0x1111111111111111111111111111111111111111",
-      "chainId": 8453,
-      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      "decimals": 6,
-      "rpcUrl": "https://base-rpc.publicnode.com"
-    }
-  ]
-}
+## Output
+
+`aomi -p` writes the reply (and only the reply) to stdout. The trace goes to
+stderr, one line per step:
+
+```
+✓ Stage transaction     Base · 1 tx · Native transfer · Staged
+✓ Simulate transaction  Base · 1 tx
+◐ Commit transactions   Base · 1 tx · Awaiting approval
+
+Transfer is ready.
+
+Waiting for you  aomi tx approve 7f3c…
+https://chat.aomi.dev/sign/7f3c…
 ```
 
-Addresses and RPC URLs come from your own wallet catalog. Keep private keys out
-of the file. Use a treasury wallet only when the user chooses it after seeing
-the shortfall.
+`--json` makes stdout NDJSON: `step`, `reply` and `commit` events.
 
-## Review and execute a Commit
+Exit codes: 0 ok, 1 error, 2 usage, 3 waiting for an approval, a signature or a
+sign-in.
 
-```sh
-aomi chat "<exact intent>" --new-session --public-key <sender> --chain <chain-id>
-aomi tx list --json
-aomi tx export <commit-id> --format commit > payment.json
-```
+## Commands
 
-Check the exact sender, chain, token, amount, recipient, fees and simulation
-in the durable review. `tx list` includes both Commits and legacy Actions; an
-empty Actions list does not mean a Commit is missing. `tx simulate` operates
-on legacy EVM Actions; Commit simulation evidence belongs to its review.
+| Command | What it does |
+| --- | --- |
+| `chat [message]` | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--app`, `--model` |
+| `threads` (`session`) | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>` |
+| `login`, `logout`, `whoami` | Sign in and out |
+| `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
+| `wallets` (`wallet`) | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
+| `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
+| `guard [mode]` | The thread's signing guard, or `--account`'s default |
+| `apps` (`app`) | `list`, `install`, `uninstall`, `use`, `credentials` |
+| `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
+| `deploy` | Deploy the current commit; `status [--watch]`, `activate` |
+| `model`, `chain` | `current`, `list`, `set` |
+| `keys` (`byok`) | Your own provider keys: `list`, `set <provider>`, `remove` |
+| `secret` | `list`, `add NAME=value…`, `clear` |
+| `config` | `current`, `set-backend <url>` |
+| `completion` | `eval "$(aomi completion)"` |
 
-For an authorized payment with an available local signer, use
-`aomi tx sign <commit-id>`. If signing happens externally, preserve the exact
-export and use `aomi tx submit <commit-id> --signed-file <path>` to report its
-signed payloads, or `--tx-hash <hash>` to report the already broadcast prepared
-transaction. An unsigned export is not a payment.
+Credential and key values come from stdin or a hidden prompt, never argv.
+`--chain` takes a decimal chain id.
 
-Re-read `aomi tx list --json` before retrying. A Commit that already has a
-transaction hash or an outstanding wallet attempt is reconciled, not re-signed;
-the backend observes the receipt and moves the Commit to `confirmed`. A
-cross-chain payment also needs the destination receipt and spendable output token.
+## The chat screen
+
+`aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
+steps), the reply, and a box for a commit waiting for your approval: `a`
+approve, `r` reject, `o` open in the browser, `d` details. Type `/` for
+`/model`, `/mode`, `/new`, `/help`. Esc stops a turn; ctrl+c quits.
+
+## State
+
+Everything lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it): `cli.json`
+(backend, thread, model, app, chain, local signer keys) and `grants.json`.
+The first run reads a 0.2 session once; an old wallet or bearer sign-in asks
+you to `aomi login` again. `AOMI_BACKEND_URL` or `aomi config set-backend`
+point the CLI at another Aomi, e.g. `https://chat-staging.aomi.dev`.
