@@ -557,20 +557,21 @@ export const ROUTES: readonly Route[] = [
     path: new RegExp(`^\\/api\\/commits\\/${ID}\\/(manual|wallet-attempts|wallet-attempts\\/${ID}\\/report)$`, "i"),
     methods: { POST: "agent:actions:resolve" },
   },
-  backend(/^\/api\/thread\/transaction-safety$/, {
-    GET: { capability: "safety_policy" },
-    PUT: { capability: "safety_policy" },
-  }),
   // `aomi wallets use`: a CLI or OAuth login switches its own thread's
   // wallet; the backend checks the account owns both.
   { ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }), on: "agentRest" },
-  backend(/^\/api\/account(\/.*)?$/, { GET: settings, POST: settings, PATCH: settings, PUT: settings, DELETE: settings }),
-  backend(/^\/api\/secrets$/, { GET: settings, POST: settings, DELETE: settings }),
-  backend(/^\/api\/secrets\/[^/]+$/, { DELETE: settings }),
+  // The backend's account record and its routes; transaction safety and
+  // on-chain policies moved to /v1/account.
+  backend(/^\/api\/account(?:\/(?!(?:transaction-safety|onchain-policies)(?:\/|$)).*)?$/, {
+    GET: settings,
+    POST: settings,
+    PATCH: settings,
+    PUT: settings,
+    DELETE: settings,
+  }),
   backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
   backend(/^\/api\/thread\/apps$/, { GET: chat }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),
-  backend(/^\/api\/resource\/skills(?:\/[^/]+)?$/, { GET: chat }),
   {
     ...backend(/^\/api\/thread\/model$/, { POST: { ...chat, oauthScope: "agent:write" } }),
     on: "agentRest",

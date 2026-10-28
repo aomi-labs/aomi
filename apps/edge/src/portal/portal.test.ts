@@ -656,7 +656,7 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     const settings = await portal("/api/account", { headers: { cookie: "session=guest" }, origin: PORTAL });
     expect(settings.status).toBe(403);
     expect(await settings.json()).toEqual({ error: "insufficient_scope" });
-    const anonymousSettings = await portal("/api/secrets");
+    const anonymousSettings = await portal("/v1/account/keys");
     expect(anonymousSettings.status).toBe(401);
   });
 
@@ -682,6 +682,11 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(seen[2].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
     const guest = await portal("/v1/account/keys", { headers: { cookie: "session=guest" }, origin: PORTAL });
     expect(guest.status).toBe(403);
+    // The /api names are gone; the pages answer them.
+    for (const path of ["/api/secrets", "/api/account/onchain-policies/swig", "/api/account/transaction-safety"]) {
+      const old = await portal(path, { headers: { cookie: "session=user" }, origin: PORTAL });
+      expect(((await old.json()) as { tag?: string }).tag).toBe("vercel");
+    }
   });
 
   it("answers 404 for an /api method the allowlist does not name and passes unknown paths to Vercel", async () => {
