@@ -80,10 +80,10 @@ const settle = async (call: () => Promise<Response>) =>
     throw error;
   });
 
-const exchange = (token: string, method = "POST") =>
+const exchange = (token: string, method = "POST", query = "") =>
   settle(() =>
     exchangeRcToken(
-      new Request("https://api-rc.aomi.dev/v1/rc/token", { method, headers: { authorization: `Bearer ${token}` } }),
+      new Request(`https://api-rc.aomi.dev/v1/rc/token${query}`, { method, headers: { authorization: `Bearer ${token}` } }),
       env,
       rcOidcConfig(env, "api-rc.aomi.dev")!,
       async () => oidcPublic,
@@ -106,6 +106,16 @@ describe("rc oidc exchange", () => {
     expect(claims.principal_class).toBe("user");
     expect(body.expires_in).toBe(900);
     expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("mints the account Payment bearer on request and refuses unknown services", async () => {
+    const response = await exchange(await oidc(), "POST", "?service=payment");
+    const claims = decodeJwt(((await response.json()) as { access_token: string }).access_token);
+    expect(claims.sub).toBe(ACCOUNT);
+    expect(claims.aud).toBe("aomi-payment");
+    expect(claims.resource).toBe("https://api-rc.aomi.dev/v1/account");
+    expect(claims.scope).toBe("account:credits:read account:credits:fund");
+    expect((await exchange(await oidc(), "POST", "?service=admin")).status).toBe(400);
   });
 
   it("refuses a replayed token", async () => {

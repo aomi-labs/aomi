@@ -26,7 +26,11 @@ const REF = "refs/heads/main";
 const ENVIRONMENT = "rc";
 const MAX_TOKEN_AGE = "15m";
 export const RC_BEARER_TTL_SECONDS = 15 * 60;
-const SCOPE = "agent:read agent:write";
+/** What each exchange can mint: the Agent REST bearer (default) or the account Payment one. */
+const SERVICES = {
+  agent: { audience: "aomi-api-server", resource: "/v1/agent", scope: "agent:read agent:write" },
+  payment: { audience: "aomi-payment", resource: "/v1/account", scope: "account:credits:read account:credits:fund" },
+} as const;
 
 export type RcOidcConfig = { accountId: string; subject: string; workflows: readonly string[] };
 
@@ -106,16 +110,19 @@ export async function exchangeRcToken(
   });
   if (!claimed) throw new EdgeError(401, "replayed_token");
 
-  const origin = new URL(request.url).origin;
+  const url = new URL(request.url);
+  const service = SERVICES[(url.searchParams.get("service") ?? "agent") as keyof typeof SERVICES];
+  if (!service) throw new EdgeError(400, "unknown_service");
+  const origin = url.origin;
   const { accessToken } = await minted(() =>
     edgeService(env, new URL(request.url).host).mint({
       role: "user",
       subject: cfg.accountId,
-      audience: "aomi-api-server",
+      audience: service.audience,
       ttlSeconds: RC_BEARER_TTL_SECONDS,
       delegated: {
-        scope: SCOPE,
-        resource: agentResource(origin),
+        scope: service.scope,
+        resource: `${origin}${service.resource}`,
         auth_source: "session",
         principal_class: "user",
         sid: "session-bound",
@@ -123,7 +130,7 @@ export async function exchangeRcToken(
     }),
   );
   return Response.json(
-    { access_token: accessToken, token_type: "Bearer", expires_in: RC_BEARER_TTL_SECONDS, scope: SCOPE },
+    { access_token: accessToken, token_type: "Bearer", expires_in: RC_BEARER_TTL_SECONDS, scope: service.scope },
     { headers: { "cache-control": "no-store" } },
   );
 }
