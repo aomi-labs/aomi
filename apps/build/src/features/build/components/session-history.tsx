@@ -1,11 +1,9 @@
-"use client";
-
 import { History } from "lucide-react";
 
 import type { BuildSession } from "@/features/build/contracts";
 import { JOURNEY_STAGES } from "@/features/build/contracts";
 import { disambiguateSessionTitles } from "@/features/build/storage/session-title";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 type SessionHistoryProps = {
   sessions: BuildSession[];

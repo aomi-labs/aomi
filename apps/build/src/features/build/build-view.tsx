@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as FileDialog from "@radix-ui/react-dialog";
 import {
@@ -43,7 +41,7 @@ import {
   writeRecentRailPreference,
 } from "@/features/build/storage/recent-rail-preference";
 import { BUILD_TEMPLATES } from "@/features/build/templates";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 const actionPills = [
   { label: "Arb bot", action: "tpl_arbitrage_bot" },

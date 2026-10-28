@@ -210,6 +210,7 @@ jobs:
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run lint:landing
             pnpm run typecheck:landing
+            pnpm run test:landing
           fi
 
       - name: Build affected apps
@@ -231,11 +232,14 @@ jobs:
           if [ "$CHECK_PORTAL" = true ]; then
             pnpm run build:portal
           fi
+          # Start apps build for Vercel (deployed) and Cloudflare Workers.
           if [ "$CHECK_BUILD" = true ]; then
             pnpm run build:aomi-build
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter aomi-build build:app
           fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run build:landing
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter landing build:app
           fi
 
   journeys:

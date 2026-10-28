@@ -1,4 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
+import { hosted } from "@aomi-labs/app-kit/platform";
 /** Build's server configuration for its BFF. */
 
 /** Local runs may use the Build UI and supervisor without GitHub sign-in. */
@@ -26,9 +27,5 @@ export function secureCookies(): boolean {
 
 /** Local-only helpers such as the dev GitHub session. */
 export function devToolsAllowed(): boolean {
-  return (
-    !process.env.VERCEL &&
-    !process.env.VERCEL_ENV &&
-    process.env.NODE_ENV !== "production"
-  );
+  return !hosted() && process.env.NODE_ENV !== "production";
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import { Plug } from "lucide-react";
 import { BotsView } from "@/features/operate/bots-view";
 

@@ -1,11 +1,9 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { LayoutTemplate, X } from "lucide-react";
 
 import type { BuildTemplate } from "@/features/build/contracts";
 import { FEATURED_TEMPLATE_IDS } from "@/features/build/templates";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 type TemplateGalleryProps = {
   templates: BuildTemplate[];

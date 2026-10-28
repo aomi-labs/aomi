@@ -1,9 +1,7 @@
-"use client";
-
 import { Check, Circle, Loader2 } from "lucide-react";
 
 import type { SmithersNode } from "@/features/build/contracts";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 type PlanNodesProps = {
   nodes: SmithersNode[];

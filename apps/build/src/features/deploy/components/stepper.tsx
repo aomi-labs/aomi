@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { CheckCircle2, Loader2, Circle, XCircle } from "lucide-react";
 
