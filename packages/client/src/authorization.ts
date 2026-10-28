@@ -1,3 +1,4 @@
+import { AomiError } from "./api-error";
 import type { AomiClient } from "./client";
 
 export type AomiOAuthResource =
@@ -55,12 +56,12 @@ export type AomiOAuthGrantManager = {
   clear(): Promise<void>;
 };
 
-export class AomiOAuthError extends Error {
+export class AomiOAuthError extends AomiError {
   constructor(
     readonly code: string,
     message = code,
   ) {
-    super(message);
+    super(code, message);
     this.name = "AomiOAuthError";
   }
 }
