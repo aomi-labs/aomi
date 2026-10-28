@@ -2,6 +2,17 @@
 
 ## Last Updated
 
+2026-10-28 — EDGE WORKER: ONE CONFIG FOR EVERY ENVIRONMENT.
+  `apps/edge/wrangler.jsonc` has no `env` blocks; staging, rc and production
+  deploy the same revision with the same settings. `scripts/deploy.mjs` takes
+  everything per-environment from the deploy environment (`EDGE_WORKER_NAME`,
+  `EDGE_ROUTES`, `EDGE_TOPOLOGY`, origins, hosts, CORS, platforms) and runs
+  `wrangler deploy --name … --route … --var …`. product-mono's
+  `infra/cloudflare/edge-environments.json` holds the per-environment record.
+  Replaces #790: routing the production portal is a product-mono record
+  change plus the production deploy. Pending: product-mono pin bump to this
+  revision (it must land together with the record, or deploys fail closed).
+
 2026-10-25 — EDGE WORKER DESLOP STACK (draft PRs #781–#785, stacked on the
   cutover-1 stack #776–#780). #781 adds the `apps/edge/src/kernel` (env schema,
   EdgeError, CORS, one proxy, `endpoint()` routes). #782 moves the first-party
