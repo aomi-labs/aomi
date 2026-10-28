@@ -9,24 +9,19 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { Circle, FileSignature, Layers3 } from "lucide-react";
+import { Circle, FileSignature, Layers3, PenLine } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "@/icons/chain-map";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { StatusPill } from "@/ui/aomi/status-pill";
+import type { CommitPresentation } from "@aomi-labs/client";
 import type { ActivityTransaction } from "./model";
 import {
   focusRing,
   friendlyTransactionLabel,
+  solanaNetworkName,
   transactionSemantic,
 } from "./presentation";
-
-const svmNetworkNames: Record<string, string> = {
-  "mainnet-beta": "Solana",
-  mainnet: "Solana",
-  devnet: "Solana Devnet",
-  testnet: "Solana Testnet",
-};
 
 export function TransactionList({
   children,
@@ -137,8 +132,11 @@ export function TransactionCard({
   reviewing = false,
   executing,
   current,
+  onChain,
 }: {
   transaction: ActivityTransaction;
+  /** The chain's receipt verdict while Commit Service has not settled. */
+  onChain?: Pick<CommitPresentation, "label" | "onChain">;
   reviewing?: boolean;
   executing: boolean;
   /** Staged in the current turn, including its callback turns. */
@@ -147,9 +145,11 @@ export function TransactionCard({
   const reduceMotion = useReducedMotion();
   const label = friendlyTransactionLabel(tx.label, tx.kind);
   const Icon =
-    tx.kind === "signature"
-      ? FileSignature
-      : (transactionSemantic(label, tx.kind).Icon ?? Layers3);
+    tx.kind === "message"
+      ? PenLine
+      : tx.kind === "signature"
+        ? FileSignature
+        : (transactionSemantic(label, tx.kind).Icon ?? Layers3);
   const Chain = useMemo(
     () =>
       tx.family === "svm"
@@ -159,10 +159,13 @@ export function TransactionCard({
           : Circle,
     [tx.family, tx.chainId],
   );
-  const cluster = tx.cluster?.replace(/^solana:/, "") ?? "mainnet-beta";
-  const network = tx.chainId
-    ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
-    : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
+  // Shown only when known: an EVM signature that names no chain has none.
+  const network =
+    tx.family === "svm"
+      ? solanaNetworkName(tx.cluster)
+      : tx.chainId
+        ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
+        : undefined;
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
   const commitSigned =
     tx.commit?.state === "awaiting_broadcast" ||
@@ -201,7 +204,15 @@ export function TransactionCard({
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
   const pendingStyle = active && !signed && !rejected && !terminal;
-  const phases = ["Stage", "Simulate", "Commit", "Signed"]
+  // A message is checked, not simulated: nothing runs on chain. A `signature`
+  // (a sign Action, today a Solana message) goes straight to the wallet: no
+  // review or safety check runs, so it has no such phase.
+  const phases = [
+    "Stage",
+    tx.kind === "message" ? "Check" : "Simulate",
+    "Commit",
+    "Signed",
+  ]
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);
   return (
@@ -236,17 +247,19 @@ export function TransactionCard({
           >
             {label}
           </span>
-          <StatusPill className="max-w-[128px] font-normal">
-            {createElement(Chain, { className: "size-3 shrink-0" })}
-            <span className="truncate" title={network}>
-              {network}
-            </span>
-          </StatusPill>
+          {network && (
+            <StatusPill className="max-w-[128px] font-normal">
+              {createElement(Chain, { className: "size-3 shrink-0" })}
+              <span className="truncate" title={network}>
+                {network}
+              </span>
+            </StatusPill>
+          )}
         </div>
         <div
           className={cn(
             "mt-2.5 grid gap-1.5",
-            tx.kind === "signature" ? "grid-cols-3" : "grid-cols-4",
+            phases.length === 3 ? "grid-cols-3" : "grid-cols-4",
           )}
           aria-label={`Transaction preparation: ${tx.stage}; signing: ${rejected ? "rejected" : signed ? "signed" : "not signed"}`}
         >
@@ -255,11 +268,13 @@ export function TransactionCard({
               key={name}
               title={
                 index === 3
-                  ? rejected
-                    ? "Signing rejected"
-                    : signed
-                      ? "Signed"
-                      : "Not yet signed"
+                  ? onChain
+                    ? onChain.label
+                    : rejected
+                      ? "Signing rejected"
+                      : signed
+                        ? "Signed"
+                        : "Not yet signed"
                   : name
               }
             >
@@ -292,7 +307,9 @@ export function TransactionCard({
                 }}
                 className={cn(
                   "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
-                  (index === 1 && failed) || (index === 3 && rejected)
+                  (index === 1 && failed) ||
+                    (index === 3 &&
+                      (rejected || onChain?.onChain === "reverted"))
                     ? "bg-aomi-danger"
                     : index <= step || (index === 3 && signed)
                       ? "bg-aomi-accent"
@@ -301,7 +318,7 @@ export function TransactionCard({
               />
               <span
                 className={cn(
-                  "mt-1.5 block text-[10px] leading-3 transition-colors",
+                  "mt-1.5 block truncate text-[10px] leading-3 transition-colors",
                   animating && index === animatedStep
                     ? "text-aomi-fg font-medium"
                     : index <= step || (index === 3 && signed)
@@ -309,7 +326,7 @@ export function TransactionCard({
                       : "text-aomi-muted/60",
                 )}
               >
-                {name}
+                {index === 3 && onChain ? onChain.label : name}
               </span>
             </div>
           ))}

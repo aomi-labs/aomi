@@ -72,7 +72,7 @@ const livePayload = (): LiveAppDetailPayload => ({
     status: "healthy",
     metrics: {
       provider: "grafana_prometheus",
-      windowSeconds: 300,
+      windowSeconds: 86_400,
       available: true,
       requestsPerMinute: 2.4,
       errorRate: 0.02,
@@ -217,14 +217,32 @@ describe("liveAppDetailView", () => {
       "Active users": "—",
       Credits: "—",
       "Credits / turn": "—",
-      "P95 latency": "—",
-      Inflight: "—",
-      "Chat errors": "—",
+      "P95 latency": "No samples",
+      Inflight: "Unavailable",
+      "Chat errors": "No samples",
       "Tool errors": "—",
       "Tx failures": "—",
     });
     expect(view.app.transactions).toEqual([]);
     expect(view.app.logs).toEqual([]);
+  });
+
+  it("shows measured zero health values and the health time window", () => {
+    const payload = livePayload();
+    Object.assign(payload.health!.metrics, {
+      inflightRequests: 0,
+      errorRate: 0,
+    });
+    const kpis = liveAppDetailView(payload).app.detail.kpis;
+    expect(kpis.find((kpi) => kpi.label === "Inflight")).toMatchObject({
+      value: "0",
+      sub: "Active turns now",
+    });
+    expect(kpis.find((kpi) => kpi.label === "Chat errors")).toMatchObject({
+      value: "0.0%",
+      sub: "24h",
+    });
+    expect(kpis.find((kpi) => kpi.label === "P95 latency")?.sub).toBe("24h");
   });
 
   it("preserves unknown per-tool counts instead of reporting zero", () => {

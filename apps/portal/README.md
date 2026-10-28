@@ -19,8 +19,10 @@ A Next.js client for Aomi Agent sessions, Actions, and settings/account flows.
 - `@aomi-labs/react` projects one `ClientSession` snapshot per selected thread.
 - The core `ActionHandler` owns Action execution and response state; wallet-kit
   adapters expose only primitive send, sign, and switch capabilities.
-- `src/app/v1/agent/*` and `src/app/v1/pipeline/*` are authenticated BFF
-  boundaries over the Rust-owned public protocols.
+- The authenticated `/api/*` and `/v1/agent`, `/v1/pipeline` and account
+  proxies are served by the edge Worker (`apps/edge`) on the portal host; the
+  portal keeps sign-in, widget auth, device auth and the account graph under
+  `src/app/api/auth/*` and `src/app/v1/account/*`.
 
 The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e.md](../docs/topics/frontend-e2e.md).
 

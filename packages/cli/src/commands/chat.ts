@@ -25,7 +25,12 @@ import { parseSolanaKeypairSecret } from "../solana-signer";
 import type { SendOptions } from "@aomi-labs/client";
 import type { Session as ClientSession } from "@aomi-labs/client";
 import type { Event, MessageEvent } from "@aomi-labs/client";
-import { isTerminalCommit } from "@aomi-labs/client";
+import {
+  AomiCommits,
+  isTerminalCommit,
+  type AomiClient,
+  type CommitView,
+} from "@aomi-labs/client";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -81,6 +86,32 @@ export function printBoundaryForTurn(
       (message) => message.sender === "agent" && message.turn_id !== turnId,
     ).length,
   };
+}
+
+/**
+ * One "Waiting for your approval" line per parked commit. The chat's
+ * CommitView has no sign_url, so read it from the ref view.
+ */
+export async function approvalHints(
+  client: AomiClient,
+  commits: readonly CommitView[],
+): Promise<string[]> {
+  const parked = commits.filter(
+    (commit) => commit.state === "awaiting_approval",
+  );
+  return Promise.all(
+    parked.map(async ({ commit_id: ref }) => {
+      const signUrl = await new AomiCommits(client).get(ref).then(
+        (handle) => {
+          handle.close();
+          return handle.view.sign_url;
+        },
+        // Unreadable ref: name only the CLI command.
+        () => undefined,
+      );
+      return `Waiting for your approval: \`aomi tx approve ${ref}\`${signUrl ? ` (or ${signUrl})` : ""}`;
+    }),
+  );
 }
 
 export async function chatCommand(
@@ -204,7 +235,11 @@ export async function chatCommand(
           !previousCommitIds.has(commit.commit_id) && !isTerminalCommit(commit),
       );
 
-    for (const commit of newCommits) {
+    // Parked commits get the approval hint below, not a signing prompt.
+    const signableCommits = newCommits.filter(
+      (commit) => commit.state !== "awaiting_approval",
+    );
+    for (const commit of signableCommits) {
       console.log(
         `🔐 Commit awaiting ${commit.action?.kind ?? "confirmation"}: ${commit.commit_id} (${commit.chain_family.toUpperCase()}, ${commit.state})`,
       );
@@ -244,11 +279,14 @@ export async function chatCommand(
       }
     }
 
-    if (newActions.length > 0 || newCommits.length > 0) {
+    const hints = await approvalHints(session.client, newCommits);
+    if (hints.length > 0) console.log(`\n${hints.join("\n")}`);
+
+    if (newActions.length > 0 || signableCommits.length > 0) {
       console.log(
         "\nRun `aomi tx list` to inspect commits and Actions, then `aomi tx sign <id>` or `aomi tx reject <id>`.",
       );
-      if (newCommits.length > 0) {
+      if (signableCommits.length > 0) {
         console.log(
           "For an external signer, export one exact review with `aomi tx export <id> --format commit`.",
         );

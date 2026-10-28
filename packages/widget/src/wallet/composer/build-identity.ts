@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_SVM_CLUSTER } from "@/wallet/catalog/svm-networks";
 import {
   AOMI_SESSION_BOOTING_IDENTITY,
   AOMI_SESSION_DISCONNECTED_IDENTITY,
@@ -7,7 +8,7 @@ import {
   formatWalletAddress,
   formatWalletProvider,
 } from "@/wallet/identity";
-import type { AomiSessionIdentity } from "@/wallet/types";
+import type { AomiSessionIdentity, WalletSource } from "@/wallet/types";
 import type { AuthRuntime, SvmWalletRuntime } from "./types";
 import type { WalletRow } from "./wallet-state";
 
@@ -32,9 +33,15 @@ export function buildWalletKitIdentity({
   const svmAddress = svmWallet?.address;
   const svmTransport = svmIdentity?.transport;
   const svmCapabilities = svmIdentity?.capabilities;
+  const svmCluster =
+    svmWallet?.kind === "agent"
+      ? (svm?.selectedNetwork?.cluster ??
+        svmIdentity?.cluster ??
+        DEFAULT_SVM_CLUSTER)
+      : svmIdentity?.cluster;
   const baseSvm = {
     svmAddress,
-    svmCluster: svmIdentity?.cluster,
+    svmCluster,
     svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
     svmTransport: svmAddress ? svmTransport : undefined,
     svmCapabilities: svmAddress ? svmCapabilities : undefined,
@@ -57,11 +64,7 @@ export function buildWalletKitIdentity({
       chainId,
       sessionProvider: auth.sessionProvider,
       embeddedProvider: auth.embeddedProvider,
-      walletSource: evmWallet
-        ? evmWallet.kind === "embedded"
-          ? "embedded"
-          : "injected"
-        : undefined,
+      walletSource: evmWallet ? walletSourceOf(evmWallet) : undefined,
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
       authValue: auth.authValue,
@@ -82,13 +85,14 @@ export function buildWalletKitIdentity({
       chainId,
       sessionProvider: auth.sessionProvider,
       embeddedProvider: auth.embeddedProvider,
-      walletSource: evmWallet?.kind === "embedded" ? "embedded" : "injected",
+      walletSource: evmWallet ? walletSourceOf(evmWallet) : "injected",
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod ?? "wagmi",
       authValue: auth.authValue,
       primaryLabel: formatWalletAddress(address) ?? "Connected wallet",
       secondaryLabel:
         evmWallet?.walletName ??
+        (evmWallet?.kind === "agent" ? "Agent wallet" : undefined) ??
         formatAuthMethod(auth.authMethod ?? "wagmi") ??
         formatWalletProvider(auth.provider),
       ...baseSvm,
@@ -101,19 +105,15 @@ export function buildWalletKitIdentity({
       isConnected: true,
       walletKind: undefined,
       chainId,
-      svmAddress,
+      ...baseSvm,
       sessionProvider: auth.sessionProvider,
-      walletSource: svmWallet?.kind === "embedded" ? "embedded" : "injected",
+      walletSource: svmWallet ? walletSourceOf(svmWallet) : "injected",
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
       authValue: auth.authValue,
       primaryLabel:
         formatWalletAddress(svmAddress) ?? "Connected Solana wallet",
       secondaryLabel: "Solana",
-      svmCluster: svmIdentity?.cluster,
-      svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
-      svmTransport,
-      svmCapabilities,
     };
   }
 
@@ -124,6 +124,11 @@ export function buildWalletKitIdentity({
     walletProviderSubject: auth.subject,
     authMethod: auth.authMethod,
     authValue: auth.authValue,
-    svmCluster: svmIdentity?.cluster,
+    svmCluster,
   };
+}
+
+function walletSourceOf(wallet: WalletRow): WalletSource {
+  if (wallet.kind === "agent") return "agent";
+  return wallet.kind === "embedded" ? "embedded" : "injected";
 }

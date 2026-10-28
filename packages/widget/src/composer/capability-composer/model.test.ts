@@ -26,6 +26,8 @@ const items = [
   item("chain", "Solana", { searchText: "Solana solana svm mainnet" }),
   item("chain", "Base Sepolia", { testnet: true }),
   item("chain", "Solana Devnet", { testnet: true }),
+  item("wallet", "Trading", { searchText: "Trading 0xAb12" }),
+  item("wallet", "Base savings", { searchText: "Base savings 0xCd34" }),
 ];
 const labels = (query: string) =>
   pickerGroups(items, query).map((group) => [
@@ -39,6 +41,7 @@ describe("pickerGroups", () => {
       ["Apps", ["Aerodrome", "Uniswap"]],
       ["Skills", ["Bridge", "One", "Two", "Three"]],
       ["Chains", ["Ethereum", "Base", "Solana"]],
+      ["Wallets", ["Trading", "Base savings"]],
     ]);
   });
 
@@ -47,16 +50,29 @@ describe("pickerGroups", () => {
   });
 
   it("puts a chain named by the query before apps and skills", () => {
+    expect(labels("ethereum")).toEqual([
+      ["Chains", ["Ethereum"]],
+      ["Apps", ["Uniswap"]],
+    ]);
+  });
+
+  it("ranks a matching wallet above chains, apps and skills", () => {
     expect(labels("base")).toEqual([
+      ["Wallets", ["Base savings"]],
       ["Chains", ["Base"]],
       ["Apps", ["Aerodrome", "Uniswap"]],
       ["Skills", ["Bridge"]],
     ]);
+    expect(labels("trad")).toEqual([["Wallets", ["Trading"]]]);
   });
 
   it("shows test networks only when searched for", () => {
     expect(labels("sepolia")).toEqual([["Chains", ["Base Sepolia"]]]);
     expect(labels("devnet")).toEqual([["Chains", ["Solana Devnet"]]]);
+  });
+
+  it("finds a wallet by address", () => {
+    expect(labels("0xcd34")).toEqual([["Wallets", ["Base savings"]]]);
   });
 
   it("keeps the usual order when no chain is named", () => {

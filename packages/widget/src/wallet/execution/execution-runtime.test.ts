@@ -5,6 +5,152 @@ import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
 
 describe("buildEvmExecutionRuntime", () => {
+  describe("prepared commit bundles", () => {
+    const address = "0x2222222222222222222222222222222222222222";
+    const bundle = {
+      kind: "wallet_calls" as const,
+      chain_id: arbitrum.id,
+      signer: address,
+      calls: [
+        {
+          to: "0x1111111111111111111111111111111111111111",
+          value: "5",
+          data: "0x12",
+          gas_limit: 50_000,
+        },
+        {
+          to: "0x3333333333333333333333333333333333333333",
+          value: "0",
+          data: "0x34",
+          gas_limit: 60_000,
+        },
+      ],
+    };
+    let connectors = 0;
+    const runtimeWith = (
+      sendCallsSyncAsync: ReturnType<typeof vi.fn>,
+      atomic = "supported",
+      name = "MetaMask",
+    ) => {
+      const activeConnector = {
+        id: "wallet",
+        name,
+        uid: `uid-${++connectors}`,
+      };
+      const switchChainAsync = vi.fn().mockResolvedValue(undefined);
+      const sendTransactionAsync = vi.fn().mockResolvedValue("0xsingle");
+      const evm = {
+        activeConnector,
+        activeEvmConnection: { address, chainId: 1 },
+        capabilities: {
+          [`eip155:${arbitrum.id}`]: { atomic: { status: atomic } },
+        },
+        chainsById: { [arbitrum.id]: arbitrum },
+        getWalletClientFor: vi.fn(),
+        sendCallsSyncAsync,
+        sendTransactionAsync,
+        switchChainAsync,
+      } as unknown as EvmWalletRuntime;
+      return {
+        runtime: buildEvmExecutionRuntime(evm),
+        activeConnector,
+        switchChainAsync,
+        sendTransactionAsync,
+      };
+    };
+
+    it("sends every call in one atomic bundle and answers its receipt hashes", async () => {
+      const sendCallsSyncAsync = vi
+        .fn()
+        .mockResolvedValue({ receipts: [{ transactionHash: "0xbundle" }] });
+      const {
+        runtime,
+        activeConnector,
+        switchChainAsync,
+        sendTransactionAsync,
+      } = runtimeWith(sendCallsSyncAsync);
+      const phases: string[] = [];
+
+      expect(runtime.supportsAtomicEvmBatch?.(arbitrum.id)).toBe(true);
+      // A chain the wallet didn't report is still offered a bundle.
+      expect(runtime.supportsAtomicEvmBatch?.(1)).toBe(true);
+      await expect(
+        runtime.sendPreparedEvmCalls?.(bundle, (phase) => phases.push(phase)),
+      ).resolves.toEqual(["0xbundle"]);
+
+      expect(switchChainAsync).toHaveBeenCalledWith({
+        chainId: arbitrum.id,
+        connector: activeConnector,
+      });
+      expect(phases).toEqual(["switching_chain", "awaiting_wallet"]);
+      expect(sendCallsSyncAsync).toHaveBeenCalledTimes(1);
+      expect(sendCallsSyncAsync.mock.calls[0]![0]).toMatchObject({
+        chainId: arbitrum.id,
+        // The reviewed signer, not the connector's first account.
+        account: bundle.signer,
+        connector: activeConnector,
+        calls: [
+          { to: bundle.calls[0]!.to, value: BigInt(5), data: "0x12" },
+          { to: bundle.calls[1]!.to, value: BigInt(0), data: "0x34" },
+        ],
+      });
+      expect(sendTransactionAsync).not.toHaveBeenCalled();
+    });
+
+    it("does not offer bundles without atomic support, or to Rabby", () => {
+      const { runtime } = runtimeWith(vi.fn(), "unsupported");
+      expect(runtime.supportsAtomicEvmBatch?.(arbitrum.id)).toBe(false);
+      const rabby = runtimeWith(vi.fn(), "supported", "Rabby Wallet").runtime;
+      expect(rabby.supportsAtomicEvmBatch).toBeUndefined();
+    });
+
+    it("sends one by one after a clean refusal and stops offering bundles", async () => {
+      const refusal = Object.assign(new Error("Atomicity not supported"), {
+        code: 5760,
+      });
+      const { runtime, sendTransactionAsync } = runtimeWith(
+        vi.fn().mockRejectedValue(refusal),
+      );
+      sendTransactionAsync
+        .mockResolvedValueOnce("0xone")
+        .mockResolvedValueOnce("0xtwo");
+      const legs = { ...bundle, calls: [bundle.calls[0]!] };
+
+      await expect(runtime.sendPreparedEvmCalls?.(legs)).resolves.toEqual([
+        "0xone",
+      ]);
+      expect(sendTransactionAsync).toHaveBeenCalledTimes(1);
+      expect(runtime.supportsAtomicEvmBatch?.(arbitrum.id)).toBe(false);
+      expect(runtime.supportsAtomicEvmBatch?.(1)).toBe(true);
+    });
+
+    it("keeps the provider rejection code when the user declines the bundle", async () => {
+      const declined = Object.assign(new Error("User rejected"), {
+        code: 4001,
+      });
+      const { runtime, sendTransactionAsync } = runtimeWith(
+        vi.fn().mockRejectedValue(declined),
+      );
+
+      const error = await runtime
+        .sendPreparedEvmCalls?.(bundle)
+        .catch((caught: unknown) => caught);
+      expect((error as Error).cause).toBe(declined);
+      expect(sendTransactionAsync).not.toHaveBeenCalled();
+    });
+
+    it("answers the hashes of a bundle that landed and reverted", async () => {
+      const failed = Object.assign(new Error("Call bundle failed"), {
+        name: "BundleFailedError",
+        result: { receipts: [{ transactionHash: "0xreverted" }] },
+      });
+      const { runtime } = runtimeWith(vi.fn().mockRejectedValue(failed));
+      await expect(runtime.sendPreparedEvmCalls?.(bundle)).resolves.toEqual([
+        "0xreverted",
+      ]);
+    });
+  });
+
   it("keeps prepared-send preflight local", async () => {
     const address = "0x2222222222222222222222222222222222222222";
     const switchChainAsync = vi.fn().mockResolvedValue(undefined);

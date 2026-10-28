@@ -39,13 +39,46 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       ),
     );
     await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
-    await db.query(
-      readFileSync(
-        new URL("20261007000000_account_merge.sql", fixtureUrl),
-        "utf8",
-      ),
-    );
+    for (const migration of [
+      "20261007000000_account_merge.sql",
+      "20261026060000_account_link.sql",
+    ])
+      await db.query(readFileSync(new URL(migration, fixtureUrl), "utf8"));
   });
+
+  async function accounts(prefix: string) {
+    const target = `${prefix}-target-${randomUUID()}`;
+    const source = `${prefix}-source-${randomUUID()}`;
+    await db.query(
+      "insert into users (id, username) values ($1, $1), ($2, $2)",
+      [target, source],
+    );
+    return { target, source };
+  }
+
+  /** Run `work`, expecting it to fail with `code`, and undo what it did. */
+  async function refused(code: string, work: () => Promise<unknown>) {
+    await db.query("savepoint refused");
+    await expect(work()).rejects.toThrow(code);
+    await db.query("rollback to savepoint refused");
+  }
+
+  const statuses = async (...ids: string[]) =>
+    (
+      await db.query(
+        "select id, status from users where id = any($1) order by id",
+        [ids],
+      )
+    ).rows;
+
+  async function commit(user: string, state: string, signed: boolean) {
+    const row = await db.query(
+      `insert into commits (user_id, state, commit_request, signed_blob)
+       values ($1, $2, '{}', $3) returning id`,
+      [user, state, signed ? '{"kind":"signed"}' : null],
+    );
+    return String(row.rows[0].id);
+  }
 
   afterAll(async () => {
     await db?.query("rollback");
@@ -237,5 +270,180 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     await expect(
       mergeAccountRows({ sourceUserId: source, targetUserId: target, db }),
     ).resolves.toMatchObject({ chats: 0, wallets: 0 });
+  });
+
+  it("refuses while a source commit is in flight, and cancels only unsigned ones", async () => {
+    const { target, source } = await accounts("in-flight");
+    const parked = await commit(source, "awaiting_approval", false);
+    const unsigned = await commit(source, "needs_signature", false);
+    const submitted = await commit(source, "submitted", true);
+    const targetParked = await commit(target, "awaiting_approval", false);
+    const merge = () =>
+      mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
+
+    await refused("account_merge_commits_in_flight", merge);
+    expect(await statuses(source, target)).toEqual([
+      { id: source, status: "active" },
+      { id: target, status: "active" },
+    ]);
+    const untouched = await db.query(
+      "select state, version from commits where id = any($1) order by state",
+      [[parked, unsigned]],
+    );
+    expect(untouched.rows).toEqual([
+      { state: "awaiting_approval", version: "1" },
+      { state: "needs_signature", version: "1" },
+    ]);
+
+    // A signature with no broadcast yet holds the merge too.
+    await db.query("update commits set state = 'confirmed' where id = $1", [
+      submitted,
+    ]);
+    const signing = await commit(source, "needs_signature", true);
+    await refused("account_merge_commits_in_flight", merge);
+    await db.query("update commits set state = 'failed' where id = $1", [
+      signing,
+    ]);
+
+    await expect(merge()).resolves.toMatchObject({ chats: 0 });
+    const rows = await db.query(
+      `select id, user_id, state, failure_code, version from commits
+        where id = any($1)`,
+      [[parked, unsigned, submitted, signing, targetParked]],
+    );
+    const byId = new Map(rows.rows.map((row) => [row.id, row]));
+    for (const id of [parked, unsigned])
+      expect(byId.get(id)).toMatchObject({
+        user_id: target,
+        state: "rejected",
+        failure_code: "commit_account_merged",
+        version: "2",
+      });
+    expect(byId.get(submitted)).toMatchObject({
+      user_id: target,
+      state: "confirmed",
+      failure_code: null,
+      version: "1",
+    });
+    // The survivor's own parked commit never changes owner, so it stays.
+    expect(byId.get(targetParked)).toMatchObject({
+      state: "awaiting_approval",
+      version: "1",
+    });
+  });
+
+  it("reports how many commits it cancelled", async () => {
+    const { target, source } = await accounts("cancel-count");
+    await commit(source, "awaiting_approval", false);
+    const merged = await db.query("select merge_accounts($1, $2) as merged", [
+      source,
+      target,
+    ]);
+    expect(merged.rows[0].merged).toMatchObject({ cancelled: 1 });
+  });
+
+  it("keeps both agent wallets under their names, and either account's pause", async () => {
+    const { target, source } = await accounts("wallets");
+    const app = await db.query(
+      "insert into applications (name, label) values ('hoodit', 'Hoodit') returning id",
+    );
+    const appId = app.rows[0].id;
+    const wallet = async (user: string, createdAt: number) => {
+      const created = await db.query(
+        `insert into agent_wallets
+           (user_id, name, para_subject, created_by_app, created_at, updated_at)
+         values ($1, 'Hoodit', $2, $3, $4, $4)
+         returning id`,
+        [user, `p-${user}`, appId, createdAt],
+      );
+      const id = created.rows[0].id;
+      const key = await db.query(
+        `insert into public_keys (chain_type, address, created_at, updated_at, user_id)
+         values ('evm', $1, $2, $2, $3)
+         returning id`,
+        [`0x${randomUUID().replaceAll("-", "")}`, createdAt, user],
+      );
+      await db.query(
+        `insert into agent_wallet_keys
+           (agent_wallet_id, chain_type, user_id, public_key_id, created_at, updated_at)
+         values ($1, 'evm', $2, $3, 1, 1)`,
+        [id, user, key.rows[0].id],
+      );
+      return id;
+    };
+    const kept = await wallet(target, 2);
+    const moved = await wallet(source, 1);
+    await db.query("update users set agents_paused = true where id = $1", [
+      source,
+    ]);
+
+    await mergeAccountRows({ sourceUserId: source, targetUserId: target, db });
+
+    const wallets = await db.query(
+      `select id, user_id, name from agent_wallets
+        where id = any($1) order by created_at`,
+      [[kept, moved]],
+    );
+    expect(wallets.rows).toEqual([
+      { id: moved, user_id: target, name: "Hoodit" },
+      { id: kept, user_id: target, name: "Hoodit" },
+    ]);
+    const keys = await db.query(
+      "select user_id from agent_wallet_keys where agent_wallet_id = any($1)",
+      [[kept, moved]],
+    );
+    expect(keys.rows).toEqual([{ user_id: target }, { user_id: target }]);
+    const paused = await db.query(
+      "select agents_paused from users where id = $1",
+      [target],
+    );
+    expect(paused.rows).toEqual([{ agents_paused: true }]);
+  });
+
+  it("refuses a merge across a live link fence, and lifts the rest", async () => {
+    const { target, source } = await accounts("fence");
+    const own = randomUUID();
+    const fence = (account: string, mergeId: string, ttl = 60) =>
+      db.query(
+        `insert into account_merge_fences
+           (fenced_account, merge_id, reason, created_at, expires_at)
+         values ($1, $2, 'account_link', extract(epoch from now())::bigint,
+                 extract(epoch from now())::bigint + $3)
+         on conflict (fenced_account) do update
+           set merge_id = excluded.merge_id, expires_at = excluded.expires_at`,
+        [account, mergeId, ttl],
+      );
+    await fence(source, own);
+    await fence(target, own);
+
+    // A #716 merge waits while a link holds the accounts.
+    await refused("account_merge_in_progress", () =>
+      mergeAccountRows({ sourceUserId: source, targetUserId: target, db }),
+    );
+
+    // The link lifts its own fences in the merge's transaction; an expired
+    // fence of another merge no longer counts.
+    await db.query("delete from account_merge_fences where merge_id = $1", [
+      own,
+    ]);
+    await fence(target, randomUUID(), -1);
+    await db.query("select merge_accounts($1, $2)", [source, target]);
+    const left = await db.query(
+      `select fenced_account from account_merge_fences
+        where fenced_account = any($1)`,
+      [[source, target]],
+    );
+    expect(left.rows).toEqual([]);
+    expect(await statuses(source)).toEqual([{ id: source, status: "merged" }]);
+  });
+
+  it("keeps fences and link codes out of the ownership sweep", async () => {
+    const swept = await db.query(
+      `select table_name, column_name from information_schema.columns
+        where table_schema = 'public'
+          and table_name in ('account_merge_fences', 'account_link_codes')
+          and column_name in ('user_id', 'account_id', 'owner_user_id')`,
+    );
+    expect(swept.rows).toEqual([]);
   });
 });

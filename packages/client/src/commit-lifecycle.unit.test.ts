@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CommitView } from "./commits";
-import {
-  projectCommitLifecycle,
-  reviewEligibility,
-} from "./commit-lifecycle";
+import { projectCommitLifecycle, reviewEligibility } from "./commit-lifecycle";
 
 const ready: CommitView = {
   version: 1,
@@ -57,6 +54,66 @@ describe("commit lifecycle projection", () => {
     expect(projectCommitLifecycle(confirmed)).toMatchObject({
       phase: "confirmed",
       label: "Confirmed",
+    });
+  });
+
+  describe("chain receipt ahead of Commit Service", () => {
+    const submittedView: CommitView = {
+      ...ready,
+      state: "submitted",
+      action: null,
+      transaction_id: "0xhash",
+    };
+    it("labels a successful receipt while Commit Service is still submitted", () => {
+      expect(
+        projectCommitLifecycle(submittedView, undefined, undefined, "success"),
+      ).toMatchObject({
+        phase: "submitted",
+        label: "Confirmed on chain",
+        onChain: "success",
+      });
+    });
+    it("labels a reverted receipt as failed on chain", () => {
+      expect(
+        projectCommitLifecycle(submittedView, undefined, undefined, "reverted"),
+      ).toMatchObject({ label: "Failed on chain", onChain: "reverted" });
+    });
+    it("prefers every Commit Service terminal state", () => {
+      for (const [state, phase] of [
+        ["confirmed", "confirmed"],
+        ["failed", "failed"],
+        ["rejected", "rejected"],
+        ["expired", "expired"],
+      ] as const) {
+        const presentation = projectCommitLifecycle(
+          { ...submittedView, state },
+          undefined,
+          undefined,
+          "success",
+        );
+        expect(presentation.phase).toBe(phase);
+        expect(presentation.onChain).toBeUndefined();
+      }
+    });
+    it("drops the receipt label when Commit Service mismatches the attempt", () => {
+      const presentation = projectCommitLifecycle(
+        {
+          ...submittedView,
+          state: "needs_signature",
+          wallet_attempt: {
+            attempt_id: "attempt-1",
+            transport: "browser_send",
+            state: "mismatched",
+            transaction_id: "0xhash",
+            failure_code: "mismatch",
+          },
+        },
+        undefined,
+        undefined,
+        "success",
+      );
+      expect(presentation).toMatchObject({ phase: "failed" });
+      expect(presentation.onChain).toBeUndefined();
     });
   });
 

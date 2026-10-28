@@ -190,9 +190,18 @@ export function liveAppDetailView(
   const activeUsers = numberLabel(detail.activeUsers24h);
   const credits24h = numberLabel(detail.credits.credits24h, 2);
   const creditsPerTurn = numberLabel(detail.credits.creditsPerTurn24h, 2);
-  const p95 = durationLabel(health?.p95LatencyMs ?? null);
-  const inflight = numberLabel(health?.inflightRequests ?? null);
-  const chatErrors = percentLabel(health?.errorRate ?? null);
+  const p95 = finite(health?.p95LatencyMs)
+    ? durationLabel(health.p95LatencyMs)
+    : "No samples";
+  const healthWindow = health?.windowSeconds
+    ? `${health.windowSeconds / 3600}h`
+    : "24h";
+  const inflight = finite(health?.inflightRequests)
+    ? numberLabel(health.inflightRequests)
+    : "Unavailable";
+  const chatErrors = finite(health?.errorRate)
+    ? percentLabel(health.errorRate)
+    : "No samples";
   const toolErrors = percentLabel(health?.toolErrorRate ?? null);
   const txFailures = percentLabel(health?.txErrorRate ?? null);
 
@@ -273,14 +282,17 @@ export function liveAppDetailView(
         {
           label: "P95 latency",
           value: p95,
+          sub: healthWindow,
         },
         {
           label: "Inflight",
           value: inflight,
+          sub: "Active turns now",
         },
         {
           label: "Chat errors",
           value: chatErrors,
+          sub: healthWindow,
         },
         {
           label: "Tool errors",

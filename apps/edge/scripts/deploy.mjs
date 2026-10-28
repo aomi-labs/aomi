@@ -10,8 +10,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function resolveDeployEnvironment(target) {
-  if (target === "staging" || target === "production") return target;
-  throw new Error("Usage: node scripts/deploy.mjs <staging|production>");
+  if (target === "staging" || target === "rc" || target === "production") return target;
+  throw new Error("Usage: node scripts/deploy.mjs <staging|rc|production>");
 }
 
 function requireOrigins(name, env) {
@@ -30,7 +30,7 @@ export function deployArgs(environment, env = process.env) {
     API_SERVER_ORIGIN: requireOrigins("API_SERVER_ORIGIN", env),
   };
   // Optional surfaces: present only where that environment runs them.
-  for (const name of ["PAYMENT_ORIGIN", "PORTAL_UPSTREAM_ORIGIN"]) {
+  for (const name of ["PAYMENT_ORIGIN", "PORTAL_UPSTREAM_ORIGIN", "BUILD_UPSTREAM_ORIGIN"]) {
     if ((env[name] || "").trim()) vars[name] = requireOrigins(name, env);
   }
   return [

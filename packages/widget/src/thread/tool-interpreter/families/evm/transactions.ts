@@ -15,6 +15,7 @@ import {
 import { toolIdentity } from "@/thread/tool-interpreter/identity";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import {
+  commitChainRef,
   commitCountFact,
   commitStateFact,
   commitViews,
@@ -210,15 +211,8 @@ export const matchEvmPendingApproval: ToolMatcher = ({
         typeof value === "number" && Number.isInteger(value),
     ),
   );
-  const chainRef = views.every(
-    (view) =>
-      view.chain_family === "evm" && view.chain_ref === firstView?.chain_ref,
-  )
-    ? asString(firstView?.chain_ref)
-    : undefined;
-  const chainId = chainRef?.startsWith("evm:")
-    ? Number(chainRef.slice(4))
-    : undefined;
+  const chainRef = commitChainRef(views, "evm");
+  const chainId = chainRef === undefined ? undefined : Number(chainRef);
   const chain =
     (Number.isSafeInteger(chainId) ? chainFact(chainId) : null) ??
     chainFactFromRecord(resultRecord) ??

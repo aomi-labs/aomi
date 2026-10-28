@@ -1,13 +1,13 @@
 import { createLocalJWKSet, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
 
 import type { EdgeCache } from "../env";
-import type { FetchLike } from "../routing/upstream";
+import { TwoTierCache } from "../kernel/cache";
+import type { FetchLike } from "../kernel/proxy";
 
 /** How long one JWKS document serves before the edge asks the portal again. */
 export const JWKS_TTL_SECONDS = 600;
 
-type Entry = { keys: JSONWebKeySet; fetchedAt: number };
-const memory = new Map<string, Entry>();
+const cache = new TwoTierCache();
 
 export class JwksUnavailableError extends Error {
   constructor(cause: unknown) {
@@ -30,20 +30,12 @@ export async function portalJwks(input: {
 }): Promise<JWTVerifyGetKey> {
   const now = input.now ?? Date.now;
   const key = `jwks:v1:${input.jwksUrl}`;
-  if (!input.fresh) {
-    const hit = memory.get(key);
-    if (hit && now() - hit.fetchedAt < JWKS_TTL_SECONDS * 1000) {
-      return createLocalJWKSet(hit.keys);
-    }
-    const stored = await input.cache?.get(key).catch(() => null);
-    if (stored) {
-      try {
-        const keys = JSON.parse(stored) as JSONWebKeySet;
-        memory.set(key, { keys, fetchedAt: now() });
-        return createLocalJWKSet(keys);
-      } catch {
-        // A corrupt cache entry is replaced by a fresh fetch below.
-      }
+  const stored = input.fresh ? null : await cache.get(key, input.cache, now());
+  if (stored) {
+    try {
+      return createLocalJWKSet(JSON.parse(stored) as JSONWebKeySet);
+    } catch {
+      // A corrupt cache entry is replaced by a fresh fetch below.
     }
   }
   let keys: JSONWebKeySet;
@@ -58,13 +50,10 @@ export async function portalJwks(input: {
   } catch (error) {
     throw new JwksUnavailableError(error);
   }
-  memory.set(key, { keys, fetchedAt: now() });
-  await input.cache
-    ?.put(key, JSON.stringify(keys), { expirationTtl: JWKS_TTL_SECONDS })
-    .catch(() => undefined);
+  await cache.put(key, JSON.stringify(keys), JWKS_TTL_SECONDS, input.cache, now());
   return createLocalJWKSet(keys);
 }
 
 export function resetJwksCache(): void {
-  memory.clear();
+  cache.clear();
 }

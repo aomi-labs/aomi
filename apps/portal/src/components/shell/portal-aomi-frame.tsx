@@ -34,6 +34,13 @@ import {
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  "general",
+  "account",
+  "connections",
+  "policy",
+  "usage",
+];
 
 function directTarget(
   app: string,
@@ -427,6 +434,16 @@ export function PortalAomiFrame() {
   }, []);
   // In-chat controls (the composer's safety menu) deep-link into Settings.
   useSettingsOpenRequest(openSettings);
+  // `/?settings=<tab>` (from /settings/account) opens Settings once.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const tab = url.searchParams.get("settings");
+    if (tab === null) return;
+    url.searchParams.delete("settings");
+    window.history.replaceState(window.history.state, "", url);
+    if (SETTINGS_TABS.includes(tab as SettingsTab))
+      openSettings(tab as SettingsTab);
+  }, [openSettings]);
   if (
     account !== undefined &&
     (!accountFrameScope.initialized ||

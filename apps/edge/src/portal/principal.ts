@@ -1,17 +1,24 @@
 import { decodeJwt, errors as joseErrors, jwtVerify, type JWTPayload } from "jose";
 
-import type { PortalContext } from "./context";
-import { cookieWriteAllowed, observedOrigin } from "./csrf";
+import { TwoTierCache } from "../kernel/cache";
+import { sha256Hex } from "../kernel/crypto";
+import { EdgeError } from "../kernel/errors";
+import { observedOrigin } from "../kernel/cors";
+import { cookieWriteAllowed } from "../kernel/csrf";
 import { DpopError, DPOP_SIGNING_ALGORITHMS, verifyDpopProof } from "./dpop";
 import { JwksUnavailableError, portalJwks } from "./jwks";
 import {
+  acceptsApiToken,
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   guestScopesFor,
-  policyFor,
   type Need,
-  type SessionKind,
-} from "./policy";
+  type SessionKind as PolicySessionKind,
+} from "@aomi-labs/account/policy";
+import { policyFor, type PortalContext } from "./context";
+
+/** The session kinds the edge accepts; the portal's local E2E stand-in never reaches it. */
+type SessionKind = Exclude<PolicySessionKind, "e2e">;
 
 /** Who is calling, from exactly one credential. */
 export type Principal =
@@ -46,28 +53,24 @@ export type PrincipalCode =
   | "invalid_token"
   | "invalid_widget_session"
   | "insufficient_scope"
+  | "portal_session_required"
   | "csrf_failed"
   | "unauthenticated";
 
-export class PrincipalError extends Error {
+export class PrincipalError extends EdgeError {
   constructor(
     readonly status: 401 | 403,
     readonly code: PrincipalCode,
     readonly requiredScopes: readonly string[] = [],
-    readonly challengeHeaders: Headers = new Headers(),
+    challengeHeaders: HeadersInit = {},
   ) {
-    super(code);
+    super(status, code, { headers: challengeHeaders });
     this.name = "PrincipalError";
   }
 }
 
 /** The portal could not be asked who the caller is. */
-export class PrincipalUpstreamError extends Error {
-  constructor(cause: unknown) {
-    super("principal_upstream_unavailable", { cause });
-    this.name = "PrincipalUpstreamError";
-  }
-}
+const authUnavailable = (cause: unknown) => new EdgeError(502, "auth_unavailable", { cause });
 
 export const WIDGET_TOKEN_PREFIX = "aomi_wst_";
 /** The portal signs principal tokens for this audience and nobody else. */
@@ -203,14 +206,8 @@ export type PrincipalTokenClaims = JWTPayload & {
   better_auth_user_id?: string;
 };
 
-type Exchange = { token: string; expiresAtMs: number };
-const exchanges = new Map<string, Exchange>();
-const managedOrigins = new Map<string, { allowed: boolean; checkedAt: number }>();
-
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+const exchanges = new TwoTierCache();
+const managedOrigins = new TwoTierCache();
 
 /**
  * Turn the credential a browser or widget presents into the portal's signed
@@ -231,15 +228,8 @@ async function exchangePrincipal(
   const origin = kind === "widget" ? observedOrigin(request) ?? "" : "";
   const key = `principal:v1:${kind}:${await sha256Hex(`${credential}\n${origin}`)}`;
   const nowMs = ctx.now();
-  let token: string | null = null;
+  let token = await exchanges.get(key, ctx.env.EDGE_CACHE, nowMs);
   let claims: PrincipalTokenClaims | null = null;
-  const cached = exchanges.get(key);
-  if (cached && cached.expiresAtMs > nowMs) {
-    token = cached.token;
-  } else {
-    const stored = await ctx.env.EDGE_CACHE?.get(key).catch(() => null);
-    if (stored) token = stored;
-  }
   if (token) {
     // KV keeps an entry for at least a minute, so it can outlive the token it
     // holds. A cached token that no longer verifies is a miss, not an outage:
@@ -247,8 +237,7 @@ async function exchangePrincipal(
     claims = await verifyCachedPrincipalToken(token, ctx, nowMs);
     if (!claims) {
       token = null;
-      exchanges.delete(key);
-      await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+      await exchanges.delete(key, ctx.env.EDGE_CACHE);
     }
   }
   if (!token) {
@@ -266,7 +255,7 @@ async function exchangePrincipal(
         { cache: "no-store" },
       );
     } catch (error) {
-      throw new PrincipalUpstreamError(error);
+      throw authUnavailable(error);
     }
     if (response.status === 204) return null;
     if (response.status === 401 || response.status === 403) {
@@ -277,29 +266,23 @@ async function exchangePrincipal(
         isPrincipalCode(code) ? code : "invalid_token",
       );
     }
-    if (!response.ok) throw new PrincipalUpstreamError(new Error(`principal ${response.status}`));
+    if (!response.ok) throw authUnavailable(new Error(`principal ${response.status}`));
     const body = (await response.json().catch(() => null)) as { token?: unknown } | null;
-    if (typeof body?.token !== "string") throw new PrincipalUpstreamError(new Error("no token"));
+    if (typeof body?.token !== "string") throw authUnavailable(new Error("no token"));
     token = body.token;
     claims = await verifyPrincipalToken(token, ctx);
   }
-  if (!claims) throw new PrincipalUpstreamError(new Error("no principal claims"));
+  if (!claims) throw authUnavailable(new Error("no principal claims"));
   // A principal is good until its own signature lapses or the credential it
   // describes expires, whichever comes first (KV keeps entries at least a
   // minute, so a widget session's end is checked here, not left to the cache).
   const expiresAtMs = Math.min(claims.exp, claims.expires_at ?? claims.exp) * 1000;
   if (expiresAtMs <= nowMs) {
-    exchanges.delete(key);
-    await ctx.env.EDGE_CACHE?.delete(key).catch(() => undefined);
+    await exchanges.delete(key, ctx.env.EDGE_CACHE);
     throw new PrincipalError(401, kind === "widget" ? "invalid_widget_session" : "invalid_token");
   }
   const ttlMs = expiresAtMs - nowMs;
-  if (ttlMs > 1000) {
-    exchanges.set(key, { token, expiresAtMs });
-    await ctx.env.EDGE_CACHE?.put(key, token, {
-      expirationTtl: Math.max(60, Math.floor(ttlMs / 1000)),
-    }).catch(() => undefined);
-  }
+  if (ttlMs > 1000) await exchanges.put(key, token, ttlMs / 1000, ctx.env.EDGE_CACHE, nowMs);
   return claims;
 }
 
@@ -316,7 +299,7 @@ function isPrincipalCode(value: string): value is PrincipalCode {
 async function verifyWithJwks(
   token: string,
   ctx: PortalContext,
-  options: { issuer: string; audience: string },
+  options: { issuer: string; audience: string | string[] },
 ): Promise<JWTPayload> {
   const jwksUrl = `${ctx.upstreamOrigin}/api/auth/jwks`;
   const base = { fetchImpl: ctx.fetchImpl, cache: ctx.env.EDGE_CACHE, now: ctx.now, jwksUrl };
@@ -358,8 +341,7 @@ async function verifyCachedPrincipalToken(
   try {
     return await verifyPrincipalToken(token, ctx);
   } catch (error) {
-    if (error instanceof PrincipalUpstreamError && error.cause instanceof JwksUnavailableError)
-      throw error;
+    if (error instanceof EdgeError && error.cause instanceof JwksUnavailableError) throw error;
     return null;
   }
 }
@@ -372,8 +354,8 @@ async function verifyPrincipalToken(token: string, ctx: PortalContext): Promise<
       audience: PRINCIPAL_TOKEN_AUDIENCE,
     });
   } catch (error) {
-    if (error instanceof JwksUnavailableError) throw new PrincipalUpstreamError(error);
-    throw new PrincipalUpstreamError(error);
+    if (error instanceof JwksUnavailableError) throw authUnavailable(error);
+    throw authUnavailable(error);
   }
   const kind = payload.kind;
   if (
@@ -382,7 +364,7 @@ async function verifyPrincipalToken(token: string, ctx: PortalContext): Promise<
     (kind !== "cookie" && kind !== "session_bearer" && kind !== "widget") ||
     typeof payload.guest !== "boolean"
   )
-    throw new PrincipalUpstreamError(new Error("malformed principal token"));
+    throw authUnavailable(new Error("malformed principal token"));
   return payload as PrincipalTokenClaims;
 }
 
@@ -392,7 +374,7 @@ async function oauthRequestPrincipal(
   requiredScopes: readonly string[],
   ctx: PortalContext,
 ): Promise<Principal> {
-  const policy = policyFor(resource, ctx.resources, ctx.dpopRequired);
+  const policy = policyFor(resource, ctx);
   if (policy.dpopBoundAccessTokensRequired && !hasDpopPresentation(request)) {
     throw new PrincipalError(
       401,
@@ -408,13 +390,13 @@ async function oauthRequestPrincipal(
   try {
     claims = await verifyWithJwks(token ?? "", ctx, {
       issuer: ctx.resources.authorizationServerIssuer,
-      audience: resource,
+      audience: audiences(resource, ctx),
     });
   } catch (error) {
-    if (error instanceof JwksUnavailableError) throw new PrincipalUpstreamError(error);
+    if (error instanceof JwksUnavailableError) throw authUnavailable(error);
     throw new PrincipalError(401, "invalid_token", requiredScopes, bearerChallenge(resource));
   }
-  const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  const granted = grantedScopes(claims, resource, ctx);
   if (requiredScopes.some((scope) => !granted.includes(scope)))
     throw new PrincipalError(403, "insufficient_scope", requiredScopes);
   const cnf = claims.cnf as { jkt?: unknown } | undefined;
@@ -466,6 +448,22 @@ function dpopChallenge(error: DpopError, requiredScopes: readonly string[]): Pri
   );
 }
 
+/**
+ * The audiences a resource takes: its own, and for the three REST APIs also
+ * `/v1`, the one sign-in Aomi's CLI and SDK use. MCP servers take only theirs.
+ */
+function audiences(resource: string, ctx: PortalContext): string[] {
+  return acceptsApiToken(policyFor(resource, ctx)) ? [resource, ctx.resources.apiRest] : [resource];
+}
+
+/** A token's scopes on this resource: a `/v1` token carries every REST scope, and a route only gets its own. */
+function grantedScopes(claims: JWTPayload, resource: string, ctx: PortalContext): string[] {
+  const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  if (claims.aud === resource) return granted;
+  const grantable = policyFor(resource, ctx).grantableScopes;
+  return granted.filter((scope) => grantable.includes(scope));
+}
+
 /** The principal an OAuth access token's verified claims describe. */
 export function oauthPrincipal(
   claims: JWTPayload,
@@ -477,14 +475,15 @@ export function oauthPrincipal(
   if (
     typeof claims.sub !== "string" ||
     claims.iss !== ctx.resources.authorizationServerIssuer ||
-    claims.aud !== resource ||
+    typeof claims.aud !== "string" ||
+    !audiences(resource, ctx).includes(claims.aud) ||
     typeof accountId !== "string" ||
     (principalClass !== "user" && principalClass !== "guest")
   )
     throw new PrincipalError(401, "invalid_token");
-  const scopes = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+  const scopes = grantedScopes(claims, resource, ctx);
   const guest = principalClass === "guest";
-  const policy = policyFor(resource, ctx.resources, ctx.dpopRequired);
+  const policy = policyFor(resource, ctx);
   if (guest && guestScopesFor(policy, scopes).length !== scopes.length)
     throw new PrincipalError(403, "insufficient_scope");
   return {
@@ -507,8 +506,8 @@ async function isManagedWidgetClientOrigin(
 ): Promise<boolean> {
   if (!clientId) return false;
   const key = `${clientId}\n${origin}`;
-  const cached = managedOrigins.get(key);
-  if (cached && ctx.now() - cached.checkedAt < MANAGED_ORIGIN_TTL_MS) return cached.allowed;
+  const cached = await managedOrigins.get(key, undefined, ctx.now());
+  if (cached) return cached === "allowed";
   const url = new URL(`${ctx.upstreamOrigin}${MANAGED_ORIGIN_PATH}`);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("origin", origin);
@@ -523,7 +522,7 @@ async function isManagedWidgetClientOrigin(
   } catch {
     allowed = false;
   }
-  managedOrigins.set(key, { allowed, checkedAt: ctx.now() });
+  await managedOrigins.put(key, allowed ? "allowed" : "denied", MANAGED_ORIGIN_TTL_MS / 1000, undefined, ctx.now());
   return allowed;
 }
 

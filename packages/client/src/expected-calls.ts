@@ -105,8 +105,7 @@ export class CallVerificationError extends Error {
  * Accepts an Action, an ActionRequest (`action.request` or
  * `session.commits.review(id)`), or the EVM `SignableCommit` handed to
  * `evm.signTransaction`. `execute_evm` requests must have passed simulation.
- * EVM `sign` requests are checked through their declared `calls` and the
- * simulation status in their transaction-safety projection.
+ * `sign` requests carry no calls and always mismatch.
  */
 export class ExpectedCalls {
   readonly calls: readonly ExpectedCall[];
@@ -148,12 +147,6 @@ export class ExpectedCalls {
         data: transaction.data,
       }));
       simulation = request.simulation.status;
-    } else if (request.type === "sign" && request.chainFamily === "evm") {
-      found = request.calls?.map((call) => ({
-        chainId: request.chainId,
-        ...call,
-      }));
-      simulation = request.transactionSafety?.simulationStatus ?? "unavailable";
     }
     if (request && !found?.length) {
       const kind = "kind" in request ? request.kind : request.type;

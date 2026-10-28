@@ -3,11 +3,7 @@
 import { useState, type FC } from "react";
 import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -21,6 +17,7 @@ import {
   getVendorForModel,
   AUTO_MODEL_DESCRIPTION,
   AUTO_MODEL_LABEL,
+  modelLabel,
   resolveAutoModel,
 } from "./model-metadata";
 import { AutoModeIcon } from "@/icons/auto-mode";
@@ -89,7 +86,9 @@ export const ModelSelect: FC<ModelSelectProps> = ({
             <AutoModeIcon className="h-3 w-3 shrink-0 opacity-60" />
           ) : null}
           <span className="truncate">
-            {isAuto ? AUTO_MODEL_LABEL : (rawSelected ?? AUTO_MODEL_LABEL)}
+            {isAuto || !rawSelected
+              ? AUTO_MODEL_LABEL
+              : modelLabel(rawSelected)}
           </span>
         </div>
         <ControlSelectChevron />
@@ -100,7 +99,11 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   const groups = groupModelsByVendor(models);
 
   // Display label for the trigger button
-  const triggerLabel = isAuto ? AUTO_MODEL_LABEL : selectedModel || placeholder;
+  const triggerLabel = isAuto
+    ? AUTO_MODEL_LABEL
+    : selectedModel
+      ? modelLabel(selectedModel)
+      : placeholder;
 
   const handleSelect = (model: string) => {
     if (isRunning) return;
@@ -225,7 +228,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
                             </span>
                           )}
                         </span>
-                        <span className="truncate">{model}</span>
+                        <span className="truncate">{modelLabel(model)}</span>
                       </div>
                       <ControlMenuCheck
                         selected={!isAuto && selectedModel === model}

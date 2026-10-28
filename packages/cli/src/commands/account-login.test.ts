@@ -21,7 +21,6 @@ describe("aomi account login", () => {
 
   beforeEach(() => {
     vi.resetModules();
-    vi.doUnmock("../device-auth");
     vi.doUnmock("../oauth-device-auth");
     process.env = { ...ORIGINAL_ENV };
     stateDir = mkdtempSync(join(tmpdir(), "aomi-cli-login-"));
@@ -34,7 +33,7 @@ describe("aomi account login", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses least-privilege OAuth device grants by default", async () => {
+  it("uses one least-privilege OAuth device grant for /v1 by default", async () => {
     const oauthLogin = vi.fn(
       async (input: { resource: string; scopes: string[] }) => ({
         clientId: `${input.resource.split("/").at(-1)}-client`,
@@ -55,34 +54,24 @@ describe("aomi account login", () => {
 
     await accountLoginCommand(baseConfig);
 
-    expect(oauthLogin).toHaveBeenCalledTimes(3);
+    // One approval: Agent, Pipeline and Account share the `/v1` sign-in.
+    expect(oauthLogin).toHaveBeenCalledTimes(1);
     expect(oauthLogin.mock.calls.map(([input]) => input)).toEqual([
       {
         baseUrl: "http://unit.test",
-        resource: "http://unit.test/v1/agent",
-        scopes: ["agent:read", "agent:write", "offline_access"],
-      },
-      {
-        baseUrl: "http://unit.test",
-        resource: "http://unit.test/v1/pipeline",
-        scopes: ["pipeline:catalog", "offline_access"],
-      },
-      {
-        baseUrl: "http://unit.test",
-        resource: "http://unit.test/v1/account",
+        resource: "http://unit.test/v1",
         scopes: [
+          "agent:read",
+          "agent:write",
+          "pipeline:catalog",
           "account:apps:read",
-          "account:apps:write",
           "account:credentials:read",
-          "account:credentials:write",
           "offline_access",
         ],
       },
     ]);
     expect(Object.keys(readState()?.oauthGrants ?? {})).toEqual([
-      "http://unit.test/v1/agent",
-      "http://unit.test/v1/pipeline",
-      "http://unit.test/v1/account",
+      "http://unit.test/v1",
     ]);
     expect(logSpy).toHaveBeenCalledWith(
       "Signed in with OAuth device authorization",
@@ -124,42 +113,6 @@ describe("aomi account login", () => {
     } finally {
       vi.unstubAllGlobals();
     }
-  });
-
-  it("passes an explicit provider to device auth", async () => {
-    const deviceLogin = vi.fn(async () => ({
-      provider: "para" as const,
-      auth: {
-        sessionToken: "para-session",
-        expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
-      },
-    }));
-    vi.doMock("../device-auth", () => ({
-      signInWithDeviceProvider: deviceLogin,
-    }));
-    const { accountLoginCommand } = await import("./account");
-    vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await accountLoginCommand(baseConfig, { provider: "para" });
-
-    expect(deviceLogin).toHaveBeenCalledWith({
-      baseUrl: "http://unit.test",
-      provider: "para",
-    });
-  });
-
-  it("rejects an unknown device provider", async () => {
-    const deviceLogin = vi.fn();
-    vi.doMock("../device-auth", () => ({
-      signInWithDeviceProvider: deviceLogin,
-    }));
-    const { accountLoginCommand } = await import("./account");
-    vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await expect(
-      accountLoginCommand(baseConfig, { provider: "unknown" }),
-    ).rejects.toMatchObject({ code: 1 });
-    expect(deviceLogin).not.toHaveBeenCalled();
   });
 
   it("establishes an account session through BetterAuth SIWE", async () => {

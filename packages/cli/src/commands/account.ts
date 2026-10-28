@@ -13,7 +13,6 @@ import {
 import type { CliConfig } from "../types";
 import {
   getDeviceProviderCredential,
-  signInWithDeviceProvider,
   type DeviceAuthProvider,
 } from "../device-auth";
 import { signInWithOAuthDevice } from "../oauth-device-auth";
@@ -31,7 +30,6 @@ import { resumeSessionCommand, sessionsCommand } from "./sessions";
 const DEFAULT_CHAIN_ID = 1;
 
 export type AccountLoginOptions = {
-  provider?: string;
   wallet?: boolean;
   solana?: boolean;
   noBrowser?: boolean;
@@ -67,8 +65,8 @@ export async function accountLoginCommand(
   options: AccountLoginOptions = {},
 ): Promise<void> {
   const cli = CliSession.loadOrCreate(config);
-  if (options.solana && (options.wallet || options.provider)) {
-    fatal("Choose only one of `--solana`, `--wallet`, or `--provider`.");
+  if (options.solana && options.wallet) {
+    fatal("Choose only one of `--solana` or `--wallet`.");
   }
   if (options.solana) {
     await accountLoginWithSiws(cli, config);
@@ -79,80 +77,37 @@ export async function accountLoginCommand(
     return;
   }
 
-  if (
-    options.provider &&
-    options.provider !== "privy" &&
-    options.provider !== "para"
-  ) {
-    fatal('Unknown --provider value. Use "privy" or "para".');
-  }
-
-  if (!options.provider) {
-    const origin = new URL(cli.baseUrl).origin;
-    const grants = [
-      {
-        resource: `${origin}/v1/agent` as const,
-        scopes: ["agent:read", "agent:write", "offline_access"],
-      },
-      {
-        resource: `${origin}/v1/pipeline` as const,
-        scopes: ["pipeline:catalog", "offline_access"],
-      },
-      {
-        resource: `${origin}/v1/account` as const,
-        scopes: [
-          "account:apps:read",
-          "account:apps:write",
-          "account:credentials:read",
-          "account:credentials:write",
-          "offline_access",
-        ],
-      },
-    ];
-    for (const request of grants) {
-      const grant = await signInWithOAuthDevice({
-        baseUrl: cli.baseUrl,
-        resource: request.resource,
-        scopes: request.scopes,
-      });
-      cli.setOAuthGrant(grant);
-    }
-    if (config.json) {
-      printJson({
-        status: "signed_in",
-        method: "oauth_device",
-        resources: grants.map((grant) => grant.resource),
-      });
-    } else {
-      console.log("Signed in with OAuth device authorization");
-      printDataFileLocation({ verbose: config.verbose });
-    }
-    return;
-  }
-
-  const provider = options.provider as DeviceAuthProvider | undefined;
-  const result = await signInWithDeviceProvider({
+  // One approval: Agent, Pipeline and Account share the `/v1` sign-in. Only
+  // reads are asked up front; `aomi app add/remove` and `app credentials
+  // set/remove` ask for their write scope when first used (see
+  // `CliSession.createOAuthProvider`).
+  const resource = `${new URL(cli.baseUrl).origin}/v1` as const;
+  const grant = await signInWithOAuthDevice({
     baseUrl: cli.baseUrl,
-    provider,
+    resource,
+    scopes: [
+      "agent:read",
+      "agent:write",
+      "pipeline:catalog",
+      "account:apps:read",
+      "account:credentials:read",
+      "offline_access",
+    ],
+    // A re-login keeps this machine's client instead of registering another.
+    clientId: cli.oauthGrants[resource]?.clientId,
   });
-  cli.setAuthSession(result.auth);
-
+  cli.clearOAuthGrants();
+  cli.setOAuthGrant(grant);
   if (config.json) {
     printJson({
       status: "signed_in",
-      provider: result.provider ?? null,
-      baseUrl: cli.baseUrl,
-      expiresAt: new Date(result.auth.expiresAt).toISOString(),
+      method: "oauth_device",
+      resources: [grant.resource],
     });
-    return;
+  } else {
+    console.log("Signed in with OAuth device authorization");
+    printDataFileLocation({ verbose: config.verbose });
   }
-  console.log(
-    `Signed in${result.provider ? ` with ${formatProvider(result.provider)}` : ""}`,
-  );
-  console.log(
-    `Session expires at ${new Date(result.auth.expiresAt).toISOString()}`,
-  );
-  printDataFileLocation({ verbose: config.verbose });
 }
 
 async function accountLoginWithSiws(

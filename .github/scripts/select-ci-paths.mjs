@@ -10,7 +10,6 @@ const OUTPUT_KEYS = [
   "portal",
   "build",
   "landing",
-  "telegram",
   "journeys",
   "browser_contracts",
   "consumer_compat",
@@ -18,7 +17,7 @@ const OUTPUT_KEYS = [
   "preview",
 ];
 
-const APP_KEYS = ["portal", "build", "landing", "telegram"];
+const APP_KEYS = ["portal", "build", "landing"];
 
 function emptySelection(reason = "paths") {
   return Object.fromEntries([
@@ -130,11 +129,6 @@ function classifyPath(selection, path) {
     return selection;
   }
 
-  if (path.startsWith("apps/telegram/")) {
-    selectApps(selection, "telegram");
-    return selection;
-  }
-
   // The edge Worker has no Vercel project; its unit tests run with the
   // workspace suite and its deploy is driven from product-mono.
   if (path.startsWith("apps/edge/")) {
@@ -164,6 +158,7 @@ function classifyPath(selection, path) {
 
   if (
     path.startsWith("packages/deploy/") ||
+    path.startsWith("packages/internal/") ||
     path.startsWith("packages/smither/")
   ) {
     select(selection, "packages", "consumer_compat");

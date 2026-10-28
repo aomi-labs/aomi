@@ -2,44 +2,23 @@ import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import {
-  DEFAULT_SESSION_TTL_MS,
-  fetchPortalAccount,
-  joinUrl,
-  normalizeBaseUrl,
-  parseExpiresAt,
-  requestJson,
-} from "./auth";
+import { joinUrl, normalizeBaseUrl, requestJson } from "./auth";
 import type { AccountGraphProviderExchangeResponse } from "./account-graph";
-import type { CliAuthSession } from "./state";
 
 export type DeviceAuthProvider = "privy" | "para";
 
-export type DeviceProviderAuthOptions = {
+type DeviceProviderAuthOptions = {
   baseUrl: string;
   provider?: DeviceAuthProvider;
   fetch?: typeof fetch;
-  now?: () => number;
   timeoutMs?: number;
   openBrowser?: (url: string) => void | Promise<void>;
   randomBytes?: (size: number) => Buffer;
 };
 
-export type DeviceProviderAuthResult = {
-  auth: CliAuthSession;
-  provider?: DeviceAuthProvider;
-};
-
 export type DeviceProviderCredentialResult = {
   provider?: DeviceAuthProvider;
 } & AccountGraphProviderExchangeResponse;
-
-type ExchangeResponse = {
-  sessionToken?: unknown;
-  expiresAt?: unknown;
-  betterAuthUserId?: unknown;
-  provider?: unknown;
-};
 
 type LinkIntentResponse = {
   linkIntent?: unknown;
@@ -59,85 +38,6 @@ function deviceAuthPortalUrl(baseUrl: string): string {
   return normalizeBaseUrl(url.toString());
 }
 
-export async function signInWithDeviceProvider({
-  baseUrl,
-  provider,
-  fetch: fetchImpl = fetch,
-  now = Date.now,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-  openBrowser = openUrlInBrowser,
-  randomBytes: randomBytesImpl = randomBytes,
-}: DeviceProviderAuthOptions): Promise<DeviceProviderAuthResult> {
-  const portalUrl = deviceAuthPortalUrl(baseUrl);
-  const state = base64Url(randomBytesImpl(32));
-  const verifier = base64Url(randomBytesImpl(32));
-  const codeChallenge = sha256Base64Url(verifier);
-  const { server, redirectUri, callback } = await createLoopbackCallback({
-    state,
-    timeoutMs,
-  });
-
-  try {
-    const authUrl = buildDeviceAuthUrl({
-      portalUrl,
-      state,
-      codeChallenge,
-      redirectUri,
-      provider,
-    });
-    console.log(`Opening browser for Aomi account login: ${authUrl}`);
-    await openBrowser(authUrl);
-    console.log("Waiting for browser authentication...");
-    const { code } = await callback;
-    const exchange = await requestJson<ExchangeResponse>(
-      fetchImpl,
-      joinUrl(portalUrl, "/v1/account/device-auth/exchange"),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          state,
-          codeVerifier: verifier,
-          redirectUri,
-        }),
-      },
-      "Device auth exchange",
-    );
-    const sessionToken =
-      typeof exchange.sessionToken === "string" ? exchange.sessionToken : "";
-    if (!sessionToken) {
-      throw new Error("Device auth exchange is missing session token");
-    }
-    const accountInfo = await fetchPortalAccount(
-      fetchImpl,
-      portalUrl,
-      sessionToken,
-    );
-    return {
-      provider:
-        exchange.provider === "privy" || exchange.provider === "para"
-          ? exchange.provider
-          : provider,
-      auth: {
-        sessionToken,
-        expiresAt:
-          parseExpiresAt(exchange.expiresAt) ??
-          parseExpiresAt(accountInfo?.session?.expiresAt) ??
-          now() + DEFAULT_SESSION_TTL_MS,
-        betterAuthUserId:
-          typeof accountInfo?.session?.betterAuthUserId === "string"
-            ? accountInfo.session.betterAuthUserId
-            : typeof exchange.betterAuthUserId === "string"
-              ? exchange.betterAuthUserId
-              : undefined,
-      },
-    };
-  } finally {
-    await closeServer(server);
-  }
-}
-
 export async function getDeviceProviderCredential({
   baseUrl,
   provider,
@@ -146,10 +46,7 @@ export async function getDeviceProviderCredential({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   openBrowser = openUrlInBrowser,
   randomBytes: randomBytesImpl = randomBytes,
-}: Pick<
-  DeviceProviderAuthOptions,
-  "baseUrl" | "provider" | "fetch" | "timeoutMs" | "openBrowser" | "randomBytes"
-> & {
+}: DeviceProviderAuthOptions & {
   sessionToken: string;
 }): Promise<DeviceProviderCredentialResult> {
   if (!sessionToken) {
@@ -196,7 +93,6 @@ export async function getDeviceProviderCredential({
       codeChallenge,
       redirectUri,
       provider,
-      mode: "link",
       linkIntent: intent.linkIntent,
     });
     console.log(
@@ -238,18 +134,14 @@ export function buildDeviceAuthUrl(input: {
   codeChallenge: string;
   redirectUri: string;
   provider?: DeviceAuthProvider;
-  mode?: "login" | "link";
-  linkIntent?: string;
+  linkIntent: string;
 }): string {
   const url = new URL(joinUrl(input.portalUrl, "/device-auth"));
   url.searchParams.set("state", input.state);
   url.searchParams.set("code_challenge", input.codeChallenge);
   url.searchParams.set("redirect_uri", input.redirectUri);
   if (input.provider) url.searchParams.set("provider", input.provider);
-  if (input.mode && input.mode !== "login") {
-    url.searchParams.set("mode", input.mode);
-  }
-  if (input.linkIntent) url.searchParams.set("link_intent", input.linkIntent);
+  url.searchParams.set("link_intent", input.linkIntent);
   return url.toString();
 }
 

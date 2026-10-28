@@ -106,6 +106,12 @@ describe("resolvePortalBudget", () => {
     expect(resolvePortalBudget(production)).toBe(budgets.production.portal);
   });
 
+  it("gives the rc release-candidate branch its own entry, never Beta's", () => {
+    const rc = `postgresql://postgres.${budgets.rc.project_ref}:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres`;
+    expect(budgets.rc.project_ref).not.toBe(budgets.staging.project_ref);
+    expect(resolvePortalBudget(rc)).toBe(budgets.rc.portal);
+  });
+
   it("gives a non-Supabase URL the strictest allowance", () => {
     expect(
       resolvePortalBudget("postgresql://user:secret@db.example.com:5432/aomi")

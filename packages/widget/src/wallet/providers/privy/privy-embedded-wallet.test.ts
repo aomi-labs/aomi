@@ -10,9 +10,7 @@ type MinimalConnectedWallet = Pick<
   "type" | "address" | "walletClientType" | "connectorType" | "imported"
 > & { meta?: unknown };
 
-function wallet(
-  overrides: Partial<MinimalConnectedWallet>,
-): ConnectedWallet {
+function wallet(overrides: Partial<MinimalConnectedWallet>): ConnectedWallet {
   return {
     type: "ethereum",
     address: "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",

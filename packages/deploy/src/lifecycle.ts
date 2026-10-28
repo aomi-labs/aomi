@@ -237,7 +237,7 @@ export function deploymentLifecycleFromStatus(
       current.buildTarget,
     progressLabel: progress.label,
     progressPercent: progress.percent,
-    failureReport: failed ? status.message : undefined,
+    failureReport: failed ? (status.message ?? undefined) : undefined,
   };
 }
 

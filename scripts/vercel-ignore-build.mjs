@@ -33,10 +33,25 @@ export function deploymentDecision(
     VERCEL_PROJECT_ID: projectId,
   } = env;
 
+  // Telegram's source was removed from this repository. Keep the staging
+  // project's last deployment and suppress new primary-project previews, while
+  // leaving the primary project's Production deployments unchanged.
+  if (projectId === TELEGRAM_STAGING_PROJECT_ID) {
+    return {
+      ignore: true,
+      reason: "Telegram staging source was removed; retain its existing deployment",
+    };
+  }
   if (VERCEL_ENV !== "preview") {
     return {
       ignore: false,
       reason: "only preview deployments are filtered",
+    };
+  }
+  if (PROJECT_SURFACES[projectId] === "telegram") {
+    return {
+      ignore: true,
+      reason: "Telegram previews are no longer built from this repository",
     };
   }
 
@@ -66,19 +81,6 @@ export function deploymentDecision(
 
   // Preserve standalone previews even for codex/*, claude/* and other agent
   // branches. Branch names are not evidence that a deployment is disposable.
-  // Telegram's separate staging project, however, only serves main-based
-  // release qualification; ordinary PRs use the primary Telegram preview.
-  if (
-    projectId === TELEGRAM_STAGING_PROJECT_ID &&
-    pullRequestId !== "" &&
-    normalizedBranch !== "main"
-  ) {
-    return {
-      ignore: true,
-      reason: "Telegram staging does not need ordinary PR previews",
-    };
-  }
-
   const surface = PROJECT_SURFACES[projectId];
   if (!surface || !headSha) {
     return {

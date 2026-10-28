@@ -7,7 +7,7 @@ import { cn } from "@aomi-labs/react";
  * that place their own `Divider`s or hold non-row content.
  */
 export const listGroupClass =
-  "border-aomi-border bg-aomi-raised rounded-card overflow-hidden border";
+  "border-aomi-border bg-aomi-raised rounded-card shrink-0 overflow-hidden border";
 
 /** A bordered card of `ListRow`s with a hairline between each row. */
 export function ListGroup({ className, ...props }: ComponentProps<"div">) {

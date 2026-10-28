@@ -9,28 +9,10 @@ import {
 import { ZodError } from "zod";
 
 import { portalFailures } from "./failures";
-import { PrincipalError, protectedResourceMetadataUrl } from "./principal";
-
-/** Signing a backend bearer failed: a server fault, never the caller's. */
-class BearerMintError extends Error {
-  constructor(cause: unknown) {
-    super("bearer_mint_failed", { cause });
-    this.name = "BearerMintError";
-  }
-}
-
-export async function mintBearer<T>(mint: () => Promise<T>): Promise<T> {
-  try {
-    return await mint();
-  } catch (error) {
-    throw new BearerMintError(error);
-  }
-}
+import { PrincipalError } from "./principal";
 
 export type ErrorShape = {
   operation: string;
-  /** Set for OAuth protected resources: auth failures carry an RFC 6750 challenge. */
-  resource?: string;
   /** The code an unexpected failure reports. */
   fallback?: string;
 };
@@ -66,12 +48,7 @@ export function errorResponse(
     operation: shape.operation,
     method: request.method,
   };
-  const response = portalFailures.handle(
-    identify(error, context, shape),
-  ).response;
-  if (error instanceof PrincipalError && shape.resource)
-    return protectedResourceChallenge(error, shape.resource);
-  return response;
+  return portalFailures.handle(identify(error, context, shape)).response;
 }
 
 function identify(
@@ -95,13 +72,6 @@ function identify(
       (/^provider_token_[a-z0-9_]+$/.test(error.message) ? 401 : undefined);
     if (status) return expected(status, error.message);
   }
-  if (error instanceof BearerMintError)
-    return {
-      source: "local",
-      error: error.cause,
-      response: { status: 502, error: "bearer_mint_failed" },
-      context,
-    };
   if (error instanceof UpstreamUnreachableError)
     return {
       source: "upstream_request",
@@ -116,31 +86,4 @@ function identify(
     response: { status: 500, error: shape.fallback ?? "internal_error" },
     context,
   };
-}
-
-function protectedResourceChallenge(
-  error: PrincipalError,
-  resource: string,
-): Response {
-  const code =
-    error.status === 401
-      ? "invalid_token"
-      : error.code === "csrf_failed"
-        ? "csrf_failed"
-        : "insufficient_scope";
-  const headers = new Headers(error.challengeHeaders);
-  if (!headers.has("www-authenticate")) {
-    const params = [
-      `resource_metadata="${protectedResourceMetadataUrl(resource)}"`,
-      `error="${code}"`,
-      ...(error.requiredScopes.length
-        ? [`scope="${error.requiredScopes.join(" ")}"`]
-        : []),
-    ];
-    headers.set("www-authenticate", `Bearer ${params.join(", ")}`);
-  }
-  return Response.json(
-    { error: { code, message: "Authorization failed" } },
-    { status: error.status, headers },
-  );
 }

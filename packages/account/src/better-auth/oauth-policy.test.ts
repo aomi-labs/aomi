@@ -5,7 +5,10 @@ import {
   OFFLINE_ACCESS_SCOPE,
   narrowScopesForAomiResource,
   aomiOAuthResourcePolicies,
+  aomiOAuthResourcePolicy,
   aomiOAuthResources,
+  appMcpName,
+  appMcpResource,
   guestScopesForAomiResource,
   validateAomiResourceScopes,
 } from "./oauth-policy";
@@ -68,6 +71,33 @@ describe("Aomi OAuth resource policy", () => {
         env,
       ),
     ).toEqual(["mcp:pipeline", "pipeline:execute"]);
+  });
+
+  // Agent wallets v1 step 4: per-client signing rules replace delegated
+  // custody, so no resource grants it and no client registers with it. An old
+  // request that still names it is narrowed away.
+  it("grants custody:delegate nowhere", () => {
+    expect([...AOMI_SCOPES]).not.toContain("custody:delegate");
+    expect([...MCP_CLIENT_REGISTRATION_SCOPES]).not.toContain(
+      "custody:delegate",
+    );
+    for (const policy of aomiOAuthResourcePolicies(env)) {
+      expect(policy.grantableScopes).not.toContain("custody:delegate");
+      expect(
+        narrowScopesForAomiResource(
+          policy.identifier,
+          ["custody:delegate", ...policy.allowedScopes],
+          env,
+        ),
+      ).toEqual([...policy.allowedScopes]);
+      expect(
+        validateAomiResourceScopes(
+          policy.identifier,
+          ["custody:delegate"],
+          env,
+        ),
+      ).toEqual({ ok: false, error: "invalid_scope" });
+    }
   });
 
   it("centralizes the MCP DPoP rollout switch", () => {
@@ -204,5 +234,30 @@ describe("Aomi OAuth resource policy", () => {
     expect(
       guestScopesForAomiResource(resources.accountRest, scopes, env),
     ).toEqual([]);
+  });
+
+  it("accepts an app-locked MCP resource with the agent MCP's scopes", () => {
+    const resources = aomiOAuthResources(env);
+    const world = appMcpResource("world", env);
+    expect(world).toBe("https://portal.example/v1/apps/world/mcp");
+    expect(appMcpName(world, env)).toBe("world");
+    const policy = aomiOAuthResourcePolicy(world, env);
+    expect(policy).toMatchObject({ kind: "appMcp", identifier: world });
+    expect(policy?.grantableScopes).toEqual(
+      aomiOAuthResourcePolicy(resources.agentMcp, env)?.grantableScopes,
+    );
+    expect(
+      validateAomiResourceScopes(world, ["mcp:agent", "agent:write"], env),
+    ).toMatchObject({ ok: true });
+    for (const resource of [
+      "https://portal.example/v1/apps/World/mcp",
+      "https://portal.example/v1/apps/-x/mcp",
+      "https://portal.example/v1/apps/a/b/mcp",
+      "https://other.example/v1/apps/world/mcp",
+      "https://portal.example/v1/apps/world/mcp/extra",
+    ]) {
+      expect(appMcpName(resource, env)).toBeUndefined();
+      expect(aomiOAuthResourcePolicy(resource, env)).toBeNull();
+    }
   });
 });

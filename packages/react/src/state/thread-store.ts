@@ -1,5 +1,5 @@
 import type { SetStateAction } from "react";
-import { safeEnv, type AgentMode } from "@aomi-labs/client";
+import { safeEnv, type AgentMode, type ThreadOrigin } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { generateUUID } from "../utils/client-session";
@@ -29,6 +29,13 @@ export type ThreadMetadata = {
   control: ThreadControlState;
   /** Local first submission, before the server acknowledges the conversation. */
   pending?: boolean;
+  /** Where the thread was started, when the server reports it. Badge only. */
+  origin?: ThreadOrigin;
+  /**
+   * Refs waiting for the user's approval on this thread and its scheduled
+   * runs, oldest first, when the server reports any.
+   */
+  awaitingApproval?: string[];
 };
 
 export function initThreadControl(): ThreadControlState {
@@ -91,7 +98,7 @@ export class ThreadStore {
   private static cleanTitle(title: string): string {
     const start = title.indexOf("<AOMI_UI_CAPABILITY_HINTS>");
     const text = (start < 0 ? title : title.slice(0, start).trimEnd())
-      .replace(/[✦▦◇]\s*/gu, "")
+      .replace(/[✦▦◇◈]\s*/gu, "")
       .trim();
     // A title that was only the envelope keeps a visible label.
     return text || (title ? DEFAULT_THREAD_TITLE : title);

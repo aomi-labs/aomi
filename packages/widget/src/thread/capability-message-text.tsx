@@ -15,9 +15,11 @@ import {
   useSkillCatalog,
 } from "@/composer/capabilities/skill-catalog";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
+import { useAomiWalletKit } from "@/wallet/context";
+import { walletPickerItems } from "@/composer/capability-composer/catalog";
 
 type CapabilityHint = {
-  kind: "app" | "skill" | "chain";
+  kind: "app" | "skill" | "chain" | "wallet";
   id: string;
 };
 
@@ -39,7 +41,8 @@ function capabilityHints(value: unknown): CapabilityHint[] {
     return (
       (candidate.kind === "app" ||
         candidate.kind === "skill" ||
-        candidate.kind === "chain") &&
+        candidate.kind === "chain" ||
+        candidate.kind === "wallet") &&
       typeof candidate.id === "string"
     );
   });
@@ -94,8 +97,10 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
   const { state } = useControl();
   const { skills } = useSkillCatalog();
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
+  const { wallets } = useAomiWalletKit();
 
   const capabilities = useMemo<RenderedCapability[]>(() => {
+    const walletItems = walletPickerItems(wallets);
     const catalogHints: CapabilityHint[] = [
       ...state.appDescriptors.map((app) => ({
         kind: "app" as const,
@@ -115,6 +120,12 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         kind: "chain" as const,
         id: `solana:${network.id}`,
       })),
+      ...walletItems.flatMap(({ id, walletIds }) =>
+        (walletIds ?? [id]).map((walletId) => ({
+          kind: "wallet" as const,
+          id: walletId,
+        })),
+      ),
     ];
     const seen = new Set<string>();
     return [...hints, ...catalogHints].flatMap((hint) => {
@@ -158,6 +169,21 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         ];
       }
 
+      if (hint.kind === "wallet") {
+        const wallet = walletItems.find((item) =>
+          (item.walletIds ?? [item.id]).includes(hint.id),
+        );
+        if (!wallet) return [];
+        return [
+          {
+            ...hint,
+            label: wallet.label,
+            token: `◈ ${wallet.label}`,
+            Icon: wallet.Icon,
+          },
+        ];
+      }
+
       if (hint.id.startsWith("eip155:")) {
         const chainId = Number(hint.id.slice("eip155:".length));
         const chain = getChainInfo(chainId);
@@ -186,7 +212,7 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         },
       ];
     });
-  }, [hints, networkPreferences, skills, state.appDescriptors]);
+  }, [hints, networkPreferences, skills, state.appDescriptors, wallets]);
   const segments = useMemo(
     () => splitCapabilityText(text, capabilities, hints),
     [capabilities, hints, text],

@@ -67,6 +67,7 @@ const outcomeFor = (operation: ToolOperation): ToolOutcome => {
       "confirmed",
       "prepared",
       "success",
+      "signed",
       "complete",
       "completed",
     ].includes(status)

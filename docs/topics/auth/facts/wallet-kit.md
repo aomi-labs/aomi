@@ -132,10 +132,9 @@ through the existing Action lifecycle, not Wallet submission.
   private key. Manual requires a matching local key and supported adapter.
 - CLI `--aa`/`--eoa` assert the prepared Action kind. They cannot change it;
   obsolete AA provider/mode overrides are rejected.
-- Backend AA signatures use the supplied bytes exactly once. Funding is
-  user-funded or sponsorship-required; application fees are separate from the
-  maximum network cost. Ordinary backend transactions cannot acquire wallet-side
-  AA or an injected paymaster at execution.
+- Backend AA signatures use the supplied bytes exactly once. Ordinary backend
+  transactions cannot acquire wallet-side AA or an injected paymaster at
+  execution.
 - Portable Pipeline V2 Builds retain origin, expiry, digest and attestation.
   Native action records are not a second wallet Action envelope.
 

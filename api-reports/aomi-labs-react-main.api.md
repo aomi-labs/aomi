@@ -49,6 +49,7 @@ import { SetStateAction } from 'react';
 import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import * as _tanstack_react_query from '@tanstack/react-query';
 import { ThreadMessageLike } from '@assistant-ui/react';
+import { ThreadOrigin } from '@aomi-labs/client';
 import { toAAWalletCall } from '@aomi-labs/client';
 import { toAAWalletCalls } from '@aomi-labs/client';
 import { toViemSignMessageArgs } from '@aomi-labs/client';
@@ -244,6 +245,7 @@ export type DisplayCache = {
     client: QueryClient;
     scope: DisplayScope;
     apiClient?: AomiClient;
+    restoredAccount?: RuntimeAccount;
     key: (resource: DisplayResource, parameters?: readonly unknown[]) => QueryKey;
 };
 
@@ -280,20 +282,7 @@ export type DisplayQuery<T> = {
 };
 
 // @public (undocumented)
-export type DisplayResource =
-| "models"
-| "app-catalog"
-| "skills"
-| "authorized-models"
-| "authorized-apps"
-| "threads"
-| "profile"
-| "credits"
-| "credit-ledger"
-| "account-acl"
-| "account-apps"
-| "transaction-safety"
-| "usage";
+export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-models" | "authorized-apps" | "threads" | "profile" | "credits" | "credit-ledger" | "account-apps" | "transaction-safety" | "usage" | "account-wallets" | "connections";
 
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;
@@ -306,10 +295,7 @@ export function ExtUserProvider(input: {
 }): react_jsx_runtime.JSX.Element;
 
 // @public
-export function fetchDisplayQuery<T>(
-cache: DisplayCache,
-query: DisplayQuery<T>,
-): Promise<T>;
+export function fetchDisplayQuery<T>(cache: DisplayCache, query: DisplayQuery<T>): Promise<T>;
 
 // @public @deprecated (undocumented)
 export const formatAddress: (addr?: string) => string;
@@ -464,6 +450,8 @@ export type ThreadMetadata = {
     lastActiveAt?: string | number;
     control: ThreadControlState;
     pending?: boolean;
+    origin?: ThreadOrigin;
+    awaitingApproval?: string[];
 };
 
 // @public (undocumented)
@@ -508,17 +496,16 @@ export function useActions(session: Session | undefined): {
                 pending_tx_id?: number;
                 current_lifecycle?: string;
                 broadcaster?: "wallet" | "venue" | "hosted";
-                fee_outcome?: {
-                    kind: "flat";
-                } | {
-                    kind: "flow";
-                    asset: {
-                        kind: "native";
-                    } | {
-                        kind: "token";
-                        address: string;
-                    };
-                    amount: string;
+                prepared_by?: string;
+                failure_rules?: {
+                    any?: string[];
+                    classification: string;
+                    advice: string;
+                }[];
+                follow_up?: {
+                    tool: string;
+                    note: string;
+                    data?: unknown;
                 };
             }[];
             simulation: {
@@ -659,18 +646,6 @@ export function useActions(session: Session | undefined): {
                     pending_ix_id?: number;
                     last_batch_status?: string;
                     current_lifecycle?: string;
-                    fee_outcome?: {
-                        kind: "flat";
-                    } | {
-                        kind: "flow";
-                        asset: {
-                            kind: "native";
-                        } | {
-                            kind: "token";
-                            address: string;
-                        };
-                        amount: string;
-                    };
                 }[];
                 address_lookup_tables?: string[];
                 recent_blockhash?: string;
@@ -819,27 +794,7 @@ export function useActions(session: Session | undefined): {
             })[];
             broadcaster?: string;
             operationId?: string;
-            executor?: string;
             expiresAt?: string;
-            callsDigest?: string;
-            calls?: {
-                to: string;
-                value: string;
-                data?: string | null;
-            }[];
-            fees?: {
-                policy_version?: number;
-                asset: {
-                    kind: "native";
-                } | {
-                    kind: "token";
-                    address: string;
-                };
-                amount: string;
-                recipient: string;
-            }[];
-            sponsorship?: "none" | "required";
-            maxNetworkFee?: string;
             domain?: {
                 [key: string]: unknown;
             };
@@ -965,12 +920,7 @@ export function useControl(): ControlContextApi;
 export function useCurrentThreadMetadata(): ThreadMetadata | undefined;
 
 // @public
-export function useDisplayQuery<T>(
-query: DisplayQuery<T>,
-): _tanstack_react_query.UseQueryResult<
-_tanstack_react_query.NoInfer<T>,
-Error
->;
+export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<_tanstack_react_query.NoInfer<T>, Error>;
 
 // @public (undocumented)
 export function useNotification(): NotificationContextValue;

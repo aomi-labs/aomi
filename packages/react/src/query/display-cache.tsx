@@ -29,10 +29,11 @@ export type DisplayResource =
   | "profile"
   | "credits"
   | "credit-ledger"
-  | "account-acl"
   | "account-apps"
   | "transaction-safety"
-  | "usage";
+  | "usage"
+  | "account-wallets"
+  | "connections";
 
 /** The same for every caller: keyed without the account and cached at the edge. */
 const PUBLIC_CATALOGS: ReadonlySet<DisplayResource> = new Set([
@@ -50,10 +51,13 @@ const STALE_TIME: Partial<Record<DisplayResource, number>> = {
   skills: 30 * MINUTE,
   credits: MINUTE,
   "transaction-safety": 10 * MINUTE,
+  "account-wallets": MINUTE,
+  connections: MINUTE,
 };
 const REFRESH_ON_FOCUS: ReadonlySet<DisplayResource> = new Set([
   "profile",
-  "account-acl",
+  "account-wallets",
+  "connections",
 ]);
 
 /**

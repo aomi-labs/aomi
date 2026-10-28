@@ -59,7 +59,7 @@ See [official install paths](docs/topics/security/official-install-paths.md) for
 
 ## Workspace
 
-`apps/` contains deployed hosts: Portal, Build, Landing and Telegram.
+`apps/` contains deployed hosts: Portal, Build and Landing.
 `examples/` contains Vite, Next.js and headless integrations. Shared code lives
 under `packages/`. Build owns the deployment UI; Portal retains its supported
 API routes and redirects deployment navigation to Build.

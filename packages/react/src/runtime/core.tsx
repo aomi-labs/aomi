@@ -17,7 +17,7 @@ import type {
   ThreadMessageLike,
 } from "@assistant-ui/react";
 
-import { AgentApiError } from "@aomi-labs/client";
+import { AgentApiError, projectConversationEvents } from "@aomi-labs/client";
 import type {
   ActionCapabilities,
   CommitCapabilities,
@@ -44,6 +44,7 @@ import {
   writePersistedThreadId,
 } from "./thread-persistence";
 import {
+  conversationPendingActions,
   logicalTurnRunning,
   projectAssistantMessages,
   projectRuntimeMessages,
@@ -245,6 +246,17 @@ export function AomiRuntimeCore({
   });
 
   const actions = useActions(currentSession);
+  // Consumers see the visible conversation, as the chat renders it: an Edit
+  // or Rerun hides the turns it replaced. SessionSnapshot.events keeps the
+  // whole ledger for receipts and audit.
+  const events = useMemo(
+    () => projectConversationEvents(snapshot.events),
+    [snapshot.events],
+  );
+  const pendingActions = useMemo(
+    () => conversationPendingActions(actions.pendingActions, events),
+    [actions.pendingActions, events],
+  );
 
   /**
    * Close every chat and forget it. With `carryDraft`, the unsent composer
@@ -648,7 +660,7 @@ export function AomiRuntimeCore({
       clearAllNotifications: notificationContext.clearAll,
 
       // Action API
-      pendingActions: actions.pendingActions,
+      pendingActions,
       commits: snapshot.commits,
       commitController: currentSession?.commits,
       actionAttempts: actions.actionAttempts,
@@ -658,7 +670,7 @@ export function AomiRuntimeCore({
       rejectAction: actions.rejectAction,
       simulateBatchTransactions,
 
-      events: snapshot.events,
+      events,
       turnState: snapshot.turnState,
     }),
     [
@@ -690,9 +702,10 @@ export function AomiRuntimeCore({
       cancelGeneration,
       notificationContext,
       actions,
+      pendingActions,
       currentSession,
       simulateBatchTransactions,
-      snapshot.events,
+      events,
       snapshot.commits,
       snapshot.turnState,
     ],

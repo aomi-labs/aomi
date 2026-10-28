@@ -101,7 +101,28 @@ export async function installHostedWallet(
   });
 }
 
+type BrowserWallet = Awaited<ReturnType<typeof installWallet>>;
+
+/** Pages that already carry a fixture wallet; a page installs one only once. */
+const installed = new WeakMap<Page, BrowserWallet>();
+
+/**
+ * Inject the fixture wallet into `page` from its next navigation on. A page
+ * that already has one keeps it, so a test can install before it navigates
+ * and a helper may ask again.
+ */
 export async function installBrowserWallet(
+  page: Page,
+  options: Parameters<typeof installWallet>[1],
+): Promise<BrowserWallet> {
+  const existing = installed.get(page);
+  if (existing) return existing;
+  const wallet = await installWallet(page, options);
+  installed.set(page, wallet);
+  return wallet;
+}
+
+async function installWallet(
   page: Page,
   options: {
     family: WalletFamily;

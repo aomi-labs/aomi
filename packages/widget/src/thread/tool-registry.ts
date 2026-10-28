@@ -142,6 +142,7 @@ export const SHAPE_ICONS = {
   nativeBalance: WalletIcon,
   receipt: ReceiptTextIcon,
   search: SearchIcon,
+  signature: PenLineIcon,
   simulation: FlaskConicalIcon,
   skillActivation: SparklesIcon,
   staged: LayersIcon,

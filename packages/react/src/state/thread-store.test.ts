@@ -26,10 +26,10 @@ describe("thread title presentation", () => {
       "Cambrian list ur tools",
     );
     store.updateThreadMetadata("chat", {
-      title: "lets deposit 1 usdc to ✦ Aave on ◇ Base",
+      title: "lets deposit 1 usdc to ✦ Aave on ◇ Base from ◈ MetaMask",
     });
     expect(store.getThreadMetadata("chat")?.title).toBe(
-      "lets deposit 1 usdc to Aave on Base",
+      "lets deposit 1 usdc to Aave on Base from MetaMask",
     );
     store.updateThreadMetadata("chat", { title: "Cambrian token prices" });
     expect(store.getThreadMetadata("chat")?.title).toBe(
