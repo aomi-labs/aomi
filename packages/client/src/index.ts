@@ -200,8 +200,8 @@ export type {
 export { AomiAgent, AgentRun } from "./sdk/agent";
 export {
   AomiCommits,
+  Commit,
   CommitHandle,
-  CommitHandle as Commit,
 } from "./sdk/commits";
 export type { CommitKind, CommitSettlement, CommitSigner } from "./sdk/commits";
 export { Thread, Turn } from "./sdk/thread";

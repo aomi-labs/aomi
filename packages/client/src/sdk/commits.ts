@@ -238,6 +238,10 @@ export class CommitHandle {
   }
 }
 
+/** The one Commit: transactions and messages, EVM and Solana. */
+export const Commit = CommitHandle;
+export type Commit = CommitHandle;
+
 /** `aomi.commits`: thread-less access to the caller's own commits. */
 export class AomiCommits {
   constructor(
