@@ -5,13 +5,14 @@
 ```ts
 
 import { AccountCreditsTransport } from '@aomi-labs/client';
-import type { AgentMode } from '@aomi-labs/react';
-import { AgentTarget } from '@aomi-labs/react';
+import { AccountMergeOffer } from '@aomi-labs/client';
+import { AccountTransport } from '@aomi-labs/client';
+import { AgentMode } from '@aomi-labs/client';
+import { AgentTarget } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
-import { AomiClient } from '@aomi-labs/client';
 import * as aomiClient from '@aomi-labs/client';
-import { AomiClientOptions } from '@aomi-labs/react';
+import { AomiClientOptions } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
@@ -21,6 +22,7 @@ import { AomiSecretSlot } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
+import { ClassValue } from 'clsx';
 import { CommitHandle } from '@aomi-labs/client';
 import type { ComponentProps } from 'react';
 import { Context } from 'react';
@@ -38,15 +40,15 @@ import * as React_2 from 'react';
 import { ReactNode } from 'react';
 import { ReactPortal } from 'react';
 import type { RuntimeAccount } from '@aomi-labs/react';
-import type { SponsorshipPaymasterServiceContext } from '@aomi-labs/react';
+import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import { SVGProps } from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Transport } from 'viem';
 import { VariantProps } from 'class-variance-authority';
-import type { WalletEip712Payload } from '@aomi-labs/react';
-import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
-import type { WalletSolanaSignPayload } from '@aomi-labs/react';
-import type { WalletTxPayload } from '@aomi-labs/react';
+import { WalletEip712Payload } from '@aomi-labs/client';
+import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
+import { WalletSolanaSignPayload } from '@aomi-labs/client';
+import { WalletTxPayload } from '@aomi-labs/client';
 
 // @public @deprecated (undocumented)
 export type AccountWallet = host.AccountWallet;
@@ -186,6 +188,9 @@ export const CardTitle: typeof host.CardTitle;
 // @public @deprecated (undocumented)
 export type ChainInfo = aomiReact.ChainInfo;
 
+// @public
+export function cn(...inputs: ClassValue[]): string;
+
 // @public @deprecated (undocumented)
 export const createWidgetX402Client: typeof host.createWidgetX402Client;
 
@@ -224,9 +229,6 @@ export type DualWalletBarProps = host.DualWalletBarProps;
 
 // @public @deprecated (undocumented)
 export const ExtUserProvider: typeof aomiReact.ExtUserProvider;
-
-// @public @deprecated (undocumented)
-export const formatAddress: typeof aomiReact.formatAddress;
 
 // @public @deprecated (undocumented)
 export const formatAuthMethod: typeof host.formatAuthMethod;

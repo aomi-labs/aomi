@@ -4,28 +4,21 @@
 
 ```ts
 
-import { aaModeFromExecutionKind } from '@aomi-labs/client';
 import { AccountTransport } from '@aomi-labs/client';
 import { Action } from '@aomi-labs/client';
 import { ActionAttempt } from '@aomi-labs/client';
 import { ActionCapabilities } from '@aomi-labs/client';
-import { ActionRequest } from '@aomi-labs/client';
 import { ActionResult } from '@aomi-labs/client';
 import { AgentMode } from '@aomi-labs/client';
 import { AgentTarget } from '@aomi-labs/client';
+import { Aomi } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
-import { AomiClient } from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/client';
 import { AomiPlatformFilter } from '@aomi-labs/client';
-import { AomiSecretSlot } from '@aomi-labs/client';
 import { AomiSimulateResponse } from '@aomi-labs/client';
 import { AomiUserAppSecrets } from '@aomi-labs/client';
-import { appendFeeCallToPayload } from '@aomi-labs/client';
-import { appIdentityKey } from '@aomi-labs/client';
 import { ApplicationId } from '@aomi-labs/client';
-import { buildFeeAAWalletCall } from '@aomi-labs/client';
 import { ChainInfo } from '@aomi-labs/client';
-import { ClassValue } from 'clsx';
 import { CommitCapabilities } from '@aomi-labs/client';
 import { CommitController } from '@aomi-labs/client';
 import { CommitView } from '@aomi-labs/client';
@@ -34,13 +27,6 @@ import { ContextStep } from '@aomi-labs/client/trace';
 import { CreditBalance } from '@aomi-labs/client';
 import { CreditLedger } from '@aomi-labs/client';
 import { Event as Event_2 } from '@aomi-labs/client';
-import { executeWalletCalls } from '@aomi-labs/client';
-import { MAX_AUTO_FEE_WEI } from '@aomi-labs/client';
-import { NativeWalletExecutionPolicy } from '@aomi-labs/client';
-import { NativeWalletSponsorship } from '@aomi-labs/client';
-import { normalizeAppDescriptor } from '@aomi-labs/client';
-import { normalizeSimulatedFee } from '@aomi-labs/client';
-import { parseChainId } from '@aomi-labs/client';
 import { QueryClient } from '@tanstack/react-query';
 import { QueryKey } from '@tanstack/react-query';
 import * as react from 'react';
@@ -48,48 +34,17 @@ import * as react_jsx_runtime from 'react/jsx-runtime';
 import { ReactNode } from 'react';
 import { Session } from '@aomi-labs/client';
 import { SetStateAction } from 'react';
-import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import * as _tanstack_react_query from '@tanstack/react-query';
 import { ThreadMessageLike } from '@assistant-ui/react';
 import { ThreadOrigin } from '@aomi-labs/client';
-import { toAAWalletCall } from '@aomi-labs/client';
-import { toAAWalletCalls } from '@aomi-labs/client';
-import { toViemSignMessageArgs } from '@aomi-labs/client';
-import { toViemSignTypedDataArgs } from '@aomi-labs/client';
 import { TransactionSafetyTransport } from '@aomi-labs/client';
 import { TurnState } from '@aomi-labs/client';
 import { UserState } from '@aomi-labs/client';
-import { ViemSignMessageArgs } from '@aomi-labs/client';
-import { WalletCapabilities } from '@aomi-labs/client';
-import { WalletEip712Payload } from '@aomi-labs/client';
-import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
-import { WalletSolanaSignPayload } from '@aomi-labs/client';
-import { WalletTxPayload } from '@aomi-labs/client';
-
-export { aaModeFromExecutionKind }
-
-export { Action }
-
-export { ActionRequest }
-
-export { ActionResult }
-
-export { AgentMode }
-
-export { AgentTarget }
-
-export { AomiAppDescriptor }
 
 // @public
 export function AomiChatBoundary(input: {
     children: ReactNode;
 }): react_jsx_runtime.JSX.Element;
-
-export { AomiClient }
-
-export { AomiClientOptions }
-
-export { AomiPlatformFilter }
 
 // @public (undocumented)
 export type AomiRuntimeApi = {
@@ -163,6 +118,7 @@ export type AomiRuntimeProviderProps = {
     account?: RuntimeAccount | null;
     displayPersistence?: DisplayPersistence;
     backendUrl?: string;
+    aomi?: Aomi;
     apiKeyPersistence?: "memory" | "session";
     applicationId?: number | string | null;
     agentTarget?: AgentTarget;
@@ -179,18 +135,7 @@ export type AomiRuntimeProviderProps = {
     threadPersistenceScope?: string | null;
 };
 
-export { AomiSecretSlot }
-
-export { appendFeeCallToPayload }
-
-export { appIdentityKey }
-
-export { buildFeeAAWalletCall }
-
 export { ChainInfo }
-
-// @public
-export function cn(...inputs: ClassValue[]): string;
 
 export { CONTEXT_STEP_TOOL }
 
@@ -208,7 +153,7 @@ export function ControlContextProvider(input: ControlContextProviderProps): reac
 // @public (undocumented)
 export type ControlContextProviderProps = {
     children: ReactNode;
-    aomiClient: AomiClient;
+    aomi: Aomi;
     sessionId: string;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
     updateThreadMetadata: (threadId: string, partial: Partial<ThreadMetadata>) => void;
@@ -229,7 +174,7 @@ export type ControlState = ApiKeyState & AuthEndpointsState & {
 export type DisplayCache = {
     client: QueryClient;
     scope: DisplayScope;
-    apiClient?: AomiClient;
+    aomi?: Aomi;
     restoredAccount?: RuntimeAccount;
     key: (resource: DisplayResource, parameters?: readonly unknown[]) => QueryKey;
 };
@@ -239,22 +184,22 @@ export type DisplayPersistence = "none" | "public" | "account";
 
 // @public
 export const displayQueries: {
-    models: (api: AomiClient) => DisplayQuery<string[]>;
-    appCatalog: (api: AomiClient, platforms?: AomiPlatformFilter) => DisplayQuery<AomiAppDescriptor[]>;
-    authorizedModels: (api: AomiClient, input: {
+    models: (aomi: Aomi) => DisplayQuery<string[]>;
+    appCatalog: (aomi: Aomi, platforms?: AomiPlatformFilter) => DisplayQuery<AomiAppDescriptor[]>;
+    authorizedModels: (aomi: Aomi, input: {
         sessionId: () => string;
         appId: string;
         credential: number;
     }) => DisplayQuery<string[]>;
-    authorizedApps: (api: AomiClient, input: {
+    authorizedApps: (aomi: Aomi, input: {
         sessionId: () => string;
         appId: string;
         credential: number;
         apiKey: () => string | null;
         platforms?: AomiPlatformFilter;
     }) => DisplayQuery<AomiAppDescriptor[]>;
-    credits: (api: AomiClient, enabled?: boolean) => DisplayQuery<CreditBalance>;
-    creditLedger: (api: AomiClient, enabled?: boolean) => DisplayQuery<CreditLedger>;
+    credits: (aomi: Aomi, enabled?: boolean) => DisplayQuery<CreditBalance>;
+    creditLedger: (aomi: Aomi, enabled?: boolean) => DisplayQuery<CreditLedger>;
 };
 
 // @public
@@ -272,8 +217,6 @@ export type DisplayResource = "models" | "app-catalog" | "skills" | "authorized-
 // @public (undocumented)
 export const EMPTY_TASK_RUNS: ThreadTaskRuns;
 
-export { executeWalletCalls }
-
 // @public
 export function ExtUserProvider(input: {
     children: ReactNode;
@@ -281,9 +224,6 @@ export function ExtUserProvider(input: {
 
 // @public
 export function fetchDisplayQuery<T>(cache: DisplayCache, query: DisplayQuery<T>): Promise<T>;
-
-// @public @deprecated (undocumented)
-export const formatAddress: (addr?: string) => string;
 
 // @public
 export const getChainInfo: (chainId: number | undefined) => ChainInfo | undefined;
@@ -294,18 +234,8 @@ export const getNetworkName: (chainId: number | string | undefined) => string;
 // @public (undocumented)
 export function initThreadControl(): ThreadControlState;
 
-export { MAX_AUTO_FEE_WEI }
-
 // @public (undocumented)
 export type ModelSelectionMode = "auto" | "manual";
-
-export { NativeWalletExecutionPolicy }
-
-export { NativeWalletSponsorship }
-
-export { normalizeAppDescriptor }
-
-export { normalizeSimulatedFee }
 
 // @public (undocumented)
 type Notification_2 = {
@@ -342,8 +272,6 @@ export type NotificationContextValue = {
 // @public (undocumented)
 export type NotificationType = "notice" | "success" | "error" | "wallet";
 
-export { parseChainId }
-
 // @public
 export function projectAssistantMessages(events: readonly Event_2[]): ThreadMessageLike[];
 
@@ -361,8 +289,6 @@ export function selectTaskRuns(events: readonly Event_2[], scope?: "thread" | "t
 
 // @public (undocumented)
 export type ShowNotificationParams = Omit<Notification_2, "id" | "timestamp">;
-
-export { SponsorshipPaymasterServiceContext }
 
 // @public
 export const SUPPORTED_CHAINS: ChainInfo[];
@@ -441,14 +367,6 @@ export type ThreadMetadata = {
 
 // @public (undocumented)
 export type ThreadTaskRuns = Readonly<Record<string, TaskRunState>>;
-
-export { toAAWalletCall }
-
-export { toAAWalletCalls }
-
-export { toViemSignMessageArgs }
-
-export { toViemSignTypedDataArgs }
 
 // @public (undocumented)
 export function useActions(session: Session | undefined): {
@@ -905,7 +823,7 @@ export function useControl(): ControlContextApi;
 export function useCurrentThreadMetadata(): ThreadMetadata | undefined;
 
 // @public
-export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<_tanstack_react_query.NoInfer<T>, Error>;
+export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<T, Error>;
 
 // @public (undocumented)
 export function useNotification(): NotificationContextValue;
@@ -946,20 +864,8 @@ export function useThreadTaskRuns(scope?: "thread" | "turn"): ThreadTaskRuns;
 // @public (undocumented)
 export function useUser(): UserContextValue;
 
-export { ViemSignMessageArgs }
-
-export { WalletCapabilities }
-
 // @public
 export function walletContinuationPending(continuationTurnIds: readonly string[], events: readonly Event_2[]): boolean;
-
-export { WalletEip712Payload }
-
-export { WalletSolanaSignMessagePayload }
-
-export { WalletSolanaSignPayload }
-
-export { WalletTxPayload }
 
 // (No @packageDocumentation comment for this package)
 

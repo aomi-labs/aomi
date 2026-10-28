@@ -5,9 +5,10 @@
 ```ts
 
 import { AccountCreditsTransport } from '@aomi-labs/client';
+import { AccountMergeOffer } from '@aomi-labs/client';
+import { AccountTransport } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
-import { AomiClient } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
@@ -31,15 +32,15 @@ import * as React_2 from 'react';
 import { ReactNode } from 'react';
 import { ReactPortal } from 'react';
 import type { RuntimeAccount } from '@aomi-labs/react';
-import type { SponsorshipPaymasterServiceContext } from '@aomi-labs/react';
+import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import { SVGProps } from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Transport } from 'viem';
 import { VariantProps } from 'class-variance-authority';
-import type { WalletEip712Payload } from '@aomi-labs/react';
-import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
-import type { WalletSolanaSignPayload } from '@aomi-labs/react';
-import type { WalletTxPayload } from '@aomi-labs/react';
+import { WalletEip712Payload } from '@aomi-labs/client';
+import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
+import { WalletSolanaSignPayload } from '@aomi-labs/client';
+import { WalletTxPayload } from '@aomi-labs/client';
 
 // @public
 export function AccountAvatar(input: AccountAvatarProps): JSX.Element;
@@ -385,7 +386,9 @@ export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
 
 // @public (undocumented)
 export type ConsentWalletsProps = {
-    client: AomiClient;
+    client: {
+        account: AccountTransport;
+    };
     connectionKey?: string;
     name: string;
     startLane?: AomiLane;
@@ -640,7 +643,9 @@ export function TelegramLinkPanel(props: TelegramLinkPanelProps): JSX.Element;
 
 // @public (undocumented)
 export type TelegramLinkPanelProps = {
-    client: AomiClient;
+    client: {
+        account: AccountTransport;
+    };
     code: string | null;
     onClose: () => void;
 };
@@ -723,7 +728,9 @@ export const useActivityPanel: () => ActivityPanelContextValue;
 export function useAomiWalletKit(): AomiWalletKit;
 
 // @public
-export function useConsentLanes(client: AomiClient): {
+export function useConsentLanes(client: {
+    account: AccountTransport;
+}): {
     onChange: (next: ConsentWalletsState) => void;
     ready: boolean;
     save: (key: string) => Promise<boolean>;

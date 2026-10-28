@@ -154,9 +154,14 @@ export type AccountGraphResponse = {
     linkedAccounts: AccountGraphLinkedAccount[];
     wallets: AccountGraphWallet[];
     session: {
+        carrier?: "better_auth";
         betterAuthUserId: string;
         expiresAt?: number;
         fresh?: boolean;
+    } | {
+        carrier: "widget";
+        expiresAt: number;
+        authMethod: string;
     };
 } | {
     user: null;
@@ -170,33 +175,36 @@ export class AccountGraphTransport {
     constructor(transport: RequestResponse$3);
     // (undocumented)
     deleteAccount(): Promise<AccountGraphDeleteResponse>;
-    // (undocumented)
-    exchangeProviderCredential(credential: unknown): Promise<AccountGraphProviderExchangeResponse>;
+    exchangeProviderCredential(credential: unknown, options?: {
+        newSession?: boolean;
+    }): Promise<AccountGraphProviderExchangeResponse>;
     // (undocumented)
     getAccount(): Promise<AccountGraphResponse>;
-    // (undocumented)
     getWalletLinkNonce(input: {
         address: string;
-        chainId: number;
-    }): Promise<{
-        nonce: string;
-        domain?: string;
-        uri?: string;
-    }>;
+        chainId: number | string;
+    }): Promise<AccountNonce>;
     // (undocumented)
     linkWallet(body: {
-        family: "evm";
+        family: "evm" | "svm";
         address: string;
-        chainId: number;
+        chainId: number | string;
         nonce: string;
         message: string;
         signature: string;
         label?: string | null;
+        walletApp?: string;
     }): Promise<AccountGraphLinkWalletResponse>;
     // (undocumented)
     protected request<T>(path: string, init: RequestInit): Promise<T>;
     // (undocumented)
     signOut(): Promise<unknown>;
+    siweNonce(): Promise<AccountNonce>;
+    // (undocumented)
+    siwsNonce(body: {
+        walletAddress: string;
+        chainId: string;
+    }): Promise<AccountNonce>;
     // (undocumented)
     unlinkIdentity(identityId: string): Promise<unknown>;
     // (undocumented)
@@ -214,6 +222,19 @@ export class AccountGraphTransport {
     updateWallet(walletId: string, body: {
         label?: string | null;
     }): Promise<AccountGraphResponse>;
+    verifySiwe(body: {
+        message: string;
+        signature: string;
+        walletApp?: string;
+    }): Promise<void>;
+    // (undocumented)
+    verifySiws(body: {
+        message: string;
+        signature: string;
+        walletAddress: string;
+        chainId: string;
+        walletApp?: string;
+    }): Promise<void>;
 }
 
 // @public (undocumented)
@@ -241,6 +262,21 @@ export type AccountGraphWallet = {
 };
 
 // @public
+export type AccountKeyScope = {
+    thread: string;
+    clientId?: string;
+};
+
+// @public
+export class AccountKeysTransport {
+    constructor(request: AccountRequest);
+    clear(scope: AccountKeyScope): Promise<void>;
+    list(scope: AccountKeyScope): Promise<string[]>;
+    remove(name: string, scope: AccountKeyScope): Promise<boolean>;
+    set(secrets: Record<string, string>, scope: AccountKeyScope): Promise<Record<string, string>>;
+}
+
+// @public
 export type AccountLinkProvider = "telegram";
 
 // @public
@@ -255,6 +291,27 @@ export type AccountMergeOffer = {
         dropped: string[];
     };
 };
+
+// @public (undocumented)
+export type AccountNonce = {
+    nonce: string;
+    domain?: string;
+    uri?: string;
+};
+
+// @public
+export class AccountPoliciesTransport {
+    constructor(request: AccountRequest, basePath?: string);
+    confirm(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy>;
+    // (undocumented)
+    confirmRevoke(bindingId: number, transactionSignature: string): Promise<AomiPreparedOnchainPolicy>;
+    get(chainRef: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiOnchainPolicyProviderCtx>;
+    prepare(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy>;
+    // (undocumented)
+    prepareRevoke(bindingId: number): Promise<AomiPreparedOnchainPolicy>;
+}
 
 // @public (undocumented)
 export type AccountSessionExchangeResponse = {
@@ -286,7 +343,9 @@ export class AccountTransport extends AccountGraphTransport {
     readonly connections: AccountConnectionsTransport;
     // (undocumented)
     readonly credits: AccountCreditsTransport;
+    readonly keys: AccountKeysTransport;
     readonly link: AccountLinkTransport;
+    readonly policies: AccountPoliciesTransport;
     readonly wallets: AccountWalletsTransport;
 }
 
@@ -520,6 +579,9 @@ export class Aomi {
     readonly agent: AomiAgent;
     // (undocumented)
     readonly auth: AomiAuthController;
+    readonly builder: {
+        credits: AccountCreditsTransport;
+    };
     readonly commits: AomiCommits;
     // (undocumented)
     readonly pipeline: AomiPipeline;
@@ -564,12 +626,14 @@ export class AomiAccount extends AccountTransport {
         account: AccountGraphResponse;
     }>;
     // (undocumented)
-    statement(options?: {
+    statement(input?: {
         limit?: number;
         cursor?: string;
         from?: number;
         to?: number;
+        signal?: AbortSignal;
     }): Promise<AomiAccountStatement>;
+    switchTo(ticket: string): Promise<void>;
     // (undocumented)
     readonly wallets: AomiAccountWallets;
 }
@@ -587,17 +651,21 @@ export interface AomiAccountAppMutationResponse {
 
 // @public
 export class AomiAccountApps {
-    constructor(request: AccountRequest);
-    credentials(name: string): {
+    constructor(request: AccountRequest_2);
+    credentials(app: AppRef): {
         list: () => Promise<AomiUserAppSecrets>;
         set: (key: string, value: string) => Promise<AomiUserAppSecrets>;
+        save: (values: Record<string, string>) => Promise<AomiUserAppSecrets>;
         remove: (key: string) => Promise<AomiDeleteSecretResponse>;
+        clear: () => Promise<AomiClearAppSecretsResponse>;
     };
     // (undocumented)
-    install(name: string): Promise<AomiAccountAppMutationResponse>;
-    list(): Promise<AomiAppDescriptor[]>;
+    install(app: AppRef): Promise<AomiAccountAppMutationResponse>;
+    list(options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAppDescriptor[]>;
     // (undocumented)
-    uninstall(name: string): Promise<AomiAccountAppMutationResponse>;
+    uninstall(app: AppRef): Promise<AomiAccountAppMutationResponse>;
 }
 
 // @public (undocumented)
@@ -979,7 +1047,9 @@ export class AomiClient {
     constructor(options: AomiClientOptions);
     // (undocumented)
     readonly account: AccountTransport;
-    addAccountApp(sessionId: string, applicationId: ApplicationId): Promise<AomiAccountAppMutationResponse>;
+    addAccountApp(sessionId: string, applicationId: ApplicationId, options?: {
+        apiKey?: string;
+    }): Promise<AomiAccountAppMutationResponse>;
     // (undocumented)
     readonly agent: AgentTransport;
     clearAppSecrets(sessionId: string, applicationId: ApplicationId): Promise<AomiClearAppSecretsResponse>;
@@ -1018,6 +1088,9 @@ export class AomiClient {
     replaceAppCredential(sessionId: string, applicationId: ApplicationId, name: string, value: string): Promise<AomiUserAppSecrets>;
     request<T = unknown>(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<T>;
     requestResponse(method: AomiHttpMethod, path: string, options?: AomiRequestOptions): Promise<Response>;
+    resolveAppKey(appKey: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<AomiAppDescriptor[]>;
     saveAppSecrets(sessionId: string, applicationId: ApplicationId, secrets: Record<string, string>): Promise<AomiUserAppSecrets>;
     setAppCredential(sessionId: string, applicationId: ApplicationId, name: string, value: string): Promise<AomiUserAppSecrets>;
     setModel(sessionId: string, rig: string, options?: {
@@ -1281,6 +1354,7 @@ export class AomiGuard {
     set(input: {
         mode: TransactionSafetyMode;
         thread?: string;
+        revision?: number;
     }): Promise<TransactionSafetyPolicy>;
 }
 
@@ -1481,7 +1555,7 @@ export interface AomiOperationBuildOptions extends PipelineMutationOptions {
 }
 
 // @public (undocumented)
-export type AomiOptions = (AomiManagedAuthOptions | (Omit<AomiConnectionOptions, "x402"> & {
+export type AomiOptions = (AomiManagedAuthOptions | (AomiConnectionOptions & {
     auth?: never;
 })) & AomiExecutionOptions;
 

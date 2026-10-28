@@ -4,9 +4,9 @@
 
 ```ts
 
-import type { AgentMode } from '@aomi-labs/react';
-import { AgentTarget } from '@aomi-labs/react';
-import { AomiClientOptions } from '@aomi-labs/react';
+import { AgentMode } from '@aomi-labs/client';
+import { AgentTarget } from '@aomi-labs/client';
+import { AomiClientOptions } from '@aomi-labs/client';
 import { CSSProperties } from 'react';
 import { DisplayPersistence } from '@aomi-labs/react';
 import { FC } from 'react';
