@@ -60,7 +60,7 @@ async function oidc(overrides: Claims = {}, options: { aud?: string; iss?: strin
     repository_id: "1033482171",
     ref: "refs/heads/main",
     environment: "rc",
-    job_workflow_ref: WORKFLOW,
+    workflow_ref: WORKFLOW,
     ...overrides,
   })
     .setProtectedHeader({ alg: "RS256" })
@@ -129,13 +129,25 @@ describe("rc oidc exchange", () => {
     ["wrong audience", () => oidc({}, { aud: "other" }), 401],
     ["wrong issuer", () => oidc({}, { iss: "https://evil.example" }), 401],
     ["expired", () => oidc({}, { iat: Math.floor(NOW / 1000) - 3600 }), 401],
+    ["missing workflow", () => oidc({ workflow_ref: undefined }), 403],
+    ["reusable workflow cannot substitute for caller", () => oidc({ workflow_ref: undefined, job_workflow_ref: WORKFLOW }), 403],
+    ["untrusted caller with trusted reusable workflow", () => oidc({ workflow_ref: "evil", job_workflow_ref: WORKFLOW }), 403],
     ["wrong ref", () => oidc({ ref: "refs/heads/feature" }), 403],
     ["wrong environment", () => oidc({ environment: "staging" }), 403],
     ["wrong repository", () => oidc({ repository: "aomi-labs/other" }), 403],
     ["renamed-in repository id", () => oidc({ repository_id: "1" }), 403],
-    ["unlisted workflow", () => oidc({ job_workflow_ref: "aomi-labs/product-mono/.github/workflows/x.yml@refs/heads/main" }), 403],
+    ["unlisted workflow", () => oidc({ workflow_ref: "aomi-labs/product-mono/.github/workflows/x.yml@refs/heads/main" }), 403],
   ] as const)("rejects %s", async (_name, make, status) => {
     expect((await exchange(await make())).status).toBe(status);
+  });
+
+  it.each(["ERR_JWKS_TIMEOUT", "ECONNRESET", "ERR_JWKS_NO_MATCHING_KEY", "ERR_JWKS_MULTIPLE_MATCHING_KEYS"])("classifies key lookup failure %s", async (code) => {
+    const token = await oidc();
+    const response = await settle(() => exchangeRcToken(
+      new Request("https://api-rc.aomi.dev/v1/rc/token", { method: "POST", headers: { authorization: `Bearer ${token}` } }),
+      env, rcOidcConfig(env, "api-rc.aomi.dev")!, async () => { throw Object.assign(new Error("lookup"), { code }); }, NOW,
+    ));
+    expect(response.status).toBe(["ERR_JWKS_TIMEOUT", "ECONNRESET"].includes(code) ? 502 : 401);
   });
 
   it("rejects a token signed by another key and a non-bearer credential", async () => {

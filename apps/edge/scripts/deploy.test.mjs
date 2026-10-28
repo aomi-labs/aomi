@@ -1,3 +1,7 @@
+// @vitest-environment node
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+
 import { describe, expect, it } from "vitest";
 
 import { deployArgs } from "./deploy.mjs";
@@ -90,4 +94,18 @@ describe("edge deploy script", () => {
     expect(() => deployArgs({ ...rc, RC_OIDC_ACCOUNT_ID: "acct-1" })).toThrow(/must be set together/);
     expect(deployArgs(rc).join(" ")).not.toContain("RC_OIDC");
   });
+});
+
+// RC has only a binding/migration overlay. Any shared setting change must land
+// in both files; deployment runs these tests before publishing the Worker.
+it("keeps the RC overlay equal to the shared config and migrations RC-only", () => {
+  const read = (name) => ts.parseConfigFileTextToJson(name, readFileSync(new URL(`../${name}`, import.meta.url), "utf8")).config;
+  const shared = read("wrangler.jsonc");
+  const { durable_objects, migrations, ...rc } = read("wrangler.rc.jsonc");
+  expect(rc).toEqual(shared);
+  expect(shared.durable_objects).toBeUndefined();
+  expect(shared.migrations).toBeUndefined();
+  expect(durable_objects.bindings).toEqual([{ name: "RC_OIDC_REPLAY", class_name: "RcReplayStore" }]);
+  expect(migrations).toEqual([{ tag: "rc-replay-1", new_sqlite_classes: ["RcReplayStore"] }]);
+  expect(deployArgs({ ...staging, EDGE_TOPOLOGY: "production" })).not.toContain("--config");
 });
