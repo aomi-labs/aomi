@@ -202,6 +202,7 @@ export {
   AomiCommits,
   Commit,
   CommitHandle,
+  CommitSettleError,
 } from "./sdk/commits";
 export type { CommitKind, CommitSettlement, CommitSigner } from "./sdk/commits";
 export { Thread, Turn } from "./sdk/thread";
