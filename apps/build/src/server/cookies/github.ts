@@ -18,8 +18,6 @@ import {
  * browser control-plane request from it.
  */
 export const GITHUB_SESSION_COOKIE = "aomi_github";
-/** Opaque Manager-signed grant, intentionally separate from the session. */
-export const GITHUB_VISIBILITY_GRANT_COOKIE = "aomi_github_visibility";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 // A CLI token cannot be revoked yet, so it lives one day, not a browser week.
 export const CLI_SESSION_TTL_SECONDS = 24 * 60 * 60;
@@ -182,20 +180,6 @@ export async function readGitHubSession(
   return payload ? sessionFromPayload(payload) : null;
 }
 
-export function setGitHubVisibilityGrantCookie(
-  response: Response,
-  grant: string | null | undefined,
-): void {
-  appendCookie(response, GITHUB_VISIBILITY_GRANT_COOKIE, grant?.trim() ?? "", {
-    ...SESSION_COOKIE_OPTIONS,
-    maxAge: grant?.trim() ? 10 * 60 : 0,
-  });
-}
-
-export async function getGitHubVisibilityGrant(): Promise<string | null> {
-  return getCookie(GITHUB_VISIBILITY_GRANT_COOKIE)?.trim() || null;
-}
-
 export async function issueGitHubCliSession(
   session: GitHubSession,
 ): Promise<string> {
@@ -336,12 +320,5 @@ export async function setGitHubSessionCookie(
   appendCookie(response, GITHUB_SESSION_COOKIE, token, {
     ...SESSION_COOKIE_OPTIONS,
     maxAge: SESSION_TTL_SECONDS,
-  });
-}
-
-export function clearGitHubSessionCookie(response: Response): void {
-  appendCookie(response, GITHUB_SESSION_COOKIE, "", {
-    ...SESSION_COOKIE_OPTIONS,
-    maxAge: 0,
   });
 }

@@ -14,7 +14,6 @@ import {
   LaunchRequestError,
   type GithubAppOAuthStartResponse,
   type GitHubSessionInfo,
-  type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
 import { buildFetch } from "@/lib/session-expiry";
 import {
@@ -30,7 +29,6 @@ import {
   type LaunchDeployInput,
   type LaunchDeployResult,
   type LaunchPreflightInput,
-  type LaunchRedeployResult,
   type LaunchSdkStatus,
   type LaunchStatus,
   type RequiredSecretsResult,
@@ -54,10 +52,6 @@ export async function launchSignOutGitHub(): Promise<void> {
     // Clear the previous account's wizard state even when sign-out fails.
     resetLaunch();
   }
-}
-
-export function launchProjects(): Promise<UserProjectsResult> {
-  return client.projects();
 }
 
 export function githubAppInstallUrl(args: {
@@ -87,12 +81,6 @@ export function launchDeploy(
   return client.deploy(input);
 }
 
-export function launchRedeploy(input: {
-  projectId: number;
-}): Promise<LaunchRedeployResult> {
-  return client.redeploy(input);
-}
-
 export function launchCreateRepo(input: {
   platform?: string;
   installationId: string;
@@ -106,10 +94,6 @@ export function launchStatus(
   platform?: string,
 ): Promise<LaunchStatus> {
   return client.status({ deploymentId, platform });
-}
-
-export function launchSdkStatus(): Promise<LaunchSdkStatus> {
-  return client.sdkStatus();
 }
 
 export function deploymentProjects(
