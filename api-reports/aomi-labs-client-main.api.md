@@ -537,6 +537,16 @@ export class AomiAccount extends AccountTransport {
     constructor(requestResponse: RequestResponse_2);
     // (undocumented)
     readonly apps: AomiAccountApps;
+    grantDeviceLink(input: {
+        linkIntent: string;
+        state: string;
+        redirectUri: string;
+        provider: "privy" | "para";
+        credential: unknown;
+    }): Promise<{
+        code: string;
+        state: string;
+    }>;
     // (undocumented)
     readonly guard: AomiGuard;
     readonly logins: {
