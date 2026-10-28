@@ -106,6 +106,15 @@ export class Aomi {
       x402: wallet?.evm ? createEvmPaymentClient(wallet.evm) : undefined,
     };
 
+    if (
+      auth &&
+      (clientOptions.oauth ||
+        clientOptions.getAccountBearer ||
+        clientOptions.guest !== undefined)
+    )
+      throw new TypeError(
+        "Aomi auth cannot be combined with oauth, getAccountBearer, or guest",
+      );
     if (auth?.kind === "wallet") {
       const runtime = createWalletAuthRuntime({
         baseUrl: clientOptions.baseUrl,
@@ -131,15 +140,6 @@ export class Aomi {
         guest: false,
       });
     } else if (auth) {
-      if (
-        clientOptions.oauth ||
-        clientOptions.getAccountBearer ||
-        clientOptions.guest !== undefined
-      ) {
-        throw new TypeError(
-          "Aomi auth cannot be combined with oauth, getAccountBearer, or guest",
-        );
-      }
       const runtime = createOAuthAuthRuntime({
         baseUrl: clientOptions.baseUrl,
         fetch: fetchImpl,

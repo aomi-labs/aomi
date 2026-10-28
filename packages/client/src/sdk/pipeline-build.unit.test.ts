@@ -202,16 +202,52 @@ describe("aomi.pipeline without an app", () => {
 });
 
 describe("Commit settlement", () => {
-  it("throws an AomiError for a commit that does not confirm", async () => {
-    const { aomi } = backend([
-      { ...view, version: 2, state: "failed", failure_code: "reverted" },
-    ]);
-    const commit = await (
+  const open = async (views: CommitView[]) => {
+    const { aomi } = backend(views);
+    return (
       await aomi.pipeline.build("stage_lifi_swap", { amount: "0.1" })
     ).commit();
+  };
+
+  it("rejects with the failure code and the view when it does not confirm", async () => {
+    const commit = await open([
+      { ...view, version: 2, state: "failed", failure_code: "reverted" },
+    ]);
     const error = await commit.settled().catch((caught: unknown) => caught);
-    expect(isAomiError(error, "commit_failed")).toBe(true);
-    expect((error as Error).message).toContain("reverted");
+    expect(isAomiError(error, "reverted")).toBe(true);
+    expect(error).toMatchObject({ view: { state: "failed" } });
+    commit.close();
+  });
+
+  it("stops waiting when the signal aborts, before or during", async () => {
+    const commit = await open([view, view, view]);
+    const before = new AbortController();
+    before.abort(new Error("before"));
+    await expect(commit.settled({ signal: before.signal })).rejects.toThrow(
+      "before",
+    );
+    const during = new AbortController();
+    const waiting = commit.settled({ signal: during.signal });
+    during.abort(new Error("during"));
+    await expect(waiting).rejects.toThrow("during");
+    commit.close();
+  });
+
+  it("signs the version it was handed, not one polled since", async () => {
+    const changed = {
+      ...view,
+      version: 2,
+      review: { digest: "d2" } as CommitView["review"],
+    };
+    const commit = await open([changed, changed]);
+    // Polling (here, a waiter's) moves the view on; nobody reviewed it.
+    const stop = new AbortController();
+    const waiting = commit.settled({ signal: stop.signal });
+    await vi.waitFor(() => expect(commit.view.version).toBe(2));
+    stop.abort();
+    await waiting.catch(() => undefined);
+    const error = await commit.sign().catch((caught: unknown) => caught);
+    expect(isAomiError(error, "commit_stale")).toBe(true);
     commit.close();
   });
 });

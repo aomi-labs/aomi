@@ -109,20 +109,25 @@ export function createAomiOAuthGrantManager(input: {
   const pendingRefresh = new Map<string, Promise<AomiOAuthGrant>>();
   const now = input.now ?? Date.now;
   let grants: AomiOAuthGrant[] = [];
+  const mine = (grant: AomiOAuthGrant) =>
+    normalizeIssuer(grant.issuer) === issuer &&
+    grant.clientId === input.clientId &&
+    grant.subject === input.subject;
   const ready = store.load().then((stored) => {
-    const combined = [...stored, ...(input.initial ?? [])];
-    grants = uniqueGrants(
-      combined.filter(
-        (grant) =>
-          normalizeIssuer(grant.issuer) === issuer &&
-          grant.clientId === input.clientId &&
-          grant.subject === input.subject,
-      ),
-    );
+    grants = uniqueGrants([...stored, ...(input.initial ?? [])].filter(mine));
   });
 
-  async function persist() {
-    await store.save(grants.map(copyGrant));
+  // A shared store also holds other issuers', clients' and subjects' grants,
+  // and other processes write it: re-read, replace only ours, one at a time.
+  let writing = Promise.resolve();
+  function persist() {
+    const write = async () => {
+      const others = (await store.load().catch(() => [])).filter(
+        (grant) => !mine(grant),
+      );
+      await store.save([...others, ...grants].map(copyGrant));
+    };
+    return (writing = writing.then(write, write));
   }
 
   async function put(grant: AomiOAuthGrant) {
@@ -168,6 +173,7 @@ export function createAomiOAuthGrantManager(input: {
     }
     if (!grant.refreshToken) return null;
     const key = grantKey(grant);
+    const held = grant;
     let pending = pendingRefresh.get(key);
     if (!pending) {
       pending = input
@@ -192,7 +198,18 @@ export function createAomiOAuthGrantManager(input: {
         })
         .catch(async (error) => {
           if (oauthErrorCode(error) === "invalid_grant") {
+            // Another process may have just rotated it: take its copy.
+            const rotated = (await store.load().catch(() => [])).find(
+              (candidate) =>
+                mine(candidate) &&
+                grantKey(candidate) === key &&
+                candidate.refreshToken !== held.refreshToken,
+            );
             grants = grants.filter((candidate) => grantKey(candidate) !== key);
+            if (rotated) {
+              grants.push(copyGrant(rotated));
+              return rotated;
+            }
             await persist();
           }
           throw error;

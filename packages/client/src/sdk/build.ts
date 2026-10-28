@@ -239,8 +239,9 @@ export class SvmBuild {
 }
 
 /**
- * A simulated build of one operation, EVM or Solana. Review it, then
- * `commit()` to get the Commit to sign.
+ * A simulated build of one operation, EVM or Solana. Review it, then, for
+ * EVM, `commit()` to get the Commit to sign. Solana builds review and
+ * simulate only: the backend does not make commits of them yet.
  */
 export class Build {
   constructor(
@@ -279,6 +280,10 @@ export class Build {
     return this.raw.expiresAt;
   }
 
+  /**
+   * EVM only: the Commit to sign. A Solana build throws
+   * `svm_commit_unavailable`; `raw.commit()` answers its wallet requests.
+   */
   async commit(options?: PipelineCommitOptions): Promise<CommitHandle> {
     if (this.raw instanceof SvmBuild)
       throw new AomiError(

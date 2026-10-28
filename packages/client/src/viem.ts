@@ -23,20 +23,25 @@ export function viemSigner(wallet: WalletClient): EvmWallet {
       "viemSigner needs a wallet client with an account",
     );
   const local = account.type === "local";
-  /** Chains whose wallet refused `wallet_sendCalls`: one prompt per call there. */
-  const noBundles = new Set<number>();
-  // A viem client's `chain` is fixed at creation; track the wallet's own.
-  let current = wallet.chain?.id;
-  const onChain = async (chainId: number) => {
-    // A local key signs for any chain; only its broadcasts need the RPC.
-    if (!local && (current ?? (await wallet.getChainId())) !== chainId)
-      await wallet.switchChain({ id: chainId });
-    current = chainId;
+  /** Move the wallet to `chainId` and confirm it got there. A local key signs
+   * for any chain, so it has nothing to move. */
+  const onChain = async (chainId: number, onSwitch?: () => void) => {
+    if (local || (await wallet.getChainId()) === chainId) return;
+    onSwitch?.();
+    await wallet.switchChain({ id: chainId });
+    const now = await wallet.getChainId();
+    if (now !== chainId)
+      throw new AomiError(
+        "wrong_chain",
+        `The wallet stayed on chain ${now}; the commit is on ${chainId}`,
+      );
   };
+  /** Sends name their chain, so viem checks the wallet is still on it. */
+  const target = (id: number) => ({ id }) as Chain;
   const signer: EvmWallet = {
     address: account.address,
-    chainId: () => current,
-    switchChain: onChain,
+    ...(local ? { chainId: () => wallet.chain?.id } : {}),
+    switchChain: (chainId) => onChain(chainId),
     signMessage: async ({ message }) => {
       const args = toViemSignMessageArgs({ non_typed_data: message });
       if (!args) throw new AomiError("invalid_message", "Empty message");
@@ -69,56 +74,83 @@ export function viemSigner(wallet: WalletClient): EvmWallet {
         });
       },
       broadcastTransaction: async (signed, chainId) => {
-        if (wallet.chain?.id !== chainId)
+        const rpc = await wallet.getChainId();
+        if (rpc !== chainId)
           throw new AomiError(
             "wrong_chain",
-            `This wallet client sends on chain ${wallet.chain?.id}, the commit is on ${chainId}`,
+            `This wallet client sends on chain ${rpc}, the commit is on ${chainId}`,
           );
         return wallet.sendRawTransaction({
           serializedTransaction: signed as Hex,
         });
       },
     };
+  // EIP-5792: bundle only on chains the wallet says can batch, learned
+  // before any commit picks how to send.
+  const atomic = new Set<number>();
+  void wallet
+    .getCapabilities({ account })
+    .then((chains) => {
+      for (const [id, capabilities] of Object.entries(chains))
+        if (canBatch(capabilities)) atomic.add(Number(id));
+    })
+    .catch(() => undefined);
   return {
     ...signer,
     preparePreparedTransaction: async () => undefined,
     sendPreparedTransaction: async ({ chain_id, transaction: tx }, onPhase) => {
-      if (current !== chain_id) onPhase?.("switching_chain");
-      await onChain(chain_id);
+      await onChain(chain_id, () => onPhase?.("switching_chain"));
       onPhase?.("awaiting_wallet");
       return wallet.sendTransaction({
         account,
-        chain: null,
+        chain: target(chain_id),
         to: getAddress(tx.to),
         data: tx.data as Hex,
         value: BigInt(tx.value),
       });
     },
-    supportsAtomicBatch: (chainId) => !noBundles.has(chainId),
+    supportsAtomicBatch: (chainId) => atomic.has(chainId),
     sendPreparedCalls: async ({ chain_id, calls }, onPhase) => {
-      if (current !== chain_id) onPhase?.("switching_chain");
-      await onChain(chain_id);
+      await onChain(chain_id, () => onPhase?.("switching_chain"));
       onPhase?.("awaiting_wallet");
+      let id: string;
       try {
-        const { id } = await wallet.sendCalls({
+        ({ id } = await wallet.sendCalls({
           account,
-          // Only the id is read: the wallet's chain, not the client's.
-          chain: { ...wallet.chain, id: chain_id } as Chain,
+          chain: target(chain_id),
           calls: calls.map((call) => ({
             to: getAddress(call.to),
             data: call.data as Hex,
             value: BigInt(call.value),
           })),
-        });
-        onPhase?.("submitting");
-        const { receipts = [] } = await wallet.waitForCallsStatus({ id });
-        return receipts.map((receipt) => receipt.transactionHash);
+        }));
       } catch (error) {
-        if (isUnsupported(error)) noBundles.add(chain_id);
+        if (isUnsupported(error)) atomic.delete(chain_id);
         throw error;
       }
+      onPhase?.("submitting");
+      const { status, receipts = [] } = await wallet.waitForCallsStatus({ id });
+      if (status !== "success" || receipts.length === 0)
+        throw new AomiError(
+          "calls_failed",
+          `The wallet reports the call bundle ${status ?? "unknown"}`,
+        );
+      return receipts.map((receipt) => receipt.transactionHash);
     },
   };
+}
+
+/** EIP-5792 v2 `atomic`, or the older `atomicBatch`. */
+function canBatch(capabilities: Record<string, unknown>): boolean {
+  const { atomic, atomicBatch } = capabilities as {
+    atomic?: { status?: string };
+    atomicBatch?: { supported?: boolean };
+  };
+  return (
+    atomic?.status === "supported" ||
+    atomic?.status === "ready" ||
+    atomicBatch?.supported === true
+  );
 }
 
 function signLocal(
@@ -130,10 +162,11 @@ function signLocal(
   return account.signTransaction(transaction);
 }
 
-/** EIP-5792 not supported (4200) or the method missing (-32601). */
+/** EIP-5792 not supported (4200), the method missing (-32601) or not
+ * implemented (-32004). */
 function isUnsupported(error: unknown): boolean {
   for (let cause = error; cause; cause = (cause as { cause?: unknown }).cause)
-    if ([4200, -32601].includes((cause as { code?: number }).code ?? 0))
+    if ([4200, -32601, -32004].includes((cause as { code?: number }).code ?? 0))
       return true;
   return false;
 }

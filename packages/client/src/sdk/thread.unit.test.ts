@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Aomi } from "./aomi";
 import type { CommitView, EventPage } from "../";
+import { isAomiError } from "../api-error";
 
 const at = Date.parse("2026-10-28T00:00:00Z");
 const signer = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -83,12 +84,16 @@ function finishedTurn(): EventPage {
   } as EventPage;
 }
 
-function backend() {
+function backend(turn: EventPage = finishedTurn()) {
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(String(input));
     const method = init?.method ?? "GET";
     if (method === "POST" && url.pathname === "/v1/agent/chat")
-      return Response.json(finishedTurn());
+      return Response.json(turn);
+    if (url.pathname.endsWith("/interrupt") || url.pathname.endsWith("/stream"))
+      return Response.json({ ...turn, events: [] });
+    if (url.pathname === `/v1/agent/chat/${turn.session_id}`)
+      return Response.json({ ...turn, events: [] });
     const ref = url.pathname.match(/^\/v1\/commits\/(.+)$/)?.[1];
     if (ref)
       return Response.json({
@@ -143,7 +148,8 @@ describe("aomi.agent threads and turns", () => {
       },
     ]);
 
-    const { reply, commits, threadId } = await turn;
+    const { state, reply, commits, threadId } = await turn;
+    expect(state).toBe("completed");
     expect(reply).toBe("Swap is ready.");
     expect(threadId).toBe("thread-1");
     expect(commits.map((open) => [open.ref, open.state, open.kind])).toEqual([
@@ -195,5 +201,113 @@ describe("aomi.agent threads and turns", () => {
       sessionId: "thread-1",
     });
     expect(reply).toBe("Swap is ready.");
+  });
+
+  it("rejects a failed turn with its error", async () => {
+    const { aomi } = backend({
+      ...finishedTurn(),
+      events: [
+        { ...meta(1), type: "error", message: "model unavailable" },
+        {
+          ...meta(2),
+          type: "message",
+          sender: "agent",
+          content: "Something went wrong.",
+        },
+        { ...meta(3), type: "turn_state_changed", state: "failed" },
+      ],
+      commits: [],
+    } as EventPage);
+    const error = await aomi.agent
+      .thread("thread-1")
+      .send("hi")
+      .then(
+        () => undefined,
+        (caught: unknown) => caught,
+      );
+    expect(isAomiError(error, "turn_failed")).toBe(true);
+    expect((error as Error).message).toBe("model unavailable");
+  });
+
+  it("resolves a hand-off as awaiting_approval and can still interrupt it", async () => {
+    const { aomi, fetch } = backend({
+      ...finishedTurn(),
+      events: [
+        { ...meta(1), type: "turn_state_changed", state: "awaiting_action" },
+      ],
+      commits: [commit("c-sign")],
+    } as EventPage);
+    const turn = aomi.agent.thread("thread-1").send("swap");
+    const { state, commits } = await turn;
+    expect(state).toBe("awaiting_approval");
+    expect(commits).toHaveLength(1);
+    await turn.interrupt();
+    const interrupt = fetch.mock.calls.find(([url]) =>
+      String(url).endsWith("/interrupt"),
+    );
+    expect(JSON.parse(String(interrupt?.[1]?.body))).toEqual({
+      turnId: "turn-1",
+    });
+    for (const open of commits) open.close();
+  });
+
+  it("keeps steps from other turn ids after the user message and backfills trailing arguments", async () => {
+    const { aomi } = backend({
+      ...finishedTurn(),
+      events: [
+        {
+          ...meta(1, "turn-0"),
+          type: "tool_complete",
+          id: "old",
+          tool_name: "x",
+          result: {},
+        },
+        { ...meta(2), type: "message", sender: "user", content: "swap" },
+        {
+          ...meta(3),
+          type: "tool_complete",
+          id: "t",
+          call_id: "call-1",
+          tool_name: "evm_commit_txs",
+          result: {},
+        },
+        {
+          ...meta(4),
+          type: "message",
+          sender: "agent",
+          content: "",
+          tool_call_id: "call-1",
+          tool_arguments: { chain_id: 8453 },
+        },
+        {
+          ...meta(5, "turn-2"),
+          type: "tool_complete",
+          id: "u",
+          call_id: "call-2",
+          tool_name: "get_receipt",
+          result: {},
+        },
+        {
+          ...meta(6),
+          type: "message",
+          sender: "agent",
+          content: "Swapped.",
+        },
+        { ...meta(7), type: "turn_state_changed", state: "complete" },
+      ],
+      commits: [],
+    } as EventPage);
+    const steps = [];
+    for await (const step of aomi.agent.thread("thread-1").send("swap").steps())
+      steps.push(step);
+    expect(steps).toEqual([
+      {
+        id: "call-1",
+        name: "evm_commit_txs",
+        result: {},
+        args: { chain_id: 8453 },
+      },
+      { id: "call-2", name: "get_receipt", result: {} },
+    ]);
   });
 });
