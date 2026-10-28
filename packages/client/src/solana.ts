@@ -16,12 +16,16 @@ import type { SvmWallet } from "./wallet/types";
  */
 export function solanaSigner(
   key: Keypair | string,
-  options: { rpcUrl?: string } = {},
+  options: {
+    /** RPC per cluster (`solana:mainnet`, `solana:devnet`, `solana:testnet`);
+     * public endpoints otherwise. */
+    rpcUrls?: Partial<Record<string, string>>;
+  } = {},
 ): SvmWallet {
   const keypair = typeof key === "string" ? parseKeypair(key) : key;
   const connection = (cluster: string) =>
     new Connection(
-      options.rpcUrl ??
+      options.rpcUrls?.[cluster] ??
         clusterApiUrl(
           cluster === "solana:devnet"
             ? "devnet"
