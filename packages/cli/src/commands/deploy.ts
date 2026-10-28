@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ManagerClient } from "@aomi-labs/internal/manager";
 import { json, out, usage } from "../context";
 
-export type DeployFlags = {
+type DeployFlags = {
   backendUrl?: string;
   activationToken?: string;
   platform?: string;

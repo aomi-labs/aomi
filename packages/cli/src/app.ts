@@ -145,42 +145,7 @@ const routes = <R extends string>(
     },
   } as never) as RouteMap<CommandContext>;
 
-const chatCommand = command(
-  "Ask once or continue a thread",
-  {
-    prompt: text("Ask once, print the answer", { placeholder: "message" }),
-    thread: text("Continue this thread", { placeholder: "id" }),
-    new: yes("Start a new thread"),
-    app: text("Route to this app (Direct)", { placeholder: "name" }),
-    model: text("Model for this turn", { placeholder: "name" }),
-    ...json,
-    ...signing,
-  },
-  [arg("What to ask", "message", true)],
-  chat,
-  { aliases: { p: "prompt" } },
-);
-
-const login = command(
-  "Sign in with one device code",
-  { backendUrl: conn.backendUrl },
-  [],
-  account.login,
-);
-const logout = command(
-  "Sign out on this machine",
-  { backendUrl: conn.backendUrl },
-  [],
-  account.logout,
-);
-const whoami = command(
-  "Who you're signed in as",
-  { ...json, ...conn },
-  [],
-  account.whoami,
-);
-
-export const BRIEFS = {
+const BRIEFS = {
   chat: "Ask once or continue a thread",
   threads: "List, open, rename, archive",
   login: "Sign in with one device code",
@@ -201,12 +166,47 @@ export const BRIEFS = {
   completion: "Shell completion script",
 };
 
-export const ALIASES: Record<string, keyof typeof BRIEFS> = {
+const ALIASES: Record<string, keyof typeof BRIEFS> = {
   session: "threads",
   wallet: "wallets",
   app: "apps",
   byok: "keys",
 };
+
+const chatCommand = command(
+  BRIEFS.chat,
+  {
+    prompt: text("Ask once, print the answer", { placeholder: "message" }),
+    thread: text("Continue this thread", { placeholder: "id" }),
+    new: yes("Start a new thread"),
+    app: text("Route to this app (Direct)", { placeholder: "name" }),
+    model: text("Model for this turn", { placeholder: "name" }),
+    ...json,
+    ...signing,
+  },
+  [arg("What to ask", "message", true)],
+  chat,
+  { aliases: { p: "prompt" } },
+);
+
+const login = command(
+  BRIEFS.login,
+  { backendUrl: conn.backendUrl },
+  [],
+  account.login,
+);
+const logout = command(
+  BRIEFS.logout,
+  { backendUrl: conn.backendUrl },
+  [],
+  account.logout,
+);
+const whoami = command(
+  BRIEFS.whoami,
+  { ...json, ...conn },
+  [],
+  account.whoami,
+);
 
 const ref = [arg("Commit ref", "ref")];
 const signerShow = command("The local signer", json, [], wallets.signer);

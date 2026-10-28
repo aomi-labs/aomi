@@ -26,7 +26,7 @@ export type CliState = {
   cluster?: SvmCluster;
 };
 
-export const STATE_DIR = process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");
+const STATE_DIR = process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");
 const STATE_FILE = join(STATE_DIR, "cli.json");
 export const grants = fileGrants(join(STATE_DIR, "grants.json"));
 
@@ -38,7 +38,7 @@ export function loadState(): CliState {
   }
 }
 
-export function saveState(state: CliState): void {
+function saveState(state: CliState): void {
   mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
   writeFileSync(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, {
     mode: 0o600,
