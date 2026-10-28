@@ -75,6 +75,8 @@ export function deployArgs(env = process.env) {
   return [
     "wrangler",
     "deploy",
+    // rc alone binds the replay Durable Object; see wrangler.rc.jsonc.
+    ...(topology === "rc" ? ["--config", "wrangler.rc.jsonc"] : []),
     "--name",
     name,
     ...routes(required("EDGE_ROUTES", env)).flatMap((route) => ["--route", route]),

@@ -102,6 +102,11 @@ export async function exchangeRcToken(
   const replay = env.RC_OIDC_REPLAY;
   // Without a place to remember tokens, a replay cannot be refused.
   if (!replay) throw new EdgeError(503, "replay_store_unavailable");
+  // Refuse an unknown service before a valid token is spent on it.
+  const url = new URL(request.url);
+  const name = url.searchParams.get("service") ?? "agent";
+  if (!Object.hasOwn(SERVICES, name)) throw new EdgeError(400, "unknown_service");
+  const service = SERVICES[name as keyof typeof SERVICES];
   const { jti, exp } = await verified(bearer(request), cfg, key, now);
 
   // Held past `exp` so clock skew cannot reopen the window.
@@ -110,9 +115,6 @@ export async function exchangeRcToken(
   });
   if (!claimed) throw new EdgeError(401, "replayed_token");
 
-  const url = new URL(request.url);
-  const service = SERVICES[(url.searchParams.get("service") ?? "agent") as keyof typeof SERVICES];
-  if (!service) throw new EdgeError(400, "unknown_service");
   const origin = url.origin;
   const { accessToken } = await minted(() =>
     edgeService(env, new URL(request.url).host).mint({

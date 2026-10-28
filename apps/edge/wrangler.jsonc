@@ -14,10 +14,6 @@
   // The Task discovery challenge cache. Once a namespace exists, bind it here
   // as EDGE_CACHE; the Worker falls back to an in-isolate cache without it.
   // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
-  // Once-only OIDC `jti` claims for the RC test identity (src/api/rc-replay.ts).
-  // The binding is inert wherever RC_OIDC_* is unset: only the rc topology uses it.
-  "durable_objects": { "bindings": [{ "name": "RC_OIDC_REPLAY", "class_name": "RcReplayStore" }] },
-  "migrations": [{ "tag": "rc-replay-1", "new_sqlite_classes": ["RcReplayStore"] }],
   "vars": {
     // A placement miss wakes the backend reconciler; keep the original
     // request at the edge while the small hosted artifact materializes.

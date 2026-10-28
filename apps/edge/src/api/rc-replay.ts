@@ -13,11 +13,22 @@ type Storage = {
 };
 
 export class RcReplayStore {
-  constructor(private readonly state: { storage: Storage }) {}
+  constructor(
+    private readonly state: {
+      storage: Storage;
+      blockConcurrencyWhile?<T>(callback: () => Promise<T>): Promise<T>;
+    },
+  ) {}
 
   /** POST {jti, expiresAt(ms)}: 204 when claimed now, 409 when already seen. */
   async fetch(request: Request): Promise<Response> {
-    const { jti, expiresAt } = (await request.json()) as { jti: string; expiresAt: number };
+    const claim = (await request.json()) as { jti: string; expiresAt: number };
+    // Explicit rather than implied by input gates: no other claim runs mid-check.
+    const run = this.state.blockConcurrencyWhile?.bind(this.state) ?? ((callback) => callback());
+    return run(() => this.claim(claim));
+  }
+
+  private async claim({ jti, expiresAt }: { jti: string; expiresAt: number }): Promise<Response> {
     const now = Date.now();
     const { storage } = this.state;
     const seen = (await storage.get(`jti:${jti}`)) as number | undefined;

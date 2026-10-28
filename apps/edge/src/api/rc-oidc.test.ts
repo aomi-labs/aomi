@@ -205,3 +205,12 @@ describe("rc identity gating", () => {
     expect(seen?.headers.has("cookie")).toBe(false);
   });
 });
+
+describe("rc exchange input", () => {
+  it("refuses inherited property names as services without spending the token", async () => {
+    const token = await oidc();
+    for (const name of ["constructor", "__proto__", "toString"])
+      expect((await exchange(token, "POST", `?service=${name}`)).status).toBe(400);
+    expect((await exchange(token)).status).toBe(200);
+  });
+});
