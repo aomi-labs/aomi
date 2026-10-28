@@ -192,6 +192,14 @@ describe("aomi.account", () => {
     });
   });
 
+  it("reads a builder's own credits under /v1/builder", async () => {
+    const { aomi, calls } = backend({
+      "GET /v1/builder/credits": () => Response.json({ balance_microusd: 0 }),
+    });
+    await aomi.builder.credits.get();
+    expect(calls[0]?.path).toBe("/v1/builder/credits");
+  });
+
   it("keeps BYOK keys and on-chain policies under /v1/account", async () => {
     const { aomi, calls } = backend({
       "POST /v1/account/keys": () =>

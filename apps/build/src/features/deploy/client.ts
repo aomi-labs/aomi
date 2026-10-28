@@ -1,7 +1,7 @@
 // Launch/deployments BFF client — one @aomi-labs/deploy/launch client instance
 // bound to Aomi Build's route mounts, re-exported as the named functions the
 // call sites (and their test mocks) already use. Only `githubAppInstallUrl`
-// leaves the BFF: it reaches the backend through the session-scoped fetch.
+// leaves the BFF: the Edge forwards its install start to the backend.
 
 import type {
   GitHubAppInstallationsResult,
@@ -17,7 +17,6 @@ import {
   type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
 import { buildFetch } from "@/lib/session-expiry";
-import { sessionScopedFetch } from "@/lib/settings-api";
 import {
   type LaunchActivateResult,
   type LaunchAppStatusesResult,
@@ -40,10 +39,7 @@ import {
 export { LaunchRequestError };
 export type { GithubAppOAuthStartResponse };
 
-const client = createLaunchClient({
-  fetch: buildFetch,
-  backendFetch: sessionScopedFetch,
-});
+const client = createLaunchClient({ fetch: buildFetch });
 
 export const githubSigninUrl = client.githubSigninUrl;
 

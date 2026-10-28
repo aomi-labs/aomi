@@ -26,6 +26,7 @@ import { AomiWallets } from "./wallets";
 import type { TransactionSafetyTransport } from "../transaction-safety";
 import { AomiAccount } from "./account";
 import { createEvmPaymentClient } from "../payment";
+import { AccountCreditsTransport } from "../account/credits";
 
 /** `baseUrl` defaults to https://chat.aomi.dev. */
 type AomiConnectionOptions = Omit<AomiClientOptions, "baseUrl"> & {
@@ -92,6 +93,8 @@ export class Aomi {
   /** The account's wallets and their balances (not this process's signer). */
   readonly wallets: AomiWallets;
   readonly account: AomiAccount;
+  /** An Aomi Build builder's own credits (Build's GitHub session). */
+  readonly builder: { credits: AccountCreditsTransport };
   readonly transactionSafety: TransactionSafetyTransport;
   readonly auth: AomiAuthController;
   readonly wallet?: Wallets;
@@ -210,6 +213,13 @@ export class Aomi {
     this.account = new AomiAccount((method, path, requestOptions) =>
       this.raw.requestResponse(method, path, requestOptions),
     );
+    this.builder = {
+      credits: new AccountCreditsTransport(
+        (method, path, requestOptions) =>
+          this.raw.requestResponse(method, path, requestOptions),
+        "/v1/builder/credits",
+      ),
+    };
     this.transactionSafety = this.raw.transactionSafety;
     this.agent = new AomiAgent(
       this.raw.agent,

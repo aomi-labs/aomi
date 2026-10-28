@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AomiClient,
-  AccountCreditsTransport,
+  Aomi,
   type CreditLedger,
   type CreditBalance,
 } from "@aomi-labs/client";
@@ -21,13 +20,10 @@ const dollars = (value: number) =>
   );
 
 export function SettingsBillingPanel() {
-  const credits = useMemo(() => {
-    const client = new AomiClient({ baseUrl: "" });
-    return new AccountCreditsTransport(
-      client.requestResponse.bind(client),
-      "/v1/builder/credits",
-    );
-  }, []);
+  const credits = useMemo(
+    () => new Aomi({ baseUrl: "", guest: false }).builder.credits,
+    [],
+  );
   const [position, setPosition] = useState<CreditBalance | null>(null);
   const [ledger, setLedger] = useState<CreditLedger | null>(null);
   const [statement, setStatement] = useState<Pick<

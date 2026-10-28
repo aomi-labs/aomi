@@ -1,16 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-const state = vi.hoisted(() => ({ get: vi.fn(), ledger: vi.fn(), path: "" }));
+const state = vi.hoisted(() => ({ get: vi.fn(), ledger: vi.fn() }));
 vi.mock("@aomi-labs/client", () => ({
-  AomiClient: class {
-    requestResponse() {}
-  },
-  AccountCreditsTransport: class {
-    constructor(_request: unknown, path: string) {
-      state.path = path;
-    }
-    get = state.get;
-    ledger = state.ledger;
+  Aomi: class {
+    builder = { credits: { get: state.get, ledger: state.ledger } };
   },
 }));
 vi.mock("@aomi-labs/widget/checkout", () => ({
@@ -49,7 +42,6 @@ beforeEach(() => {
 it("uses builder ownership and refreshes debt after shared checkout succeeds", async () => {
   render(<SettingsBillingPanel />);
   expect(await screen.findByText(/Pay \$10.00 to restore/)).toBeInTheDocument();
-  expect(state.path).toBe("/v1/builder/credits");
   state.get.mockResolvedValue({
     balance_microusd: 0,
     debt_microusd: 0,
