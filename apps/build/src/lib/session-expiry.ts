@@ -1,5 +1,3 @@
-"use client";
-
 export const BUILD_SESSION_EXPIRED = "aomi-build:session-expired";
 
 /** A rejected session does not discard the current view or local drafts. */

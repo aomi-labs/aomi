@@ -1,5 +1,3 @@
-"use client";
-
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { projectSdk } from "../sdk-compatibility";
 import { SdkBadge } from "../ui/sdk-badge";

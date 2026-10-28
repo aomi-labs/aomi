@@ -1,5 +1,3 @@
-"use client";
-
 // Partner payment ledger on the Usage page: what each priced tool costs, who
 // the beneficiary is, and the accrue → settle trail. Settlement is reconciled
 // at recipient-bucket scope, so one receipt can clear fees from several apps.

@@ -1,9 +1,7 @@
-"use client";
-
 import { Square } from "lucide-react";
 
 import { MarkdownContent } from "@/features/build/components/markdown-content";
-import { cn } from "@/lib/class-names";
+import { cn } from "@aomi-labs/react";
 
 export type ChatMessageProps = {
   role: "user" | "assistant" | "system";
