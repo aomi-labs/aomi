@@ -316,7 +316,7 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
       expect(CliSession.load()!.toState().auth?.betterAuthUserId).toBe(
         "fresh-account",
       );
-      expect(apiPaths).not.toContain("/api/auth/sign-in/anonymous");
+      expect(apiPaths).not.toContain("/api/auth/guest");
     },
   );
 });

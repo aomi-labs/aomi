@@ -39,7 +39,7 @@ function localHosts() {
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `pnpm exec tsx apps/portal/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal exec next build && pnpm --dir apps/portal exec next start -H 127.0.0.1 -p ${ports.portalUpstream}`,
+      command: `pnpm exec tsx apps/edge/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal exec next build && pnpm --dir apps/portal exec next start -H 127.0.0.1 -p ${ports.portalUpstream}`,
       url: portalUpstream,
       env,
       timeout: 300_000,

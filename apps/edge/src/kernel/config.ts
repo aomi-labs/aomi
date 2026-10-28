@@ -1,4 +1,7 @@
+import { z } from "zod";
+
 import type { EdgeEnv } from "../env";
+import { EdgeError } from "./errors";
 
 /**
  * The Worker's configuration, parsed once per env object. Every optional var
@@ -20,6 +23,10 @@ export type Config = {
     trustedOrigins: readonly string[];
     catalogPlatforms: readonly string[];
     dpopRequired: boolean;
+  };
+  landing: {
+    hosts: ReadonlySet<string>;
+    upstream: string | null;
   };
   build: {
     hosts: ReadonlySet<string>;
@@ -86,6 +93,10 @@ export function config(env: EdgeEnv): Config {
       catalogPlatforms: list(env.APP_CATALOG_PLATFORMS),
       dpopRequired: flag(env.AOMI_MCP_DPOP_REQUIRED),
     },
+    landing: {
+      hosts: hosts(env.LANDING_HOSTS),
+      upstream: origin(env.LANDING_UPSTREAM_ORIGIN),
+    },
     build: {
       hosts: hosts(env.BUILD_HOSTS),
       upstream: origin(env.BUILD_UPSTREAM_ORIGIN),
@@ -97,4 +108,29 @@ export function config(env: EdgeEnv): Config {
   };
   parsed.set(env, value);
   return value;
+}
+
+/** What the account surface needs bound: the database, and Better Auth's issuer and secret. */
+const AUTH_BINDINGS = z.object({
+  HYPERDRIVE: z.object({ connectionString: z.string().min(1) }),
+  BETTER_AUTH_URL: z.url(),
+  BETTER_AUTH_SECRET: z.string().min(32),
+});
+
+const checked = new WeakSet<EdgeEnv>();
+
+/**
+ * Fail closed when the account surface is misconfigured, before Better Auth
+ * starts. Local Node suites (NODE_ENV development or test) bring their own
+ * database URL and Better Auth's development secret.
+ */
+export function assertAuthBindings(env: EdgeEnv): void {
+  if (checked.has(env)) return;
+  const local = ["development", "test"].includes((env as { NODE_ENV?: string }).NODE_ENV ?? "");
+  const result = AUTH_BINDINGS.safeParse(env);
+  if (!local && !result.success) {
+    const missing = result.error.issues.map((issue) => issue.path.join(".")).join(", ");
+    throw new EdgeError(503, "auth_unconfigured", { cause: new Error(`invalid bindings: ${missing}`) });
+  }
+  checked.add(env);
 }

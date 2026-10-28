@@ -14,7 +14,7 @@ describe("CLI explicit API bearer", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = new URL(String(input)).pathname;
-        if (path === "/api/auth/sign-in/anonymous") {
+        if (path === "/api/auth/guest") {
           return Response.json({ token: "guest-session" });
         }
         if (path === "/v1/pipeline/apps") {
@@ -46,7 +46,7 @@ describe("CLI explicit API bearer", () => {
 
     expect(
       fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname),
-    ).toEqual(["/api/auth/sign-in/anonymous", "/v1/pipeline/apps"]);
+    ).toEqual(["/api/auth/guest", "/v1/pipeline/apps"]);
   });
 
   it("authorizes public Pipeline requests with the explicit scoped bearer", async () => {

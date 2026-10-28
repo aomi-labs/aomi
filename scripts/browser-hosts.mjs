@@ -158,7 +158,7 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
       "pnpm",
       "exec",
       "tsx",
-      "apps/portal/scripts/migrate-browser-contract-db.ts",
+      "apps/edge/scripts/migrate-browser-contract-db.ts",
     ],
     env,
   );
@@ -187,6 +187,7 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
     portalUpstream,
     agentUpstream: upstream.origin,
     trustedOrigins: [origins.consumer, origins.next],
+    databaseUrl,
     log: hosts.log,
   });
   hosts.onStop(() => edge.close());

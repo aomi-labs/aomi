@@ -1,5 +1,6 @@
 import { AomiError } from "./api-error";
 import { SimulationApiError } from "./simulation";
+import { ROUTE_SCOPES } from "./generated/route-scopes";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
@@ -286,124 +287,22 @@ export function wrapFetchWithPublicApiAuthorization(input: {
   };
 }
 
+/** The OAuth resource and scopes a route needs, from the edge's own table. */
 function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
-  const origin = url.origin;
-  const payment = new Headers(headers).has("payment-signature")
-    ? ["payments:submit"]
-    : [];
-  if (
-    method.toUpperCase() === "POST" &&
-    ["/api/thread/model", "/api/thread/sim/world"].includes(url.pathname)
-  ) {
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:write"],
-      method: "POST",
-    };
-  }
-  if (isCommitPath(url.pathname)) {
-    const write = url.pathname.startsWith("/v1/")
-      ? "agent:write"
-      : "agent:actions:resolve";
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: [
-        method.toUpperCase() === "GET" ? "agent:read" : write,
-        ...payment,
-      ],
-      method: method.toUpperCase(),
-    };
-  }
-  if (url.pathname === "/api/thread/wallet") {
-    // `aomi wallets use`: the portal asks agent:write of the switch.
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:write", ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  if (url.pathname === "/v1/agent" || url.pathname.startsWith("/v1/agent/")) {
-    const scopes =
-      method === "GET"
-        ? ["agent:read"]
-        : /\/actions\/[^/]+\/result$/.test(url.pathname)
-          ? ["agent:actions:resolve"]
-          : ["agent:write"];
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: [...scopes, ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  if (
-    url.pathname === "/v1/pipeline" ||
-    url.pathname.startsWith("/v1/pipeline/")
-  ) {
-    return {
-      resource: `${origin}/v1/pipeline` as AomiOAuthResource,
-      scopes: [
-        method === "GET" &&
-        !url.pathname.startsWith("/v1/pipeline/evm/commits/")
-          ? "pipeline:catalog"
-          : "pipeline:execute",
-        ...payment,
-      ],
-      method: method.toUpperCase(),
-    };
-  }
-  if (
-    method.toUpperCase() === "GET" &&
-    /^\/v1\/account\/(?:wallets(?:\/[^/]+\/balance)?|agent-wallets(?:\/[^/]+\/balances)?)$/.test(
-      url.pathname,
-    )
-  ) {
-    // api-server serves the wallet list and balances on the agent resource.
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:read", ...payment],
-      method: "GET",
-    };
-  }
-  if (
-    url.pathname === "/v1/account" ||
-    url.pathname.startsWith("/v1/account/")
-  ) {
-    const isAppCredential =
-      /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
-    const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
-    let scope: string;
-    if (url.pathname.startsWith("/v1/account/transaction-safety")) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:transaction-safety:read"
-          : "account:transaction-safety:write";
-    } else if (isAppCredential) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:credentials:read"
-          : "account:credentials:write";
-    } else if (isAccountApp) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:apps:read"
-          : "account:apps:write";
-    } else if (url.pathname === "/v1/account/statement") {
-      scope = "account:usage:read";
-    } else if (
-      url.pathname.startsWith("/v1/account/credits/funding-events") &&
-      method.toUpperCase() === "POST"
-    ) {
-      scope = "account:credits:fund";
-    } else {
-      scope = "account:credits:read";
-    }
-    return {
-      resource: `${origin}/v1/account` as AomiOAuthResource,
-      scopes: [scope, ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  return null;
+  const upper = method.toUpperCase();
+  const route = ROUTE_SCOPES.find(
+    (row) => row.path.test(url.pathname) && row.methods[upper],
+  );
+  if (!route) return null;
+  const payment =
+    route.paid && new Headers(headers).has("payment-signature")
+      ? ["payments:submit"]
+      : [];
+  return {
+    resource: `${url.origin}${route.resource}` as AomiOAuthResource,
+    scopes: [route.methods[upper]!, ...payment],
+    method: upper,
+  };
 }
 
 function absoluteBase(baseUrl: string): string {

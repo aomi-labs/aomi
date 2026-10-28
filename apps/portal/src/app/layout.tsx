@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, PT_Serif, Source_Serif_4 } from "next/font/google";
-import { cookies } from "next/headers";
 import "./globals.css";
 import { CookieConsent } from "@/components/analytics/analytics";
 import { GoogleAnalytics } from "@/components/analytics/analytics";
 import { SettingsInitializer } from "@/components/providers/settings-initializer";
 import { WalletProviders } from "@/components/providers/wallet-providers";
-import { devToolsAllowed } from "@/server/env";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -42,37 +40,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+// Rendered per request, as before (the wallet providers read the URL).
+export const dynamic = "force-dynamic";
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const e2eWallet = devToolsAllowed()
-    ? await import("@/server/bff/dev/e2e-wallet").then(
-        ({ E2E_WALLET_COOKIE, verifyE2EWalletCookie }) =>
-          verifyE2EWalletCookie(cookieStore.get(E2E_WALLET_COOKIE)?.value),
-      )
-    : null;
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${ptSerif.variable} ${sourceSerif.variable} font-sans antialiased`}
       >
         <GoogleAnalytics />
-        <WalletProviders
-          e2eWallet={
-            e2eWallet
-              ? {
-                  address: e2eWallet.address,
-                  chainId: e2eWallet.chainId,
-                  svmAddress: e2eWallet.svmAddress,
-                  svmCluster: e2eWallet.svmCluster,
-                }
-              : null
-          }
-        >
+        <WalletProviders>
           <SettingsInitializer>
             <div className="relative h-screen w-full overflow-hidden">
               {children}

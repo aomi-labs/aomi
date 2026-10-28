@@ -46,12 +46,6 @@
       "@aomi-labs/client/*": [
         "../../packages/client/src/*"
       ],
-      "@aomi-labs/account": [
-        "../../packages/account/src/index.ts"
-      ],
-      "@aomi-labs/account/*": [
-        "../../packages/account/src/*"
-      ],
       "@assistant-ui/react": [
         "./node_modules/@assistant-ui/react"
       ],

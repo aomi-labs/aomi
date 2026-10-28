@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AomiWalletKitContextProvider,
   type AomiWalletKit,
@@ -23,6 +23,35 @@ export type E2EWalletSeedClient = {
   svmAddress?: string;
   svmCluster?: "solana:devnet" | "solana:testnet" | "solana:mainnet";
 };
+
+const E2E_WALLET_COOKIE = "aomi_e2e_wallet=";
+
+/**
+ * The wallet the local edge's E2E harness seeded (`/api/bff/e2e/wallet`), read
+ * from its signed cookie; the harness verifies that signature on every call.
+ * Development builds only.
+ */
+export function useE2EWalletSeed(): E2EWalletSeedClient | null {
+  const [seed, setSeed] = useState<E2EWalletSeedClient | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const payload = document.cookie
+      .split("; ")
+      .find((part) => part.startsWith(E2E_WALLET_COOKIE))
+      ?.slice(E2E_WALLET_COOKIE.length)
+      .split(".")[0];
+    if (!payload) return;
+    try {
+      const parsed = JSON.parse(
+        atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+      ) as E2EWalletSeedClient & { expiresAt?: number };
+      if ((parsed.expiresAt ?? 0) > Date.now() / 1000) setSeed(parsed);
+    } catch {
+      // A malformed cookie seeds nothing.
+    }
+  }, []);
+  return seed;
+}
 
 type Props = {
   children: ReactNode;

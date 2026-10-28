@@ -25,6 +25,7 @@ const eslintConfig = [
       "**/dist/**",
       "**/build/**",
       "**/.turbo/**",
+      "**/.wrangler/**",
       "**/node_modules/**",
     ],
   },

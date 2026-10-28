@@ -6,7 +6,6 @@ export {
 } from "./origin";
 export { type WidgetChallenge } from "./challenge";
 export {
-  hasWidgetSessionBearer,
   issueWidgetSession,
   resolveWidgetSession,
   revokeWidgetSession,
