@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AomiOAuthGrant, AomiOAuthGrantStore } from "./authorization";
@@ -6,7 +7,8 @@ import type { AomiOAuthGrant, AomiOAuthGrantStore } from "./authorization";
 /**
  * Keep OAuth grants in a private JSON file, so a sign-in outlives the
  * process. Defaults to `~/.config/aomi/grants.json` (`$XDG_CONFIG_HOME`
- * when set).
+ * when set). A file that is not a grant list reads as empty, and is kept
+ * next to it as `.bak`.
  */
 export function fileGrants(
   path = join(
@@ -15,20 +17,35 @@ export function fileGrants(
     "grants.json",
   ),
 ): AomiOAuthGrantStore {
+  let saving = Promise.resolve();
   return {
     async load() {
+      let text: string;
       try {
-        return JSON.parse(await readFile(path, "utf8")) as AomiOAuthGrant[];
+        text = await readFile(path, "utf8");
       } catch (error) {
         if ((error as { code?: string }).code === "ENOENT") return [];
         throw error;
       }
+      try {
+        const grants: unknown = JSON.parse(text);
+        if (Array.isArray(grants)) return grants as AomiOAuthGrant[];
+      } catch {
+        // Unreadable: kept as .bak below.
+      }
+      await copyFile(path, `${path}.bak`);
+      return [];
     },
-    async save(grants) {
-      await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-      const next = `${path}.${process.pid}.tmp`;
-      await writeFile(next, JSON.stringify(grants, null, 2), { mode: 0o600 });
-      await rename(next, path);
+    save(grants) {
+      const write = async () => {
+        await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+        const next = `${path}.${process.pid}.${randomUUID()}.tmp`;
+        await writeFile(next, JSON.stringify(grants, null, 2), {
+          mode: 0o600,
+        });
+        await rename(next, path);
+      };
+      return (saving = saving.then(write, write));
     },
   };
 }

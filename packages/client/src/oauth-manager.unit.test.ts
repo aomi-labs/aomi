@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AomiOAuthError,
   createAomiOAuthGrantManager,
+  createMemoryOAuthGrantStore,
   type AomiOAuthGrant,
   type AomiOAuthTokenRequest,
 } from "./authorization";
@@ -31,6 +32,54 @@ function grant(
 }
 
 describe("Aomi OAuth grant manager", () => {
+  it("leaves other clients' grants in a shared store alone", async () => {
+    const other = {
+      ...grant(apiResource, "other", ["agent:read"]),
+      clientId: "cli",
+    };
+    const store = createMemoryOAuthGrantStore([other]);
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      store,
+      refresh: vi.fn(),
+    });
+    await manager.put({
+      ...grant(apiResource, "mine", ["agent:read"]),
+      expiresAt: 9,
+    });
+    await manager.clear();
+    expect((await store.load()).map((saved) => saved.accessToken)).toEqual([
+      "other",
+    ]);
+  });
+
+  it("takes a grant another process rotated instead of dropping it on invalid_grant", async () => {
+    const held = grant(apiResource, "old", ["agent:read"]);
+    const store = createMemoryOAuthGrantStore([held]);
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      store,
+      refresh: async () => {
+        // Meanwhile another process rotated the refresh token.
+        await store.save([
+          { ...held, accessToken: "new", refreshToken: "r2", expiresAt: 9e9 },
+        ]);
+        throw new AomiOAuthError("invalid_grant");
+      },
+      now: () => 1,
+    });
+    const token = await manager.tokenProvider({
+      resource: agentResource,
+      scopes: ["agent:read"],
+    });
+    expect(token?.accessToken).toBe("new");
+    expect((await manager.grants()).map((saved) => saved.refreshToken)).toEqual(
+      ["r2"],
+    );
+  });
+
   it("serves agent and pipeline from one /v1 grant and deduplicates refresh", async () => {
     const refresh = vi.fn(async (current: AomiOAuthGrant) => ({
       ...current,

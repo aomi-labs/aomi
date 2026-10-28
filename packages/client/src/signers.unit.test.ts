@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,7 +25,10 @@ import { fileGrants } from "./node";
 import { solanaSigner } from "./solana";
 import { viemSigner } from "./viem";
 import { isAomiError } from "./api-error";
-import type { AomiOAuthGrant } from "./authorization";
+import {
+  createAomiOAuthGrantManager,
+  type AomiOAuthGrant,
+} from "./authorization";
 
 const key =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
@@ -292,5 +295,25 @@ describe("fileGrants", () => {
     await expect(fileGrants(path).load()).resolves.toEqual([grant]);
     expect((await stat(path)).mode & 0o777).toBe(0o600);
     expect(JSON.parse(await readFile(path, "utf8"))).toHaveLength(1);
+
+    // Saves at the same time all land, each through its own temp file.
+    const store = fileGrants(path);
+    await Promise.all([store.save([grant]), store.save([grant, grant])]);
+    await expect(store.load()).resolves.toHaveLength(2);
+  });
+
+  it("reads a corrupt file as empty, keeps a .bak, and can still sign out", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "aomi-")), "grants.json");
+    await writeFile(path, "{not json");
+    const manager = createAomiOAuthGrantManager({
+      issuer: "https://chat.example",
+      clientId: "c",
+      store: fileGrants(path),
+      refresh: vi.fn(),
+    });
+    await expect(manager.grants()).resolves.toEqual([]);
+    await expect(readFile(`${path}.bak`, "utf8")).resolves.toBe("{not json");
+    await manager.clear();
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual([]);
   });
 });
