@@ -40,6 +40,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Rendered per request, as before (the wallet providers read the URL).
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
