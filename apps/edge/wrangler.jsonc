@@ -11,6 +11,10 @@
   "minify": true,
   "upload_source_maps": true,
   "observability": { "enabled": true },
+  // Run next to the us-east-1 database: every auth request queries it several
+  // times, and from a European colo each round trip crosses the Atlantic
+  // (preview: session p50 1.66 s unplaced, 0.33 s placed).
+  "placement": { "region": "aws:us-east-1" },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Local development: the account database through a local Hyperdrive. Point
   // it at your Postgres with CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE.
