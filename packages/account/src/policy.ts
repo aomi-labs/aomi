@@ -1,9 +1,10 @@
 /**
  * The account authorization policy, framework-free so every enforcement point
  * reads one copy: the OAuth resources a portal origin hosts and their scope
- * ceilings, the capabilities each session kind grants, and the one
- * `authorize` check. The Better Auth server, the portal BFF and the edge
- * Worker all build on it.
+ * ceilings, the capabilities each session kind grants, the one `authorize`
+ * check, and `ROUTES`, the one table of what each portal-host route needs.
+ * Better Auth and the edge build on it; the SDK gets a generated copy
+ * (`packages/client/src/generated/route-scopes.ts`).
  */
 
 export const AOMI_CANONICAL_USER_CLAIM = "https://aomi.dev/canonical_user_id" as const;
@@ -228,7 +229,7 @@ const GUEST: readonly Capability[] = ["chat", "actions", "account", "backend_bea
 const EMBEDDED: readonly Capability[] = ["backend_bearer", "cli_session", "device_login"];
 
 /** Session-shaped principals; OAuth grants are the token's own scopes. */
-export type SessionKind = "cookie" | "session_bearer" | "widget" | "e2e";
+export type SessionKind = "cookie" | "session_bearer" | "widget";
 
 const GRANTS: Record<SessionKind, { user: readonly Capability[]; guest: readonly Capability[] }> = {
   // Rotating a CLI session revokes the presented one, so a browser cookie may
@@ -238,11 +239,6 @@ const GRANTS: Record<SessionKind, { user: readonly Capability[]; guest: readonly
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
     guest: GUEST.filter((capability) => !EMBEDDED.includes(capability)),
-  },
-  // The portal's local E2E stand-in only ever served the proxied APIs.
-  e2e: {
-    user: SIGNED_IN.filter((capability) => !["account", "cli_session", "device_login"].includes(capability)),
-    guest: [],
   },
 };
 
@@ -331,3 +327,256 @@ export function authorize(
   }
   return { scopes: [...new Set(need.scopes)] };
 }
+
+// ── The route table ──────────────────────────────────────────────────────
+
+export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+/** `appMcp`: the agent MCP locked to the app the path names (`/v1/apps/<app>/mcp`). */
+export type ResourceKey = "agentRest" | "pipelineRest" | "accountRest" | "agentMcp" | "pipelineMcp" | "appMcp";
+
+/**
+ * What a method needs: a scope on the row's resource, a capability (optionally
+ * allowing anonymous callers), a signed-in portal session, or nothing. A
+ * capability may name the scope OAuth callers need instead, on the same row's
+ * resource.
+ */
+export type Requirement =
+  | string
+  | { capability: Capability; anonymous?: true; oauthScope?: string }
+  | typeof PORTAL_SESSION
+  | "public";
+
+/**
+ * Only a signed-in, non-guest portal cookie session: never a widget, a CLI
+ * session or an OAuth client. Agent-wallet, lane and link writes; the backend
+ * checks the same thing on the bearer's `auth_source`.
+ */
+export const PORTAL_SESSION = "portal_session";
+
+export type Route = {
+  path: RegExp;
+  /** Names the route in logs; an account route's handler is found by it. */
+  operation: string;
+  /**
+   * backend: the Rust /api with an account bearer (or none); agent / payment:
+   * a bearer scoped to the resource and the receiving service; mcp: OAuth
+   * grants only, carrying every scope of the grant; bearer: a raw backend
+   * bearer for a browser that calls the Rust backend cross-origin itself;
+   * account: served by the edge itself against the account database.
+   */
+  to: "backend" | "agent" | "payment" | "mcp" | "bearer" | "account";
+  methods: Partial<Record<Method, Requirement>>;
+  /** The OAuth resource scoped requirements are checked on; it also shapes auth failures. */
+  on?: ResourceKey;
+  /** A signed payment adds `payments:submit` to the scopes needed. */
+  paid?: true;
+  /** MCP: the scopes a refused client must re-authorize with. */
+  challengeScopes?: readonly string[];
+  /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
+  approve?: true;
+};
+
+const chat = { capability: "chat", anonymous: true } as const;
+const settings = { capability: "settings" } as const;
+const commit = { on: "agentRest", to: "backend", operation: "proxy.request" } as const;
+const signedIn = { capability: "account" } as const;
+/** Served by the edge itself: sign-in, the account graph, widget and device login. */
+const own = (path: RegExp, operation: string, methods: Route["methods"]): Route => ({ path, methods, to: "account", operation });
+const backend = (path: RegExp, methods: Route["methods"]): Route => ({ path, methods, to: "backend", operation: "proxy.request" });
+const account = (path: RegExp, methods: Route["methods"]): Route => ({
+  path,
+  methods,
+  to: "agent",
+  on: "accountRest",
+  operation: "account.request",
+});
+const payment = (path: RegExp, methods: Route["methods"], paid?: true): Route => ({
+  path,
+  methods,
+  to: "payment",
+  on: "accountRest",
+  operation: "account.payment",
+  ...(paid ? { paid } : {}),
+});
+
+const ID = "[0-9a-f-]+";
+const REF = "[A-Za-z0-9_-]+";
+const AGENT = /^\/v1\/agent(?!\/mcp$)(\/.*)?$/;
+const FUNDING = "\\/v1\\/account\\/credits\\/funding-events";
+/**
+ * The account's wallets, its agent wallets (create, rename, pause, archive,
+ * withdraw), pause-all, each connection's label and agent wallets, and linking
+ * a platform account with a one-time code. Served by the backend under /v1.
+ * Reads take the scope api-server asks of OAuth clients; writes are for a
+ * portal session only.
+ */
+const wallets = (path: RegExp, methods: Route["methods"], extra: Partial<Route> = {}): Route => ({
+  path,
+  methods,
+  to: "backend",
+  on: "agentRest",
+  operation: "account.wallets",
+  ...extra,
+});
+
+export const ROUTES: readonly Route[] = [
+  {
+    path: /^\/v1\/agent\/mcp$/,
+    operation: "agent.mcp",
+    to: "mcp",
+    on: "agentMcp",
+    paid: true,
+    methods: { POST: "mcp:agent" },
+    challengeScopes: ["mcp:agent", "agent:read", "agent:write", "offline_access"],
+  },
+  {
+    path: /^\/v1\/pipeline\/mcp$/,
+    operation: "pipeline.mcp",
+    to: "mcp",
+    on: "pipelineMcp",
+    paid: true,
+    methods: { POST: "mcp:pipeline" },
+    // Every tool scope the MCP serves: a client signs in once for what its
+    // tools/call needs (aomi_call_tool, aomi_run, aomi_wallets execute).
+    challengeScopes: ["mcp:pipeline", "pipeline:catalog", "pipeline:execute", "offline_access"],
+  },
+  {
+    // The agent MCP locked to one app; the token must be for exactly this
+    // path, and api-server resolves the app (404 app_not_found).
+    path: /^\/v1\/apps\/[^/]+\/mcp$/,
+    operation: "app.mcp",
+    to: "mcp",
+    on: "appMcp",
+    paid: true,
+    methods: { POST: "mcp:agent" },
+    challengeScopes: ["mcp:agent", "agent:read", "agent:write", "offline_access"],
+  },
+  { path: AGENT, operation: "agent.request", to: "agent", on: "agentRest", methods: { GET: "agent:read" } },
+  {
+    path: /^\/v1\/agent\/.*\/actions\/[^/]+\/result$/,
+    operation: "agent.request",
+    to: "agent",
+    on: "agentRest",
+    methods: { POST: "agent:actions:resolve", PATCH: "agent:actions:resolve", DELETE: "agent:actions:resolve" },
+  },
+  {
+    path: AGENT,
+    operation: "agent.request",
+    to: "agent",
+    on: "agentRest",
+    paid: true,
+    methods: { POST: "agent:write", PATCH: "agent:write", DELETE: "agent:write" },
+  },
+  {
+    path: /^\/v1\/pipeline\/evm\/commits\/.*$/,
+    operation: "pipeline.request",
+    to: "agent",
+    on: "pipelineRest",
+    paid: true,
+    methods: { GET: "pipeline:execute", POST: "pipeline:execute" },
+  },
+  {
+    path: /^\/v1\/pipeline(?!\/mcp$)(\/.*)?$/,
+    operation: "pipeline.request",
+    to: "agent",
+    on: "pipelineRest",
+    paid: true,
+    methods: { GET: "pipeline:catalog", POST: "pipeline:execute" },
+  },
+  payment(/^\/v1\/account\/credits(?:\/(?:methods|ledger))?$/, { GET: "account:credits:read" }),
+  payment(new RegExp(`^${FUNDING}(?:\\/(?:current|[0-9a-f-]{36}))?$`), { GET: "account:credits:read" }),
+  payment(new RegExp(`^${FUNDING}(?:\\/[0-9a-f-]{36}\\/cancel)?$`), { POST: "account:credits:fund" }, true),
+  payment(/^\/v1\/account\/statement$/, { GET: "account:usage:read" }),
+  account(/^\/v1\/account\/apps$/, { GET: "account:apps:read" }),
+  account(/^\/v1\/account\/apps\/[1-9]\d*$/, { POST: "account:apps:write", DELETE: "account:apps:write" }),
+  account(/^\/v1\/account\/apps\/[1-9]\d*\/secrets$/, {
+    GET: "account:credentials:read",
+    POST: "account:credentials:write",
+    DELETE: "account:credentials:write",
+  }),
+  account(/^\/v1\/account\/apps\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, { DELETE: "account:credentials:write" }),
+  account(/^\/v1\/account\/transaction-safety(?:\/threads\/[^/]+)?$/, {
+    GET: "account:transaction-safety:read",
+    PUT: "account:transaction-safety:write",
+  }),
+  {
+    path: /^\/v1\/account\/bearer$/,
+    operation: "account.bearer",
+    to: "bearer",
+    methods: { GET: { capability: "backend_bearer" } },
+  },
+  // Anything else under these account resources is a 404 in the resource's shape.
+  account(/^\/v1\/account\/(apps|transaction-safety)(\/.*)?$/, {}),
+  wallets(/^\/v1\/account\/wallets$/, { GET: "agent:read" }),
+  wallets(/^\/v1\/account\/agent-wallets$/, { GET: "agent:read", POST: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+$/, { PATCH: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/balances$/, { GET: "agent:read" }),
+  wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/, { POST: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, { PUT: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/connections\/[^/]+\/wallets$/, { PUT: PORTAL_SESSION }),
+  wallets(/^\/v1\/account\/link\/[a-z]+\/(?:preview|confirm|cancel)$/, { POST: PORTAL_SESSION }, { operation: "account.link" }),
+  // Thread-less commits by ref: the same account authority and backend as
+  // /api/commits, with the scopes api-server asks of OAuth clients.
+  { ...commit, path: new RegExp(`^\\/v1\\/commits\\/${REF}$`), methods: { GET: "agent:read" } },
+  {
+    ...commit,
+    path: new RegExp(`^\\/v1\\/commits\\/${REF}\\/(?:sign|broadcast|attempts|reject|attempts\\/${REF}\\/report)$`),
+    methods: { POST: "agent:write" },
+  },
+  // An OAuth client (the CLI, an AI or SDK app) reaches the backend, which
+  // lets it approve only where its lane on the wallet asks in that client.
+  { ...commit, path: new RegExp(`^\\/v1\\/commits\\/${REF}\\/approve$`), methods: { POST: "agent:write" }, approve: true },
+  { ...commit, path: /^\/api\/commits$/, methods: { POST: "agent:actions:resolve" } },
+  { ...commit, path: new RegExp(`^\\/api\\/commits\\/${ID}$`, "i"), methods: { GET: "agent:read" } },
+  {
+    ...commit,
+    path: new RegExp(`^\\/api\\/commits\\/${ID}\\/(manual|wallet-attempts|wallet-attempts\\/${ID}\\/report)$`, "i"),
+    methods: { POST: "agent:actions:resolve" },
+  },
+  backend(/^\/api\/thread\/transaction-safety$/, {
+    GET: { capability: "safety_policy" },
+    PUT: { capability: "safety_policy" },
+  }),
+  // `aomi wallets use`: a CLI or OAuth login switches its own thread's
+  // wallet; the backend checks the account owns both.
+  { ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }), on: "agentRest" },
+  backend(/^\/api\/account(\/.*)?$/, { GET: settings, POST: settings, PATCH: settings, PUT: settings, DELETE: settings }),
+  backend(/^\/api\/secrets$/, { GET: settings, POST: settings, DELETE: settings }),
+  backend(/^\/api\/secrets\/[^/]+$/, { DELETE: settings }),
+  backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
+  backend(/^\/api\/thread\/apps$/, { GET: chat }),
+  backend(/^\/api\/thread\/models$/, { GET: "public" }),
+  backend(/^\/api\/resource\/skills(?:\/[^/]+)?$/, { GET: chat }),
+  {
+    ...backend(/^\/api\/thread\/model$/, { POST: { ...chat, oauthScope: "agent:write" } }),
+    on: "agentRest",
+  },
+  {
+    ...backend(/^\/api\/thread\/sim\/world$/, { POST: { capability: "chat", oauthScope: "agent:write" } }),
+    on: "agentRest",
+  },
+  backend(/^\/api\/exec\/simulate$/, { POST: chat }),
+  own(/^\/v1\/account$/, "account", { GET: { ...signedIn, anonymous: true }, PATCH: signedIn, DELETE: signedIn }),
+  own(/^\/v1\/account\/identities\/(?<id>[^/]+)$/, "account.identity", { PATCH: signedIn, DELETE: signedIn }),
+  own(/^\/v1\/account\/connections$/, "account.connections", { GET: signedIn }),
+  own(/^\/v1\/account\/connections\/oauth\/(?<client_id>[^/]+)$/, "account.connection", { DELETE: PORTAL_SESSION }),
+  own(/^\/v1\/account\/connections\/telegram$/, "account.connection.telegram", { DELETE: PORTAL_SESSION }),
+  own(/^\/v1\/account\/wallets\/link$/, "wallet.link", { GET: signedIn, POST: signedIn }),
+  own(/^\/v1\/account\/wallets\/(?<id>[^/]+)$/, "account.wallet", { PATCH: signedIn, DELETE: signedIn }),
+  own(/^\/v1\/account\/merge$/, "account.merge", { POST: signedIn }),
+  own(/^\/v1\/account\/merge\/switch$/, "account.merge_switch", { POST: signedIn }),
+  own(/^\/v1\/account\/provider\/exchange$/, "provider.link", { POST: signedIn }),
+  own(/^\/v1\/account\/session\/cli$/, "account.cli_session", { POST: { capability: "cli_session" } }),
+  own(/^\/v1\/account\/device-auth\/link-intent$/, "device_auth.link_intent", { POST: { capability: "device_login" } }),
+  own(/^\/v1\/account\/device-auth\/link-grant$/, "device_auth.link_grant", { POST: "public" }),
+  own(/^\/v1\/account\/device-auth\/exchange$/, "device_auth.exchange", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/guest$/, "widget.guest", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/siwe\/nonce$/, "widget.siwe.nonce", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/siwe\/verify$/, "widget.siwe.verify", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/siws\/nonce$/, "widget.siws.nonce", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/siws\/verify$/, "widget.siws.verify", { POST: "public" }),
+  own(/^\/api\/auth\/widget\/session$/, "widget.session.revoke", { DELETE: "public" }),
+  own(/^\/api\/auth\/widget\/oauth-bootstrap$/, "widget.oauth_bootstrap.issue", { POST: signedIn }),
+];

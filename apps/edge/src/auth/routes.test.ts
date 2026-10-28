@@ -407,3 +407,14 @@ describe("/v1/account/connections", () => {
     },
   );
 });
+
+describe("the route table", () => {
+  it("has exactly one handler for each account route", async () => {
+    const { ROUTES } = await import("@aomi-labs/account/policy");
+    const { HANDLERS } = await import("./routes");
+    const owned = ROUTES.filter((route) => route.to === "account");
+    expect(owned.map((route) => route.operation).sort()).toEqual(Object.keys(HANDLERS).sort());
+    for (const route of owned)
+      expect(Object.keys(route.methods).sort()).toEqual(Object.keys(HANDLERS[route.operation]!.handle).sort());
+  });
+});

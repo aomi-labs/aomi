@@ -5,12 +5,18 @@ import { readManagedOAuthClient } from "@aomi-labs/account/better-auth";
 import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import {
   acceptsApiToken,
+  appMcpName,
+  appMcpResource,
   authorize as decide,
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   guestScopesFor,
+  PORTAL_SESSION,
   scopesOn as heldScopes,
   type Need,
+  type Requirement,
+  type Resources,
+  type Route,
 } from "@aomi-labs/account/policy";
 import {
   hasWidgetSessionBearer,
@@ -320,4 +326,26 @@ export function scopesOn(
   ctx: PortalContext,
 ): readonly string[] {
   return heldScopes(principal, policyFor(resource, ctx));
+}
+
+/** The OAuth resource a row checks scopes on: fixed, or the app MCP its path names (null: no such app). */
+export function resourceOf(row: Route, request: Request, resources: Resources): string | null | undefined {
+  if (row.on !== "appMcp") return row.on && resources[row.on];
+  const resource = appMcpResource(resources, new URL(request.url).pathname.split("/")[3] ?? "");
+  return appMcpName(resources, resource) ? resource : null;
+}
+
+/** The resolved need, or "public". */
+export function needOf(row: Route, requirement: Requirement, request: Request, resource: string | undefined): Need | "public" {
+  if (requirement === "public") return "public";
+  if (requirement === PORTAL_SESSION) return { capability: "portal_session" };
+  if (typeof requirement !== "string") {
+    // Fuzzer setup accepts Agent grants; browser and widget sessions retain
+    // their existing capability policy, including each route's guest access.
+    if (!requirement.oauthScope || !isOAuthCredential(request)) return requirement;
+    requirement = requirement.oauthScope;
+  }
+  const scopes = [requirement];
+  if (row.paid && request.headers.has("payment-signature")) scopes.push("payments:submit");
+  return { resource: resource!, scopes };
 }

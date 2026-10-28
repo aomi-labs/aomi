@@ -27,10 +27,10 @@ describe("public API OAuth transport", () => {
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/api/commits/commit-1", {
+    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001", {
       method: "GET",
     });
-    await authorized("https://chat.aomi.dev/api/commits/commit-1/manual", {
+    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
       method: "POST",
     });
 
