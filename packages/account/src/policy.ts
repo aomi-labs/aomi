@@ -374,6 +374,8 @@ export type Route = {
   challengeScopes?: readonly string[];
   /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
   approve?: true;
+  /** backend: a /v1 name for a backend /api route, `[the /v1 prefix, the backend's]`. */
+  rewrite?: readonly [string, string];
 };
 
 const chat = { capability: "chat", anonymous: true } as const;
@@ -398,6 +400,17 @@ const payment = (path: RegExp, methods: Route["methods"], paid?: true): Route =>
   operation: "account.payment",
   ...(paid ? { paid } : {}),
 });
+
+/** Served by the backend under its /api name, on the account resource. */
+const renamed = (from: string, to: string) => (path: RegExp, methods: Route["methods"]): Route => ({
+  ...backend(path, methods),
+  on: "accountRest",
+  rewrite: [from, to],
+});
+/** The secrets vault: BYOK provider keys and values tools use by handle. */
+const keys = renamed("/v1/account/keys", "/api/secrets");
+/** On-chain spending policies (Swig): prepare, sign and confirm a binding or its revoke. */
+const policies = renamed("/v1/account/policies", "/api/account/onchain-policies");
 
 const ID = "[0-9a-f-]+";
 const REF = "[A-Za-z0-9_-]+";
@@ -498,6 +511,16 @@ export const ROUTES: readonly Route[] = [
   account(/^\/v1\/account\/transaction-safety(?:\/threads\/[^/]+)?$/, {
     GET: "account:transaction-safety:read",
     PUT: "account:transaction-safety:write",
+  }),
+  keys(/^\/v1\/account\/keys$/, {
+    GET: "account:credentials:read",
+    POST: "account:credentials:write",
+    DELETE: "account:credentials:write",
+  }),
+  keys(/^\/v1\/account\/keys\/[^/]+$/, { DELETE: "account:credentials:write" }),
+  policies(/^\/v1\/account\/policies\/[a-z]+$/, { GET: "account:transaction-safety:read" }),
+  policies(/^\/v1\/account\/policies\/[a-z]+\/(?:prepare|confirm|\d+\/revoke\/(?:prepare|confirm))$/, {
+    POST: "account:transaction-safety:write",
   }),
   {
     path: /^\/v1\/account\/bearer$/,

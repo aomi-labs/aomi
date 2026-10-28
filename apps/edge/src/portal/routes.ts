@@ -85,7 +85,9 @@ function mint(ctx: PortalContext, request: Request, claims: Parameters<ReturnTyp
  * account bearer or anonymously.
  */
 async function toBackend(row: Route, request: Request, principal: Principal, ctx: PortalContext): Promise<Response> {
-  const { pathname, search } = new URL(request.url);
+  const url = new URL(request.url);
+  const { search } = url;
+  const pathname = row.rewrite ? row.rewrite[1] + url.pathname.slice(row.rewrite[0].length) : url.pathname;
   const bearer =
     "accountId" in principal
       ? await mint(ctx, request, {

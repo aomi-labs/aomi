@@ -208,6 +208,7 @@ export class AccountGraphTransport {
     const response = await this.transport(method, path, {
       headers: Object.fromEntries(headers.entries()),
       body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+      signal: init.signal ?? undefined,
     });
     const text = await response.text();
     let body: unknown;

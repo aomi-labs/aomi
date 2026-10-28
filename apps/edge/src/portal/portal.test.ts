@@ -660,6 +660,30 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(anonymousSettings.status).toBe(401);
   });
 
+  it("serves the keys vault and on-chain policies under /v1/account from their backend routes", async () => {
+    const keys = await portal("/v1/account/keys?client_id=c1", { headers: { cookie: "session=user" }, origin: PORTAL });
+    expect(keys.status).toBe(200);
+    expect(seen[0].url).toBe(`${BACKEND}/api/secrets?client_id=c1`);
+    const prepare = await portal("/v1/account/policies/swig/7/revoke/prepare", {
+      method: "POST",
+      headers: { cookie: "session=user", "content-type": "application/json", "x-aomi-csrf": "1" },
+      origin: PORTAL,
+      body: "{}",
+    });
+    expect(prepare.status).toBe(200);
+    expect(seen[1].url).toBe(`${BACKEND}/api/account/onchain-policies/swig/7/revoke/prepare`);
+    const oauth = await portal("/v1/account/keys/BYOK%3Aopenai", {
+      method: "DELETE",
+      headers: {
+        authorization: `Bearer ${await oauthToken({ sub: "user", scope: "account:credentials:write", aud: `${PORTAL}/v1/account` })}`,
+      },
+    });
+    expect(oauth.status).toBe(200);
+    expect(seen[2].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
+    const guest = await portal("/v1/account/keys", { headers: { cookie: "session=guest" }, origin: PORTAL });
+    expect(guest.status).toBe(403);
+  });
+
   it("answers 404 for an /api method the allowlist does not name and passes unknown paths to Vercel", async () => {
     const wrongMethod = await portal("/api/thread/models", { method: "POST" });
     expect(wrongMethod.status).toBe(404);

@@ -528,27 +528,12 @@ export class AomiClient {
     clientId: string,
     secrets: Record<string, string>,
   ): Promise<AomiIngestSecretsResponse> {
-    const url = joinApiPath(this.baseUrl, "/api/secrets");
-    const body: {
-      client_id: string;
-      secrets: Record<string, string>;
-    } = {
-      client_id: clientId,
-      secrets,
-    };
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
+    return {
+      handles: await this.account.keys.set(secrets, {
+        thread: sessionId,
+        clientId,
       }),
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiIngestSecretsResponse;
+    };
   }
 
   /** Clear every client-scoped secret and unbind the session. */
@@ -556,19 +541,8 @@ export class AomiClient {
     sessionId: string,
     clientId: string,
   ): Promise<AomiClearSecretsResponse> {
-    const url = buildApiUrl(this.baseUrl, "/api/secrets", {
-      client_id: clientId,
-    });
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiClearSecretsResponse;
+    await this.account.keys.clear({ thread: sessionId, clientId });
+    return { cleared: true };
   }
 
   /** Remove a single named client-scoped secret. */
@@ -577,51 +551,29 @@ export class AomiClient {
     clientId: string,
     name: string,
   ): Promise<AomiDeleteSecretResponse> {
-    const params: Record<string, string> = { client_id: clientId };
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/secrets/${encodeURIComponent(name)}`,
-      params,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiDeleteSecretResponse;
+    return {
+      deleted: await this.account.keys.remove(name, {
+        thread: sessionId,
+        clientId,
+      }),
+    };
   }
 
   /**
-   * List the stored secret NAMES for this client — never values.
-   *
-   * Read the result with {@link secretNamesFrom}, which tolerates the
-   * pre-cutover `by_app` shape as well as the flat `names` list.
+   * List the stored secret NAMES for this client — never values. Pass the
+   * client_id so the read finds the vault even after a backend restart lost
+   * the session→client binding.
    */
   async listSecrets(
     sessionId: string,
     clientId?: string,
   ): Promise<AomiListSecretsResponse> {
-    // Pass the client_id explicitly so the read resolves the vault by the key
-    // the caller already holds, not via the in-memory session→client_id binding
-    // (which is lost on a backend restart, leaving cold reads empty).
-    const url =
-      clientId && clientId.trim().length > 0
-        ? buildApiUrl(this.baseUrl, "/api/secrets", { client_id: clientId })
-        : joinApiPath(this.baseUrl, "/api/secrets");
-    const response = await this.fetchImpl(url, {
-      method: "GET",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiListSecretsResponse;
+    return {
+      names: await this.account.keys.list({
+        thread: sessionId,
+        clientId: clientId?.trim() || undefined,
+      }),
+    };
   }
 
   /** Credential-free projection suitable for shared caching and public persistence. */
