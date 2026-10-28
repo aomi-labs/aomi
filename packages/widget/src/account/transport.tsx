@@ -36,6 +36,8 @@ export function createShellTransport(
         credentials: origin ? "omit" : "same-origin",
         cache: "no-store",
       }),
+    // Settings never mints a guest: the Portal's cookie or the wallet's session.
+    guest: false,
     getAccountBearer: getBearer
       ? Object.assign(
           (options?: Parameters<GetAccountBearer>[0]) => getBearer(options),

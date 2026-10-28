@@ -40,7 +40,7 @@ const VENUE_SECRETS = [
   },
 ];
 
-/** `GET /api/account/apps` wire rows (backend `AppSpec`, snake_case). */
+/** `GET /v1/account/apps` wire rows (backend `AppSpec`, snake_case). */
 const CATALOG = [
   { name: "default" },
   {
@@ -111,10 +111,10 @@ function installFetchRecorder(
       calls.push({ input, init });
       const url = new URL(input.toString(), "https://portal.test");
       const method = init?.method ?? "GET";
-      if (url.pathname === "/api/thread/apps" && method === "GET") {
+      if (url.pathname === "/api/public/catalog/apps" && method === "GET") {
         return Response.json(catalog.filter((app) => app.is_public !== false));
       }
-      if (url.pathname === "/api/account/apps" && method === "GET") {
+      if (url.pathname === "/v1/account/apps" && method === "GET") {
         return Response.json(
           catalog.map((app) => ({
             ...app,
@@ -125,7 +125,7 @@ function installFetchRecorder(
           })),
         );
       }
-      if (url.pathname === "/api/account/apps/12/secrets" && method === "GET") {
+      if (url.pathname === "/v1/account/apps/12/secrets" && method === "GET") {
         if (failNextVenueRead) {
           failNextVenueRead = false;
           return new Response("temporary failure", { status: 503 });
@@ -143,7 +143,7 @@ function installFetchRecorder(
         });
       }
       if (
-        url.pathname === "/api/account/apps/12/secrets" &&
+        url.pathname === "/v1/account/apps/12/secrets" &&
         method === "POST"
       ) {
         if (failNextVenueSave) {
@@ -169,13 +169,13 @@ function installFetchRecorder(
         });
       }
       if (
-        url.pathname === "/api/account/apps/12/secrets/VENUE_API_KEY" &&
+        url.pathname === "/v1/account/apps/12/secrets/VENUE_API_KEY" &&
         method === "DELETE"
       ) {
         venueConfigured = false;
         return Response.json({ deleted: true });
       }
-      const appMutation = url.pathname.match(/^\/api\/account\/apps\/(\d+)$/);
+      const appMutation = url.pathname.match(/^\/v1\/account\/apps\/(\d+)$/);
       if (appMutation && (method === "POST" || method === "DELETE")) {
         const applicationId = Number(appMutation[1]);
         const app = catalog.find(
@@ -204,7 +204,7 @@ function installFetchRecorder(
           ],
         });
       }
-      if (url.pathname === "/api/resource/skills" && method === "GET") {
+      if (url.pathname === "/api/public/catalog/skills" && method === "GET") {
         return Response.json({
           skills: [
             {
@@ -219,17 +219,20 @@ function installFetchRecorder(
           ],
         });
       }
-      if (url.pathname === "/api/resource/skills/aave" && method === "GET") {
+      if (
+        url.pathname === "/v1/pipeline/skills/aave/operations" &&
+        method === "GET"
+      ) {
         return Response.json({
-          id: "aave",
-          name: "aave",
-          description: "Supply and borrow through Aave V3.",
-          tags: ["lending"],
-          feature_catalog: ["lending"],
-          chain_ids: [1, 8453],
-          injected_tools: ["aave_position"],
-          tool_names: ["aomi_call_tool"],
-          instructions: "Use the Aave procedure.",
+          kind: "directory",
+          path: "/skills/aave/operations",
+          entries: [
+            {
+              name: "aomi_call_tool",
+              kind: "operation",
+              href: "/v1/pipeline/skills/aave/operations/aomi_call_tool",
+            },
+          ],
         });
       }
       return new Response(`Unexpected ${method} ${url.pathname}`, {
@@ -323,8 +326,8 @@ describe("packages modal wiring", () => {
     seedAccountOverview(null);
     const { calls } = installFetchRecorder();
     await renderModal();
-    expect(paths(calls)).toContain("GET /api/thread/apps");
-    expect(paths(calls)).not.toContain("GET /api/account/apps");
+    expect(paths(calls)).toContain("GET /api/public/catalog/apps");
+    expect(paths(calls)).not.toContain("GET /v1/account/apps");
     expect(
       screen.getByRole("button", { name: "Open Uniswap details" }),
     ).toBeTruthy();
@@ -341,8 +344,8 @@ describe("packages modal wiring", () => {
       screen.getByText("Sign in to save credentials and add this app."),
     ).toBeTruthy();
     expect(screen.getByLabelText("VENUE_API_KEY")).toBeDisabled();
-    expect(paths(calls)).not.toContain("GET /api/account/apps/12/secrets");
-    expect(paths(calls)).not.toContain("POST /api/account/apps/12");
+    expect(paths(calls)).not.toContain("GET /v1/account/apps/12/secrets");
+    expect(paths(calls)).not.toContain("POST /v1/account/apps/12");
   });
 
   it("loads the catalog from the account apps route", async () => {
@@ -350,7 +353,7 @@ describe("packages modal wiring", () => {
 
     await renderModal();
 
-    expect(paths(calls)).toContain("GET /api/account/apps");
+    expect(paths(calls)).toContain("GET /v1/account/apps");
     // Wire row + decoration: installed apps are presented first and open into
     // the shared inspector rather than exposing destructive row controls.
     expect(screen.getAllByText("Uniswap").length).toBeGreaterThan(0);
@@ -392,7 +395,7 @@ describe("packages modal wiring", () => {
     expect(await screen.findByText("How it works")).toHaveClass("type-eyebrow");
     expect(screen.getByText("Works on")).toHaveClass("type-eyebrow");
     expect(await screen.findByText("2 actions available")).toBeTruthy();
-    expect(paths(calls)).toContain("GET /api/resource/skills/aave");
+    expect(paths(calls)).toContain("GET /v1/pipeline/skills/aave/operations");
   });
 
   it("finds curated apps by wire name and original catalog label", async () => {
@@ -458,9 +461,9 @@ describe("packages modal wiring", () => {
     expect(install).toBeTruthy();
     fireEvent.click(install!);
     await waitFor(() =>
-      expect(paths(calls)).toContain("POST /api/account/apps/41"),
+      expect(paths(calls)).toContain("POST /v1/account/apps/41"),
     );
-    expect(paths(calls)).not.toContain("POST /api/account/apps/40");
+    expect(paths(calls)).not.toContain("POST /v1/account/apps/40");
   });
 
   it("puts token operations in Tokens & wallets before broad research matches", () => {
@@ -529,7 +532,7 @@ describe("packages modal wiring", () => {
     await waitFor(() => {
       const appRequests = (
         fetchMock.mock.calls as unknown as [RequestInfo | URL][]
-      ).filter(([input]) => input.toString().startsWith("/api/account/apps"));
+      ).filter(([input]) => input.toString().startsWith("/v1/account/apps"));
       expect(appRequests).toHaveLength(2);
     });
   });
@@ -545,7 +548,7 @@ describe("packages modal wiring", () => {
       fireEvent.click(screen.getByLabelText("Remove Uniswap"));
     });
 
-    expect(paths(calls)).toContain("DELETE /api/account/apps/7");
+    expect(paths(calls)).toContain("DELETE /v1/account/apps/7");
     // The row flips from the server response, not optimistically.
     await waitFor(() =>
       expect(screen.queryByLabelText("Remove Uniswap")).toBeNull(),
@@ -564,7 +567,7 @@ describe("packages modal wiring", () => {
       fireEvent.click(screen.getByLabelText("Add Treasury Ops from catalog"));
     });
 
-    expect(paths(calls)).toContain("POST /api/account/apps/9");
+    expect(paths(calls)).toContain("POST /v1/account/apps/9");
   });
 
   it("saves required user credentials before adding an app", async () => {
@@ -587,13 +590,13 @@ describe("packages modal wiring", () => {
     fireEvent.click(screen.getByText("Save & add app"));
 
     await waitFor(() => {
-      expect(paths(calls)).toContain("POST /api/account/apps/12/secrets");
-      expect(paths(calls)).toContain("POST /api/account/apps/12");
+      expect(paths(calls)).toContain("POST /v1/account/apps/12/secrets");
+      expect(paths(calls)).toContain("POST /v1/account/apps/12");
     });
     const save = calls.find(
       (call) =>
         call.init?.method === "POST" &&
-        call.input.toString().includes("/api/account/apps/12/secrets"),
+        call.input.toString().includes("/v1/account/apps/12/secrets"),
     );
     expect(JSON.parse(String(save?.init?.body))).toEqual({
       secrets: { VENUE_API_KEY: "secret-value" },
@@ -629,7 +632,7 @@ describe("packages modal wiring", () => {
     });
     fireEvent.click(screen.getByText("Save changes"));
     await waitFor(() =>
-      expect(paths(calls)).toContain("POST /api/account/apps/12/secrets"),
+      expect(paths(calls)).toContain("POST /v1/account/apps/12/secrets"),
     );
     expect(screen.queryByDisplayValue("replacement")).toBeNull();
     expect(await screen.findByText("Required · Saved")).toBeTruthy();
@@ -637,7 +640,7 @@ describe("packages modal wiring", () => {
     fireEvent.click(screen.getByLabelText("Remove VENUE_API_KEY"));
     await waitFor(() =>
       expect(paths(calls)).toContain(
-        "DELETE /api/account/apps/12/secrets/VENUE_API_KEY",
+        "DELETE /v1/account/apps/12/secrets/VENUE_API_KEY",
       ),
     );
     expect(await screen.findByText("Setup required")).toBeTruthy();
@@ -682,7 +685,9 @@ describe("packages modal wiring", () => {
     ) as HTMLButtonElement;
     expect(install.disabled).toBe(false);
     fireEvent.click(install);
-    expect(paths(calls)).toContain("POST /api/account/apps/9");
+    await waitFor(() =>
+      expect(paths(calls)).toContain("POST /v1/account/apps/9"),
+    );
 
     await act(async () => {
       seedAccountOverview({
@@ -705,12 +710,12 @@ describe("packages modal wiring", () => {
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const path = new URL(input.toString(), "https://portal.test").pathname;
-        if (path === "/api/account/apps/9" && init?.method === "POST") {
+        if (path === "/v1/account/apps/9" && init?.method === "POST") {
           return new Promise<Response>((resolve) => {
             finishMutation = resolve;
           });
         }
-        if (path === "/api/account/apps") {
+        if (path === "/v1/account/apps") {
           return Response.json(
             CATALOG.map((app) => ({
               ...app,
@@ -718,7 +723,7 @@ describe("packages modal wiring", () => {
             })),
           );
         }
-        if (path === "/api/resource/skills") {
+        if (path === "/api/public/catalog/skills") {
           return Response.json({ skills: [] });
         }
         return new Response("Unauthenticated", { status: 401 });
@@ -726,7 +731,7 @@ describe("packages modal wiring", () => {
     );
     const view = await renderModal();
     fireEvent.click(screen.getByLabelText("Add Treasury Ops from catalog"));
-    expect(finishMutation).toBeTypeOf("function");
+    await waitFor(() => expect(finishMutation).toBeTypeOf("function"));
     view.unmount();
     seedAccountOverview(null);
 
@@ -762,14 +767,14 @@ describe("packages modal wiring", () => {
       vi.fn((input: string | URL | Request, init?: RequestInit) => {
         const path = new URL(input.toString(), "https://portal.test").pathname;
         if (
-          path === "/api/account/apps/12/secrets" &&
+          path === "/v1/account/apps/12/secrets" &&
           init?.method === "POST"
         ) {
           return new Promise<Response>((resolve) => {
             finishSave = resolve;
           });
         }
-        if (path === "/api/account/apps/12" && init?.method === "POST")
+        if (path === "/v1/account/apps/12" && init?.method === "POST")
           installs.push(currentAccount);
         return recordedFetch(input, init);
       }),
@@ -783,7 +788,7 @@ describe("packages modal wiring", () => {
       expect(screen.getByText("Save & add app")).toBeEnabled(),
     );
     fireEvent.click(screen.getByText("Save & add app"));
-    expect(finishSave).toBeTypeOf("function");
+    await waitFor(() => expect(finishSave).toBeTypeOf("function"));
     view.unmount();
     currentAccount = "acct-2";
     seedAccountOverview(null);
@@ -817,7 +822,7 @@ describe("packages modal wiring", () => {
         calls.push({ input, init });
         const url = new URL(input.toString(), "https://portal.test");
         if (
-          url.pathname === "/api/account/apps" &&
+          url.pathname === "/v1/account/apps" &&
           (init?.method ?? "GET") === "GET"
         ) {
           return Response.json(
@@ -828,14 +833,14 @@ describe("packages modal wiring", () => {
           );
         }
         if (
-          url.pathname === "/api/account/apps/7" &&
+          url.pathname === "/v1/account/apps/7" &&
           init?.method === "DELETE"
         ) {
           return new Promise<Response>((resolve) => {
             finishMutation = resolve;
           });
         }
-        if (url.pathname === "/api/resource/skills") {
+        if (url.pathname === "/api/public/catalog/skills") {
           return Response.json({ skills: [] });
         }
         return new Response("unexpected", { status: 500 });
@@ -848,9 +853,11 @@ describe("packages modal wiring", () => {
     fireEvent.click(remove);
     fireEvent.click(remove);
 
-    expect(
-      paths(calls).filter((path) => path === "DELETE /api/account/apps/7"),
-    ).toHaveLength(1);
+    const deletes = () =>
+      paths(calls).filter((path) => path === "DELETE /v1/account/apps/7");
+    await waitFor(() => expect(deletes()).toHaveLength(1));
+    await act(async () => {});
+    expect(deletes()).toHaveLength(1);
 
     await act(async () => {
       finishMutation?.(

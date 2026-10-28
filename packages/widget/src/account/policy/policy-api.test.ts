@@ -1,3 +1,4 @@
+import { AccountGraphApiError, type AccountPoliciesTransport } from "@aomi-labs/client";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -72,23 +73,36 @@ describe("headless on-chain policy wire model", () => {
   });
 
   it("retries a confirm the backend's RPC node has not caught up with", async () => {
-    const lagging = new Error(
-      JSON.stringify({ error: "still there", error_code: "role_still_active" }),
+    const lagging = new AccountGraphApiError(
+      409,
+      { error: "still there", error_code: "role_still_active" },
+      "",
     );
-    const request = vi
+    const confirmRevoke = vi
       .fn()
       .mockRejectedValueOnce(lagging)
       .mockResolvedValueOnce({ operation: "revoke" });
-    await expect(confirmPolicyRevoke(7, "sig", request, 0)).resolves.toEqual({
+    const policies = { confirmRevoke } as unknown as AccountPoliciesTransport;
+    await expect(confirmPolicyRevoke(policies, 7, "sig", 0)).resolves.toEqual({
       operation: "revoke",
     });
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(confirmRevoke).toHaveBeenCalledTimes(2);
+    expect(confirmRevoke).toHaveBeenCalledWith(7, "sig");
 
-    const stale = new Error(
-      JSON.stringify({ error: "gone", error_code: "stale_policy_binding" }),
+    const stale = new AccountGraphApiError(
+      409,
+      { error: "gone", error_code: "stale_policy_binding" },
+      "",
     );
     const refused = vi.fn().mockRejectedValue(stale);
-    await expect(confirmPolicyRevoke(7, "sig", refused, 0)).rejects.toBe(stale);
+    await expect(
+      confirmPolicyRevoke(
+        { confirmRevoke: refused } as unknown as AccountPoliciesTransport,
+        7,
+        "sig",
+        0,
+      ),
+    ).rejects.toBe(stale);
     expect(refused).toHaveBeenCalledTimes(1);
     expect(explainPolicyError(stale)).toContain("changed elsewhere");
   });

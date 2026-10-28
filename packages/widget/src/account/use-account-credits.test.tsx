@@ -1,19 +1,16 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import type { AomiClient } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 import { DisplayCacheProvider } from "../../../react/src/query/display-cache";
 import { useAccountCredits } from "./use-account-credits";
 
 const sdk = vi.hoisted(() => ({ get: vi.fn() }));
-const api = { account: { credits: sdk } } as unknown as AomiClient;
+const api = { account: { credits: sdk } } as unknown as Aomi;
 vi.mock("../wallet/context", () => ({
   useAomiWalletKit: () => ({
     accountUser: { id: "account-a" },
     accountGuest: false,
   }),
-}));
-vi.mock("./transport", () => ({
-  useShellTransport: () => ({ client: undefined }),
 }));
 
 describe("shared account credit display read", () => {
@@ -28,7 +25,7 @@ describe("shared account credit display read", () => {
         backendUrl="/api"
         account={{ kind: "user", id: "account-a" }}
         persistence="none"
-        apiClient={api}
+        aomi={api}
       >
         {Array.from({ length: count }, (_, index) => (
           <Surface key={index} />

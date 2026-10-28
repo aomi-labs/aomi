@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { shortAddress } from "@aomi-labs/client";
+import { AomiCommits, shortAddress } from "@aomi-labs/client";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AgentWalletsSection } from "./agent-wallets-section";
@@ -20,52 +20,48 @@ const commit = vi.hoisted(() => ({
   second: null as string | null,
   listeners: new Set<() => void>(),
 }));
-vi.mock("@aomi-labs/client", async (original) => ({
-  ...(await original<typeof import("@aomi-labs/client")>()),
-  AomiCommits: class {
-    async get(ref: string) {
-      commit.refs.push(ref);
-      const member = (commit_id: string, state: string) => ({
-        commit_id,
-        state,
-        transaction_url: `https://basescan.org/tx/${commit_id}`,
-      });
-      const batch = () => [
-        member(ref, commit.state),
-        ...(commit.second === null ? [] : [member(`${ref}-2`, commit.second)]),
-      ];
-      const terminal = (state: string) =>
-        ["confirmed", "failed", "rejected", "expired"].includes(state);
-      return {
-        ref,
-        approve: async () => {
-          await commit.approve();
-          commit.state = "confirmed";
-        },
-        refresh: async () => batch()[0],
-        subscribe: (listener: () => void) => {
-          commit.listeners.add(listener);
-          return () => commit.listeners.delete(listener);
-        },
-        close: () => undefined,
-        get view() {
-          return batch()[0];
-        },
-        get batch() {
-          return batch();
-        },
-        get settlement() {
-          const all = batch();
-          const done = all.every((view) => terminal(view.state));
-          const failed = done
-            ? all.find((view) => view.state !== "confirmed")
-            : undefined;
-          return { done, confirmed: done && !failed, failed, last: all.at(-1) };
-        },
-      };
-    }
-  },
-}));
+/** A fake commit handle: `aomi.commits.get(ref)` answers it in place of GET /v1/commits/:ref. */
+async function fakeCommit(ref: string) {
+  commit.refs.push(ref);
+  const member = (commit_id: string, state: string) => ({
+    commit_id,
+    state,
+    transaction_url: `https://basescan.org/tx/${commit_id}`,
+  });
+  const batch = () => [
+    member(ref, commit.state),
+    ...(commit.second === null ? [] : [member(`${ref}-2`, commit.second)]),
+  ];
+  const terminal = (state: string) =>
+    ["confirmed", "failed", "rejected", "expired"].includes(state);
+  return {
+    ref,
+    approve: async () => {
+      await commit.approve();
+      commit.state = "confirmed";
+    },
+    refresh: async () => batch()[0],
+    subscribe: (listener: () => void) => {
+      commit.listeners.add(listener);
+      return () => commit.listeners.delete(listener);
+    },
+    close: () => undefined,
+    get view() {
+      return batch()[0];
+    },
+    get batch() {
+      return batch();
+    },
+    get settlement() {
+      const all = batch();
+      const done = all.every((view) => terminal(view.state));
+      const failed = done
+        ? all.find((view) => view.state !== "confirmed")
+        : undefined;
+      return { done, confirmed: done && !failed, failed, last: all.at(-1) };
+    },
+  };
+}
 
 const EVM = "0xae86000000000000000000000000000000009738";
 const SVM = "B4KZ1111111111111111111111111111111UJVo";
@@ -169,6 +165,9 @@ beforeEach(() => {
     pause_all: false,
     wallets: [trading, world, hoodit, extra, old],
   };
+  vi.spyOn(AomiCommits.prototype, "get").mockImplementation(
+    fakeCommit as never,
+  );
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -192,7 +191,10 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 async function renderSection(walletRows = rows) {
   await act(async () => {

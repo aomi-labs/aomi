@@ -12,7 +12,7 @@ describe("shared account transport", () => {
     vi.stubGlobal("fetch", fetcher);
     const bearer = vi.fn(async () => "aomi_wst_test");
     const api = createShellTransport("https://portal.example/", bearer);
-    await api.json("/api/account");
+    await api.aomi.raw.getAccount("t");
     expect(fetcher).toHaveBeenCalledWith(
       "https://portal.example/api/account",
       expect.objectContaining({ credentials: "omit" }),
@@ -22,11 +22,13 @@ describe("shared account transport", () => {
   });
 
   it("keeps ordinary Portal requests same-origin", async () => {
-    const fetcher = vi.fn(async () => Response.json({ apps: [] }));
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ apps: [] }),
+    );
     vi.stubGlobal("fetch", fetcher);
-    await createShellTransport().json("/api/account/apps");
+    await createShellTransport().aomi.account.apps.list();
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/account/apps",
+      "/v1/account/apps",
       expect.objectContaining({ credentials: "same-origin" }),
     );
   });
@@ -35,25 +37,24 @@ describe("shared account transport", () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(Response.json({ apps: ["across"] }));
+      .mockResolvedValueOnce(
+        Response.json({ mode: "balanced", revision: 2, scope: "thread", source: "user" }),
+      );
     vi.stubGlobal("fetch", fetcher);
     const bearer = vi
       .fn()
       .mockResolvedValueOnce("aomi_wst_old")
       .mockResolvedValueOnce("aomi_wst_new");
-    const options = {
-      method: "PUT",
-      body: JSON.stringify({ apps: ["across"] }),
-    };
-    await createShellTransport("https://portal.example", bearer).json(
-      "/api/account/apps",
-      options,
-    );
+    const { guard } = createShellTransport("https://portal.example", bearer)
+      .aomi.account;
+    await guard.set({ mode: "balanced", thread: "t", revision: 1 });
     expect(bearer.mock.calls).toEqual([
       [{ forceRefresh: false }],
       [{ forceRefresh: true }],
     ]);
-    expect(fetcher.mock.calls[1][1].body).toBe(options.body);
+    const body = JSON.stringify({ mode: "balanced", expectedRevision: 1 });
+    expect(fetcher.mock.calls[0][1].body).toBe(body);
+    expect(fetcher.mock.calls[1][1].body).toBe(body);
   });
 
   it("does not send a request when required sign-in is rejected", async () => {
@@ -62,20 +63,10 @@ describe("shared account transport", () => {
     const api = createShellTransport("https://portal.example", async () => {
       throw new Error("Signature rejected");
     });
-    await expect(api.json("/api/account")).rejects.toThrow(
+    await expect(api.aomi.raw.getAccount("t")).rejects.toThrow(
       "Signature rejected",
     );
     expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it("rejects unrelated destinations before requesting a credential", async () => {
-    const bearer = vi.fn(async () => "aomi_wst_test");
-    await expect(
-      createShellTransport("https://portal.example", bearer).json(
-        "https://other.example/api/account",
-      ),
-    ).rejects.toThrow("Unsupported account API path");
-    expect(bearer).not.toHaveBeenCalled();
   });
 });
 
@@ -88,10 +79,9 @@ it("validates a private key through thread discovery without requiring an accoun
     throw new Error("No account credential");
   });
   const transport = createShellTransport("https://api.example", getBearer);
-  const response = await transport.fetch("/api/thread/apps?resolve_key=true", {
-    headers: { "Aomi-App-Key": "disposable-key" },
-  });
-  expect(response.status).toBe(200);
+  await expect(
+    transport.aomi.raw.resolveAppKey("disposable-key"),
+  ).resolves.toEqual([]);
   expect(getBearer).not.toHaveBeenCalled();
   expect(new Headers(fetch.mock.calls[0][1]?.headers).get("aomi-app-key")).toBe(
     "disposable-key",
