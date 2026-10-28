@@ -58,12 +58,6 @@ export function identifyFailure(input: FailureInput): IdentifiedFailure {
         error: input.error,
         context: input.context,
         handled: false,
-        ...(input.request && input.errorContext ? {
-          requestError: {
-            request: input.request,
-            errorContext: input.errorContext,
-          },
-        } : {}),
       };
   }
 }
