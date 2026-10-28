@@ -86,7 +86,7 @@ export async function deviceAuth(baseUrl: string): Promise<AomiAuthStrategy> {
   });
 }
 
-export async function signedIn(baseUrl: string): Promise<boolean> {
+async function signedIn(baseUrl: string): Promise<boolean> {
   const issuer = `${baseUrl}/api/auth`;
   return (await grants.load()).some((grant) => grant.issuer === issuer);
 }
@@ -149,14 +149,13 @@ export async function connect(flags: ConnectFlags = {}): Promise<Aomi> {
 /** The guest bearer outlives the process, so its threads stay reachable. */
 function persistedGuest(baseUrl: string, state: CliState) {
   const fresh = createGuestSessionProvider({ baseUrl });
-  const saved =
-    state.guest?.baseUrl === baseUrl ? state.guest.token : undefined;
+  let saved = state.guest?.baseUrl === baseUrl ? state.guest.token : null;
   return Object.assign(
     async (options?: { forceRefresh?: boolean }) => {
       if (saved && !options?.forceRefresh) return saved;
-      const token = await fresh(options);
-      if (token) updateState({ guest: { baseUrl, token } });
-      return token;
+      saved = await fresh(options);
+      if (saved) updateState({ guest: { baseUrl, token: saved } });
+      return saved;
     },
     {
       clear() {
@@ -167,7 +166,7 @@ function persistedGuest(baseUrl: string, state: CliState) {
   );
 }
 
-export function chainOf(id: number): Chain {
+function chainOf(id: number): Chain {
   return (
     Object.values(chains).find((chain) => chain.id === id) ?? {
       id,
