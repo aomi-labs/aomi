@@ -21,7 +21,7 @@ import {
   sepolia,
 } from "viem/chains";
 import { observeAccountDiagnostic } from "../observability";
-import { shortAddress } from "@aomi-labs/client";
+import { shortAddress } from "../service/wallet-normalization";
 
 export async function verifySiweMessage(input: {
   message: string;

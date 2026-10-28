@@ -1,13 +1,11 @@
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { generateRandomString } from "better-auth/crypto";
-import { nextCookies } from "better-auth/next-js";
 import { anonymous, bearer, jwt, siwe } from "better-auth/plugins";
 import { mcp } from "@better-auth/mcp";
 import { cimd } from "@better-auth/cimd";
-import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
 import { accountRateLimitStorage } from "../rate-limit";
-import { getPool } from "../db/pool";
+import { currentPool } from "../db/pool";
 import {
   getOrCreateAomiUserForBetterAuthSession,
   linkAnonymousCanonicalAccount,
@@ -29,27 +27,9 @@ import { aomiAccountMergePlugin } from "./account-merge-plugin";
 import { aomiSiweWalletAppPlugin, withSiweWalletApp } from "./siwe-wallet-app";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
-import {
-  previewWalletAuthOrigin,
-  withPreviewWalletAuthOrigin,
-} from "./preview-origin";
 
-const env = readAccountAuthEnv();
-const resources = aomiOAuthResources();
-const resourcePolicies = aomiOAuthResourcePolicies();
-const isLoopbackAuthRuntime = (() => {
-  const hostname = new URL(env.betterAuthUrl).hostname;
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname === "[::1]"
-  );
-})();
-// Better Auth seeds configured resources during plugin initialization. Unit
-// suites import this module while intentionally running without PostgreSQL;
-// the resource/scope contract remains covered by oauth-policy and route tests.
-const seedOAuthResources = process.env.NODE_ENV !== "test";
+type Env = Record<string, string | undefined>;
+
 const DEVICE_CODE_FIELDS: Record<string, string> = {
   deviceCode: "device_code",
   userCode: "user_code",
@@ -75,7 +55,10 @@ function compatiblePlugin<T extends object>(plugin: T): T & BetterAuthPlugin {
 // when no resources are configured. Unit suites intentionally have no
 // Postgres service; retain the plugin id, schema, endpoints, and request hooks
 // while omitting only that eager database lifecycle hook in tests.
-function withoutTestDatabaseInit<T extends BetterAuthPlugin>(plugin: T): T {
+function withoutTestDatabaseInit<T extends BetterAuthPlugin>(
+  plugin: T,
+  seedOAuthResources: boolean,
+): T {
   if (seedOAuthResources) return plugin;
   const { init: _init, ...runtimePlugin } = plugin;
   return runtimePlugin as T;
@@ -142,8 +125,24 @@ function snakeCasedOAuth(plugin: ReturnType<typeof mcp>) {
   return { ...plugin, schema };
 }
 
-export const auth = betterAuth({
-  database: getPool(),
+/**
+ * The Better Auth server for one environment, framework-neutral: responses
+ * carry their own Set-Cookie headers. Build it once per runtime; its database
+ * is whichever request pool is current (`withDatabase`).
+ */
+export function createAuth(input: Env) {
+  const env = readAccountAuthEnv(input);
+  const resources = aomiOAuthResources(input);
+  const resourcePolicies = aomiOAuthResourcePolicies(input);
+  const isLoopbackAuthRuntime = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(
+    new URL(env.betterAuthUrl).hostname,
+  );
+  // Better Auth seeds configured resources during plugin initialization. Unit
+  // suites build it while intentionally running without PostgreSQL; the
+  // resource/scope contract remains covered by oauth-policy and route tests.
+  const seedOAuthResources = input.NODE_ENV !== "test";
+  return betterAuth({
+  database: currentPool,
   trustedOrigins: env.trustedOrigins,
   secret: env.betterAuthSecret,
   baseURL: env.betterAuthUrl,
@@ -250,11 +249,7 @@ export const auth = betterAuth({
     }),
     snakeCasedSiwe(
       canonicalSiwe({
-        get domain() {
-          return previewWalletAuthOrigin()
-            ? new URL(previewWalletAuthOrigin()!).host
-            : env.siweDomain;
-        },
+        domain: env.siweDomain,
         emailDomainName: env.siweEmailDomain,
         anonymous: true,
         getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
@@ -262,14 +257,8 @@ export const auth = betterAuth({
       }),
     ),
     aomiSiwsPlugin({
-      get domain() {
-        return previewWalletAuthOrigin()
-          ? new URL(previewWalletAuthOrigin()!).host
-          : env.siweDomain;
-      },
-      get baseUrl() {
-        return previewWalletAuthOrigin() ?? env.betterAuthUrl;
-      },
+      domain: env.siweDomain,
+      baseUrl: env.betterAuthUrl,
       getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
     }),
     bearer(),
@@ -354,9 +343,13 @@ export const auth = betterAuth({
           }),
         ),
       ),
+      seedOAuthResources,
     ),
     cimd({
-      fetchClientMetadataResource,
+      // Workers cannot reach private addresses, so plain fetch is the safe
+      // transport; redirects are refused by the plugin either way.
+      fetchClientMetadataResource: (url, init) =>
+        fetch(url, { ...init, redirect: "manual" }),
       metadataProfile: "mcp-2026-07-28",
     }),
     compatiblePlugin(
@@ -374,16 +367,12 @@ export const auth = betterAuth({
     aomiAccountMergePlugin(),
     aomiSiweWalletAppPlugin(),
     aomiWidgetOAuthBootstrapPlugin(),
-    nextCookies(),
   ],
-});
+  });
+}
 
-export function handleWalletAuthRequest(request: Request): Promise<Response> {
-  const result = withPreviewWalletAuthOrigin(
-    request,
-    process.env,
-    env.betterAuthUrl,
-    () => withSiweWalletApp(request, (stripped) => auth.handler(stripped)),
-  );
-  return Promise.resolve(result);
+export type Auth = ReturnType<typeof createAuth>;
+
+export function handleWalletAuthRequest(auth: Auth, request: Request): Promise<Response> {
+  return withSiweWalletApp(request, (stripped) => auth.handler(stripped));
 }
