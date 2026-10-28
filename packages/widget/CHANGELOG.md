@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 4.0.4
+
+- Clarify that Auto uses the default model. Provider routing and fallback remain backend policy for every selected model.
+
 ## 3.1.7
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.
