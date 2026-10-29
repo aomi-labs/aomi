@@ -48,6 +48,7 @@ exports[`help > prints ["threads"] --help 1`] = `
 "USAGE
   aomi threads list [--json] [--private-key hex] [--limit n]
   aomi threads open <id>
+  aomi threads show [--json] [--private-key hex] [<id>]
   aomi threads new
   aomi threads rename [--json] [--private-key hex] <id> <title>
   aomi threads archive [--json] [--private-key hex] <id>
@@ -64,6 +65,7 @@ FLAGS
 COMMANDS
   list     Your threads, newest first
   open     Continue a thread
+  show     What you and the agent said (default: the current thread)
   new      Start a new thread
   rename   Rename a thread
   archive  Archive a thread

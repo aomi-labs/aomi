@@ -163,6 +163,9 @@ const WorkingStep: FC<{
 /** One rendered row of the trace, over this transcript's parts and runs. */
 type TraceItem = TraceRow<ToolCallMessagePart, TaskRunState>;
 
+// Published from ./components/assistant-ui/working-trace before the decoder moved.
+export { buildTraceItems };
+
 /** Child steps an agent row contributes to the header/pill step count. */
 const childStepCount = (item: TraceItem): number =>
   item.kind === "agent" ? agentStepCount(item.run) : 0;

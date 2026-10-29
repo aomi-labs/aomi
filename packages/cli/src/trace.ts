@@ -25,6 +25,9 @@ export const paint = {
   green: (text: string) => `${ESC}32m${text}${ESC}39m`,
   red: (text: string) => `${ESC}31m${text}${ESC}39m`,
   cyan: (text: string) => `${ESC}36m${text}${ESC}39m`,
+  italic: (text: string) => `${ESC}3m${text}${ESC}23m`,
+  underline: (text: string) => `${ESC}4m${text}${ESC}24m`,
+  strike: (text: string) => `${ESC}9m${text}${ESC}29m`,
 };
 
 export const chipsOf = (step: InterpretedToolStep) =>

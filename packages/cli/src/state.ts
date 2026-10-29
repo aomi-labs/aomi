@@ -13,8 +13,6 @@ export type CliState = {
   thread?: string;
   owner?: string;
   model?: string;
-  /** Direct app; none means Auto. */
-  app?: string;
   chain?: number;
   /** The secrets vault client (`aomi secret`, `aomi keys`). */
   clientId?: string;
@@ -88,8 +86,8 @@ function migrate(): CliState {
     baseUrl: old.baseUrl,
     thread: old.sessionId,
     model: old.model,
-    app: old.agentMode === "auto" ? undefined : old.app,
-    chain: old.chainId,
+    // 0.2 stored its default chain 1; that means no chain, as on the web.
+    chain: old.chainId === 1 ? undefined : old.chainId,
     clientId: old.clientId,
     guest:
       old.guestBearer && old.baseUrl

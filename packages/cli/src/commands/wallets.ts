@@ -19,6 +19,16 @@ function table(rows: string[][]): string[] {
   );
 }
 
+/** How a wallet signs what the agent prepares, in a few words. */
+export function signsWith(wallet: AomiAccountWallet): string {
+  if (wallet.kind !== "agent") {
+    const app = wallet.browser_app ?? wallet.provider ?? wallet.label;
+    return `you sign in ${app.charAt(0).toUpperCase()}${app.slice(1)}`;
+  }
+  if (wallet.lane === "instant") return "signs at once";
+  return wallet.lane === "here" ? "you approve here" : "you approve on Aomi";
+}
+
 /** `aomi wallets`: the account's wallets, agent wallets first. */
 export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
@@ -26,14 +36,13 @@ export async function list(flags: Flags): Promise<void> {
   if (flags.json) return wallets.forEach(json);
   if (!wallets.length) return out("No wallets yet");
   table([
-    ["ID", "KIND", "FAMILY", "ADDRESS", "NAME", "LANE"],
+    ["ID", "NAME", "FAMILY", "ADDRESS", "SIGNS"],
     ...wallets.map((wallet) => [
       wallet.id,
-      wallet.kind,
+      wallet.label,
       wallet.family,
       wallet.address,
-      wallet.label,
-      wallet.lane ?? "",
+      signsWith(wallet),
     ]),
   ]).forEach((line) => out(line));
 }
@@ -58,7 +67,7 @@ export async function balance(flags: Flags, id: string): Promise<void> {
 export async function use(flags: Flags, id: string): Promise<void> {
   const aomi = await connect(flags);
   const thread = loadState().thread ?? crypto.randomUUID();
-  const result = await aomi.raw.account.wallets.setThreadWallet(thread, id);
+  const result = await aomi.account.wallets.use(id, { thread });
   updateState({ thread });
   if (flags.json) return json(result);
   out(`Using ${id} in thread ${thread}`);

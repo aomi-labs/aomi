@@ -197,7 +197,7 @@ export class AomiAgent {
       id,
       (text, threadId) => this.run(text, { sessionId: threadId }),
       (ref) => commits.get(ref),
-      this.raw.sessions,
+      this.raw,
     );
   }
 

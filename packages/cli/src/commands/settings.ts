@@ -131,7 +131,6 @@ export async function config(flags: Flags): Promise<void> {
     backend: baseUrlOf(flags, state),
     thread: state.thread ?? null,
     model: state.model ?? null,
-    app: state.app ?? null,
     chain: state.chain ?? null,
   };
   if (flags.json) return json(view);
@@ -143,9 +142,4 @@ export async function setBackend(_flags: Flags, url: string): Promise<void> {
   const baseUrl = new URL(url).origin;
   updateState({ baseUrl, thread: undefined });
   out(`Backend ${baseUrl}`);
-}
-
-export async function setApp(_flags: Flags, app?: string): Promise<void> {
-  updateState({ app });
-  out(app ? `Direct · ${app}` : "Auto");
 }

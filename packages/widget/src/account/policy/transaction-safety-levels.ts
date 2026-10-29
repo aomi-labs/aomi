@@ -1,6 +1,9 @@
 import { ShieldCheckIcon, ShieldIcon, ZapIcon } from "lucide-react";
 import type { ComponentType } from "react";
-import type { TransactionSafetyMode } from "@aomi-labs/client";
+import {
+  TRANSACTION_SAFETY_NAMES,
+  type TransactionSafetyMode,
+} from "@aomi-labs/client";
 
 export type TransactionSafetyLevel = {
   id: TransactionSafetyMode;
@@ -12,28 +15,25 @@ export type TransactionSafetyLevel = {
   danger: boolean;
 };
 
-/** User-facing names for the guard policy modes. */
+/** The guard policy modes, with the shared names and this UI's icons. */
 const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
   guarded_only: {
     id: "guarded_only",
-    label: "Strict",
-    description: "Only actions a protocol guard covers",
+    ...TRANSACTION_SAFETY_NAMES.guarded_only,
     Icon: ShieldIcon,
     canBeDefault: true,
     danger: false,
   },
   balanced: {
     id: "balanced",
-    label: "Balanced",
-    description: "Blocks critical guard findings",
+    ...TRANSACTION_SAFETY_NAMES.balanced,
     Icon: ShieldCheckIcon,
     canBeDefault: true,
     danger: false,
   },
   unrestricted: {
     id: "unrestricted",
-    label: "Yolo",
-    description: "Runs even when guards flag it",
+    ...TRANSACTION_SAFETY_NAMES.unrestricted,
     Icon: ZapIcon,
     canBeDefault: false,
     danger: true,

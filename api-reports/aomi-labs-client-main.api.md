@@ -731,6 +731,9 @@ export class AomiAccountWallets extends AccountWalletsTransport {
     list(options?: {
         signal?: AbortSignal;
     }): Promise<AomiAccountWallet[]>;
+    use(id: string, options: {
+        thread: string;
+    }): Promise<AomiThreadWallet>;
 }
 
 // @public
@@ -3079,6 +3082,9 @@ export type MessageReviewRow = {
 // @public (undocumented)
 export const MICROUSD_PER_CREDIT = 10000;
 
+// @public
+export function modelLabel(model: string): string;
+
 // @public (undocumented)
 export const monad: {
     blockExplorers: {
@@ -4248,7 +4254,8 @@ export type TelegramLinkResult = LinkResultShared & {
 
 // @public
 export class Thread {
-    constructor(id: string, start: (text: string, threadId: string) => AgentRun, open: (ref: string) => Promise<CommitHandle>, sessions: AgentSessionsTransport);
+    constructor(id: string, start: (text: string, threadId: string) => AgentRun, open: (ref: string) => Promise<CommitHandle>, agent: AgentTransport);
+    history(): Promise<ThreadHistory>;
     // (undocumented)
     readonly id: string;
     // (undocumented)
@@ -4256,6 +4263,15 @@ export class Thread {
     // (undocumented)
     send(text: string): Turn;
 }
+
+// @public
+export type ThreadHistory = {
+    messages: {
+        sender: "user" | "agent";
+        text: string;
+    }[];
+    activeWallet: AomiActiveWallet;
+};
 
 // @public
 export type ThreadOrigin = Schemas$1["ThreadOrigin"];
@@ -4294,6 +4310,12 @@ export function toViemSignMessageArgs(payload: WalletEip712Payload): ViemSignMes
 
 // @public
 export function toViemSignTypedDataArgs(payload: WalletEip712Payload): ViemSignTypedDataArgs | null;
+
+// @public
+export const TRANSACTION_SAFETY_NAMES: Record<TransactionSafetyMode, {
+    label: string;
+    description: string;
+}>;
 
 // @public (undocumented)
 export type TransactionSafetyAssessment = Schemas$2["GuardAssessment"];

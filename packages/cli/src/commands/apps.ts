@@ -9,11 +9,8 @@ export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   const apps = await aomi.account.apps.list();
   if (flags.json) return apps.forEach(json);
-  const current = loadState().app;
   for (const app of apps)
-    out(
-      `${app.name === current ? "*" : " "} ${app.name}${app.isInstalled ? "  installed" : ""}`,
-    );
+    out(`${app.name}${app.isInstalled ? "  installed" : ""}`);
 }
 
 export async function install(flags: Flags, name: string): Promise<void> {

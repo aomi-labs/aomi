@@ -201,12 +201,7 @@ const logout = command(
   [],
   account.logout,
 );
-const whoami = command(
-  BRIEFS.whoami,
-  { ...json, ...conn },
-  [],
-  account.whoami,
-);
+const whoami = command(BRIEFS.whoami, { ...json, ...conn }, [], account.whoami);
 
 const ref = [arg("Commit ref", "ref")];
 const signerShow = command("The local signer", json, [], wallets.signer);
@@ -239,6 +234,12 @@ const root = routes(
           {},
           [arg("Thread id", "id")],
           threads.open,
+        ),
+        show: command(
+          "What you and the agent said (default: the current thread)",
+          { ...json, ...conn },
+          [arg("Thread id", "id", true)],
+          threads.show,
         ),
         new: command("Start a new thread", {}, [], threads.start),
         rename: command(
@@ -444,12 +445,6 @@ const root = routes(
           { ...json, ...conn },
           [arg("App name", "name")],
           apps.uninstall,
-        ),
-        use: command(
-          "Route chat to an app (none: Auto)",
-          {},
-          [arg("App name", "name", true)],
-          settings.setApp,
         ),
         credentials: routes(
           "An app's credentials",

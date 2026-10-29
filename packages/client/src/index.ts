@@ -215,6 +215,7 @@ export type {
   ThreadSummary,
   ToolStep,
   TurnResult,
+  ThreadHistory,
 } from "./sdk/thread";
 export {
   AomiAccount,
@@ -396,6 +397,8 @@ export type {
   ViemSignTypedDataArgs,
 } from "./wallet-utils";
 
+export { modelLabel } from "./models";
+
 // ======================================================================// Chains
 // ======================================================================
 export {
@@ -447,6 +450,7 @@ export * from "./commits";
 export * from "./commit-lifecycle";
 
 export {
+  TRANSACTION_SAFETY_NAMES,
   TransactionSafetyTransport,
   transactionSafetyPolicy,
 } from "./transaction-safety";

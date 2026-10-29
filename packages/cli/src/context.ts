@@ -70,25 +70,44 @@ const SCOPES = [
   "offline_access",
 ];
 
-/** The device sign-in, against the grants file. */
-export async function deviceAuth(baseUrl: string): Promise<AomiAuthStrategy> {
+/**
+ * The grant `aomi login` holds, for the one `/v1` resource. A 0.2 install kept
+ * per-resource grants whose OAuth clients are bound to those resources, so
+ * they can neither sign in again nor count as signed in.
+ */
+async function heldGrant(baseUrl: string) {
   const issuer = `${baseUrl}/api/auth`;
-  const held = (await grants.load()).find((grant) => grant.issuer === issuer);
+  const resource = `${new URL(baseUrl).origin}/v1`;
+  return (await grants.load()).find(
+    (grant) => grant.issuer === issuer && grant.resource === resource,
+  );
+}
+
+/** Where a sign-in shows its code: stderr, or a screen that draws it. */
+export type ShowCode = (code: { url: string; code: string }) => void;
+
+const codeOnStderr: ShowCode = ({ url, code }) => {
+  process.stderr.write(`Open ${url}\nCode ${code}\n`);
+};
+
+/** The device sign-in, against the grants file. */
+export async function deviceAuth(
+  baseUrl: string,
+  onCode: ShowCode = codeOnStderr,
+): Promise<AomiAuthStrategy> {
+  const held = await heldGrant(baseUrl);
   return oauth({
     clientId: held?.clientId,
     clientName: `Aomi CLI · ${hostname()}`,
     scopes: SCOPES,
     store: grants,
-    onCode: ({ url, code }) => {
-      process.stderr.write(`Open ${url}\nCode ${code}\n`);
-    },
+    onCode,
     openBrowser: openUrl,
   });
 }
 
 async function signedIn(baseUrl: string): Promise<boolean> {
-  const issuer = `${baseUrl}/api/auth`;
-  return (await grants.load()).some((grant) => grant.issuer === issuer);
+  return (await heldGrant(baseUrl)) !== undefined;
 }
 
 /** `--private-key` (or AOMI_PRIVATE_KEY): signs in headlessly and signs. */
@@ -105,7 +124,10 @@ export function privateKeyOf(flags: ConnectFlags): `0x${string}` | undefined {
  * the device grant from `aomi login`, else as a guest. The signer is the
  * key from the flags or `aomi wallets signer set`.
  */
-export async function connect(flags: ConnectFlags = {}): Promise<Aomi> {
+export async function connect(
+  flags: ConnectFlags = {},
+  onCode?: ShowCode,
+): Promise<Aomi> {
   const state = loadState();
   const baseUrl = baseUrlOf(flags, state);
   const key = privateKeyOf(flags);
@@ -142,7 +164,7 @@ export async function connect(flags: ConnectFlags = {}): Promise<Aomi> {
       }),
     });
   if (await signedIn(baseUrl))
-    return new Aomi({ ...common, auth: await deviceAuth(baseUrl) });
+    return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
 }
 
@@ -177,7 +199,7 @@ function chainOf(id: number): Chain {
   );
 }
 
-/** What a turn runs with: the thread, the app (Auto when none), model and wallet. */
+/** What a turn runs with: the thread, `--app` (else Auto), model and wallet. */
 export function turnOptions(
   aomi: Aomi,
   state: CliState,
@@ -186,9 +208,11 @@ export function turnOptions(
     app?: string;
     model?: string;
     chain?: number;
+    /** A new thread's wallet per family (`/wallet` before the first turn). */
+    walletPick?: { evm?: string; svm?: string };
   } = {},
 ) {
-  const app = overrides.app ?? state.app;
+  const app = overrides.app;
   const target: AgentTarget = app ? { mode: "direct", app } : { mode: "auto" };
   const evm = aomi.wallet?.evm?.address;
   const svm = aomi.wallet?.svm?.address;
@@ -202,6 +226,7 @@ export function turnOptions(
         ? { svm: { address: svm, cluster: state.cluster ?? "solana:mainnet" } }
         : {}),
       ...(evm || svm ? { connection: { is_connected: true } } : {}),
+      ...(overrides.walletPick ? { wallet_pick: overrides.walletPick } : {}),
     },
     "client_type",
     CLIENT_TYPE_TS_CLI,
