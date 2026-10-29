@@ -71,12 +71,12 @@ public_key = ""
 
 [[services]]
 name = "aomi-edge"
-kid = "aomi-edge-prod-1"
+kid = "aomi-edge-prod-2"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAq9ihIZ171b4Qpk0V+vXkr0G2xFkMPFX1rO397+eeZP0=
+MCowBQYDK2VwAyEAae8coEZrvwByJbaiBV3jEzQd32Tm82bF3mXNRZwttH8=
 -----END PUBLIC KEY-----"""
 
 [[services]]
