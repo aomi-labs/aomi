@@ -4,6 +4,7 @@ import type { AgentTransport } from "../agent/transport";
 import type { AomiActiveWallet } from "../account/wallets";
 import type { ToolStepInput } from "../trace/types";
 import { isTerminalCommit } from "../commits";
+import { stripCapabilityHints } from "../mentions";
 import type { AgentRun, AgentRunOptions } from "./agent";
 import type { CommitHandle } from "./commits";
 
@@ -197,7 +198,14 @@ export class Thread {
       (event.sender === "user" || event.sender === "agent") &&
       !event.tool_call_id &&
       event.content.trim()
-        ? { sender: event.sender, text: event.content }
+        ? {
+            sender: event.sender,
+            // "@" mentions ride on the message as a model-only hint.
+            text:
+              event.sender === "user"
+                ? stripCapabilityHints(event.content)
+                : event.content,
+          }
         : undefined;
     const messages = page.events.flatMap((event) => said(event) ?? []);
     // A turn runs from one of your messages to the next.
@@ -212,7 +220,9 @@ export class Thread {
       const steps = toolSteps(events, new Set(), true);
       const decode = options?.decode;
       return {
-        text: (events[0] as Event & { content: string }).content,
+        text: stripCapabilityHints(
+          (events[0] as Event & { content: string }).content,
+        ),
         steps: decode
           ? steps.map((step, at) => decode(stepInput(step, steps.slice(0, at))))
           : steps,

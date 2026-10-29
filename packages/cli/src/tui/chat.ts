@@ -1,5 +1,4 @@
 import {
-  CombinedAutocompleteProvider,
   decodeKittyPrintable,
   Editor,
   isKeyRelease,
@@ -25,9 +24,11 @@ import {
   type AomiAccountWallet,
   type AomiActiveWallet,
   type CommitHandle,
+  type MentionItem,
   type TransactionSafetyMode,
 } from "@aomi-labs/client";
 import { decode, type InterpretedToolStep } from "@aomi-labs/client/trace";
+import { MentionAutocomplete, mentionCatalog } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
@@ -188,9 +189,12 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     tui.setFocus(list);
     tui.requestRender();
   }
-  editor.setAutocompleteProvider(
-    new CombinedAutocompleteProvider(SLASH, process.cwd()),
-  );
+  /** What "@" can tag; filled in once the screen is up. */
+  let catalog: MentionItem[] = [];
+  const loadMentions = () =>
+    void mentionCatalog(aomi, thread).then((items) => (catalog = items));
+  const mentions = new MentionAutocomplete(SLASH, () => catalog);
+  editor.setAutocompleteProvider(mentions);
 
   /** Commits you already approved or rejected: one decision each. */
   const deciding = new Set<string>();
@@ -431,7 +435,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         walletPick: started ? undefined : walletPick,
       });
       thread = options.sessionId;
-      running = aomi.agent.thread(thread).send(text, options);
+      // Like the composer, mentions only steer Auto.
+      const hinted = mentions.hint(text);
+      running = aomi.agent
+        .thread(thread)
+        .send(flags.app ? text : hinted, options);
       for await (const step of running.steps({ decode })) {
         signing = undefined;
         view.steps.push(step);
@@ -473,6 +481,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
       signing = undefined;
       aomi = await connect(flags, showCode);
+      loadMentions();
       // The guest's threads stay with the guest.
       thread = crypto.randomUUID();
       title = "new thread";
@@ -660,6 +669,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     tui.requestRender();
   });
   loadGuard();
+  loadMentions();
   if (resume) {
     void loadThread();
     void aomi.agent.threads

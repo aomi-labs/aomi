@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
-import { shortAddress } from "@aomi-labs/client";
+import { isTestnetChain, shortAddress } from "@aomi-labs/client";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 import {
   appName,
@@ -63,9 +63,10 @@ export function useCapabilityCatalog(): PickerItem[] {
   const { enabledAppIds, allowAppMentions } = useCapabilityComposer();
   const { state, getCurrentThreadControl } = useControl();
   const control = getCurrentThreadControl();
-  const model = control.modelMode === "auto" || control.model === null
-    ? resolveAutoModel(state.availableModels)
-    : control.model;
+  const model =
+    control.modelMode === "auto" || control.model === null
+      ? resolveAutoModel(state.availableModels)
+      : control.model;
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { skills } = useSkillCatalog();
   const { wallets } = useAomiWalletKit();
@@ -99,8 +100,13 @@ export function useCapabilityCatalog(): PickerItem[] {
           .map((app) => {
             const info = resolveAppIdentity(app);
             const metadata = app.metadata;
-            const known = typeof metadata?.fundedModelOnly === "boolean" && Array.isArray(metadata.sponsoredModelIds);
-            const disabled = !known || (metadata.fundedModelOnly === true && (!model || !metadata.sponsoredModelIds?.includes(model)));
+            const known =
+              typeof metadata?.fundedModelOnly === "boolean" &&
+              Array.isArray(metadata.sponsoredModelIds);
+            const disabled =
+              !known ||
+              (metadata.fundedModelOnly === true &&
+                (!model || !metadata.sponsoredModelIds?.includes(model)));
             const chainSearch = (app.chainIds ?? [])
               .map((chainId) => getChainInfo(chainId)?.name ?? chainId)
               .join(" ");
@@ -113,7 +119,11 @@ export function useCapabilityCatalog(): PickerItem[] {
               kind: "app" as const,
               id: sourceId,
               label: info.displayName,
-              description: !known ? "Checking model availability…" : disabled ? "Choose a sponsored model" : info.category.label,
+              description: !known
+                ? "Checking model availability…"
+                : disabled
+                  ? "Choose a sponsored model"
+                  : info.category.label,
               disabled,
               chainIds: app.chainIds,
               applicationId: app.applicationId,
@@ -134,7 +144,7 @@ export function useCapabilityCatalog(): PickerItem[] {
         description: evmNetworkDescription(chain),
         chainTarget: { family: "evm" as const, chainId: chain.id },
         searchText: `${chain.name} evm ${chain.id}`,
-        testnet: isTestnet(chain),
+        testnet: isTestnetChain(chain),
         Icon: getChainIcon(chain.id) ?? Globe2Icon,
       })),
       ...(networkPreferences?.supportedSolanaNetworks ?? []).map((network) => ({
@@ -169,15 +179,4 @@ export function useCapabilityCatalog(): PickerItem[] {
   ]);
 
   return items;
-}
-
-const TESTNET_NAME =
-  /sepolia|testnet|devnet|holesky|goerli|amoy|fuji|anvil|localhost/i;
-
-function isTestnet(chain: { id: number; name: string; testnet?: boolean }) {
-  return (
-    Boolean(chain.testnet) ||
-    chain.id === 31337 ||
-    TESTNET_NAME.test(chain.name)
-  );
 }

@@ -8,6 +8,8 @@ import {
   type SessionSnapshot,
   type ToolCompleteEvent,
   type TurnState,
+  extractCapabilityHints,
+  stripCapabilityHints,
 } from "@aomi-labs/client";
 import {
   mergeTracePart,
@@ -15,10 +17,6 @@ import {
   type TracePart,
 } from "@aomi-labs/client/trace";
 
-import {
-  extractCapabilityHints,
-  stripCapabilityHints,
-} from "./capability-hints";
 import { parseTimestamp } from "./timestamp";
 
 type MessageContentPart =

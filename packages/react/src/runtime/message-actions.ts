@@ -1,6 +1,5 @@
 import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
-import type { SendOptions } from "@aomi-labs/client";
-import { appendCapabilityHints } from "./capability-hints";
+import { type SendOptions, appendCapabilityHints } from "@aomi-labs/client";
 
 function textContent(content: ThreadMessageLike["content"]): string {
   return typeof content === "string"

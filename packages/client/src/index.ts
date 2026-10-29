@@ -448,6 +448,7 @@ export type {
 } from "./aa";
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
+export * from "./mentions";
 export * from "./commit-lifecycle";
 
 export {

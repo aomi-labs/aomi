@@ -3,7 +3,7 @@ import {
   appendCapabilityHints,
   extractCapabilityHints,
   stripCapabilityHints,
-} from "./capability-hints";
+} from "./mentions";
 
 describe("selected app delegation", () => {
   it("keeps a branded app's registered name in the task target", () => {
