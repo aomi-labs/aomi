@@ -449,6 +449,7 @@ export * from "./commits";
 export * from "./commit-lifecycle";
 
 export {
+  TRANSACTION_SAFETY_NAMES,
   TransactionSafetyTransport,
   transactionSafetyPolicy,
 } from "./transaction-safety";

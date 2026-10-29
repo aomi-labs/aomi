@@ -107,6 +107,7 @@ export function createAomiOAuthGrantManager(input: {
   const issuer = normalizeIssuer(input.issuer);
   const store = input.store ?? createMemoryOAuthGrantStore(input.initial);
   const pendingRefresh = new Map<string, Promise<AomiOAuthGrant>>();
+  const pendingAcquire = new Map<string, Promise<void>>();
   const now = input.now ?? Date.now;
   let grants: AomiOAuthGrant[] = [];
   const mine = (grant: AomiOAuthGrant) =>
@@ -146,25 +147,40 @@ export function createAomiOAuthGrantManager(input: {
     // The three REST APIs share one `/v1` sign-in; MCP keeps its own.
     const request = { ...asked, resource: apiResource(asked.resource) };
     let grant = bestGrant(grants, request);
+    // Calls that find the sign-in short at the same time share one approval.
+    const inFlight = grant ? undefined : pendingAcquire.get(request.resource);
+    if (inFlight) {
+      await inFlight.catch(() => undefined);
+      grant = bestGrant(grants, request);
+    }
     if (!grant) {
       // Widen the held sign-in instead of starting another: one approval.
       const held = grants
         .filter((candidate) => candidate.resource === request.resource)
         .flatMap((candidate) => candidate.scopes);
-      const acquired = await input.acquire?.({
-        ...request,
-        scopes: [
-          ...new Set([
-            ...(request.resource === asked.resource
-              ? []
-              : (input.scopes ?? [])),
-            ...held,
-            ...request.scopes,
-          ]),
-        ],
-      });
-      if (!acquired) return null;
-      await put(acquired);
+      const acquiring = (async () => {
+        const acquired = await input.acquire?.({
+          ...request,
+          scopes: [
+            ...new Set([
+              // The `/v1` sign-in asks for every configured REST scope.
+              ...(new URL(request.resource).pathname === "/v1"
+                ? (input.scopes ?? [])
+                : []),
+              ...held,
+              ...request.scopes,
+            ]),
+          ],
+        });
+        if (acquired) await put(acquired);
+      })();
+      pendingAcquire.set(request.resource, acquiring);
+      try {
+        await acquiring;
+      } finally {
+        if (pendingAcquire.get(request.resource) === acquiring)
+          pendingAcquire.delete(request.resource);
+      }
       grant = bestGrant(grants, request);
       if (!grant) return null;
     }

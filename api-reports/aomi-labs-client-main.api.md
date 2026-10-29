@@ -4298,6 +4298,12 @@ export function toViemSignMessageArgs(payload: WalletEip712Payload): ViemSignMes
 // @public
 export function toViemSignTypedDataArgs(payload: WalletEip712Payload): ViemSignTypedDataArgs | null;
 
+// @public
+export const TRANSACTION_SAFETY_NAMES: Record<TransactionSafetyMode, {
+    label: string;
+    description: string;
+}>;
+
 // @public (undocumented)
 export type TransactionSafetyAssessment = Schemas$2["GuardAssessment"];
 

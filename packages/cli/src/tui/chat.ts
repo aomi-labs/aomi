@@ -14,13 +14,16 @@ import {
 import {
   CHAIN_NAMES,
   modelLabel,
+  TRANSACTION_SAFETY_NAMES,
   Turn,
   type Aomi,
   type CommitHandle,
+  type TransactionSafetyMode,
 } from "@aomi-labs/client";
 import { decode, type InterpretedToolStep } from "@aomi-labs/client/trace";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
+import { guardMode } from "../commands/guard";
 import { reviewLines, reviewSummary } from "../commands/tx";
 import { connect, openUrl, ownerOf, turnOptions } from "../context";
 import { loadState, updateState } from "../state";
@@ -39,7 +42,7 @@ type TurnView = {
 
 const SLASH = [
   { name: "model", description: "Pick the model for this thread" },
-  { name: "mode", description: "Auto or Direct routing" },
+  { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
   { name: "help", description: "Keys and commands" },
   { name: "exit", description: "Quit" },
@@ -47,7 +50,7 @@ const SLASH = [
 
 const HELP = [
   "/model [name | auto]   pick the model",
-  "/mode [auto | <app>]   route to every app, or one",
+  "/guard [strict | balanced | yolo]  how guards gate this thread's actions",
   "/new                   start a new thread",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
   "a r o d on an approval: approve, reject, open, details",
@@ -58,7 +61,10 @@ const short = (address: string) =>
 
 /** The chat screen: turns with their steps, approvals, the input and a status bar. */
 export async function runTui(flags: ChatFlags): Promise<void> {
-  const aomi = await connect(flags);
+  // A sign-in started from the screen shows its code in the transcript.
+  const aomi = await connect(flags, ({ url, code }) =>
+    note(`Sign in: open ${url}\nCode ${code}`),
+  );
   let thread = flags.new
     ? crypto.randomUUID()
     : turnOptions(aomi, loadState(), { thread: flags.thread }).sessionId;
@@ -68,6 +74,17 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let expanded = false;
   let details = false;
   const bar = { who: "guest", credits: "" };
+  let guard: TransactionSafetyMode | undefined;
+  const loadGuard = () =>
+    aomi.auth.mode === "guest"
+      ? undefined
+      : void aomi.account.guard
+          .get({ thread })
+          .then((policy) => {
+            guard = policy.mode;
+            tui.requestRender();
+          })
+          .catch(() => undefined);
 
   const terminal = new ProcessTerminal();
   const tui = new TuiMainScreen(terminal);
@@ -185,7 +202,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         bar.who,
         chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
         state.model ? modelLabel(state.model) : "Auto model",
-        state.app ? `Direct ${state.app}` : "Auto",
+        guard && TRANSACTION_SAFETY_NAMES[guard].label,
         bar.credits,
       ]
         .filter(Boolean)
@@ -302,6 +319,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       thread = crypto.randomUUID();
       title = "new thread";
       turns.length = 0;
+      loadGuard();
       return note("New thread");
     }
     if (name === "model") {
@@ -327,22 +345,43 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         choose,
       );
     }
-    if (name === "mode") {
-      const choose = (app: string) => {
-        updateState({ app: app === "auto" ? undefined : app });
-        note(app === "auto" ? "Auto" : `Direct · ${app}`);
+    if (name === "guard") {
+      if (aomi.auth.mode === "guest")
+        return note("Sign in for guards: aomi login");
+      const save = async (mode: TransactionSafetyMode) => {
+        try {
+          guard = (await aomi.account.guard.set({ mode, thread })).mode;
+          note(`Guard ${TRANSACTION_SAFETY_NAMES[guard].label}`);
+        } catch (error) {
+          note(error instanceof Error ? error.message : String(error));
+        }
       };
-      // `/mode direct <app>` still works.
-      const app = rest[0] === "direct" ? rest[1] : rest[0];
-      if (app) return choose(app);
-      const apps = await aomi.account.apps.list().catch(() => []);
+      // Yolo runs flagged actions too, so it asks first, as on the web.
+      const choose = (mode: TransactionSafetyMode) =>
+        mode === "unrestricted"
+          ? pick(
+              [
+                {
+                  value: "yes",
+                  label: "Turn on Yolo for this thread",
+                  description: "actions run even when a guard flags them",
+                },
+                { value: "no", label: "Cancel" },
+              ],
+              "no",
+              (answer) => void (answer === "yes" && save(mode)),
+            )
+          : void save(mode);
+      if (arg) {
+        const mode = guardMode(arg);
+        return mode ? choose(mode) : note("/guard strict | balanced | yolo");
+      }
       return pick(
-        [
-          { value: "auto", label: "Auto", description: "route to every app" },
-          ...apps.map((entry) => ({ value: entry.name, label: entry.name })),
-        ],
-        loadState().app ?? "auto",
-        choose,
+        (Object.keys(TRANSACTION_SAFETY_NAMES) as TransactionSafetyMode[]).map(
+          (mode) => ({ value: mode, ...TRANSACTION_SAFETY_NAMES[mode] }),
+        ),
+        guard ?? "balanced",
+        (mode) => choose(mode as TransactionSafetyMode),
       );
     }
     note(`Unknown command /${name}; /help`);
@@ -358,6 +397,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   void statusBar(aomi, bar).then(() => tui.requestRender());
+  loadGuard();
   if (thread)
     void aomi.agent.threads
       .list({ limit: 50 })

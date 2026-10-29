@@ -151,6 +151,45 @@ describe("Aomi OAuth grant manager", () => {
     ]);
   });
 
+  it("starts one sign-in for calls that find the grant short at once", async () => {
+    let approve!: () => void;
+    const approved = new Promise<void>((resolve) => (approve = resolve));
+    const acquire = vi.fn(async (request: AomiOAuthTokenRequest) => {
+      await approved;
+      return { ...grant(apiResource, "api", request.scopes), expiresAt: 9e9 };
+    });
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      scopes: ["agent:read", "account:credits:read", "account:wallets:read"],
+      acquire,
+      refresh: vi.fn(),
+      now: () => 1,
+    });
+    const calls = Promise.all([
+      manager.tokenProvider({
+        resource: apiResource,
+        scopes: ["account:credits:read"],
+      }),
+      manager.tokenProvider({
+        resource: apiResource,
+        scopes: ["account:wallets:read"],
+      }),
+      manager.tokenProvider({
+        resource: agentResource,
+        scopes: ["agent:read"],
+      }),
+    ]);
+    await vi.waitFor(() => expect(acquire).toHaveBeenCalled());
+    approve();
+    expect((await calls).map((token) => token?.accessToken)).toEqual([
+      "api",
+      "api",
+      "api",
+    ]);
+    expect(acquire).toHaveBeenCalledTimes(1);
+  });
+
   it("acquires one /v1 sign-in for agent and pipeline, MCP separately", async () => {
     const acquire = vi.fn(
       async (request: AomiOAuthTokenRequest): Promise<AomiOAuthGrant> => ({

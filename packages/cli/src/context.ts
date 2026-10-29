@@ -83,17 +83,25 @@ async function heldGrant(baseUrl: string) {
   );
 }
 
+/** Where a sign-in shows its code: stderr, or a screen that draws it. */
+export type ShowCode = (code: { url: string; code: string }) => void;
+
+const codeOnStderr: ShowCode = ({ url, code }) => {
+  process.stderr.write(`Open ${url}\nCode ${code}\n`);
+};
+
 /** The device sign-in, against the grants file. */
-export async function deviceAuth(baseUrl: string): Promise<AomiAuthStrategy> {
+export async function deviceAuth(
+  baseUrl: string,
+  onCode: ShowCode = codeOnStderr,
+): Promise<AomiAuthStrategy> {
   const held = await heldGrant(baseUrl);
   return oauth({
     clientId: held?.clientId,
     clientName: `Aomi CLI · ${hostname()}`,
     scopes: SCOPES,
     store: grants,
-    onCode: ({ url, code }) => {
-      process.stderr.write(`Open ${url}\nCode ${code}\n`);
-    },
+    onCode,
     openBrowser: openUrl,
   });
 }
@@ -116,7 +124,10 @@ export function privateKeyOf(flags: ConnectFlags): `0x${string}` | undefined {
  * the device grant from `aomi login`, else as a guest. The signer is the
  * key from the flags or `aomi wallets signer set`.
  */
-export async function connect(flags: ConnectFlags = {}): Promise<Aomi> {
+export async function connect(
+  flags: ConnectFlags = {},
+  onCode?: ShowCode,
+): Promise<Aomi> {
   const state = loadState();
   const baseUrl = baseUrlOf(flags, state);
   const key = privateKeyOf(flags);
@@ -153,7 +164,7 @@ export async function connect(flags: ConnectFlags = {}): Promise<Aomi> {
       }),
     });
   if (await signedIn(baseUrl))
-    return new Aomi({ ...common, auth: await deviceAuth(baseUrl) });
+    return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
 }
 
@@ -188,7 +199,7 @@ function chainOf(id: number): Chain {
   );
 }
 
-/** What a turn runs with: the thread, the app (Auto when none), model and wallet. */
+/** What a turn runs with: the thread, `--app` (else Auto), model and wallet. */
 export function turnOptions(
   aomi: Aomi,
   state: CliState,
@@ -199,7 +210,7 @@ export function turnOptions(
     chain?: number;
   } = {},
 ) {
-  const app = overrides.app ?? state.app;
+  const app = overrides.app;
   const target: AgentTarget = app ? { mode: "direct", app } : { mode: "auto" };
   const evm = aomi.wallet?.evm?.address;
   const svm = aomi.wallet?.svm?.address;

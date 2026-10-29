@@ -58,7 +58,7 @@ sign-in.
 | `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
 | `wallets` (`wallet`) | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
 | `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
-| `guard [mode]` | The thread's signing guard, or `--account`'s default |
+| `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
 | `apps` (`app`) | `list`, `install`, `uninstall`, `use`, `credentials` |
 | `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
 | `deploy` | Deploy the current commit; `status [--watch]`, `activate` |
@@ -76,12 +76,14 @@ Credential and key values come from stdin or a hidden prompt, never argv.
 `aomi` opens it. Each turn shows "Worked Ns · N steps" (ctrl+o expands the
 steps), the reply, and a box for a commit waiting for your approval: `a`
 approve, `r` reject, `o` open in the browser, `d` details. Type `/` for
-`/model`, `/mode`, `/new`, `/help`. Esc stops a turn; ctrl+c quits.
+`/model` (a list, Auto first), `/guard` (Strict, Balanced or Yolo for the
+thread), `/new`, `/help`. Chat routes to every app (Auto); `--app` pins one
+for a run. Esc stops a turn; ctrl+c quits.
 
 ## State
 
 Everything lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it): `cli.json`
-(backend, thread, model, app, chain, local signer keys) and `grants.json`.
+(backend, thread, model, chain, local signer keys) and `grants.json`.
 The first run reads a 0.2 session once; an old wallet or bearer sign-in asks
 you to `aomi login` again. `AOMI_BACKEND_URL` or `aomi config set-backend`
 point the CLI at another Aomi, e.g. `https://chat-staging.aomi.dev`.
