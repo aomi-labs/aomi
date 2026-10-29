@@ -11,12 +11,12 @@ pnpm add @aomi-labs/client
 
 ## Quick start
 
-Guest access is the default. Set `baseUrl` explicitly when testing against staging.
+Guest access is the default. `baseUrl` defaults to `https://chat.aomi.dev`.
 
 ```ts
 import { Aomi } from "@aomi-labs/client";
 
-const aomi = new Aomi({ baseUrl: "https://chat-staging.aomi.dev" });
+const aomi = new Aomi();
 const thread = aomi.agent.thread();
 const turn = thread.send("Introduce Aomi in one sentence.");
 const { reply, commits } = await turn;
@@ -24,10 +24,9 @@ console.log(reply);
 for (const commit of commits) commit.close();
 ```
 
-Without `baseUrl`, the SDK uses `https://chat.aomi.dev`. Guest bootstrap calls
-`POST /api/auth/guest`; Node and cross-origin browsers keep its bearer in memory.
-Same-origin browsers can use an existing cookie session. Guest access and scope
-limits depend on the deployment; staging may not have the guest route yet.
+Guest bootstrap calls `POST /api/auth/guest`; Node and cross-origin browsers
+keep its bearer in memory. Same-origin browsers can use an existing cookie
+session.
 
 ## Authentication
 
@@ -40,7 +39,6 @@ import { oauth, wallet } from "@aomi-labs/client";
 import { fileGrants } from "@aomi-labs/client/node";
 
 const signedIn = new Aomi({
-  baseUrl: "https://chat-staging.aomi.dev",
   auth: oauth({
     store: fileGrants("./.private/aomi-grants.json"),
     onCode: ({ url, code }) => console.log(`Open ${url}, code ${code}`),
@@ -66,7 +64,6 @@ import { sepolia } from "viem/chains";
 
 const account = privateKeyToAccount(generatePrivateKey()); // disposable, unfunded
 const bot = new Aomi({
-  baseUrl: "https://chat-staging.aomi.dev",
   auth: wallet(account, { chainId: sepolia.id }),
   signer: {
     evm: viemSigner(
@@ -165,9 +162,17 @@ const credits = await bot.account.credits.get();
 const apps = await bot.account.apps.list();
 const wallets = await bot.account.wallets.list();
 console.log(credits.balance_microusd, apps, wallets);
+
+// What a thread said so far, and switching the wallet it trades with.
+const { messages, activeWallet } = await bot.agent.thread(thread.id).history();
+console.log(messages.at(-1)?.text, activeWallet.evm);
+if (wallets[0])
+  await bot.account.wallets.use(wallets[0].id, { thread: thread.id });
 ```
 
-Account methods require a signed-in identity and the relevant permissions.
+Account methods require a signed-in identity and the relevant permissions. A
+thread that has not started yet takes its wallet from the first turn instead
+(`userState.wallet_pick`).
 
 ## Subpaths
 
@@ -209,7 +214,7 @@ it does not provide the facade's default guest bootstrap.
 import { AomiClient } from "@aomi-labs/client";
 
 const raw = new AomiClient({
-  baseUrl: "https://chat-staging.aomi.dev",
+  baseUrl: "https://chat.aomi.dev",
   guest: false,
   getAccountBearer: async () => "your-server-held-session-token",
 });

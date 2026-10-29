@@ -1,7 +1,7 @@
 // Typechecked README blocks; kept in sync by readme-snippets.test.ts.
 import { Aomi } from "@aomi-labs/client";
 
-const aomi = new Aomi({ baseUrl: "https://chat-staging.aomi.dev" });
+const aomi = new Aomi();
 const thread = aomi.agent.thread();
 const turn = thread.send("Introduce Aomi in one sentence.");
 const { reply, commits } = await turn;
@@ -12,7 +12,6 @@ import { oauth, wallet } from "@aomi-labs/client";
 import { fileGrants } from "@aomi-labs/client/node";
 
 const signedIn = new Aomi({
-  baseUrl: "https://chat-staging.aomi.dev",
   auth: oauth({
     store: fileGrants("./.private/aomi-grants.json"),
     onCode: ({ url, code }) => console.log(`Open ${url}, code ${code}`),
@@ -28,7 +27,6 @@ import { sepolia } from "viem/chains";
 
 const account = privateKeyToAccount(generatePrivateKey()); // disposable, unfunded
 const bot = new Aomi({
-  baseUrl: "https://chat-staging.aomi.dev",
   auth: wallet(account, { chainId: sepolia.id }),
   signer: {
     evm: viemSigner(
@@ -78,6 +76,12 @@ const apps = await bot.account.apps.list();
 const wallets = await bot.account.wallets.list();
 console.log(credits.balance_microusd, apps, wallets);
 
+// What a thread said so far, and switching the wallet it trades with.
+const { messages, activeWallet } = await bot.agent.thread(thread.id).history();
+console.log(messages.at(-1)?.text, activeWallet.evm);
+if (wallets[0])
+  await bot.account.wallets.use(wallets[0].id, { thread: thread.id });
+
 import { AomiError, isAomiError } from "@aomi-labs/client";
 
 try {
@@ -92,7 +96,7 @@ console.log(exampleError.hint);
 import { AomiClient } from "@aomi-labs/client";
 
 const raw = new AomiClient({
-  baseUrl: "https://chat-staging.aomi.dev",
+  baseUrl: "https://chat.aomi.dev",
   guest: false,
   getAccountBearer: async () => "your-server-held-session-token",
 });
