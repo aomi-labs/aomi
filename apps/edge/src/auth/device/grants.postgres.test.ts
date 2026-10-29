@@ -23,7 +23,8 @@ const redirectUri = "http://127.0.0.1:49152/callback";
 const edgeRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
-describePostgres("PostgreSQL device-auth records", () => {
+// Each case spawns several tsx worker processes; 5 s is too tight on CI runners.
+describePostgres("PostgreSQL device-auth records", { timeout: 30_000 }, () => {
   let pool: ReturnType<typeof import("@aomi-labs/account").getPool>;
   let createDeviceAuthGrantService: typeof import("./grants").createDeviceAuthGrantService;
   let createPostgresDeviceAuthRecordStore: typeof import("./grants").createPostgresDeviceAuthRecordStore;

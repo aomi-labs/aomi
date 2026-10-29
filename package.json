@@ -27,7 +27,7 @@
     "build:client": "pnpm --filter @aomi-labs/client build",
     "build:deploy": "pnpm --filter @aomi-labs/deploy build",
     "build:smither": "pnpm --filter @aomi-labs/smither build",
-    "build:packages": "pnpm run build:client && pnpm run build:deploy && pnpm --filter @aomi-labs/cli build && pnpm --filter @aomi-labs/react build && pnpm --filter @aomi-labs/account type-check && pnpm run build:widget",
+    "build:packages": "pnpm run build:client && pnpm --filter @aomi-labs/cli build && pnpm --filter @aomi-labs/react build && pnpm --filter @aomi-labs/account type-check && pnpm run build:deploy && pnpm run build:smither && pnpm run build:widget",
     "build:landing": "pnpm --filter landing build",
     "build:portal": "pnpm --filter portal build",
     "build:aomi-build": "pnpm --filter aomi-build build",
