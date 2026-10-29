@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   search:
-    "state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback",
+    "state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback&link_intent=intent_1",
   replace: vi.fn(),
   wallet: {
     connectSocial: vi.fn(),
@@ -49,24 +49,21 @@ vi.mock("@aomi-labs/widget/providers/privy", () => ({}));
 import { DeviceAuthClient } from "./device-auth-client";
 
 const PARA_SEARCH =
-  "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback";
+  "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback&link_intent=intent_1";
 
 function mockHandoffResponses() {
-  return vi
-    .spyOn(globalThis, "fetch")
-    .mockResolvedValueOnce(Response.json({}))
-    .mockResolvedValueOnce(
-      Response.json({
-        code: "one-time-code",
-        state: "state_1234567890abcdef",
-      }),
-    );
+  return vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    Response.json({
+      code: "one-time-code",
+      state: "state_1234567890abcdef",
+    }),
+  );
 }
 
 describe("DeviceAuthClient provider ownership", () => {
   beforeEach(() => {
     mocks.search =
-      "state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback";
+      "state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback&link_intent=intent_1";
     mocks.replace.mockReset();
     mocks.wallet.connectSocial.mockReset();
     mocks.getAccountCredential = vi.fn<() => Promise<unknown>>();
@@ -93,7 +90,7 @@ describe("DeviceAuthClient provider ownership", () => {
 
   it("never renders a raw provider error after connect", async () => {
     mocks.search =
-      "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback";
+      "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback&link_intent=intent_1";
     mocks.wallet.connectSocial.mockResolvedValue(undefined);
     mocks.getAccountCredential!.mockRejectedValue(
       new Error("private provider response containing a credential"),
@@ -112,21 +109,13 @@ describe("DeviceAuthClient provider ownership", () => {
 
   it("keeps the CLI handoff pending while provider login takes over 30 seconds", async () => {
     vi.useFakeTimers();
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(Response.json({}))
-      .mockResolvedValueOnce(
-        Response.json({
-          code: "one-time-code",
-          state: "state_1234567890abcdef",
-        }),
-      );
+    const fetchMock = mockHandoffResponses();
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
     try {
       mocks.search =
-        "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback";
+        "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback&link_intent=intent_1";
       mocks.wallet.connectSocial.mockResolvedValue(undefined);
       mocks.getAccountCredential = undefined;
 
@@ -154,18 +143,15 @@ describe("DeviceAuthClient provider ownership", () => {
       await act(async () => {});
 
       expect(getCredential).toHaveBeenCalled();
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        1,
-        "/api/auth/aomi/provider/exchange",
-        expect.objectContaining({ body: JSON.stringify(credential) }),
-      );
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
-        "/v1/account/device-auth/grant",
-        expect.any(Object),
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/v1/account/device-auth/link-grant",
+        expect.objectContaining({
+          body: expect.stringContaining(JSON.stringify(credential)),
+        }),
       );
       expect(
-        screen.getByText("Authentication complete. Returning to the CLI..."),
+        screen.getByText("Account link complete. Returning to the CLI..."),
       ).toBeInTheDocument();
     } finally {
       consoleError.mockRestore();
@@ -203,18 +189,15 @@ describe("DeviceAuthClient provider ownership", () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
     expect(getCredential.mock.calls.length).toBeGreaterThan(15);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "/api/auth/aomi/provider/exchange",
-      expect.objectContaining({ body: JSON.stringify(credential) }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "/v1/account/device-auth/grant",
-      expect.any(Object),
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/v1/account/device-auth/link-grant",
+      expect.objectContaining({
+        body: expect.stringContaining(JSON.stringify(credential)),
+      }),
     );
     expect(
-      screen.getByText("Authentication complete. Returning to the CLI..."),
+      screen.getByText("Account link complete. Returning to the CLI..."),
     ).toBeInTheDocument();
   });
 
@@ -271,37 +254,9 @@ describe("DeviceAuthClient provider ownership", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
     expect(
-      screen.getByText("Authentication complete. Returning to the CLI..."),
+      screen.getByText("Account link complete. Returning to the CLI..."),
     ).toBeInTheDocument();
-  });
-
-  it("names an account conflict instead of a generic provider failure", async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        Response.json(
-          { message: "already_linked_to_another_account" },
-          { status: 409 },
-        ),
-      );
-    mocks.search = PARA_SEARCH;
-    mocks.wallet.connectSocial.mockResolvedValue(undefined);
-    mocks.getAccountCredential = vi.fn(async () => ({
-      provider: "para",
-      token: "provider-credential",
-    }));
-
-    render(<DeviceAuthClient />);
-    fireEvent.click(screen.getByRole("button", { name: "Continue with Para" }));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2_000);
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/provider_account_conflict/)).toBeInTheDocument();
-    expect(screen.queryByText(/already_linked/)).toBeNull();
   });
 });

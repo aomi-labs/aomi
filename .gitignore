@@ -77,5 +77,4 @@ next-env.d.ts
 /output/canonical-widget-docs/
 
 # Generated bridge themes and OpenAPI temporary exports
-/packages/widget-lib/themes/
 /.tmp/

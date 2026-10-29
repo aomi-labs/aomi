@@ -28,7 +28,8 @@ export type AccountGraphWallet = {
   id: string;
   family: "evm" | "svm";
   address: string;
-  kind?: "external" | "embedded" | "smart_account";
+  /** `agent`: an Aomi agent wallet (signs on the server under its rule). */
+  kind?: "external" | "embedded" | "smart_account" | "agent";
   provider?: string;
   providerWalletId?: string;
   chainScope?: string;

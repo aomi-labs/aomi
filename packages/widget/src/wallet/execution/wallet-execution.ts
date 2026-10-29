@@ -12,6 +12,10 @@ import {
   executeWalletCalls,
   toAAWalletCalls,
 } from "@aomi-labs/react";
+import {
+  extractBatchTransactionHashes,
+  PartialWalletExecutionError,
+} from "@aomi-labs/client";
 import type { AomiTxResult } from "@/wallet/types";
 
 export type RequestedAAMode = "none" | "4337" | "7702";
@@ -47,14 +51,7 @@ export type NativeWalletExecutionPolicy = Omit<
   sponsorship?:
     | { mode: "disabled" }
     | {
-        mode: "optional";
-        getPaymasterServiceContext?: (
-          chainId: number,
-        ) => SponsorshipPaymasterServiceContext | undefined;
-        getPaymasterServiceUrl?: (chainId: number) => string | undefined;
-      }
-    | {
-        mode: "required";
+        mode: "optional" | "required";
         getPaymasterServiceContext?: (
           chainId: number,
         ) => SponsorshipPaymasterServiceContext | undefined;
@@ -104,7 +101,7 @@ export function normalizeAtomicCapabilities(
   return normalized;
 }
 
-async function waitForReceipt(
+export async function waitForReceipt(
   state: WalletExecutionKitState,
   chainId: number,
   hash: Hex,
@@ -332,4 +329,130 @@ export async function executeWalletKitTransaction({
     callCount: callList.length,
     sponsored: execution.sponsored,
   };
+}
+
+/**
+ * Whether the connected wallet may be asked to bundle on `chainId`, and why:
+ * unless its capabilities say atomic batching is `unsupported` there. An
+ * empty or missing answer proves nothing; a wallet that can't batch refuses
+ * the bundle before sending anything, and the calls go one by one.
+ */
+export function describeAtomicBatch(
+  capabilities: WalletExecutionKitState["capabilities"],
+  chainId: number,
+): { supported: boolean; reason: string; status?: string } {
+  const record = capabilities as
+    | Record<string, WalletCapabilities | undefined>
+    | undefined;
+  const entry = (record?.[`eip155:${chainId}`] ??
+    record?.[String(chainId)] ??
+    record?.[`0x${chainId.toString(16)}`]) as
+    | (WalletCapabilities & { atomicBatch?: { supported?: boolean } })
+    | undefined;
+  const status = entry?.atomic?.status;
+  if (status === "unsupported" && entry?.atomicBatch?.supported !== true)
+    return { supported: false, reason: "atomic-unsupported", status };
+  return { supported: true, reason: status ? "atomic" : "unknown", status };
+}
+
+/** Hashes on a bundle that landed and then failed (viem BundleFailedError). */
+function failedBundleHashes(error: unknown): string[] | undefined {
+  const seen = new Set<object>();
+  let candidate = error;
+  while (candidate && typeof candidate === "object" && !seen.has(candidate)) {
+    seen.add(candidate);
+    const current = candidate as {
+      name?: unknown;
+      result?: unknown;
+      cause?: unknown;
+    };
+    if (current.name === "BundleFailedError")
+      try {
+        return extractBatchTransactionHashes(current.result);
+      } catch {
+        return undefined;
+      }
+    candidate = current.cause;
+  }
+  return undefined;
+}
+
+/**
+ * Send a prepared commit bundle through `executeWalletCalls`: one atomic
+ * `wallet_sendCalls`, or one transaction at a time when the wallet refuses
+ * the bundle before sending anything (`onRefused` remembers that). Answers
+ * every transaction hash that landed, in order; a sequential fallback that
+ * stops after sending a prefix throws PartialWalletExecutionError carrying
+ * that prefix.
+ */
+export async function sendWalletCallBundle({
+  calls,
+  state,
+  onPhase,
+  onRefused,
+}: {
+  calls: WalletExecutionCallList;
+  state: WalletExecutionKitState;
+  onPhase?: (phase: "switching_chain" | "awaiting_wallet") => void;
+  onRefused?: () => void;
+}): Promise<string[]> {
+  const { sendTransactionAsync, sendCallsSyncAsync, switchChainAsync } = state;
+  if (!sendTransactionAsync)
+    throw new Error("wallet_send_transaction_not_supported");
+  const sent: Array<{ chainId: number; hash: Hex }> = [];
+  if (state.currentChainId === calls[0]?.chainId) onPhase?.("awaiting_wallet");
+  try {
+    const execution = await executeWalletCalls({
+      callList: calls,
+      currentChainId: state.currentChainId,
+      capabilities: state.capabilities,
+      localPrivateKey: null,
+      bundle: true,
+      sendCallsSyncAsync:
+        sendCallsSyncAsync ??
+        (async () => {
+          throw new Error("wallet_send_calls_not_supported");
+        }),
+      // Only a refused bundle sends legs. Confirm each before the next, as
+      // executeWalletKitTransaction does: later legs may depend on earlier ones.
+      sendTransactionAsync: async (args) => {
+        const previous = sent[sent.length - 1];
+        if (!previous) onRefused?.();
+        else {
+          const receipt = await waitForReceipt(
+            state,
+            previous.chainId,
+            previous.hash,
+          );
+          if (receipt.status === "reverted")
+            throw new Error("wallet_sequential_transaction_reverted");
+        }
+        const hash = await sendTransactionAsync(args);
+        sent.push({ chainId: args.chainId, hash: hash as Hex });
+        return hash;
+      },
+      switchChainAsync: async ({ chainId }) => {
+        if (!switchChainAsync)
+          throw new Error("wallet_switch_chain_not_supported");
+        onPhase?.("switching_chain");
+        await switchChainAsync({ chainId });
+        onPhase?.("awaiting_wallet");
+      },
+      chainsById: state.chainsById,
+      getPreferredRpcUrl: state.getPreferredRpcUrl ?? getPreferredRpcUrl,
+    });
+    return execution.txHashes;
+  } catch (error) {
+    if (sent.length > 0)
+      throw new PartialWalletExecutionError(
+        error,
+        sent.map((leg) => leg.hash),
+        sent.length,
+      );
+    // An atomic bundle that landed and reverted still has hashes to report;
+    // Commit Service verifies the outcome.
+    const landed = failedBundleHashes(error);
+    if (landed) return landed;
+    throw error;
+  }
 }

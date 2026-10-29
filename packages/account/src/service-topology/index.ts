@@ -1,14 +1,14 @@
-// @aomi-labs/service — the AOMI service topology: parse the service mesh and
-// mint/verify AccountBearers as one node. The TS twin of the Rust `aomi-service`
-// crate (one mesh, two vantages). Node-only — it holds EdDSA private keys; never
-// bundle into a browser. See
-// docs/topics/account-authentication/facts/service-identity.md.
-
-export { AomiService, parseTopology } from "./topology";
+// Compatibility entry point. The topology engine lives in
+// `@aomi-labs/service-identity` so the Cloudflare edge can mint bearers without
+// the Node-only account package. Import from there in new code.
+export {
+  AomiService,
+  parseTopology,
+  assertServerOnly,
+} from "@aomi-labs/service-identity";
 export type {
   ServiceNode,
   Topology,
   AccountBearerClaims,
   DelegatedBearerContext,
-} from "./topology";
-export { assertServerOnly } from "./server-only";
+} from "@aomi-labs/service-identity";

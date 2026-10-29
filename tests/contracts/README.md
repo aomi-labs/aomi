@@ -1,6 +1,6 @@
 # Consumer compatibility acceptance
 
-`node scripts/check-consumer-compatibility.mjs --base <trusted-base-sha>` packs the
+`pnpm run test:contracts` packs the
 candidate client, React runtime, and widget packages. It installs their tarballs
 into the headless and widget examples copied from the trusted base commit, then
 compiles and builds those examples. The headless example's TypeScript source
@@ -25,8 +25,8 @@ fixtures intentionally keep.
 The baseline isolation test creates a small Git repository, commits a consumer
 that imports `Aomi`, commits a candidate change to import `NewAomi`, and verifies
 the extracted test consumer still imports `Aomi` from the base commit. It also
-rejects a missing base consumer. Three CLI cases reject missing, all-zero,
-and unknown baseline revisions before packaging. Run these with
+rejects a missing base consumer. Pin validation rejects missing or malformed
+configuration, and CLI overrides reject zero or unknown revisions before packaging. Run these with
 `node --test tests/contracts/*.test.mjs`.
 
 On 2026-09-13, the full check passed against base `cc556219`: headless TypeScript,
@@ -42,3 +42,9 @@ workspace root and `@solana/spl-token` from the trusted widget development
 dependencies. The harness supplies those two existing versions explicitly in
 the temporary host. This preserves the original fixture environment without
 allowing candidate package manifests to add new host dependencies silently.
+
+`consumer-baseline.json` pins the owner-reviewed consumer release by full Git SHA.
+Both packed-package and browser checks use it by default; an explicit `--base`
+or `CONSUMER_BASE_SHA` can select another full SHA for local diagnosis. Source is
+always copied unchanged from that commit. Publish its immutable tag before CI;
+missing objects fail closed. No payment-migration exception remains.

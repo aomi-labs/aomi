@@ -106,20 +106,6 @@ vi.mock("@/wallet/context", () => ({
   }),
 }));
 
-vi.mock("@/account/use-account-acl", () => ({
-  useAccountAcl: () => ({
-    status: "ready",
-    wallets: [],
-    delegatedAccounts: [],
-    refresh: vi.fn(),
-    commitMode: vi.fn(),
-    revokeDelegation: vi.fn(),
-    stopAllAuto: vi.fn(),
-    renewDelegation: vi.fn(),
-    blockedReason: () => null,
-  }),
-}));
-
 function requestUrl(input: FetchCall["input"]): URL {
   if (input instanceof Request) return new URL(input.url);
   return new URL(input.toString(), "https://portal.test");
@@ -151,18 +137,10 @@ function installFetchRecorder() {
       const method =
         input instanceof Request ? input.method : (init?.method ?? "GET");
 
+      if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
       if (url.pathname === "/v1/account/credits") {
         const position = await runtimeMock.creditsGet();
-        return Response.json({
-          period_utc_month: position.period_utc_month,
-          included_limit: position.included?.limit_microusd,
-          included_used: position.included?.used_microusd,
-          included_remaining: position.included?.remaining_microusd,
-          balance: position.bank.balance_microusd,
-          outstanding_debt: position.bank.outstanding_debt_microusd,
-          records: position.entries,
-          next_before_id: position.next_before_id,
-        });
+        return Response.json(position);
       }
       if (url.pathname === "/api/account" && method === "GET") {
         return Response.json(ACCOUNT_OVERVIEW);
@@ -178,11 +156,6 @@ function installFetchRecorder() {
   return { calls, fetchMock };
 }
 
-// NOTE (settings redesign): the Apps/Bots/App Keys/Secrets/BYOK tabs were
-// removed with the three-tab settings redesign. Account is now wired to real
-// routes and covered by features/account/account-acl.test.tsx; Usage still
-// renders from local fixtures (see docs/SETTINGS-REDESIGN-GAPS.md) — add its
-// route-caller test here when /api/account/usage binds.
 let accountSequence = 0;
 describe("settings route callers", () => {
   beforeEach(() => {
@@ -196,7 +169,7 @@ describe("settings route callers", () => {
         used_microusd: 12 * 10_000,
         remaining_microusd: 88 * 10_000,
       },
-      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
       entries: [],
       next_before_id: null,
     });
@@ -246,7 +219,7 @@ describe("settings route callers", () => {
   it("keeps General settings usable when credits omit the allowance", async () => {
     runtimeMock.creditsGet.mockResolvedValue({
       period_utc_month: "2026-07",
-      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
       entries: [],
       next_before_id: null,
     });

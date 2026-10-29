@@ -1,9 +1,18 @@
-import { Check, Copy, Ellipsis, Loader2, Wallet } from "lucide-react";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import {
+  Check,
+  Copy,
+  Ellipsis,
+  Loader2,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { WalletMark, resolveWalletBrandKey } from "@/wallet/wallet-brands";
+import { AomiMark } from "@/ui/aomi-mark";
+import { AGENT_WALLET } from "./wallet-model";
 
 /**
  * A wallet app's mark. The dot says whether the address is usable here
@@ -14,20 +23,29 @@ export function BrandMark({
   dot,
   size = 17,
   box = 32,
+  dim = false,
 }: {
   brand: string;
   dot?: "on" | "off";
+  /** Greyed out, e.g. a paused wallet. */
+  dim?: boolean;
   size?: number;
   box?: number;
 }) {
-  const key = resolveWalletBrandKey(brand);
+  const agent = brand === AGENT_WALLET;
+  const key = agent ? null : resolveWalletBrandKey(brand);
   return (
     <span
-      className="relative flex shrink-0 items-center justify-center"
+      className={cn(
+        "relative flex shrink-0 items-center justify-center",
+        dim && "[&>svg]:opacity-40",
+      )}
       style={{ width: box, height: box }}
-      data-wallet-brand={key ?? undefined}
+      data-wallet-brand={agent ? "agent" : (key ?? undefined)}
     >
-      {key ? (
+      {agent ? (
+        <AomiMark size={Math.max(12, size - 2)} className="text-aomi-fg" />
+      ) : key ? (
         <WalletMark name={key} size={size} />
       ) : (
         <Wallet size={Math.min(size, 16)} className="text-aomi-muted" />
@@ -52,7 +70,15 @@ export function BrandMark({
   );
 }
 
-export function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({
+  value,
+  label,
+  className,
+}: {
+  value: string;
+  label: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -64,7 +90,10 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       aria-label={copied ? "Copied" : label}
       title={value}
-      className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+      className={cn(
+        aomiButton({ variant: "ghost", size: "icon-sm" }),
+        className,
+      )}
       onClick={(event) => {
         event.stopPropagation();
         void copyText(value).then(() => setCopied(true));
@@ -107,43 +136,18 @@ export function TextButton({
   );
 }
 
-export function IconButton({
-  children,
-  label,
-  busy = false,
-  disabled = false,
-  onClick,
-}: {
-  children: ReactNode;
+export type MenuItem = {
   label: string;
-  busy?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={busy || disabled}
-      onClick={onClick}
-      className={aomiButton({ variant: "ghost", size: "icon" })}
-    >
-      {busy ? <Loader2 className="animate-spin" /> : children}
-    </button>
-  );
-}
+  icon: LucideIcon;
+  /** Destructive: drawn red, always last, after a divider. */
+  danger?: boolean;
+  onSelect?: () => unknown;
+};
 
-export type MenuItem =
-  | {
-      label: string;
-      detail?: string;
-      danger?: boolean;
-      href?: string;
-      onSelect?: () => unknown;
-    }
-  | "divider";
-
-/** The ··· menu on a wallet or login row. */
+/**
+ * The ⋯ menu on a wallet, login or connection row: icon + label rows, with
+ * the destructive item last after a divider whatever order it was given in.
+ */
 export function ActionsMenu({
   label,
   items,
@@ -156,11 +160,34 @@ export function ActionsMenu({
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const itemClass = (danger?: boolean) =>
-    cn(
-      "hover:bg-aomi-hover focus:bg-aomi-hover flex w-full flex-col items-start gap-0.5 rounded-[8px] px-3 py-2 text-left outline-none",
-      danger ? "text-aomi-danger" : "text-aomi-fg",
+  const safe = items.filter((item) => !item.danger);
+  const danger = items.filter((item) => item.danger);
+  const row = (item: MenuItem) => {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.label}
+        type="button"
+        role="menuitem"
+        className={cn(
+          "hover:bg-aomi-hover focus:bg-aomi-hover flex min-h-[34px] w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[13px] font-medium leading-5 outline-none",
+          item.danger ? "text-aomi-danger" : "text-aomi-fg",
+        )}
+        onClick={() => {
+          setOpen(false);
+          void item.onSelect?.();
+        }}
+      >
+        <Icon
+          className={cn(
+            "size-4 shrink-0",
+            item.danger ? "text-aomi-danger" : "text-aomi-muted",
+          )}
+        />
+        {item.label}
+      </button>
     );
+  };
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -184,7 +211,8 @@ export function ActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-52 max-w-[calc(100vw-2rem)] border p-1"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-48 max-w-[calc(100vw-2rem)] border p-1"
+        onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
             return;
@@ -207,59 +235,57 @@ export function ActionsMenu({
           nodes[next]?.focus();
         }}
       >
-        {items.map((item, index) => {
-          if (item === "divider")
-            return (
-              <div
-                key={`divider:${index}`}
-                role="separator"
-                className="bg-aomi-border mx-1 my-1 h-px"
-              />
-            );
-          const body = (
-            <>
-              <span className="type-control">{item.label}</span>
-              {item.detail ? (
-                <span className="type-meta text-aomi-muted">{item.detail}</span>
-              ) : null}
-            </>
-          );
-          return (
-            <Fragment key={item.label}>
-              {item.href ? (
-                <a
-                  role="menuitem"
-                  href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={itemClass(item.danger)}
-                  onClick={() => setOpen(false)}
-                >
-                  {body}
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={itemClass(item.danger)}
-                  onClick={() => {
-                    setOpen(false);
-                    void item.onSelect?.();
-                  }}
-                >
-                  {body}
-                </button>
-              )}
-            </Fragment>
-          );
-        })}
+        {safe.map(row)}
+        {safe.length && danger.length ? (
+          <div role="separator" className="bg-aomi-border mx-1 my-1 h-px" />
+        ) : null}
+        {danger.map(row)}
       </PopoverContent>
     </Popover>
   );
 }
 
+/**
+ * A top-level row's left edge. Every logo box starts at 22px; a row that
+ * expands draws its chevron in that gutter, its box against the logo's. The
+ * gaps you see then match: 8px + the chevron's own 5px before it, its 5px +
+ * the 17px logo's 7.5px inset in its 32px box after it (about 13px each).
+ */
+export const rowStart = (expands: boolean) => (expands ? "pl-2" : "pl-[22px]");
+
 export function titleCase(value: string): string {
   return value
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/**
+ * A section band inside the wallets card, with an optional action at its end.
+ * Its text lines up with the logos you see (a 22px box, 7.5px inset).
+ */
+export function Divider({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div
+      data-band
+      className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y py-1.5 pl-[30px] pr-3.5"
+    >
+      <span className="type-meta text-aomi-fg shrink-0 font-medium">
+        {title}
+      </span>
+      <span className="type-meta text-aomi-muted min-w-0 truncate">
+        {detail}
+      </span>
+      {action ? (
+        <span className="-my-1.5 ml-auto self-center">{action}</span>
+      ) : null}
+    </div>
+  );
 }

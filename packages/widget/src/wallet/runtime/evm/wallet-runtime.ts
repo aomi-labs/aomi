@@ -46,6 +46,7 @@ import {
   type WalletCapabilities,
   type WalletClient,
 } from "./wagmi-hooks";
+import { waitForTransactionReceipt } from "wagmi/actions";
 import { walletDebug } from "@/wallet/wallet-debug";
 
 export type EvmWalletRuntimeProviderHooks = {
@@ -85,7 +86,11 @@ export type EvmWalletRuntimeProviderHooks = {
   }) => Promise<`0x${string}` | null | undefined>;
 };
 
-export type EvmWalletRuntime = WalletRuntime<"evm"> & {
+export type EvmWalletRuntime = Omit<WalletRuntime<"evm">, "selectAccount"> & {
+  selectAccount: (
+    accountId: string,
+    options?: { waitForCosmeticSwitch?: boolean },
+  ) => Promise<void>;
   registryStore: WalletRegistryStore;
   registryState: WalletRegistryState;
   activeEvmConnection?: WalletRegistryState["connections"][number];
@@ -105,6 +110,11 @@ export type EvmWalletRuntime = WalletRuntime<"evm"> & {
     value?: bigint;
   }) => Promise<string>;
   sendCallsSyncAsync?: SendCallsSync;
+  /** One confirmation on the wagmi public client for `chainId`. */
+  waitForReceipt?: (input: {
+    chainId: number;
+    hash: string;
+  }) => Promise<{ status?: string }>;
   signTypedDataAsync?: (args: unknown) => Promise<string>;
   signMessageAsync?: (args: unknown) => Promise<string>;
   signMessageForAccount?: (args: {
@@ -286,11 +296,13 @@ export function useEvmWalletRuntime({
       (candidate) => candidate.uid === active.uid,
     );
   }, [registryState.activeByFamily.evm, wagmiConfig.connectors]);
-  const capabilities = useWalletCapabilities({
+  const { capabilities } = useWalletCapabilities({
     account: activeEvmConnection?.address as `0x${string}` | undefined,
     connector: activeConnector,
     stableId: activeEvmConnection?.stableId,
     walletName: activeEvmConnection?.walletName,
+    chainId: activeEvmConnection?.chainId,
+    chainIds: useMemo(() => Object.keys(chainsById).map(Number), [chainsById]),
   });
   useEffect(() => {
     // Synthetic embedded sessions inherit this preference; only independently
@@ -347,7 +359,7 @@ export function useEvmWalletRuntime({
   );
 
   const selectAccount = useCallback(
-    async (id: string) => {
+    async (id: string, options?: { waitForCosmeticSwitch?: boolean }) => {
       const connection = findEvmConnection(
         registryStore.getSnapshot().connections,
         id,
@@ -375,14 +387,24 @@ export function useEvmWalletRuntime({
         });
         return;
       }
-      try {
-        await switchAccountAsync({ connector });
-      } catch (error) {
+      const logFailure = (error: unknown) => {
         walletDebug("active-evm:cosmetic-switch-failed", {
           uid: connection.uid,
           stableId: connection.stableId,
           error: error instanceof Error ? error.message : String(error),
         });
+      };
+      try {
+        const switching = switchAccountAsync({ connector });
+        if (options?.waitForCosmeticSwitch === false) {
+          // Registry selection is already complete. Only log late failures;
+          // settling this cosmetic operation must never write another pick.
+          void switching.catch(logFailure);
+        } else {
+          await switching;
+        }
+      } catch (error) {
+        logFailure(error);
       }
     },
     [registryStore, switchAccountAsync, wagmiConfig.connectors],
@@ -652,6 +674,13 @@ export function useEvmWalletRuntime({
     sendTransactionAsync:
       sendTransactionAsync as EvmWalletRuntime["sendTransactionAsync"],
     sendCallsSyncAsync,
+    waitForReceipt: ({ chainId, hash }) =>
+      waitForTransactionReceipt(wagmiConfig, {
+        chainId: chainId as never,
+        hash: hash as `0x${string}`,
+        confirmations: 1,
+        timeout: 120_000,
+      }),
     signTypedDataAsync:
       signTypedDataAsync as EvmWalletRuntime["signTypedDataAsync"],
     signMessageAsync: signMessageAsync as EvmWalletRuntime["signMessageAsync"],

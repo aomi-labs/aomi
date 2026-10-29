@@ -21,11 +21,16 @@ import {
 import {
   ArchiveIcon,
   CheckIcon,
+  ClockIcon,
   MoreHorizontalIcon,
   PencilIcon,
+  PlugIcon,
   PlusIcon,
+  TerminalIcon,
   XIcon,
+  type LucideIcon,
 } from "lucide-react";
+import type { ThreadOrigin } from "@aomi-labs/client";
 
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
@@ -129,6 +134,7 @@ const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
+  const metadata = runtime?.getThreadMetadata(thread.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -196,6 +202,9 @@ const ThreadListItem: FC = () => {
   return (
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
+      data-awaiting-approval={
+        metadata?.awaitingApproval?.length ? "" : undefined
+      }
       data-testid={testIds.threadItem}
       className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
       onPointerEnter={cancelClose}
@@ -253,12 +262,16 @@ const ThreadListItem: FC = () => {
         <>
           <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
             {/* Sky dot marks the active session; it blinks while Aomi works
-                and turns amber while a wallet request waits on the user. */}
+                and turns amber while a wallet request waits on the user. Any
+                chat with a trade waiting for approval keeps an amber dot. */}
             <span
               aria-hidden="true"
               className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
             />
             <ThreadListItemTitle />
+            {/* At the row's end, always visible; the ⋯ that opens on hover
+                pushes it left as it widens. */}
+            <ThreadOriginBadge origin={metadata?.origin} />
           </ThreadListItemPrimitive.Trigger>
           <ThreadListItemMenu
             open={menuOpen}
@@ -280,11 +293,41 @@ const ThreadListItem: FC = () => {
   );
 };
 
+const ORIGIN_BADGES: Partial<
+  Record<ThreadOrigin, { icon: LucideIcon; label: string }>
+> = {
+  cron: { icon: ClockIcon, label: "Scheduled task" },
+  mcp: { icon: PlugIcon, label: "Started over MCP" },
+  api: { icon: PlugIcon, label: "Started over the API" },
+  cli: { icon: TerminalIcon, label: "Started from the CLI" },
+  sdk: { icon: TerminalIcon, label: "Started from the SDK" },
+};
+
+/** Where a chat came from, when it is not this chat UI. Portal and widget
+ * chats show nothing. */
+export const ThreadOriginBadge: FC<{ origin?: ThreadOrigin }> = ({
+  origin,
+}) => {
+  const badge = origin && ORIGIN_BADGES[origin];
+  if (!badge) return null;
+  const Icon = badge.icon;
+  return (
+    <Icon
+      role="img"
+      aria-label={badge.label}
+      data-origin={origin}
+      className="aui-thread-origin text-aomi-muted size-3.5 shrink-0"
+    >
+      <title>{badge.label}</title>
+    </Icon>
+  );
+};
+
 const ThreadListItemTitle: FC = () => {
   return (
     <span
       data-testid={testIds.threadItemTitle}
-      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block truncate text-sm transition-colors"
+      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block min-w-0 flex-1 truncate text-sm transition-colors"
     >
       <ThreadListItemPrimitive.Title fallback="New Chat" />
     </span>
@@ -362,18 +405,21 @@ const ThreadListItemMenu: FC<{
             Rename
           </button>
         )}
+        {onRename ? (
+          <div role="separator" className="bg-aomi-border mx-1 my-1 h-px" />
+        ) : null}
         <ThreadListItemPrimitive.Archive asChild>
           <button
             type="button"
             disabled={!saved}
             data-testid={testIds.archive}
-            className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            className="aui-thread-list-item-menu-item text-aomi-danger hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();
               onOpenChange(false);
             }}
           >
-            <ArchiveIcon className="text-aomi-muted size-4" />
+            <ArchiveIcon className="text-aomi-danger size-4" />
             Archive
           </button>
         </ThreadListItemPrimitive.Archive>

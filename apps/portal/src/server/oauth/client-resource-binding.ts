@@ -2,6 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getPool } from "@aomi-labs/account";
+import {
+  acceptsAomiApiToken,
+  aomiOAuthResources,
+} from "@aomi-labs/account/better-auth";
 
 type QueryResult<Row> = { rows: Row[] };
 
@@ -54,8 +58,10 @@ export async function bindAomiPublicClientResource(input: {
     const registered = await client.query<{
       token_endpoint_auth_method: unknown;
       grant_types: unknown;
+      client_class: unknown;
     }>(
-      `select token_endpoint_auth_method, grant_types
+      `select token_endpoint_auth_method, grant_types,
+              coalesce(metadata->>'aomi_client_class', metadata->>'client_class') as client_class
          from ba_oauth_clients
         where client_id = $1
         for update`,
@@ -86,6 +92,18 @@ export async function bindAomiPublicClientResource(input: {
     const resources = Array.from(
       new Set(links.rows.map((link) => String(link.resource_id))),
     );
+    // Managed widgets may use only their operator-registered resources.
+    // Never apply first-use binding or add a resource for these clients.
+    // `/v1` (the one browser sign-in) stands for the REST APIs, so a widget
+    // registered for one of them may use it; its scopes still bound the token.
+    if (row.client_class === "partner_widget") {
+      const allowed =
+        resources.includes(input.resource) ||
+        (input.resource === aomiOAuthResources().apiRest &&
+          resources.some((resource) => acceptsAomiApiToken(resource)));
+      await client.query(allowed ? "commit" : "rollback");
+      return allowed ? "already_bound" : "resource_conflict";
+    }
     if (resources.length === 1 && resources[0] === input.resource) {
       await client.query("commit");
       return "already_bound";

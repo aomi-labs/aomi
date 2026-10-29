@@ -119,6 +119,7 @@ export async function executeWalletCalls(
     capabilities,
     localPrivateKey,
     nativeWalletExecution,
+    bundle = false,
     sendCallsSyncAsync,
     sendTransactionAsync,
     switchChainAsync,
@@ -213,7 +214,8 @@ export async function executeWalletCalls(
   const canUseAtomicSendCalls =
     normalizedCalls.length > 1 &&
     (atomicStatus === "supported" || atomicStatus === "ready");
-  const canUseSendCalls = canUseAtomicSendCalls || requiresSponsoredSendCalls;
+  const canUseSendCalls =
+    bundle || canUseAtomicSendCalls || requiresSponsoredSendCalls;
   const sendCallsCapabilities = buildSendCallsCapabilities({
     chainCaps,
     nativeWalletExecution,
@@ -261,7 +263,10 @@ export async function executeWalletCalls(
           data,
         })),
         capabilities: sendCallsCapabilities,
-        forceAtomic: requiresAtomicForBatch,
+        // Atomicity means nothing for one call, and asking for it can make a
+        // wallet offer a smart-account upgrade for a plain send.
+        forceAtomic:
+          requiresAtomicForBatch || (bundle && normalizedCalls.length > 1),
         status: (result: unknown) =>
           (result as { status?: string } | undefined)?.status === "success",
         throwOnFailure: true,
@@ -409,39 +414,46 @@ function sanitizeSponsorshipPaymasterServiceContext(
   return Object.keys(filteredContext).length > 0 ? filteredContext : undefined;
 }
 
-function isUnsupportedAtomicCapabilityError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const lowered = message.toLowerCase();
-  return (
-    lowered.includes("unsupported non-optional capabilities: atomic") ||
-    (lowered.includes("unsupported") && lowered.includes("atomic")) ||
-    (lowered.includes("wallet does not support") &&
-      lowered.includes("capabilit"))
-  );
+type ErrorLink = { code?: unknown; cause?: unknown; callsId?: unknown };
+
+/** `error` and every cause under it, outermost first. */
+export function errorChain(error: unknown): ErrorLink[] {
+  const chain: ErrorLink[] = [];
+  for (
+    let link = error as ErrorLink | undefined;
+    link && typeof link === "object" && !chain.includes(link);
+    link = link.cause as ErrorLink | undefined
+  )
+    chain.push(link);
+  return chain;
 }
 
-function isRecoverableOptionalPaymasterError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const lowered = message.toLowerCase();
+/** The wallet answered a call id (`callsId`) somewhere in `error`'s chain:
+ * the calls may be out, whatever failed after. */
+export const callsAccepted = (error: unknown): boolean =>
+  errorChain(error).some((link) => link.callsId !== undefined);
 
-  return (
-    lowered.includes("paymaster") ||
-    lowered.includes("sponsor") ||
-    lowered.includes("erc-7677")
-  );
-}
+/** EIP-5792 / EIP-1193 codes for a bundle refused before anything was sent:
+ * an unsupported capability (5700), no atomic execution (5760), or no such
+ * method (-32601, 4200). */
+const BATCH_REFUSALS = new Set<unknown>([5700, 5760, -32601, 4200]);
 
+/** Only a clean refusal sends the calls again one by one: no call id
+ * anywhere in the chain, and every code in it a refusal. A 4001 rejection,
+ * a 5750 declined upgrade or any other code blocks it, as does a timeout,
+ * which carries no refusal code. */
 function canFallbackToSequentialWalletSends(
   error: unknown,
   requiresSponsoredSendCalls: boolean,
 ): boolean {
-  if (requiresSponsoredSendCalls) {
-    return false;
-  }
-
+  const codes = errorChain(error).flatMap(({ code }) =>
+    code === undefined ? [] : [code],
+  );
   return (
-    isUnsupportedAtomicCapabilityError(error) ||
-    isRecoverableOptionalPaymasterError(error)
+    !requiresSponsoredSendCalls &&
+    !callsAccepted(error) &&
+    codes.length > 0 &&
+    codes.every((code) => BATCH_REFUSALS.has(code))
   );
 }
 

@@ -5,10 +5,10 @@
 | Package | Purpose |
 | --- | --- |
 | `@aomi-labs/react` | React runtime provider, contexts, hooks, and public widget integration surface |
-| `@aomi-labs/client` | `AomiClient`, `ClientSession`/`Session`, CLI, user-state types, wallet helpers, AA helpers |
-| `@aomi-labs/auth` | Better Auth setup, SIWE/provider exchange, account graph helpers, provider wallet sync |
-| `@aomi-labs/account` | Account bearer minting, service topology, shared same-origin backend proxy |
-| `@aomi-labs/widget` | Registry UI components and wallet-kit provider adapters |
+| `@aomi-labs/client` | `AomiClient`, `ClientSession`/`Session`, user-state types, wallet helpers, AA helpers |
+| `@aomi-labs/cli` | The `aomi` terminal command |
+| `@aomi-labs/account` | Account graph, Better Auth, SIWE/provider exchange, bearer minting, service topology, same-origin backend proxy |
+| `@aomi-labs/widget` | Chat UI and wallet provider adapters |
 
 ## Stack
 
@@ -23,9 +23,9 @@
 | Package | Main exports |
 | --- | --- |
 | `@aomi-labs/react` | `AomiRuntimeProvider`, runtime hooks, handlers, re-exported `AomiClient`/client types |
-| `@aomi-labs/client` | `AomiClient`, `Session` (`ClientSession`), `createAccountAccessTokenProvider`, CLI entrypoint |
-| `@aomi-labs/auth/account` | account-service/provider-exchange helpers used by portal routes |
-| `@aomi-labs/auth/better-auth` | Better Auth server and client setup |
+| `@aomi-labs/client` | `AomiClient`, `Session` (`ClientSession`), `createAccountAccessTokenProvider`. The `aomi` bin forwards to `@aomi-labs/cli` |
+| `@aomi-labs/cli` | `aomi` terminal command |
+| `@aomi-labs/account` | Bearer minting, backend proxy, `./account`, `./better-auth`, `./providers` |
 
 ## Directory Structure
 
@@ -36,8 +36,9 @@ packages/client/src/
 ├── session/                       # ClientSession implementation and wallet controller
 ├── account-session.ts             # Optional BFF bearer provider for cross-origin clients
 ├── user-state/                    # UserState normalization and accessors
-├── wallet-utils.ts                # Wallet request payload normalization
-└── cli/                           # aomi CLI
+└── wallet-utils.ts                # Wallet request payload normalization
+
+packages/cli/src/                  # aomi terminal command
 
 packages/react/src/
 ├── index.ts                       # Public React package exports
@@ -46,19 +47,16 @@ packages/react/src/
 ├── handlers/                      # useWalletHandler, useNotificationHandler
 └── runtime/                       # React shell around AomiClient + ClientSession
 
-packages/auth/src/
-├── better-auth/                   # Better Auth config, SIWE, provider plugin, env
-├── providers/                     # Privy/Para token verification and embedded-wallet listing
-├── service/                       # account-service, provider-exchange, wallet-linking
-└── db/                            # Auth/account graph schema and queries
-
 packages/account/src/
 ├── bearer.ts                      # AccountBearer minting
 ├── proxy.ts                       # Same-origin backend proxy
-├── session.ts                     # Better Auth session -> canonical user lookup
+├── better-auth/                   # Better Auth config, SIWE, provider plugin, env
+├── providers/                     # Privy/Para token verification and embedded-wallet listing
+├── service/                       # account graph, provider exchange, wallet linking
+├── db/                            # Account graph schema and queries
 └── topology-data.ts               # trusted service public keys
 
-apps/registry/src/lib/wallet-kit/  # Provider adapters, registry state, execution
+packages/widget/src/wallet/        # Wallet provider adapters
 apps/landing/                      # Demo Next.js app consuming built packages
 apps/portal/                       # Portal app and auth/BFF routes
 ```
@@ -70,7 +68,7 @@ pnpm install
 pnpm run build:packages
 pnpm --filter @aomi-labs/client build
 pnpm --filter @aomi-labs/react build
-pnpm --filter @aomi-labs/auth type-check
+pnpm --filter @aomi-labs/account type-check
 pnpm --filter landing dev
 pnpm run dev:landing:live
 pnpm run lint

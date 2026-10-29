@@ -50,6 +50,7 @@ describe("high-level OAuth strategy", () => {
   });
 
   it("requests refreshable grants for eager and lazy device OAuth", async () => {
+    // One eager sign-in for both targets, then one lazy call.
     const runtime = createOAuthAuthRuntime({
       baseUrl,
       fetch,
@@ -62,7 +63,16 @@ describe("high-level OAuth strategy", () => {
       scopes: ["agent:read"],
     });
 
-    expect(requests).toHaveLength(3);
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.scopes).toEqual(
+      expect.arrayContaining([
+        "agent:read",
+        "agent:write",
+        "agent:actions:resolve",
+        "pipeline:catalog",
+        "pipeline:execute",
+      ]),
+    );
     for (const request of requests) {
       expect(request.scopes).toContain("offline_access");
     }

@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getChainInfo } from "@aomi-labs/react";
-import type { AomiCreditPosition } from "@aomi-labs/client";
+import type { CreditBalance } from "@aomi-labs/client";
 import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
-import { Shield } from "lucide-react";
 import { AomiButton } from "@/ui/aomi/button";
 import { getChainIcon } from "@/icons/chain-map";
 import { Meter } from "./usage/usage-shared";
-import { useAccountAcl } from "./use-account-acl";
-import {
-  countDriftedWallets,
-  walletConnectionSummary,
-} from "@/wallet/account-presentation";
+import { walletConnectionSummary } from "@/wallet/account-presentation";
 import {
   creditAllowanceFromPosition,
   formatAllowanceCredits,
@@ -38,11 +33,9 @@ import {
 export function GeneralSettings({
   onManageAccount,
   onViewUsage,
-  onFixWallets,
 }: {
   onManageAccount?: () => void;
   onViewUsage?: () => void;
-  onFixWallets?: () => void;
 }) {
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
@@ -51,12 +44,11 @@ export function GeneralSettings({
   const overviewStore = useAccountOverviewStore();
   const [overviewSettled, setOverviewSettled] = useState(false);
   const position = useAccountCredits();
+  // undefined while loading; null when unavailable.
   const credits =
     position.isPending && position.fetchStatus !== "idle"
       ? undefined
       : (position.data ?? null);
-  const acl = useAccountAcl();
-  // undefined while loading; null when unavailable.
 
   useEffect(() => {
     let mounted = true;
@@ -75,9 +67,6 @@ export function GeneralSettings({
     ? getChainIcon(identity.chainId)
     : undefined;
 
-  const walletAttentionCount =
-    acl.status === "ready" ? countDriftedWallets(acl.wallets) : 0;
-
   const wallets = adapter.wallets;
   const connectedWallets = wallets.filter((wallet) => wallet.connected).length;
   const linkedWallets = wallets.filter((wallet) => wallet.linked).length;
@@ -88,10 +77,9 @@ export function GeneralSettings({
     account?.user.verified_email ||
     "Aomi account";
 
-  // The summary card draws from three reads; it shows once all have answered.
+  // The summary card draws from two reads; it shows once both have answered.
   // Local preferences below never wait for the account.
-  const accountReady =
-    overviewSettled && credits !== undefined && acl.status !== "loading";
+  const accountReady = overviewSettled && credits !== undefined;
 
   const themeChoices: { mode: ColorMode; label: string }[] = [
     { mode: "dark", label: "Dark" },
@@ -101,13 +89,6 @@ export function GeneralSettings({
 
   return (
     <div className="flex flex-col gap-5">
-      {walletAttentionCount > 0 && (
-        <WalletAttentionBanner
-          walletAttentionCount={walletAttentionCount}
-          onReview={onFixWallets ?? onManageAccount}
-        />
-      )}
-
       <section className="flex flex-col gap-2">
         <SettingsSectionHeading
           title="Account overview"
@@ -201,7 +182,7 @@ function AccountSummaryCard({
   walletDesc: string;
   tier?: string;
   memberSince?: string;
-  credits?: AomiCreditPosition | null;
+  credits?: CreditBalance | null;
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {
@@ -290,37 +271,6 @@ function ViewUsageLink({ onClick }: { onClick?: () => void }) {
     >
       View usage
     </button>
-  );
-}
-
-function WalletAttentionBanner({
-  walletAttentionCount,
-  onReview,
-}: {
-  walletAttentionCount: number;
-  onReview?: () => void;
-}) {
-  return (
-    <div className="border-aomi-border bg-aomi-surface-2/35 relative rounded-xl border px-4 py-4 sm:px-5 sm:py-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-        <span className="bg-aomi-surface-2 text-aomi-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-          <Shield size={20} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold leading-snug">
-            Review wallet signing
-          </h3>
-          <p className="text-aomi-muted mt-1.5 text-[13px] leading-relaxed">
-            {walletAttentionCount}{" "}
-            {walletAttentionCount === 1 ? "wallet needs" : "wallets need"} a
-            renewed provider grant before auto-signing can run.
-          </p>
-        </div>
-        <AomiButton size="sm" onClick={onReview} className="self-start">
-          Review
-        </AomiButton>
-      </div>
-    </div>
   );
 }
 

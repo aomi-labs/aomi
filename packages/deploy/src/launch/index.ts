@@ -81,6 +81,7 @@ export {
 } from "./state";
 
 export {
+  backoffDelay,
   deploymentProgress,
   isTerminalState,
   runtimeAppsReady,

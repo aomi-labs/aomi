@@ -2,7 +2,7 @@ import type { FC } from "react";
 import type { AgentMode } from "@aomi-labs/react";
 
 export type ExecutionPolicy = AgentMode;
-export type CapabilityKind = "app" | "skill" | "chain";
+export type CapabilityKind = "app" | "skill" | "chain" | "wallet";
 
 export type CapabilityMention = {
   key: string;
@@ -12,6 +12,8 @@ export type CapabilityMention = {
   description?: string;
   applicationId?: string | number | null;
   appName?: string;
+  /** A wallet: the `w_N` id of each of its addresses (EVM, SVM). */
+  walletIds?: string[];
   chainTarget?:
     | { family: "evm"; chainId: number }
     | { family: "svm"; networkId: string };
@@ -39,6 +41,7 @@ export function requestCapabilityMention(
 }
 
 export type PickerItem = CapabilityMention & {
+  disabled?: boolean;
   searchText: string;
   Icon: FC<{ className?: string }>;
   fullDescription?: string;
@@ -54,6 +57,7 @@ const GROUPS = [
   { kind: "app", label: "Apps" },
   { kind: "skill", label: "Skills" },
   { kind: "chain", label: "Chains" },
+  { kind: "wallet", label: "Wallets" },
 ] as const;
 
 export type PickerGroup = {
@@ -65,7 +69,8 @@ export type PickerGroup = {
 /**
  * The picker's sections for an "@" query. A bare "@" previews a few of each
  * section so Chains isn't buried; typing searches everything. Test networks
- * appear only when searched for, and a chain named by the query comes first.
+ * appear only when searched for. A wallet matching the query comes first (a
+ * typed name most likely means a wallet), else a chain named by the query.
  */
 export function pickerGroups(
   items: PickerItem[],
@@ -90,7 +95,10 @@ export function pickerGroups(
       items: needle ? groupItems : groupItems.slice(0, BARE_MENTION_LIMIT),
     };
   });
-  const [apps, skills, chains] = groups;
-  const ordered = chains.items.some(named) ? [chains, apps, skills] : groups;
+  const [apps, skills, chains, wallets] = groups;
+  const others = chains.items.some(named)
+    ? [chains, apps, skills]
+    : [apps, skills, chains];
+  const ordered = needle ? [wallets, ...others] : [...others, wallets];
   return ordered.filter((group) => group.items.length > 0);
 }

@@ -2,21 +2,14 @@ import { SimulationApiError } from "./simulation";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
-  AomiAuthPurpose,
-  AomiAuthWalletFamily,
   AomiAppDescriptor,
-  AomiBeginAccountAuthResponse,
   AomiClientOptions,
   AomiClearAppSecretsResponse,
   AomiClearSecretsResponse,
-  AomiDeleteByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
-  AomiListByokKeysResponse,
   AomiListSecretsResponse,
   AomiRequestOptions,
-  AomiByokKeyEntry,
-  AomiSaveByokKeyResponse,
   AomiAccountAppMutationResponse,
   AomiSimulateResponse,
   AomiUserAppSecrets,
@@ -191,7 +184,11 @@ export function wrapFetchWithAccountBearer(
 }
 
 function isCommitPath(path: string): boolean {
-  return path === "/api/commits" || path.startsWith("/api/commits/");
+  return (
+    path === "/api/commits" ||
+    path.startsWith("/api/commits/") ||
+    path.startsWith("/v1/commits/")
+  );
 }
 
 export function wrapFetchWithPublicApiAuthorization(input: {
@@ -292,13 +289,34 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   const payment = new Headers(headers).has("payment-signature")
     ? ["payments:submit"]
     : [];
+  if (
+    method.toUpperCase() === "POST" &&
+    ["/api/thread/model", "/api/thread/sim/world"].includes(url.pathname)
+  ) {
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:write"],
+      method: "POST",
+    };
+  }
   if (isCommitPath(url.pathname)) {
+    const write = url.pathname.startsWith("/v1/")
+      ? "agent:write"
+      : "agent:actions:resolve";
     return {
       resource: `${origin}/v1/agent` as AomiOAuthResource,
       scopes: [
-        method.toUpperCase() === "GET" ? "agent:read" : "agent:actions:resolve",
+        method.toUpperCase() === "GET" ? "agent:read" : write,
         ...payment,
       ],
+      method: method.toUpperCase(),
+    };
+  }
+  if (url.pathname === "/api/thread/wallet") {
+    // `aomi wallets use`: the portal asks agent:write of the switch.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:write", ...payment],
       method: method.toUpperCase(),
     };
   }
@@ -332,6 +350,19 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     };
   }
   if (
+    method.toUpperCase() === "GET" &&
+    /^\/v1\/account\/(?:wallets(?:\/[^/]+\/balance)?|agent-wallets(?:\/[^/]+\/balances)?)$/.test(
+      url.pathname,
+    )
+  ) {
+    // api-server serves the wallet list and balances on the agent resource.
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: ["agent:read", ...payment],
+      method: "GET",
+    };
+  }
+  if (
     url.pathname === "/v1/account" ||
     url.pathname.startsWith("/v1/account/")
   ) {
@@ -356,8 +387,8 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
           : "account:apps:write";
     } else if (url.pathname === "/v1/account/statement") {
       scope = "account:usage:read";
-    } else if (url.pathname === "/v1/account/credits/top-up") {
-      scope = "account:credits:topup";
+    } else if (url.pathname.startsWith("/v1/account/credits/funding-events") && method.toUpperCase() === "POST") {
+      scope = "account:credits:fund";
     } else {
       scope = "account:credits:read";
     }
@@ -487,7 +518,6 @@ export class AomiClient {
     this.agent = new AgentTransport(
       (method, path, requestOptions) =>
         this.requestResponse(method, path, requestOptions),
-      options.inferenceFunding,
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
@@ -562,7 +592,10 @@ export class AomiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await (options?.raw ? this.rawFetchImpl : this.fetchImpl)(
+    const requestFetch = options?.x402
+      ? wrapFetchWithPaymentChallenges(this.rawFetchImpl, options.x402)
+      : options?.raw ? this.rawFetchImpl : this.fetchImpl;
+    const response = await requestFetch(
       url,
       {
         method,
@@ -884,52 +917,6 @@ export class AomiClient {
   }
 
   /**
-   * Mint a Privy browser auth URL bound to the current backend session.
-   */
-  async beginPrivyAuth(
-    sessionId: string,
-    options?: {
-      application?: string;
-      walletFamily?: AomiAuthWalletFamily;
-      purpose?: AomiAuthPurpose;
-    },
-  ): Promise<AomiBeginAccountAuthResponse> {
-    const url = buildApiUrl(this.baseUrl, "/api/auth/privy/begin");
-    const response = await this.rawFetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        application: options?.application,
-        purpose: options?.purpose ?? "link_wallet",
-        wallet_family:
-          options?.walletFamily === "evm" ? undefined : options?.walletFamily,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to begin Privy auth: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiBeginAccountAuthResponse;
-  }
-
-  /**
-   * Start Privy's separate one-time delegated-signer consent. This is not a
-   * wallet-link operation and callers should label it as enabling Auto.
-   */
-  async beginPrivyDelegation(
-    sessionId: string,
-    options?: { application?: string; walletFamily?: AomiAuthWalletFamily },
-  ): Promise<AomiBeginAccountAuthResponse> {
-    return this.beginPrivyAuth(sessionId, {
-      ...options,
-      purpose: "delegate_signing",
-    });
-  }
-
-  /**
    * Get available models.
    */
   async getModels(
@@ -1007,74 +994,6 @@ export class AomiClient {
       baml: string;
       created: boolean;
     };
-  }
-
-  /**
-   * List BYOK keys (one per LLM provider) bound to the current account.
-   */
-  async listByokKeys(sessionId: string): Promise<AomiByokKeyEntry[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/model-keys");
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get BYOK keys: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiListByokKeysResponse;
-    return data.keys ?? [];
-  }
-
-  /**
-   * Save or replace a BYOK key for the current account.
-   */
-  async saveByokKey(
-    sessionId: string,
-    provider: string,
-    byokKey: string,
-    label?: string,
-  ): Promise<AomiByokKeyEntry> {
-    const url = joinApiPath(this.baseUrl, "/api/account/model-keys");
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({
-        provider,
-        byok_key: byokKey,
-        label,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to save BYOK key: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiSaveByokKeyResponse;
-    return data.key;
-  }
-
-  /**
-   * Delete a BYOK key for the current account.
-   */
-  async deleteByokKey(sessionId: string, provider: string): Promise<boolean> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/account/model-keys/${encodeURIComponent(provider)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete BYOK key: HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as AomiDeleteByokKeyResponse;
-    return data.deleted;
   }
 
   // ===========================================================================

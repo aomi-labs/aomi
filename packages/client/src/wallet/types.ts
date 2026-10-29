@@ -32,6 +32,29 @@ export interface EvmWallet {
       phase: Exclude<import("../commits").CommitSubmissionPhase, "preparing">,
     ) => void,
   ) => Promise<string>;
+  /** Send a prepared commit bundle with EIP-5792 `wallet_sendCalls`;
+   * answers every landed transaction hash in order. */
+  sendPreparedCalls?: (
+    payload: import("../commits").WalletCallsCommit,
+    onPhase?: (
+      phase: Exclude<import("../commits").CommitSubmissionPhase, "preparing">,
+    ) => void,
+  ) => Promise<string[]>;
+  /** Wait for a transaction's receipt on the wallet's own public client (one
+   * confirmation). Display only: the Commit Service still settles the commit. */
+  waitForReceipt?: (input: {
+    chainId: number;
+    hash: string;
+  }) => Promise<{ status?: string }>;
+  /** Sign a message commit's payload: typed data with
+   * `eth_signTypedData_v4`, ERC-191 bytes with `personal_sign` (`0x` hex
+   * as-is, text as its UTF-8 bytes). Answers the signature. */
+  signPreparedMessage?: (
+    payload: import("../commits").EvmMessageCommit,
+  ) => Promise<string>;
+  /** The wallet may be asked to bundle on the chain: it is not known to lack
+   * EIP-5792 batching there. */
+  supportsAtomicBatch?: (chainId: number) => boolean;
   signTransaction?: (
     payload: Extract<
       import("../commits").SignableCommit,

@@ -24,6 +24,7 @@ import {
 import { useWidgetStorage } from "@/lib/widget-storage";
 import type { ScopedStorage } from "@aomi-labs/client";
 import { useAomiWalletKit } from "./context";
+import { agentFamilies } from "./composer/wallet-state";
 import { createPublicClient, http } from "viem";
 
 export function useCommitCapabilities(): CommitCapabilities {
@@ -32,14 +33,27 @@ export function useCommitCapabilities(): CommitCapabilities {
   return useMemo(
     () =>
       commitCapabilities(
-        {
-          ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
-          ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
-        },
+        localWallets(wallet),
         browserCommitRecoveryStore(storage),
       ),
     [wallet, storage],
   );
+}
+
+/**
+ * The wallets this browser signs with. A family whose operating wallet is an
+ * agent wallet is left out: the server signs for it under its rule.
+ */
+function localWallets(wallet: ReturnType<typeof useAomiWalletKit>) {
+  const agents = agentFamilies(wallet.wallets);
+  return {
+    ...(wallet.identity.address && !agents.has("evm")
+      ? { evm: evmWallet(wallet) }
+      : {}),
+    ...(wallet.identity.svmAddress && !agents.has("svm")
+      ? { svm: svmWallet(wallet) }
+      : {}),
+  };
 }
 
 function browserCommitRecoveryStore(
@@ -66,6 +80,11 @@ function browserCommitRecoveryStore(
                 : {}),
               ...(typeof record.transactionId === "string"
                 ? { transactionId: record.transactionId }
+                : {}),
+              ...(Array.isArray(record.transactionIds) &&
+              record.transactionIds.length > 0 &&
+              record.transactionIds.every((id) => typeof id === "string")
+                ? { transactionIds: record.transactionIds }
                 : {}),
               ...(record.rejected === true ? { rejected: true as const } : {}),
               ...(rejection?.kind === "rejected" &&
@@ -101,14 +120,7 @@ function browserCommitRecoveryStore(
 /** Adapts wallet-kit methods into the wallet subroutines used by ActionHandler. */
 export function useActionCapabilities(): ActionCapabilities {
   const wallet = useAomiWalletKit();
-  return useMemo(
-    () =>
-      walletCapabilities({
-        ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
-        ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
-      }),
-    [wallet],
-  );
+  return useMemo(() => walletCapabilities(localWallets(wallet)), [wallet]);
 }
 
 function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
@@ -144,7 +156,11 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
     address,
     preparePreparedTransaction: wallet.preparePreparedEvmTransaction,
     sendPreparedTransaction: wallet.sendPreparedEvmTransaction,
+    sendPreparedCalls: wallet.sendPreparedEvmCalls,
+    waitForReceipt: wallet.waitForEvmReceipt,
+    supportsAtomicBatch: wallet.supportsAtomicEvmBatch,
     signTransaction: wallet.signEvmTransaction,
+    signPreparedMessage: wallet.signPreparedEvmMessage,
     broadcastTransaction: async (bytes, chainId) => {
       const chain = wallet.supportedChains?.find(
         (chain) => chain.id === chainId,
@@ -192,8 +208,11 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
   return {
     address,
     broadcastTransaction: async (bytes, cluster) => {
+      // A commit names its cluster as Solana does (`mainnet-beta`); the
+      // wallet kit's networks use `solana:mainnet`.
+      const normalized = normalizeSolanaCluster(cluster);
       const network = wallet.supportedNetworks?.solana.find(
-        (network) => network.cluster === cluster,
+        (network) => network.cluster === normalized,
       );
       if (!network) throw new Error("Commit cluster is not configured");
       const connection = new SolanaConnection(network.rpcHttpUrl, "confirmed");

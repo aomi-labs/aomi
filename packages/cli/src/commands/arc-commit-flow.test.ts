@@ -9,6 +9,7 @@ import {
   keccak256,
   parseTransaction,
   recoverTransactionAddress,
+  type TransactionSerialized,
   verifyMessage,
   type Hex,
 } from "viem";
@@ -306,7 +307,7 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
       expect(parsed.maxPriorityFeePerGas ?? 0n).toBe(0n);
       expect(
         await recoverTransactionAddress({
-          serializedTransaction: signedBytes!,
+          serializedTransaction: signedBytes! as TransactionSerialized,
         }),
       ).toBe(account.address);
       expect(manualReports).toBe(2);

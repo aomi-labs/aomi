@@ -1,6 +1,12 @@
-import type { Action, CommitView, Event } from "@aomi-labs/client";
-import { summarizeSimulation } from "@aomi-labs/client";
+import type {
+  Action,
+  CommitController,
+  CommitView,
+  Event,
+} from "@aomi-labs/client";
+import { isMessageReview, summarizeSimulation } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
+import { messageChainId } from "@/thread/tool-interpreter/families/general/commit-view";
 import { unwrapToolStep } from "@/thread/tool-interpreter/unwrap";
 
 type RecordValue = Record<string, unknown>;
@@ -21,29 +27,33 @@ export type ActivityTransaction = {
   commit?: CommitView;
 };
 
-/** Commits awaiting the wallet, in signing order: whole batches in the order
- * they were committed, each batch by its own leg index. A later batch (another
- * chain, say) never cuts in while an earlier batch still has legs to sign. */
+/** Commits awaiting the wallet or the user's approval, in signing order:
+ * whole groups in the order they were committed, each by its own leg index.
+ * A later group (another chain, say) never cuts in while an earlier one still
+ * has legs to sign. An atomic group shows only its leader: the rest go with
+ * it. An approved commit is Aomi's to sign. */
 export function selectReviewQueue(
   commits: readonly CommitView[],
-  review: ((commitId: string) => unknown) | undefined,
+  controller: Pick<CommitController, "review" | "plan"> | undefined,
 ): CommitView[] {
-  if (!review) return [];
-  const rank = new Map<string, number>();
+  if (!controller) return [];
+  // A group arrives with its first commit: a batch, or a lone commit.
+  const group = (commit: CommitView) =>
+    commit.batch?.batch_id ?? commit.commit_id;
+  const arrival = new Map<string, number>();
   commits.forEach((commit, index) => {
-    if (commit.batch && !rank.has(commit.batch.batch_id))
-      rank.set(commit.batch.batch_id, index);
+    if (!arrival.has(group(commit))) arrival.set(group(commit), index);
   });
-  const order = (commit: CommitView) =>
-    commit.batch
-      ? (rank.get(commit.batch.batch_id) ?? 0)
-      : Number.MAX_SAFE_INTEGER;
+  const order = (commit: CommitView) => arrival.get(group(commit)) ?? 0;
   return commits
     .filter(
       (commit) =>
-        (commit.state === "needs_signature" ||
-          commit.state === "awaiting_broadcast") &&
-        review(commit.commit_id) !== undefined,
+        !(commit.batch?.index && controller.plan?.(commit).atomic) &&
+        (commit.state === "awaiting_approval" ||
+          ((commit.state === "needs_signature" ||
+            commit.state === "awaiting_broadcast") &&
+            commit.approval?.state !== "approved")) &&
+        controller.review(commit.commit_id) !== undefined,
     )
     .sort(
       (a, b) =>
@@ -53,9 +63,9 @@ export function selectReviewQueue(
 
 export function selectReviewCommit(
   commits: readonly CommitView[],
-  review: ((commitId: string) => unknown) | undefined,
+  controller: Pick<CommitController, "review" | "plan"> | undefined,
 ): CommitView | undefined {
-  return selectReviewQueue(commits, review)[0];
+  return selectReviewQueue(commits, controller)[0];
 }
 
 function record(value: unknown): RecordValue | undefined {
@@ -169,6 +179,11 @@ export function selectActivity(
     null;
   const skills = new Set<string>();
   const staged = new Map<string, ActivityTransaction>();
+  /** The tool event that created each commit, for commits with no staged tx. */
+  const commitOrigins = new Map<
+    string,
+    { sequence: number; turnId: string | null }
+  >();
   const actions = new Map<string, Action>();
   const actionOrder = new Map<string, number>();
   for (const event of ordered) {
@@ -182,6 +197,15 @@ export function selectActivity(
     const tool = toolRecord(event);
     if (!tool || tool.result.error || tool.result.is_error === true) continue;
     const { name, result } = tool;
+    if (Array.isArray(result.commits))
+      for (const view of result.commits) {
+        const id = string(record(view)?.commit_id);
+        if (id && !commitOrigins.has(id))
+          commitOrigins.set(id, {
+            sequence: event.sequence,
+            turnId: event.turn_id,
+          });
+      }
     if (Array.isArray(result.activated)) {
       for (const id of result.activated)
         if (typeof id === "string") skills.add(id);
@@ -377,17 +401,25 @@ export function selectActivity(
     }
   }
   for (const commit of commits) {
-    for (const source of commit.batch?.sources ?? []) {
-      if (
-        source.thread_id !== commit.thread_id ||
-        source.chain_family !== commit.chain_family ||
-        source.chain_ref !== commit.chain_ref ||
-        source.stage_id !== commit.stage_id
-      )
-        continue;
+    // The staged ids a commit carries: its batch's own sources, else its stage
+    // id `<family>:<id>,<id>…` (a single commit, such as a Solana Ask).
+    const sourceIds = commit.batch
+      ? commit.batch.sources
+          .filter(
+            (source) =>
+              source.thread_id === commit.thread_id &&
+              source.chain_family === commit.chain_family &&
+              source.chain_ref === commit.chain_ref &&
+              source.stage_id === commit.stage_id,
+          )
+          .map((source) => source.source_id)
+      : (commit.stage_id.split(":")[1] ?? "")
+          .split(",")
+          .filter((part) => part !== "")
+          .map(Number)
+          .filter(Number.isInteger);
+    for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
-        const sourceId =
-          number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id);
         const chainRef =
           tx.family === "evm"
             ? tx.chainId == null
@@ -395,9 +427,10 @@ export function selectActivity(
               : String(tx.chainId)
             : tx.cluster;
         return (
-          tx.family === source.chain_family &&
-          sourceId === source.source_id &&
-          chainRef === source.chain_ref
+          tx.family === commit.chain_family &&
+          (number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id)) ===
+            sourceId &&
+          chainRef === commit.chain_ref
         );
       });
       if (match) {
@@ -405,6 +438,25 @@ export function selectActivity(
         match.commit = commit;
       }
     }
+  }
+  // A message signature stages nothing: its commit is its own row.
+  for (const commit of commits) {
+    const review = commit.review?.request;
+    if (!isMessageReview(review)) continue;
+    const origin = commitOrigins.get(commit.commit_id);
+    transactions.push({
+      id: `commit:${commit.commit_id}`,
+      sequence: origin?.sequence,
+      turnId: origin?.turnId ?? null,
+      family: "evm",
+      label: review.description || "Sign message",
+      kind: "message",
+      // Only a chain the message names; the commit's own is the wallet's.
+      chainId: messageChainId([commit as unknown as RecordValue]),
+      raw: {},
+      stage: "committed",
+      commit,
+    });
   }
   return {
     turnId,

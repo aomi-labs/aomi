@@ -11,9 +11,12 @@ import {
   useExternalStoreRuntime,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { ThreadList } from "./thread-list";
+import { ThreadList, ThreadOriginBadge } from "./thread-list";
 
-const actions = vi.hoisted(() => ({ renameThread: vi.fn() }));
+const actions = vi.hoisted(() => ({
+  renameThread: vi.fn(),
+  getThreadMetadata: vi.fn(),
+}));
 vi.mock("@aomi-labs/react", async () => ({
   ...(await vi.importActual("@aomi-labs/react")),
   useOptionalAomiRuntime: () => actions,
@@ -217,4 +220,49 @@ describe("chat Rename", () => {
     expect(actions.renameThread).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Chat options")).toHaveFocus();
   });
+
+  it("shows the thread's origin as a small icon in its row", () => {
+    actions.getThreadMetadata.mockReturnValue({ origin: "cron" });
+    render(<Harness />);
+    expect(screen.getByRole("img", { name: "Scheduled task" })).toBeTruthy();
+    actions.getThreadMetadata.mockReset();
+  });
+
+  it("keeps an amber dot on a chat with a trade waiting for approval", () => {
+    actions.getThreadMetadata.mockReturnValue({
+      awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
+    });
+    const { container, unmount } = render(<Harness />);
+    expect(
+      container.querySelector(".aui-thread-list-item[data-awaiting-approval]"),
+    ).toBeTruthy();
+    unmount();
+    actions.getThreadMetadata.mockReturnValue({ awaitingApproval: [] });
+    const quiet = render(<Harness />);
+    expect(
+      quiet.container.querySelector("[data-awaiting-approval]"),
+    ).toBeNull();
+    actions.getThreadMetadata.mockReset();
+  });
+});
+
+describe("ThreadOriginBadge", () => {
+  it.each([
+    ["cron", "Scheduled task"],
+    ["mcp", "Started over MCP"],
+    ["api", "Started over the API"],
+    ["cli", "Started from the CLI"],
+    ["sdk", "Started from the SDK"],
+  ] as const)("marks %s as %s", (origin, label) => {
+    render(<ThreadOriginBadge origin={origin} />);
+    expect(screen.getByRole("img", { name: label })).toBeTruthy();
+  });
+
+  it.each(["portal", "widget", undefined] as const)(
+    "shows nothing for %s chats",
+    (origin) => {
+      const { container } = render(<ThreadOriginBadge origin={origin} />);
+      expect(container.firstChild).toBeNull();
+    },
+  );
 });

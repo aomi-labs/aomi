@@ -170,7 +170,7 @@ export function restoreDisplayData(
     if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= query.updatedAt)
       continue;
     // A saved profile is a partial projection. The first live read must
-    // fetch the full profile before ACL or installed-app views derive it.
+    // fetch the full profile before settings or installed-app views derive it.
     client.setQueryData(key, data, {
       updatedAt: resource === "profile" ? 0 : query.updatedAt,
     });

@@ -52,27 +52,10 @@ export type PrivyAuthOptions = {
 };
 
 // @public (undocumented)
-export type PrivyDelegationContextValue = {
-    start: (input: {
-        state: string;
-        signerId: string;
-    }) => Promise<void>;
-};
-
-// @public
-export function PrivyDelegationProvider(input: {
-    callbackPath?: string;
-    children: ReactNode;
-}): JSX.Element;
-
-// @public (undocumented)
 export const privyPlugin: WalletProviderPlugin;
 
 // @public (undocumented)
 export function registerAomiPrivyWalletProvider(): void;
-
-// @public (undocumented)
-export function usePrivyDelegation(): PrivyDelegationContextValue;
 
 // (No @packageDocumentation comment for this package)
 

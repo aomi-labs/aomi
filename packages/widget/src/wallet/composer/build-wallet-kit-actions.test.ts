@@ -2,6 +2,40 @@ import { describe, expect, it, vi } from "vitest";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 
 describe("buildWalletKitActions", () => {
+  it("agent families update network state without touching connected providers", async () => {
+    const connector = { id: "rabby" };
+    const switchChainAsync = vi.fn();
+    const evmSelect = vi.fn(async () => undefined);
+    const svmSelect = vi.fn();
+    const svmAppSelect = vi.fn(async () => undefined);
+    const actions = buildWalletKitActions({
+      selectAgentEvmNetwork: evmSelect,
+      selectAgentSvmNetwork: svmAppSelect,
+      accounts: [],
+      auth: {} as never,
+      evm: {
+        activeEvmConnection: { chainId: 1 },
+        selectNetwork: evmSelect,
+      } as never,
+      svm: {
+        selectNetwork: svmSelect,
+        selectAppNetwork: svmAppSelect,
+      } as never,
+      execution: {
+        evm: { activeConnector: connector, switchChainAsync },
+      } as never,
+      registryStore: {} as never,
+      registryEvmConnected: true,
+    });
+    await actions.switchChain!(8453);
+    await actions.selectNetwork({ family: "evm", chainId: 8453 });
+    await actions.selectNetwork({ family: "svm", networkId: "devnet" });
+    expect(switchChainAsync).not.toHaveBeenCalled();
+    expect(svmSelect).not.toHaveBeenCalled();
+    expect(evmSelect).toHaveBeenCalledWith(8453);
+    expect(svmAppSelect).toHaveBeenCalledWith("devnet");
+  });
+
   it("rejects provider sign-in when the current runtime has no login capability", async () => {
     const actions = buildWalletKitActions({
       accounts: [],

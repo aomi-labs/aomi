@@ -1,16 +1,13 @@
 /**
- * Shared browser-side handoff logic for the CLI login surfaces
- * (`/device-auth` and `/oauth/device`). Failures carry a stable code so the
- * page can show a next step without ever rendering provider or HTTP bodies.
+ * Browser-side handoff logic for the CLI's `/device-auth` link page. Failures
+ * carry a stable code so the page can show a next step without ever rendering
+ * provider or HTTP bodies.
  */
 
 export type DeviceAuthHandoffCode =
   | "provider_login_cancelled"
   | "provider_credential_timeout"
-  | "provider_account_conflict"
   | "provider_exchange_rate_limited"
-  | "provider_exchange_failed"
-  | "device_grant_failed"
   | "device_link_failed";
 
 export class DeviceAuthHandoffError extends Error {
@@ -43,43 +40,18 @@ export function handoffFailureMessage(code: DeviceAuthHandoffCode): string {
       return "Sign-in was cancelled. Continue again when you are ready.";
     case "provider_credential_timeout":
       return "The provider signed you in but did not issue a credential in time. Try again.";
-    case "provider_account_conflict":
-      return "This login is already linked to a different Aomi account. Sign in with that account, or unlink it there first.";
     case "provider_exchange_rate_limited":
       return "Too many sign-in attempts. Wait a minute and try again.";
-    case "provider_exchange_failed":
-      return "Aomi could not verify the provider credential.";
-    case "device_grant_failed":
-      return "Aomi could not create the CLI login grant.";
     case "device_link_failed":
       return "Aomi could not link this login method.";
   }
 }
 
-/** Provider exchange responses map onto codes the user can act on. */
-export function providerExchangeFailure(
-  status: number,
-): DeviceAuthHandoffError {
-  if (status === 409) {
-    return new DeviceAuthHandoffError("provider_account_conflict", status);
-  }
+export function deviceLinkFailure(status: number): DeviceAuthHandoffError {
   if (status === 429) {
     return new DeviceAuthHandoffError("provider_exchange_rate_limited", status);
   }
-  return new DeviceAuthHandoffError("provider_exchange_failed", status);
-}
-
-export function deviceGrantFailure(
-  status: number,
-  purpose: "login" | "link",
-): DeviceAuthHandoffError {
-  if (status === 429) {
-    return new DeviceAuthHandoffError("provider_exchange_rate_limited", status);
-  }
-  return new DeviceAuthHandoffError(
-    purpose === "link" ? "device_link_failed" : "device_grant_failed",
-    status,
-  );
+  return new DeviceAuthHandoffError("device_link_failed", status);
 }
 
 export type ProviderCredentialGetter = (options?: {

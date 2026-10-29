@@ -7,6 +7,7 @@ review_after_days: 30
 sources_of_truth:
   - scripts/check-consumer-compatibility.mjs
   - scripts/check-consumer-compatibility-baseline.mjs
+  - tests/contracts/consumer-baseline.json
   - scripts/check-frontend-boundaries.mjs
   - scripts/test-browser-contracts.mjs
   - scripts/test-packed-consumers.mjs
@@ -36,7 +37,7 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 | AUTH-01      | Public credentials terminate at the BFF; internal backend assertions are server-minted and fail closed.                   | Production Portal browser contracts verify signed assertions and headers.  |
 | AUTH-02      | EVM/SVM sign-in and wallet linking resolve one canonical account; rejected, replayed, or wrong-origin proofs fail closed. | Production wallet-provider browser contracts against disposable Postgres.  |
 | GUEST-01     | Portal may recover cookie-owned guest history; anonymous cross-origin widgets do not persist it by default.               | Portal guest test plus packaged cross-origin browser contracts.            |
-| CONSUMER-01  | A PR cannot hide a break by rewriting its consumers.                                                                      | Extract consumers from the event's trusted base commit, never the PR tree. |
+| CONSUMER-01  | A PR cannot hide a break by rewriting its consumers.                                                                      | Extract consumers from the owner-reviewed release pin, never the working tree. |
 | INSTALL-01   | Published packages install without undeclared workspace or hoisted dependencies; public entries and the SDK CLI load.     | Synthetic isolated clean install from candidate tarballs.                  |
 | VISUAL-01    | Chat, account, settings, usage, and wallet-review surfaces keep their reviewed production layout.                         | Deterministic production-build Playwright image contracts.                 |
 | ACTION-01    | Wallet Actions require an explicit choice and remain durable, idempotent, and fail closed across errors and reloads.      | Controlled-upstream browser Action lifecycle contract.                     |
@@ -74,7 +75,15 @@ back to a weaker identity.
 
 ## Packaged compatibility
 
-Run `pnpm run test:contracts -- --base <trusted-base-sha>` from the checkout.
+The supported widget package is `@aomi-labs/widget`. The owner-authorized
+package-name cutover retires `@aomi-labs/widget-lib`, including its implicit
+provider SDK dependencies. Fresh-install checks target the current package;
+trusted-base consumer sources remain unchanged. Existing npm releases are not
+unpublished by this repository change.
+
+Run `pnpm run test:contracts` from the checkout. The default Git revision is pinned
+in `tests/contracts/consumer-baseline.json`; `--base <full-commit-sha>` is an explicit
+local override.
 The check builds candidate packages, packs them, and installs them into temporary
 consumer directories outside the monorepo. The original source and build scripts
 come from the trusted base. Workspace dependency references are replaced with
@@ -89,8 +98,8 @@ but do not mask whether Aomi's own files and exports work. The headless tests an
 SDK ESM/CJS imports also run against the installed package. No login credentials
 or running backend are needed.
 
-CI uses the PR base SHA, or the previous commit from a push event. A missing or
-invalid baseline fails rather than falling back to candidate consumers.
+CI and browser checks use the same owner-reviewed release pin. A missing, invalid
+or unavailable pinned commit fails instead of falling back to candidate consumers.
 
 ## Conditional CI selection
 
@@ -111,7 +120,7 @@ produce a green required check. Keep path-selection cases in
 
 ## Production browser contracts
 
-Run `CONSUMER_BASE_SHA=<trusted-base-sha> pnpm run test:browser:contracts` with
+Run `pnpm run test:browser:contracts` with
 `AOMI_TEST_DATABASE_URL` pointing at a disposable Postgres database and
 `AOMI_TEST_DATABASE_DISPOSABLE=1` to exercise a production Portal build and an
 immutable trusted-base Vite consumer installed against candidate package
@@ -151,3 +160,19 @@ identity and protocol transport but does not replace a hosted backend smoke.
 The suite never signs transactions or broadcasts. It is not a real-provider-
 availability or full backend-migration test; the separate hosted-wallet workflow
 remains the staging-provider/backend check.
+
+## Payment cutover consumer baseline
+
+The `payments-v2` consumer is Git commit
+`d27f488b0cc4b7cb21929475c347ededf6c22127`, tagged
+`consumer-baseline/payments-v2`. Its headless payment example uses `CreditBalance`,
+separate `credits.ledger()` reads and durable `beginFunding()` calls. The commit
+updates only the example, its README and its environment template. The test copies
+these committed sources unchanged and compiles them against the candidate packages.
+There is no compiler-error exception, fixture rewriting or runtime legacy adapter.
+
+Changing this release pin requires frontend-owner review, including for a cutover.
+Publish the tag with the release (`git push origin refs/tags/consumer-baseline/payments-v2`)
+before running remote CI against the new pin. CI fetches full history and tags;
+it cannot use an unpublished local Git object. Keep the tag immutable. A future
+breaking cutover creates a new reviewed consumer commit and advances the pin.

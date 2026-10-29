@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Button } from "@aomi-labs/widget/host-composition";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
 import Script from "next/script";
@@ -55,8 +56,15 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 export function GoogleAnalytics() {
   const { consent } = useCookieConsent();
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => {
+    setAllowed(
+      !window.location.pathname.startsWith("/link/") &&
+        !new URLSearchParams(window.location.search).has("return_to"),
+    );
+  }, []);
 
-  if (!GA_MEASUREMENT_ID) {
+  if (!allowed || !GA_MEASUREMENT_ID) {
     return null;
   }
 

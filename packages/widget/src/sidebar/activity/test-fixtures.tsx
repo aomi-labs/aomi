@@ -17,6 +17,11 @@ const runtime = vi.hoisted(() => ({
   executeAction: vi.fn(),
   rejectAction: vi.fn(),
   showNotification: vi.fn(),
+  sendMessage: vi.fn(),
+  currentThreadId: "thread-1",
+  getThreadMetadata: vi.fn(
+    (_id: string): { awaitingApproval?: string[] } | undefined => undefined,
+  ),
 }));
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
@@ -43,18 +48,25 @@ vi.mock("@/thread/markdown-text", async () => {
   };
 });
 
-vi.mock("@/wallet/context", () => ({
-  useAomiWalletKit: () => ({
-    supportedChains: [
-      {
-        id: 1,
-        name: "Ethereum",
-        nativeCurrency: { symbol: "ETH" },
-      },
-      { id: 8453, name: "Base", nativeCurrency: { symbol: "ETH" } },
-    ],
-  }),
+/** The wallet kit the sidebar reads; tests change it to move the active wallet. */
+const walletKit = vi.hoisted(() => ({
+  isReady: true,
+  identity: {
+    address: "0x1111111111111111111111111111111111111111",
+    svmAddress: "payer-address",
+  } as {
+    address?: string;
+    svmAddress?: string;
+  },
+  wallets: [] as unknown[],
+  activateWallet: vi.fn(),
+  supportedChains: [
+    { id: 1, name: "Ethereum", nativeCurrency: { symbol: "ETH" } },
+    { id: 8453, name: "Base", nativeCurrency: { symbol: "ETH" } },
+  ],
 }));
+
+vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => walletKit }));
 
 export function action(request: Action["request"]): Action {
   return {
@@ -89,4 +101,4 @@ export function simulation(): Extract<
   };
 }
 
-export { runtime };
+export { runtime, walletKit };

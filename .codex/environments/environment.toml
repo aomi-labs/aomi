@@ -58,16 +58,6 @@ icon = "run"
 command = "pnpm run dev:portal:localhost"
 
 [[actions]]
-name = "Telegram Dev"
-icon = "run"
-command = "pnpm run dev:telegram"
-
-[[actions]]
-name = "Telegram Webpack"
-icon = "run"
-command = "pnpm run dev:telegram:webpack"
-
-[[actions]]
 name = "Build Packages"
 icon = "run"
 command = "pnpm run build:packages"
@@ -96,11 +86,6 @@ command = "pnpm run build:base"
 name = "Build Portal"
 icon = "run"
 command = "pnpm run build:portal"
-
-[[actions]]
-name = "Build Telegram"
-icon = "run"
-command = "pnpm run build:telegram"
 
 [[actions]]
 name = "Build Apps"
@@ -148,11 +133,6 @@ icon = "run"
 command = "pnpm run lint:portal"
 
 [[actions]]
-name = "Lint Telegram"
-icon = "run"
-command = "pnpm run lint:telegram"
-
-[[actions]]
 name = "Lint Apps"
 icon = "run"
 command = "pnpm run lint:apps"
@@ -178,11 +158,6 @@ icon = "run"
 command = "pnpm run typecheck:portal"
 
 [[actions]]
-name = "Typecheck Telegram"
-icon = "run"
-command = "pnpm run typecheck:telegram"
-
-[[actions]]
 name = "Typecheck Apps"
 icon = "run"
 command = "pnpm run typecheck:apps"
@@ -201,11 +176,6 @@ command = "pnpm run test -- --run"
 name = "Test Portal"
 icon = "run"
 command = "pnpm run test:portal"
-
-[[actions]]
-name = "Test Telegram"
-icon = "run"
-command = "pnpm run test:telegram"
 
 [[actions]]
 name = "Check"

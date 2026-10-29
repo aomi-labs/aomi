@@ -44,16 +44,38 @@ vi.mock("./account-settings", () => ({
 }));
 
 vi.mock("@/account/usage/usage-settings", () => ({
-  UsageSettings: () => <div>Usage content</div>,
+  UsageSettings: ({ initialTopUp }: { initialTopUp?: boolean }) => (
+    <div data-topup={String(initialTopUp)}>Usage content</div>
+  ),
 }));
 
 vi.mock("@/account/policy/policy-page", () => ({
   PolicyPage: () => <div>Policy content</div>,
 }));
 
+vi.mock("@/account/connections/connections-settings", () => ({
+  ConnectionsSettings: () => <div>Connections content</div>,
+}));
+
 describe("SettingsModal directory shell", () => {
   afterEach(() => {
     session.status = "ready";
+  });
+
+  it("waits for sign-in before showing the requested credit top-up", () => {
+    session.status = "anonymous";
+    const view = render(
+      <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
+    );
+    expect(screen.queryByText("Usage content")).toBeNull();
+    session.status = "ready";
+    view.rerender(
+      <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("Usage content")).toHaveAttribute(
+      "data-topup",
+      "true",
+    );
   });
 
   it("matches the Library frame and keeps navigation in the sidebar", () => {
@@ -85,20 +107,21 @@ describe("SettingsModal directory shell", () => {
     ).toBeTruthy();
   });
 
-  it("switches sections from both the sidebar and in-content actions", () => {
+  it("switches sections from both the sidebar and in-content actions", async () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(screen.getByText("Account content")).toBeTruthy();
+    expect(await screen.findByText("Account content")).toBeTruthy();
     expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Safety" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
-    expect(
-      screen.getByText("Guard policy and signing permissions"),
-    ).toBeTruthy();
+    expect(screen.getByText("Guard policy for new chats")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Connections" }));
+    expect(await screen.findByText("Connections content")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "View usage" }));

@@ -49,9 +49,16 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     exact: true,
   });
   await expect(accountSettings).toBeVisible();
+  // The agent wallets band sits at the bottom, with no balances on its rows.
+  await expect(
+    accountSettings.locator(
+      '[data-agent-wallet] [aria-label="Actions for Trading"]',
+    ),
+  ).toBeVisible();
+  await expect(accountSettings.getByText("$412.80")).toHaveCount(0);
   await settleVisuals(page);
-  // The account-linking UI groups the active signer and linked wallets
-  // under Wallets & access.
+  // Wallets & access: the Signs-with strip, the sign-in wallets you sign
+  // with yourself, then the agent wallets Aomi hosts.
   await expect(accountSettings).toHaveScreenshot(
     "account-settings.png",
     screenshot(),
@@ -85,7 +92,9 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   const review = sidebar.getByTestId(testIds.txReview);
   await expect(review).toBeVisible({ timeout: 30_000 });
   await expect(review).toContainText("0.000000000000000001 ETH");
-  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
+  await expect(
+    review.getByRole("button", { name: "Send transaction" }),
+  ).toBeEnabled();
   await assertSidebarDoesNotCoverComposer(page, sidebar);
   await settleVisuals(page);
   await expect(sidebar).toHaveScreenshot(
@@ -93,7 +102,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
     screenshot(),
   );
 
-  await review.getByRole("button", { name: "Submit" }).click();
+  await review.getByRole("button", { name: "Send transaction" }).click();
   await expect.poll(() => wallet.blocked.length, { timeout: 15_000 }).toBe(1);
   await expect(
     page.getByText(/signing and broadcasting are forbidden/i),
@@ -482,6 +491,8 @@ test("unfinished callback transactions animate beside a completed sibling throug
     stage_id: `evm:${id}`,
     chain_family: "evm",
     chain_ref: "8453",
+    signer: keys.evmAddress,
+    broadcaster: "wallet",
     state,
     version: state === "confirmed" ? 2 : 1,
     metadata: {},

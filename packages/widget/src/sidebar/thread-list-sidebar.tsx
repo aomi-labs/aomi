@@ -10,11 +10,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/ui/sidebar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { ThreadList } from "./thread-list";
 import { ConnectButton } from "@/wallet/connect-button";
 import { AomiLogo } from "@/ui/aomi-logo";

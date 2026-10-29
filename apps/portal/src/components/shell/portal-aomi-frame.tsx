@@ -34,6 +34,13 @@ import {
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  "general",
+  "account",
+  "connections",
+  "policy",
+  "usage",
+];
 
 function directTarget(
   app: string,
@@ -369,6 +376,56 @@ export function PortalAomiFrame() {
     "none",
   );
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [initialTopUp, setInitialTopUp] = useState(false);
+  const [handoffMismatch, setHandoffMismatch] = useState(false);
+  const [handoffOwner, setHandoffOwner] = useState<string | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const expected = url.searchParams.get("expectedAccount");
+    if (expected) {
+      if (
+        account === undefined ||
+        isReady === false ||
+        accountStatus === "loading"
+      )
+        return;
+      url.searchParams.delete("expectedAccount");
+      if (account?.id !== expected) {
+        url.searchParams.delete("topup");
+        url.searchParams.delete("settings");
+        window.history.replaceState(null, "", url);
+        setHandoffMismatch(true);
+        return;
+      }
+    }
+    if (expected) setHandoffOwner(expected);
+    if (url.searchParams.get("settings") === "account") {
+      setSettingsTab("account");
+      setOverlay("settings");
+      url.searchParams.delete("settings");
+      window.history.replaceState(null, "", url);
+    }
+    if (url.searchParams.get("topup") !== "credits") return;
+    setInitialTopUp(true);
+    setSettingsTab("usage");
+    setOverlay("settings");
+    // Settings retains the request through its existing sign-in gate.
+    url.searchParams.delete("topup");
+    window.history.replaceState(null, "", url);
+  }, [account, isReady, accountStatus]);
+  // Clear a consumed handoff before children render under a different owner.
+  if (
+    handoffOwner &&
+    account !== undefined &&
+    isReady !== false &&
+    accountStatus !== "loading" &&
+    account?.id !== handoffOwner
+  ) {
+    setHandoffOwner(null);
+    setInitialTopUp(false);
+    setOverlay("none");
+    setHandoffMismatch(true);
+  }
   const [walletAccountMenu, setWalletAccountMenu] =
     useState<WalletAccountMenuOptions>();
   const openSettings = useCallback((tab: SettingsTab) => {
@@ -377,6 +434,16 @@ export function PortalAomiFrame() {
   }, []);
   // In-chat controls (the composer's safety menu) deep-link into Settings.
   useSettingsOpenRequest(openSettings);
+  // `/?settings=<tab>` (from /settings/account) opens Settings once.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const tab = url.searchParams.get("settings");
+    if (tab === null) return;
+    url.searchParams.delete("settings");
+    window.history.replaceState(window.history.state, "", url);
+    if (SETTINGS_TABS.includes(tab as SettingsTab))
+      openSettings(tab as SettingsTab);
+  }, [openSettings]);
   if (
     account !== undefined &&
     (!accountFrameScope.initialized ||
@@ -430,6 +497,22 @@ export function PortalAomiFrame() {
       data-testid="portal-shell"
       className="bg-background relative h-full w-full overflow-hidden"
     >
+      {handoffMismatch && (
+        <div
+          role="alert"
+          className="bg-background border-border absolute inset-x-4 top-4 z-50 rounded-xl border p-4 shadow-lg"
+        >
+          Your Aomi account changed while opening this page. Return to the
+          Fuzzer and choose an account again before adding credits.
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => setHandoffMismatch(false)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div data-testid="portal-frame-content" className="h-full w-full">
         <AomiFrame.Root
           products={DEFAULT_SIDEBAR_PRODUCTS}
@@ -453,7 +536,6 @@ export function PortalAomiFrame() {
           walletAccountMenu={walletAccountMenu}
           className="portal-aomi-frame aui-suggestions-marquee rounded-none border-0 shadow-none"
           clientOptions={clientOptions}
-          inferenceFunding={requestedApp.inferenceFunding}
         >
           <PortalFrameContents
             navigation={threadUrlState.navigation}
@@ -485,15 +567,22 @@ export function PortalAomiFrame() {
           {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one
             backdrop still covers the sidebar and chat as one surface. */}
-          {overlay === "settings" && (
-            <OverlayPortal>
-              <SettingsModal
-                key={settingsTab}
-                initialTab={settingsTab}
-                onClose={() => setOverlay("none")}
-              />
-            </OverlayPortal>
-          )}
+          {overlay === "settings" &&
+            (!handoffOwner ||
+              (!restoringSession && account?.id === handoffOwner)) && (
+              <OverlayPortal>
+                <SettingsModal
+                  key={settingsTab}
+                  initialTab={settingsTab}
+                  initialTopUp={initialTopUp}
+                  onClose={() => {
+                    setHandoffOwner(null);
+                    setInitialTopUp(false);
+                    setOverlay("none");
+                  }}
+                />
+              </OverlayPortal>
+            )}
           {overlay === "packages" && (
             <OverlayPortal>
               <PackagesModal onClose={() => setOverlay("none")} />

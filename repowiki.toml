@@ -128,7 +128,6 @@ code = [
     "apps/base/**",
     "apps/landing/**",
     "apps/portal/**",
-    "apps/telegram/**",
     "apps/shadcn-registry/src/components/aomi-frame.tsx",
     "apps/shadcn-registry/src/components/assistant-ui/**",
     "apps/shadcn-registry/src/components/control-bar/**",

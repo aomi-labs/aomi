@@ -91,6 +91,8 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Status unknown", icon: TriangleAlertIcon };
     case "success":
       return { label: "Success", icon: CircleCheckIcon };
+    case "signed":
+      return { label: "Signed", icon: CircleCheckIcon };
     case "failed":
     case "error":
       return { label: "Failed", icon: CircleXIcon };

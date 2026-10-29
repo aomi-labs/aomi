@@ -50,9 +50,7 @@
             "serviceBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/exec/simulate": {
@@ -67,9 +65,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/exec/tool-call": {
@@ -87,12 +83,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "thread", "app_gate", "delegated"]
       }
     },
     "/api/exec/run": {
@@ -110,12 +101,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "thread", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/evm/build": {
@@ -132,11 +118,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/evm/stage": {
@@ -153,11 +135,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/evm/simulate": {
@@ -174,11 +152,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/evm/commit": {
@@ -195,11 +169,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/svm/build": {
@@ -216,11 +186,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/svm/stage": {
@@ -237,11 +203,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/svm/simulate": {
@@ -258,11 +220,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/svm/commit": {
@@ -279,11 +237,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/apps/{app}/operations/{operation}": {
@@ -300,11 +254,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/pipeline/skills/{skill}/operations/{operation}": {
@@ -321,30 +271,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "app_gate",
-          "delegated"
-        ]
-      }
-    },
-    "/api/widget/v1/execution-profile": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": [],
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "app_gate", "delegated"]
       }
     },
     "/api/commits": {
@@ -360,10 +287,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/commits/batch": {
@@ -379,10 +303,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/commits/{commit_id}": {
@@ -398,10 +319,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/commits/{commit_id}/manual": {
@@ -417,10 +335,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/commits/{commit_id}/wallet-attempts": {
@@ -436,10 +351,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/commits/{commit_id}/wallet-attempts/{attempt_id}/report": {
@@ -455,13 +367,130 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
-    "/api/widget/v1/aa-accounts/{chain_id}": {
+    "/v1/commits/{commit_ref}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/sign": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/broadcast": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/attempts": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/attempts/{attempt_id}/report": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/reject": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/commits/{commit_ref}/approve": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/wallets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/pause-all": {
       "put": {
         "responses": {
           "200": {
@@ -470,14 +499,158 @@
         },
         "security": [
           {
-            "accountBearer": [],
-            "threadId": []
+            "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/connection-settings/{key}": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/connections/{key}/wallets": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/agent-wallets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/balances": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/agent-wallets/{wallet_id}/withdraw": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/link/{provider}/preview": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/link/{provider}/confirm": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
+    "/v1/account/link/{provider}/cancel": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/widget/v1/signing-requests/{request_id}": {
@@ -493,10 +666,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/_internal/secrets": {
@@ -511,9 +681,7 @@
             "serviceBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "get": {
         "responses": {
@@ -526,9 +694,7 @@
             "serviceBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "delete": {
         "responses": {
@@ -541,65 +707,7 @@
             "serviceBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "service"
-        ]
-      }
-    },
-    "/api/auth/privy/begin": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/auth/privy/callback": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
-      }
-    },
-    "/api/auth/para/begin": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/auth/para/callback": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": []
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/secrets": {
@@ -614,9 +722,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       },
       "get": {
         "responses": {
@@ -629,9 +735,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       },
       "post": {
         "responses": {
@@ -644,9 +748,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/secrets/{name}": {
@@ -661,9 +763,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/threads": {
@@ -679,10 +779,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       },
       "post": {
         "responses": {
@@ -695,9 +792,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/threads/{thread_id}": {
@@ -713,10 +808,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       },
       "get": {
         "responses": {
@@ -730,10 +822,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       },
       "patch": {
         "responses": {
@@ -747,10 +836,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/threads/{thread_id}/archive": {
@@ -766,10 +852,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/threads/{thread_id}/unarchive": {
@@ -785,10 +868,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/account/transaction-safety": {
@@ -803,9 +883,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "put": {
         "responses": {
@@ -818,9 +896,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account": {
@@ -863,17 +939,12 @@
                           "oneOf": [
                             {
                               "type": "string",
-                              "enum": [
-                                "free",
-                                "pro"
-                              ]
+                              "enum": ["free", "pro"]
                             },
                             {
                               "description": "Anonymous device — no DB record, metered in memory by client_id.",
                               "type": "string",
-                              "enum": [
-                                "anon"
-                              ]
+                              "enum": ["anon"]
                             }
                           ]
                         },
@@ -956,19 +1027,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "auth_provider": {
                             "type": "string",
@@ -1001,29 +1066,18 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "mode": {
-                            "description": "Durable signing authority. Client automation never grants server custody.",
+                            "description": "Durable signing authority.",
                             "type": "string",
-                            "enum": [
-                              "denied",
-                              "manual",
-                              "client_auto",
-                              "auto"
-                            ]
+                            "enum": ["denied", "manual", "auto"]
                           },
                           "authorization_version": {
                             "type": "integer",
@@ -1041,27 +1095,17 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ],
+                            "required": ["chain", "address"],
                             "nullable": true
                           }
                         },
-                        "required": [
-                          "address",
-                          "mode",
-                          "authorization_version"
-                        ]
+                        "required": ["address", "mode", "authorization_version"]
                       }
                     },
                     "delegated_accounts": {
@@ -1080,19 +1124,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "delegation_provider": {
                             "type": "string"
@@ -1161,19 +1199,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "operating": {
                             "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
@@ -1182,19 +1214,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "chain_ref": {
                             "description": "EVM chain id or SVM cluster. This is intentionally not part of the address DTO.",
@@ -1260,19 +1286,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "delegate": {
                             "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
@@ -1281,19 +1301,13 @@
                               "chain": {
                                 "description": "A chain family, independent of any execution protocol or persistence model.",
                                 "type": "string",
-                                "enum": [
-                                  "evm",
-                                  "svm"
-                                ]
+                                "enum": ["evm", "svm"]
                               },
                               "address": {
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "chain",
-                              "address"
-                            ]
+                            "required": ["chain", "address"]
                           },
                           "operating_account_id": {
                             "type": "integer",
@@ -1322,31 +1336,20 @@
                                             "chain": {
                                               "description": "A chain family, independent of any execution protocol or persistence model.",
                                               "type": "string",
-                                              "enum": [
-                                                "evm",
-                                                "svm"
-                                              ]
+                                              "enum": ["evm", "svm"]
                                             },
                                             "address": {
                                               "type": "string"
                                             }
                                           },
-                                          "required": [
-                                            "chain",
-                                            "address"
-                                          ]
+                                          "required": ["chain", "address"]
                                         },
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "allowed_call_target"
-                                          ]
+                                          "enum": ["allowed_call_target"]
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "target"
-                                      ]
+                                      "required": ["type", "target"]
                                     },
                                     {
                                       "type": "object",
@@ -1362,10 +1365,7 @@
                                           ]
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "amount"
-                                      ]
+                                      "required": ["type", "amount"]
                                     },
                                     {
                                       "type": "object",
@@ -1381,9 +1381,7 @@
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "slots"
-                                                  ]
+                                                  "enum": ["slots"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1391,19 +1389,14 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             },
                                             {
                                               "type": "object",
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "blocks"
-                                                  ]
+                                                  "enum": ["blocks"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1411,19 +1404,14 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             },
                                             {
                                               "type": "object",
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "seconds"
-                                                  ]
+                                                  "enum": ["seconds"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1431,10 +1419,7 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             }
                                           ]
                                         },
@@ -1445,11 +1430,7 @@
                                           ]
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "amount",
-                                        "window"
-                                      ]
+                                      "required": ["type", "amount", "window"]
                                     },
                                     {
                                       "description": "Cap on one fungible token (SPL mint on SVM) the delegate may move out\nof the operating account over its lifetime.",
@@ -1462,19 +1443,13 @@
                                             "chain": {
                                               "description": "A chain family, independent of any execution protocol or persistence model.",
                                               "type": "string",
-                                              "enum": [
-                                                "evm",
-                                                "svm"
-                                              ]
+                                              "enum": ["evm", "svm"]
                                             },
                                             "address": {
                                               "type": "string"
                                             }
                                           },
-                                          "required": [
-                                            "chain",
-                                            "address"
-                                          ]
+                                          "required": ["chain", "address"]
                                         },
                                         "amount": {
                                           "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
@@ -1482,16 +1457,10 @@
                                         },
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "lifetime_token_asset_limit"
-                                          ]
+                                          "enum": ["lifetime_token_asset_limit"]
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "mint",
-                                        "amount"
-                                      ]
+                                      "required": ["type", "mint", "amount"]
                                     },
                                     {
                                       "description": "Cap on one fungible token that resets every `window`.",
@@ -1504,19 +1473,13 @@
                                             "chain": {
                                               "description": "A chain family, independent of any execution protocol or persistence model.",
                                               "type": "string",
-                                              "enum": [
-                                                "evm",
-                                                "svm"
-                                              ]
+                                              "enum": ["evm", "svm"]
                                             },
                                             "address": {
                                               "type": "string"
                                             }
                                           },
-                                          "required": [
-                                            "chain",
-                                            "address"
-                                          ]
+                                          "required": ["chain", "address"]
                                         },
                                         "amount": {
                                           "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
@@ -1529,9 +1492,7 @@
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "slots"
-                                                  ]
+                                                  "enum": ["slots"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1539,19 +1500,14 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             },
                                             {
                                               "type": "object",
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "blocks"
-                                                  ]
+                                                  "enum": ["blocks"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1559,19 +1515,14 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             },
                                             {
                                               "type": "object",
                                               "properties": {
                                                 "unit": {
                                                   "type": "string",
-                                                  "enum": [
-                                                    "seconds"
-                                                  ]
+                                                  "enum": ["seconds"]
                                                 },
                                                 "value": {
                                                   "type": "integer",
@@ -1579,10 +1530,7 @@
                                                   "minimum": 0
                                                 }
                                               },
-                                              "required": [
-                                                "unit",
-                                                "value"
-                                              ]
+                                              "required": ["unit", "value"]
                                             }
                                           ]
                                         },
@@ -1604,10 +1552,7 @@
                                 }
                               }
                             },
-                            "required": [
-                              "version",
-                              "rules"
-                            ]
+                            "required": ["version", "rules"]
                           },
                           "provider_binding": {
                             "oneOf": [
@@ -1616,9 +1561,7 @@
                                 "properties": {
                                   "provider": {
                                     "type": "string",
-                                    "enum": [
-                                      "swig"
-                                    ]
+                                    "enum": ["swig"]
                                   },
                                   "binding": {
                                     "type": "object",
@@ -1630,19 +1573,13 @@
                                           "chain": {
                                             "description": "A chain family, independent of any execution protocol or persistence model.",
                                             "type": "string",
-                                            "enum": [
-                                              "evm",
-                                              "svm"
-                                            ]
+                                            "enum": ["evm", "svm"]
                                           },
                                           "address": {
                                             "type": "string"
                                           }
                                         },
-                                        "required": [
-                                          "chain",
-                                          "address"
-                                        ]
+                                        "required": ["chain", "address"]
                                       },
                                       "role_id": {
                                         "type": "integer",
@@ -1650,16 +1587,10 @@
                                         "minimum": 0
                                       }
                                     },
-                                    "required": [
-                                      "swig_account",
-                                      "role_id"
-                                    ]
+                                    "required": ["swig_account", "role_id"]
                                   }
                                 },
-                                "required": [
-                                  "provider",
-                                  "binding"
-                                ]
+                                "required": ["provider", "binding"]
                               }
                             ]
                           },
@@ -1726,9 +1657,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/apps": {
@@ -1743,9 +1672,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/apps/{application_id}": {
@@ -1760,9 +1687,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "delete": {
         "responses": {
@@ -1775,9 +1700,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/apps/{application_id}/secrets": {
@@ -1792,9 +1715,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "post": {
         "responses": {
@@ -1807,9 +1728,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "delete": {
         "responses": {
@@ -1822,9 +1741,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/apps/{application_id}/secrets/{name}": {
@@ -1839,9 +1756,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/status": {
@@ -1856,9 +1771,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/authorization/challenge": {
@@ -1873,9 +1786,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/authorization/commit": {
@@ -1890,26 +1801,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/account/providers/{provider}/agent-wallet": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/providers/{provider}/delegation": {
@@ -1924,9 +1816,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/onchain-policies/{provider}": {
@@ -1941,9 +1831,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/onchain-policies/{provider}/prepare": {
@@ -1958,9 +1846,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/onchain-policies/{provider}/confirm": {
@@ -1975,9 +1861,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/onchain-policies/{provider}/{binding_id}/revoke/prepare": {
@@ -1992,9 +1876,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/onchain-policies/{provider}/{binding_id}/revoke/confirm": {
@@ -2009,9 +1891,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/scheduled-intents": {
@@ -2026,9 +1906,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/scheduled-intents/{id}": {
@@ -2043,9 +1921,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "delete": {
         "responses": {
@@ -2058,9 +1934,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/app-keys": {
@@ -2075,9 +1949,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "post": {
         "responses": {
@@ -2090,9 +1962,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/app-keys/{key_hash}": {
@@ -2107,58 +1977,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/account/model-keys": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      },
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/account/model-keys/{provider}": {
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/apps": {
@@ -2173,9 +1992,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/apps/{app}": {
@@ -2190,9 +2007,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/tools": {
@@ -2207,9 +2022,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/tools/{tool_id}": {
@@ -2224,9 +2037,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/skills": {
@@ -2263,9 +2074,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/resource/search/tools": {
@@ -2280,9 +2089,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/thread/transaction-safety": {
@@ -2298,10 +2105,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       },
       "put": {
         "responses": {
@@ -2315,10 +2119,23 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
+      }
+    },
+    "/api/thread/wallet": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/thread/sim/world": {
@@ -2334,10 +2151,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/thread/apps": {
@@ -2352,9 +2166,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/thread/runtime/models": {
@@ -2369,9 +2181,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/thread/runtime/model": {
@@ -2386,9 +2196,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/thread/models": {
@@ -2403,9 +2211,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/thread/model": {
@@ -2420,9 +2226,7 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "thread"
-        ]
+        "x-aomi-auth": ["thread"]
       }
     },
     "/api/platforms/{name}/apps": {
@@ -2437,9 +2241,7 @@
             "platformBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/apps/{app}": {
@@ -2454,9 +2256,7 @@
             "platformBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/_internal/agent/turns": {
@@ -2472,10 +2272,7 @@
             "appKey": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated",
-          "app_gate"
-        ]
+        "x-aomi-auth": ["delegated", "app_gate"]
       }
     },
     "/api/_internal/agent/sessions": {
@@ -2490,9 +2287,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/_internal/agent/sessions/{thread_id}": {
@@ -2507,9 +2302,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       },
       "delete": {
         "responses": {
@@ -2522,9 +2315,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       },
       "patch": {
         "responses": {
@@ -2537,9 +2328,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/_internal/agent/sessions/{thread_id}/delta": {
@@ -2554,9 +2343,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/_internal/agent/sessions/{thread_id}/stream": {
@@ -2571,9 +2358,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/_internal/agent/sessions/{thread_id}/interrupt": {
@@ -2588,9 +2373,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/_internal/agent/sessions/{thread_id}/actions/{action_id}/result": {
@@ -2605,9 +2388,7 @@
             "delegatedBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "delegated"
-        ]
+        "x-aomi-auth": ["delegated"]
       }
     },
     "/api/bots/telegram/{webhook_secret}": {
@@ -2621,7 +2402,18 @@
         "x-aomi-auth": []
       }
     },
-    "/api/bots/telegram/{webhook_secret}/binding": {
+    "/api/bots/telegram/{webhook_secret}/wallet": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/bots/telegram/mini-app/{bot_id}/wallet": {
       "post": {
         "responses": {
           "200": {
@@ -2644,9 +2436,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/release": {
@@ -2661,9 +2451,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/release/sentry-smoke": {
@@ -2678,9 +2466,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/apps/{app}/reload": {
@@ -2695,9 +2481,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/apps/public": {
@@ -2712,9 +2496,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       },
       "put": {
         "responses": {
@@ -2727,9 +2509,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/skills": {
@@ -2744,9 +2524,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/skills/batch": {
@@ -2761,9 +2539,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/skills/rollback": {
@@ -2778,9 +2554,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/admin/skills/{id}": {
@@ -2795,9 +2569,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       },
       "put": {
         "responses": {
@@ -2810,9 +2582,7 @@
             "adminBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "admin"
-        ]
+        "x-aomi-auth": ["admin"]
       }
     },
     "/api/skills": {
@@ -2839,10 +2609,18 @@
             "threadId": []
           }
         ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
+        "x-aomi-auth": ["account", "thread"]
+      }
+    },
+    "/api/manager/openapi.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": ["public"]
       }
     },
     "/api/integrations/github-app/oauth/start": {
@@ -2919,9 +2697,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/oauth/claim": {
@@ -2932,9 +2708,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects": {
@@ -2945,9 +2719,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}": {
@@ -2958,9 +2730,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/installations": {
@@ -2971,9 +2741,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/applications/{application_id}": {
@@ -2984,9 +2752,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/deployments": {
@@ -2997,9 +2763,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/latest-deployment": {
@@ -3010,9 +2774,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/required-secrets": {
@@ -3023,9 +2785,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/sdk-upgrade": {
@@ -3036,9 +2796,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/sdk-upgrade-status": {
@@ -3049,9 +2807,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/deployments": {
@@ -3062,9 +2818,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/attempts": {
@@ -3075,9 +2829,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -3086,9 +2838,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/attempts/{run}": {
@@ -3099,9 +2849,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/attempts/{run}/cancel": {
@@ -3112,9 +2860,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}": {
@@ -3125,9 +2871,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/promote": {
@@ -3138,9 +2882,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/refresh": {
@@ -3151,9 +2893,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/releases/activate": {
@@ -3164,9 +2904,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/deployments/import": {
@@ -3177,9 +2915,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/apps": {
@@ -3190,9 +2926,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/transactions": {
@@ -3203,9 +2937,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/usage": {
@@ -3216,9 +2948,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/logs": {
@@ -3229,9 +2959,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/observability": {
@@ -3242,9 +2970,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/observability": {
@@ -3255,9 +2981,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/payments": {
@@ -3268,9 +2992,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/transactions": {
@@ -3281,9 +3003,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/statement": {
@@ -3294,9 +3014,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/usage": {
@@ -3307,9 +3025,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/logs": {
@@ -3320,9 +3036,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/statement": {
@@ -3333,9 +3047,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/applications/{application_id}/app-key": {
@@ -3346,9 +3058,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -3357,9 +3067,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/applications/{application_id}/detail": {
@@ -3370,9 +3078,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/builder/applications/{application_id}/tools/{tool}/trace": {
@@ -3383,9 +3089,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/bots": {
@@ -3396,9 +3100,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -3407,9 +3109,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/projects/{id}/bots/{bot_id}": {
@@ -3420,9 +3120,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/bots": {
@@ -3433,9 +3131,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -3444,9 +3140,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/bots/{bot_id}": {
@@ -3457,9 +3151,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "delete": {
         "responses": {
@@ -3468,9 +3160,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
@@ -3481,9 +3171,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
@@ -3494,9 +3182,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys": {
@@ -3507,9 +3193,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "post": {
         "responses": {
@@ -3518,9 +3202,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys/{key_id}": {
@@ -3531,9 +3213,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       },
       "delete": {
         "responses": {
@@ -3542,9 +3222,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/integrations/github-app/user/model-keys/{key_id}/grants": {
@@ -3555,9 +3233,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "service"
-        ]
+        "x-aomi-auth": ["service"]
       }
     },
     "/api/account/bots": {
@@ -3572,9 +3248,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       },
       "post": {
         "responses": {
@@ -3587,9 +3261,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/account/bots/{id}": {
@@ -3604,9 +3276,7 @@
             "accountBearer": []
           }
         ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "x-aomi-auth": ["account"]
       }
     },
     "/api/integrations/github-app/platforms/{name}/projects/create-from-template": {
@@ -3617,9 +3287,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/activate": {
@@ -3630,9 +3298,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/deactivate": {
@@ -3643,9 +3309,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/projects/{project_id}/deploy": {
@@ -3656,9 +3320,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/apps/activate": {
@@ -3669,9 +3331,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/applications/{application_id}/deactivate": {
@@ -3682,9 +3342,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/deployments/{deployment}/status": {
@@ -3695,9 +3353,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/deployments/{deployment}/rerun": {
@@ -3708,9 +3364,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/apps/{app}/records": {
@@ -3721,9 +3375,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/projects": {
@@ -3734,9 +3386,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/tokens": {
@@ -3747,9 +3397,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       },
       "get": {
         "responses": {
@@ -3758,9 +3406,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     },
     "/api/platforms/{name}/tokens/{id}": {
@@ -3771,124 +3417,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/venue": {
-      "put": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-admin"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-admin"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/bot": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "public"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/nonce": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/status": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "wallet-session"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
-        ]
+        "x-aomi-auth": ["activation"]
       }
     }
   },

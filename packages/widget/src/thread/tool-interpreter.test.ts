@@ -619,6 +619,163 @@ describe("tool interpreter", () => {
     expect(step.failed).toBe(false);
   });
 
+  describe("commit badges", () => {
+    // The wire sends chain_ref bare: the EVM chain id, or the SVM cluster.
+    const view = (over: Record<string, unknown> = {}) => ({
+      chain_family: "evm",
+      chain_ref: "8453",
+      state: "confirmed",
+      broadcaster: "wallet",
+      ...over,
+    });
+
+    it("keeps network, count and state for a UserOp commit", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_txs",
+        argsText: JSON.stringify({ tx_ids: [1] }),
+        result: {
+          commits: [
+            view({
+              broadcaster: "hosted",
+              state: "confirmed",
+              transaction_id: `0x${"b".repeat(64)}`,
+            }),
+          ],
+        },
+      });
+      expect(labelsFor(step.chips)).toEqual(["Base", "1 tx", "Confirmed"]);
+      expect(step.outcome).toBe("success");
+    });
+
+    it("keeps network, count and state for a wallet_calls batch", () => {
+      const member = (index: number, state: string) =>
+        view({
+          state,
+          wallet_attempt: { transport: "send_calls", state: "reported" },
+          batch: { batch_id: "batch", index },
+        });
+      const step = interpretToolStep({
+        toolName: "evm_commit_txs",
+        result: {
+          commits: [member(0, "submitted"), member(1, "submitted")],
+        },
+      });
+      expect(labelsFor(step.chips)).toEqual(["Base", "2 txs", "Submitted"]);
+      expect(step.outcome).toBe("waiting");
+    });
+
+    it("shows a commit that awaits approval as waiting", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_txs",
+        result: { commits: [view({ state: "awaiting_approval" })] },
+      });
+      expect(labelsFor(step.chips)).toEqual([
+        "Base",
+        "1 tx",
+        "Awaiting approval",
+      ]);
+      expect(step.outcome).toBe("waiting");
+    });
+
+    it("names the Solana cluster from a bare chain_ref", () => {
+      const step = interpretToolStep({
+        toolName: "svm_commit_txs",
+        result: {
+          commits: [
+            view({
+              chain_family: "svm",
+              chain_ref: "devnet",
+              state: "needs_signature",
+            }),
+          ],
+        },
+      });
+      expect(labelsFor(step.chips)).toEqual([
+        "Solana Devnet",
+        "1 tx",
+        "Awaiting signature",
+      ]);
+    });
+  });
+
+  describe("sign message chips", () => {
+    const message = (state: string, typedData?: unknown) => ({
+      chain_family: "evm",
+      chain_ref: "1",
+      state,
+      review: {
+        request: {
+          payloads: typedData
+            ? [{ kind: "evm_typed_data", typed_data: typedData }]
+            : [{ kind: "evm_personal", message: "hi" }],
+        },
+      },
+    });
+
+    it("shows the network an EIP-712 domain names, count and Signed", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_message",
+        result: {
+          commits: [message("confirmed", { domain: { chainId: 8453 } })],
+        },
+      });
+      expect(step.title).toBe("Sign message");
+      expect(labelsFor(step.chips)).toEqual(["Base", "1 signature", "Signed"]);
+      expect(step.outcome).toBe("success");
+    });
+
+    it("never names a network for a plain-text message", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_message",
+        argsText: JSON.stringify({ non_typed_data: "hi", description: "d" }),
+        result: { commits: [message("needs_signature")] },
+      });
+      expect(labelsFor(step.chips)).toEqual([
+        "1 signature",
+        "Awaiting signature",
+      ]);
+    });
+
+    it("reads the chain from typed data args while the call runs", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_message",
+        argsText: JSON.stringify({
+          typed_data: JSON.stringify({ domain: { chainId: "10" } }),
+        }),
+      });
+      expect(labelsFor(step.chips)).toEqual(["Optimism", "1 signature"]);
+    });
+
+    it("shows a failed signature", () => {
+      const step = interpretToolStep({
+        toolName: "evm_commit_message",
+        result: { commits: [message("failed")] },
+      });
+      expect(labelsFor(step.chips)).toEqual(["1 signature", "Failed"]);
+      expect(step.failed).toBe(true);
+    });
+
+    it("shows a Solana message with a cluster only when it names one", () => {
+      const open = interpretToolStep({
+        toolName: "svm_sign_data",
+        result: { status: "pending_approval", chain_kind: "svm" },
+      });
+      expect(labelsFor(open.chips)).toEqual([
+        "1 signature",
+        "Awaiting approval",
+      ]);
+      const named = interpretToolStep({
+        toolName: "svm_sign_data",
+        result: { status: "success", domain: { cluster: "devnet" } },
+      });
+      expect(labelsFor(named.chips)).toEqual([
+        "Solana Devnet",
+        "1 signature",
+        "Signed",
+      ]);
+    });
+  });
+
   it("recognizes skill activation", () => {
     const step = interpretToolStep({
       toolName: "activate_skills",

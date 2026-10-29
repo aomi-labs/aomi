@@ -4,17 +4,16 @@ export { AomiClient, secretNamesFrom } from "./client";
 export {
   AccountCreditsTransport,
   AccountTransport,
-  MAX_CREDIT_TOP_UP,
   MICROUSD_PER_CREDIT,
-  MIN_CREDIT_TOP_UP,
 } from "./account/credits";
 export type {
-  AomiCreditActivity,
+  CreditLedgerEntry,
+  CreditLedger,
+  AomiFundingEvent,
+  AomiFundingResult,
+  AomiCreditMethods,
   AomiCreditListOptions,
-  AomiCreditPaymentReceipt,
-  AomiCreditPosition,
-  AomiCreditTopUpOptions,
-  AomiCreditTopUpResult,
+  CreditBalance,
 } from "./account/credits";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
@@ -104,7 +103,6 @@ export type {
   Session as AgentSession,
   SessionPage,
   StartTurnIntent,
-  AomiInferenceFundingSource,
   TaskActivityEvent,
   TaskCompletedEvent,
   TaskPhaseEvent,
@@ -138,6 +136,7 @@ export {
   ensureSvmWalletBoundVia,
   isUnboundWalletError,
   posterFromClient,
+  apiResource,
   createAomiOAuthGrantManager,
   createMemoryOAuthGrantStore,
   createOAuthTokenProvider,
@@ -198,6 +197,21 @@ export type {
   AomiOAuthStrategy,
 } from "./sdk/auth";
 export { AomiAgent, AgentRun } from "./sdk/agent";
+export { AomiCommits, CommitHandle } from "./sdk/commits";
+export type { CommitSigner } from "./sdk/commits";
+export {
+  COMMIT_REF_ERROR_CODES,
+  CommitApprovalForbiddenError,
+  CommitExpiredError,
+  CommitNotAwaitingApprovalError,
+  CommitNotFoundError,
+  CommitStaleError,
+} from "./commit-ref";
+export type {
+  CommitRefView,
+  SessionApprovalFields,
+  ThreadOrigin,
+} from "./commit-ref";
 export type {
   AgentRunEventMap,
   AgentRunOptions,
@@ -243,7 +257,6 @@ export type {
   AomiAccountProfile,
   AomiAccountRecordStatus,
   AomiAuthProvider,
-  AomiAuthPurpose,
   AomiBindOnchainPolicy,
   AomiChainKind,
   AomiDelegatedAccount,
@@ -263,13 +276,10 @@ export type {
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
-  AomiByokKeyEntry,
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
   AomiAccountAppMutationResponse,
-  AomiListByokKeysResponse,
-  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,
@@ -382,6 +392,7 @@ export type { ChainInfo } from "./chains";
 // ======================================================================
 export {
   executeWalletCalls,
+  extractBatchTransactionHashes,
   partialWalletExecution,
   PartialWalletExecutionError,
   MAX_AUTO_FEE_WEI,
@@ -434,6 +445,58 @@ export type {
 } from "./expected-calls";
 
 export { AccountGraphTransport, AccountGraphApiError } from "./account/graph";
+export {
+  AomiWalletError,
+  WALLET_ERROR_CODES,
+  parseWalletRef,
+  walletRef,
+} from "./account/wallets";
+export type {
+  AomiAccountWallet,
+  AomiAccountWalletKind,
+  AomiActiveWallet,
+  AomiThreadWallet,
+  AomiWalletErrorCode,
+} from "./account/wallets";
+export type {
+  AomiAgentWallet,
+  AomiAgentWalletAddress,
+  AomiAgentWalletApp,
+  AomiAgentWalletAsset,
+  AomiAgentWalletBalances,
+  AomiAgentWalletConnection,
+  AomiAgentWalletCreate,
+  AomiAgentWalletNetwork,
+  AomiAgentWalletUpdate,
+  AomiAgentWalletWithdraw,
+  AomiAgentWallets,
+} from "./account/agent-wallets";
+export { AomiWallets } from "./sdk/wallets";
+export type {
+  AomiAccountConnection,
+  AomiAccountConnections,
+  AomiConnectionApp,
+  AomiConnectionTelegram,
+  AomiConnectionKind,
+  AomiConnectionSettings,
+  AomiConnectionSettingsUpdate,
+  AomiConnectionWallet,
+  AomiConnectionWalletsUpdate,
+  AomiLane,
+} from "./account/connections";
+export { LinkError, isLinkCode } from "./account/account-link";
+export type {
+  AccountLinkProvider,
+  LinkBot,
+  LinkInFlight,
+  LinkMoves,
+  LinkPreview,
+  LinkResult,
+  LinkWalletMove,
+  TelegramLinkIdentity,
+  TelegramLinkPreview,
+  TelegramLinkResult,
+} from "./account/account-link";
 export type {
   AccountGraphUser,
   AccountGraphLinkedAccount,

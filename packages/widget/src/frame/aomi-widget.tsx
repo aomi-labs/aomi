@@ -22,11 +22,11 @@ export {
 } from "./widget-auth";
 import type {
   AomiClientOptions,
-  AomiInferenceFundingSource,
 } from "@aomi-labs/react";
 import { createWidgetX402Client } from "@/wallet/payment-client";
 import { SvmWalletBindingGate } from "@/wallet/svm-wallet-binding-gate";
 import { AomiFrame, type AomiFrameControlBarProps } from "./aomi-frame";
+import { ApprovalAuthorityContext } from "@/commit/approval-authority";
 import { AomiWalletKitProvider } from "@/wallet/config/aomi-wallet-kit-provider";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletsConfig } from "@/wallet/config/types";
@@ -71,7 +71,6 @@ export type AomiWidgetProps = {
   routing?: AomiRoutingConfig;
   clientOptions?: Omit<AomiClientOptions, "baseUrl" | "getAccountBearer">;
   /** Select the account's saved BYOK key for Agent turns. */
-  inferenceFunding?: AomiInferenceFundingSource;
   persistThread?: boolean;
   threadPersistenceKey?: string;
   threadPersistenceScope?: string | null;
@@ -208,29 +207,31 @@ function ConfiguredWidget({
       execution={{ aa: "off", sponsorship: { mode: "disabled" } }}
       account={account}
     >
-      <WidgetFrame
-        baseUrl={baseUrl}
-        applicationId={applicationId}
-        width={props.width}
-        height={props.height}
-        className={cn(themeClass, props.className)}
-        style={props.style}
-        walletPosition={props.walletPosition}
-        walletFamilies={props.walletFamilies}
-        showSidebar={props.showSidebar}
-        showHeader={props.showHeader}
-        features={props.features}
-        controlBarProps={props.controlBarProps}
-        routing={props.routing}
-        clientOptions={props.clientOptions}
-        inferenceFunding={props.inferenceFunding}
-        persistThread={props.persistThread}
-        threadPersistenceKey={props.threadPersistenceKey}
-        threadPersistenceScope={props.threadPersistenceScope}
-        initialThreadId={props.initialThreadId}
-        threadId={props.threadId}
-        onThreadChange={props.onThreadChange}
-      />
+      {/* A partner page's script holds this session: approvals open Aomi. */}
+      <ApprovalAuthorityContext.Provider value={false}>
+        <WidgetFrame
+          baseUrl={baseUrl}
+          applicationId={applicationId}
+          width={props.width}
+          height={props.height}
+          className={cn(themeClass, props.className)}
+          style={props.style}
+          walletPosition={props.walletPosition}
+          walletFamilies={props.walletFamilies}
+          showSidebar={props.showSidebar}
+          showHeader={props.showHeader}
+          features={props.features}
+          controlBarProps={props.controlBarProps}
+          routing={props.routing}
+          clientOptions={props.clientOptions}
+          persistThread={props.persistThread}
+          threadPersistenceKey={props.threadPersistenceKey}
+          threadPersistenceScope={props.threadPersistenceScope}
+          initialThreadId={props.initialThreadId}
+          threadId={props.threadId}
+          onThreadChange={props.onThreadChange}
+        />
+      </ApprovalAuthorityContext.Provider>
       {props.children}
     </AomiWalletKitProvider>
   );
@@ -250,7 +251,6 @@ type WidgetFrameProps = Pick<
   | "controlBarProps"
   | "routing"
   | "clientOptions"
-  | "inferenceFunding"
   | "persistThread"
   | "threadPersistenceKey"
   | "threadPersistenceScope"
@@ -274,7 +274,6 @@ function WidgetFrame({
   controlBarProps,
   routing,
   clientOptions,
-  inferenceFunding,
   persistThread,
   threadPersistenceKey,
   threadPersistenceScope,
@@ -325,7 +324,6 @@ function WidgetFrame({
         agentTarget={fixedAgentTarget}
         accountSessionAvailable={Boolean(walletKit.accountUser)}
         clientOptions={runtimeClientOptions}
-        inferenceFunding={inferenceFunding}
         width={width}
         height={height}
         className={className}

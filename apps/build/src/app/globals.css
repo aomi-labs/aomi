@@ -495,3 +495,6 @@
     box-shadow: var(--aomi-shadow-sm) !important;
   }
 }
+
+/* Shared checkout uses the same widget payment surface in Build and Chat. */
+@source "../../../../packages/widget/src/account/usage/credits";

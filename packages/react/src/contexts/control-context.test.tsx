@@ -195,52 +195,6 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("saves and removes BYOK keys through the account model-key API", async () => {
-    const saveByokKey = vi.fn(async () => ({
-      provider: "openai",
-      key_prefix: "sk-open",
-      label: null,
-      is_active: true,
-    }));
-    const deleteByokKey = vi.fn(async () => true);
-    const { getControl } = renderControlContext({
-      saveByokKey,
-      deleteByokKey,
-    });
-
-    await waitFor(() => {
-      expect(getControl().state.clientId).toBeTruthy();
-    });
-
-    const clientId = getControl().state.clientId!;
-
-    await act(async () => {
-      await getControl().setByok("openai", "sk-openai-123");
-    });
-
-    await waitFor(() => {
-      expect(getControl().state.byokKeys.openai?.key_prefix).toBe("sk-open");
-    });
-
-    await act(async () => {
-      await getControl().removeByok("openai");
-    });
-
-    await waitFor(() => {
-      expect(deleteByokKey).toHaveBeenCalledWith(
-        `control:${clientId}`,
-        "openai",
-      );
-    });
-
-    expect(getControl().state.byokKeys.openai).toBeUndefined();
-    expect(saveByokKey).toHaveBeenCalledWith(
-      `control:${clientId}`,
-      "openai",
-      "sk-openai-123",
-      undefined,
-    );
-  });
 
   it("routes per-user app secrets through the control session", async () => {
     globalThis.localStorage.setItem("aomi_client_id", "client-stored");
@@ -278,27 +232,6 @@ describe("ControlContextProvider", () => {
     );
   });
 
-  it("loads redacted BYOK keys from the account model-key API", async () => {
-    globalThis.localStorage.setItem("aomi_client_id", "client-stored");
-    const listByokKeys = vi.fn(async () => [
-      {
-        provider: "openai",
-        key_prefix: "sk-open",
-        label: "Primary",
-        is_active: true,
-      },
-    ]);
-    const { getControl } = renderControlContext({ listByokKeys });
-
-    await waitFor(() => {
-      expect(getControl().state.byokKeys.openai).toEqual({
-        provider: "openai",
-        key_prefix: "sk-open",
-        label: "Primary",
-        is_active: true,
-      });
-    });
-  });
 
   it("remembers a manually selected model for fresh threads", async () => {
     const threadMetadata = createThreadMetadata();

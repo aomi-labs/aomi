@@ -8,10 +8,6 @@ const accountLoginDef = defineCommand({
   },
   args: {
     ...globalArgs,
-    provider: {
-      type: "string",
-      description: 'Browser auth provider ("privy" or "para")',
-    },
     wallet: {
       type: "boolean",
       description: "Use native CLI SIWE with the configured EVM wallet",
@@ -22,13 +18,12 @@ const accountLoginDef = defineCommand({
     },
     "no-browser": {
       type: "boolean",
-      description: "Do not open provider auth; use native CLI SIWE",
+      description: "Do not open the browser; use native CLI SIWE",
     },
   },
   async run({ args }) {
     const { accountLoginCommand } = await import("../account");
     await accountLoginCommand(buildCliConfig(args), {
-      provider: typeof args.provider === "string" ? args.provider : undefined,
       wallet: args.wallet === true,
       solana: args.solana === true,
       noBrowser: args["no-browser"] === true,
@@ -262,27 +257,29 @@ const accountCreditsShowDef = defineCommand({
   },
 });
 
-const accountCreditsTopUpDef = defineCommand({
+const accountCreditsFundDef = defineCommand({
   meta: {
-    name: "top-up",
+    name: "fund",
     description: "Purchase durable credits with the configured EVM wallet",
   },
   args: {
     ...globalArgs,
     credits: {
       type: "positional",
-      description: "Credits to purchase (1-100000, up to 4 decimals)",
+      description: "Whole credits to fund (100-100000)",
       required: true,
     },
+    chain: { type: "string", description: "Treasury network, for example eip155:8453", required: true },
     "idempotency-key": {
       type: "string",
-      description: "Purchase key; reuse the same key when retrying",
+      description: "Funding key; reuse the same key when retrying",
       required: true,
     },
   },
   async run({ args }) {
-    const { accountCreditsTopUpCommand } = await import("../account");
-    await accountCreditsTopUpCommand(buildCliConfig(args), args.credits, {
+    const { accountCreditsFundCommand } = await import("../account");
+    await accountCreditsFundCommand(buildCliConfig(args), args.credits, {
+      chain: typeof args.chain === "string" ? args.chain : undefined,
       idempotencyKey:
         typeof args["idempotency-key"] === "string"
           ? args["idempotency-key"]
@@ -294,11 +291,11 @@ const accountCreditsTopUpDef = defineCommand({
 const accountCreditsDef = defineCommand({
   meta: {
     name: "credits",
-    description: "Included allowance, Credit Bank activity, and wallet top-ups",
+    description: "Included allowance, Credit balance activity, and wallet funding",
   },
   subCommands: {
     show: accountCreditsShowDef,
-    "top-up": accountCreditsTopUpDef,
+    fund: accountCreditsFundDef,
   },
 });
 

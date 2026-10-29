@@ -6,6 +6,7 @@ import {
   keccak256,
   parseTransaction,
   recoverTransactionAddress,
+  type TransactionSerialized,
   TransactionNotFoundError,
 } from "viem";
 import { Connection, Keypair } from "@solana/web3.js";
@@ -64,12 +65,11 @@ function commit(id: string, threadId: string): CommitView {
     action: {
       kind: "sign",
       payload: {
-        kind: "user_operation",
+        kind: "evm_message",
         chain_id: 1,
         signer,
-        requests: [
-          { kind: "personal_sign", message: "0x0102", raw_payload: "0x0102" },
-        ],
+        digest: "0x0102",
+        message: { format: "personal", message: "0x0102" },
       },
     },
   };
@@ -275,7 +275,7 @@ describe("CLI durable commits", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     submit.mockClear();
     const tampered = structuredClone(exported);
-    tampered.commit.action.payload.requests[0].message = "0xdeadbeef";
+    tampered.commit.action.payload.message.message = "0xdeadbeef";
     writeFileSync(
       signedFile,
       JSON.stringify({ ...tampered, payloads: ["0xsignature"] }),
@@ -419,7 +419,7 @@ describe("CLI durable commits", () => {
     });
     expect(
       await recoverTransactionAddress({
-        serializedTransaction: raw as `0x${string}`,
+        serializedTransaction: raw as TransactionSerialized,
       }),
     ).toBe(signer);
     await expect(

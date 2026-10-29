@@ -1,18 +1,25 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
-import { getWalletClient } from "wagmi/actions";
 import {
-  useCapabilities,
-  useConfig,
-  useConnections,
-  useSendCallsSync,
-  useWalletClient,
-} from "wagmi";
+  getConnectorClient,
+  getWalletClient,
+  sendCalls,
+  waitForCallsStatus,
+} from "wagmi/actions";
+import { useConfig, useConnections, useWalletClient } from "wagmi";
 import type { Connector } from "wagmi";
 import type { executeWalletCalls } from "@aomi-labs/react";
 import { normalizeAtomicCapabilities } from "@/wallet/execution/wallet-execution";
+import {
+  knownNoEip5792,
+  markNoEip5792,
+  probeWalletCapabilities,
+  type CapabilityProbe,
+  type CapabilityRequest,
+} from "./capability-probe";
 import { walletDebug } from "@/wallet/wallet-debug";
 import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
 
@@ -62,30 +69,83 @@ export function useGetWalletClientFor(): (args: {
   };
 }
 
+export type WalletCapabilityProbe = {
+  capabilities: WalletCapabilities;
+};
+
+/**
+ * Probe the CONNECTED connector's own provider (never `window.ethereum`).
+ * A failed probe is retried with backoff and again on focus/remount; only an
+ * answer is cached.
+ */
 export function useWalletCapabilities(args: {
   account?: Address;
   connector?: Connector;
   stableId?: string;
   walletName?: string;
-}): WalletCapabilities {
-  const { data } = useCapabilities({
-    account: args.account,
-    connector: args.connector,
-    // wagmi keys this query by account only; two wallets on one seed (MetaMask
-    // and Rabby) must not share an answer. One probe covers every chain and
-    // stays fixed for the connection: never again on focus or remount.
-    scopeKey: args.connector
-      ? `${args.connector.uid}:${args.stableId ?? args.connector.id}`
-      : undefined,
-    query: {
-      enabled: shouldProbeWalletCapabilities(args),
-      retry: false,
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
+  chainId?: number;
+  chainIds?: readonly number[];
+}): WalletCapabilityProbe {
+  const config = useConfig();
+  const { account, connector, chainId } = args;
+  const chainIds = args.chainIds ?? [];
+  const known = connector ? knownNoEip5792(connector.uid) : false;
+  const enabled = shouldProbeWalletCapabilities(args) && !known;
+  const { data } = useQuery({
+    queryKey: [
+      "aomi-wallet-capabilities",
+      connector?.uid,
+      args.stableId ?? connector?.id,
+      account,
+      chainId,
+    ],
+    enabled,
+    queryFn: async () => {
+      const client = await getConnectorClient(config, {
+        account,
+        connector,
+      } as never);
+      const probe = await probeWalletCapabilities({
+        request: client.request as CapabilityRequest,
+        address: account as string,
+        chainIds: chainIds.length ? chainIds : chainId ? [chainId] : [],
+      });
+      if (probe.unsupported && connector) markNoEip5792(connector.uid);
+      logCapabilityProbe(connector, account, probe);
+      return probe;
     },
-  } as never);
-  return normalizeAtomicCapabilities(data as WalletCapabilities);
+    retry: (count) => count < 2,
+    retryDelay: (count) => 400 * 2 ** count,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: (query) => query.state.data === undefined,
+    refetchOnMount: (query) => query.state.data === undefined,
+  });
+  const capabilities = useMemo(
+    () => normalizeAtomicCapabilities(data?.capabilities),
+    [data],
+  );
+  return { capabilities };
+}
+
+function logCapabilityProbe(
+  connector: Connector | undefined,
+  account: string | undefined,
+  probe: CapabilityProbe,
+) {
+  walletDebug("aa:capabilities", {
+    connector: connector?.id,
+    uid: connector?.uid,
+    account,
+    unsupported: probe.unsupported ?? false,
+    chains: Object.fromEntries(
+      Object.entries(probe.capabilities).map(([chain, cap]) => [
+        chain,
+        cap?.atomic?.status ?? "none",
+      ]),
+    ),
+  });
 }
 
 /** Rabby rejects the capabilities probe with a user-facing prompt. */
@@ -113,32 +173,54 @@ export function shouldProbeWalletCapabilities(args?: {
   return key !== "rabby";
 }
 
+/** `wallet_sendCalls`, then its status. A failure after the wallet answered
+ * a call id wraps its cause in an error carrying that `callsId`: the calls
+ * may be out, so nothing sends them again or reads it as a rejection. */
 export function useSendCallsSyncExecutor(): NonNullable<SendCallsSync> {
-  const { sendCallsSyncAsync } = useSendCallsSync();
-  return ({
+  const config = useConfig();
+  return async ({
+    account,
     calls,
     capabilities,
     chainId,
-    connector,
+    connector: anyConnector,
     forceAtomic,
     pollingInterval,
     status,
     throwOnFailure,
     timeout,
     version,
-  }) =>
-    sendCallsSyncAsync({
+  }) => {
+    const connector = anyConnector as Connector | undefined;
+    const { id } = await sendCalls(config, {
+      account,
       calls,
       capabilities,
       chainId,
-      connector: connector as Connector | undefined,
+      connector,
       forceAtomic,
-      pollingInterval,
-      status,
-      throwOnFailure,
-      timeout,
       version,
     });
+    try {
+      return await waitForCallsStatus(config, {
+        connector,
+        id,
+        pollingInterval,
+        status,
+        throwOnFailure,
+        timeout,
+      });
+    } catch (cause) {
+      // Accepted: whatever the status query answers, even a 4001, the calls
+      // may land.
+      throw Object.assign(
+        new Error("The wallet accepted the calls; their outcome is unknown", {
+          cause,
+        }),
+        { callsId: id },
+      );
+    }
+  };
 }
 
 export function useRawWagmiConnections(): RawWagmiConnectionShape[] {

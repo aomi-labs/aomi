@@ -8,8 +8,8 @@ import type {
 } from "../agent/types";
 import type { ActionAttempt, ActionCapabilities } from "../actions";
 import type { UserState } from "../user-state";
-import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
+import type { AomiActiveWallet } from "../account/wallets";
 
 /**
  * Replace the conversation from a durable message and continue it as a normal
@@ -40,6 +40,8 @@ export type SessionSnapshot = Readonly<{
   actions: readonly Action[];
   commits: readonly CommitView[];
   title?: string;
+  /** The thread's active wallet id per family (`w_<id>`), once the backend reports one. */
+  activeWallet?: AomiActiveWallet;
   isStreaming: boolean;
   isSubmitting: boolean;
   /** True while Stop waits for the server to confirm it. */
@@ -84,7 +86,6 @@ export type SessionOptions = {
   applicationId?: number | string | null;
   getUserState?: () => UserState | undefined;
   /** Explicit account funding lane for inference execution. */
-  inferenceFunding?: AomiInferenceFundingSource;
   clientId?: string;
   logger?: { debug: (...args: unknown[]) => void };
   actions?: ActionCapabilities;
@@ -100,7 +101,6 @@ export type SessionRuntimeOptions = {
   applicationId?: number | string | null;
   clientId?: string;
   getUserState?: () => UserState | undefined;
-  inferenceFunding?: AomiInferenceFundingSource;
   actions?: ActionCapabilities;
 };
 

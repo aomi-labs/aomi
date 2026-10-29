@@ -19,6 +19,7 @@ import {
   matchGetTransaction,
   matchListTransactions,
 } from "@/thread/tool-interpreter/families/general/activity";
+import { matchSignMessage } from "@/thread/tool-interpreter/families/general/sign-message";
 import { matchSkillActivation } from "@/thread/tool-interpreter/families/general/skills";
 import { matchSleep } from "@/thread/tool-interpreter/families/general/sleep";
 import {
@@ -41,6 +42,7 @@ const evmMatchers: Record<string, ToolMatcher[]> = {
   "evm stage": [matchStagedTx],
   simulate_batch: [matchEvmSimulation],
   evm_commit_txs: [matchEvmPendingApproval],
+  evm_commit_message: [matchSignMessage],
   get_time_and_onchain_context: [matchChainContext, matchEvmCall],
   sync_chain: [matchSyncChain],
   get_account_info: [matchNativeBalance],
@@ -69,6 +71,7 @@ const svmMatchers: Record<string, ToolMatcher> = {
   svm_simulate_ix: matchSvmSimulation,
   svm_simulate_tx: matchSvmSimulation,
   svm_commit_txs: matchSvmPendingApproval,
+  svm_sign_data: matchSignMessage,
   svm_get_context: matchSvmContext,
   svm_get_token_holdings: matchSvmTokenHoldings,
 };

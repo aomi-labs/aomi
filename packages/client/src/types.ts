@@ -1,7 +1,6 @@
 import type { AomiOAuthTokenProvider } from "./authorization";
 import type { GuestSessionProvider } from "./guest-auth";
 import type { x402Client, x402HTTPClient } from "@x402/core/client";
-import type { AomiInferenceFundingSource } from "./agent/types";
 
 export { UserState } from "./user-state";
 export type {
@@ -37,7 +36,6 @@ export type AomiClientOptions = {
   /** Optional x402 signer used by the bounded payment retry transport. */
   x402?: x402Client | x402HTTPClient;
   /** Default inference funding lane used by high-level Agent sessions. */
-  inferenceFunding?: AomiInferenceFundingSource;
   /** Supplies a short-lived Aomi account bearer for REST and SSE requests. */
   getAccountBearer?: GetAccountBearer;
   /** Resource-bound developer OAuth. Takes precedence over session/guest auth. */
@@ -100,6 +98,8 @@ export interface AomiRequestOptions {
   headers?: HeadersInit;
   /** Use the native fetch path instead of a custom payment-aware fetch wrapper. */
   raw?: boolean;
+  /** Request-local signer for an explicitly reviewed purchase. */
+  x402?: x402Client | x402HTTPClient;
 }
 
 /**
@@ -228,7 +228,7 @@ export interface AomiUserAccount {
 
 export interface AomiSigningPolicy {
   address: AomiOnchainAddress;
-  mode: "auto" | "manual" | "client_auto" | "denied";
+  mode: "auto" | "manual" | "denied";
   authorization_version: number;
   last_authorized_at: number | null;
   last_authorized_by: AomiOnchainAddress | null;
@@ -352,36 +352,7 @@ export interface AomiAccountProfile {
   onchain_policy_bindings: AomiOnchainPolicyBinding[];
 }
 
-export interface AomiBeginAccountAuthResponse {
-  state_token: string;
-  auth_url: string;
-  expires_at: number;
-}
-
 export type AomiWalletFamily = "evm" | "svm";
-export type AomiAuthWalletFamily = "evm" | "solana";
-/** Provider login intent. Linking ownership never implies delegated signing. */
-export type AomiAuthPurpose = "link_wallet" | "delegate_signing";
-
-/** GET/POST/DELETE /api/account/model-keys. */
-export interface AomiByokKeyEntry {
-  provider: string;
-  key_prefix: string;
-  label?: string | null;
-  is_active: boolean;
-}
-
-export interface AomiListByokKeysResponse {
-  keys: AomiByokKeyEntry[];
-}
-
-export interface AomiSaveByokKeyResponse {
-  key: AomiByokKeyEntry;
-}
-
-export interface AomiDeleteByokKeyResponse {
-  deleted: boolean;
-}
 
 /**
  * POST /api/secrets
@@ -498,7 +469,11 @@ export interface AomiAppDescriptor {
   /** Backend-owned Library taxonomy. Empty means the "More" fallback. */
   featureCatalog?: AomiFeatureCategory[];
   /** Backend-controlled registration metadata used to identify official apps. */
-  metadata?: Record<string, unknown> | null;
+  metadata?: {
+    [key: string]: unknown;
+    fundedModelOnly?: boolean;
+    sponsoredModelIds?: string[];
+  } | null;
   applicationId?: number | string | null;
   platform?: string | null;
   label?: string | null;

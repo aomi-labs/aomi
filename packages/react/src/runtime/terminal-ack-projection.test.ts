@@ -213,3 +213,35 @@ describe("notice codes", () => {
     });
   });
 });
+
+describe("interrupt notice", () => {
+  const events: Event[] = [
+    ...pendingEvents,
+    { ...meta(4), type: "turn_state_changed", state: "interrupted" },
+    {
+      ...meta(5),
+      type: "message",
+      sender: "notice",
+      content: "This run was interrupted. Send another message to continue.",
+      message_key: "execution-stop:turn-1",
+      code: "execution_interrupted",
+    },
+  ];
+  const noticeId = "aomi-notice-execution-stop:turn-1";
+
+  it("is hidden for a turn the user stopped", () => {
+    const projected = projectRuntimeMessages(events, undefined, [], undefined, [
+      { turnId: "turn-1", state: "interrupted" },
+    ]);
+    expect(projected.some((message) => message.id === noticeId)).toBe(false);
+    expect(
+      projected.find((message) => message.id === "turn:turn-1")?.metadata
+        ?.custom,
+    ).toMatchObject({ aomiTurnState: "interrupted" });
+  });
+
+  it("stays for a run interrupted by anything else", () => {
+    const projected = projectRuntimeMessages(events);
+    expect(projected.some((message) => message.id === noticeId)).toBe(true);
+  });
+});

@@ -1,6 +1,7 @@
 import type { AomiClient } from "./client";
 
 export type AomiOAuthResource =
+  | `${string}/v1`
   | `${string}/v1/agent`
   | `${string}/v1/pipeline`
   | `${string}/v1/account`
@@ -36,6 +37,8 @@ export type AomiOAuthGrant = AomiOAuthTokenSet & {
   issuer: string;
   clientId: string;
   subject?: string;
+  /** Canonical account verified by the browser grant manager, never a wallet address. */
+  accountId?: string;
 };
 
 export type AomiOAuthGrantStore = {
@@ -85,6 +88,11 @@ export function createAomiOAuthGrantManager(input: {
   issuer: string;
   clientId: string;
   subject?: string;
+  /**
+   * Scopes to ask for at the first sign-in, besides what the first call
+   * needs, so one approval covers the app. Defaults to none extra.
+   */
+  scopes?: readonly string[];
   initial?: readonly AomiOAuthGrant[];
   store?: AomiOAuthGrantStore;
   acquire?: (request: AomiOAuthTokenRequest) => Promise<AomiOAuthGrant | null>;
@@ -127,11 +135,28 @@ export function createAomiOAuthGrantManager(input: {
     await persist();
   }
 
-  const tokenProvider: AomiOAuthTokenProvider = async (request) => {
+  const tokenProvider: AomiOAuthTokenProvider = async (asked) => {
     await ready;
+    // The three REST APIs share one `/v1` sign-in; MCP keeps its own.
+    const request = { ...asked, resource: apiResource(asked.resource) };
     let grant = bestGrant(grants, request);
     if (!grant) {
-      const acquired = await input.acquire?.(request);
+      // Widen the held sign-in instead of starting another: one approval.
+      const held = grants
+        .filter((candidate) => candidate.resource === request.resource)
+        .flatMap((candidate) => candidate.scopes);
+      const acquired = await input.acquire?.({
+        ...request,
+        scopes: [
+          ...new Set([
+            ...(request.resource === asked.resource
+              ? []
+              : (input.scopes ?? [])),
+            ...held,
+            ...request.scopes,
+          ]),
+        ],
+      });
       if (!acquired) return null;
       await put(acquired);
       grant = bestGrant(grants, request);
@@ -186,14 +211,16 @@ export function createAomiOAuthGrantManager(input: {
     },
     async revoke(resource) {
       await ready;
-      const selected = grants.filter((grant) => grant.resource === resource);
+      const target = apiResource(resource);
+      const selected = grants.filter((grant) => grant.resource === target);
       for (const grant of selected) await input.revoke?.(copyGrant(grant));
       const keys = new Set(selected.map(grantKey));
       grants = grants.filter((grant) => !keys.has(grantKey(grant)));
       await persist();
     },
     async clear() {
-      await ready;
+      // Failed restoration must not prevent explicit local sign-out.
+      await ready.catch(() => {});
       grants = [];
       await persist();
     },
@@ -239,6 +266,17 @@ export function createOAuthTokenProvider(input: {
     },
     current: () => current,
   });
+}
+
+/**
+ * `https://x/v1` for the agent, pipeline and account REST resources: Aomi's
+ * one CLI and SDK sign-in. MCP resources are returned unchanged.
+ */
+export function apiResource(resource: AomiOAuthResource): AomiOAuthResource {
+  const url = new URL(resource);
+  return /^\/v1\/(agent|pipeline|account)\/?$/.test(url.pathname)
+    ? (`${url.origin}/v1` as AomiOAuthResource)
+    : resource;
 }
 
 function bestGrant(

@@ -26,10 +26,10 @@ describe("account topology", () => {
   it("selects staging and production topology by exact backend host", async () => {
     const { portalTopologyName } = await import("./topology");
 
-    process.env.AOMI_PROXY_BACKEND_URL = "https://api-staging.aomi.dev";
+    process.env.BACKEND_URL = "https://api-staging.aomi.dev";
     expect(portalTopologyName()).toBe("staging");
 
-    process.env.AOMI_PROXY_BACKEND_URL = "https://api.aomi.dev";
+    process.env.BACKEND_URL = "https://api.aomi.dev";
     expect(portalTopologyName()).toBe("production");
   });
 

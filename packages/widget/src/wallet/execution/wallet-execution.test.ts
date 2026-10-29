@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { mainnet } from "viem/chains";
 import { type WalletTxPayload } from "@aomi-labs/react";
 
-import { executeWalletKitTransaction } from "./wallet-execution";
+import {
+  describeAtomicBatch,
+  executeWalletKitTransaction,
+} from "./wallet-execution";
 
 const CALLS: NonNullable<WalletTxPayload["calls"]> = [
   {
@@ -338,7 +341,10 @@ describe("executeWalletKitTransaction native execution", () => {
     const sendCallsSyncAsync = vi
       .fn()
       .mockRejectedValue(
-        new Error("Unsupported non-optional capabilities: atomic"),
+        Object.assign(
+          new Error("Unsupported non-optional capabilities: atomic"),
+          { code: 5700 },
+        ),
       );
     const sendTransactionAsync = vi
       .fn()
@@ -530,5 +536,40 @@ describe("executeWalletKitTransaction native execution", () => {
     ).rejects.toThrow("wallet_atomic_batch_required");
 
     expect(sendTransactionAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("describeAtomicBatch", () => {
+  const caps = (key: string, value: object) => ({ [key]: value }) as never;
+  const offered = (capabilities: never) =>
+    describeAtomicBatch(capabilities, 8453).supported;
+  it("offers a bundle unless the wallet says atomic is unsupported", () => {
+    expect(offered(caps("0x2105", { atomic: { status: "supported" } }))).toBe(
+      true,
+    );
+    expect(offered(caps("0x2105", { atomic: { status: "ready" } }))).toBe(true);
+    expect(offered(caps("0x2105", { atomic: { status: "unsupported" } }))).toBe(
+      false,
+    );
+  });
+  it("treats an empty or missing answer as no proof either way", () => {
+    expect(offered(undefined as never)).toBe(true);
+    expect(offered(caps("0x1", {}))).toBe(true);
+    expect(describeAtomicBatch(undefined, 8453).reason).toBe("unknown");
+  });
+  it("honors the legacy atomicBatch flag", () => {
+    expect(
+      offered(
+        caps("8453", {
+          atomic: { status: "unsupported" },
+          atomicBatch: { supported: true },
+        }),
+      ),
+    ).toBe(true);
+  });
+  it("reads hex, decimal and eip155 keys", () => {
+    const unsupported = { atomic: { status: "unsupported" } };
+    for (const key of ["0x2105", "8453", "eip155:8453"])
+      expect(offered(caps(key, unsupported))).toBe(false);
   });
 });

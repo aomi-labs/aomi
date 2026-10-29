@@ -467,28 +467,6 @@ describe("ExpectedCalls", () => {
     ).toBe(false);
   });
 
-  it("verifies EVM sign request calls and their safety simulation status", () => {
-    const request: ActionRequest = {
-      type: "sign",
-      requestId: "user-op",
-      chainFamily: "evm",
-      executionKind: "user_operation",
-      signer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      chainId: 31337,
-      description: "Register root",
-      payloads: [{ kind: "evm_personal", message: "0x00" }],
-      calls: [{ to: ANCHOR, value: "0", data: registerRoot() }],
-    };
-    expect(expectRoot.verify(request).mismatches).toEqual([
-      expect.objectContaining({ field: "simulation", actual: "unavailable" }),
-    ]);
-    expect(
-      new ExpectedCalls(expectRoot.calls, {
-        allowUnavailableSimulation: true,
-      }).verify(request).ok,
-    ).toBe(true);
-  });
-
   it("fails closed for missing or non-call requests", () => {
     expect(expectRoot.verify(undefined).mismatches).toEqual([
       expect.objectContaining({ field: "request" }),

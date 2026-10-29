@@ -1,0 +1,125 @@
+import type { EdgeEnv } from "../../env";
+import { TwoTierCache } from "../../kernel/cache";
+import type { FetchLike } from "../../kernel/proxy";
+import { TASK_BUILD_PATH } from "../routes";
+import { withBazaar } from "./bazaar";
+import { buildMetadata } from "./documents";
+import type { TaskTerms } from "./terms";
+
+/**
+ * The Task discovery challenge: the API Server's own body-bound 402 for its
+ * published example request, cached for its validity window and served to
+ * venue probes that cannot or will not send a body (GET, HEAD, an empty POST).
+ *
+ * Two rules, both tested:
+ * - the Worker never invents a `Payment-Required`; it relays the one the
+ *   payment service issued (listed on Bazaar, which binds nothing), and the
+ *   body the venue would have to POST is in the response, so a payer who
+ *   retries buys exactly that preparation;
+ * - cache hits reuse a quote rather than creating another ledger attempt;
+ *   concurrent misses and different isolates can still create extra quotes.
+ */
+export type DiscoveryChallenge = {
+  /** The upstream `Payment-Required` header, byte for byte. */
+  paymentRequired: string;
+  /** The build metadata merged with the upstream 402 body. */
+  body: Record<string, unknown>;
+};
+
+// Preparation quotes live 300 seconds; stop serving them with margin to spare.
+export const DISCOVERY_CHALLENGE_TTL_SECONDS = 240;
+const CACHE_VERSION = "v1";
+
+const cache = new TwoTierCache();
+
+/** Tests share one module; let each start from an empty in-memory cache. */
+export function resetDiscoveryCache(): void {
+  cache.clear();
+}
+
+function parse(raw: string | null): DiscoveryChallenge | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as DiscoveryChallenge;
+    return typeof parsed.paymentRequired === "string" && parsed.body ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function jsonObject(
+  response: Response,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const value: unknown = await response.json();
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the discovery challenge for one API Server origin, from cache or by
+ * asking the upstream for its 402 for the published example body. Returns
+ * null when the upstream cannot produce one; callers then answer with the
+ * read-only metadata.
+ */
+export async function discoveryChallenge(
+  apiServerOrigin: URL,
+  terms: TaskTerms,
+  env: EdgeEnv,
+  fetchImpl: FetchLike,
+  now: number = Date.now(),
+): Promise<DiscoveryChallenge | null> {
+  const key = `task:discovery:${CACHE_VERSION}:${apiServerOrigin.host}`;
+  const cached = parse(await cache.get(key, env.EDGE_CACHE, now));
+  if (cached) return cached;
+
+  const buildUrl = new URL(TASK_BUILD_PATH, apiServerOrigin);
+  const metadata = buildMetadata(terms);
+  const example = metadata.exampleRequest;
+
+  let challenge: Response;
+  try {
+    challenge = await fetchImpl(
+      new Request(buildUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(example),
+      }),
+      { cache: "no-store" },
+    );
+  } catch {
+    return null;
+  }
+  const upstreamRequired = challenge.headers.get("Payment-Required");
+  if (challenge.status !== 402 || !upstreamRequired) return null;
+  const paymentRequired = withBazaar(upstreamRequired);
+  const body = (await jsonObject(challenge)) ?? {};
+  if (body.paymentRequired === upstreamRequired) body.paymentRequired = paymentRequired;
+
+  const value: DiscoveryChallenge = {
+    paymentRequired,
+    body: { ...metadata, ...body },
+  };
+  await cache.put(key, JSON.stringify(value), DISCOVERY_CHALLENGE_TTL_SECONDS, env.EDGE_CACHE, now);
+  return value;
+}
+
+/** The HTTP shape of a discovery challenge; HEAD gets the headers alone. */
+export function discoveryResponse(
+  challenge: DiscoveryChallenge,
+  method: string,
+): Response {
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Payment-Required": challenge.paymentRequired,
+    "Cache-Control": "no-store",
+  });
+  return new Response(
+    method === "HEAD" ? null : JSON.stringify(challenge.body),
+    { status: 402, headers },
+  );
+}

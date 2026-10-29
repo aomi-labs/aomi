@@ -1,7 +1,13 @@
 "use client";
 import { useMemo } from "react";
 import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
+import { shortAddress } from "@aomi-labs/client";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
+import {
+  appName,
+  familyTag,
+  walletGroups,
+} from "@/account/account-management/wallet-model";
 import { resolveAppIdentity } from "@/lib/apps/app-identity";
 import { evmNetworkDescription } from "@/controls/network-metadata";
 import { getAppIcon } from "@/icons/app-map";
@@ -9,19 +15,60 @@ import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
+import { useAomiWalletKit } from "@/wallet/context";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 import {
   conciseSkillDescription,
   skillLabel,
   useSkillCatalog,
 } from "@/composer/capabilities/skill-catalog";
 import { useCapabilityComposer } from "./provider";
+import { walletPickerIcon } from "./wallet-icon";
 import type { PickerItem } from "./model";
+import { resolveAutoModel } from "@/controls/model-metadata";
+
+/**
+ * The account's wallets as picker rows, from the wallet kit's list (the same
+ * list as the backend's `[[WALLETS]]`, which leaves archived wallets out),
+ * grouped as the account list groups them: a wallet with an EVM and an SVM
+ * address is one row. The item id is the first address's `w_N` id and
+ * `walletIds` holds every address's, which the model passes as `wallet_id`.
+ */
+export function walletPickerItems(rows: readonly WalletRow[]): PickerItem[] {
+  const groups = walletGroups(
+    rows.filter((row) => row.linked && row.linkedWalletId),
+  );
+  return groups.map(({ title, rows: own }) => {
+    const walletIds = own.map((row) => `w_${row.linkedWalletId}`);
+    const [first] = own;
+    const app = appName(first!);
+    return {
+      key: `wallet:${walletIds[0]}`,
+      kind: "wallet" as const,
+      id: walletIds[0]!,
+      walletIds,
+      label: title,
+      description:
+        own.length > 1
+          ? own.map((row) => shortAddress(row.address)).join(" · ")
+          : `${shortAddress(first!.address)} · ${first!.kind === "agent" ? app : familyTag(first!.family)}`,
+      // Not the family or app words: "solana" should find the chain first.
+      searchText: `${title} ${own.map((row) => row.address).join(" ")}`,
+      Icon: walletPickerIcon(app),
+    };
+  });
+}
 
 export function useCapabilityCatalog(): PickerItem[] {
   const { enabledAppIds, allowAppMentions } = useCapabilityComposer();
-  const { state } = useControl();
+  const { state, getCurrentThreadControl } = useControl();
+  const control = getCurrentThreadControl();
+  const model = control.modelMode === "auto" || control.model === null
+    ? resolveAutoModel(state.availableModels)
+    : control.model;
   const networkPreferences = useOptionalAomiWalletNetworkPreferences();
   const { skills } = useSkillCatalog();
+  const { wallets } = useAomiWalletKit();
   const enabled = useMemo(
     () => (enabledAppIds ? new Set(["default", ...enabledAppIds]) : null),
     [enabledAppIds],
@@ -51,6 +98,9 @@ export function useCapabilityCatalog(): PickerItem[] {
           )
           .map((app) => {
             const info = resolveAppIdentity(app);
+            const metadata = app.metadata;
+            const known = typeof metadata?.fundedModelOnly === "boolean" && Array.isArray(metadata.sponsoredModelIds);
+            const disabled = !known || (metadata.fundedModelOnly === true && (!model || !metadata.sponsoredModelIds?.includes(model)));
             const chainSearch = (app.chainIds ?? [])
               .map((chainId) => getChainInfo(chainId)?.name ?? chainId)
               .join(" ");
@@ -63,7 +113,8 @@ export function useCapabilityCatalog(): PickerItem[] {
               kind: "app" as const,
               id: sourceId,
               label: info.displayName,
-              description: info.category.label,
+              description: !known ? "Checking model availability…" : disabled ? "Choose a sponsored model" : info.category.label,
+              disabled,
               chainIds: app.chainIds,
               applicationId: app.applicationId,
               appName: app.name,
@@ -101,13 +152,20 @@ export function useCapabilityCatalog(): PickerItem[] {
         Icon: SolanaIcon,
       })),
     ];
-    return [...appItems, ...skillItems, ...chainItems];
+    return [
+      ...appItems,
+      ...skillItems,
+      ...chainItems,
+      ...walletPickerItems(wallets),
+    ];
   }, [
     allowAppMentions,
     enabled,
     networkPreferences,
     skills,
     state.appDescriptors,
+    model,
+    wallets,
   ]);
 
   return items;

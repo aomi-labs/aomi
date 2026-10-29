@@ -1,5 +1,6 @@
 // Shared formatting helpers for the Operate pages.
 import { shortAddress } from "@aomi-labs/client";
+import { CHAIN_NAMES, caipChainId } from "@aomi-labs/internal/operate-format";
 
 export function secondsLabel(value: unknown) {
   const n = Number(value ?? 0);
@@ -76,12 +77,12 @@ export function signedUsdLabel(value: unknown): string {
   return label.startsWith("−") || label === "—" ? label : `+${label}`;
 }
 
-/** Partner pricing is quoted in credits; 100 credits settle $1.00. */
-export const CREDITS_PER_USD = 100;
-
-export function creditsToUsd(credits: unknown): number {
-  return Number(credits ?? 0) / CREDITS_PER_USD;
-}
+export {
+  CREDITS_PER_USD,
+  caipChainId,
+  caipChainLabel,
+  creditsToUsd,
+} from "@aomi-labs/internal/operate-format";
 
 /** "1 receipt" / "2 receipts" — counts in this UI are always small. */
 export function plural(count: number, noun: string): string {
@@ -131,15 +132,6 @@ export function bytesLabel(value: unknown): string | null {
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
 }
 
-const CHAIN_NAMES: Record<number, string> = {
-  1: "Ethereum",
-  10: "Optimism",
-  137: "Polygon",
-  8453: "Base",
-  42161: "Arbitrum",
-  84532: "Base Sepolia",
-  11155111: "Sepolia",
-};
 
 /** Backend-provided chain_name wins; otherwise map known ids, SVM → Solana. */
 export function chainLabel(row: {
@@ -151,17 +143,4 @@ export function chainLabel(row: {
   if (row.family === "svm") return "Solana";
   const id = Number(row.chainId ?? 0);
   return CHAIN_NAMES[id] ?? (id ? String(id) : "—");
-}
-
-/** "eip155:8453" → 8453. Anything unparseable → 0. */
-export function caipChainId(chain: unknown): number {
-  const id = Number(String(chain ?? "").split(":")[1]);
-  return Number.isSafeInteger(id) ? id : 0;
-}
-
-/** "eip155:8453" → "Base". Unrecognized chains pass through unchanged. */
-export function caipChainLabel(chain: unknown): string {
-  const raw = String(chain ?? "");
-  if (!raw.startsWith("eip155:")) return raw;
-  return CHAIN_NAMES[caipChainId(raw)] ?? raw;
 }

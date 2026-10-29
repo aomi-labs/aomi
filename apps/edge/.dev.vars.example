@@ -1,0 +1,22 @@
+# Local Wrangler dev bindings. Copy to .dev.vars (gitignored).
+# The dev signing key for topology node aomi-edge; its public key is committed
+# in src/topology-data.ts (default topology). Development only.
+EDGE_SERVICE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIAJez/5pUy9hG5xNVsHP+4GQ6ZgxHDdzFoZ2GwvkHgx/\n-----END PRIVATE KEY-----"
+EDGE_TOPOLOGY=default
+BACKEND_ORIGINS=http://127.0.0.1:8080
+API_SERVER_ORIGIN=http://127.0.0.1:8083
+CORS_ALLOWED_HOST_PATTERNS=localhost:3000,127.0.0.1:3000
+# Portal surface: serve the portal's moved routes for this host and pass the rest
+# to the Next.js dev server.
+PORTAL_HOSTS=localhost:8787
+PORTAL_UPSTREAM_ORIGIN=http://localhost:3001
+PAYMENT_ORIGIN=http://127.0.0.1:8084
+# Build surface: serve Build's moved routes for this host and pass the rest to
+# the Build Next.js dev server. The secret must match Build's PORTAL_ONLY_SESSION_SECRET.
+BUILD_HOSTS=localhost:8788
+BUILD_UPSTREAM_ORIGIN=http://localhost:3002
+BUILD_SESSION_SECRET=development-only-build-session-secret
+APP_DEPLOY_PLATFORMS=web
+BUILD_TEMPLATE_REPO=aomi-labs/playground-example
+# Read access to the template and project repos for the release-manifest secret gate.
+BUILD_GITHUB_TOKEN=

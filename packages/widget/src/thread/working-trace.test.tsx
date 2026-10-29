@@ -114,6 +114,46 @@ describe("WorkingTrace", () => {
     }
   });
 
+  it("does not inflate the live count when the server clock runs behind", () => {
+    const now = Date.now();
+    const skew = 111 * 60_000;
+    // Stamped by a server clock 111 minutes behind this one.
+    const processing = (atMs: number): Event => ({
+      event_id: "event-1",
+      sequence: 1,
+      type: "turn_state_changed",
+      turn_id: "turn",
+      state: "processing",
+      occurred_at: (atMs - skew) / 1_000,
+    });
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(now);
+      const view = render(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          phaseEvents={[]}
+          phaseTurnIds={["turn"]}
+        />,
+      );
+      view.rerender(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          phaseEvents={[processing(now)]}
+          phaseTurnIds={["turn"]}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(3_000));
+      expect(view.getByLabelText("Working time")).toHaveTextContent(/^3s$/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reconstructs active time across reload and pauses for wallet approval", () => {
     const now = Date.now();
     const seconds = (ms: number) => ms / 1_000;

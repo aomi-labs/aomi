@@ -16,7 +16,7 @@ import {
 import {
   MICROUSD_PER_CREDIT,
   type AomiAccountProfile,
-  type AomiCreditPosition,
+  type CreditBalance,
 } from "@aomi-labs/client";
 import { useShellTransport, type ShellRequest } from "./transport";
 
@@ -46,7 +46,7 @@ export type CreditAllowance = {
 };
 
 export function creditAllowanceFromPosition(
-  position: Partial<AomiCreditPosition> | null | undefined,
+  position: Partial<CreditBalance> | null | undefined,
 ): CreditAllowance | null {
   if (!position) return null;
   const included = position.included;

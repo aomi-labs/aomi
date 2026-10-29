@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import {
+  backendUrlFromEnv,
   AGENT_API_HEADERS,
   BACKEND_API_HEADERS,
   PUBLIC_DISCOVERY_HEADERS,
@@ -199,5 +200,25 @@ describe("forward", () => {
         },
       }),
     ).rejects.toBeInstanceOf(UpstreamUnreachableError);
+  });
+});
+
+describe("signer and forwarder backend precedence", () => {
+  it("uses the server backend before the browser setting", () => {
+    expect(
+      backendUrlFromEnv({
+        BACKEND_URL: "https://api-staging.aomi.dev/",
+        NEXT_PUBLIC_BACKEND_URL: "https://api.aomi.dev",
+      }),
+    ).toBe("https://api-staging.aomi.dev");
+  });
+  it("ignores browser-relative URLs and uses deployment defaults", () => {
+    expect(
+      backendUrlFromEnv({
+        BACKEND_URL: "/",
+        NEXT_PUBLIC_BACKEND_URL: "/",
+        VERCEL_ENV: "production",
+      }),
+    ).toBe("https://api.aomi.dev");
   });
 });

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { researchPosts } from "@/lib/research";
+import { blogPosts, researchPosts } from "@/lib/research";
 import { examples, playground } from "@/lib/source";
 
 const SITE = "https://aomi.dev";
@@ -105,6 +105,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  const blogEntries: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: `${SITE}/blog/${post.slug}`,
+    lastModified: new Date(post.isoDate),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
   // Examples and playground content (HTML only — no .md mirrors yet).
   const exampleEntries: MetadataRoute.Sitemap = examples
     .generateParams()
@@ -127,6 +134,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...staticEntries,
     ...researchEntries,
+    ...blogEntries,
     ...exampleEntries,
     ...playgroundEntries,
   ];

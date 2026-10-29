@@ -18,7 +18,7 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 
 ## Auth
 
-- [auth/facts/auth.md](auth/facts/auth.md): `@aomi-labs/auth`, portal auth routes, and credential handoff flow
+- [auth/facts/auth.md](auth/facts/auth.md): `@aomi-labs/account`, portal auth routes, and credential handoff flow
 - [auth/facts/wallet-kit.md](auth/facts/wallet-kit.md): auth-provider bridge from host wallets into runtime `UserState`
 - [auth/facts/base-account.md](auth/facts/base-account.md): Base Account provider surface
 

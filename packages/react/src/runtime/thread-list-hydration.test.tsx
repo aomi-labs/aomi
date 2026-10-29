@@ -103,6 +103,60 @@ describe("loading the chat list once access arrives", () => {
     ).toBe(true);
   });
 
+  it("keeps each thread's origin and waiting approvals, and never lists Telegram chats", async () => {
+    const all = vi.fn(async () => [
+      {
+        id: "mcp-chat",
+        title: "MCP",
+        archived: false,
+        updatedAt: 3,
+        origin: "mcp",
+        awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
+      },
+      {
+        id: "app-chat",
+        title: "App",
+        archived: false,
+        updatedAt: 2,
+        origin: "portal",
+      },
+      { id: "old-server", title: "Old", archived: false, updatedAt: 1 },
+      {
+        id: "telegram:bot:1:dm:2",
+        title: "Telegram",
+        archived: false,
+        updatedAt: 4,
+        origin: "telegram",
+      },
+    ]);
+    const options = fixture(all);
+    const view = renderHook(
+      () => {
+        const state = useThreadListSync({
+          ...options,
+          accountSessionAvailable: true,
+        });
+        return { ...state, threads: useThreadContext() };
+      },
+      { wrapper },
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListLoading).toBe(false),
+    );
+    const metadata = view.result.current.threads.getThreadMetadata;
+    expect(metadata("mcp-chat")).toMatchObject({
+      origin: "mcp",
+      awaitingApproval: ["5f0c2a1e-8d4b-4c3a-9e7f-1b2c3d4e5f60"],
+    });
+    expect(metadata("app-chat")?.awaitingApproval).toBeUndefined();
+    expect(metadata("app-chat")?.origin).toBe("portal");
+    expect(metadata("old-server")?.origin).toBeUndefined();
+    expect(metadata("telegram:bot:1:dm:2")).toBeUndefined();
+    expect(options.remoteThreadIdsRef.current.has("telegram:bot:1:dm:2")).toBe(
+      false,
+    );
+  });
+
   it("shows the first page while older pages load, and aborts a replaced list", async () => {
     const signals: AbortSignal[] = [];
     const all = vi.fn(

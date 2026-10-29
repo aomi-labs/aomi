@@ -3,6 +3,7 @@ import { toolIdentity } from "@/thread/tool-interpreter/identity";
 import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import { svmClusterFact } from "./context";
 import {
+  commitChainRef,
   commitCountFact,
   commitStateFact,
   commitViews,
@@ -108,16 +109,7 @@ export const matchSvmPendingApproval: ToolMatcher = ({
       Array.isArray(resultRecord.svm_ix_ids));
   if (!named && !legacy) return null;
   const args = asRecord(parsedArgs);
-  const first = views[0];
-  const chainRef = views.every(
-    (view) =>
-      view.chain_family === "svm" && view.chain_ref === first?.chain_ref,
-  )
-    ? asString(first?.chain_ref)
-    : undefined;
-  const cluster = chainRef?.startsWith("svm:")
-    ? chainRef.slice(4)
-    : resultRecord?.cluster;
+  const cluster = commitChainRef(views, "svm") ?? resultRecord?.cluster;
   const requested = Array.isArray(args?.tx_ids) ? args.tx_ids : [];
   return operation("svm.tx.pending_approval", rawLabel, [
     clusterFact(cluster),

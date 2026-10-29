@@ -2,7 +2,7 @@ import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
 import { printDataFileLocation, printJson, printPaymentEvent } from "../output";
 import { createCliPaymentFetch } from "../payment";
-import type { AomiCreditPosition } from "@aomi-labs/client";
+import type { CreditBalance, CreditLedger } from "@aomi-labs/client";
 import {
   linkCliSiwsWallet,
   signInWithCliSiwe,
@@ -13,7 +13,6 @@ import {
 import type { CliConfig } from "../types";
 import {
   getDeviceProviderCredential,
-  signInWithDeviceProvider,
   type DeviceAuthProvider,
 } from "../device-auth";
 import { signInWithOAuthDevice } from "../oauth-device-auth";
@@ -31,7 +30,6 @@ import { resumeSessionCommand, sessionsCommand } from "./sessions";
 const DEFAULT_CHAIN_ID = 1;
 
 export type AccountLoginOptions = {
-  provider?: string;
   wallet?: boolean;
   solana?: boolean;
   noBrowser?: boolean;
@@ -57,7 +55,8 @@ export type AccountCreditsShowOptions = {
   before?: string;
 };
 
-export type AccountCreditsTopUpOptions = {
+export type AccountCreditsFundOptions = {
+  chain?: string;
   idempotencyKey?: string;
 };
 
@@ -66,8 +65,8 @@ export async function accountLoginCommand(
   options: AccountLoginOptions = {},
 ): Promise<void> {
   const cli = CliSession.loadOrCreate(config);
-  if (options.solana && (options.wallet || options.provider)) {
-    fatal("Choose only one of `--solana`, `--wallet`, or `--provider`.");
+  if (options.solana && options.wallet) {
+    fatal("Choose only one of `--solana` or `--wallet`.");
   }
   if (options.solana) {
     await accountLoginWithSiws(cli, config);
@@ -78,80 +77,37 @@ export async function accountLoginCommand(
     return;
   }
 
-  if (
-    options.provider &&
-    options.provider !== "privy" &&
-    options.provider !== "para"
-  ) {
-    fatal('Unknown --provider value. Use "privy" or "para".');
-  }
-
-  if (!options.provider) {
-    const origin = new URL(cli.baseUrl).origin;
-    const grants = [
-      {
-        resource: `${origin}/v1/agent` as const,
-        scopes: ["agent:read", "agent:write", "offline_access"],
-      },
-      {
-        resource: `${origin}/v1/pipeline` as const,
-        scopes: ["pipeline:catalog", "offline_access"],
-      },
-      {
-        resource: `${origin}/v1/account` as const,
-        scopes: [
-          "account:apps:read",
-          "account:apps:write",
-          "account:credentials:read",
-          "account:credentials:write",
-          "offline_access",
-        ],
-      },
-    ];
-    for (const request of grants) {
-      const grant = await signInWithOAuthDevice({
-        baseUrl: cli.baseUrl,
-        resource: request.resource,
-        scopes: request.scopes,
-      });
-      cli.setOAuthGrant(grant);
-    }
-    if (config.json) {
-      printJson({
-        status: "signed_in",
-        method: "oauth_device",
-        resources: grants.map((grant) => grant.resource),
-      });
-    } else {
-      console.log("Signed in with OAuth device authorization");
-      printDataFileLocation({ verbose: config.verbose });
-    }
-    return;
-  }
-
-  const provider = options.provider as DeviceAuthProvider | undefined;
-  const result = await signInWithDeviceProvider({
+  // One approval: Agent, Pipeline and Account share the `/v1` sign-in. Only
+  // reads are asked up front; `aomi app add/remove` and `app credentials
+  // set/remove` ask for their write scope when first used (see
+  // `CliSession.createOAuthProvider`).
+  const resource = `${new URL(cli.baseUrl).origin}/v1` as const;
+  const grant = await signInWithOAuthDevice({
     baseUrl: cli.baseUrl,
-    provider,
+    resource,
+    scopes: [
+      "agent:read",
+      "agent:write",
+      "pipeline:catalog",
+      "account:apps:read",
+      "account:credentials:read",
+      "offline_access",
+    ],
+    // A re-login keeps this machine's client instead of registering another.
+    clientId: cli.oauthGrants[resource]?.clientId,
   });
-  cli.setAuthSession(result.auth);
-
+  cli.clearOAuthGrants();
+  cli.setOAuthGrant(grant);
   if (config.json) {
     printJson({
       status: "signed_in",
-      provider: result.provider ?? null,
-      baseUrl: cli.baseUrl,
-      expiresAt: new Date(result.auth.expiresAt).toISOString(),
+      method: "oauth_device",
+      resources: [grant.resource],
     });
-    return;
+  } else {
+    console.log("Signed in with OAuth device authorization");
+    printDataFileLocation({ verbose: config.verbose });
   }
-  console.log(
-    `Signed in${result.provider ? ` with ${formatProvider(result.provider)}` : ""}`,
-  );
-  console.log(
-    `Session expires at ${new Date(result.auth.expiresAt).toISOString()}`,
-  );
-  printDataFileLocation({ verbose: config.verbose });
 }
 
 async function accountLoginWithSiws(
@@ -546,31 +502,35 @@ export async function accountCreditsShowCommand(
   options: AccountCreditsShowOptions = {},
 ): Promise<void> {
   const cli = loadMergedCli(config);
-  const position = await requireAccountGraphClient(cli).credits.get({
-    limit: parsePositiveInteger(options.limit, "--limit") ?? 25,
-    beforeId: parsePositiveInteger(options.before, "--before"),
-  });
+  const credits = requireAccountGraphClient(cli).credits;
+  const [balance, ledger] = await Promise.all([
+    credits.get(),
+    credits.ledger({
+      limit: parsePositiveInteger(options.limit, "--limit") ?? 25,
+      beforeId: parsePositiveInteger(options.before, "--before"),
+    }),
+  ]);
   if (config.json) {
-    printJson(position);
+    printJson({ balance, ledger });
     return;
   }
-  printCreditPosition(position);
+  printCreditBalance(balance, ledger);
   printDataFileLocation({ verbose: config.verbose });
 }
 
-export async function accountCreditsTopUpCommand(
+export async function accountCreditsFundCommand(
   config: CliConfig,
   rawCredits: string,
-  options: AccountCreditsTopUpOptions = {},
+  options: AccountCreditsFundOptions = {},
 ): Promise<void> {
   const credits = Number(rawCredits);
-  if (!Number.isFinite(credits)) {
-    fatal("Credits must be a number between 1 and 100,000.");
+  if (!Number.isSafeInteger(credits) || credits < 100 || credits > 100_000) {
+    fatal("Credits must be a whole number between 100 and 100,000.");
   }
   const idempotencyKey = options.idempotencyKey?.trim();
   if (!idempotencyKey) {
     fatal(
-      "Provide --idempotency-key for this purchase and reuse it when retrying an unknown payment outcome.",
+      "Provide --idempotency-key for this funding event and reuse it when retrying an unknown payment outcome.",
     );
   }
   const cli = loadMergedCli(config);
@@ -582,22 +542,34 @@ export async function accountCreditsTopUpCommand(
     },
     config.json ? undefined : printPaymentEvent,
   );
-  const result = await requireAccountGraphClient(
-    cli,
-    paymentFetch,
-  ).credits.topUp({
-    credits,
-    idempotencyKey,
+  const transport = requireAccountGraphClient(cli, paymentFetch).credits;
+  if (!options.chain)
+    fatal(
+      "Provide --chain with an enabled treasury network, such as eip155:8453.",
+    );
+  const result = await transport.beginFunding({
+    amountMicrousd: credits * 10_000,
+    method: "wallet",
+    chain: options.chain,
+    idempotencyKey: idempotencyKey!,
   });
   if (config.json) {
     printJson(result);
     return;
   }
   console.log(
-    `Credit bank: ${formatMicrousd(result.bank.balance_microusd)} credits available`,
+    `Funding event: ${result.funding_event.id} (${result.funding_event.status})`,
   );
-  if (result.receipt?.transaction) {
-    console.log(`Transaction: ${result.receipt.transaction}`);
+  if (result.funding_event.status === "credited") {
+    const [balance, ledger] = await Promise.all([
+      transport.get(),
+      transport.ledger(),
+    ]);
+    printCreditBalance(balance, ledger);
+  } else {
+    console.log(
+      "Payment is pending. Reuse the same amount, chain, and idempotency key to resume.",
+    );
   }
   printDataFileLocation({ verbose: config.verbose });
 }
@@ -833,19 +805,22 @@ function parsePositiveInteger(
   return parsed;
 }
 
-function printCreditPosition(position: AomiCreditPosition): void {
+function printCreditBalance(
+  position: CreditBalance,
+  ledger: CreditLedger,
+): void {
   console.log(
     `Monthly:     ${formatMicrousd(position.included.used_microusd)} / ${formatMicrousd(position.included.limit_microusd)} credits used`,
   );
   console.log(
-    `Credit bank: ${formatMicrousd(position.bank.balance_microusd)} credits available`,
+    `Credit balance: ${formatMicrousd(position.balance_microusd)} credits`,
   );
-  if (position.entries.length === 0) {
+  if (ledger.entries.length === 0) {
     console.log("Activity:    none");
     return;
   }
   console.log("Activity:");
-  for (const entry of position.entries) {
+  for (const entry of ledger.entries) {
     const sign = entry.amount_microusd >= 0 ? "+" : "";
     const detail = entry.payment_method ? ` via ${entry.payment_method}` : "";
     console.log(

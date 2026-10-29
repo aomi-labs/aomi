@@ -5,9 +5,8 @@
 
 export {
   mintAccountBearer,
-  mintAgentApiBearer,
+  mintDelegatedBearer,
   AUDIENCE,
-  AGENT_API_AUDIENCE,
   ACCOUNT_BEARER_TTL_SECONDS,
   type MintedBearer,
 } from "./bearer";

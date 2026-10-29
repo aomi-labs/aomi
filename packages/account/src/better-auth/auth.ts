@@ -166,6 +166,9 @@ export const auth = betterAuth({
       "/oauth2/authorize": { window: 60, max: 30 },
       "/oauth2/token": { window: 60, max: 60 },
       "/device/code": { window: 60, max: 20 },
+      // The plugin's own rule is 5 reads per code lifetime; one CLI login
+      // reads three codes.
+      "/device": { window: 60, max: 20 },
     },
   },
   onAPIError: {
@@ -223,7 +226,9 @@ export const auth = betterAuth({
   },
   plugins: [
     jwt({
-      issuer: resources.authorizationServerIssuer,
+      // The option lives under `jwt`; at the top level Better Auth ignores it and
+      // signs with the bare origin, which the edge then rejects as the wrong issuer.
+      jwt: { issuer: resources.authorizationServerIssuer },
       disableSettingJwtHeader: true,
       jwks: {
         rotationInterval: 30 * 24 * 60 * 60,
@@ -313,6 +318,7 @@ export const auth = betterAuth({
                   resources.agentRest,
                   resources.pipelineRest,
                   resources.accountRest,
+                  resources.apiRest,
                 ]
               : [],
             clientRegistrationDefaultScopes: [

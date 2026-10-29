@@ -3,7 +3,6 @@ import type { components } from "../generated/agent-v1/types";
 type Schemas = components["schemas"];
 
 /** Selects user-owned BYOK credentials for inference. */
-export type AomiInferenceFundingSource = "user_byok";
 
 export type MessageEvent = Schemas["MessageEvent"];
 export type Event = Schemas["ConcreteEvent"];

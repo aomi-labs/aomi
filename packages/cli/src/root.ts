@@ -1,6 +1,5 @@
 import { defineCommand } from "citty";
 import { guardDef } from "./commands/defs/guard";
-import { byokDef } from "./commands/defs/byok";
 import { chatDef } from "./commands/defs/chat";
 import { txDef } from "./commands/defs/tx";
 import { sessionDef } from "./commands/defs/session";
@@ -8,6 +7,7 @@ import { modelDef } from "./commands/defs/model";
 import { appDef } from "./commands/defs/app";
 import { chainDef } from "./commands/defs/chain";
 import { walletDef } from "./commands/defs/wallet";
+import { walletsDef } from "./commands/defs/wallets";
 import { accountDef } from "./commands/defs/account";
 import { configDef } from "./commands/defs/config";
 import { secretDef } from "./commands/defs/secret";
@@ -29,6 +29,7 @@ export const SUBCOMMAND_NAMES = new Set([
   "app",
   "chain",
   "wallet",
+  "wallets",
   "account",
   "logout",
   "config",
@@ -36,7 +37,6 @@ export const SUBCOMMAND_NAMES = new Set([
   "deploy",
   "pipeline",
   "guard",
-  "byok",
 ]);
 
 export function hasRootSubcommand(rawArgs: string[]): boolean {
@@ -97,6 +97,7 @@ export const root = defineCommand({
     app: appDef,
     chain: chainDef,
     wallet: walletDef,
+    wallets: walletsDef,
     account: accountDef,
     logout: logoutDef,
     config: configDef,
@@ -104,6 +105,5 @@ export const root = defineCommand({
     deploy: deployDef,
     pipeline: pipelineDef,
     guard: guardDef,
-    byok: byokDef,
   },
 });

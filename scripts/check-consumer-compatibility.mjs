@@ -13,6 +13,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   copyTrustedConsumer,
+  consumerBaseline,
   trustedConsumerImporters,
   trustedConsumers,
 } from "./check-consumer-compatibility-baseline.mjs";
@@ -29,7 +30,10 @@ const packageManager = JSON.parse(
 ).packageManager;
 const args = process.argv.slice(2);
 const baseFlag = args.indexOf("--base");
-const base = baseFlag >= 0 ? args[baseFlag + 1] : process.env.CONSUMER_BASE_SHA;
+const base = consumerBaseline(
+  root,
+  baseFlag >= 0 ? args[baseFlag + 1] : process.env.CONSUMER_BASE_SHA,
+);
 const outputFlag = args.indexOf("--browser-output");
 const browserOutput =
   outputFlag >= 0 ? args[outputFlag + 1] : process.env.CONSUMER_BROWSER_OUTPUT;
@@ -50,7 +54,7 @@ if (
   )
 ) {
   throw new Error(
-    "Pass --base <trusted commit SHA> or CONSUMER_BASE_SHA; browser output paths require a value",
+    "--base and --browser-output require values; the default baseline is tests/contracts/consumer-baseline.json",
   );
 }
 const sha = execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], {
@@ -64,7 +68,6 @@ const packages = [
   ["@aomi-labs/react", "packages/react"],
   ["@aomi-labs/deploy", "packages/deploy"],
   ["@aomi-labs/widget", "packages/widget"],
-  ["@aomi-labs/widget-lib", "packages/widget-lib"],
 ].filter(
   ([name]) =>
     !onlyWidget || !["@aomi-labs/deploy", "@aomi-labs/cli"].includes(name),
@@ -149,7 +152,7 @@ function verifyFreshInstall(tarballs, temporaryRoot) {
     type: "module",
     packageManager,
     dependencies: {
-      "@aomi-labs/widget-lib": tarballs["@aomi-labs/widget-lib"],
+      "@aomi-labs/widget": tarballs["@aomi-labs/widget"],
       react: "19.2.0",
       "react-dom": "19.2.0",
     },
@@ -184,8 +187,8 @@ function verifyFreshInstall(tarballs, temporaryRoot) {
     join(widgetDestination, "main.jsx"),
     `import React from "react";
 import { createRoot } from "react-dom/client";
-import { AomiWidget } from "@aomi-labs/widget-lib";
-import "@aomi-labs/widget-lib/styles.css";
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
 createRoot(document.getElementById("root")).render(
   React.createElement(AomiWidget, { applicationId: "1", apiUrl: "https://example.invalid" }),
 );
@@ -328,11 +331,7 @@ try {
     "radix-ui",
   );
   for (const [name, path] of packages) {
-    if (
-      name === "@aomi-labs/widget" ||
-      name === "@aomi-labs/widget-lib" ||
-      name === "@aomi-labs/deploy"
-    ) {
+    if (name === "@aomi-labs/widget" || name === "@aomi-labs/deploy") {
       // These packages have no prepack hook; build before producing the
       // exact archive consumed by the clean-install fixture.
       run("corepack", ["pnpm", "--dir", join(root, path), "build"]);
@@ -452,12 +451,7 @@ try {
     if (kind === "widget") {
       // Exercise the packed subpath only after the unchanged trusted fixture
       // has built, reusing its candidate install without source aliases.
-      verifyHostCompositionExport(
-        destination,
-        manifest.dependencies["@aomi-labs/widget"]
-          ? "@aomi-labs/widget"
-          : "@aomi-labs/widget-lib",
-      );
+      verifyHostCompositionExport(destination, "@aomi-labs/widget");
     }
     if (kind === "headless") {
       run("corepack", ["pnpm", "run", "test"], destination);
@@ -488,7 +482,9 @@ if (!esm.Aomi || !cjs.Aomi) throw new Error("Packed client facade export missing
       })}\n`,
     );
   }
-  console.log("Trusted-base consumers compile against candidate tarballs.");
+  console.log(
+    `Trusted-base consumers compile against candidate tarballs (${sha}).`,
+  );
 } finally {
   if (process.env.KEEP_CONSUMER_COMPAT_DIR || browserOutput)
     console.log(`Retained ${temporary}`);

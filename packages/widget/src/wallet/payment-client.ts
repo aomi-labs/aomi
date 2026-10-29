@@ -4,9 +4,11 @@ import { createEvmPaymentClient } from "@aomi-labs/client";
 
 export function createWidgetX402Client(
   wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">,
+  terms?: Parameters<typeof createEvmPaymentClient>[1],
 ): ReturnType<typeof createEvmPaymentClient> | undefined {
   const address = wallet.identity.address;
   const signTypedData = wallet.signTypedData;
+  // A picked agent wallet offers no signTypedData: it never pays from here.
   if (!address || !signTypedData) return undefined;
   const evmWallet: EvmWallet = {
     address,
@@ -19,5 +21,5 @@ export function createWidgetX402Client(
     },
     switchChain: wallet.switchChain,
   };
-  return createEvmPaymentClient(evmWallet);
+  return createEvmPaymentClient(evmWallet, terms);
 }

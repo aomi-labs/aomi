@@ -45,11 +45,11 @@ git merge-base --is-ancestor "$CANDIDATE_SHA" origin/main || {
 PUBLISHABLE_PATHS=(
   packages/client
   packages/react
+  packages/service-identity
   packages/account
   packages/deploy
   packages/cli
   packages/widget
-  packages/widget-lib
   # Retain historical coverage for candidates before the widget move.
   apps/shadcn-registry
 )

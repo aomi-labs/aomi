@@ -1,5 +1,5 @@
 import type { ProxyFailure } from "@aomi-labs/account";
-import { identifyLaunchError } from "@aomi-labs/deploy/bff/errors";
+import { identifyLaunchError } from "@aomi-labs/internal";
 
 import type { FailureInput, IdentifiedFailure } from "./failure";
 
@@ -102,7 +102,7 @@ function identifyProxyFailure(failure: ProxyFailure): IdentifiedFailure {
           error: "upstream_unavailable",
         };
 
-  if (failure.kind === "bearer_mint" || failure.kind === "response_transform") {
+  if (failure.kind === "bearer_mint") {
     return {
       origin: "local",
       error: failure.error,

@@ -9,7 +9,6 @@ import type {
   ActionResult,
   CommitController,
   CommitView,
-  AomiInferenceFundingSource,
   AomiSimulateResponse,
   Event,
   TurnState,
@@ -19,7 +18,6 @@ import type {
   TransactionSafetyTransport,
   AccountTransport,
 } from "@aomi-labs/client";
-export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import type { ThreadMetadata } from "./state/thread-store";
 import type {
   Notification,
@@ -122,7 +120,7 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // ACTION API
   // -------------------------------------------------------------------------
-  /** Runtime actions waiting for a client response. */
+  /** Runtime actions of the visible conversation waiting for a client response. */
   pendingActions: Action[];
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** True while an Action is visible or awaiting backend acknowledgement. */
@@ -146,7 +144,8 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // EVENT STATE
   // -------------------------------------------------------------------------
-  /** Ordered events of the open chat, as the server sent them. */
+  /** Ordered events of the open chat's visible conversation: the turns an
+   * Edit or Rerun replaced are left out, as the chat leaves them out. */
   events: readonly Event[];
   /** State of the current turn, as the backend reports it. */
   turnState?: TurnState;

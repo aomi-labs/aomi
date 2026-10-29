@@ -3,6 +3,7 @@
 // with the committed development key. Agent threads are kept per account so
 // one account can never read another's chat.
 import { createPrivateKey, createPublicKey, verify } from "node:crypto";
+import type { CreditBalance } from "../../../packages/client/src/account/credits";
 import {
   createServer,
   type IncomingMessage,
@@ -11,12 +12,17 @@ import {
 import { FakeAgentBackend, type FakeRequest } from "./backend";
 import { readBody, sendFakeResponse } from "./server";
 
-/** Development BFF signing key; its public half is in packages/account's topology. */
-export const bffPrivateKey =
-  "-----BEGIN PRIVATE KEY-----\n" +
-  "MC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n" +
-  "-----END PRIVATE KEY-----";
-const bffPublicKey = createPublicKey(createPrivateKey(bffPrivateKey));
+import { bffPrivateKey, trustedDevIssuers } from "../edge-keys";
+
+export { bffPrivateKey };
+
+/** The development issuers whose bearers the fake accepts: the portal BFF and the edge Worker. */
+const trustedKeys = new Map(
+  Object.entries(trustedDevIssuers).map(([kid, { issuer, privateKey }]) => [
+    kid,
+    { issuer, publicKey: createPublicKey(createPrivateKey(privateKey)) },
+  ]),
+);
 
 export type Principal = {
   sub: string;
@@ -27,6 +33,7 @@ export type Principal = {
   resource?: string;
   auth_source?: string;
   principal_class?: string;
+  client_id?: string;
   sid?: string;
   kid?: string;
 };
@@ -50,6 +57,14 @@ export type UpstreamOptions = {
 export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const records: UpstreamRecord[] = [];
   const owners = new Map<string, string>();
+  /** Commits by ref for `/v1/commits/:ref`, seeded with POST /__commits. */
+  const commits = new Map<string, { owner: string; view: unknown }>();
+  /** Each account's pause all over its agent wallets. */
+  const pausedAll = new Map<string, boolean>();
+  /** Each account's connection settings, by connection key. */
+  const settings = new Map<string, ConnectionSetting>();
+  /** Each connection's lane per agent wallet, by account and connection key. */
+  const lanes = new Map<string, { id: string; lane: string }[]>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -81,8 +96,163 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     if (url.pathname === "/__reset" && method === "POST") {
       records.length = 0;
       owners.clear();
+      commits.clear();
+      pausedAll.clear();
+      settings.clear();
+      lanes.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
+    }
+
+    if (url.pathname === "/__commits" && method === "POST") {
+      const seed = JSON.parse(await readBody(request)) as {
+        ref: string;
+        owner: string;
+        view: unknown;
+      };
+      commits.set(seed.ref, { owner: seed.owner, view: seed.view });
+      return json(response, 204);
+    }
+
+    // Thread-less commit refs: the BFF forwards them like /api/commits, with
+    // an account bearer. A stranger's ref answers 404, never 403.
+    if (url.pathname.startsWith("/v1/commits/")) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      const [, , , ref = "", ...rest] = url.pathname.split("/");
+      const commit = commits.get(decodeURIComponent(ref));
+      if (!commit || commit.owner !== principal.sub)
+        return json(response, 404, { code: "commit_not_found", status: 404 });
+      const view = commit.view as Record<string, unknown>;
+      // A portal or CLI login approves a parked commit; an OAuth connection
+      // only its own, where its lane on the wallet is Ask in that client.
+      const own = `oauth:${principal.client_id}`;
+      const approver =
+        principal.auth_source === "session" ||
+        principal.auth_source === "cli_session" ||
+        (principal.auth_source === "oauth" &&
+          view.initiator === own &&
+          (lanes
+            .get(`${principal.sub}\0${own}`)
+            ?.some((row) => row.id === AGENT_GROUP.id && row.lane === "here") ??
+            false));
+      if (method === "GET" && rest.length === 0)
+        return json(response, 200, {
+          ...view,
+          can_approve: approver && view.state === "awaiting_approval",
+        });
+      if (method === "POST" && rest.join("/") === "approve") {
+        const body = JSON.parse(await readBody(request)) as {
+          version: number;
+          review_digest: string;
+        };
+        if (!approver)
+          return json(response, 403, {
+            code: "commit_approval_forbidden",
+            status: 403,
+          });
+        if (view.state !== "awaiting_approval")
+          return json(response, 409, {
+            code: "commit_not_awaiting_approval",
+            status: 409,
+          });
+        const digest =
+          (view.review as { digest?: string } | null)?.digest ?? "";
+        if (body.version !== view.version || body.review_digest !== digest)
+          return json(response, 409, {
+            code: "commit_version_conflict",
+            status: 409,
+          });
+        const approved = {
+          ...view,
+          version: (view.version as number) + 1,
+          state: "needs_signature",
+          approval: {
+            ...(view.approval as object),
+            state: "approved",
+            approved_at: Math.floor(Date.now() / 1000),
+            approved_by:
+              principal.auth_source === "session"
+                ? "portal"
+                : principal.auth_source === "cli_session"
+                  ? "cli"
+                  : own,
+          },
+        };
+        commit.view = approved;
+        return json(response, 200, { ...approved, can_approve: false });
+      }
+      return json(response, 404, {
+        error: { code: "fixture_route_not_found" },
+      });
+    }
+
+    // The account's wallet list: one EVM agent wallet
+    // ("Trading") per account, so Settings renders the agent band; pause-all
+    // and each connection's label and wallet lanes.
+    if (
+      url.pathname.startsWith("/v1/account/wallets") ||
+      url.pathname.startsWith("/v1/account/agent-wallets") ||
+      url.pathname === "/v1/account/pause-all" ||
+      url.pathname.startsWith("/v1/account/connection-settings/") ||
+      /^\/v1\/account\/connections\/[^/]+\/wallets$/.test(url.pathname)
+    ) {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      if (method === "GET" && url.pathname === "/v1/account/wallets")
+        return json(response, 200, { wallets: [AGENT_WALLET] });
+      if (method === "GET" && url.pathname === "/v1/account/agent-wallets")
+        return json(response, 200, {
+          pause_all: pausedAll.get(principal.sub) ?? false,
+          wallets: [AGENT_GROUP],
+        });
+      // The backend's require_portal_session for writes.
+      const portalOnly = () =>
+        principal.auth_source === "session"
+          ? null
+          : json(response, 403, { error: "portal_session_required" });
+      if (method === "PUT" && url.pathname === "/v1/account/pause-all") {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const { paused } = JSON.parse(await readBody(request)) as {
+          paused: boolean;
+        };
+        pausedAll.set(principal.sub, paused);
+        return json(response, 200, { pause_all: paused });
+      }
+      if (
+        method === "PUT" &&
+        url.pathname.startsWith("/v1/account/connection-settings/")
+      ) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const key = decodeURIComponent(url.pathname.split("/").pop()!);
+        const id = `${principal.sub}\0${key}`;
+        const update = JSON.parse(await readBody(request)) as Partial<
+          Omit<ConnectionSetting, "key">
+        >;
+        const next = {
+          ...(settings.get(id) ?? { key, label: null, last_used_at: null }),
+          ...update,
+        };
+        settings.set(id, next);
+        return json(response, 200, next);
+      }
+      if (method === "PUT" && url.pathname.endsWith("/wallets")) {
+        const refused = portalOnly();
+        if (refused) return refused;
+        const key = decodeURIComponent(url.pathname.split("/").at(-2)!);
+        const update = JSON.parse(await readBody(request)) as {
+          wallets: { id: string; lane: string }[];
+        };
+        lanes.set(`${principal.sub}\0${key}`, update.wallets);
+        return json(response, 200, update);
+      }
+      return json(response, 404, { error: "wallet_not_found" });
     }
 
     if (url.pathname.startsWith("/api/")) {
@@ -109,6 +279,25 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       return json(response, 200, accountBody(accountRoute, principal));
     }
 
+    if (
+      method === "GET" &&
+      (url.pathname === "/v1/account/credits" ||
+        url.pathname === "/v1/account/statement")
+    ) {
+      const principal = verifyBearer(request, "aomi-payment");
+      record(principal);
+      const scope = url.pathname.endsWith("/credits")
+        ? "account:credits:read"
+        : "account:usage:read";
+      if (!principal || !principal.scope?.split(" ").includes(scope))
+        return json(response, 401, { error: { code: "invalid_token" } });
+      return json(
+        response,
+        200,
+        url.pathname.endsWith("/credits") ? credits : statement,
+      );
+    }
+
     const principal = verifyBearer(request, "aomi-api-server");
     record(principal);
     if (!principal)
@@ -119,10 +308,6 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       response.setHeader("x-request-id", "fixture-error-request");
       return json(response, 429, { error: { code: "fixture_limited" } });
     }
-    if (url.pathname === "/v1/account/statement" && method === "GET")
-      return json(response, 200, statement);
-    if (url.pathname === "/v1/account/credits" && method === "GET")
-      return json(response, 200, credits);
     if (!url.pathname.startsWith("/v1/agent/"))
       return json(response, 404, {
         error: { code: "fixture_route_not_found" },
@@ -184,6 +369,44 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     },
   };
 }
+
+const AGENT_WALLET = {
+  id: "w_900",
+  kind: "agent",
+  family: "evm",
+  address: "0x7a3f5e1d2c4b6a8901234567890abcdef012c41e",
+  label: "Trading",
+  custom_label: null,
+  browser_app: null,
+  provider: "para",
+  created_at: 1_760_000_000,
+  agent_wallet_id: "6f1c2b8e-0000-4000-8000-000000000900",
+  maker_app: null,
+} as const;
+
+const AGENT_GROUP = {
+  id: AGENT_WALLET.agent_wallet_id,
+  name: AGENT_WALLET.label,
+  paused: false,
+  archived_at: null,
+  app: null,
+  last_used_at: null,
+  created_at: AGENT_WALLET.created_at,
+  addresses: [
+    {
+      family: "evm",
+      address: AGENT_WALLET.address,
+      wallet_id: AGENT_WALLET.id,
+    },
+  ],
+  connections: [],
+};
+
+type ConnectionSetting = {
+  key: string;
+  label: string | null;
+  last_used_at: number | null;
+};
 
 type AccountRoute =
   | "account"
@@ -260,18 +483,20 @@ const statement = {
   next_cursor: null,
 };
 
-const credits = {
+const credits: CreditBalance = {
   period_utc_month: "2026-09",
-  included_limit: 10_000_000,
-  included_used: 1_250_000,
-  included_remaining: 8_750_000,
-  balance: 25_000_000,
-  outstanding_debt: 0,
-  records: [],
-  next_before_id: null,
+  included: {
+    limit_microusd: 10_000_000,
+    used_microusd: 1_250_000,
+    remaining_microusd: 8_750_000,
+  },
+  balance_microusd: 25_000_000,
+  reserved_microusd: 0,
+  available_microusd: 25_000_000,
+  debt_microusd: 0,
 };
 
-/** EdDSA bearer issued by the development BFF for a user, or null. */
+/** EdDSA bearer issued for a user by a trusted development issuer, or null. */
 function verifyBearer(
   request: IncomingMessage,
   audience: string,
@@ -281,20 +506,21 @@ function verifyBearer(
   )?.[1];
   const [header, payload, signature] = token?.split(".") ?? [];
   if (!header || !payload || !signature) return null;
+  const protectedHeader = decode(header);
+  const trusted = trustedKeys.get(protectedHeader.kid);
+  if (!trusted) return null;
   const signed = verify(
     null,
     Buffer.from(`${header}.${payload}`),
-    bffPublicKey,
+    trusted.publicKey,
     Buffer.from(signature, "base64url"),
   );
   if (!signed) return null;
-  const protectedHeader = decode(header);
   const claims = decode(payload);
   const audiences = [claims.aud].flat();
   if (
     protectedHeader.alg !== "EdDSA" ||
-    protectedHeader.kid !== "aomi-bff-dev-1" ||
-    claims.iss !== "aomi-bff" ||
+    claims.iss !== trusted.issuer ||
     !audiences.includes(audience) ||
     claims.role !== "user" ||
     typeof claims.sub !== "string" ||

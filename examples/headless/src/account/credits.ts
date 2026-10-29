@@ -5,7 +5,7 @@ const baseUrl = process.env.AOMI_BASE_URL ?? "http://localhost:3000";
 const bearer = requiredEnv("AOMI_ACCOUNT_BEARER");
 const privateKey = requiredEnv("AOMI_PRIVATE_KEY") as `0x${string}`;
 const account = privateKeyToAccount(privateKey);
-const paymentChainId = positiveIntegerEnv("AOMI_PAYMENT_CHAIN_ID", 84532);
+const paymentChainId = positiveIntegerEnv("AOMI_PAYMENT_CHAIN_ID");
 
 const aomi = new Aomi({
   baseUrl,
@@ -21,21 +21,29 @@ const aomi = new Aomi({
   },
 });
 
-const before = await aomi.account.credits.get({ limit: 5 });
+const [before, ledger] = await Promise.all([
+  aomi.account.credits.get(),
+  aomi.account.credits.ledger({ limit: 5 }),
+]);
 console.log({
   period: before.period_utc_month,
   included: before.included,
-  bank: before.bank,
-  activity: before.entries,
+  balanceMicrousd: before.balance_microusd,
+  activity: ledger.entries,
 });
 
-const topUpCredits = optionalCredits(process.env.AOMI_TOP_UP_CREDITS);
-if (topUpCredits !== undefined) {
-  const result = await aomi.account.credits.topUp({
-    credits: topUpCredits,
-    idempotencyKey: crypto.randomUUID(),
+const credits = optionalCredits(process.env.AOMI_FUNDING_CREDITS);
+if (credits !== undefined) {
+  const result = await aomi.account.credits.beginFunding({
+    amountMicrousd: credits * 10_000,
+    method: "wallet",
+    chain: `eip155:${paymentChainId}`,
+    idempotencyKey: requiredEnv("AOMI_FUNDING_KEY"),
   });
-  console.log({ topUp: result });
+  console.log({
+    id: result.funding_event.id,
+    status: result.funding_event.status,
+  });
 }
 
 function requiredEnv(name: string): string {
@@ -47,15 +55,16 @@ function requiredEnv(name: string): string {
 function optionalCredits(value: string | undefined): number | undefined {
   if (!value?.trim()) return undefined;
   const credits = Number(value);
-  if (!Number.isFinite(credits)) {
-    throw new Error("AOMI_TOP_UP_CREDITS must be a number");
+  if (!Number.isSafeInteger(credits) || credits < 100 || credits > 100_000) {
+    throw new Error(
+      "AOMI_FUNDING_CREDITS must be a whole number from 100 to 100000",
+    );
   }
   return credits;
 }
 
-function positiveIntegerEnv(name: string, fallback: number): number {
-  const value = process.env[name]?.trim();
-  const parsed = value ? Number(value) : fallback;
+function positiveIntegerEnv(name: string): number {
+  const parsed = Number(requiredEnv(name));
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`${name} must be a positive chain id`);
   }

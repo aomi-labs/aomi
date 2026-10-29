@@ -32,14 +32,52 @@ import {
   type ButtonTriggerRange,
   type TriggerRange,
 } from "./editor-dom";
+import { splitCapabilityText } from "@/thread/capability-message-text";
 
-const BARE_MENTION_LIMIT = 4;
-const TESTNET_QUERY =
-  /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;
+const MENTION_GLYPH: Record<PickerItem["kind"], string> = {
+  skill: "✦",
+  app: "▦",
+  chain: "◇",
+  wallet: "◈",
+};
+
+/** The mention's text in the sent message, e.g. "◈ Main". */
+const mentionToken = (item: PickerItem) =>
+  `${MENTION_GLYPH[item.kind]} ${item.label}`;
+
+/** A tag node, plus the slot its icon renders into through a portal. */
+function createMention(item: PickerItem) {
+  const mention = document.createElement("span");
+  mention.contentEditable = "false";
+  mention.dataset.capabilityKey = item.key;
+  mention.dataset.capabilityKind = item.kind;
+  // Plain inline text on the line's baseline, like the sent message.
+  mention.className = "text-aomi-accent mx-0.5 whitespace-nowrap font-medium";
+  mention.dataset.capabilityToken = mentionToken(item);
+  const iconTarget = document.createElement("span");
+  iconTarget.setAttribute("aria-hidden", "true");
+  iconTarget.className =
+    "mr-1 inline-flex size-3.5 items-center justify-center align-[-0.175em]";
+  const label = document.createElement("span");
+  label.textContent = item.label;
+  mention.append(iconTarget, label);
+  mention.setAttribute("aria-label", `${item.kind} ${item.label}`);
+  return { mention, iconTarget };
+}
+
 export const CapabilityMentionInput: FC<{
   placeholder: string;
   className: string;
-}> = ({ placeholder, className }) => {
+  ariaLabel?: string;
+  testId?: string;
+  autoFocus?: boolean;
+}> = ({
+  placeholder,
+  className,
+  ariaLabel = "Message input",
+  testId = testIds.composerInput,
+  autoFocus,
+}) => {
   const insertingHostTag = useRef(false);
   const apiClient = useAomiDisplayCache()?.apiClient;
   const prepareGuestSession = useCallback(() => {
@@ -200,16 +238,53 @@ export const CapabilityMentionInput: FC<{
     syncEditor();
   }, [closePicker, hintsEnabled, syncEditor]);
 
+  // Text set from outside (an edit's original message, a restored send)
+  // shows its tags as tags again.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || value === lastTextRef.current) return;
-    editor.textContent = value;
-    setMentionIconPortals([]);
+    const tagged = hintsEnabled ? items : [];
+    const byToken = new Map(tagged.map((item) => [mentionToken(item), item]));
+    const portals: typeof mentionIconPortals = [];
+    editor.replaceChildren(
+      ...splitCapabilityText(
+        value,
+        tagged.map((item) => ({ ...item, token: mentionToken(item) })),
+      ).map((segment) => {
+        const item =
+          segment.type === "capability"
+            ? byToken.get(segment.capability.token)
+            : undefined;
+        if (!item) {
+          return document.createTextNode(
+            segment.type === "text" ? segment.text : segment.capability.token,
+          );
+        }
+        const { mention, iconTarget } = createMention(item);
+        portals.push({ target: iconTarget, Icon: item.Icon });
+        addMention(item);
+        return mention;
+      }),
+    );
+    setMentionIconPortals(portals);
     lastTextRef.current = value;
     setHasText(value.trim().length > 0);
     closePicker();
-    if (value.trim().length === 0) retainMentions(new Set());
-  }, [closePicker, retainMentions, value]);
+    retainMentions(mentionKeysFromEditor(editor));
+    if (autoFocus && document.activeElement !== editor) {
+      editor.focus();
+      window.getSelection()?.selectAllChildren(editor);
+      window.getSelection()?.collapseToEnd();
+    }
+  }, [
+    addMention,
+    autoFocus,
+    closePicker,
+    hintsEnabled,
+    items,
+    retainMentions,
+    value,
+  ]);
 
   useEffect(() => {
     if (capabilityPickerRequest === 0 || !hintsEnabled || isDisabled) return;
@@ -276,27 +351,11 @@ export const CapabilityMentionInput: FC<{
 
   const insertItemAtRange = useCallback(
     (item: PickerItem, range: Range) => {
+      if (item.disabled) return;
       const editor = editorRef.current;
       if (!editor) return;
       range.deleteContents();
-      const mention = document.createElement("span");
-      mention.contentEditable = "false";
-      mention.dataset.capabilityKey = item.key;
-      mention.dataset.capabilityKind = item.kind;
-      // Plain inline text on the line's baseline, like the sent message.
-      mention.className =
-        "text-aomi-accent mx-0.5 whitespace-nowrap font-medium";
-      const glyph =
-        item.kind === "skill" ? "✦" : item.kind === "app" ? "▦" : "◇";
-      mention.dataset.capabilityToken = `${glyph} ${item.label}`;
-      const iconTarget = document.createElement("span");
-      iconTarget.setAttribute("aria-hidden", "true");
-      iconTarget.className =
-        "mr-1 inline-flex size-3.5 items-center justify-center align-[-0.175em]";
-      const label = document.createElement("span");
-      label.textContent = item.label;
-      mention.append(iconTarget, label);
-      mention.setAttribute("aria-label", `${item.kind} ${item.label}`);
+      const { mention, iconTarget } = createMention(item);
       range.insertNode(mention);
       setMentionIconPortals((current) => [
         ...current,
@@ -325,6 +384,7 @@ export const CapabilityMentionInput: FC<{
 
   const selectItem = useCallback(
     (item: PickerItem) => {
+      if (item.disabled) return;
       const range = document.createRange();
       if (pickerSourceRef.current === "button") {
         const trigger = buttonTriggerRef.current;
@@ -494,8 +554,8 @@ export const CapabilityMentionInput: FC<{
             <div
               ref={editorRef}
               role="textbox"
-              aria-label="Message input"
-              data-testid={testIds.composerInput}
+              aria-label={ariaLabel}
+              data-testid={testId}
               aria-multiline="true"
               aria-autocomplete="list"
               aria-expanded={query !== null}

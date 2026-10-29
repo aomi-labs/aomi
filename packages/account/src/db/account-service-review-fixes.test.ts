@@ -23,6 +23,7 @@ const queryMocks = vi.hoisted(() => ({
   lockIdentityResolutionKeys: vi.fn(),
   logAccountEvent: vi.fn(),
   mergeAccountRows: vi.fn(),
+  denyAgentWalletsForUser: vi.fn(),
   revokeAllAuthIdentitiesForUser: vi.fn(),
   revokeAllWalletsForUser: vi.fn(),
   revokeAuthIdentity: vi.fn(),
@@ -257,8 +258,7 @@ describe("unlinkAuthIdentity last-factor handling", () => {
     });
     queryMocks.countLoginFactors.mockResolvedValue(1);
 
-    const { unlinkAuthIdentity } =
-      await import("../service/account-service");
+    const { unlinkAuthIdentity } = await import("../service/account-service");
 
     await expect(
       unlinkAuthIdentity({ userId: "user-a", identityId: "para-row" }),
@@ -284,8 +284,7 @@ describe("unlinkAuthIdentity last-factor handling", () => {
     queryMocks.countLoginFactors.mockResolvedValue(2);
     queryMocks.revokeAuthIdentity.mockResolvedValue(true);
 
-    const { unlinkAuthIdentity } =
-      await import("../service/account-service");
+    const { unlinkAuthIdentity } = await import("../service/account-service");
 
     await expect(
       unlinkAuthIdentity({ userId: "user-a", identityId: "para-row" }),

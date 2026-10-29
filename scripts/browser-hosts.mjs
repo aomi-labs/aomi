@@ -1,3 +1,4 @@
+import { consumerBaseline } from "./check-consumer-compatibility-baseline.mjs";
 // Production hosts for the browser suites: the fake upstream, a production
 // Portal on a disposable database, and the packed widget consumers built from
 // this checkout's tarballs. Each runner starts what it needs and stops it all.
@@ -24,6 +25,7 @@ register();
 const { startAgentUpstream } =
   await import("../tests/e2e/fake-backend/upstream.ts");
 const { portalEnv } = await import("../tests/e2e/portal-env.ts");
+const { startEdgeHost } = await import("../tests/e2e/edge-host.ts");
 
 export const root = fileURLToPath(new URL("../", import.meta.url));
 
@@ -88,19 +90,21 @@ export function createHosts(output) {
   return hosts;
 }
 
-/** Fake upstream, packed Vite consumer and production Portal. */
+/**
+ * Fake upstream, packed Vite consumer and production Portal behind the edge
+ * Worker. `origins.portal` is the public origin: the Worker serves its API
+ * paths and the Next.js portal (on its own loopback port) everything else.
+ */
 export async function startPortalHosts(hosts, upstreamOptions = {}) {
-  const trustedBase = required("CONSUMER_BASE_SHA");
+  const trustedBase = consumerBaseline(root, process.env.CONSUMER_BASE_SHA);
   const databaseUrl = required("AOMI_TEST_DATABASE_URL");
   if (process.env.AOMI_TEST_DATABASE_DISPOSABLE !== "1")
     throw new Error(
       "AOMI_TEST_DATABASE_DISPOSABLE=1 must mark the database as disposable",
     );
-  const [portalPort, consumerPort, nextPort] = await Promise.all([
-    freePort(),
-    freePort(),
-    freePort(),
-  ]);
+  const [portalPort, portalUpstreamPort, consumerPort, nextPort] =
+    await Promise.all([freePort(), freePort(), freePort(), freePort()]);
+  const portalUpstream = `http://127.0.0.1:${portalUpstreamPort}`;
   const origins = {
     portal: `http://127.0.0.1:${portalPort}`,
     consumer: `http://127.0.0.1:${consumerPort}`,
@@ -174,10 +178,18 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
       "-H",
       "127.0.0.1",
       "-p",
-      String(portalPort),
+      String(portalUpstreamPort),
     ],
-    { cwd: join(root, "apps/portal"), env, origin: origins.portal },
+    { cwd: join(root, "apps/portal"), env, origin: portalUpstream },
   );
+  const edge = await startEdgeHost({
+    port: portalPort,
+    portalUpstream,
+    agentUpstream: upstream.origin,
+    trustedOrigins: [origins.consumer, origins.next],
+    log: hosts.log,
+  });
+  hosts.onStop(() => edge.close());
   return {
     origins,
     upstream: upstream.origin,

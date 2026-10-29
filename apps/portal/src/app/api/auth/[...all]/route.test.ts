@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -182,5 +183,23 @@ describe("anonymous sign-in", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.handler).toHaveBeenCalledWith(request);
+  });
+});
+
+describe("public DPoP endpoint", () => {
+  it("uses the configured public URL, ignoring proxy host headers", async () => {
+    await POST(
+      new Request("http://internal:3000/api/auth/oauth2/token", {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "x-forwarded-host": "attacker.example",
+        },
+        body: "grant_type=authorization_code&code=fixture",
+      }),
+    );
+    const forwarded = mocks.handler.mock.calls[0][0] as Request;
+    expect(forwarded.url).toBe("https://portal.example/api/auth/oauth2/token");
+    expect(await forwarded.text()).toContain("code=fixture");
   });
 });

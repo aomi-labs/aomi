@@ -7,11 +7,6 @@ import {
   setAppCommand,
   setModelCommand,
 } from "./commands/control";
-import {
-  clearByokKeysCommand,
-  saveByokKeyCommand,
-  showByokKeysCommand,
-} from "./commands/byok";
 import { buildCliConfig } from "./commands/defs/shared";
 import { CliSession } from "./cli-session";
 import { CliExit, fatal } from "./errors";
@@ -32,9 +27,6 @@ function printReplHelp(): void {
   console.log("  /model <rig>           Set the active backend model");
   console.log("  /model list            Show available models");
   console.log("  /model show            Show the current model");
-  console.log("  /key <provider:key>    Set a BYOK provider key");
-  console.log("  /key show              Show current BYOK provider key status");
-  console.log("  /key clear             Clear all BYOK provider keys");
   console.log("  :exit                  Quit the CLI");
 }
 
@@ -75,27 +67,6 @@ async function handleModelCommand(
 
   await setModelCommand(config, nextModel, { printLocation: false });
   config.model = nextModel;
-}
-
-async function handleKeyCommand(
-  config: CliConfig,
-  command: string,
-): Promise<void> {
-  if (!command) {
-    fatal("Usage: /key <provider:key> | /key show | /key clear");
-  }
-
-  if (command === "show") {
-    await showByokKeysCommand(config, { printLocation: false });
-    return;
-  }
-
-  if (command === "clear") {
-    await clearByokKeysCommand(config, { printLocation: false });
-    return;
-  }
-
-  await saveByokKeyCommand(config, command, { printLocation: false });
 }
 
 export async function handleReplLine(
@@ -155,11 +126,7 @@ export async function handleReplLine(
     return "continue";
   }
 
-  if (trimmed === "/key" || trimmed.startsWith("/key ")) {
-    const command = trimmed.slice("/key".length).trim();
-    await handleKeyCommand(config, command);
-    return "continue";
-  }
+  if (trimmed.startsWith("/")) fatal("Unknown command. Use /heap for available commands.");
 
   await chatCommand(config, trimmed, showTool);
   return "continue";
@@ -179,7 +146,7 @@ export async function runInteractiveCli(
 
   console.log("Interactive Aomi CLI ready.");
   console.log(
-    "Commands: /heap, /mode auto|direct [app], /app <name>, /model <rig>|list|show, /key, :exit",
+    "Commands: /heap, /mode auto|direct [app], /app <name>, /model <rig>|list|show, :exit",
   );
 
   const rl = createInterface({ input, output });
@@ -208,18 +175,9 @@ export async function runInteractiveCli(
 }
 
 export async function runRootCli(args: Record<string, unknown>): Promise<void> {
-  let config = buildCliConfig(args);
+  const config = buildCliConfig(args);
   const prompt = str(args.prompt);
   const showTool = args["show-tool"] === true;
-  const byokKey = str(args["provider-key"]);
-
-  if (byokKey) {
-    await saveByokKeyCommand(config, byokKey, { printLocation: false });
-    // Saving a key can create the backing session/client binding. Reuse it
-    // for the following prompt instead of spawning a second fresh session.
-    config = { ...config, freshSession: false };
-  }
-
   if (prompt) {
     await chatCommand(config, prompt, showTool);
     return;

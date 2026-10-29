@@ -75,6 +75,7 @@ import {
 } from "@assistant-ui/react";
 import {
   CapabilityComposerProvider,
+  EditCapabilityComposerProvider,
   useCapabilityComposer,
 } from "@/composer/capability-composer/provider";
 import { CapabilityMentionInput } from "@/composer/capability-composer/input";
@@ -859,26 +860,39 @@ const UserActionBar: FC = () => {
 const EditComposer: FC = () => {
   return (
     <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 px-2 first:mt-4">
-      <ComposerPrimitive.Root className="aui-edit-composer-root max-w-7/8 bg-aomi-surface-2 ml-auto flex w-full flex-col rounded-2xl">
-        <ComposerPrimitive.Input
-          aria-label="Edit message"
-          className="aui-edit-composer-input text-foreground flex min-h-[60px] w-full resize-none bg-transparent p-4 outline-none dark:text-white"
-          autoFocus
-        />
+      <EditCapabilityComposerProvider>
+        <ComposerPrimitive.Root className="aui-edit-composer-root border-aomi-border bg-aomi-surface-2 max-w-7/8 ml-auto flex w-full flex-col rounded-2xl border pt-3">
+          <CapabilityMentionInput
+            placeholder=""
+            ariaLabel="Edit message"
+            testId={testIds.editComposerInput}
+            className="aui-edit-composer-input text-aomi-fg placeholder:text-aomi-muted min-h-[60px] w-full resize-none whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
+            autoFocus
+          />
 
-        <div className="aui-edit-composer-footer mx-3 mb-3 flex items-center justify-center gap-2 self-end">
-          <ComposerPrimitive.Cancel asChild>
-            <Button variant="ghost" size="sm" aria-label="Cancel edit">
-              Cancel
-            </Button>
-          </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send asChild>
-            <Button size="sm" aria-label="Save and resend">
-              Save and resend
-            </Button>
-          </ComposerPrimitive.Send>
-        </div>
-      </ComposerPrimitive.Root>
+          <div className="aui-edit-composer-footer mx-3 mb-3 flex items-center gap-2 self-end">
+            <ComposerPrimitive.Cancel asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-aomi-muted hover:text-aomi-fg rounded-full text-[13px] hover:bg-transparent"
+                aria-label="Cancel edit"
+              >
+                Cancel
+              </Button>
+            </ComposerPrimitive.Cancel>
+            <ComposerPrimitive.Send asChild>
+              <Button
+                size="sm"
+                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg rounded-full text-[13px] transition-opacity hover:opacity-90"
+                aria-label="Save and resend"
+              >
+                Save and resend
+              </Button>
+            </ComposerPrimitive.Send>
+          </div>
+        </ComposerPrimitive.Root>
+      </EditCapabilityComposerProvider>
     </div>
   );
 };

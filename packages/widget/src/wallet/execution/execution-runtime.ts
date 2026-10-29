@@ -4,15 +4,27 @@ import {
   toViemSignMessageArgs,
   toViemSignTypedDataArgs,
 } from "@aomi-labs/react";
+import { walletDebug } from "@/wallet/wallet-debug";
 import type { EvmExecutionRuntime } from "@/wallet/composer/types";
 import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
-import type { WalletClient } from "viem";
-import { normalizeEvmWalletTarget } from "@aomi-labs/client";
-import type { EvmWallet } from "@aomi-labs/client";
+import type { Address, WalletClient } from "viem";
+import {
+  normalizeEvmWalletTarget,
+  partialWalletExecution,
+} from "@aomi-labs/client";
+import type { EvmWallet, WalletEip712Payload } from "@aomi-labs/client";
 import {
   executeWalletKitTransaction,
   getPreferredRpcUrl,
+  sendWalletCallBundle,
+  describeAtomicBatch,
+  waitForReceipt,
 } from "./wallet-execution";
+import {
+  knownNoBatch,
+  markNoBatch,
+} from "@/wallet/runtime/evm/capability-probe";
+import { shouldProbeWalletCapabilities } from "@/wallet/runtime/evm/wagmi-hooks";
 
 type PreparedTransaction = Parameters<
   NonNullable<EvmWallet["sendPreparedTransaction"]>
@@ -48,6 +60,7 @@ export function buildEvmExecutionRuntime(
     walletClient: evm.walletClient,
     ...overrides,
   };
+  const capabilities = runtime.capabilities;
   const sendCallsSyncAsync = runtime.sendCallsSyncAsync;
   const sendTransactionAsync = runtime.sendTransactionAsync;
   const signTypedDataAsync = runtime.signTypedDataAsync;
@@ -59,7 +72,33 @@ export function buildEvmExecutionRuntime(
     (activeConnector && activeAddress && sendTransactionAsync) ||
     walletClient?.account?.type === "local",
   );
-  const assertActiveSignerAddress = (payload: PreparedTransaction) => {
+  // EIP-5792 bundles go through the connected wallet only.
+  const canSendPreparedCalls = Boolean(
+    activeConnector &&
+    activeAddress &&
+    sendTransactionAsync &&
+    sendCallsSyncAsync,
+  );
+  // Rabby isn't probed (its probe prompts the user), so it isn't bundled.
+  const batches =
+    canSendPreparedCalls &&
+    shouldProbeWalletCapabilities({
+      account: activeAddress as Address | undefined,
+      connector: activeConnector,
+      stableId: evm.activeEvmConnection?.stableId,
+      walletName: evm.activeEvmConnection?.walletName,
+    });
+  const signMessageAsync = runtime.signMessageAsync;
+  // A message commit is signed by the wallet the user connected (pinned to
+  // its connector), or a local account.
+  const canSignPreparedMessage = Boolean(
+    (activeConnector &&
+      activeAddress &&
+      signTypedDataAsync &&
+      signMessageAsync) ||
+    walletClient?.account?.type === "local",
+  );
+  const assertActiveSignerAddress = (payload: { signer: string }) => {
     const address = activeAddress ?? walletClient?.account?.address;
     if (!address || address.toLowerCase() !== payload.signer.toLowerCase())
       throw new Error("Expected signing wallet is not active");
@@ -170,6 +209,91 @@ export function buildEvmExecutionRuntime(
             });
           }
         : undefined),
+    // Display only: the wagmi public client for the chain, else its RPC.
+    waitForEvmReceipt:
+      runtime.waitForEvmReceipt ??
+      evm.waitForReceipt ??
+      (({ chainId, hash }) =>
+        waitForReceipt(
+          {
+            chainsById: runtime.chainsById,
+            waitForTransactionReceipt: runtime.waitForTransactionReceipt,
+          },
+          chainId,
+          hash as `0x${string}`,
+        )),
+    supportsAtomicEvmBatch:
+      runtime.supportsAtomicEvmBatch ??
+      (batches
+        ? (chainId) => {
+            const decision = knownNoBatch(
+              activeConnector!.uid,
+              chainId,
+              activeAddress!,
+            )
+              ? { supported: false, reason: "refused" }
+              : describeAtomicBatch(capabilities, chainId);
+            walletDebug("aa:batch-decision", {
+              chainId,
+              connector: activeConnector?.id,
+              ...decision,
+            });
+            return decision.supported;
+          }
+        : undefined),
+    sendPreparedEvmCalls:
+      runtime.sendPreparedEvmCalls ??
+      (canSendPreparedCalls
+        ? async (payload, onPhase) => {
+            assertActiveSignerAddress(payload);
+            if (!runtime.chainsById[payload.chain_id])
+              throw new Error("Commit chain is not configured");
+            return sendWalletCallBundle({
+              onRefused: () =>
+                markNoBatch(
+                  activeConnector!.uid,
+                  payload.chain_id,
+                  payload.signer,
+                ),
+              calls: payload.calls.map((call) => ({
+                chainId: payload.chain_id,
+                to: normalizeEvmWalletTarget(call.to),
+                value: BigInt(call.value),
+                data: call.data as `0x${string}`,
+              })),
+              state: {
+                currentChainId: runtime.currentChainId,
+                capabilities,
+                sendCallsSyncAsync: (args) =>
+                  sendCallsSyncAsync!({
+                    ...args,
+                    account: payload.signer as `0x${string}`,
+                    connector: activeConnector,
+                  }),
+                sendTransactionAsync: (args) =>
+                  sendTransactionAsync!({
+                    ...args,
+                    account: payload.signer as `0x${string}`,
+                    connector: activeConnector,
+                  }),
+                switchChainAsync: switchChainAsync
+                  ? ({ chainId }) =>
+                      switchChainAsync({ chainId, connector: activeConnector })
+                  : undefined,
+                chainsById: runtime.chainsById,
+                getPreferredRpcUrl,
+                waitForTransactionReceipt: runtime.waitForTransactionReceipt,
+              },
+              onPhase,
+            }).catch((error) => {
+              if (partialWalletExecution(error)) throw error;
+              throw new Error(
+                `Wallet batch request failed: ${errorMessage(error)}`,
+                { cause: error },
+              );
+            });
+          }
+        : undefined),
     signEvmTransaction:
       runtime.signEvmTransaction ??
       (async (payload) => {
@@ -201,6 +325,60 @@ export function buildEvmExecutionRuntime(
           maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas),
         });
       }),
+    signPreparedEvmMessage:
+      runtime.signPreparedEvmMessage ??
+      (canSignPreparedMessage
+        ? async (payload) => {
+            assertActiveSignerAddress(payload);
+            const account = payload.signer as `0x${string}`;
+            const message = payload.message;
+            const typed =
+              message.format === "typed_data"
+                ? toViemSignTypedDataArgs({
+                    typed_data:
+                      message.typed_data as WalletEip712Payload["typed_data"],
+                  })
+                : undefined;
+            // `0x` hex is signed as its bytes, other text as UTF-8.
+            const personal =
+              message.format === "personal"
+                ? toViemSignMessageArgs({ non_typed_data: message.message })
+                : undefined;
+            if (!typed && !personal)
+              throw new Error("Message commit has nothing to sign");
+            if (activeConnector && signTypedDataAsync && signMessageAsync)
+              return (
+                typed
+                  ? signTypedDataAsync({
+                      ...typed,
+                      account,
+                      connector: activeConnector,
+                    })
+                  : signMessageAsync({
+                      ...personal,
+                      account,
+                      connector: activeConnector,
+                    })
+              ).catch((error: unknown) => {
+                throw new Error(
+                  `Wallet signature request failed: ${errorMessage(error)}`,
+                  { cause: error },
+                );
+              });
+            const local = walletClient?.account;
+            if (!walletClient || local?.type !== "local")
+              throw new Error("Expected signing wallet is not connected");
+            return typed
+              ? walletClient.signTypedData({
+                  ...(typed as Parameters<WalletClient["signTypedData"]>[0]),
+                  account: local,
+                })
+              : walletClient.signMessage({
+                  ...(personal as Parameters<WalletClient["signMessage"]>[0]),
+                  account: local,
+                });
+          }
+        : undefined),
     sendTransaction:
       runtime.sendTransaction ??
       (sendTransactionAsync
@@ -210,18 +388,20 @@ export function buildEvmExecutionRuntime(
               state: {
                 currentChainId:
                   execution?.chainIdAlreadySelected ?? runtime.currentChainId,
-                capabilities: runtime.capabilities,
+                capabilities,
                 nativeWalletExecution: runtime.nativeWalletExecution,
                 sendCallsSyncAsync: sendCallsSyncAsync
                   ? async (args) =>
                       sendCallsSyncAsync({
                         ...args,
+                        account: activeAddress as `0x${string}` | undefined,
                         connector: runtime.activeConnector,
                       })
                   : undefined,
                 sendTransactionAsync: async (args) =>
                   sendTransactionAsync({
                     ...args,
+                    account: activeAddress as `0x${string}` | undefined,
                     connector: runtime.activeConnector,
                   }),
                 switchChainAsync: switchChainAsync

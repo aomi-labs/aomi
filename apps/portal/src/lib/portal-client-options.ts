@@ -12,7 +12,6 @@
 import { hostedPortalOrigin } from "./hosted-portal";
 import { useEffect, useMemo, useState } from "react";
 import { type AomiClientOptions } from "@aomi-labs/react";
-import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
 import {
   createWidgetX402Client,
@@ -23,7 +22,6 @@ export type RequestedAppConfig = {
   app: string | null;
   applicationId: string | null;
   locked: boolean;
-  inferenceFunding: AomiInferenceFundingSource | undefined;
 };
 
 export function getRequestedAppConfig(search: string): RequestedAppConfig {
@@ -49,17 +47,7 @@ export function getRequestedAppConfig(search: string): RequestedAppConfig {
       params.get("lock_app") === "true" ||
       params.get("app_locked") === "1" ||
       params.get("app_locked") === "true",
-    inferenceFunding: parseInferenceFunding(
-      params.get("inference_funding") ?? params.get("funding"),
-    ),
   };
-}
-
-function parseInferenceFunding(
-  value: string | null,
-): AomiInferenceFundingSource | undefined {
-  const normalized = value?.trim().toLowerCase();
-  return normalized === "user_byok" ? normalized : undefined;
 }
 
 export function useRequestedAppConfig(): RequestedAppConfig {
@@ -67,7 +55,6 @@ export function useRequestedAppConfig(): RequestedAppConfig {
     app: null,
     applicationId: null,
     locked: false,
-    inferenceFunding: undefined,
   });
 
   useEffect(() => {

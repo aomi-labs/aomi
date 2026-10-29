@@ -35,7 +35,7 @@ export function normalizeDeviceAuthProvider(
 }
 
 export function isDeviceAuthRoute(pathname: string): boolean {
-  return pathname === "/device-auth" || pathname === "/oauth/device";
+  return pathname === "/device-auth";
 }
 
 export function requestedDeviceAuthProvider(

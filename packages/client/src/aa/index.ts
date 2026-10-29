@@ -17,6 +17,7 @@ export {
 
 export {
   executeWalletCalls,
+  extractBatchTransactionHashes,
   partialWalletExecution,
   PartialWalletExecutionError,
 } from "./execute";

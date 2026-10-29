@@ -45,8 +45,10 @@ type Bot = {
   status: string;
   label?: string | null;
   handoverApp: string;
-  /** null = the Aomi platform default. */
+  /** null = no Mini App. */
   miniAppUrl?: string | null;
+  /** The menu button's label; null reads "Open". */
+  miniAppLabel?: string | null;
   /** null = custom commands unsupported. */
   commandEndpoint?: string | null;
   commands?: string[];
@@ -100,6 +102,7 @@ type Draft = {
  *  seed are sent, so an untouched card never rewrites what the manager has. */
 type CommandDraft = {
   miniAppUrl: string;
+  miniAppLabel: string;
   commandEndpoint: string;
   commands: string;
 };
@@ -112,6 +115,7 @@ function commandPatch(
   seed: CommandDraft,
 ): {
   miniAppUrl?: string | null;
+  miniAppLabel?: string | null;
   commandEndpoint?: string | null;
   commands?: string[];
 } {
@@ -119,6 +123,9 @@ function commandPatch(
   return {
     ...(url(draft.miniAppUrl) !== url(seed.miniAppUrl)
       ? { miniAppUrl: url(draft.miniAppUrl) }
+      : {}),
+    ...(url(draft.miniAppLabel) !== url(seed.miniAppLabel)
+      ? { miniAppLabel: url(draft.miniAppLabel) }
       : {}),
     ...(url(draft.commandEndpoint) !== url(seed.commandEndpoint)
       ? { commandEndpoint: url(draft.commandEndpoint) }
@@ -133,6 +140,7 @@ function commandPatch(
 function commandSeed(bot?: Bot): CommandDraft {
   return {
     miniAppUrl: bot?.miniAppUrl ?? "",
+    miniAppLabel: bot?.miniAppLabel ?? "",
     commandEndpoint: bot?.commandEndpoint ?? "",
     commands: (bot?.commands ?? []).join(", "),
   };
@@ -514,12 +522,18 @@ function BotCommandFields({
   );
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {field(
           "miniAppUrl",
           "Mini App URL",
-          { type: "url", placeholder: "Aomi default" },
-          "Opened by /wallet. Leave blank for the Aomi default.",
+          { type: "url", placeholder: "https://app.example.com/telegram" },
+          "Opened from the bot's menu button. Leave blank for none.",
+        )}
+        {field(
+          "miniAppLabel",
+          "Menu button label",
+          { type: "text", placeholder: "Open" },
+          "Shown on the menu button, up to 32 characters.",
         )}
         {field(
           "commandEndpoint",
@@ -845,7 +859,10 @@ function BotCard({
             className="text-dim w-full truncate pt-1 font-mono text-[11px]"
             data-testid="bot-command-summary"
           >
-            Mini App: {bot.miniAppUrl ?? "Aomi default"}
+            Mini App:{" "}
+            {bot.miniAppUrl
+              ? `${bot.miniAppLabel ?? "Open"} → ${bot.miniAppUrl}`
+              : "none"}
             {bot.commandEndpoint ? ` · endpoint: ${bot.commandEndpoint}` : ""}
             {(bot.commands ?? []).length
               ? ` · ${(bot.commands ?? []).map((command) => `/${command}`).join(" ")}`

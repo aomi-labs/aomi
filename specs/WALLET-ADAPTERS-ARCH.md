@@ -1309,7 +1309,7 @@ Coverage added:
 | `extractBatchTransactionHashes`              | `packages/client/src/aa/execute.ts` | Pulls tx hashes from send-calls receipts and throws if none are present.                                             |
 | `buildSendCallsCapabilities`                 | `packages/client/src/aa/execute.ts` | Builds `atomic` and `paymasterService` capabilities for `wallet_sendCalls`.                                          |
 | `sanitizeSponsorshipPaymasterServiceContext` | `packages/client/src/aa/execute.ts` | Removes ERC20 payment keys from sponsorship paymaster context.                                                       |
-| `isUnsupportedAtomicCapabilityError`         | `packages/client/src/aa/execute.ts` | Detects wallet errors that mean atomic batching is unsupported.                                                      |
+| `isBatchRefusal`                             | `packages/client/src/aa/execute.ts` | A bundle refused before anything was sent, by code (5700, 5760, -32601, 4200).                                       |
 | `resolveChainCapabilities`                   | `packages/client/src/aa/execute.ts` | Looks up capabilities by `eip155:chainId`, decimal chain id, or hex chain id.                                        |
 | `isAADebugEnabled` / `debugAA`               | `packages/client/src/aa/execute.ts` | Optional debug logging controlled by global/localStorage flags.                                                      |
 

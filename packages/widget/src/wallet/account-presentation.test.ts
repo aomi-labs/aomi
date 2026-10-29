@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  isProviderSigningWallet,
   providerEmailDisplayHint,
   visibleSignInMethods,
   walletConnectionSummary,
@@ -35,29 +34,6 @@ describe("wallet management classification", () => {
         },
       ]),
     ).toBe("2 linked wallets · 1 not connected on this device");
-  });
-
-  it("keeps public wallet proofs out of provider signing controls", () => {
-    expect(
-      isProviderSigningWallet({
-        id: "external",
-        chain: "evm",
-        address: "0x1",
-        linkedVia: "siwe",
-        desiredMode: "manual",
-        authVersion: 1,
-      }),
-    ).toBe(false);
-    expect(
-      isProviderSigningWallet({
-        id: "para",
-        chain: "evm",
-        address: "0x2",
-        linkedVia: "para",
-        desiredMode: "auto",
-        authVersion: 1,
-      }),
-    ).toBe(true);
   });
 
   it("hides protected transport and email identities but keeps independent sign-ins", () => {

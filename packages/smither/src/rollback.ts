@@ -1,13 +1,23 @@
-import {
-  BackendClient,
-  type ListDeploymentRecordsResult,
+import type {
+  ListDeploymentRecordsInput,
+  ListDeploymentRecordsResult,
+  PromoteInput,
+  PromoteResult,
 } from "@aomi-labs/deploy";
+import { ManagerClient } from "@aomi-labs/internal";
 import { resolveActivationCredential } from "./commands";
 
-export type RollbackClient = Pick<
-  BackendClient,
-  "listDeploymentRecords" | "promote"
->;
+/**
+ * The two manager calls a rollback needs. Written out rather than picked from
+ * `ManagerClient` so the published typings name only `@aomi-labs/deploy` types;
+ * `@aomi-labs/internal` is private and bundled, never a dependency.
+ */
+export type RollbackClient = {
+  listDeploymentRecords(
+    input: ListDeploymentRecordsInput,
+  ): Promise<ListDeploymentRecordsResult>;
+  promote(input: PromoteInput): Promise<PromoteResult>;
+};
 
 export type RollbackTarget = {
   deploymentId: string;
@@ -63,7 +73,7 @@ export async function rollbackClientFromEnv(options: {
   env?: NodeJS.ProcessEnv;
   activationToken?: string;
   backendUrl?: string;
-}): Promise<BackendClient> {
+}): Promise<RollbackClient> {
   const env = options.env ?? process.env;
   const backendUrl = options.backendUrl ?? env.AOMI_BACKEND_URL;
   if (!backendUrl) {
@@ -80,7 +90,5 @@ export async function rollbackClientFromEnv(options: {
       "No activation token found. Set AOMI_APP_ACTIVATION_TOKEN or pass --activation-token.",
     );
   }
-  return new BackendClient({
-    aomi: { backendUrl, activationToken: activation.token },
-  });
+  return new ManagerClient({ url: backendUrl, bearer: activation.token });
 }

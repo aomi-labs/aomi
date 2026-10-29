@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 350" width="100%" role="img" aria-label="Search tree from baseline through depth-one and depth-two calls; bob withdraw after alice deposit breaks the rule and is minimized and replayed twice."><style>
+text{font-family:"Geist Mono",ui-monospace,Menlo,monospace}
+.n-box{fill:#fff;stroke:#d4d4d8;stroke-width:1.2}.n-kept{stroke:#09090b}.n-pruned{stroke:#a1a1aa;stroke-dasharray:4 3}
+.n-bad{fill:#fbe9eb;stroke:#d2495b;stroke-width:1.8}.n-ok{fill:#e4f3ec;stroke:#2e9e6b;stroke-width:1.8}
+.edge{stroke:#d4d4d8;stroke-width:1.4;fill:none}.edge-hot{stroke:#d2495b;stroke-width:2}
+.t-main{fill:#09090b;font-size:12.5px}.t-sub{fill:#71717a;font-size:11px}.t-bad{fill:#d2495b;font-size:11px;font-weight:500}
+.t-ok{fill:#2e9e6b;font-size:11px;font-weight:500}.t-pruned{fill:#a1a1aa;font-size:12.5px}.t-axis{fill:#71717a;font-size:11px;letter-spacing:.08em}
+</style>
+      <text class="t-axis" x="20" y="18">DEPTH 0</text><text class="t-axis" x="250" y="18">DEPTH 1 · ONE CALL</text><text class="t-axis" x="560" y="18">DEPTH 2 · TWO CALLS</text>
+      <path class="edge" d="M150 176 C 200 176, 200 66, 250 66"/><path class="edge edge-hot" d="M150 176 C 200 176, 200 146, 250 146"/><path class="edge" d="M150 176 C 200 176, 200 226, 250 226"/><path class="edge" d="M150 176 C 200 176, 200 306, 250 306"/>
+      <path class="edge" d="M450 146 C 500 146, 510 76, 560 76"/><path class="edge edge-hot" d="M450 146 C 500 146, 510 166, 560 166"/><path class="edge" d="M450 146 C 500 146, 510 256, 560 256"/>
+      <rect class="n-box n-kept" x="20" y="148" width="130" height="56" rx="8"/><text class="t-main" x="34" y="172">baseline</text><text class="t-sub" x="34" y="191">snapshot, funded</text>
+      <rect class="n-box n-pruned" x="250" y="40" width="200" height="52" rx="8"/><text class="t-pruned" x="264" y="62">bob · withdraw(5)</text><text class="t-sub" x="264" y="80">fails: vault empty</text>
+      <rect class="n-box n-kept" x="250" y="120" width="200" height="52" rx="8"/><text class="t-main" x="264" y="142">alice · deposit(5)</text><text class="t-sub" x="264" y="160">new state → keep</text>
+      <rect class="n-box n-pruned" x="250" y="200" width="200" height="52" rx="8"/><text class="t-pruned" x="264" y="222">alice · withdraw(5)</text><text class="t-sub" x="264" y="240">fails: vault empty</text>
+      <rect class="n-box n-pruned" x="250" y="280" width="200" height="52" rx="8"/><text class="t-pruned" x="264" y="302">bob · deposit(5)</text><text class="t-sub" x="264" y="320">same state shape → prune</text>
+      <rect class="n-box n-pruned" x="560" y="50" width="200" height="52" rx="8"/><text class="t-pruned" x="574" y="72">alice · deposit(5)</text><text class="t-sub" x="574" y="90">no new behaviour</text>
+      <rect class="n-box n-bad" x="560" y="136" width="200" height="60" rx="8"/><text class="t-main" x="574" y="158">bob · withdraw(5)</text><text class="t-bad" x="574" y="177">succeeds · bob +5 USDC</text><text class="t-bad" x="574" y="192">rule broken</text>
+      <rect class="n-box n-kept" x="560" y="230" width="200" height="52" rx="8"/><text class="t-main" x="574" y="252">alice · withdraw(5)</text><text class="t-sub" x="574" y="270">expected, rule holds</text>
+      <path class="edge edge-hot" d="M760 166 L 790 166"/>
+      <rect class="n-box n-ok" x="790" y="118" width="100" height="96" rx="8"/><text class="t-ok" x="802" y="142">minimize</text><text class="t-ok" x="802" y="162">replay ×1 ✓</text><text class="t-ok" x="802" y="182">replay ×2 ✓</text><text class="t-main" x="802" y="202">finding</text>
+    </svg>

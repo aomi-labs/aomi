@@ -38,11 +38,11 @@ if (
 for (const directory of [
   "packages/client",
   "packages/react",
+  "packages/service-identity",
   "packages/account",
   "packages/deploy",
   "packages/cli",
   "packages/widget",
-  "packages/widget-lib",
 ]) {
   const path = resolve(directory, "package.json");
   if (!existsSync(path))

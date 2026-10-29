@@ -1,6 +1,6 @@
 import type { AomiClient } from "./client";
 import { normalizeEvmWalletTarget } from "./wallet/target";
-import type { Wallets } from "./wallet/types";
+import type { EvmWallet, Wallets } from "./wallet/types";
 import type { components } from "./generated/agent-v1/types";
 import type { ActionRequest } from "./agent/types";
 import {
@@ -11,12 +11,64 @@ import {
   actionRequestSchema,
   agentSchemas,
 } from "./generated/agent-v1/schemas";
-import { reviewEligibility } from "./commit-lifecycle";
+import { isMessageReview, reviewEligibility } from "./commit-lifecycle";
+import {
+  callsAccepted,
+  errorChain,
+  partialWalletExecution,
+} from "./aa/execute";
+import {
+  COMMIT_REF_ERROR_CODES,
+  CommitStaleError,
+  commitRefError,
+  commitRefPaths,
+  type CommitRefView,
+} from "./commit-ref";
 
+export type CommitTransport = components["schemas"]["CommitTransport"];
+type SignableOf<K extends SignableCommit["kind"]> = Extract<
+  SignableCommit,
+  { kind: K }
+>;
+/** The `request` of a `send_calls` attempt: every batch member's call. */
+export type WalletCallsCommit = SignableOf<"wallet_calls">;
+/** One member's call inside a `send_calls` bundle, in batch order. */
+export type WalletCallsCommitCall = WalletCallsCommit["calls"][number];
+/** The message a wallet signs; `digest` is what the signature covers. */
+export type EvmMessageCommit = SignableOf<"evm_message">;
+/** What a message signature covers: EIP-712 typed data, or ERC-191 bytes
+ * (`0x` hex, or plain text signed as its UTF-8 bytes). */
+export type EvmCommitMessage = EvmMessageCommit["message"];
+/** One row of a message review. Amounts are raw integers. */
+export type MessageReviewRow =
+  | {
+      kind: "allowance";
+      token: string;
+      spender: string;
+      amount: string;
+      unlimited: boolean;
+      /** Unix seconds. */
+      expires_at?: number;
+    }
+  | { kind: "sell"; token: string; amount: string }
+  | { kind: "receive"; token: string; amount: string; minimum: boolean }
+  | { kind: "sign_in"; domain: string; statement?: string }
+  | { kind: "text"; text: string };
+/** What a message signature allows, decoded by the backend. */
+export type MessageReview = {
+  kind: "permit" | "permit2" | "cow_order" | "sign_in" | "generic";
+  rows: MessageReviewRow[];
+  /** Token names for the rows, keyed by the rows' `token` string (EIP-55;
+   * compare case-insensitively). */
+  tokens?: Record<string, { symbol?: string; decimals?: number }>;
+  /** Unix seconds. */
+  expires_at?: number;
+  warning?: string;
+};
 export type CommitView = components["schemas"]["CommitView"];
 export type CommitState = CommitView["state"];
-export type CommitAction = NonNullable<CommitView["action"]>;
 export type SignableCommit = components["schemas"]["SignableCommit"];
+export type CommitAction = NonNullable<CommitView["action"]>;
 export type CommitWalletAttemptRequest =
   components["schemas"]["CommitWalletAttemptRequest"];
 export type CommitWalletAttemptView =
@@ -28,21 +80,46 @@ export type CommitSubmissionPhase =
   | "switching_chain"
   | "awaiting_wallet"
   | "submitting";
+/** What the chain's own receipt said about the sent transactions. Display
+ * only: Commit Service settles the commit and its state replaces this. */
+export type OnChainOutcome = "success" | "reverted";
+const RECEIPT_WATCH_MS = 120_000;
 export type EvmCommitTransaction = Extract<
   SignableCommit,
   { kind: "evm_transaction" }
 >["transaction"];
 type EvmSignableCommit = Extract<SignableCommit, { kind: "evm_transaction" }>;
 /** A commit review in the Action vocabulary rendered by TransactionReview. */
-export type CommitReview = ActionRequest;
+export type CommitReview =
+  | Exclude<ActionRequest, { type: "sign" }>
+  | SignCommitReview;
+type SignCommitReview = Extract<ActionRequest, { type: "sign" }> & {
+  /** Set on a message commit's review (`executionKind: "evm_message"`). */
+  messageReview?: MessageReview;
+};
+/** A message commit's review: a pipeline `sign` request plus its rows. */
+export type MessageCommitReview = SignCommitReview & {
+  executionKind: "evm_message";
+};
 export type CommitManual =
-  | { kind: "signed"; payloads: string[] }
+  /** `version` / `review_digest` bind a message signature to its review. */
+  | {
+      kind: "signed";
+      payloads: string[];
+      version?: number;
+      review_digest?: string;
+    }
   | { kind: "broadcast"; transaction_id: string }
   | { kind: "rejected" };
 type WalletRejection = Extract<
   CommitWalletAttemptOutcome,
   { kind: "rejected" }
 >;
+type WalletSendPlan = {
+  transport: "browser_send" | "send_calls";
+  payload: EvmSignableCommit;
+  reviewDigest: string;
+};
 export type CommitExecutionReview = {
   expectedVersion: number;
   expectedReviewDigest?: string;
@@ -51,6 +128,8 @@ export type CommitRecoveryRecord = {
   clientRequestId: string;
   attemptId?: string;
   transactionId?: string;
+  /** Hashes a `send_calls` bundle landed, saved before they are reported. */
+  transactionIds?: string[];
   rejected?: true;
   rejection?: WalletRejection;
 };
@@ -89,6 +168,21 @@ export type CommitCapabilities = {
     commit: CommitView,
     payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
   ) => boolean;
+  /** Send a whole batch as one EIP-5792 bundle; answers every landed hash. */
+  walletSendCalls?: (
+    commit: CommitView,
+    request: WalletCallsCommit,
+    onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void,
+  ) => Promise<string[]>;
+  /** The connected wallet is the signer and may be asked to bundle on the
+   * commit's chain: it is not known to lack batching there. */
+  canWalletSendCalls?: (commit: CommitView) => boolean;
+  /** The chain's receipt for the hashes the wallet just returned. Resolves
+   * once the receipt is mined; display only, never reported to the backend. */
+  walletReceipt?: (
+    commit: CommitView,
+    transactionIds: string[],
+  ) => Promise<OnChainOutcome>;
   recovery?: CommitRecoveryStore;
 };
 const COMMIT_CAPABILITY_KEYS = [
@@ -100,10 +194,59 @@ const COMMIT_CAPABILITY_KEYS = [
   "walletSend",
   "walletSendPreflight",
   "canWalletSend",
+  "walletSendCalls",
+  "canWalletSendCalls",
   "recovery",
 ] as const satisfies readonly (keyof CommitCapabilities)[];
 export const isTerminalCommit = (view: CommitView): boolean =>
   ["confirmed", "rejected", "failed", "expired"].includes(view.state);
+/** How one group goes out. A group is one batch (one wallet, one chain) or a
+ * lone commit; execution, labels, progress and the review queue all read it. */
+export type GroupPlan = {
+  /** `agent`: Aomi signs after approval, so the browser prompts nothing. */
+  transport: CommitTransport | "agent";
+  /** Wallet prompts for the whole group. */
+  prompts: number;
+  /** Every member lands together. */
+  atomic: boolean;
+};
+/** The plan for the group `leader` leads: the transport its attempt took,
+ * else the one this wallet would take among those the backend allows. A
+ * bundle the wallet is known to refuse falls back to one prompt per member.
+ * Aomi runs an agent group as one operation when the backend marks it
+ * `atomic`, else as one transaction per member. */
+function groupPlan(
+  leader: CommitView,
+  capabilities: CommitCapabilities,
+): GroupPlan {
+  const size = leader.batch?.ordered_commit_ids.length ?? 1;
+  if (leader.approval || leader.signing_mode === "auto")
+    return {
+      transport: "agent",
+      prompts: 0,
+      atomic: size === 1 || leader.atomic === true,
+    };
+  const offered = leader.supported_transports ?? [];
+  const bundles = Boolean(
+    capabilities.walletSendCalls &&
+    capabilities.recovery &&
+    capabilities.canWalletSendCalls?.(leader),
+  );
+  const transport =
+    leader.wallet_attempt?.transport ??
+    (bundles && offered.includes("send_calls")
+      ? "send_calls"
+      : capabilities.walletSend &&
+          capabilities.walletSendPreflight &&
+          capabilities.recovery &&
+          (offered.includes("browser_send") ||
+            leader.action?.kind === "start_wallet_send")
+        ? "browser_send"
+        : "sign_and_broadcast");
+  return transport === "send_calls" && bundles
+    ? { transport, prompts: 1, atomic: true }
+    : { transport, prompts: size, atomic: size === 1 };
+}
 
 const continuationRevision = (view: CommitView): number =>
   view.continuation?.revision ?? -1;
@@ -141,7 +284,9 @@ function commitReview(value: unknown): CommitReview | undefined {
     if (error instanceof PipelineSchemaError) return undefined;
     throw error;
   }
-  return value.type === "execute_evm" || value.type === "execute_svm"
+  return value.type === "execute_evm" ||
+    value.type === "execute_svm" ||
+    isMessageReview(value)
     ? value
     : undefined;
 }
@@ -200,10 +345,16 @@ function walletRejection(phase?: WalletRejection["phase"]): WalletRejection {
 function recordedOutcome(
   record: CommitRecoveryRecord,
 ): CommitWalletAttemptOutcome {
+  if (record.transactionIds?.length)
+    return { kind: "calls", transaction_ids: record.transactionIds };
   return record.transactionId
     ? { kind: "transaction", transaction_id: record.transactionId }
     : walletRejection(record.rejection?.phase);
 }
+const hasRecordedOutcome = (record: CommitRecoveryRecord): boolean =>
+  Boolean(
+    record.transactionId || record.transactionIds?.length || record.rejected,
+  );
 /** A 4xx answer proves the attempt was not admitted; 408 stays ambiguous. */
 function isDefiniteRequestFailure(error: unknown): boolean {
   const status = /^HTTP (4\d\d)\b/.exec(
@@ -212,28 +363,66 @@ function isDefiniteRequestFailure(error: unknown): boolean {
   return status !== undefined && status !== "408";
 }
 
+/** A 4001 before the wallet accepted anything: once it answered a call id,
+ * the calls may land whatever it says after, so the outcome is reconciled. */
 function isExplicitWalletRejection(error: unknown): boolean {
-  const seen = new Set<object>();
-  let candidate = error;
-  while (candidate && typeof candidate === "object" && !seen.has(candidate)) {
-    seen.add(candidate);
-    const current = candidate as { code?: unknown; cause?: unknown };
-    if (current.code === 4001 || current.code === "4001") return true;
-    candidate = current.cause;
-  }
-  return false;
+  return (
+    !callsAccepted(error) &&
+    errorChain(error).some(({ code }) => code === 4001 || code === "4001")
+  );
 }
 
 function payloadMatchesCommit(
   commit: CommitView,
-  payload: SignableCommit,
+  payload: SignableCommit | WalletCallsCommit,
 ): boolean {
-  if (payload.kind === "svm_transaction")
+  if (payload.kind === "svm_transaction" || payload.kind === "svm_message")
     return commit.chain_family === "svm" && payload.signer === commit.signer;
   return (
     commit.chain_family === "evm" &&
     payload.signer.toLowerCase() === commit.signer.toLowerCase() &&
     payload.chain_id === Number(commit.chain_ref)
+  );
+}
+
+/** A message signature names the review it covers on every route, as ref
+ * writes always do. */
+function signedWrite(view: CommitView, payloads: string[]): CommitManual {
+  return view.action?.kind === "sign" &&
+    view.action.payload.kind === "evm_message"
+    ? {
+        kind: "signed",
+        payloads,
+        version: view.version,
+        ...(view.review ? { review_digest: view.review.digest } : {}),
+      }
+    : { kind: "signed", payloads };
+}
+
+/**
+ * Signs a message commit with the wallet's prepared-message signer, else its
+ * plain typed-data or personal signer: those take the typed data whole and
+ * read `0x` hex as its bytes, text as UTF-8, exactly as a prepared one does.
+ */
+function messageSigner(
+  evm: EvmWallet | undefined,
+  payload: EvmMessageCommit,
+): (() => Promise<string>) | undefined {
+  const { signPreparedMessage, signTypedData, signMessage } = evm ?? {};
+  if (signPreparedMessage) return () => signPreparedMessage(payload);
+  const { message, chain_id: chainId } = payload;
+  const sign =
+    message.format === "typed_data"
+      ? signTypedData &&
+        (() => signTypedData({ typedData: message.typed_data, chainId }))
+      : signMessage &&
+        (() => signMessage({ message: message.message, chainId }));
+  return (
+    sign &&
+    (async () => {
+      const signed = await sign();
+      return typeof signed === "string" ? signed : signed.signature;
+    })
   );
 }
 
@@ -244,6 +433,8 @@ export function commitCapabilities(
   const evm = wallets.evm;
   const sendPrepared = evm?.sendPreparedTransaction;
   const preparePrepared = evm?.preparePreparedTransaction;
+  const sendPreparedCalls = evm?.sendPreparedCalls;
+  const supportsAtomicBatch = evm?.supportsAtomicBatch;
   const canSign = (commit: CommitView, payload: SignableCommit): boolean => {
     if (!payloadMatchesCommit(commit, payload)) return false;
     if (payload.kind === "svm_transaction")
@@ -257,7 +448,9 @@ export function commitCapabilities(
       evm?.address.toLowerCase() === commit.signer.toLowerCase() &&
       (payload.kind === "evm_transaction"
         ? evm?.signTransaction
-        : evm?.signMessage),
+        : payload.kind === "evm_message"
+          ? messageSigner(evm, payload)
+          : evm?.signMessage),
     );
   };
   const canWalletBroadcast = (commit: CommitView): boolean =>
@@ -306,6 +499,51 @@ export function commitCapabilities(
           },
         }
       : {}),
+    ...(evm && sendPreparedCalls && supportsAtomicBatch
+      ? {
+          canWalletSendCalls(commit) {
+            return (
+              commit.chain_family === "evm" &&
+              evm.address.toLowerCase() === commit.signer.toLowerCase() &&
+              supportsAtomicBatch(Number(commit.chain_ref))
+            );
+          },
+          async walletSendCalls(commit, request, onPhase) {
+            if (
+              !payloadMatchesCommit(commit, request) ||
+              evm.address.toLowerCase() !== commit.signer.toLowerCase()
+            )
+              throw new Error("Connect the expected signing wallet");
+            const walletRequest = {
+              ...request,
+              calls: request.calls.map((call) => ({
+                ...call,
+                to: normalizeEvmWalletTarget(call.to),
+              })),
+            };
+            return onPhase
+              ? sendPreparedCalls(walletRequest, onPhase)
+              : sendPreparedCalls(walletRequest);
+          },
+        }
+      : {}),
+    ...(evm?.waitForReceipt
+      ? {
+          async walletReceipt(commit, transactionIds) {
+            const chainId = Number(commit.chain_ref);
+            const receipts = await Promise.all(
+              transactionIds.map((hash) =>
+                evm.waitForReceipt!({ chainId, hash }),
+              ),
+            );
+            if (receipts.some((receipt) => receipt.status === "reverted"))
+              return "reverted";
+            if (receipts.every((receipt) => receipt.status === "success"))
+              return "success";
+            throw new Error("Receipt status unknown");
+          },
+        }
+      : {}),
     async sign(commit, payload) {
       if (!payloadMatchesCommit(commit, payload))
         throw new Error(
@@ -328,23 +566,17 @@ export function commitCapabilities(
           await wallets.evm.switchChain?.(payload.chain_id);
           return [await wallets.evm.signTransaction(payload)];
         }
-        case "user_operation": {
-          if (!wallets.evm?.signMessage)
-            throw new Error("Wallet does not support owner signatures");
-          await wallets.evm.switchChain?.(payload.chain_id);
-          const outputs: string[] = [];
-          for (const request of payload.requests) {
-            if (request.kind !== "personal_sign")
-              throw new Error("Unsupported owner authorization");
-            const signed = await wallets.evm.signMessage({
-              message: request.message,
-              chainId: payload.chain_id,
-            });
-            outputs.push(
-              typeof signed === "string" ? signed : signed.signature,
-            );
-          }
-          return outputs;
+        case "evm_message": {
+          const sign = messageSigner(wallets.evm, payload);
+          if (!sign) throw new Error("Wallet does not support message commits");
+          if (
+            wallets.evm!.address.toLowerCase() !== payload.signer.toLowerCase()
+          )
+            throw new Error("Connect the expected signing wallet");
+          // Wallets bind typed data to their active chain (`domain.chainId`).
+          if (payload.message.format === "typed_data")
+            await wallets.evm!.switchChain?.(payload.chain_id);
+          return [await sign()];
         }
         case "svm_transaction": {
           if (!wallets.svm?.signTransaction)
@@ -362,6 +594,10 @@ export function commitCapabilities(
             throw new Error("Wallet did not return signed transaction bytes");
           return [bytes];
         }
+        case "wallet_calls":
+          throw new Error("Wallet call batches are sent, not signed");
+        case "svm_message":
+          throw new Error("Agent wallets sign Solana messages on the server");
       }
     },
     async walletBroadcast(commit, bytes) {
@@ -379,6 +615,11 @@ export function commitCapabilities(
     },
   };
 }
+
+/** Which commit routes a controller talks to. `ref` is the thread-less
+ * `/v1/commits/:ref` family: no X-Thread-Id, no thread ownership check, and
+ * every write names the version (and review digest) it was reviewed at. */
+export type CommitRouteFamily = "agent" | "pipeline" | "ref";
 
 /** A view cache, not another lifecycle. GET /commits is authoritative after
  * reconnects, lost responses, signing and external submissions. */
@@ -399,6 +640,8 @@ export class CommitController {
     }
   >();
   private submissionPhases = new Map<string, CommitSubmissionPhase>();
+  private onChain = new Map<string, OnChainOutcome>();
+  private receiptWatches = new Map<string, AbortController>();
   private phaseGenerations = new Map<string, symbol>();
   private pending = new Map<string, CommitManual>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -414,17 +657,66 @@ export class CommitController {
     private client: AomiClient,
     readonly threadId: string,
     private capabilities: CommitCapabilities = {},
-    private readonly routeFamily: "agent" | "pipeline" = "agent",
+    private readonly routeFamily: CommitRouteFamily = "agent",
   ) {}
+  /** Thread-scoped families reject views from other threads; refs have none. */
+  private get threadBound(): boolean {
+    return this.routeFamily !== "ref";
+  }
+  /** Recovery records stay keyed by the commit's thread, so a ref handle and
+   * the chat sidebar reconcile the same wallet attempt. */
+  private scope(id: string): string {
+    return this.threadBound
+      ? this.threadId
+      : (this.views.get(id)?.thread_id ?? this.threadId);
+  }
   all = (): readonly CommitView[] => this.snapshot;
-  submissionPhase = (id: string): CommitSubmissionPhase | undefined =>
-    this.submissionPhases.get(id);
+  /** A member of an atomic group shares its leader's phase while it has
+   * none of its own. */
+  submissionPhase = (id: string): CommitSubmissionPhase | undefined => {
+    const view = this.views.get(id);
+    const leader = view && this.groupLeader(view);
+    return (
+      this.submissionPhases.get(id) ??
+      (leader && this.submissionPhases.get(leader.commit_id))
+    );
+  };
+  /** The chain's receipt verdict while Commit Service has not settled yet. */
+  onChainOutcome = (id: string): OnChainOutcome | undefined =>
+    this.onChain.get(id);
   recoveryRecord = (id: string): CommitRecoveryRecord | undefined =>
-    this.capabilities.recovery?.load(this.threadId, id);
+    this.capabilities.recovery?.load(this.scope(id), id);
   review = (id: string): CommitReview | undefined => {
     const view = this.views.get(id);
     return commitReview(view?.review?.request) ?? this.reviews.get(id);
   };
+  /** The plan of the group `view` belongs to. */
+  plan = (view: CommitView): GroupPlan =>
+    groupPlan(this.leader(view), this.available);
+  /** `view` as its card shows it: an unsettled member of an atomic group
+   * reads Submitted while its leader is. Its result and hash stay its own. */
+  groupView = (view: CommitView): CommitView =>
+    this.groupLeader(view)?.state === "submitted"
+      ? { ...view, state: "submitted" }
+      : view;
+  /** The leader whose transient progress `view` shares: they land together
+   * and `view` has no result of its own yet. */
+  private groupLeader(view: CommitView): CommitView | undefined {
+    const leader = this.leader(view);
+    return leader !== view && !isTerminalCommit(view) && this.plan(view).atomic
+      ? leader
+      : undefined;
+  }
+  private leader(view: CommitView): CommitView {
+    const id = view.batch?.ordered_commit_ids[0];
+    return (id && id !== view.commit_id && this.views.get(id)) || view;
+  }
+  /** A later member of a bundle: its leader's attempt runs its call. */
+  private bundled(view: CommitView): boolean {
+    return (
+      Boolean(view.batch?.index) && this.plan(view).transport === "send_calls"
+    );
+  }
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => {
@@ -477,7 +769,8 @@ export class CommitController {
     return { ...this.walletCapabilities, ...this.capabilities };
   }
   ingest(view: CommitView): void {
-    if (this.closed || view.thread_id !== this.threadId) return;
+    if (this.closed || (this.threadBound && view.thread_id !== this.threadId))
+      return;
     const existing = this.views.get(view.commit_id);
     if (this.store(view, false) !== existing) this.schedule();
   }
@@ -495,22 +788,23 @@ export class CommitController {
   }
   canExecute(view: CommitView): boolean {
     if (view.wallet_attempt?.state === "mismatched") return false;
+    if (this.bundled(view)) return false;
     if (this.newAttemptIneligible(view)) return false;
     const recovery = this.capabilities.recovery?.load(
-      this.threadId,
+      this.scope(view.commit_id),
       view.commit_id,
     );
     if (
       view.wallet_attempt &&
       recovery?.attemptId === view.wallet_attempt.attempt_id &&
-      (recovery.transactionId || recovery.rejected)
+      hasRecordedOutcome(recovery)
     )
       return true;
-    const walletSend = this.browserSendSelection(view);
+    const walletSend = this.walletSendPlan(view);
     const canStartWalletSend =
       walletSend &&
-      this.canStartWalletSend() &&
-      (this.available.canWalletSend?.(view, walletSend.payload) ?? true);
+      (walletSend.transport === "send_calls" ||
+        (this.available.canWalletSend?.(view, walletSend.payload) ?? true));
     switch (view.action?.kind) {
       case "sign":
         return Boolean(
@@ -534,9 +828,7 @@ export class CommitController {
     }
   }
   async refresh(id: string): Promise<CommitView> {
-    const view = await this.client.request<CommitView>("GET", this.path(id), {
-      sessionId: this.threadId,
-    });
+    const view = await this.send<CommitView>("GET", this.paths(id).view);
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
     const current = this.store(view);
@@ -582,21 +874,14 @@ export class CommitController {
         throw new Error(
           "Prepared commit payload does not match its signer or chain",
         );
-      const expected =
-        view.action.payload.kind === "user_operation"
-          ? view.action.payload.requests.length
-          : 1;
       if (
         !Array.isArray(payloads) ||
-        payloads.length !== expected ||
-        payloads.some(
-          (payload) => typeof payload !== "string" || !payload.trim(),
-        )
+        payloads.length !== 1 ||
+        typeof payloads[0] !== "string" ||
+        !payloads[0].trim()
       )
-        throw new Error(
-          `Commit requires ${expected} signed payload${expected === 1 ? "" : "s"}`,
-        );
-      return this.manual(id, { kind: "signed", payloads });
+        throw new Error("Commit requires 1 signed payload");
+      return this.manual(id, signedWrite(view, payloads), view);
     });
   }
   /** Report a previously broadcast transaction after reviewing its exact ID. */
@@ -619,10 +904,11 @@ export class CommitController {
           throw new Error(
             "Broadcast transaction does not match the reviewed commit",
           );
-        return this.manual(id, {
-          kind: "broadcast",
-          transaction_id: transactionId,
-        });
+        return this.manual(
+          id,
+          { kind: "broadcast", transaction_id: transactionId },
+          view,
+        );
       },
       (view) => {
         if (view.state !== "submitted" && view.state !== "confirmed")
@@ -666,17 +952,104 @@ export class CommitController {
   async reject(id: string): Promise<CommitView> {
     return this.manual(id, { kind: "rejected" });
   }
+  /** The commit on the thread-less ref route, with its `sign_url` and
+   * whether this session may approve it (`can_approve`). Not cached. */
+  refView(id: string): Promise<CommitRefView> {
+    return this.sendRef<CommitRefView>("GET", commitRefPaths.view(id));
+  }
+  /**
+   * Approve a parked commit (`awaiting_approval`) at the reviewed version and
+   * review digest; Aomi then signs with the agent wallet. Always uses the
+   * thread-less ref route, so it also works for refs from other threads (a
+   * scheduled run). Approving one member approves the whole batch.
+   */
+  async approve(
+    id: string,
+    review?: CommitExecutionReview,
+  ): Promise<CommitRefView> {
+    if (this.closed) throw new Error("Commit session closed");
+    // Without an explicit review, approve exactly what this controller shows.
+    const shown = review
+      ? undefined
+      : (this.views.get(id) ?? (await this.refView(id)));
+    const body: components["schemas"]["CommitRefApprove"] = {
+      version: review?.expectedVersion ?? shown!.version,
+      review_digest:
+        (review ? review.expectedReviewDigest : shown!.review?.digest) ?? "",
+    };
+    const view = await this.sendRef<CommitRefView>(
+      "POST",
+      commitRefPaths.approve(id),
+      body,
+    );
+    if (view.commit_id !== id)
+      throw new Error("Commit response identity mismatch");
+    if (!this.threadBound || view.thread_id === this.threadId) {
+      this.store(view);
+      // The other members moved with this one; pick them up now.
+      for (const member of view.batch?.ordered_commit_ids ?? [])
+        if (member !== id && this.views.has(member))
+          void this.refresh(member).catch(() => undefined);
+      this.schedule();
+    }
+    return view;
+  }
   close(): void {
     this.closed = true;
+    for (const id of [...this.receiptWatches.keys()]) this.dropReceipt(id);
     clearTimeout(this.timer);
     this.listeners.clear();
   }
-  private path(id: string): string {
+  private paths(id: string) {
+    if (this.routeFamily === "ref")
+      return {
+        view: commitRefPaths.view(id),
+        attempts: commitRefPaths.attempts(id),
+        report: (attemptId: string) => commitRefPaths.report(id, attemptId),
+      };
     const root =
       this.routeFamily === "pipeline"
         ? "/v1/pipeline/evm/commits"
         : "/api/commits";
-    return `${root}/${encodeURIComponent(id)}`;
+    const view = `${root}/${encodeURIComponent(id)}`;
+    return {
+      view,
+      attempts: `${view}/wallet-attempts`,
+      report: (attemptId: string) =>
+        `${view}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
+    };
+  }
+  /** Thread families keep the legacy transport and its `HTTP <status>` errors;
+   * refs answer typed errors (CommitNotFoundError, CommitStaleError). */
+  private async send<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    if (this.threadBound)
+      return this.client.request<T>(method, path, {
+        sessionId: this.threadId,
+        body,
+      });
+    return this.sendRef<T>(method, path, body);
+  }
+  private async sendRef<T>(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const response = await this.client.requestResponse(method, path, { body });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      let parsed: unknown = text;
+      try {
+        parsed = text ? JSON.parse(text) : undefined;
+      } catch {
+        // A non-JSON error body still maps by status.
+      }
+      throw commitRefError(response.status, response.statusText, parsed);
+    }
+    return (await response.json()) as T;
   }
   private newAttemptIneligible(view: CommitView): boolean {
     // A request ID saved before POST is not proof that an attempt was admitted.
@@ -686,6 +1059,46 @@ export class CommitController {
       return false;
     const eligibility = reviewEligibility(this.review(view.commit_id));
     return eligibility !== undefined && eligibility.state !== "eligible";
+  }
+  /** Watch the chain for the sent transactions' receipt so the UI can say
+   * "Confirmed on chain" ahead of Commit Service. Display only: it reports
+   * nothing and changes no commit state. It ends on the first verdict, when
+   * the commit settles or mismatches, on close, or after two minutes. */
+  private watchReceipt(view: CommitView, transactionIds: string[]): void {
+    const wait = this.available.walletReceipt;
+    const id = view.commit_id;
+    if (!wait || this.closed || isTerminalCommit(view)) return;
+    this.dropReceipt(id);
+    const abort = new AbortController();
+    this.receiptWatches.set(id, abort);
+    const timer = setTimeout(() => abort.abort(), RECEIPT_WATCH_MS);
+    const cancelled = new Promise<never>((_, reject) =>
+      abort.signal.addEventListener("abort", () => reject(new Error("done")), {
+        once: true,
+      }),
+    );
+    void Promise.race([
+      Promise.resolve().then(() => wait(view, transactionIds)),
+      cancelled,
+    ])
+      .then(
+        (outcome) => {
+          if (abort.signal.aborted) return;
+          this.onChain.set(id, outcome);
+          this.changed();
+        },
+        () => undefined,
+      )
+      .finally(() => {
+        clearTimeout(timer);
+        if (this.receiptWatches.get(id) === abort)
+          this.receiptWatches.delete(id);
+      });
+  }
+  private dropReceipt(id: string): void {
+    this.receiptWatches.get(id)?.abort();
+    this.receiptWatches.delete(id);
+    this.onChain.delete(id);
   }
   private setSubmissionPhase(
     id: string,
@@ -697,7 +1110,7 @@ export class CommitController {
     this.changed();
   }
   private store(view: CommitView, authoritative = true): CommitView {
-    if (view.thread_id !== this.threadId)
+    if (this.threadBound && view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
     const current = this.views.get(view.commit_id);
     if (current) {
@@ -706,6 +1119,8 @@ export class CommitController {
     }
     if (this.closed) return view;
     this.views.set(view.commit_id, view);
+    if (isTerminalCommit(view) || view.wallet_attempt?.state === "mismatched")
+      this.dropReceipt(view.commit_id);
     const compatibilityReview = legacySvmReview(view);
     if (compatibilityReview && !this.reviews.has(view.commit_id)) {
       this.reviews.set(view.commit_id, compatibilityReview);
@@ -715,20 +1130,56 @@ export class CommitController {
     this.notifyListeners();
     return view;
   }
-  private async manual(id: string, body: CommitManual): Promise<CommitView> {
+  /** `basis` is the view the caller reviewed; ref writes bind its version
+   * (and review digest) so a changed commit answers 409 instead of applying. */
+  private async manual(
+    id: string,
+    body: CommitManual,
+    basis?: CommitView,
+  ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
     this.pending.set(id, body);
-    const view = await this.client.request<CommitView>(
-      "POST",
-      `${this.path(id)}/manual`,
-      { sessionId: this.threadId, body },
-    );
+    const view = this.threadBound
+      ? await this.send<CommitView>(
+          "POST",
+          `${this.paths(id).view}/manual`,
+          body,
+        )
+      : await this.manualByRef(
+          id,
+          body,
+          basis ?? this.views.get(id) ?? (await this.refresh(id)),
+        );
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
     this.pending.delete(id);
     const current = this.store(view);
     this.schedule();
     return current;
+  }
+  private manualByRef(
+    id: string,
+    body: CommitManual,
+    basis: CommitView,
+  ): Promise<CommitView> {
+    const version = basis.version;
+    const review_digest = basis.review?.digest ?? "";
+    switch (body.kind) {
+      case "signed":
+        return this.send("POST", commitRefPaths.sign(id), {
+          version,
+          review_digest,
+          payloads: body.payloads,
+        });
+      case "broadcast":
+        return this.send("POST", commitRefPaths.broadcast(id), {
+          version,
+          review_digest,
+          transaction_id: body.transaction_id,
+        });
+      case "rejected":
+        return this.send("POST", commitRefPaths.reject(id), { version });
+    }
   }
   private async perform(
     id: string,
@@ -744,23 +1195,25 @@ export class CommitController {
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
+    // The leader's bundle carries this member; it settles with the leader.
+    if (this.bundled(view)) return view;
     if (this.newAttemptIneligible(view))
       throw new Error(
         "Execution is blocked by the current reviewed eligibility",
       );
     const pending = this.pending.get(id);
-    if (pending) view = await this.manual(id, pending);
+    if (pending) view = await this.manual(id, pending, view);
     if (this.closed) throw new Error("Commit session closed");
-    const browserSend = this.browserSendSelection(view);
-    if (browserSend && this.canStartWalletSend()) {
-      view = await this.startWalletSend(view, browserSend);
+    const walletSend = this.walletSendPlan(view);
+    if (walletSend) {
+      view = await this.startWalletSend(view, walletSend);
     } else if (view.action?.kind === "sign") {
       const sign = this.available.sign;
       if (!sign)
         throw new Error("This wallet does not support sign-only commits");
       const payloads = await sign(view, view.action.payload);
       if (this.closed) throw new Error("Commit session closed");
-      view = await this.manual(id, { kind: "signed", payloads });
+      view = await this.manual(id, signedWrite(view, payloads), view);
     }
     if (view.action?.kind === "broadcast") {
       const send =
@@ -779,7 +1232,11 @@ export class CommitController {
       const hash = await send(view, view.action.signed_transaction);
       if (hash !== view.action.transaction_id)
         throw new Error("Broadcaster returned a different transaction");
-      view = await this.manual(id, { kind: "broadcast", transaction_id: hash });
+      view = await this.manual(
+        id,
+        { kind: "broadcast", transaction_id: hash },
+        view,
+      );
     }
     return view;
   }
@@ -787,17 +1244,24 @@ export class CommitController {
     view: CommitView,
     review: CommitExecutionReview,
   ): void {
+    if (view.version !== review.expectedVersion)
+      throw new CommitStaleError(
+        COMMIT_REF_ERROR_CODES.versionConflict,
+        "Commit review changed; refresh and review it again",
+      );
     if (
-      view.version !== review.expectedVersion ||
-      (review.expectedReviewDigest !== undefined &&
-        view.review?.digest !== review.expectedReviewDigest)
+      review.expectedReviewDigest !== undefined &&
+      view.review?.digest !== review.expectedReviewDigest
     )
-      throw new Error("Commit review changed; refresh and review it again");
+      throw new CommitStaleError(
+        COMMIT_REF_ERROR_CODES.digestMismatch,
+        "Commit review changed; refresh and review it again",
+      );
   }
   private async recoverWalletOutcome(view: CommitView): Promise<CommitView> {
     const recovery = this.capabilities.recovery;
     const attempt = view.wallet_attempt;
-    const record = recovery?.load(this.threadId, view.commit_id);
+    const record = recovery?.load(this.scope(view.commit_id), view.commit_id);
     if (!recovery || !attempt || !record) return view;
     if (attempt.state === "mismatched") return view;
     const recovered =
@@ -805,51 +1269,49 @@ export class CommitController {
         ? record
         : { ...record, attemptId: attempt.attempt_id };
     if (recovered !== record)
-      recovery.save(this.threadId, view.commit_id, recovered);
-    if (!recovered.transactionId && !recovered.rejected) return view;
+      recovery.save(this.scope(view.commit_id), view.commit_id, recovered);
+    if (!hasRecordedOutcome(recovered)) return view;
     return this.reportWalletOutcome(
       view.commit_id,
       attempt.attempt_id,
       recordedOutcome(recovered),
     );
   }
-  private canStartWalletSend(): boolean {
-    return Boolean(
-      this.available.walletSend &&
-      this.available.walletSendPreflight &&
-      this.capabilities.recovery,
-    );
-  }
-  private browserSendSelection(
-    view: CommitView,
-  ): { payload: EvmSignableCommit; reviewDigest: string } | undefined {
+  /** The wallet send `groupPlan` picked, with the payload and digest it
+   * binds; undefined when the commit is signed instead. */
+  private walletSendPlan(view: CommitView): WalletSendPlan | undefined {
+    const { transport } = groupPlan(view, this.available);
     const action = view.action;
     if (
-      action?.kind === "start_wallet_send" &&
-      action.payload.kind === "evm_transaction"
-    )
-      return { payload: action.payload, reviewDigest: action.review_digest };
-    if (
-      action?.kind !== "sign" ||
-      action.payload.kind !== "evm_transaction" ||
-      !view.supported_transports?.includes("browser_send") ||
-      !view.review?.digest
+      (transport !== "send_calls" && transport !== "browser_send") ||
+      (action?.kind !== "sign" && action?.kind !== "start_wallet_send") ||
+      action.payload.kind !== "evm_transaction"
     )
       return undefined;
-    return { payload: action.payload, reviewDigest: view.review.digest };
+    const reviewDigest =
+      action.kind === "start_wallet_send"
+        ? action.review_digest
+        : view.review?.digest;
+    return reviewDigest
+      ? { transport, payload: action.payload, reviewDigest }
+      : undefined;
   }
   private async startWalletSend(
     view: CommitView,
-    selection: { payload: EvmSignableCommit; reviewDigest: string },
+    plan: WalletSendPlan,
   ): Promise<CommitView> {
     const send = this.available.walletSend;
+    const sendCalls = this.available.walletSendCalls;
     const preflight = this.available.walletSendPreflight;
     const recovery = this.capabilities.recovery;
-    if (!send || !preflight || !recovery)
+    if (
+      !recovery ||
+      (plan.transport === "send_calls" ? !sendCalls : !send || !preflight)
+    )
       throw new Error("This wallet does not support durable prepared sends");
-    let record = recovery.load(this.threadId, view.commit_id);
+    let record = recovery.load(this.scope(view.commit_id), view.commit_id);
     if (record?.attemptId) {
-      if (record.transactionId || record.rejected)
+      if (hasRecordedOutcome(record))
         return this.reportWalletOutcome(
           view.commit_id,
           record.attemptId,
@@ -857,87 +1319,113 @@ export class CommitController {
         );
       throw new Error("Wallet send outcome is being reconciled");
     }
-    await preflight(view, selection.payload);
+    await preflight?.(view, plan.payload);
     if (this.closed) throw new Error("Commit session closed");
     record ??= { clientRequestId: crypto.randomUUID() };
-    recovery.save(this.threadId, view.commit_id, record);
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
     let attempt: CommitWalletAttemptView;
     try {
-      attempt = await this.client.request<CommitWalletAttemptView>(
+      attempt = await this.send<CommitWalletAttemptView>(
         "POST",
-        `${this.path(view.commit_id)}/wallet-attempts`,
+        this.paths(view.commit_id).attempts,
         {
-          sessionId: this.threadId,
-          body: {
-            version: view.version,
-            review_digest: selection.reviewDigest,
-            client_request_id: record.clientRequestId,
-            transport: "browser_send",
-          } satisfies CommitWalletAttemptRequest,
-        },
+          version: view.version,
+          review_digest: plan.reviewDigest,
+          client_request_id: record.clientRequestId,
+          transport: plan.transport,
+        } satisfies CommitWalletAttemptRequest,
       );
     } catch (error) {
       if (isDefiniteRequestFailure(error))
-        recovery.remove(this.threadId, view.commit_id);
+        recovery.remove(this.scope(view.commit_id), view.commit_id);
       throw error;
     }
     if (attempt.commit_id !== view.commit_id)
       throw new Error("Wallet attempt response identity mismatch");
-    if (attempt.transport !== "browser_send")
+    if (attempt.transport !== plan.transport)
       throw new Error("Wallet attempt transport mismatch");
     record = { ...record, attemptId: attempt.attempt_id };
-    recovery.save(this.threadId, view.commit_id, record);
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
     if (this.closed) throw new Error("Commit session closed");
     if (!attempt.may_invoke_wallet || !attempt.request)
       throw new Error("Wallet send outcome is being reconciled");
-    if (attempt.request.kind !== "evm_transaction")
+    const request = attempt.request;
+    const bundle =
+      plan.transport === "send_calls" &&
+      request.kind === "wallet_calls" &&
+      request.calls.length > 0
+        ? request
+        : undefined;
+    const single =
+      plan.transport === "browser_send" && request.kind === "evm_transaction"
+        ? request
+        : undefined;
+    if (!bundle && !single)
       throw new Error("Wallet attempt returned an unsupported payload");
-    let transactionId: string;
+    let transactionIds: string[];
     let rejectionPhase: WalletRejection["phase"];
     const generation = this.phaseGenerations.get(view.commit_id);
+    const onPhase = (phase: Exclude<CommitSubmissionPhase, "preparing">) => {
+      if (phase === "switching_chain") rejectionPhase = "chain_switch";
+      if (phase === "awaiting_wallet" || phase === "submitting")
+        rejectionPhase = "transaction_request";
+      if (
+        generation &&
+        this.phaseGenerations.get(view.commit_id) === generation
+      )
+        this.setSubmissionPhase(view.commit_id, phase);
+    };
     try {
-      transactionId = await send(view, attempt.request, (phase) => {
-        if (phase === "switching_chain") rejectionPhase = "chain_switch";
-        if (phase === "awaiting_wallet" || phase === "submitting")
-          rejectionPhase = "transaction_request";
-        if (
-          generation &&
-          this.phaseGenerations.get(view.commit_id) === generation
-        )
-          this.setSubmissionPhase(view.commit_id, phase);
-      });
+      transactionIds = bundle
+        ? await sendCalls!(view, bundle, onPhase)
+        : [await send!(view, single!, onPhase)];
     } catch (error) {
-      if (!isExplicitWalletRejection(error)) throw error;
-      const rejection = walletRejection(rejectionPhase);
-      record = { ...record, rejected: true, rejection };
-      recovery.save(this.threadId, view.commit_id, record);
-      return this.reportWalletOutcome(
-        view.commit_id,
-        attempt.attempt_id,
-        rejection,
-      );
+      // Legs a sequential fallback already sent are on chain: report them so
+      // Commit Service settles the batch instead of waiting on the attempt.
+      const landed =
+        plan.transport === "send_calls"
+          ? partialWalletExecution(error)?.completedTxHashes
+          : undefined;
+      if (landed) transactionIds = landed;
+      else {
+        if (!isExplicitWalletRejection(error)) throw error;
+        const rejection = walletRejection(rejectionPhase);
+        record = { ...record, rejected: true, rejection };
+        recovery.save(this.scope(view.commit_id), view.commit_id, record);
+        return this.reportWalletOutcome(
+          view.commit_id,
+          attempt.attempt_id,
+          rejection,
+        );
+      }
     }
-    if (!transactionId) throw new Error("Wallet returned no transaction hash");
-    record = { ...record, transactionId };
-    recovery.save(this.threadId, view.commit_id, record);
-    return this.reportWalletOutcome(view.commit_id, attempt.attempt_id, {
-      kind: "transaction",
-      transaction_id: transactionId,
-    });
+    if (!transactionIds.length || transactionIds.some((id) => !id))
+      throw new Error("Wallet returned no transaction hash");
+    record =
+      plan.transport === "send_calls"
+        ? { ...record, transactionIds }
+        : { ...record, transactionId: transactionIds[0] };
+    recovery.save(this.scope(view.commit_id), view.commit_id, record);
+    this.watchReceipt(view, transactionIds);
+    return this.reportWalletOutcome(
+      view.commit_id,
+      attempt.attempt_id,
+      recordedOutcome(record),
+    );
   }
   private async reportWalletOutcome(
     commitId: string,
     attemptId: string,
     outcome: CommitWalletAttemptOutcome,
   ): Promise<CommitView> {
-    const view = await this.client.request<CommitView>(
+    const view = await this.send<CommitView>(
       "POST",
-      `${this.path(commitId)}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
-      { sessionId: this.threadId, body: outcome },
+      this.paths(commitId).report(attemptId),
+      outcome,
     );
     if (view.commit_id !== commitId)
       throw new Error("Commit response identity mismatch");
-    this.capabilities.recovery?.remove(this.threadId, commitId);
+    this.capabilities.recovery?.remove(this.scope(commitId), commitId);
     const current = this.store(view);
     this.schedule();
     return current;

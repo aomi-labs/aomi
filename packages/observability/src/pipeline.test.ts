@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackendError, DeployError } from "@aomi-labs/deploy";
-import { RequiredSecretsCheckError } from "@aomi-labs/deploy/bff";
+import { RequiredSecretsCheckError } from "@aomi-labs/internal";
 
 const sentry = vi.hoisted(() => ({
   captureException: vi.fn(),
@@ -206,29 +206,6 @@ describe("three-layer failure pipeline", () => {
       context,
     });
     expect(sentry.captureException).toHaveBeenCalledWith(cause);
-  });
-
-  it("keeps proxy response-transform failures local to the BFF", () => {
-    const error = new Error("transform failed");
-    const result = createFailurePipeline("portal-bff").handle({
-      source: "proxy",
-      failure: {
-        kind: "response_transform",
-        error,
-        method: "GET",
-        pathname: "/api/account",
-        responseStatus: 502,
-      },
-    });
-
-    expect(result).toMatchObject({
-      action: "issue",
-      reason: "local_exception",
-      responseStatus: 502,
-      responseError: "upstream_unavailable",
-    });
-    expect(result).not.toHaveProperty("upstream");
-    expect(sentry.captureException).toHaveBeenCalledWith(error);
   });
 
   it("forwards the Manager's structured deploy_error on the owned response", async () => {

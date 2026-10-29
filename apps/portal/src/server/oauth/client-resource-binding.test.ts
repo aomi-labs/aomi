@@ -1,3 +1,4 @@
+import { aomiOAuthResources } from "@aomi-labs/account/better-auth";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,6 +9,7 @@ import {
 type RegisteredClient = {
   authMethod: string;
   grants: unknown;
+  clientClass?: string;
 };
 
 class BindingDatabase implements ClientResourceBindingDatabase {
@@ -32,6 +34,7 @@ class BindingDatabase implements ClientResourceBindingDatabase {
                   {
                     token_endpoint_auth_method: client.authMethod,
                     grant_types: client.grants,
+                    client_class: client.clientClass,
                   },
                 ] as Row[])
               : ([] as Row[]),
@@ -135,5 +138,71 @@ describe("public OAuth client resource binding", () => {
       bindAomiPublicClientResource({ clientId: "mixed", resource: agent, db }),
     ).resolves.toBe("client_not_eligible");
     expect(db.resources.size).toBe(0);
+  });
+  it("allows each explicitly registered managed-widget resource without widening it", async () => {
+    const db = new BindingDatabase();
+    db.clients.set("fuzzer", {
+      authMethod: "none",
+      grants: ["authorization_code", "refresh_token"],
+      clientClass: "partner_widget",
+    });
+    db.resources.set("fuzzer", new Set([agent, pipeline]));
+    for (const resource of [agent, pipeline]) {
+      await expect(
+        bindAomiPublicClientResource({ clientId: "fuzzer", resource, db }),
+      ).resolves.toBe("already_bound");
+    }
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "fuzzer",
+        resource: "https://portal.example/v1/account",
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
+    expect([...db.resources.get("fuzzer")!]).toEqual([agent, pipeline]);
+    db.resources.delete("fuzzer");
+    await expect(
+      bindAomiPublicClientResource({ clientId: "fuzzer", resource: agent, db }),
+    ).resolves.toBe("resource_conflict");
+    expect(db.resources.has("fuzzer")).toBe(false);
+  });
+
+  it("lets a managed widget registered for a REST API use the /v1 sign-in", async () => {
+    const { agentRest, agentMcp, apiRest } = aomiOAuthResources();
+    const db = new BindingDatabase();
+    for (const [id, registered] of [
+      ["rest", agentRest],
+      ["mcp", agentMcp],
+    ] as const) {
+      db.clients.set(id, {
+        authMethod: "none",
+        grants: ["authorization_code", "refresh_token"],
+        clientClass: "partner_widget",
+      });
+      db.resources.set(id, new Set([registered]));
+    }
+    await expect(
+      bindAomiPublicClientResource({ clientId: "rest", resource: apiRest, db }),
+    ).resolves.toBe("already_bound");
+    // An MCP-only widget never gets the REST umbrella.
+    await expect(
+      bindAomiPublicClientResource({ clientId: "mcp", resource: apiRest, db }),
+    ).resolves.toBe("resource_conflict");
+  });
+
+  it("does not allow multiple bindings for a dynamically registered client", async () => {
+    const db = new BindingDatabase();
+    db.clients.set("dynamic", {
+      authMethod: "none",
+      grants: ["authorization_code", "refresh_token"],
+    });
+    db.resources.set("dynamic", new Set([agent, pipeline]));
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "dynamic",
+        resource: agent,
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
   });
 });

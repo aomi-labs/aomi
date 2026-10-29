@@ -4,7 +4,7 @@ import { usePrivateApps } from "../control/private-apps";
 import { createScopedStorage } from "@aomi-labs/client";
 
 // Assembles the focused control hooks in ../control/ into useControl().
-// Change behaviour in the hook that owns it (api-key, byok, app-secrets,
+// Change behaviour in the hook that owns it (api-key, secrets, app-secrets,
 // auth-endpoints, per-thread-control).
 
 import {
@@ -18,7 +18,6 @@ import {
 } from "react";
 import type {
   AomiClient,
-  AomiInferenceFundingSource,
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -34,12 +33,7 @@ import {
   type ApiKeyState,
   type ApiKeyActions,
 } from "../control/api-key";
-import {
-  useByokImpl,
-  type ByokState,
-  type ByokActions,
-  type StoredByokKey,
-} from "../control/byok";
+import { useSecretsImpl, type SecretsActions } from "../control/secrets";
 import {
   useAuthEndpointsImpl,
   type AuthEndpointsState,
@@ -54,7 +48,6 @@ import {
   type PerThreadControlActions,
 } from "../control/per-thread-control";
 
-export type { StoredByokKey } from "../control/byok";
 
 // =============================================================================
 // Public types
@@ -62,13 +55,12 @@ export type { StoredByokKey } from "../control/byok";
 
 /** All control state. Prefer the focused hooks below for one slice. */
 export type ControlState = ApiKeyState &
-  ByokState &
   AuthEndpointsState & {
     clientId: string | null;
   };
 
 export type ControlContextApi = ApiKeyActions &
-  ByokActions &
+  SecretsActions &
   AppSecretsActions &
   AuthEndpointsActions &
   PerThreadControlActions & {
@@ -102,27 +94,6 @@ export function useApiKey(): {
   return {
     state: { apiKey: ctx.state.apiKey, clientId: ctx.state.clientId },
     actions: { setApiKey: ctx.setApiKey },
-  };
-}
-
-export function useByok(): { state: ByokState; actions: ByokActions } {
-  const ctx = useControl();
-  return {
-    state: {
-      byokKeys: ctx.state.byokKeys,
-      inferenceFunding: ctx.state.inferenceFunding,
-    },
-    actions: {
-      setByok: ctx.setByok,
-      removeByok: ctx.removeByok,
-      getByokKeys: ctx.getByokKeys,
-      hasByok: ctx.hasByok,
-      setInferenceFunding: ctx.setInferenceFunding,
-      ingestSecrets: ctx.ingestSecrets,
-      clearSecrets: ctx.clearSecrets,
-      deleteSecret: ctx.deleteSecret,
-      listSecrets: ctx.listSecrets,
-    },
   };
 }
 
@@ -197,7 +168,6 @@ export type ControlContextProviderProps = {
   applicationId?: ApplicationId;
   apiKeyPersistence?: "memory" | "session";
   backendUrl?: string;
-  inferenceFunding?: AomiInferenceFundingSource;
   accountSessionAvailable?: boolean;
   /** Who the session belongs to; a guest has no account data to load. */
   account?: RuntimeAccount | null;
@@ -213,7 +183,6 @@ export function ControlContextProvider({
   applicationId,
   apiKeyPersistence,
   backendUrl = "",
-  inferenceFunding,
   accountSessionAvailable = false,
   account,
 }: ControlContextProviderProps) {
@@ -262,15 +231,7 @@ export function ControlContextProvider({
     [],
   );
 
-  const byok = useByokImpl({
-    aomiClientRef,
-    accountClient:
-      accountSessionAvailable && account?.kind !== "guest" ? aomiClient : null,
-    accountId: account?.id,
-    clientIdRef,
-    getControlSessionId: getCurrentControlSessionId,
-    initialInferenceFunding: inferenceFunding,
-  });
+  const secrets = useSecretsImpl({ aomiClientRef, clientIdRef, getControlSessionId: getCurrentControlSessionId });
 
   const appSecrets = useAppSecretsImpl({
     aomiClientRef,
@@ -341,8 +302,6 @@ export function ControlContextProvider({
   const aggregateState: ControlState = {
     apiKey: apiKey.state.apiKey,
     clientId: clientIdRef.current,
-    byokKeys: byok.state.byokKeys,
-    inferenceFunding: byok.state.inferenceFunding,
     availableModels: authEndpoints.state.availableModels,
     defaultModel: authEndpoints.state.defaultModel,
     authorizedApps,
@@ -363,7 +322,7 @@ export function ControlContextProvider({
     state: aggregateState,
     getControlState,
     ...apiKey.actions,
-    ...byok.actions,
+    ...secrets,
     ...appSecrets.actions,
     ...authEndpoints.actions,
     ...perThread,
