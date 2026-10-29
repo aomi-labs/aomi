@@ -11,7 +11,7 @@ const TELEGRAM_STAGING_PROJECT_ID = "prj_AWIwZJ8VT0YS20VVN2wQn822mIhS";
 
 const ON_DEMAND_BRANCH_PREFIXES = ["preview/", "qa/", "release/"];
 
-const PROJECT_SURFACES = {
+export const PROJECT_SURFACES = {
   prj_JFlrYJshAAVu7U5BxFhLUUpzjegK: "portal",
   prj_dzx0PWpEPEIbxRjfAzQEiqmNzhRO: "build",
   prj_kHH1ejA054BYD3xi831h4BFmxJjO: "landing",
