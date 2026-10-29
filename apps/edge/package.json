@@ -11,9 +11,8 @@
     "test": "vitest run --root ../.. apps/edge",
     "typecheck": "tsc --noEmit",
     "generate-key": "node scripts/generate-key.mjs",
-    "dev:staging": "wrangler dev --env staging",
-    "deploy:staging": "node scripts/deploy.mjs staging",
-    "deploy:production": "node scripts/deploy.mjs production"
+    "dev": "wrangler dev",
+    "deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
     "@aomi-labs/account": "workspace:*",

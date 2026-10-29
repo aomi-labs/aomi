@@ -1,93 +1,23 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // One configuration for every environment. Staging, rc and production run
+  // the same Worker build with the same settings; what differs per environment
+  // (the Worker script name, its routes, its hosts, CORS and the origins it
+  // forwards to) is inventory, recorded in product-mono's
+  // infra/cloudflare/edge-environments.json and passed in by scripts/deploy.mjs.
+  // `wrangler dev` uses this file as is, with .dev.vars for local bindings.
   "name": "aomi-edge",
   "main": "src/index.ts",
   "compatibility_date": "2026-03-25",
   "workers_dev": false,
   "observability": { "enabled": true },
-  "env": {
-    "staging": {
-      // api-staging is the venue, CLI and MCP host. The portal host is routed on
-      // its API paths only (cookies stay host-only; the UI stays on Vercel).
-      // chat-staging.aomi.dev must be proxied by Cloudflare (orange cloud) for
-      // these routes to take effect.
-      "routes": [
-        { "pattern": "api-staging.aomi.dev/*", "zone_name": "aomi.dev" },
-        { "pattern": "chat-staging.aomi.dev/api/*", "zone_name": "aomi.dev" },
-        { "pattern": "chat-staging.aomi.dev/v1/*", "zone_name": "aomi.dev" },
-        { "pattern": "chat-staging.aomi.dev/.well-known/*", "zone_name": "aomi.dev" },
-        { "pattern": "build-staging.aomi.dev/api/*", "zone_name": "aomi.dev" },
-        { "pattern": "build-staging.aomi.dev/v1/*", "zone_name": "aomi.dev" }
-      ],
-      // The Task discovery challenge cache. Create once per environment with
-      // `wrangler kv namespace create EDGE_CACHE --env staging` and paste the id;
-      // the Worker falls back to an in-isolate cache while the binding is absent.
-      // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
-      "vars": {
-        // BACKEND_ORIGINS, API_SERVER_ORIGIN and PAYMENT_ORIGIN are not
-        // configured here: scripts/deploy.mjs passes them from the deploy
-        // environment, which product-mono derives from its Terraform inventory.
-        // A placement miss wakes the backend reconciler; keep the original
-        // request at the edge while the small hosted artifact materializes.
-        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
-        "MANAGER_ORIGIN": "https://manager-staging-tunnel.aomi.dev",
-        "EDGE_TOPOLOGY": "staging",
-        // The portal surface. PORTAL_UPSTREAM_ORIGIN (the portal's Vercel
-        // alias) comes from the deploy environment like the other origins.
-        "PORTAL_HOSTS": "chat-staging.aomi.dev",
-        "APP_CATALOG_PLATFORMS": "",
-        // The Build surface. BUILD_UPSTREAM_ORIGIN (Build's Vercel alias) comes
-        // from the deploy environment; BUILD_SESSION_SECRET is a Wrangler secret.
-        // BUILD_SESSION_SECRET and BUILD_GITHUB_TOKEN are Wrangler secrets.
-        "BUILD_HOSTS": "build-staging.aomi.dev",
-        "APP_DEPLOY_PLATFORMS": "community,somm.finance,world-market-apps",
-        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
-        "BUILD_CREATED_REPO_PRIVATE": "false",
-        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,build-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
-        // Exact browser origins allowed to read Task challenges without credentials.
-        // They receive no CORS access to the general /api routes.
-        "TASK_CORS_PUBLIC_ORIGINS": "https://stableops.dev"
-      }
-    },
-    "rc": {
-      // The release-candidate environment (RIC1): a separate fleet, Authority
-      // and database beside staging (Beta). API host only; there is no rc
-      // portal or Build surface, and no Beta hostname is routed here.
-      "routes": [{ "pattern": "api-rc.aomi.dev/*", "zone_name": "aomi.dev" }],
-      "vars": {
-        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
-        "MANAGER_ORIGIN": "https://manager-rc-4.aomi.dev",
-        "EDGE_TOPOLOGY": "rc",
-        "PORTAL_HOSTS": "",
-        "APP_CATALOG_PLATFORMS": "",
-        "BUILD_HOSTS": "",
-        "APP_DEPLOY_PLATFORMS": "",
-        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
-        "BUILD_CREATED_REPO_PRIVATE": "false",
-        "CORS_ALLOWED_HOST_PATTERNS": "api-rc.aomi.dev"
-      }
-    },
-    "production": {
-      // Production portal host routes are added at cutover once the host is
-      // confirmed (chat.aomi.dev) and proxied by Cloudflare; see the README.
-      "routes": [{ "pattern": "api.aomi.dev/*", "zone_name": "aomi.dev" }],
-      // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
-      "vars": {
-        "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-        "HOSTED_APP_WARMUP_RETRY_MS": "1000",
-        "MANAGER_ORIGIN": "https://manager-2.aomi.dev",
-        "EDGE_TOPOLOGY": "production",
-        "PORTAL_HOSTS": "",
-        "APP_CATALOG_PLATFORMS": "",
-        // build.aomi.dev routes are added at cutover once the host is proxied by Cloudflare.
-        "BUILD_HOSTS": "",
-        "APP_DEPLOY_PLATFORMS": "",
-        "BUILD_TEMPLATE_REPO": "aomi-labs/playground-example",
-        "BUILD_CREATED_REPO_PRIVATE": "false",
-        "CORS_ALLOWED_HOST_PATTERNS": "*.aomi.dev,api.aomi.dev,*.vercel.app"
-      }
-    }
+  // The Task discovery challenge cache. Once a namespace exists, bind it here
+  // as EDGE_CACHE; the Worker falls back to an in-isolate cache without it.
+  // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
+  "vars": {
+    // A placement miss wakes the backend reconciler; keep the original
+    // request at the edge while the small hosted artifact materializes.
+    "HOSTED_APP_WARMUP_ATTEMPTS": "10",
+    "HOSTED_APP_WARMUP_RETRY_MS": "1000"
   }
 }
