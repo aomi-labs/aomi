@@ -70,10 +70,22 @@ const SCOPES = [
   "offline_access",
 ];
 
+/**
+ * The grant `aomi login` holds, for the one `/v1` resource. A 0.2 install kept
+ * per-resource grants whose OAuth clients are bound to those resources, so
+ * they can neither sign in again nor count as signed in.
+ */
+async function heldGrant(baseUrl: string) {
+  const issuer = `${baseUrl}/api/auth`;
+  const resource = `${new URL(baseUrl).origin}/v1`;
+  return (await grants.load()).find(
+    (grant) => grant.issuer === issuer && grant.resource === resource,
+  );
+}
+
 /** The device sign-in, against the grants file. */
 export async function deviceAuth(baseUrl: string): Promise<AomiAuthStrategy> {
-  const issuer = `${baseUrl}/api/auth`;
-  const held = (await grants.load()).find((grant) => grant.issuer === issuer);
+  const held = await heldGrant(baseUrl);
   return oauth({
     clientId: held?.clientId,
     clientName: `Aomi CLI · ${hostname()}`,
@@ -87,8 +99,7 @@ export async function deviceAuth(baseUrl: string): Promise<AomiAuthStrategy> {
 }
 
 async function signedIn(baseUrl: string): Promise<boolean> {
-  const issuer = `${baseUrl}/api/auth`;
-  return (await grants.load()).some((grant) => grant.issuer === issuer);
+  return (await heldGrant(baseUrl)) !== undefined;
 }
 
 /** `--private-key` (or AOMI_PRIVATE_KEY): signs in headlessly and signs. */
