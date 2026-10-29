@@ -4257,6 +4257,10 @@ export class Thread {
     constructor(id: string, start: (text: string, threadId: string) => AgentRun, open: (ref: string) => Promise<CommitHandle>, agent: AgentTransport);
     history(): Promise<ThreadHistory>;
     // (undocumented)
+    history<T>(options: {
+        decode: StepDecoder<T>;
+    }): Promise<ThreadHistory<T>>;
+    // (undocumented)
     readonly id: string;
     // (undocumented)
     rename(title: string): Promise<ThreadSummary>;
@@ -4265,12 +4269,21 @@ export class Thread {
 }
 
 // @public
-export type ThreadHistory = {
+export type ThreadHistory<S = ToolStep> = {
     messages: {
         sender: "user" | "agent";
         text: string;
     }[];
+    turns: ThreadHistoryTurn<S>[];
     activeWallet: AomiActiveWallet;
+};
+
+// @public
+export type ThreadHistoryTurn<S = ToolStep> = {
+    text: string;
+    steps: S[];
+    replies: string[];
+    seconds: number;
 };
 
 // @public

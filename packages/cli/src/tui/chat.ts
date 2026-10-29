@@ -101,6 +101,9 @@ const short = (address: string) =>
 
 /** The chat screen: turns with their steps, approvals, the input and a status bar. */
 export async function runTui(flags: ChatFlags): Promise<void> {
+  // Links render as clickable OSC 8 hyperlinks: terminals that lack them show
+  // the text, and over SSH none of pi-tui's detection variables arrive.
+  process.env.PI_HYPERLINKS ??= "1";
   // A sign-in started from the screen shows its code in the transcript.
   const aomi = await connect(flags, ({ url, code }) =>
     note(`Sign in: open ${url}\nCode ${code}`),
@@ -582,26 +585,20 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     tui.requestRender();
     const history = await aomi.agent
       .thread(thread)
-      .history()
+      .history({ decode })
       .catch(() => undefined);
-    if (!history?.messages.length) return;
+    if (!history?.turns.length) return;
     started = true;
     active = history.activeWallet;
-    for (const message of history.messages) {
-      const last = turns.at(-1);
-      if (message.sender === "agent" && last && !last.reply)
-        last.reply = message.text;
-      else
-        turns.push({
-          past: true,
-          ...(message.sender === "user"
-            ? { text: message.text }
-            : { reply: message.text }),
-          steps: [],
-          started: 0,
-          commits: [],
-        });
-    }
+    for (const turn of history.turns)
+      turns.push({
+        text: turn.text,
+        steps: turn.steps,
+        started: 0,
+        ms: turn.seconds * 1000,
+        reply: turn.replies.join("\n\n"),
+        commits: [],
+      });
     tui.requestRender();
   }
 

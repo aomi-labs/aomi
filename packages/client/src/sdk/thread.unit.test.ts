@@ -311,3 +311,94 @@ describe("aomi.agent threads and turns", () => {
     ]);
   });
 });
+
+describe("thread.history()", () => {
+  it("groups the page into turns with their steps, replies and working time", async () => {
+    const event = (sequence: number, turn: string, seconds: number) => ({
+      ...meta(sequence, turn),
+      occurred_at: seconds,
+    });
+    const page = {
+      session_id: "thread-1",
+      cursor: "c-9",
+      has_more: false,
+      active_wallet: { evm: "w_1" },
+      events: [
+        {
+          ...event(1, "t1", 100),
+          type: "message",
+          sender: "user",
+          content: "Balance?",
+        },
+        {
+          ...event(2, "t1", 104),
+          type: "tool_complete",
+          id: "s1",
+          call_id: "c1",
+          tool_name: "get_balance",
+          result: { eth: "1" },
+        },
+        {
+          ...event(3, "t1", 106),
+          type: "message",
+          sender: "agent",
+          content: "1 ETH.",
+        },
+        {
+          ...event(4, "t2", 200),
+          type: "message",
+          sender: "user",
+          content: "Swap it",
+        },
+        {
+          ...event(5, "t2", 230),
+          type: "message",
+          sender: "agent",
+          content: "Approve it.",
+        },
+        // After approval, a callback turn continues it: not working time.
+        {
+          ...event(6, "t3", 300),
+          type: "message",
+          sender: "agent",
+          content: "Swapped.",
+        },
+      ],
+    } as unknown as EventPage;
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(page),
+    );
+    const aomi = new Aomi({
+      baseUrl: "https://chat.example",
+      guest: false,
+      fetch,
+    });
+
+    const history = await aomi.agent
+      .thread("thread-1")
+      .history({ decode: (input) => input.toolName });
+
+    expect(history.activeWallet).toEqual({ evm: "w_1" });
+    expect(history.turns).toEqual([
+      {
+        text: "Balance?",
+        steps: ["get_balance"],
+        replies: ["1 ETH."],
+        seconds: 6,
+      },
+      {
+        text: "Swap it",
+        steps: [],
+        replies: ["Approve it.", "Swapped."],
+        seconds: 30,
+      },
+    ]);
+    expect(history.messages.map((message) => message.text)).toEqual([
+      "Balance?",
+      "1 ETH.",
+      "Swap it",
+      "Approve it.",
+      "Swapped.",
+    ]);
+  });
+});

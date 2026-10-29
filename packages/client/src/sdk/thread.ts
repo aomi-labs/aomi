@@ -134,15 +134,7 @@ export class Turn implements PromiseLike<TurnResult> {
           earlier.length,
         )) {
           yield options?.decode
-            ? options.decode({
-                toolName: step.name,
-                argsText:
-                  step.args === undefined
-                    ? undefined
-                    : JSON.stringify(step.args),
-                result: step.result,
-                relatedResults: earlier.map((previous) => previous.result),
-              })
+            ? options.decode(stepInput(step, earlier))
             : step;
           earlier.push(step);
         }
@@ -155,9 +147,19 @@ export class Turn implements PromiseLike<TurnResult> {
   }
 }
 
+/** One past turn: your message, the agent's tool calls and what it said. */
+export type ThreadHistoryTurn<S = ToolStep> = {
+  text: string;
+  steps: S[];
+  replies: string[];
+  /** How long the agent worked on it, not counting waits for approval. */
+  seconds: number;
+};
+
 /** What a thread said so far, and the wallet it trades with per family. */
-export type ThreadHistory = {
+export type ThreadHistory<S = ToolStep> = {
   messages: { sender: "user" | "agent"; text: string }[];
+  turns: ThreadHistoryTurn<S>[];
   activeWallet: AomiActiveWallet;
 };
 
@@ -178,18 +180,45 @@ export class Thread {
     return this.agent.sessions.update(this.id, { title });
   }
 
-  /** The latest page of the conversation: what you and the agent said. */
-  async history(): Promise<ThreadHistory> {
+  /** The latest page of the conversation: what was said, turn by turn with its tool calls. */
+  history(): Promise<ThreadHistory>;
+  history<T>(options: { decode: StepDecoder<T> }): Promise<ThreadHistory<T>>;
+  async history(options?: {
+    decode?: StepDecoder<unknown>;
+  }): Promise<ThreadHistory<unknown>> {
     const page = await this.agent.poll(this.id);
-    const messages = page.events.flatMap((event) =>
+    const said = (event: Event) =>
       event.type === "message" &&
       (event.sender === "user" || event.sender === "agent") &&
       !event.tool_call_id &&
       event.content.trim()
-        ? [{ sender: event.sender, text: event.content }]
-        : [],
+        ? { sender: event.sender, text: event.content }
+        : undefined;
+    const messages = page.events.flatMap((event) => said(event) ?? []);
+    // A turn runs from one of your messages to the next.
+    const starts = page.events.flatMap((event, at) =>
+      event.type === "message" && event.sender === "user" ? [at] : [],
     );
-    return { messages, activeWallet: page.active_wallet ?? {} };
+    const turns = starts.map((start, index) => {
+      const events = page.events.slice(start, starts[index + 1]);
+      const own = events.filter(
+        (event) => event.turn_id && event.turn_id === events[0]!.turn_id,
+      );
+      const steps = toolSteps(events, new Set(), true);
+      const decode = options?.decode;
+      return {
+        text: (events[0] as Event & { content: string }).content,
+        steps: decode
+          ? steps.map((step, at) => decode(stepInput(step, steps.slice(0, at))))
+          : steps,
+        replies: events.slice(1).flatMap((event) => {
+          const message = said(event);
+          return message?.sender === "agent" ? [message.text] : [];
+        }),
+        seconds: span(own.length ? own : events),
+      };
+    });
+    return { messages, turns, activeWallet: page.active_wallet ?? {} };
   }
 }
 
@@ -245,6 +274,23 @@ function toolSteps(
   }
   return done;
 }
+
+/** What a decoder reads for `step`: the results before it give context. */
+function stepInput(
+  step: ToolStep,
+  earlier: readonly ToolStep[],
+): ToolStepInput {
+  return {
+    toolName: step.name,
+    argsText: step.args === undefined ? undefined : JSON.stringify(step.args),
+    result: step.result,
+    relatedResults: earlier.map((previous) => previous.result),
+  };
+}
+
+/** Seconds from the first event to the last. */
+const span = (events: readonly Event[]) =>
+  events.length ? events.at(-1)!.occurred_at - events[0]!.occurred_at : 0;
 
 function parsed(text: string): unknown {
   try {
