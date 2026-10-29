@@ -32,6 +32,19 @@ describe("saved model selections", () => {
 });
 
 describe("resolveAutoModel", () => {
+  it("prefers GPT-6.1 Terra, the backend default, regardless of catalog order", () => {
+    expect(
+      resolveAutoModel(["GPT-6.1 Sol", "GPT-6 Sol", "GPT-6.1 Terra"]),
+    ).toBe("GPT-6.1 Terra");
+    expect(
+      resolveAutoModel(["openai:gpt-6.1-sol", "openai:gpt-6.1-terra"]),
+    ).toBe("openai:gpt-6.1-terra");
+    // Only GPT-6.1 Terra: the older Terra is not the default.
+    expect(resolveAutoModel(["GPT-5.6 Terra", "GPT-6.1 Sol"])).toBe(
+      "GPT-6.1 Sol",
+    );
+  });
+
   it("prefers GPT-6.1 Sol over GPT-6 Sol regardless of catalog order", () => {
     expect(
       resolveAutoModel(["GPT-6 Sol", "Claude Haiku 4.5", "GPT-6.1 Sol"]),
