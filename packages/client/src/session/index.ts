@@ -297,16 +297,36 @@ export class ClientSession {
       this.startStreaming();
       return true;
     } catch (error) {
-      this.pendingSteers.splice(this.pendingSteers.indexOf(text), 1);
+      const queued = this.pendingSteers.indexOf(text);
+      if (queued >= 0) this.pendingSteers.splice(queued, 1);
       this.publish();
-      // A chat the server has not seen yet has no running turn either.
-      if (
-        error instanceof AgentApiError &&
-        (error.code === "no_active_turn" || error.status === 404)
-      )
+      if (!(error instanceof AgentApiError)) throw error;
+      // The turn just ended: send once this session has seen that end too.
+      if (error.code === "no_active_turn") {
+        await this.turnEnded();
         return false;
+      }
+      // A chat the server has not seen yet has no running turn either.
+      if (error.status === 404) return false;
       throw error;
     }
+  }
+
+  /** Resolves once the stream delivers the running turn's end (or after 10s). */
+  private turnEnded(): Promise<void> {
+    if (this.turnState !== "processing") return Promise.resolve();
+    this.startStreaming();
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve();
+      };
+      const timer = setTimeout(done, 10_000);
+      const unsubscribe = this.subscribe(() => {
+        if (this.turnState !== "processing") done();
+      });
+    });
   }
 
   interrupt(): Promise<void> {
