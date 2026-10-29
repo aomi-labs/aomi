@@ -32,8 +32,16 @@ import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
 import { reviewLines, reviewSummary } from "../commands/tx";
+import { signIn } from "../commands/account";
 import { signsWith } from "../commands/wallets";
-import { connect, openUrl, ownerOf, turnOptions } from "../context";
+import {
+  baseUrlOf,
+  connect,
+  openUrl,
+  ownerOf,
+  turnOptions,
+  type ShowCode,
+} from "../context";
 import { loadState, updateState } from "../state";
 import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
 
@@ -82,6 +90,7 @@ const SLASH = [
   { name: "threads", description: "Continue another thread" },
   { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
+  { name: "login", description: "Sign in with a device code" },
   { name: "help", description: "Keys and commands" },
   { name: "exit", description: "Quit" },
 ];
@@ -92,6 +101,7 @@ const HELP = [
   "/threads               continue another thread",
   "/guard [strict | balanced | yolo]  how guards gate this thread's actions",
   "/new                   start a new thread",
+  "/login                 sign in with a device code",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
   "a r o d on an approval: approve, reject, open, details",
 ].join("\n");
@@ -104,10 +114,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   // Links render as clickable OSC 8 hyperlinks: terminals that lack them show
   // the text, and over SSH none of pi-tui's detection variables arrive.
   process.env.PI_HYPERLINKS ??= "1";
-  // A sign-in started from the screen shows its code in the transcript.
-  const aomi = await connect(flags, ({ url, code }) =>
-    note(`Sign in: open ${url}\nCode ${code}`),
-  );
+  /** A device sign-in in progress: drawn as a panel until it is approved. */
+  let signing: { url: string; code: string } | undefined;
+  const showCode: ShowCode = (prompt) => {
+    signing = prompt;
+    tui.requestRender();
+  };
+  let aomi = await connect(flags, showCode);
   // A new thread unless asked to continue one: `--thread <id>` or /threads.
   const resume = Boolean(flags.thread);
   let thread = flags.thread || crypto.randomUUID();
@@ -117,7 +130,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   /** ctrl+o opens or closes every turn's steps; until then only the latest is open. */
   let expanded: boolean | undefined;
   let details = false;
-  const bar = { who: "guest", credits: "" };
+  const bar = { who: aomi.auth.mode === "guest" ? "guest" : "", credits: "" };
   let wallets: AomiAccountWallet[] = [];
   /** The thread's wallet per family, once the server reports it. */
   let active: AomiActiveWallet = {};
@@ -201,6 +214,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const commit = pending();
       if (commit)
         lines.push("", ...approveBox(commit, Math.min(width, 60), details));
+      if (signing) lines.push("", ...signInBox(signing, width));
       lines.push("");
       return lines
         .flatMap((line) => wrapTextWithAnsi(line, width))
@@ -319,6 +333,10 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return { consume: true };
     }
     const key = decodeKittyPrintable(data) ?? data;
+    if (signing && key === "o" && !editor.getText() && !pending()) {
+      openUrl(signing.url);
+      return { consume: true };
+    }
     const commit = pending();
     if (!commit || editor.getText() || !/^[arod]$/.test(key)) return undefined;
     if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
@@ -415,6 +433,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       thread = options.sessionId;
       running = aomi.agent.thread(thread).send(text, options);
       for await (const step of running.steps({ decode })) {
+        signing = undefined;
         view.steps.push(step);
         tui.requestRender();
       }
@@ -432,6 +451,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       view.error = error instanceof Error ? error.message : String(error);
     } finally {
       clearInterval(ticker);
+      signing = undefined;
       view.ms = Date.now() - view.started;
       running = undefined;
       tui.requestRender();
@@ -443,6 +463,30 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     const arg = rest.join(" ");
     if (name === "exit") return exit();
     if (name === "help") return note(HELP);
+    if (name === "login") {
+      if (aomi.auth.mode !== "guest") return note("Already signed in");
+      try {
+        await signIn(baseUrlOf(flags), showCode);
+      } catch (error) {
+        signing = undefined;
+        return note(error instanceof Error ? error.message : String(error));
+      }
+      signing = undefined;
+      aomi = await connect(flags, showCode);
+      // The guest's threads stay with the guest.
+      thread = crypto.randomUUID();
+      title = "new thread";
+      turns.length = 0;
+      started = false;
+      active = {};
+      bar.who = "";
+      loadGuard();
+      void statusBar(aomi, bar).then((list) => {
+        wallets = list;
+        tui.requestRender();
+      });
+      return note("Signed in");
+    }
     if (name === "new") {
       thread = crypto.randomUUID();
       title = "new thread";
@@ -475,7 +519,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     }
     if (name === "wallet") {
       if (aomi.auth.mode === "guest")
-        return note("Sign in for wallets: aomi login");
+        return note("Sign in for wallets: /login");
       if (!wallets.length) return note("No wallets yet");
       return pick(
         wallets.map((entry) => ({
@@ -511,8 +555,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       );
     }
     if (name === "guard") {
-      if (aomi.auth.mode === "guest")
-        return note("Sign in for guards: aomi login");
+      if (aomi.auth.mode === "guest") return note("Sign in for guards: /login");
       const save = async (mode: TransactionSafetyMode) => {
         try {
           guard = (await aomi.account.guard.set({ mode, thread })).mode;
@@ -611,6 +654,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   }
 
   void statusBar(aomi, bar).then((list) => {
+    // Its requests wait for any sign-in the saved grant needed.
+    signing = undefined;
     wallets = list;
     tui.requestRender();
   });
@@ -650,6 +695,30 @@ async function statusBar(
     bar.credits = `${Math.trunc(left / 10_000).toLocaleString("en-US")} credits left`;
   }
   return wallets;
+}
+
+/** A device sign-in waiting for approval in the browser. */
+function signInBox(
+  prompt: { url: string; code: string },
+  width: number,
+): string[] {
+  const size = Math.min(width, Math.max(48, visibleWidth(prompt.url) + 12));
+  const inner = size - 4;
+  const row = (text: string) =>
+    `${paint.cyan("│")} ${truncateToWidth(text, inner, "…", true)} ${paint.cyan("│")}`;
+  const titleText = "┌ Sign in to Aomi ";
+  return [
+    paint.cyan(
+      `${titleText}${"─".repeat(Math.max(0, size - visibleWidth(titleText) - 1))}┐`,
+    ),
+    row(`${paint.dim("Open ")} ${prompt.url}`),
+    row(`${paint.dim("Code ")} ${paint.bold(prompt.code)}`),
+    row(""),
+    row(
+      `${paint.yellow("◐")} Waiting for approval   ${paint.cyan(paint.bold("o"))} Open in browser`,
+    ),
+    paint.cyan(`└${"─".repeat(size - 2)}┘`),
+  ];
 }
 
 /** The commit waiting for you, with its keys. */

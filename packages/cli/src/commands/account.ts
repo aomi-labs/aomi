@@ -14,18 +14,27 @@ import {
   privateKeyOf,
   usage,
   type ConnectFlags,
+  type ShowCode,
 } from "../context";
 import { updateState } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 
-/** `aomi login`: one device code; wallets and providers are on its web page. */
-export async function login(flags: Flags): Promise<void> {
-  const baseUrl = baseUrlOf(flags);
-  const aomi = new Aomi({ baseUrl, auth: await deviceAuth(baseUrl) });
+/** One device sign-in, its code shown by `onCode` (default stderr). */
+export async function signIn(
+  baseUrl: string,
+  onCode?: ShowCode,
+): Promise<void> {
+  const aomi = new Aomi({ baseUrl, auth: await deviceAuth(baseUrl, onCode) });
   await aomi.auth.login({ for: ["agent", "pipeline"] });
   // Guest threads belong to the guest; the account starts its own.
   updateState({ guest: undefined, thread: undefined });
+}
+
+/** `aomi login`: one device code; wallets and providers are on its web page. */
+export async function login(flags: Flags): Promise<void> {
+  const baseUrl = baseUrlOf(flags);
+  await signIn(baseUrl);
   out(`Signed in to ${baseUrl}`);
 }
 
