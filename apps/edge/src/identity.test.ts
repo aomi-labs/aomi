@@ -10,12 +10,10 @@ beforeEach(() => {
 });
 
 describe("edge identity", () => {
-  it("selects the topology from the var, then the request host", () => {
-    expect(edgeTopologyName({}, "api.aomi.dev")).toBe("production");
-    expect(edgeTopologyName({}, "api-staging.aomi.dev")).toBe("staging");
-    expect(edgeTopologyName({}, "api-rc.aomi.dev")).toBe("rc");
-    expect(edgeTopologyName({}, "localhost:8787")).toBe("default");
-    expect(edgeTopologyName({ EDGE_TOPOLOGY: "staging" }, "api.aomi.dev")).toBe("staging");
+  it("selects the topology from EDGE_TOPOLOGY alone, dev when unset", () => {
+    expect(edgeTopologyName({})).toBe("default");
+    expect(edgeTopologyName({ EDGE_TOPOLOGY: "staging" })).toBe("staging");
+    expect(edgeTopologyName({ EDGE_TOPOLOGY: "production" })).toBe("production");
   });
 
   it("mints as aomi-edge with the topology's kid and audiences", async () => {

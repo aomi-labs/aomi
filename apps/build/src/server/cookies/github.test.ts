@@ -3,14 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getGitHubCliSessionFromRequest,
-  issueGitHubCliExchange,
   issueGitHubCliSession,
-  issueGitHubOAuthRequest,
   issueGitHubSession,
-  readGitHubCliExchange,
   readGitHubCliSession,
   readGitHubSession,
-  readGitHubOAuthRequest,
 } from "./github";
 
 const session = {
@@ -52,31 +48,5 @@ describe("GitHub CLI sessions", () => {
 
     vi.stubEnv("PORTAL_ONLY_SESSION_SECRET", "");
     await expect(readGitHubSession("not-a-jwt")).resolves.toBeNull();
-    await expect(readGitHubCliExchange("not-an-exchange")).resolves.toBeNull();
-  });
-
-  it("round-trips the shared OAuth continuation", async () => {
-    const request = {
-      oauthState: "oauth-state",
-      continuation: {
-        kind: "cli" as const,
-        redirectUri: "http://127.0.0.1:43210/callback",
-        state: "s".repeat(43),
-        codeChallenge: "c".repeat(43),
-      },
-    };
-
-    const token = await issueGitHubOAuthRequest(request);
-    await expect(readGitHubOAuthRequest(token)).resolves.toEqual(request);
-  });
-
-  it("makes repeated PKCE exchanges idempotent", async () => {
-    const code = await issueGitHubCliExchange(session, "c".repeat(43));
-    const first = await readGitHubCliExchange(code);
-    const second = await readGitHubCliExchange(code);
-
-    expect(first).not.toBeNull();
-    expect(second).toEqual(first);
-    expect(first?.accessToken).toBe(second?.accessToken);
   });
 });

@@ -4,17 +4,11 @@ import { resolveChatUrl, chatAppUrl, defaultChatUrl } from "./chat-url";
 beforeEach(() => {
   delete process.env.NEXT_PUBLIC_CHAT_URL;
   delete process.env.NEXT_PUBLIC_VERCEL_ENV;
-  delete process.env.VERCEL_ENV;
 });
 
 describe("defaultChatUrl", () => {
   it("uses the production chat host in production", () => {
     process.env.NEXT_PUBLIC_VERCEL_ENV = "production";
-    expect(defaultChatUrl()).toBe("https://chat.aomi.dev");
-  });
-
-  it("falls back to VERCEL_ENV on the server", () => {
-    process.env.VERCEL_ENV = "production";
     expect(defaultChatUrl()).toBe("https://chat.aomi.dev");
   });
 

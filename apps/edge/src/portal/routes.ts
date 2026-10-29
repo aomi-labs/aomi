@@ -366,7 +366,7 @@ function mayApprove(principal: Exclude<Principal, { kind: "none" }>): boolean {
 }
 
 function mintToken(ctx: PortalContext, request: Request, claims: Parameters<ReturnType<typeof edgeService>["mint"]>[0]) {
-  return minted(() => edgeService(ctx.env, new URL(request.url).host).mint(claims));
+  return minted(() => edgeService(ctx.env).mint(claims));
 }
 
 function mint(ctx: PortalContext, request: Request, claims: Parameters<ReturnType<typeof edgeService>["mint"]>[0]) {

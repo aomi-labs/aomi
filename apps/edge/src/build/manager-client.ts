@@ -24,7 +24,7 @@ export function sdkBackendUrl(ctx: BuildContext): string {
 /** A manager client for one request, carrying a five-minute `aomi-edge` service bearer. */
 export async function managerClient(request: Request, ctx: BuildContext): Promise<ManagerClient> {
   const { accessToken } = await minted(() =>
-    edgeService(ctx.env, new URL(request.url).host).mint({
+    edgeService(ctx.env).mint({
       role: "service",
       subject: EDGE_SERVICE_NAME,
       audience: "aomi-backend",

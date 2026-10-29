@@ -130,10 +130,10 @@ const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
     const project = await client.scaffold({
       platform: input.platform ?? config.platforms[0],
       installationId: Number(input.installationId),
-      templateRepo: config.templateRepo,
+      templateRepo: "aomi-labs/playground-example",
       repoName: input.repoName || `my-playground-${randomHex(4)}`,
       githubUserId: session.githubUserId,
-      private: config.createdRepoPrivate,
+      private: false,
     });
     if (!project.repositoryLink || !project.installationId)
       throw new EdgeError(502, "backend did not return a created project");

@@ -20,10 +20,7 @@
   // Once-only OIDC `jti` claims for the RC test identity (src/api/rc-replay.ts).
   "durable_objects": { "bindings": [{ "name": "RC_OIDC_REPLAY", "class_name": "RcReplayStore" }] },
   "migrations": [{ "tag": "rc-replay-1", "new_sqlite_classes": ["RcReplayStore"] }],
-  "vars": {
-    // A placement miss wakes the backend reconciler; keep the original
-    // request at the edge while the small hosted artifact materializes.
-    "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-    "HOSTED_APP_WARMUP_RETRY_MS": "1000"
-  }
+  // No committed vars: constants live in code, per-environment values come
+  // from scripts/deploy.mjs and secrets from product-mono's deploy pipeline.
+  "vars": {}
 }

@@ -46,18 +46,16 @@ export function readAccountAuthEnv(
     siweDomain: resolveSiweDomain(env, url.host),
     siweEmailDomain: env.AOMI_AUTH_EMAIL_DOMAIN,
     trustedOrigins: collectTrustedOrigins(env, betterAuthUrl),
-    privyAppId:
-      nonEmpty(env.PRIVY_APP_ID) ?? nonEmpty(env.NEXT_PUBLIC_PRIVY_APP_ID),
+    // One server name per value. The browser reads its own NEXT_PUBLIC_ copy
+    // of the Privy app id; the server never falls back to it.
+    privyAppId: nonEmpty(env.PRIVY_APP_ID),
     privyAppSecret: nonEmpty(env.PRIVY_APP_SECRET),
     privyAccessTokenVerificationKey: nonEmpty(env.PRIVY_JWT_VERIFICATION_KEY),
-    privyIdentityTokenVerificationKey:
-      nonEmpty(env.PRIVY_IDENTITY_JWT_VERIFICATION_KEY) ??
-      nonEmpty(env.PRIVY_JWT_VERIFICATION_KEY),
-    paraAudience:
-      nonEmpty(env.PARA_JWT_AUDIENCE) ??
-      nonEmpty(env.PARA_AUDIENCE) ??
-      nonEmpty(env.PARA_API_KEY) ??
-      nonEmpty(env.NEXT_PUBLIC_PARA_API_KEY),
+    privyIdentityTokenVerificationKey: nonEmpty(
+      env.PRIVY_IDENTITY_JWT_VERIFICATION_KEY,
+    ),
+    // Para's JWT `aud` is its own id, never the public API key.
+    paraAudience: nonEmpty(env.PARA_JWT_AUDIENCE),
     paraJwksUrl: nonEmpty(env.PARA_JWKS_URL),
     paraApiKey: nonEmpty(env.PARA_API_SECRET_KEY),
     // Vercel overwrites x-vercel-forwarded-for at ingress; a self-hosted
@@ -69,8 +67,7 @@ export function readAccountAuthEnv(
 }
 
 // An env var created with a blank value (easy to do in the Vercel dashboard/CLI)
-// must behave like an unset one: "" is not nullish, so it would otherwise stop a
-// `??` fallback chain and then read as "configured" downstream.
+// must behave like an unset one, or it would read as "configured" downstream.
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -115,7 +112,7 @@ function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
   // including when Vercel labels its build as a preview. A branch alias is
   // different: it moves between deployments, so it cannot be the issuer of
   // an immutable preview even if it was supplied as an explicit override.
-  const explicit = firstUrl(env.BETTER_AUTH_URL, env.AOMI_PORTAL_BASE_URL);
+  const explicit = firstUrl(env.BETTER_AUTH_URL);
   // The branch alias can move to a newer deployment while an exact-commit
   // preview remains live. Its issuer and SIWE domain must match that immutable
   // deployment host, which is also the URL exercised by preview CI.

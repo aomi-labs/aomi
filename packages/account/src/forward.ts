@@ -1,27 +1,20 @@
 /**
- * The backend an app signs bearers for and forwards to, from its environment.
- * Signing and forwarding must agree, so every caller uses this one order.
+ * The backend an app signs bearers for and forwards to: BACKEND_URL, the one
+ * reader of that var. Signing and forwarding must agree, so every caller uses
+ * this. Hosted deployments must set it; local runs default to the dev backend.
  */
 export function backendUrlFromEnv(
   env: Readonly<Record<string, string | undefined>>,
 ): string {
-  for (const value of [
-    env.BACKEND_URL,
-    // Hosted portals set only this one; a browser-relative value is skipped.
-    env.NEXT_PUBLIC_BACKEND_URL,
-  ]) {
-    if (!value?.trim()) continue;
-    try {
-      const url = new URL(value);
-      if (["http:", "https:"].includes(url.protocol))
-        return url.toString().replace(/\/+$/, "");
-    } catch {
-      // Browser-relative path: try the next setting.
-    }
+  const value = env.BACKEND_URL?.trim();
+  if (!value) {
+    if (env.VERCEL_ENV) throw new Error("BACKEND_URL is required on Vercel");
+    return "http://127.0.0.1:8080";
   }
-  if (env.VERCEL_ENV === "production") return "https://api.aomi.dev";
-  if (env.VERCEL_ENV === "preview") return "https://api-staging.aomi.dev";
-  return "http://127.0.0.1:8080";
+  const url = new URL(value);
+  if (!["http:", "https:"].includes(url.protocol))
+    throw new Error("BACKEND_URL must be an absolute http(s) URL");
+  return url.toString().replace(/\/+$/, "");
 }
 
 /** Which headers cross the BFF in each direction for one kind of upstream. */

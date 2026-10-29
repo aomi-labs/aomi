@@ -63,9 +63,10 @@ venue-specific URL.
   app) unchanged: the build sandbox, integrations and local-only helpers.
   - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
     `aomi_github_oauth_request` cookies and the CLI bearer, signed with
-    `BUILD_SESSION_SECRET` (HS256, and a JWE for the PKCE exchange code).
-    Same cookie names, audiences, claims and lifetimes as the Build BFF, so
-    cookies issued by either side verify on the other during the cutover.
+    `BUILD_SESSION_SECRET` (HS256, and a JWE for the PKCE exchange code
+    derived from it). Build's remaining Vercel routes still read the
+    `aomi_github` cookie and CLI bearer with the same value under the name
+    `PORTAL_ONLY_SESSION_SECRET`, until those routes move here.
   - `manager-client.ts`: the GitHub code exchange and project claim, called
     as the `aomi-edge` service. `src/kernel/manager.ts` is the single resolver
     for Manager destinations across the API and Build surfaces.
@@ -130,12 +131,31 @@ this repository:
 and `--var`. product-mono's deploy pipeline reads them from
 `infra/cloudflare/edge-environments.json` and its Terraform inventory, so
 routing a new host (the production portal at cutover, for example) is a
-product-mono change plus a deploy, with no change here. Secrets, per Worker
-(`wrangler secret put <NAME> --name aomi-edge-<env>`):
-`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`),
-`BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
-GitHub sessions survive the cutover) and `BUILD_GITHUB_TOKEN` (Build's
-`GITHUB_TOKEN`, read access for the release-manifest secret gate).
+product-mono change plus a deploy, with no change here.
+
+### Secrets
+
+The Worker has three secrets: `EDGE_SERVICE_PRIVATE_KEY`, `BUILD_SESSION_SECRET`
+and `BUILD_GITHUB_TOKEN`. Each one is stored in exactly one place, the
+matching product-mono GitHub Environment (`staging`, `rc`, `production`).
+product-mono's deploy pushes them to the Worker on every deploy.
+
+- Never run `wrangler secret put` by hand. A value that exists only on the
+  Worker is stored nowhere else, so nobody can read it back or rotate it.
+- `EDGE_SERVICE_PRIVATE_KEY`: generate it with `pnpm --filter aomi-edge
+  generate-key <env>`. Store the private half with `gh secret set
+  EDGE_SERVICE_PRIVATE_KEY -e <env> -R aomi-labs/product-mono`. Commit the
+  public half in `src/topology-data.ts` and product-mono's
+  `service.<env>.toml` in the same change.
+- `BUILD_SESSION_SECRET`: the HS256 key of Build's GitHub session cookies. Build's
+  Vercel project holds the same value as `PORTAL_ONLY_SESSION_SECRET` until its
+  last cookie-reading routes move to the edge. Rotate both together, from the
+  GitHub Environment value.
+- `BUILD_GITHUB_TOKEN`: read access to platform repositories for the
+  release-manifest secret gate. Only the edge reads it.
+
+Everything else is either a per-environment `--var` from the deploy
+environment or a constant in code. There are no committed Wrangler vars.
 
 ## Portal and Build host prerequisites
 
@@ -150,8 +170,6 @@ the Vercel alias.
 The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
 `BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays
 `https://<build host>/api/bff/auth/github/callback`, which the edge now answers.
-For a deployment with its own GitHub App, set the Worker var
-`BUILD_GITHUB_CLIENT_ID` to that App's OAuth client id and configure the matching
-credentials in Manager's second `[[apps]]` entry (app index 2). The client secret
-stays in Manager. Without this override, Build uses the staging or production App
-for its topology.
+Build signs in with the staging or production GitHub App for its topology. Their
+public OAuth client ids are committed in `src/build/github-auth.ts`. The client
+secrets stay in Manager's second `[[apps]]` entry (app index 2).

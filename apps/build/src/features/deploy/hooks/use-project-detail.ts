@@ -238,7 +238,7 @@ export function useProjectDetail(projectId: number) {
     {},
   );
   // Whether the failure above is worth retrying. A missing deploy-time
-  // GITHUB_TOKEN is not: no amount of clicking Retry will conjure one, and
+  // BUILD_GITHUB_TOKEN is not: no amount of clicking Retry will conjure one, and
   // offering the button implies otherwise.
   const [requiredSecretsRetryable, setRequiredSecretsRetryable] =
     useState(true);

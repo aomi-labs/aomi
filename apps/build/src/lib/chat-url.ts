@@ -4,9 +4,8 @@
  * chat-staging.aomi.dev.
  */
 export function defaultChatUrl(): string {
-  const vercelEnv =
-    process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV;
-  if (vercelEnv === "production") {
+  // Client code: only Vercel's NEXT_PUBLIC_ system var reaches the bundle.
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV === "production") {
     return "https://chat.aomi.dev";
   }
   return "https://chat-staging.aomi.dev";

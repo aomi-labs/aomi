@@ -17,7 +17,7 @@ import {
   redeployRoute,
   requiredSecretsRoute,
 } from "./routes";
-import { getGitHubSession } from "./harness";
+import { env, getGitHubSession } from "./harness";
 
 function writeReq(body: unknown) {
   return new Request("http://localhost:3000/api/bff/launch/redeploy", {
@@ -729,8 +729,6 @@ describe("sdkStatusRoute", () => {
   });
 
   it("prints the configured backend URL in the local SDK repair command", async () => {
-    vi.stubEnv("BACKEND_URL", "");
-    vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://api.example.test/");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -848,7 +846,6 @@ describe("deploymentPromoteRoute", () => {
   });
 
   it("promotes an owned deployment and attributes the GitHub login", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(ownedSources(99))
@@ -885,7 +882,6 @@ describe("deploymentPromoteRoute", () => {
   });
 
   it("409s a promote when a required secret is unfilled", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -940,7 +936,6 @@ describe("deploymentPromoteRoute", () => {
   });
 
   it("promotes when required secrets are filled", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -982,7 +977,6 @@ describe("deploymentPromoteRoute", () => {
     // A paginated history cannot prove candidate ownership. The exact
     // projection supplies the pair, so an old candidate still fails closed
     // on its unfilled required secret and promote is never called.
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -1295,7 +1289,6 @@ describe("activateRoute", () => {
   });
 
   it("409s when a required secret is unfilled", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(activationSourceWithRepo("aomi-labs/my-bot-app"))
@@ -1349,24 +1342,25 @@ describe("activateRoute", () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
-  it("tells the builder a missing GITHUB_TOKEN is not theirs to retry", async () => {
+  it("tells the builder a missing BUILD_GITHUB_TOKEN is not theirs to retry", async () => {
     // The gate still closes — verification genuinely cannot run — but this is
     // an operator problem, and the old pipeline flattened every check failure
     // to "Unable to verify required secrets. Try again.", which is the wrong
     // instruction for a credential the builder cannot supply.
-    vi.stubEnv("GITHUB_TOKEN", "");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(activationSourceWithRepo("aomi-labs/my-bot-app"));
     vi.stubGlobal("fetch", fetchMock);
 
+    const token = env.BUILD_GITHUB_TOKEN;
+    env.BUILD_GITHUB_TOKEN = "";
     const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
         releaseTags: ["apps-555-r1-my-bot-abc"],
       }),
-    );
+    ).finally(() => (env.BUILD_GITHUB_TOKEN = token));
     const body = (await res.json()) as {
       error: string;
       code?: string;
@@ -1381,7 +1375,6 @@ describe("activateRoute", () => {
   });
 
   it("activates when the release manifest declares no secrets for the app", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(activationSourceWithRepo("aomi-labs/my-bot-app"))
@@ -1463,7 +1456,6 @@ describe("activateRoute", () => {
       githubUserId: "42",
       githubLogin: "alice",
     });
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     vi.stubGlobal(
       "fetch",
       vi
@@ -1490,7 +1482,6 @@ describe("activateRoute", () => {
   });
 
   it("activates only an owned app/tag pair", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "gh-token");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(activationSource())

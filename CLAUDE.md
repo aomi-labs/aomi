@@ -6,6 +6,9 @@
 2. Read `specs/METADATA.md` - file layout and commands
 3. Read `specs/STATE.md` - current work context and pending items
 
+Before adding, renaming or setting any env var or secret, follow AGENTS.md
+"Secrets and env vars".
+
 ## After Completing a Task
 
 Update `specs/STATE.md` with:

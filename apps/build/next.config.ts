@@ -14,47 +14,13 @@ const nobleHashesAssertCompatPath = path.join(
   "noble-hashes-assert-compat.js",
 );
 
-function defaultBackendUrl() {
-  if (process.env.VERCEL_ENV === "preview") {
-    return "https://api-staging.aomi.dev";
-  }
-  if (process.env.VERCEL_ENV === "production") {
-    return "https://api.aomi.dev";
-  }
-  return "http://127.0.0.1:8080";
-}
-
 // Aomi Build-local code should import from `@/*`.
 const nextConfig: NextConfig = {
-  env: {
-    NEXT_PUBLIC_BACKEND_URL:
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.BACKEND_URL ||
-      defaultBackendUrl(),
-    NEXT_PUBLIC_ANVIL_URL:
-      process.env.NEXT_PUBLIC_ANVIL_URL ||
-      process.env.ANVIL_URL ||
-      "http://127.0.0.1:8545",
-    NEXT_PUBLIC_SUPPORTED_CHAIN_IDS:
-      process.env.NEXT_PUBLIC_SUPPORTED_CHAIN_IDS || "",
-  },
   // Lets a second local instance run from the same checkout (multi-instance
   // testing of the stateless BFF); default .next otherwise.
   distDir: process.env.NEXT_DIST_DIR || undefined,
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   outputFileTracingRoot: workspaceRoot,
-  // The service-topology TOML is read at runtime via a dynamic path, so
-  // @vercel/nft can't trace it automatically — include it explicitly for every
-  // route that mints/verifies a bearer. Per the Next docs, include-glob values
-  // resolve from the Next.js project root (apps/build), NOT from
-  // outputFileTracingRoot.
-  outputFileTracingIncludes: {
-    "/*": [
-      "./service.portal.toml",
-      "./service.portal.staging.toml",
-      "./service.portal.production.toml",
-    ],
-  },
   experimental: {
     externalDir: true,
     webpackMemoryOptimizations: true,

@@ -16,9 +16,7 @@ import { arc, arcTestnet, megaeth } from "@aomi-labs/client";
 import { AomiWalletKitProvider } from "@aomi-labs/widget/host-composition";
 
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
-  process.env.NEXT_PUBLIC_PROJECT_ID;
+const walletConnectProjectId = process.env.NEXT_PUBLIC_PROJECT_ID;
 
 const networks = [
   mainnet,
@@ -40,11 +38,8 @@ const solanaNetworks = [
     cluster: "solana:devnet",
     rpcHttpUrl:
       process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
       "https://api.devnet.solana.com",
-    rpcWsUrl:
-      process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_WS_URL,
+    rpcWsUrl: process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL,
     isDefault: true,
   },
   {

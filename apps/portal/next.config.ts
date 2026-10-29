@@ -66,19 +66,6 @@ const nextConfig: NextConfig = {
   ...(process.env.AOMI_HIDE_DEV_INDICATOR === "true"
     ? { devIndicators: false as const }
     : { devIndicators: { position: "bottom-right" as const } }),
-  env: {
-    NEXT_PUBLIC_BACKEND_URL:
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.BACKEND_URL ||
-      "http://127.0.0.1:8080",
-    NEXT_PUBLIC_ANVIL_URL:
-      process.env.NEXT_PUBLIC_ANVIL_URL ||
-      process.env.ANVIL_URL ||
-      "http://127.0.0.1:8545",
-    NEXT_PUBLIC_SUPPORTED_CHAIN_IDS:
-      process.env.NEXT_PUBLIC_SUPPORTED_CHAIN_IDS || "",
-    NEXT_PUBLIC_PRIVY_APP_ID: process.env.NEXT_PUBLIC_PRIVY_APP_ID || "",
-  },
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   outputFileTracingRoot: workspaceRoot,
   experimental: {

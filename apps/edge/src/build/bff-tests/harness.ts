@@ -26,6 +26,7 @@ export const env: EdgeEnv = {
   BUILD_HOSTS: "localhost:3000",
   BUILD_UPSTREAM_ORIGIN: "http://build-vercel.invalid",
   BUILD_SESSION_SECRET: SECRET,
+  BUILD_GITHUB_TOKEN: "gh-token",
   BACKEND_ORIGINS: MANAGER_ORIGIN,
   MANAGER_ORIGIN,
   APP_DEPLOY_PLATFORMS: "community",
