@@ -230,6 +230,14 @@ export type MentionGroup<T extends MentionItem = MentionItem> = {
   items: T[];
 };
 
+/** Routing modes and built-ins the backend lists as apps: never tagged with "@". */
+export const UNTAGGABLE_APPS: ReadonlySet<string> = new Set([
+  "orchestrator",
+  "auto",
+  "default",
+  "svm",
+]);
+
 const BARE_MENTION_LIMIT = 4;
 const TESTNET_QUERY =
   /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;

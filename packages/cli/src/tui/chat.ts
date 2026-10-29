@@ -28,7 +28,7 @@ import {
   type TransactionSafetyMode,
 } from "@aomi-labs/client";
 import { decode, type InterpretedToolStep } from "@aomi-labs/client/trace";
-import { MentionAutocomplete, mentionCatalog } from "./mentions";
+import { MentionAutocomplete, mentionCatalog, walletGroups } from "./mentions";
 import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
@@ -530,13 +530,17 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       if (aomi.auth.mode === "guest")
         return note("Sign in for wallets: /login");
       if (!wallets.length) return note("No wallets yet");
+      const groups = walletGroups(wallets);
+      const current = groups.find((own) =>
+        own.some((entry) => entry.id === (active.evm ?? active.svm)),
+      );
       return pick(
-        wallets.map((entry) => ({
-          value: entry.id,
-          label: entry.label,
-          description: `${entry.family.toUpperCase()} · ${signsWith(entry)} · ${short(entry.address)}`,
+        groups.map((own) => ({
+          value: own[0]!.id,
+          label: own[0]!.label,
+          description: `${own.map((entry) => entry.family.toUpperCase()).join(" + ")} · ${signsWith(own[0]!)} · ${own.map((entry) => short(entry.address)).join(" · ")}`,
         })),
-        active.evm ?? active.svm ?? "",
+        current?.[0]!.id ?? "",
         (id) => void useWallet(id),
       );
     }
@@ -614,14 +618,19 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   /** Make `id` the thread's wallet: now, or with the first turn of a new thread. */
+  /** Trade with the wallet `id` belongs to: each of its keys for its family. */
   async function useWallet(id: string) {
-    const wallet = wallets.find((entry) => entry.id === id);
-    if (!wallet) return;
+    const own = walletGroups(wallets).find((group) =>
+      group.some((entry) => entry.id === id),
+    );
+    if (!own) return;
     try {
-      if (started) await aomi.account.wallets.use(id, { thread });
-      else walletPick = { ...walletPick, [wallet.family]: id };
-      active = { ...active, [wallet.family]: id };
-      note(`Wallet ${wallet.label} · ${signsWith(wallet)}`);
+      for (const wallet of own) {
+        if (started) await aomi.account.wallets.use(wallet.id, { thread });
+        else walletPick = { ...walletPick, [wallet.family]: wallet.id };
+        active = { ...active, [wallet.family]: wallet.id };
+      }
+      note(`Wallet ${own[0]!.label} · ${signsWith(own[0]!)}`);
     } catch (error) {
       note(error instanceof Error ? error.message : String(error));
     }

@@ -1,7 +1,11 @@
 "use client";
 import { useMemo } from "react";
 import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
-import { isTestnetChain, shortAddress } from "@aomi-labs/client";
+import {
+  isTestnetChain,
+  shortAddress,
+  UNTAGGABLE_APPS,
+} from "@aomi-labs/client";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 import {
   appName,
@@ -92,7 +96,7 @@ export function useCapabilityCatalog(): PickerItem[] {
       ? state.appDescriptors
           .filter(
             (app) =>
-              app.name !== "orchestrator" &&
+              !UNTAGGABLE_APPS.has(app.name) &&
               (!enabled ||
                 enabled.has(app.name) ||
                 (app.isPublic === false && app.isInstalled === true)),

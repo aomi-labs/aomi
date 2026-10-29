@@ -17,6 +17,7 @@ import {
   SUPPORTED_CHAIN_IDS,
   type Aomi,
   type AomiAccountWallet,
+  UNTAGGABLE_APPS,
   type MentionItem,
 } from "@aomi-labs/client";
 
@@ -45,7 +46,7 @@ export async function mentionCatalog(
   const chainName = (id: number) => CHAIN_NAMES[id] ?? String(id);
   return [
     ...apps
-      .filter((app) => app.name !== "orchestrator")
+      .filter((app) => !UNTAGGABLE_APPS.has(app.name))
       .map((app): MentionItem => {
         const label = app.label?.trim() || titleize(app.name);
         const id =
@@ -92,14 +93,34 @@ export async function mentionCatalog(
   ];
 }
 
-/** One row per wallet: an agent wallet's EVM and SVM keys are one wallet. */
-function walletItems(wallets: readonly AomiAccountWallet[]): MentionItem[] {
-  const groups = new Map<string, AomiAccountWallet[]>();
+/** The account's wallets, one entry per wallet: an agent wallet's EVM and SVM keys are one. */
+export function walletGroups(
+  wallets: readonly AomiAccountWallet[],
+): AomiAccountWallet[][] {
+  // As the account list groups them: an agent wallet's keys, a login's
+  // embedded pair, or same-named keys from one wallet app; one per family.
+  const keyOf = (wallet: AomiAccountWallet) =>
+    wallet.kind === "agent"
+      ? `agent:${wallet.agent_wallet_id ?? wallet.id}`
+      : wallet.kind === "embedded" && wallet.provider
+        ? `login:${wallet.provider}`
+        : `${wallet.kind}:${wallet.browser_app ?? ""}:${wallet.label}`;
+  const groups: { key: string; own: AomiAccountWallet[] }[] = [];
   for (const wallet of wallets) {
-    const key = wallet.agent_wallet_id ?? wallet.id;
-    groups.set(key, [...(groups.get(key) ?? []), wallet]);
+    const key = keyOf(wallet);
+    const group = groups.find(
+      (entry) =>
+        entry.key === key &&
+        !entry.own.some((other) => other.family === wallet.family),
+    );
+    if (group) group.own.push(wallet);
+    else groups.push({ key, own: [wallet] });
   }
-  return [...groups.values()].map((own) => ({
+  return groups.map((group) => group.own);
+}
+
+function walletItems(wallets: readonly AomiAccountWallet[]): MentionItem[] {
+  return walletGroups(wallets).map((own) => ({
     kind: "wallet",
     id: own[0]!.id,
     walletIds: own.map((wallet) => wallet.id),
