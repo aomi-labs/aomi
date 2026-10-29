@@ -1,6 +1,7 @@
 import {
   CombinedAutocompleteProvider,
   Editor,
+  Markdown,
   matchesKey,
   ProcessTerminal,
   SelectList,
@@ -9,6 +10,7 @@ import {
   visibleWidth,
   wrapTextWithAnsi,
   type Component,
+  type MarkdownTheme,
   type SelectItem,
 } from "@earendil-works/pi-tui";
 import {
@@ -17,6 +19,8 @@ import {
   TRANSACTION_SAFETY_NAMES,
   Turn,
   type Aomi,
+  type AomiAccountWallet,
+  type AomiActiveWallet,
   type CommitHandle,
   type TransactionSafetyMode,
 } from "@aomi-labs/client";
@@ -25,6 +29,7 @@ import packageJson from "../../package.json";
 import type { ChatFlags } from "../commands/chat";
 import { guardMode } from "../commands/guard";
 import { reviewLines, reviewSummary } from "../commands/tx";
+import { signsWith } from "../commands/wallets";
 import { connect, openUrl, ownerOf, turnOptions } from "../context";
 import { loadState, updateState } from "../state";
 import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
@@ -32,16 +37,44 @@ import { GLYPHS, chipsOf, paint, statusOf } from "../trace";
 type TurnView = {
   text?: string;
   note?: string;
+  /** A turn from the thread's history: its text and reply only. */
+  past?: boolean;
   steps: InterpretedToolStep[];
   started: number;
   ms?: number;
   reply?: string;
+  markdown?: Markdown;
   commits: CommitHandle[];
   error?: string;
 };
 
+const MARKDOWN: MarkdownTheme = {
+  heading: (text) => paint.bold(paint.cyan(text)),
+  link: paint.cyan,
+  linkUrl: paint.dim,
+  code: paint.yellow,
+  codeBlock: (text) => text,
+  codeBlockBorder: paint.dim,
+  quote: paint.dim,
+  quoteBorder: paint.dim,
+  hr: paint.dim,
+  listBullet: paint.cyan,
+  bold: paint.bold,
+  italic: paint.italic,
+  strikethrough: paint.strike,
+  underline: paint.underline,
+};
+
+/** A reply as rendered markdown, parsed once per turn. */
+function replyLines(turn: TurnView, width: number): string[] {
+  turn.markdown ??= new Markdown(turn.reply ?? "", 0, 0, MARKDOWN);
+  return turn.markdown.render(width);
+}
+
 const SLASH = [
   { name: "model", description: "Pick the model for this thread" },
+  { name: "wallet", description: "Pick the wallet this thread trades with" },
+  { name: "threads", description: "Continue another thread" },
   { name: "guard", description: "Strict, Balanced or Yolo for this thread" },
   { name: "new", description: "Start a new thread" },
   { name: "help", description: "Keys and commands" },
@@ -50,6 +83,8 @@ const SLASH = [
 
 const HELP = [
   "/model [name | auto]   pick the model",
+  "/wallet                the wallet this thread trades with, and how it signs",
+  "/threads               continue another thread",
   "/guard [strict | balanced | yolo]  how guards gate this thread's actions",
   "/new                   start a new thread",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
@@ -74,6 +109,13 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let expanded = false;
   let details = false;
   const bar = { who: "guest", credits: "" };
+  let wallets: AomiAccountWallet[] = [];
+  /** The thread's wallet per family, once the server reports it. */
+  let active: AomiActiveWallet = {};
+  /** A wallet picked before the thread's first turn, sent with that turn. */
+  let walletPick: AomiActiveWallet | undefined;
+  /** Whether the thread exists on the server (it has history). */
+  let started = false;
   let guard: TransactionSafetyMode | undefined;
   const loadGuard = () =>
     aomi.auth.mode === "guest"
@@ -140,7 +182,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         paint.dim(`aomi ${packageJson.version} · thread "${title}"`),
       ];
       turns.forEach((turn, index) =>
-        lines.push("", ...turnLines(turn, index === turns.length - 1)),
+        lines.push("", ...turnLines(turn, index === turns.length - 1, width)),
       );
       const commit = pending();
       if (commit)
@@ -152,8 +194,15 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     },
   };
 
-  function turnLines(turn: TurnView, last: boolean): string[] {
+  function turnLines(turn: TurnView, last: boolean, width: number): string[] {
     if (turn.note) return turn.note.split("\n").map(paint.dim);
+    if (turn.past)
+      return [
+        ...(turn.text
+          ? [`${paint.cyan(paint.bold("›"))} ${turn.text}`, ""]
+          : []),
+        ...(turn.reply ? replyLines(turn, width) : []),
+      ];
     const seconds = Math.round(
       ((turn.ms ?? Date.now() - turn.started) as number) / 1000,
     );
@@ -178,7 +227,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           `  ${glyph} ${step.title.padEnd(22)} ${paint.dim(chipsOf(step))}`,
         );
       }
-    if (turn.reply) lines.push("", turn.reply);
+    if (turn.reply) lines.push("", ...replyLines(turn, width));
     if (turn.error) lines.push("", paint.red(turn.error));
     for (const commit of turn.commits)
       if (
@@ -198,8 +247,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       const state = loadState();
       // The chain only reaches the agent when a local key signs.
       const chain = aomi.wallet?.evm && state.chain;
+      const wallet = wallets.find(
+        (entry) => entry.id === (active.evm ?? active.svm),
+      );
       const left = [
-        bar.who,
+        // A local key signs everything itself; else the thread's wallet.
+        aomi.wallet?.evm || aomi.wallet?.svm || !wallet
+          ? bar.who
+          : `${wallet.label} (${signsWith(wallet)})`,
         chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
         state.model ? modelLabel(state.model) : "Auto model",
         guard && TRANSACTION_SAFETY_NAMES[guard].label,
@@ -284,6 +339,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         thread,
         app: flags.app,
         model: flags.model,
+        walletPick: started ? undefined : walletPick,
       });
       thread = options.sessionId;
       running = new Turn(aomi.agent.run(text, options), (ref) =>
@@ -300,6 +356,9 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         commit.subscribe(() => tui.requestRender());
       title = result.title || title;
       updateState({ thread: result.threadId, owner: ownerOf(aomi) });
+      started = true;
+      walletPick = undefined;
+      void loadWallet();
     } catch (error) {
       view.error = error instanceof Error ? error.message : String(error);
     } finally {
@@ -319,8 +378,45 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       thread = crypto.randomUUID();
       title = "new thread";
       turns.length = 0;
+      started = false;
+      active = {};
       loadGuard();
       return note("New thread");
+    }
+    if (name === "threads") {
+      const { threads } = await aomi.agent.threads
+        .list({ limit: 30 })
+        .catch(() => ({ threads: [] }));
+      if (!threads.length) return note("No threads yet");
+      return pick(
+        threads.map((entry) => ({
+          value: entry.id,
+          label: entry.title || "Untitled chat",
+          description: entry.id.slice(0, 8),
+        })),
+        thread,
+        (id) => {
+          thread = id;
+          title = threads.find((entry) => entry.id === id)?.title || title;
+          updateState({ thread: id, owner: ownerOf(aomi) });
+          void loadThread();
+          loadGuard();
+        },
+      );
+    }
+    if (name === "wallet") {
+      if (aomi.auth.mode === "guest")
+        return note("Sign in for wallets: aomi login");
+      if (!wallets.length) return note("No wallets yet");
+      return pick(
+        wallets.map((entry) => ({
+          value: entry.id,
+          label: entry.label,
+          description: `${entry.family.toUpperCase()} · ${signsWith(entry)} · ${short(entry.address)}`,
+        })),
+        active.evm ?? active.svm ?? "",
+        (id) => void useWallet(id),
+      );
     }
     if (name === "model") {
       const choose = (model: string) => {
@@ -396,31 +492,91 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     else void send(text);
   };
 
-  void statusBar(aomi, bar).then(() => tui.requestRender());
-  loadGuard();
-  if (thread)
-    void aomi.agent.threads
-      .list({ limit: 50 })
-      .then(({ threads }) => {
-        title = threads.find((entry) => entry.id === thread)?.title || title;
-        tui.requestRender();
-      })
+  /** Make `id` the thread's wallet: now, or with the first turn of a new thread. */
+  async function useWallet(id: string) {
+    const wallet = wallets.find((entry) => entry.id === id);
+    if (!wallet) return;
+    try {
+      if (started) await aomi.account.wallets.use(id, { thread });
+      else walletPick = { ...walletPick, [wallet.family]: id };
+      active = { ...active, [wallet.family]: id };
+      note(`Wallet ${wallet.label} · ${signsWith(wallet)}`);
+    } catch (error) {
+      note(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /** The thread's wallet as the server has it. */
+  async function loadWallet() {
+    const history = await aomi.agent
+      .thread(thread)
+      .history()
       .catch(() => undefined);
+    if (history) active = { ...active, ...history.activeWallet };
+    tui.requestRender();
+  }
+
+  /** Show the thread so far: its turns, title and wallet. */
+  async function loadThread() {
+    turns.length = 0;
+    started = false;
+    active = {};
+    tui.requestRender();
+    const history = await aomi.agent
+      .thread(thread)
+      .history()
+      .catch(() => undefined);
+    if (!history?.messages.length) return;
+    started = true;
+    active = history.activeWallet;
+    for (const message of history.messages) {
+      const last = turns.at(-1);
+      if (message.sender === "agent" && last && !last.reply)
+        last.reply = message.text;
+      else
+        turns.push({
+          past: true,
+          ...(message.sender === "user"
+            ? { text: message.text }
+            : { reply: message.text }),
+          steps: [],
+          started: 0,
+          commits: [],
+        });
+    }
+    tui.requestRender();
+  }
+
+  void statusBar(aomi, bar).then((list) => {
+    wallets = list;
+    tui.requestRender();
+  });
+  loadGuard();
+  void loadThread();
+  void aomi.agent.threads
+    .list({ limit: 50 })
+    .then(({ threads }) => {
+      title = threads.find((entry) => entry.id === thread)?.title || title;
+      tui.requestRender();
+    })
+    .catch(() => undefined);
   tui.start();
   await done;
 }
 
-/** Who signs and what is left, filled in once the screen is up. */
-async function statusBar(aomi: Aomi, bar: { who: string; credits: string }) {
+/** Who signs and what is left, filled in once the screen is up; returns the account's wallets. */
+async function statusBar(
+  aomi: Aomi,
+  bar: { who: string; credits: string },
+): Promise<AomiAccountWallet[]> {
   const signer = aomi.wallet?.evm?.address ?? aomi.wallet?.svm?.address;
-  if (signer) bar.who = short(signer);
-  if (aomi.auth.mode === "guest") return;
+  if (signer) bar.who = `key ${short(signer)} (signs here)`;
+  if (aomi.auth.mode === "guest") return [];
   const [wallets, credits] = await Promise.all([
     aomi.account.wallets.list().catch(() => []),
     aomi.account.credits.get().catch(() => null),
   ]);
-  const agent = wallets.find((wallet) => wallet.kind === "agent");
-  if (!signer && agent) bar.who = `wallet ${agent.label}`;
+  if (!signer) bar.who = "";
   if (credits) {
     // What the account can spend: this month's allowance left, then bought credits.
     const { used_microusd, limit_microusd } = credits.included;
@@ -428,6 +584,7 @@ async function statusBar(aomi: Aomi, bar: { who: string; credits: string }) {
       Math.max(0, limit_microusd - used_microusd) + credits.balance_microusd;
     bar.credits = `${Math.trunc(left / 10_000).toLocaleString("en-US")} credits left`;
   }
+  return wallets;
 }
 
 /** The commit waiting for you, with its keys. */

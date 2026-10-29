@@ -235,6 +235,12 @@ const root = routes(
           [arg("Thread id", "id")],
           threads.open,
         ),
+        show: command(
+          "What you and the agent said (default: the current thread)",
+          { ...json, ...conn },
+          [arg("Thread id", "id", true)],
+          threads.show,
+        ),
         new: command("Start a new thread", {}, [], threads.start),
         rename: command(
           "Rename a thread",

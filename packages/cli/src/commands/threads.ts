@@ -27,6 +27,17 @@ export async function open(_flags: Flags, id: string): Promise<void> {
   out(`Continuing ${id}`);
 }
 
+/** `aomi threads show [id]`: what you and the agent said (default: the current thread). */
+export async function show(flags: Flags, id?: string): Promise<void> {
+  const thread = id ?? loadState().thread;
+  if (!thread) return out("No thread yet");
+  const aomi = await connect(flags);
+  const { messages } = await aomi.agent.thread(thread).history();
+  if (flags.json) return messages.forEach(json);
+  for (const message of messages)
+    out(`${message.sender === "user" ? "›" : " "} ${message.text}\n`);
+}
+
 /** Start the next message in a new thread. */
 export async function start(): Promise<void> {
   updateState({ thread: undefined, owner: undefined });

@@ -8,6 +8,7 @@ import type { AomiAgentWalletBalances } from "../account/agent-wallets";
 import {
   AccountWalletsTransport,
   type AomiAccountWallet,
+  type AomiThreadWallet,
 } from "../account/wallets";
 import { normalizeAppDescriptor } from "../app-descriptor";
 import {
@@ -41,6 +42,15 @@ export type AomiAccountStatement = {
 export class AomiAccountWallets extends AccountWalletsTransport {
   list(options: { signal?: AbortSignal } = {}): Promise<AomiAccountWallet[]> {
     return this.listWallets(options);
+  }
+
+  /**
+   * Make `id` the wallet `thread` trades with, for its family. A thread that
+   * has not started yet takes its wallet from the first turn's
+   * `userState.wallet_pick` instead.
+   */
+  use(id: string, options: { thread: string }): Promise<AomiThreadWallet> {
+    return this.setThreadWallet(options.thread, id);
   }
 
   /** An agent wallet's balances per network (`id` from `list()`). */

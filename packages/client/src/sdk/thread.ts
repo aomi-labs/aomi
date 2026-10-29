@@ -1,6 +1,7 @@
 import type { ErrorEvent, Event, Session } from "../agent/types";
 import { AomiError } from "../api-error";
-import type { AgentSessionsTransport } from "../agent/transport";
+import type { AgentTransport } from "../agent/transport";
+import type { AomiActiveWallet } from "../account/wallets";
 import type { ToolStepInput } from "../trace/types";
 import { isTerminalCommit } from "../commits";
 import type { AgentRun } from "./agent";
@@ -154,13 +155,19 @@ export class Turn implements PromiseLike<TurnResult> {
   }
 }
 
+/** What a thread said so far, and the wallet it trades with per family. */
+export type ThreadHistory = {
+  messages: { sender: "user" | "agent"; text: string }[];
+  activeWallet: AomiActiveWallet;
+};
+
 /** A conversation with the agent. */
 export class Thread {
   constructor(
     readonly id: string,
     private readonly start: (text: string, threadId: string) => AgentRun,
     private readonly open: (ref: string) => Promise<CommitHandle>,
-    private readonly sessions: AgentSessionsTransport,
+    private readonly agent: AgentTransport,
   ) {}
 
   send(text: string): Turn {
@@ -168,7 +175,21 @@ export class Thread {
   }
 
   rename(title: string): Promise<ThreadSummary> {
-    return this.sessions.update(this.id, { title });
+    return this.agent.sessions.update(this.id, { title });
+  }
+
+  /** The latest page of the conversation: what you and the agent said. */
+  async history(): Promise<ThreadHistory> {
+    const page = await this.agent.poll(this.id);
+    const messages = page.events.flatMap((event) =>
+      event.type === "message" &&
+      (event.sender === "user" || event.sender === "agent") &&
+      !event.tool_call_id &&
+      event.content.trim()
+        ? [{ sender: event.sender, text: event.content }]
+        : [],
+    );
+    return { messages, activeWallet: page.active_wallet ?? {} };
   }
 }
 

@@ -215,6 +215,7 @@ export type {
   ThreadSummary,
   ToolStep,
   TurnResult,
+  ThreadHistory,
 } from "./sdk/thread";
 export {
   AomiAccount,

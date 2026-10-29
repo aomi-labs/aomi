@@ -208,6 +208,8 @@ export function turnOptions(
     app?: string;
     model?: string;
     chain?: number;
+    /** A new thread's wallet per family (`/wallet` before the first turn). */
+    walletPick?: { evm?: string; svm?: string };
   } = {},
 ) {
   const app = overrides.app;
@@ -224,6 +226,7 @@ export function turnOptions(
         ? { svm: { address: svm, cluster: state.cluster ?? "solana:mainnet" } }
         : {}),
       ...(evm || svm ? { connection: { is_connected: true } } : {}),
+      ...(overrides.walletPick ? { wallet_pick: overrides.walletPick } : {}),
     },
     "client_type",
     CLIENT_TYPE_TS_CLI,
