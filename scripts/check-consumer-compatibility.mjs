@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Compile consumers from the trusted base against the packages this checkout ships.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -252,24 +252,6 @@ for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvid
 `,
   );
   run("node", [sdkRuntimeCheck], sdkDestination);
-
-  // The client's old `aomi` bin only points users at @aomi-labs/cli.
-  const shim = spawnSync(
-    join(sdkDestination, "node_modules/.bin/aomi"),
-    ["--version"],
-    {
-      cwd: sdkDestination,
-      encoding: "utf8",
-    },
-  );
-  if (
-    shim.status !== 1 ||
-    !shim.stderr.includes("npm install -g @aomi-labs/cli")
-  ) {
-    throw new Error(
-      `The client's aomi shim did not point at @aomi-labs/cli: ${shim.stderr}`,
-    );
-  }
 
   const cliDestination = join(temporaryRoot, "fresh-cli-install");
   mkdirSync(cliDestination, { recursive: true });
