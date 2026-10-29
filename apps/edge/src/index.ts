@@ -11,6 +11,7 @@ export { handleRequest } from "./handler";
 
 export type WaitUntil = { waitUntil(promise: Promise<unknown>): void };
 export type { EdgeEnv } from "./env";
+export { RcReplayStore } from "./api/rc-replay";
 
 // Account failures that never reach a response still reach Sentry.
 setAccountInternalFailureObserver(({ kind, error }) => {

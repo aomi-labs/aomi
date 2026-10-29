@@ -266,6 +266,81 @@ describe("ControlContextProvider", () => {
     });
   });
 
+  it.each(["preference", "thread"] as const)(
+    "migrates a saved supplier route in the %s without changing the manual model",
+    async (source) => {
+      const oldModel = "openrouter:openai/gpt-6-luna";
+      const model = "openai:gpt-6-luna";
+      const threadMetadata = createThreadMetadata();
+      globalThis.localStorage.setItem(
+        "aomi_model_selection",
+        JSON.stringify({ mode: "manual", model: oldModel }),
+      );
+      if (source === "thread") {
+        threadMetadata.get("session-1")!.control = {
+          ...initThreadControl(),
+          model: oldModel,
+          modelMode: "manual",
+        };
+      }
+      const { getControl } = renderControlContext(
+        {
+          getModels: vi.fn(async () => ["openai:gpt-6.1-sol", model]),
+        },
+        threadMetadata,
+      );
+      await waitFor(() => {
+        expect(getControl().state.availableModels).toContain(model);
+        expect(threadMetadata.get("session-1")?.control).toMatchObject({
+          model,
+          modelMode: "manual",
+          controlDirty: true,
+        });
+      });
+      expect(getControl().getPreferredThreadControl()).toMatchObject({
+        model,
+        modelMode: "manual",
+      });
+      expect(
+        JSON.parse(
+          createScopedStorage({ backendUrl: "" }).get("modelSelection")!,
+        ),
+      ).toEqual({ mode: "manual", model });
+    },
+  );
+
+  it("recovers a saved chat without replacing a different remembered manual model", async () => {
+    const preferred = "openai:gpt-6.1-sol";
+    const model = "openai:gpt-6-luna";
+    createScopedStorage({ backendUrl: "" }).set(
+      "modelSelection",
+      JSON.stringify({ mode: "manual", model: preferred }),
+    );
+    const threadMetadata = createThreadMetadata();
+    threadMetadata.get("session-1")!.control = {
+      ...initThreadControl(),
+      model: "openrouter:openai/gpt-6-luna",
+      modelMode: "manual",
+    };
+    const { getControl } = renderControlContext(
+      { getModels: vi.fn(async () => [preferred, model]) },
+      threadMetadata,
+    );
+    await waitFor(() => {
+      expect(threadMetadata.get("session-1")?.control).toMatchObject({
+        model,
+        modelMode: "manual",
+      });
+    });
+    expect(getControl().getPreferredThreadControl()).toMatchObject({
+      model: preferred,
+      modelMode: "manual",
+    });
+    expect(
+      JSON.parse(createScopedStorage({ backendUrl: "" }).get("modelSelection")!),
+    ).toEqual({ mode: "manual", model: preferred });
+  });
+
   it("revalidates a stale stored model after models load", async () => {
     globalThis.localStorage.setItem(
       "aomi_model_selection",

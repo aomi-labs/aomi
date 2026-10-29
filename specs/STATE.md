@@ -18,13 +18,26 @@
   (`oneAomi`) bans hand-wired clients in first-party code. The CLI is Stricli
   plus a pi-tui chat; sign-in is `aomi login` (device code) or `--private-key`.
   React no longer re-exports `AomiClient`, wallet helpers or `cn`. Pending:
-  the Cloudflare cutover and `LANDING_UPSTREAM_ORIGIN` for production Landing
-  (Han); deploy the Edge before publishing client/cli (the new guest route);
+  the Cloudflare cutover (Han); product-mono's edge-environments record must
+  add `EDGE_HYPERDRIVE_ID` and `BETTER_AUTH_URL` wherever `PORTAL_HOSTS` is
+  set, and `LANDING_UPSTREAM_ORIGIN` with `LANDING_HOSTS` (deploy.mjs refuses
+  otherwise); deploy the Edge before publishing client/cli (the new guest route);
   product-mono `/v1/pipeline/evm/build` returns 422 for an empty action list.
   Build ships 4.66 MB gzip of emitted JS, nearly all lazy wallet chunks that
   no route loads (first load about 147 KB): the widget root and
   `host-composition` entries keep the wallet plugin chunks alive, so a `cn`
   and `Button` entry free of them would drop it to about 0.46 MB.
+
+2026-10-28 — EDGE WORKER: ONE CONFIG FOR EVERY ENVIRONMENT.
+  `apps/edge/wrangler.jsonc` has no `env` blocks; staging, rc and production
+  deploy the same revision with the same settings. `scripts/deploy.mjs` takes
+  everything per-environment from the deploy environment (`EDGE_WORKER_NAME`,
+  `EDGE_ROUTES`, `EDGE_TOPOLOGY`, origins, hosts, CORS, platforms) and runs
+  `wrangler deploy --name … --route … --var …`. product-mono's
+  `infra/cloudflare/edge-environments.json` holds the per-environment record.
+  Replaces #790: routing the production portal is a product-mono record
+  change plus the production deploy. Pending: product-mono pin bump to this
+  revision (it must land together with the record, or deploys fail closed).
 
 2026-10-25 — EDGE WORKER DESLOP STACK (draft PRs #781–#785, stacked on the
   cutover-1 stack #776–#780). #781 adds the `apps/edge/src/kernel` (env schema,

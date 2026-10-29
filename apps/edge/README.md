@@ -92,8 +92,7 @@ retains its sandbox and sidecar authentication; sidecar bearers still use the
 
 ## Running
 
-The example below uses local backend bindings. `dev:staging` selects the
-Wrangler environment; the copied variables still point at localhost.
+The example below uses local backend bindings from `.dev.vars`.
 
 ```sh
 pnpm --filter aomi-edge test        # vitest, no network
@@ -103,8 +102,8 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://postgres:p
   pnpm --filter aomi-edge dev
 ```
 
-To test staging origins, use an ignored `apps/edge/.dev.vars.staging` with
-the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+To test staging origins, run `pnpm --filter aomi-edge dev --env-file
+.dev.vars.staging` with an ignored `apps/edge/.dev.vars.staging` holding the staging `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
 `EDGE_TOPOLOGY=staging` and the matching staging service private key. Obtain
 origins from the staging inventory and credentials from its secret store.
 
@@ -120,23 +119,44 @@ efficiency follow-up, not a payment execution path.
 
 ## Deploying
 
-`scripts/deploy.mjs <staging|production>` runs `wrangler deploy` with
-`BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
-`PORTAL_UPSTREAM_ORIGIN`, `BUILD_UPSTREAM_ORIGIN` and `LANDING_UPSTREAM_ORIGIN`
-(required for production, which routes `aomi.dev/api/*`) taken from the deploy environment. product-mono's deploy pipeline derives those from its
-Terraform inventory and exports them before calling this script. Secrets:
-`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`) and
+`wrangler.jsonc` is one configuration for every environment: staging, rc and
+production deploy the same revision with the same settings. What differs per
+environment is inventory and comes from the deploy environment, never from
+this repository:
+
+- `EDGE_WORKER_NAME` (`aomi-edge-<env>`), `EDGE_ROUTES` (comma-separated route
+  patterns) and `EDGE_TOPOLOGY` (`staging`, `rc` or `production`);
+- the origins `BACKEND_ORIGINS`, `API_SERVER_ORIGIN`, `PAYMENT_ORIGIN`,
+  `PORTAL_UPSTREAM_ORIGIN`, `BUILD_UPSTREAM_ORIGIN`, `LANDING_UPSTREAM_ORIGIN`
+  and `MANAGER_ORIGIN`;
+- the hosts and policies `PORTAL_HOSTS`, `BUILD_HOSTS`, `LANDING_HOSTS`,
+  `CORS_ALLOWED_HOST_PATTERNS`, `TASK_CORS_PUBLIC_ORIGINS`,
+  `APP_CATALOG_PLATFORMS` and `APP_DEPLOY_PLATFORMS`;
+- the optional auth settings `PORTAL_TRUSTED_ORIGINS`, `BUILD_TRUSTED_ORIGINS`,
+  `AOMI_TRUSTED_ORIGINS` and `AOMI_AUTH_DOMAIN` (the SIWE domain, default the
+  `BETTER_AUTH_URL` host);
+- where the environment runs the portal, `BETTER_AUTH_URL` (the portal origin
+  Better Auth issues for) and `EDGE_HYPERDRIVE_ID`, the environment's Hyperdrive
+  config, created with `--caching-disabled`. The deploy binds it in a generated
+  copy of the config; without a portal it drops the local binding.
+  `LANDING_HOSTS` requires `LANDING_UPSTREAM_ORIGIN`.
+
+`scripts/deploy.mjs` passes them to `wrangler deploy` as `--name`, `--route`
+and `--var`. product-mono's deploy pipeline reads them from
+`infra/cloudflare/edge-environments.json` and its Terraform inventory, so
+routing a new host (the production portal at cutover, for example) is a
+product-mono change plus a deploy, with no change here. Secrets, per Worker
+(`wrangler secret put <NAME> --name aomi-edge-<env>`):
+`EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`),
 `BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
 GitHub sessions survive the cutover), `BUILD_GITHUB_TOKEN` (Build's
 `GITHUB_TOKEN`, read access for the release-manifest secret gate),
 `BETTER_AUTH_SECRET` (the portal's, so sessions and the encrypted JWKS keys
-survive the move) and the Privy and Para keys the portal reads today. The
-`HYPERDRIVE` binding needs a Hyperdrive config per environment, created with
-caching disabled.
+survive the move) and the Privy and Para keys the portal reads today.
 
 ## Portal and Build host prerequisites
 
-The portal routes in `wrangler.jsonc` (`chat-staging.aomi.dev/api/*`, `/v1/*`,
+An environment's portal routes (`<portal host>/api/*`, `/v1/*`,
 `/.well-known/*`) only take effect when that hostname is proxied by Cloudflare
 (orange cloud) in the `aomi.dev` zone; a DNS-only CNAME to Vercel bypasses the
 Worker. `PORTAL_UPSTREAM_ORIGIN` must be the portal's Vercel alias, never the

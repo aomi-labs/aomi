@@ -21,7 +21,7 @@ import { BROWSER_TEST_AUTH_SECRET } from "./portal-env";
 
 export const EDGE_ROOT = fileURLToPath(new URL("../../apps/edge/", import.meta.url));
 
-/** The portal-host paths Cloudflare routes to the Worker (apps/edge/wrangler.jsonc). */
+/** The portal-host paths Cloudflare routes to the Worker (each environment's EDGE_ROUTES). */
 export const EDGE_PORTAL_PATHS: readonly RegExp[] = [
   /^\/api(?:\/|$)/,
   /^\/v1(?:\/|$)/,
