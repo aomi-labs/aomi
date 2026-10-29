@@ -114,7 +114,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let title = "new thread";
   const turns: TurnView[] = [];
   let running: Turn | undefined;
-  let expanded = false;
+  /** ctrl+o opens or closes every turn's steps; until then only the latest is open. */
+  let expanded: boolean | undefined;
   let details = false;
   const bar = { who: "guest", credits: "" };
   let wallets: AomiAccountWallet[] = [];
@@ -224,10 +225,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         ? `${paint.yellow("●")} ${paint.bold(`Working ${seconds}s`)}`
         : `${paint.green("●")} ${paint.bold(`Worked ${seconds}s`)}`;
     const lines = [`${paint.cyan(paint.bold("›"))} ${turn.text}`, ""];
+    const open = turn.ms === undefined || (expanded ?? last);
     lines.push(
-      `${head} ${paint.dim(`· ${turn.steps.length} step${turn.steps.length === 1 ? "" : "s"}`)}  ${paint.dim(`ctrl+o ${expanded ? "collapse" : "expand"}`)}`,
+      `${head} ${paint.dim(`· ${turn.steps.length} step${turn.steps.length === 1 ? "" : "s"}`)}  ${paint.dim(`ctrl+o ${open ? "collapse" : "expand"}`)}`,
     );
-    if (expanded || last || turn.ms === undefined)
+    if (open)
       for (const step of turn.steps) {
         const status = statusOf(step);
         const glyph =
@@ -309,7 +311,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     if (matchesKey(data, "escape") && running)
       return (void running.interrupt(), { consume: true });
     if (matchesKey(data, "ctrl+o")) {
-      expanded = !expanded;
+      expanded = !(expanded ?? false);
       tui.requestRender();
       return { consume: true };
     }
