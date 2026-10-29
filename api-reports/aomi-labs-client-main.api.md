@@ -1710,11 +1710,12 @@ export interface AomiSimulateResponse {
 
 // @public (undocumented)
 export class AomiSvmPipeline {
-    constructor(raw: SvmPipelineTransport);
+    constructor(raw: SvmPipelineTransport, client?: AomiClient | undefined, capabilities?: CommitCapabilities);
     // (undocumented)
     build(input: PipelineOperationBuildInput | SvmDirectInput, options?: PipelineMutationOptions): Promise<SvmBuild>;
     // (undocumented)
     commit(build: SvmBuild | SvmSimulatedBuild, options?: PipelineCommitOptions): Promise<SvmCommitResult>;
+    commits(preparation: SvmCommitResult, capabilities?: CommitCapabilities): CommitController;
     // (undocumented)
     readonly raw: SvmPipelineTransport;
     // (undocumented)
@@ -2110,7 +2111,7 @@ export type BetterAuthTokenResponse = {
 
 // @public
 export class Build {
-    constructor(raw: EvmBuild | SvmBuild, open: (result: EvmCommitResult) => CommitHandle);
+    constructor(raw: EvmBuild | SvmBuild, open: (result: EvmCommitResult | SvmCommitResult) => CommitHandle);
     // (undocumented)
     get actions(): (EvmPresentedAction | SvmPresentedAction)[];
     get approvals(): PipelineApprovalChange[];
@@ -4183,6 +4184,7 @@ export type SvmBuildAction = SvmStagedAction;
 
 // @public (undocumented)
 export interface SvmCommitResult {
+    commits: CommitView[];
     // (undocumented)
     digest: string;
     // (undocumented)
@@ -4190,10 +4192,10 @@ export interface SvmCommitResult {
     preparation_status?: "prepared";
     // (undocumented)
     provider_invoked?: false;
-    requests: ActionRequest[];
-    results: unknown[];
+    result: unknown;
     // (undocumented)
     status: "committed";
+    thread_id: string;
 }
 
 // @public (undocumented)
