@@ -20,18 +20,17 @@ visitor's wallet signs them.
 
 ## Run it
 
-Prerequisites: Node 22, pnpm (the version pinned in the repo root), and a
+Prerequisites: Node 24, pnpm (the version pinned in the repo root), and a
 browser with an injected EVM wallet such as MetaMask or Rabby.
 
 ```sh
 pnpm install
-cp apps/examples/web-sign/.env.example apps/examples/web-sign/.env.local
-pnpm example:web-sign            # http://localhost:5174
+cp examples/web-sign/.env.example examples/web-sign/.env.local
+VITE_AOMI_BASE_URL=https://chat-staging.aomi.dev pnpm example:web-sign # http://localhost:5174
 ```
 
 Choose **Connect MetaMask** (or another discovered wallet), then ask for something that needs a transaction. For
-example: "Send 0.0001 ETH to vitalik.eth on Base". Use a throwaway wallet with
-small balances while you experiment.
+example: "Prepare a zero-value self-transfer on Sepolia; I will decline it". Use an unfunded throwaway wallet and reject the request.
 
 `pnpm --filter @aomi-labs/example-web-sign build` type-checks the app and
 writes a static bundle to `dist/`, which you can host anywhere.
@@ -51,9 +50,9 @@ All three values are public build-time configuration. This app has no secrets.
 | File                                                 | Responsibility                                                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | [`src/injected-wallet.ts`](./src/injected-wallet.ts) | `InjectedWallet` wraps `window.ethereum` in a viem `WalletClient` and adapts it to the SDK's `Wallets` contract. |
-| [`src/App.tsx`](./src/App.tsx)                       | Reads configuration, creates the `Aomi` client, and opens one `Session` for each connected account.              |
-| [`src/Chat.tsx`](./src/Chat.tsx)                     | Subscribes to the session with `useSyncExternalStore`, renders the transcript, and sends prompts.                |
-| [`src/ActionReview.tsx`](./src/ActionReview.tsx)     | Shows the human-readable review, runs the verify-before-sign checks, and approves or rejects the Action.         |
+| [`src/app.tsx`](./src/app.tsx)                       | Reads configuration, creates the `Aomi` client, and opens one `Session` for each connected account.              |
+| [`src/chat.tsx`](./src/chat.tsx)                     | Subscribes to the session with `useSyncExternalStore`, renders the transcript, and sends prompts.                |
+| [`src/action-review.tsx`](./src/action-review.tsx)   | Shows the human-readable review, runs the verify-before-sign checks, and approves or rejects the Action.         |
 
 The SDK calls the code below map directly to the Node prototype:
 
@@ -76,7 +75,7 @@ await session.actions.reject(action.id, "Rejected by the user");
 ```
 
 `aomi.agent.run(prompt)` is the one-shot equivalent used in the Node examples.
-A chat page keeps one `Session` open across turns instead. `@aomi-labs/react`
+This custom chat page keeps one low-level `Session` open for live text and legacy Actions. The facade `thread().send()` is sufficient when streaming tool steps and awaiting the final reply. `@aomi-labs/react`
 builds on the same `Session` primitive.
 
 `session.actions.execute()` handles both kinds of transaction Action. An
@@ -84,7 +83,7 @@ ordinary `execute_evm` Action calls the wallet's `sendTransaction` once per
 call, then posts `{ status: "submitted", legs }` back to the agent. A durable
 Action (one that carries `commitStages`) goes through the Commit Service:
 the SDK records an attempt, calls `sendPreparedTransaction`, and the service
-verifies the result on-chain. `LocalCommitRecovery` in `App.tsx` stores the
+verifies the result on-chain. `LocalCommitRecovery` in `app.tsx` stores the
 in-flight attempt, so a reload reconciles a sent transaction instead of
 prompting the wallet again.
 
@@ -110,7 +109,7 @@ ABIs to decode their calls by name.
 The browser talks to the Aomi Portal directly, so authentication has to work
 cross-origin. With no `auth` option, `new Aomi({ baseUrl })` signs in as a
 guest. When the page's origin differs from `baseUrl`, the SDK calls
-`POST /api/auth/widget/guest`. The Portal returns an anonymous **widget
+`POST /api/auth/guest`. The Portal returns an anonymous **widget
 session** bound to the page's `Origin`, and the SDK sends it as
 `Authorization: Bearer …` on `/v1/agent` calls. That is the same mechanism the
 embeddable Widget uses. No cookies, client secret, or OAuth client
@@ -129,7 +128,7 @@ Origin rules enforced by the Portal:
 The guest credential lives only in page memory, so a reload starts a new
 anonymous identity and an empty conversation. To keep history or use
 account features, sign the user in. The headless examples show SIWE and OAuth
-sign-in in [`../headless-client`](../headless-client).
+sign-in in [`../headless`](../headless).
 
 ## Choosing a surface
 
@@ -149,6 +148,5 @@ All docs: [aomi.dev/docs](https://aomi.dev/docs).
 - One wallet prompt per call. Batched `wallet_sendCalls` (EIP-5792) is not
   wired up; add `sendCalls` to `toAomiWallets()` if your users' wallets
   support it.
-- Pure Commit Service steps that arrive without a linked Action are not
-  rendered. The terminal example [`wallet-terminal.ts`](../headless-client/src/wallet-terminal.ts)
-  shows how to review those.
+- Durable commits are rendered by `src/commit-review.tsx`, including commits without a linked Action.
+- Staging guest chat is unavailable until its Edge deploy includes `POST /api/auth/guest`; a successful build does not verify hosted login or signing.
