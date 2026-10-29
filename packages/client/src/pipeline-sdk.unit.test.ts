@@ -317,22 +317,13 @@ describe("Pipeline SDK lifecycle", () => {
     expect(staged.toJSON()).toEqual(evmStaged);
   });
 
-  it("preserves staged transaction bytes and returns SVM wallet intents", async () => {
-    const request: Action["request"] = {
-      type: "execute_svm",
-      transactions: [],
-      simulation: svmSimulated.simulation,
-    };
+  it("preserves staged transaction bytes and returns Solana commits", async () => {
     const prepared = {
       status: "committed",
       digest: svmSimulated.digest,
-      results: [
-        {
-          provider_invoked: false,
-          next_required_action: "submit_wallet_request",
-        },
-      ],
-      requests: [request],
+      result: {},
+      thread_id: `pipeline:svm:${svmSimulated.digest}`,
+      commits: [],
     };
     const fetch = vi
       .fn()
@@ -359,7 +350,6 @@ describe("Pipeline SDK lifecycle", () => {
       build: svmSimulated,
     });
     expect(result).toEqual(prepared);
-    expect(result.requests[0].type).toBe("execute_svm");
   });
 
   it("honors caller mutation keys and payment proofs for both build transports", async () => {

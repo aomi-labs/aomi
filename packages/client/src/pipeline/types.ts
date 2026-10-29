@@ -310,9 +310,11 @@ export interface SvmCommitResult {
   provider_invoked?: false;
   next_required_action?: "submit_wallet_request";
   digest: string;
-  /** Legacy output slots; use the preparation fields to decide the next action. */
-  results: unknown[];
-  /** Server-owned durable requests. Continue through Commit Service. */
-  requests: ActionRequest[];
+  /** The commit operation's result: what was committed and where it is signed. */
+  result: unknown;
+  /** The thread that owns the commits. */
+  thread_id: string;
+  /** Commit Service commits, in order. Sign and follow them like any commit. */
+  commits: CommitView[];
 }
 export type PipelineErrorBody = Schemas["ErrorEnvelope"];

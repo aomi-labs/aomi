@@ -70,11 +70,8 @@ export function execute(
       if (!capability) throw unsupported(action);
       return capability(action.request, signal);
     }
-    case "execute_svm": {
-      const capability = capabilities.execute_svm;
-      if (!capability) throw unsupported(action);
-      return capability(action.request, signal);
-    }
+    case "execute_svm":
+      throw new Error("Solana transactions must use Commit Service");
     case "sign": {
       const capability = capabilities.sign;
       if (!capability) throw unsupported(action);

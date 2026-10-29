@@ -170,7 +170,35 @@ export class AomiEvmPipeline {
 }
 
 export class AomiSvmPipeline {
-  constructor(readonly raw: SvmPipelineTransport) {}
+  constructor(
+    readonly raw: SvmPipelineTransport,
+    private readonly client?: AomiClient,
+    private readonly capabilities: CommitCapabilities = {},
+  ) {}
+
+  /** Follow a Solana commit's Commit Service commits. */
+  commits(
+    preparation: SvmCommitResult,
+    capabilities = this.capabilities,
+  ): CommitController {
+    const { thread_id: threadId, commits } = preparation;
+    if (!this.client || !threadId || !commits?.length)
+      throw new Error("Durable Pipeline continuation is unavailable");
+    if (
+      commits.some(
+        (view) => view.chain_family !== "svm" || view.thread_id !== threadId,
+      )
+    )
+      throw new Error("Pipeline cohort identity mismatch");
+    const controller = new CommitController(
+      this.client,
+      threadId,
+      capabilities,
+      "pipeline",
+    );
+    for (const view of commits) controller.ingest(view);
+    return controller;
+  }
 
   async build(
     input: PipelineOperationBuildInput | SvmDirectInput,
@@ -303,7 +331,7 @@ export class AomiPipeline {
     capabilities?: CommitCapabilities,
   ) {
     this.evm = new AomiEvmPipeline(raw.evm, client, capabilities);
-    this.svm = new AomiSvmPipeline(raw.svm);
+    this.svm = new AomiSvmPipeline(raw.svm, client, capabilities);
     this.skills = { list: () => raw.skills.list() };
   }
 
@@ -335,7 +363,10 @@ export class AomiPipeline {
     return new Build(
       await this.app(app ?? DEFAULT_APP).build(name, args, buildOptions),
       (result) => {
-        const controller = this.evm.commits(result);
+        const controller =
+          "requests" in result
+            ? this.evm.commits(result)
+            : this.svm.commits(result);
         const leader = controller.all().find((view) => !view.batch?.index);
         if (!leader) throw new Error("Pipeline commit has no commits");
         return new CommitHandle(leader.commit_id, controller);

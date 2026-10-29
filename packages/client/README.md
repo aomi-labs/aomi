@@ -352,10 +352,10 @@ const svmStaged = await client.pipeline.svm.stage({
 ```
 
 Portable builds preserve backend transaction records and operation provenance.
-Commit returns `requests` (`ActionRequest[]`), plus operation output in
-`result` (EVM) or `results` (SVM). The SDK never signs them automatically.
-Continue EVM results through `commits()` as above; SVM requests have no
-durable Agent Action IDs.
+Commit returns Commit Service `commits` and their `thread_id`, plus operation
+output in `result`; EVM also returns its `requests` (`ActionRequest[]`). The
+SDK never signs them automatically. Continue either family through
+`aomi.pipeline.evm.commits()` or `aomi.pipeline.svm.commits()`, as above.
 
 The Catalog is filesystem-like and arbitrary live operations deliberately stay
 runtime-schema-driven:
