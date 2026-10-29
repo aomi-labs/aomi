@@ -1,5 +1,9 @@
 # @aomi-labs/react
 
+## 0.9.1
+
+- Use the backend model catalog without adding app-sponsored supplier routes to the general picker. Recover saved supplier selections as the same manual model in the current catalog, preserving the backend's provider routing and the default-model Auto setting.
+
 ## 0.8.5
 
 - Publish under the MIT license, with a `repository` link so npm can show build provenance.
