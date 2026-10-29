@@ -1,6 +1,9 @@
 import {
   CombinedAutocompleteProvider,
+  decodeKittyPrintable,
   Editor,
+  isKeyRelease,
+  isKeyRepeat,
   Markdown,
   matchesKey,
   ProcessTerminal,
@@ -45,6 +48,8 @@ type TurnView = {
   reply?: string;
   markdown?: Markdown;
   commits: CommitHandle[];
+  /** Where your decision on its commit stands, as one line. */
+  decision?: string;
   error?: string;
 };
 
@@ -170,10 +175,15 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     new CombinedAutocompleteProvider(SLASH, process.cwd()),
   );
 
+  /** Commits you already approved or rejected: one decision each. */
+  const deciding = new Set<string>();
   const pending = () =>
     turns
       .at(-1)
-      ?.commits.find((commit) => commit.state === "awaiting_approval");
+      ?.commits.find(
+        (commit) =>
+          commit.state === "awaiting_approval" && !deciding.has(commit.ref),
+      );
 
   const transcript: Component = {
     invalidate() {},
@@ -238,6 +248,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
           "",
           `${paint.yellow("Sign it")}  aomi tx sign ${commit.ref}`,
         );
+    if (turn.decision) lines.push("", turn.decision);
     return lines;
   }
 
@@ -289,6 +300,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   };
 
   tui.addInputListener((data) => {
+    // The kitty keyboard protocol also reports releases and repeats: act on presses.
+    if (isKeyRelease(data) || isKeyRepeat(data)) return undefined;
     if (matchesKey(data, "ctrl+c")) return (exit(), { consume: true });
     if (matchesKey(data, "escape") && running)
       return (void running.interrupt(), { consume: true });
@@ -297,31 +310,76 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       tui.requestRender();
       return { consume: true };
     }
+    const key = decodeKittyPrintable(data) ?? data;
     const commit = pending();
-    if (!commit || editor.getText() || !/^[arod]$/.test(data)) return undefined;
-    if (data === "o" && commit.signUrl) openUrl(commit.signUrl);
-    if (data === "d") details = !details;
-    if (data === "a" || data === "r") void decide(commit, data === "a");
+    if (!commit || editor.getText() || !/^[arod]$/.test(key)) return undefined;
+    if (key === "o" && commit.signUrl) openUrl(commit.signUrl);
+    if (key === "d") details = !details;
+    if (key === "a" || key === "r") void decide(commit, key === "a");
     tui.requestRender();
     return { consume: true };
   });
 
+  /** Approve or reject `commit` once, its progress on its turn's last line. */
   async function decide(commit: CommitHandle, approve: boolean) {
+    const turn = turns.findLast((entry) => entry.commits.includes(commit));
+    if (!turn || deciding.has(commit.ref)) return;
+    deciding.add(commit.ref);
+    const show = (line: string) => {
+      turn.decision = line;
+      tui.requestRender();
+    };
     try {
       if (!approve) {
         await commit.reject();
-        return note("Rejected");
+        return show(paint.dim("✗ Rejected"));
       }
+      show(paint.yellow("◐ Approving…"));
+      // The agent answers once it settles; count what it has said so far.
+      const said = aomi.agent
+        .thread(thread)
+        .history()
+        .then((history) => history.messages.length)
+        .catch(() => undefined);
       await commit.approve(commit.view);
-      note("Approved · signing…");
+      show(paint.yellow("◐ Signing and sending…"));
       const last = await commit.settled();
-      note(
-        last.signature
-          ? `Signed · ${last.signature}`
-          : `Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`,
+      show(
+        paint.green(
+          last.signature
+            ? `✓ Signed · ${last.signature}`
+            : `✓ Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`,
+        ),
       );
+      void followUp(await said);
     } catch (error) {
-      note(error instanceof Error ? error.message : String(error));
+      deciding.delete(commit.ref);
+      show(paint.red(error instanceof Error ? error.message : String(error)));
+    }
+  }
+
+  /** The agent's answer to a settled commit: it continues the thread on its own. */
+  async function followUp(said: number | undefined) {
+    if (said === undefined) return;
+    const started = thread;
+    for (let attempt = 0; attempt < 45 && thread === started; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const history = await aomi.agent
+        .thread(thread)
+        .history()
+        .catch(() => undefined);
+      const fresh = history?.messages.slice(said) ?? [];
+      if (!fresh.some((message) => message.sender === "agent")) continue;
+      for (const message of fresh)
+        if (message.sender === "agent")
+          turns.push({
+            past: true,
+            reply: message.text,
+            steps: [],
+            started: 0,
+            commits: [],
+          });
+      return tui.requestRender();
     }
   }
 
