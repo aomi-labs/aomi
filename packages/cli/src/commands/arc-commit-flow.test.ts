@@ -148,6 +148,12 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
               ],
             });
           }
+          if (/^\/v1\/agent\/chat\/[^/]+\/steer$/.test(url.pathname)) {
+            return Response.json(
+              { error: { code: "no_active_turn", message: "No active turn" } },
+              { status: 409 },
+            );
+          }
           if (url.pathname === "/v1/agent/chat") {
             expect(body.userState.evm).toMatchObject({
               address: account.address,

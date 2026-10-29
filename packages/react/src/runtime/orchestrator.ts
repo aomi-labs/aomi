@@ -280,6 +280,16 @@ export function useRuntimeOrchestrator(
           "This conversation hasn't loaded yet. Load it again, then send your message.",
         );
       const session = getSession(threadId);
+      // A plain follow-up while the turn works joins that turn.
+      const { turnState, isSubmitting } = session.getSnapshot();
+      if (
+        !sendOptions?.edit &&
+        !sendOptions?.regenerate &&
+        turnState === "processing" &&
+        !isSubmitting &&
+        (await session.steer(text))
+      )
+        return;
       const firstTurn = !session.getSnapshot().turnId;
       // Resolved per message: a mention's key never outlives the message.
       const apiKey = optionsRef.current.getAppKey?.(

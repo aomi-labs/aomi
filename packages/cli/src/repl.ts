@@ -150,25 +150,29 @@ export async function runInteractiveCli(
   );
 
   const rl = createInterface({ input, output });
+  // A reply streams while the prompt stays open, so a line typed meanwhile
+  // reaches the running request.
+  const replies = new Set<Promise<unknown>>();
   try {
     while (true) {
       const line = await rl.question("> ");
+      const work = handleReplLine(config, line, options?.showTool === true);
+      if (line.trim() && !/^[/:]/u.test(line.trim())) {
+        const reply = work.catch((err: unknown) => {
+          if (!(err instanceof CliExit))
+            console.error(err instanceof Error ? err.message : err);
+        });
+        replies.add(reply);
+        void reply.finally(() => replies.delete(reply));
+        continue;
+      }
       try {
-        const next = await handleReplLine(
-          config,
-          line,
-          options?.showTool === true,
-        );
-        if (next === "exit") {
-          break;
-        }
+        if ((await work) === "exit") break;
       } catch (err) {
-        if (err instanceof CliExit) {
-          continue;
-        }
-        throw err;
+        if (!(err instanceof CliExit)) throw err;
       }
     }
+    await Promise.all(replies);
   } finally {
     rl.close();
   }

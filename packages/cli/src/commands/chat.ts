@@ -207,6 +207,12 @@ export async function chatCommand(
       console.log(`${DIM}⏳ Thinking…${RESET}`);
     }
     if (branch.edit && branch.regenerate) fatal("Choose --edit or --rerun.");
+    // A plain message while this chat works joins that request; the run
+    // already printing it shows the rest.
+    if (!branch.edit && !branch.regenerate && (await session.steer(message))) {
+      console.log(`${DIM}↳ Added to the running request.${RESET}`);
+      return;
+    }
     await session.sendAsync(message, branch);
     const boundary = printBoundaryForTurn(
       session.getSnapshot().events,

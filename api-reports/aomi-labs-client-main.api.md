@@ -483,6 +483,7 @@ export class AgentTransport {
         paymentSignature?: string;
         apiKey?: string;
     }): Promise<EventPage>;
+    steer(sessionId: string, message: string, idempotencyKey?: string): Promise<EventPage>;
     // (undocumented)
     stream(sessionId: string, options: {
         cursor?: string;
@@ -3358,6 +3359,7 @@ export class Session {
     setActiveWallet(active: AomiActiveWallet): void;
     // (undocumented)
     startStreaming(): void;
+    steer(message: string): Promise<boolean>;
     // (undocumented)
     stopStreaming(): void;
     // (undocumented)
@@ -3428,6 +3430,7 @@ export type SessionSnapshot = Readonly<{
     }>[];
     pendingUserMessage?: string;
     pendingReplacesMessageKey?: string;
+    pendingSteers?: readonly string[];
     actionAttempts: ReadonlyMap<string, ActionAttempt>;
     timing?: Readonly<{
         startedAt: number;
