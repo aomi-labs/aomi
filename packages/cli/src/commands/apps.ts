@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolveAppIdentity } from "@aomi-labs/client";
 import { connect, json, out, usage, type ConnectFlags } from "../context";
 import { loadState } from "../state";
 
@@ -12,8 +13,11 @@ export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   const apps = await aomi.account.apps.list();
   if (flags.json) return apps.forEach(json);
+  // Shown as in the app; the name is what the other commands take.
   for (const app of apps)
-    out(`${app.name}${app.isInstalled ? "  installed" : ""}`);
+    out(
+      `${resolveAppIdentity(app).displayName.padEnd(22)} ${app.name}${app.isInstalled ? "  installed" : ""}`,
+    );
 }
 
 export async function install(flags: Flags, name: string): Promise<void> {

@@ -339,6 +339,14 @@ export {
   appIdentityKey,
   isOfficialAppDescriptor,
 } from "./app-descriptor";
+export {
+  APP_CATEGORIES,
+  CURATED_APP_IDS,
+  canonicalAppId,
+  resolveAppIdentity,
+  type AppCategoryInfo,
+  type AppInfo,
+} from "./app-identity";
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 

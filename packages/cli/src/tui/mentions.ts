@@ -12,6 +12,7 @@ import {
   isTestnetChain,
   mentionGroups,
   parseSkillCatalog,
+  resolveAppIdentity,
   shortAddress,
   skillLabel,
   SUPPORTED_CHAIN_IDS,
@@ -20,13 +21,6 @@ import {
   UNTAGGABLE_APPS,
   type MentionItem,
 } from "@aomi-labs/client";
-
-const titleize = (id: string) =>
-  id
-    .split(/[-_\s]+/u)
-    .filter(Boolean)
-    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
-    .join(" ");
 
 /** Everything "@" can tag, as the composer's picker lists it. */
 export async function mentionCatalog(
@@ -48,7 +42,7 @@ export async function mentionCatalog(
     ...apps
       .filter((app) => !UNTAGGABLE_APPS.has(app.name))
       .map((app): MentionItem => {
-        const label = app.label?.trim() || titleize(app.name);
+        const { displayName: label, category } = resolveAppIdentity(app);
         const id =
           app.applicationId !== null && app.applicationId !== undefined
             ? `application:${app.applicationId}`
@@ -58,9 +52,8 @@ export async function mentionCatalog(
           id,
           label,
           appName: app.name,
-          description:
-            app.featureCatalog?.[0] && titleize(app.featureCatalog[0]),
-          searchText: `${app.name} ${label} ${(app.chainIds ?? []).map(chainName).join(" ")}`,
+          description: category.label,
+          searchText: `${app.name} ${label} ${category.label} ${(app.chainIds ?? []).map(chainName).join(" ")}`,
         };
       }),
     ...skills.map(
