@@ -108,9 +108,9 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const aomi = await connect(flags, ({ url, code }) =>
     note(`Sign in: open ${url}\nCode ${code}`),
   );
-  let thread = flags.new
-    ? crypto.randomUUID()
-    : turnOptions(aomi, loadState(), { thread: flags.thread }).sessionId;
+  // A new thread unless asked to continue one: `--thread <id>` or /threads.
+  const resume = Boolean(flags.thread);
+  let thread = flags.thread || crypto.randomUUID();
   let title = "new thread";
   const turns: TurnView[] = [];
   let running: Turn | undefined;
@@ -615,14 +615,16 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     tui.requestRender();
   });
   loadGuard();
-  void loadThread();
-  void aomi.agent.threads
-    .list({ limit: 50 })
-    .then(({ threads }) => {
-      title = threads.find((entry) => entry.id === thread)?.title || title;
-      tui.requestRender();
-    })
-    .catch(() => undefined);
+  if (resume) {
+    void loadThread();
+    void aomi.agent.threads
+      .list({ limit: 50 })
+      .then(({ threads }) => {
+        title = threads.find((entry) => entry.id === thread)?.title || title;
+        tui.requestRender();
+      })
+      .catch(() => undefined);
+  }
   tui.start();
   await done;
 }
