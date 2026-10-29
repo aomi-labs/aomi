@@ -222,6 +222,9 @@ importers:
       '@aomi-labs/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@aomi-labs/service-identity':
+        specifier: workspace:*
+        version: link:../../packages/service-identity
       '@aomi-labs/smither':
         specifier: workspace:*
         version: link:../../packages/smither
@@ -908,9 +911,6 @@ importers:
 
   packages/account:
     dependencies:
-      '@aomi-labs/service-identity':
-        specifier: workspace:*
-        version: link:../service-identity
       '@better-auth/cimd':
         specifier: 1.7.1
         version: 1.7.1(0c3a5c105538303f0ecfde32d516c720)

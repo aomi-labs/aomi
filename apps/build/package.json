@@ -21,6 +21,7 @@
     "@aomi-labs/deploy": "workspace:*",
     "@aomi-labs/internal": "workspace:*",
     "@aomi-labs/react": "workspace:*",
+    "@aomi-labs/service-identity": "workspace:*",
     "@aomi-labs/smither": "workspace:*",
     "@aomi-labs/widget": "workspace:*",
     "@assistant-ui/react": "^0.14.0",

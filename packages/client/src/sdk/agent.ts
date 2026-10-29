@@ -195,7 +195,8 @@ export class AomiAgent {
     const commits = new AomiCommits(this.client, this.commits);
     return new Thread(
       id,
-      (text, threadId) => this.run(text, { sessionId: threadId }),
+      (text, threadId, options) =>
+        this.run(text, { ...options, sessionId: threadId }),
       (ref) => commits.get(ref),
       this.raw,
     );

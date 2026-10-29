@@ -65,11 +65,21 @@ export async function whoami(flags: Flags): Promise<void> {
     );
 }
 
+/** Device grants cannot read or change the profile: send those to the web. */
+const onWeb = (flags: Flags, aomi: Aomi) => (error: unknown) => {
+  if (aomi.auth.mode === "oauth" && isAomiError(error) && error.status === 401)
+    throw new CliError(
+      `Profile and sign-in methods are managed at ${baseUrlOf(flags)}/settings/account`,
+      3,
+    );
+  throw error;
+};
+
 /** `aomi account`: profile, connections and credits. */
 export async function show(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
   const [me, balance] = await Promise.all([
-    aomi.account.me(),
+    aomi.account.me().catch(onWeb(flags, aomi)),
     aomi.account.credits.get().catch(() => null),
   ]);
   if (flags.json) return json({ account: me, credits: balance });
@@ -93,7 +103,7 @@ const loginLine = (login: {
 
 export async function connections(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
-  const logins = await aomi.account.logins.list();
+  const logins = await aomi.account.logins.list().catch(onWeb(flags, aomi));
   if (flags.json) return logins.forEach(json);
   for (const login of logins) out(loginLine(login));
 }
@@ -107,7 +117,7 @@ export async function unlink(
       `Unlinking removes a way to sign in; pass --yes to unlink ${id}`,
     );
   const aomi = await connect(flags);
-  await aomi.account.logins.remove(id);
+  await aomi.account.logins.remove(id).catch(onWeb(flags, aomi));
   out(`Unlinked ${id}`);
 }
 

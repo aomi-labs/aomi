@@ -1,4 +1,4 @@
-import { Turn, type CommitHandle } from "@aomi-labs/client";
+import type { CommitHandle } from "@aomi-labs/client";
 import { decode } from "@aomi-labs/client/trace";
 import {
   CliError,
@@ -40,9 +40,7 @@ export async function ask(flags: ChatFlags, text: string): Promise<void> {
     ...flags,
     thread: flags.new ? crypto.randomUUID() : flags.thread,
   });
-  const turn = new Turn(aomi.agent.run(text, options), (ref) =>
-    aomi.commits.get(ref),
-  );
+  const turn = aomi.agent.thread(options.sessionId).send(text, options);
   const stop = () => void turn.interrupt();
   process.once("SIGINT", stop);
   const color = Boolean(process.stderr.isTTY);

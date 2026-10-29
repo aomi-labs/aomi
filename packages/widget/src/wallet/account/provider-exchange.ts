@@ -92,7 +92,7 @@ export function useProviderCredentialExchange(input: {
       // A newly selected provider may still be loading the browser account.
       const target =
         current.enabled && current.status === "loading"
-          ? ((await current.accountClient.getAccount()) as AomiBackendAccountResponse)
+          ? await current.accountClient.getAccount()
           : current.account;
       const intent =
         target?.user && !target.guest
@@ -196,9 +196,7 @@ export function useProviderCredentialExchange(input: {
         );
         exchanged.current = attempt;
         if (result.status === "linked" && result.account)
-          latest.current.onAccount(
-            result.account as AomiBackendAccountResponse,
-          );
+          latest.current.onAccount(result.account);
         await latest.current.refresh();
       } catch (cause) {
         const mergeOffer = mergeOfferFrom(cause);

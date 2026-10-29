@@ -1,8 +1,4 @@
-import {
-  CHAIN_NAMES,
-  SUPPORTED_CHAIN_IDS,
-  secretNamesFrom,
-} from "@aomi-labs/client";
+import { CHAIN_NAMES, SUPPORTED_CHAIN_IDS } from "@aomi-labs/client";
 import {
   baseUrlOf,
   clientIdOf,
@@ -61,22 +57,17 @@ export async function currentChain(): Promise<void> {
 /** The secrets vault holds both: provider keys are `BYOK:<provider>`. */
 async function vault(flags: Flags) {
   const aomi = await connect(flags);
-  const thread = threadOf();
-  const clientId = clientIdOf();
   return {
-    names: async () =>
-      secretNamesFrom(await aomi.raw.listSecrets(thread, clientId)),
-    add: (secrets: Record<string, string>) =>
-      aomi.raw.ingestSecrets(thread, clientId, secrets),
-    remove: (name: string) => aomi.raw.deleteSecret(thread, clientId, name),
-    clear: () => aomi.raw.clearSecrets(thread, clientId),
+    store: aomi.account.keys,
+    scope: { thread: threadOf(), clientId: clientIdOf() },
   };
 }
 
 const BYOK = "BYOK:";
 
 export async function keys(flags: Flags): Promise<void> {
-  const names = (await (await vault(flags)).names()).filter((name) =>
+  const { store, scope } = await vault(flags);
+  const names = (await store.list(scope)).filter((name) =>
     name.startsWith(BYOK),
   );
   for (const name of names) out(name.slice(BYOK.length));
@@ -87,17 +78,20 @@ export async function keys(flags: Flags): Promise<void> {
 /** Your own provider key (e.g. `anthropic`), read from stdin or a hidden prompt. */
 export async function setKey(flags: Flags, provider: string): Promise<void> {
   const key = await readSecret(`${provider} key: `);
-  await (await vault(flags)).add({ [`${BYOK}${provider}`]: key });
+  const { store, scope } = await vault(flags);
+  await store.set({ [`${BYOK}${provider}`]: key }, scope);
   out(`${provider} key saved`);
 }
 
 export async function removeKey(flags: Flags, provider: string): Promise<void> {
-  await (await vault(flags)).remove(`${BYOK}${provider}`);
+  const { store, scope } = await vault(flags);
+  await store.remove(`${BYOK}${provider}`, scope);
   out(`${provider} key removed`);
 }
 
 export async function secrets(flags: Flags): Promise<void> {
-  const names = (await (await vault(flags)).names()).filter(
+  const { store, scope } = await vault(flags);
+  const names = (await store.list(scope)).filter(
     (name) => !name.startsWith(BYOK),
   );
   for (const name of names) flags.json ? json(name) : out(name);
@@ -115,13 +109,15 @@ export async function addSecrets(
       return [pair.slice(0, at), pair.slice(at + 1)];
     }),
   );
-  const { handles } = await (await vault(flags)).add(secrets);
+  const { store, scope } = await vault(flags);
+  const handles = await store.set(secrets, scope);
   for (const [name, handle] of Object.entries(handles))
     out(`${name}  ${handle}`);
 }
 
 export async function clearSecrets(flags: Flags): Promise<void> {
-  await (await vault(flags)).clear();
+  const { store, scope } = await vault(flags);
+  await store.clear(scope);
   out("Secrets cleared");
 }
 

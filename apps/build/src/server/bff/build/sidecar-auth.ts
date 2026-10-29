@@ -1,12 +1,46 @@
 import "@tanstack/react-start/server-only";
 
-import { portalService } from "@aomi-labs/account";
+import { AomiService, tierOf, topologyFor } from "@aomi-labs/service-identity";
 import { buildFailures } from "@/server/bff/failures";
+
+// Build's sidecar signer (`aomi-bff`): the committed topology for the backend
+// it serves, with its private key from env (never in the TOML).
+let cached: AomiService | null = null;
+
+/** The public API host the deployment signs for, from its backend URL. */
+function backendHost(
+  env: Record<string, string | undefined>,
+): string | undefined {
+  for (const value of [env.BACKEND_URL, env.NEXT_PUBLIC_BACKEND_URL]) {
+    try {
+      return new URL(value ?? "").hostname;
+    } catch {
+      // Unset or browser-relative: try the next setting.
+    }
+  }
+  return undefined;
+}
+
+/** Build's sidecar signer as an `AomiService` (self = `aomi-bff`), loaded once. */
+function bffService(): AomiService {
+  cached ??= AomiService.fromTopology({
+    toml: topologyFor(
+      "aomi-bff",
+      tierOf({
+        host: backendHost(process.env),
+        vercelEnv: process.env.VERCEL_ENV,
+      }),
+    ),
+    selfName: "aomi-bff",
+    privateKeyPem: process.env.PORTAL_SERVICE_PRIVATE_KEY,
+  });
+  return cached;
+}
 
 /**
  * Sidecar auth rides the official service-bearer path (the same
  * PORTAL_SERVICE_PRIVATE_KEY + committed-topology signing that backend
- * bearers use — packages/account): the BFF mints a short-lived EdDSA JWT per
+ * bearers use): the BFF mints a short-lived EdDSA JWT per
  * proxied request, and the in-VM sidecar verifies it against aomi-bff's
  * committed *public* key, which is safe to ship into a sandbox that runs
  * agent-generated code. No shared secret is stored anywhere — not in the
@@ -23,7 +57,7 @@ const SIDECAR_BEARER_TTL_SECONDS = 5 * 60;
 
 /** Fresh bearer for one run's sidecar — minted per request, never stored. */
 export async function mintSidecarBearer(runId: string): Promise<string> {
-  const { accessToken } = await portalService().mint({
+  const { accessToken } = await bffService().mint({
     role: "service",
     subject: runId,
     audience: SIDECAR_AUDIENCE,
@@ -39,7 +73,7 @@ export async function mintSidecarBearer(runId: string): Promise<string> {
  */
 export function sidecarVerifierPublicKeyPem(): string {
   try {
-    return portalService().self.publicKey;
+    return bffService().self.publicKey;
   } catch (error) {
     buildFailures.handle({
       source: "local",

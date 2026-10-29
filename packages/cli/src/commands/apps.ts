@@ -4,6 +4,9 @@ import { loadState } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 
+/** An app by name, or by its numeric id (`aomi apps list --json` shows it). */
+const appRef = (app: string) => (/^\d+$/.test(app) ? Number(app) : app);
+
 /** `aomi apps`: every app the account can use. */
 export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
@@ -15,14 +18,14 @@ export async function list(flags: Flags): Promise<void> {
 
 export async function install(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const result = await aomi.account.apps.install(name);
+  const result = await aomi.account.apps.install(appRef(name));
   if (flags.json) return json(result);
   out(`Installed ${result.app}`);
 }
 
 export async function uninstall(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const result = await aomi.account.apps.uninstall(name);
+  const result = await aomi.account.apps.uninstall(appRef(name));
   if (flags.json) return json(result);
   out(`Uninstalled ${result.app}`);
 }
@@ -30,7 +33,7 @@ export async function uninstall(flags: Flags, name: string): Promise<void> {
 /** The credential slots an app declares (never their values). */
 export async function credentials(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const status = await aomi.account.apps.credentials(name).list();
+  const status = await aomi.account.apps.credentials(appRef(name)).list();
   if (flags.json) return json(status);
   for (const slot of status.slots)
     out(
@@ -46,7 +49,9 @@ export async function setCredential(
 ): Promise<void> {
   const value = await readSecret(`${key}: `);
   const aomi = await connect(flags);
-  const status = await aomi.account.apps.credentials(name).set(key, value);
+  const status = await aomi.account.apps
+    .credentials(appRef(name))
+    .set(key, value);
   if (flags.json) return json(status);
   out(
     `${key} set${status.ready ? "" : `; still missing ${status.missing_required.join(", ")}`}`,
@@ -59,7 +64,7 @@ export async function removeCredential(
   key: string,
 ): Promise<void> {
   const aomi = await connect(flags);
-  await aomi.account.apps.credentials(name).remove(key);
+  await aomi.account.apps.credentials(appRef(name)).remove(key);
   out(`${key} removed`);
 }
 

@@ -63,8 +63,23 @@ export async function deploy(
   const result = flags.preflight
     ? await client.preflight({ projectId, sourceRef })
     : await client.deploy({ projectId, sourceRef });
-  if (flags.json) return json(result);
   const { deployment } = result;
+  if (!flags.preflight) {
+    await mkdir(join(process.cwd(), ".aomi"), { recursive: true });
+    await writeFile(
+      RECORD,
+      JSON.stringify(
+        {
+          deploymentId: deployment.id,
+          platform: deployment.platform.platform,
+          projectId,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+  if (flags.json) return json(result);
   out(
     `${flags.preflight ? "Preflight" : "Deployment"} ${deployment.id}  ${deployment.status}`,
   );
@@ -73,20 +88,6 @@ export async function deploy(
   if (deployment.platform.ciUrl) out(`CI      ${deployment.platform.ciUrl}`);
   for (const app of deployment.platform.apps)
     out(`app     ${app.name} (${app.releaseTag})`);
-  if (flags.preflight) return;
-  await mkdir(join(process.cwd(), ".aomi"), { recursive: true });
-  await writeFile(
-    RECORD,
-    JSON.stringify(
-      {
-        deploymentId: deployment.id,
-        platform: deployment.platform.platform,
-        projectId,
-      },
-      null,
-      2,
-    ),
-  );
 }
 
 async function target(flags: DeployFlags & { deploymentId?: string }) {
@@ -131,6 +132,7 @@ export async function activate(
   flags: DeployFlags & { deploymentId?: string },
 ): Promise<void> {
   const result = await manager(flags).promote(await target(flags));
+  if (!result.ok) process.exitCode = 1;
   if (flags.json) return json(result);
   for (const app of result.promote.activation?.apps ?? [])
     if ("error" in app && app.error) out(`${app.name}: ${String(app.error)}`);
@@ -139,5 +141,4 @@ export async function activate(
       ? `Activated ${result.promote.releaseTags.join(", ")}`
       : `Activation ${result.promote.status}`,
   );
-  if (!result.ok) process.exitCode = 1;
 }

@@ -34,13 +34,30 @@ export type AccountGraphWallet = {
   providerWalletId?: string;
   chainScope?: string;
   chainId?: number;
-  linkedVia: string;
-  label?: string;
+  linkedVia:
+    | "siwe"
+    | "siws"
+    | "para"
+    | "privy"
+    | "challenge"
+    | "import"
+    | "observed"
+    | "migration"
+    | (string & {});
+  /** The user's name for this address; null when unnamed. */
+  label?: string | null;
+  /** The wallet app it was linked from, e.g. "Rabby". */
+  walletApp?: string;
   verifiedAt?: number;
   lastSeenAt?: number;
+  capability?: "read" | "write";
 };
 
-export type AccountGraphResponse =
+/** `/v1/account`: who is signed in and how. */
+export type AccountGraphResponse = {
+  /** A temporary Better Auth guest: never an account owner. */
+  guest?: boolean;
+} & (
   | {
       user: AccountGraphUser;
       linkedAccounts: AccountGraphLinkedAccount[];
@@ -59,7 +76,8 @@ export type AccountGraphResponse =
       linkedAccounts: [];
       wallets: [];
       session: null;
-    };
+    }
+);
 
 export type AccountNonce = { nonce: string; domain?: string; uri?: string };
 

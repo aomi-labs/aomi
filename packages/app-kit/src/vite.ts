@@ -5,14 +5,13 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { loadEnv, type PluginOption, type UserConfig } from "vite";
-import { deployTarget, type AppEnv } from "./platform.ts";
+import { commitSha, deployTarget, type AppEnv } from "./platform.ts";
 
 export type { AppEnv };
-type StartOptions = NonNullable<Parameters<typeof tanstackStart>[0]>;
 type NitroOptions = NonNullable<Parameters<typeof nitro>[0]>;
 
 /** Modules the client graph must never import (server-side account code). */
-export const serverOnlySpecifiers: Array<string | RegExp> = [
+const serverOnlySpecifiers: Array<string | RegExp> = [
   "server-only",
   /^@aomi-labs\/account(?:$|\/(?!better-auth\/client))/,
 ];
@@ -37,16 +36,9 @@ export interface AppConfigOptions {
   publicEnv?: AppEnv;
   /** Plugins that run before TanStack Start. */
   plugins?: PluginOption[];
-  importProtection?: {
-    include?: string[];
-    /** Client-forbidden specifiers; defaults to `serverOnlySpecifiers`. */
-    specifiers?: Array<string | RegExp>;
-  };
-  /** Static pages rendered at build time. */
-  prerender?: Pick<StartOptions, "pages" | "prerender">;
+  /** Files import protection checks (default: all). */
+  protect?: string[];
   nitro?: Omit<NitroOptions, "preset">;
-  /** Map `@/` to src/ (default true). */
-  sourceAlias?: boolean;
   /** Stub wallet dependencies that cannot load in these hosts. */
   walletShims?: boolean;
   host?: string;
@@ -64,17 +56,18 @@ export function appConfig(options: AppConfigOptions): UserConfig {
   );
   const fallbacks = options.publicEnv ?? {};
   const publicKeys = new Set([...keys, ...Object.keys(fallbacks)]);
-  const { include, specifiers = serverOnlySpecifiers } =
-    options.importProtection ?? {};
+  const include = options.protect;
   return {
     plugins: [
       ...(options.plugins ?? []),
       tanstackStart({
-        ...options.prerender,
         importProtection: {
           behavior: "error",
           ...(include && { include }),
-          client: { files: ["**/*.server.*", "**/src/server/**"], specifiers },
+          client: {
+            files: ["**/*.server.*", "**/src/server/**"],
+            specifiers: serverOnlySpecifiers,
+          },
         },
       }),
       nitro({
@@ -102,9 +95,7 @@ export function appConfig(options: AppConfigOptions): UserConfig {
     ),
     resolve: {
       alias: [
-        ...(options.sourceAlias === false
-          ? []
-          : [{ find: "@", replacement: resolve(root, "src") }]),
+        { find: "@", replacement: resolve(root, "src") },
         {
           find: "server-only",
           replacement: "@tanstack/react-start/server-only",
@@ -139,5 +130,37 @@ export function appConfig(options: AppConfigOptions): UserConfig {
       allowedHosts: ["localhost", "127.0.0.1", ".ts.net"],
       fs: { allow: [workspace] },
     },
+  };
+}
+
+/**
+ * Options for `sentryTanstackStart`: uploads source maps and creates the
+ * release (`<prefix>@<sha>`) only on staging and production builds that carry
+ * Sentry credentials, then deletes the maps from the output.
+ */
+export function sentryOptions(env: AppEnv, releasePrefix: string) {
+  const sha = commitSha(env);
+  const release = sha ? `${releasePrefix}@${sha}` : undefined;
+  const enabled =
+    env.SENTRY_ENABLED === "1" &&
+    ["staging", "production"].includes(env.SENTRY_ENVIRONMENT || "") &&
+    env.SENTRY_PROJECT === "aomi-bff" &&
+    Boolean(env.SENTRY_ORG && env.SENTRY_AUTH_TOKEN && release);
+  return {
+    authToken: env.SENTRY_AUTH_TOKEN,
+    org: env.SENTRY_ORG,
+    project: env.SENTRY_PROJECT,
+    release: { name: release, create: enabled, finalize: enabled },
+    sourcemaps: {
+      disable: !enabled,
+      filesToDeleteAfterUpload: [
+        "./dist/**/*.map",
+        "./.output/**/*.map",
+        "./.vercel/output/**/*.map",
+      ],
+    },
+    autoInstrumentMiddleware: false,
+    telemetry: false,
+    silent: true,
   };
 }

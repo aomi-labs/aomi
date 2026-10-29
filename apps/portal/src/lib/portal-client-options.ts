@@ -3,13 +3,12 @@
  * component file stays presentational.
  *
  * The routed fetch handles debug logging and locked-app query scoping. The
- * x402 signer and AccountBearer provider are passed separately so the shared
- * client owns payment retries and recovery probes.
+ * x402 signer is passed separately so the shared client owns payment retries.
+ * Requests are same-origin: the Edge attaches the account credential.
  */
 
 import { type AomiClientOptions } from "@aomi-labs/client";
 import { useEffect, useMemo, useState } from "react";
-import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
 import {
   createWidgetX402Client,
   useAomiWalletKit,
@@ -201,26 +200,10 @@ export function usePortalClientOptions(
 ): Omit<AomiClientOptions, "baseUrl"> | undefined {
   const nativeFetch = useMemo(() => globalThis.fetch.bind(globalThis), []);
   const {
-    getAccountCredential,
     identity,
     signTypedData,
     switchChain: switchWalletChain,
   } = useAomiWalletKit();
-
-  const accountAccessTokenProvider = useMemo(
-    () =>
-      createPortalAccountBearerProvider(getAccountCredential, {
-        fetch: nativeFetch,
-      }),
-    [getAccountCredential, nativeFetch],
-  );
-
-  useEffect(
-    () => () => {
-      accountAccessTokenProvider?.dispose();
-    },
-    [accountAccessTokenProvider],
-  );
 
   const paymentClient = useMemo(
     () =>
@@ -244,13 +227,6 @@ export function usePortalClientOptions(
     return {
       fetch: routedFetch,
       x402: paymentClient,
-      getAccountBearer: accountAccessTokenProvider ?? undefined,
     };
-  }, [
-    accountAccessTokenProvider,
-    lockedApp,
-    lockedApplicationId,
-    nativeFetch,
-    paymentClient,
-  ]);
+  }, [lockedApp, lockedApplicationId, nativeFetch, paymentClient]);
 }

@@ -9,6 +9,7 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { AomiService, parseTopology } from "./topology";
+import { TOPOLOGIES } from "./topologies";
 
 // A self-contained Ed25519 keypair so the test signs and verifies for real,
 // no committed keys.
@@ -141,5 +142,17 @@ describe("tierOf", () => {
     expect(tierOf({ host: "api.aomi.dev.evil.example" })).toBe("default");
     expect(tierOf({ vercelEnv: "preview" })).toBe("staging");
     expect(tierOf({})).toBe("default");
+  });
+});
+
+describe("aomi-bff", () => {
+  it("may mint for Build's sidecar in every tier", () => {
+    // A bearer leaked from the sandbox carries "aomi-sidecar", never "aomi-backend".
+    for (const tier of Object.values(TOPOLOGIES["aomi-bff"])) {
+      const bff = parseTopology(tier).services.find(
+        (node) => node.name === "aomi-bff",
+      );
+      expect(bff?.audiences).toContain("aomi-sidecar");
+    }
   });
 });

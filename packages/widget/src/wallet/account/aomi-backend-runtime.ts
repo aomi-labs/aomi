@@ -156,8 +156,7 @@ export function useAomiBackendAccountRuntime(input: {
       // test double or future client implementation throws synchronously.
       await Promise.resolve();
       try {
-        const next =
-          (await accountClient.getAccount()) as AomiBackendAccountResponse;
+        const next = await accountClient.getAccount();
         const latest = latestRefreshContext.current;
         if (
           latest.accountClient !== accountClient ||
@@ -380,7 +379,7 @@ export function useAomiBackendAccountRuntime(input: {
     mergeAccount: async (ticket) => {
       const result = await accountClient.merge(ticket);
       exchange.resumeAfterMerge();
-      setAccount(result.account as AomiBackendAccountResponse);
+      setAccount(result.account);
       await refresh();
       return { chats: result.moved.chats };
     },

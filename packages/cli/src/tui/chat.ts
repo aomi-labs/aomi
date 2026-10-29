@@ -20,7 +20,7 @@ import {
   CHAIN_NAMES,
   modelLabel,
   TRANSACTION_SAFETY_NAMES,
-  Turn,
+  type Turn,
   type Aomi,
   type AomiAccountWallet,
   type AomiActiveWallet,
@@ -183,8 +183,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const deciding = new Set<string>();
   const pending = () =>
     turns
-      .at(-1)
-      ?.commits.find(
+      .flatMap((turn) => turn.commits)
+      .find(
         (commit) =>
           commit.state === "awaiting_approval" && !deciding.has(commit.ref),
       );
@@ -262,7 +262,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     render(width) {
       const state = loadState();
       // The chain only reaches the agent when a local key signs.
-      const chain = aomi.wallet?.evm && state.chain;
+      const chain = aomi.wallet?.evm && (flags.chain ?? state.chain);
       const wallet = wallets.find(
         (entry) => entry.id === (active.evm ?? active.svm),
       );
@@ -298,7 +298,10 @@ export async function runTui(flags: ChatFlags): Promise<void> {
 
   let quit!: () => void;
   const done = new Promise<void>((resolve) => (quit = resolve));
+  /** Aborted on quit: stops waits that would hold the process open. */
+  const closing = new AbortController();
   const exit = () => {
+    closing.abort();
     for (const turn of turns) for (const commit of turn.commits) commit.close();
     tui.stop();
     quit();
@@ -348,7 +351,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         .catch(() => undefined);
       await commit.approve(commit.view);
       show(paint.yellow("◐ Signing and sending…"));
-      const last = await commit.settled();
+      const last = await commit.settled({ signal: closing.signal });
       show(
         paint.green(
           last.signature
@@ -367,7 +370,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   async function followUp(said: number | undefined) {
     if (said === undefined) return;
     const started = thread;
-    for (let attempt = 0; attempt < 45 && thread === started; attempt++) {
+    for (
+      let attempt = 0;
+      attempt < 45 && thread === started && !closing.signal.aborted;
+      attempt++
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       const history = await aomi.agent
         .thread(thread)
@@ -402,12 +409,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         thread,
         app: flags.app,
         model: flags.model,
+        chain: flags.chain,
         walletPick: started ? undefined : walletPick,
       });
       thread = options.sessionId;
-      running = new Turn(aomi.agent.run(text, options), (ref) =>
-        aomi.commits.get(ref),
-      );
+      running = aomi.agent.thread(thread).send(text, options);
       for await (const step of running.steps({ decode })) {
         view.steps.push(step);
         tui.requestRender();

@@ -111,7 +111,7 @@ export async function linkAccountWallet(
       signature: await sign(message),
       nonce: nonceResult.nonce,
     });
-    return result.account as AomiBackendAccountResponse | undefined;
+    return result.account;
   }
   if (!evm.signMessageForAccount && !evm.signMessageAsync) {
     throw new Error("Wallet linking requires an active EVM signer");
@@ -165,7 +165,7 @@ export async function linkAccountWallet(
     signature,
     nonce: nonceResult.nonce,
   });
-  return result.account as AomiBackendAccountResponse | undefined;
+  return result.account;
 }
 
 async function signMessageWithActiveEvm(

@@ -4,7 +4,7 @@ import type { AgentTransport } from "../agent/transport";
 import type { AomiActiveWallet } from "../account/wallets";
 import type { ToolStepInput } from "../trace/types";
 import { isTerminalCommit } from "../commits";
-import type { AgentRun } from "./agent";
+import type { AgentRun, AgentRunOptions } from "./agent";
 import type { CommitHandle } from "./commits";
 
 /** One tool call of a turn, as the wire reports it. */
@@ -167,13 +167,18 @@ export type ThreadHistory<S = ToolStep> = {
 export class Thread {
   constructor(
     readonly id: string,
-    private readonly start: (text: string, threadId: string) => AgentRun,
+    private readonly start: (
+      text: string,
+      threadId: string,
+      options?: Omit<AgentRunOptions, "sessionId">,
+    ) => AgentRun,
     private readonly open: (ref: string) => Promise<CommitHandle>,
     private readonly agent: AgentTransport,
   ) {}
 
-  send(text: string): Turn {
-    return new Turn(this.start(text, this.id), this.open);
+  /** Send `text`; `options` pick the app, model and wallet state for this turn. */
+  send(text: string, options?: Omit<AgentRunOptions, "sessionId">): Turn {
+    return new Turn(this.start(text, this.id, options), this.open);
   }
 
   rename(title: string): Promise<ThreadSummary> {

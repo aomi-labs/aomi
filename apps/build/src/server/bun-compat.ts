@@ -74,6 +74,8 @@ export async function registerBunCompatHooks(): Promise<void> {
   };
 
   const { registerHooks, stripTypeScriptTypes } = await import("node:module");
+  // Workers has no loader hooks; the Smithers sandbox only runs on Node.
+  if (typeof registerHooks !== "function") return;
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
 

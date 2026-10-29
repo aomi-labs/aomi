@@ -5,12 +5,14 @@ import { verifyBearer } from "../../../../../../infra/build-runner/sidecar";
 import { sidecarVerifierPublicKeyPem } from "./sidecar-auth";
 
 const mocks = vi.hoisted(() => ({
-  portalService: vi.fn(),
+  fromTopology: vi.fn(),
   capture: vi.fn(),
 }));
 
-vi.mock("@aomi-labs/account", () => ({
-  portalService: mocks.portalService,
+vi.mock("@aomi-labs/service-identity", () => ({
+  AomiService: { fromTopology: mocks.fromTopology },
+  tierOf: () => "default",
+  topologyFor: () => "",
 }));
 
 vi.mock("@/server/bff/failures", () => ({
@@ -21,7 +23,7 @@ vi.mock("@/server/bff/failures", () => ({
 }));
 
 beforeEach(() => {
-  mocks.portalService.mockReset();
+  mocks.fromTopology.mockReset();
   mocks.capture.mockReset();
 });
 
@@ -118,7 +120,7 @@ describe("verifyBearer", () => {
 describe("sidecar verifier configuration", () => {
   it("captures a topology failure and still fails closed", () => {
     const error = new Error("private topology path");
-    mocks.portalService.mockImplementation(() => {
+    mocks.fromTopology.mockImplementation(() => {
       throw error;
     });
 

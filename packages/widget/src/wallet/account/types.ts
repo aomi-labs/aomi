@@ -2,6 +2,10 @@
 
 import {
   AccountGraphApiError,
+  type AccountGraphLinkedAccount,
+  type AccountGraphResponse,
+  type AccountGraphUser,
+  type AccountGraphWallet,
   type AccountMergeOffer,
 } from "@aomi-labs/client";
 import type { WalletFamily } from "../types";
@@ -26,51 +30,9 @@ export type AccountConflict = {
   mergeOffer?: MergeOffer;
 };
 
-export type AomiUserRef = {
-  id: string;
-  displayName?: string;
-  email?: string;
-  avatarUrl?: string;
-};
-
-export type LinkedAuthAccount = {
-  id: string;
-  provider: string;
-  subject: string;
-  email?: string;
-  displayLabel?: string;
-  linkedAt?: number;
-  lastSeenAt?: number;
-};
-
-export type AccountWallet = {
-  id: string;
-  family: WalletFamily;
-  address: string;
-  /** `agent`: an Aomi agent wallet, which signs on the server under its rule. */
-  kind?: "external" | "embedded" | "smart_account" | "agent";
-  provider?: string;
-  providerWalletId?: string;
-  chainScope?: string;
-  chainId?: number;
-  linkedVia:
-    | "siwe"
-    | "siws"
-    | "para"
-    | "privy"
-    | "challenge"
-    | "import"
-    | "observed"
-    | "migration"
-    | (string & {});
-  /** The user's name for this address; null when unnamed. */
-  label?: string | null;
-  /** The wallet app it was linked from, e.g. "Rabby". */
-  walletApp?: string;
-  verifiedAt?: number;
-  lastSeenAt?: number;
-  capability?: "read" | "write";
-};
+export type AomiUserRef = AccountGraphUser;
+export type LinkedAuthAccount = AccountGraphLinkedAccount;
+export type AccountWallet = AccountGraphWallet;
 
 export type LinkWalletInput = {
   accountId?: string;
@@ -95,17 +57,7 @@ export type UpdateAccountInput = {
 };
 
 /** `/v1/account`: who is signed in and how. */
-export type AomiBackendAccountResponse = {
-  /** A temporary Better Auth guest. It is intentionally not an account owner. */
-  guest?: boolean;
-  user: AomiUserRef | null;
-  linkedAccounts: LinkedAuthAccount[];
-  wallets: AccountWallet[];
-  session:
-    | { carrier: "better_auth"; betterAuthUserId: string; expiresAt?: number }
-    | { carrier: "widget"; expiresAt: number; authMethod: string }
-    | null;
-};
+export type AomiBackendAccountResponse = AccountGraphResponse;
 
 export type AccountRuntime = {
   status: AccountRuntimeStatus;

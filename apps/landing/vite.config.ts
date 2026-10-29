@@ -127,9 +127,7 @@ export default defineConfig(async ({ mode }) => {
       NEXT_PUBLIC_BACKEND_URL: env.BACKEND_URL || "http://127.0.0.1:8080",
     },
     plugins: [docsMdx, researchFiles],
-    importProtection: {
-      include: ["**/apps/landing/src/**"],
-    },
+    protect: ["**/apps/landing/src/**"],
     nitro: {
       // Static pages render once at build, as under Next; the crawler adds
       // the posts, docs examples and research data they link to. Redirects,

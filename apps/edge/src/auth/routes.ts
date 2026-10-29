@@ -11,6 +11,7 @@ import { ROUTES, type Method, type Need, type Route } from "@aomi-labs/account/p
 import type { Principal } from "@aomi-labs/account/principal";
 
 import { config } from "../kernel/config";
+import { EdgeError } from "../kernel/errors";
 import { openWidget, preflight, withCors } from "../kernel/cors";
 import { proxy, target } from "../kernel/proxy";
 import type { PortalContext } from "../portal/context";
@@ -98,7 +99,7 @@ async function serve(row: Route, match: RegExpExecArray, request: Request, ctx: 
         (await handle({
           request,
           principal: need === "public" ? { kind: "none" } : await authorized(request, need, ctx),
-          params: { ...match.groups },
+          params: decodeParams(match.groups),
           // Built on first use: most account routes never touch Better Auth.
           get auth() {
             return ctx.auth();
@@ -109,6 +110,15 @@ async function serve(row: Route, match: RegExpExecArray, request: Request, ctx: 
     response = authError(error, request, row.operation, handler.fallback);
   }
   return handler.cors === "none" ? response : withCors(cors, request, response, cfg);
+}
+
+/** Path captures arrive percent-encoded (OAuth client ids are URLs); bad encoding is the caller's mistake. */
+function decodeParams(groups: Record<string, string> | undefined): Record<string, string> {
+  try {
+    return Object.fromEntries(Object.entries(groups ?? {}).map(([key, value]) => [key, decodeURIComponent(value)]));
+  } catch {
+    throw new EdgeError(400, "invalid_request");
+  }
 }
 
 async function authorized(request: Request, need: Need, ctx: PortalContext): Promise<Principal> {
