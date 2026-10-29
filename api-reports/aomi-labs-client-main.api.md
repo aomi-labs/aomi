@@ -3079,6 +3079,9 @@ export type MessageReviewRow = {
 // @public (undocumented)
 export const MICROUSD_PER_CREDIT = 10000;
 
+// @public
+export function modelLabel(model: string): string;
+
 // @public (undocumented)
 export const monad: {
     blockExplorers: {

@@ -3,14 +3,17 @@ import {
   Editor,
   matchesKey,
   ProcessTerminal,
+  SelectList,
   truncateToWidth,
   TuiMainScreen,
   visibleWidth,
   wrapTextWithAnsi,
   type Component,
+  type SelectItem,
 } from "@earendil-works/pi-tui";
 import {
   CHAIN_NAMES,
+  modelLabel,
   Turn,
   type Aomi,
   type CommitHandle,
@@ -43,8 +46,8 @@ const SLASH = [
 ];
 
 const HELP = [
-  "/model [name]          pick the model (no name: list them)",
-  "/mode auto | direct <app>  route to every app, or one",
+  "/model [name | auto]   pick the model",
+  "/mode [auto | <app>]   route to every app, or one",
   "/new                   start a new thread",
   "esc stops a turn · ctrl+o expands steps · ctrl+c quits",
   "a r o d on an approval: approve, reject, open, details",
@@ -68,16 +71,42 @@ export async function runTui(flags: ChatFlags): Promise<void> {
 
   const terminal = new ProcessTerminal();
   const tui = new TuiMainScreen(terminal);
+  const listTheme = {
+    selectedPrefix: paint.cyan,
+    selectedText: paint.cyan,
+    description: paint.dim,
+    scrollInfo: paint.dim,
+    noMatch: paint.dim,
+  };
   const editor = new Editor(tui, {
     borderColor: paint.dim,
-    selectList: {
-      selectedPrefix: paint.cyan,
-      selectedText: paint.cyan,
-      description: paint.dim,
-      scrollInfo: paint.dim,
-      noMatch: paint.dim,
-    },
+    selectList: listTheme,
   });
+
+  /** A list above the input; enter picks, esc leaves things as they are. */
+  function pick(
+    items: SelectItem[],
+    current: string,
+    chosen: (value: string) => void,
+  ) {
+    const list = new SelectList(items, 10, listTheme);
+    list.setSelectedIndex(
+      Math.max(
+        0,
+        items.findIndex((item) => item.value === current),
+      ),
+    );
+    const close = () => {
+      tui.removeChild(list);
+      tui.setFocus(editor);
+      tui.requestRender();
+    };
+    list.onSelect = (item) => (close(), chosen(item.value));
+    list.onCancel = close;
+    tui.children.splice(tui.children.indexOf(editor), 0, list);
+    tui.setFocus(list);
+    tui.requestRender();
+  }
   editor.setAutocompleteProvider(
     new CombinedAutocompleteProvider(SLASH, process.cwd()),
   );
@@ -150,12 +179,12 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     invalidate() {},
     render(width) {
       const state = loadState();
+      // The chain only reaches the agent when a local key signs.
+      const chain = aomi.wallet?.evm && state.chain;
       const left = [
         bar.who,
-        state.chain
-          ? (CHAIN_NAMES[state.chain] ?? `chain ${state.chain}`)
-          : undefined,
-        state.model ?? "default model",
+        chain ? (CHAIN_NAMES[chain] ?? `chain ${chain}`) : undefined,
+        state.model ? modelLabel(state.model) : "Auto model",
         state.app ? `Direct ${state.app}` : "Auto",
         bar.credits,
       ]
@@ -276,19 +305,45 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return note("New thread");
     }
     if (name === "model") {
-      if (arg) return (updateState({ model: arg }), note(`Model ${arg}`));
+      const choose = (model: string) => {
+        updateState({ model: model === "auto" ? undefined : model });
+        note(`Model ${model === "auto" ? "Auto" : modelLabel(model)}`);
+      };
+      if (arg) return choose(arg);
       const models = await aomi.raw
         .getModels(thread ?? crypto.randomUUID())
         .catch(() => []);
-      return note(models.join("\n") || "No models listed");
+      if (!models.length) return note("No models listed");
+      return pick(
+        [
+          { value: "auto", label: "Auto", description: "the default model" },
+          ...models.map((id) => ({
+            value: id,
+            label: modelLabel(id),
+            description: id,
+          })),
+        ],
+        loadState().model ?? "auto",
+        choose,
+      );
     }
     if (name === "mode") {
-      const [mode, app] = rest;
-      if (mode === "auto")
-        return (updateState({ app: undefined }), note("Auto"));
-      if (mode === "direct" && app)
-        return (updateState({ app }), note(`Direct · ${app}`));
-      return note("/mode auto | /mode direct <app>");
+      const choose = (app: string) => {
+        updateState({ app: app === "auto" ? undefined : app });
+        note(app === "auto" ? "Auto" : `Direct · ${app}`);
+      };
+      // `/mode direct <app>` still works.
+      const app = rest[0] === "direct" ? rest[1] : rest[0];
+      if (app) return choose(app);
+      const apps = await aomi.account.apps.list().catch(() => []);
+      return pick(
+        [
+          { value: "auto", label: "Auto", description: "route to every app" },
+          ...apps.map((entry) => ({ value: entry.name, label: entry.name })),
+        ],
+        loadState().app ?? "auto",
+        choose,
+      );
     }
     note(`Unknown command /${name}; /help`);
   }
@@ -325,9 +380,14 @@ async function statusBar(aomi: Aomi, bar: { who: string; credits: string }) {
     aomi.account.credits.get().catch(() => null),
   ]);
   const agent = wallets.find((wallet) => wallet.kind === "agent");
-  if (!signer && agent) bar.who = agent.label;
-  if (credits)
-    bar.credits = `${(credits.balance_microusd / 10_000).toLocaleString("en-US", { maximumFractionDigits: 2 })} credits`;
+  if (!signer && agent) bar.who = `wallet ${agent.label}`;
+  if (credits) {
+    // What the account can spend: this month's allowance left, then bought credits.
+    const { used_microusd, limit_microusd } = credits.included;
+    const left =
+      Math.max(0, limit_microusd - used_microusd) + credits.balance_microusd;
+    bar.credits = `${Math.trunc(left / 10_000).toLocaleString("en-US")} credits left`;
+  }
 }
 
 /** The commit waiting for you, with its keys. */

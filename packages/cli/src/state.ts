@@ -88,8 +88,11 @@ function migrate(): CliState {
     baseUrl: old.baseUrl,
     thread: old.sessionId,
     model: old.model,
-    app: old.agentMode === "auto" ? undefined : old.app,
-    chain: old.chainId,
+    // 0.2 stored its own defaults (the default app, chain 1); those mean Auto
+    // and no chain, as on the web.
+    app:
+      old.agentMode === "auto" || old.app === "default" ? undefined : old.app,
+    chain: old.chainId === 1 ? undefined : old.chainId,
     clientId: old.clientId,
     guest:
       old.guestBearer && old.baseUrl

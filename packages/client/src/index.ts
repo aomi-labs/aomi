@@ -396,6 +396,8 @@ export type {
   ViemSignTypedDataArgs,
 } from "./wallet-utils";
 
+export { modelLabel } from "./models";
+
 // ======================================================================// Chains
 // ======================================================================
 export {
