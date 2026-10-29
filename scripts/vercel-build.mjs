@@ -27,4 +27,9 @@ if (!app) {
 const [pkg, dir] = app;
 execFileSync("pnpm", ["--filter", pkg, "build"], { cwd: ROOT, stdio: "inherit" });
 rmSync(resolve(ROOT, ".vercel/output"), { recursive: true, force: true });
-cpSync(resolve(ROOT, dir, ".vercel/output"), resolve(ROOT, ".vercel/output"), { recursive: true });
+// verbatimSymlinks keeps Nitro's relative node_modules links relative; cpSync
+// would otherwise point them at this build machine's absolute paths.
+cpSync(resolve(ROOT, dir, ".vercel/output"), resolve(ROOT, ".vercel/output"), {
+  recursive: true,
+  verbatimSymlinks: true,
+});
