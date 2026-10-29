@@ -809,7 +809,7 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   }
   if (argv.length === 1 && ["-v", "--version"].includes(argv[0]!)) {
-    process.stdout.write(`aomi ${packageJson.version}\n`);
+    process.stdout.write(`${packageJson.version}\n`);
     return 0;
   }
   await run(app, routed(argv), { process });
