@@ -114,6 +114,43 @@ describe("Aomi OAuth grant manager", () => {
     ]);
   });
 
+  it("refreshes the whole grant, so one call can't narrow the saved sign-in", async () => {
+    // A token endpoint that issues exactly the scopes it is asked for.
+    const refresh = vi.fn(
+      async (current: AomiOAuthGrant, request: AomiOAuthTokenRequest) => ({
+        ...current,
+        accessToken: `${current.accessToken}-fresh`,
+        expiresAt: 100_000,
+        scopes: [...request.scopes],
+      }),
+    );
+    const acquire = vi.fn();
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      initial: [
+        grant(apiResource, "api", ["agent:read", "account:credits:read"]),
+      ],
+      acquire,
+      refresh,
+      now: () => 1,
+    });
+    await manager.tokenProvider({
+      resource: agentResource,
+      scopes: ["agent:read"],
+    });
+    const credits = await manager.tokenProvider({
+      resource: apiResource,
+      scopes: ["account:credits:read"],
+    });
+    expect(credits?.accessToken).toBe("api-fresh");
+    expect(acquire).not.toHaveBeenCalled();
+    expect((await manager.grants())[0]?.scopes).toEqual([
+      "agent:read",
+      "account:credits:read",
+    ]);
+  });
+
   it("acquires one /v1 sign-in for agent and pipeline, MCP separately", async () => {
     const acquire = vi.fn(
       async (request: AomiOAuthTokenRequest): Promise<AomiOAuthGrant> => ({

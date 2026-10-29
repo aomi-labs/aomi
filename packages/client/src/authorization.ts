@@ -176,8 +176,10 @@ export function createAomiOAuthGrantManager(input: {
     const held = grant;
     let pending = pendingRefresh.get(key);
     if (!pending) {
+      // Refresh the whole grant: a token for just this call's scopes would
+      // replace the saved grant and cost a new sign-in for the others.
       pending = input
-        .refresh(copyGrant(grant), request)
+        .refresh(copyGrant(grant), { ...request, scopes: grant.scopes })
         .then(async (refreshed) => {
           assertGrantContext(refreshed, issuer, input.clientId, input.subject);
           if (
