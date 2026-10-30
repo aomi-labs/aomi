@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
   registerAppMcpResource: vi.fn(),
 }));
 
-vi.mock("./client-resource-binding", () => ({
+vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
   bindAomiPublicClientResource: mocks.bindClientResource,
 }));
 vi.mock("./app-mcp-resource", () => ({

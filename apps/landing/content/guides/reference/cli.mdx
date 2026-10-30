@@ -5,12 +5,12 @@ description: Install the Aomi client CLI and use its current Agent, Pipeline, se
 
 # Aomi client CLI
 
-The `aomi` executable ships with [`@aomi-labs/client`](https://www.npmjs.com/package/@aomi-labs/client). It calls a running Aomi environment. It is separate from the Rust `aomi-build` toolchain used to author plugins and ship Apps.
+The `aomi` executable ships with [`@aomi-labs/cli`](https://www.npmjs.com/package/@aomi-labs/cli). It calls a running Aomi environment. It is separate from the Rust `aomi-build` toolchain used to author plugins and ship Apps.
 
 ## Install
 
 ```bash
-npm install -g @aomi-labs/client@latest
+npm install -g @aomi-labs/cli@latest
 aomi --version
 aomi --help
 ```
@@ -18,7 +18,7 @@ aomi --help
 Or run one command without a global install:
 
 ```bash
-npx @aomi-labs/client@latest --help
+npx @aomi-labs/cli@latest --help
 ```
 
 On September 22, 2026, npm `latest` is `0.7.6`. Merged frontend source is `0.9.4`, but source-only account App installation and persistent credential commands require a matching package release and backend deployment.

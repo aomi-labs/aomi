@@ -62,6 +62,7 @@ export default defineConfig({
     },
   },
   test: {
+    server: { deps: { inline: ["@better-auth/cimd"] } },
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: [
@@ -76,6 +77,7 @@ export default defineConfig({
       "apps/portal/src/app/oauth/consent/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/lib/widget-auth/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/app/api/**/route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/app/api/auth/*.postgres.test.ts",
       "apps/portal/src/app/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
       "apps/portal/src/app/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
     ],

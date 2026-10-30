@@ -12,6 +12,7 @@ import {
   getOrCreateAomiUserForBetterAuthSession,
   linkAnonymousCanonicalAccount,
 } from "../service/account-service";
+import { bindAomiPublicClientResource } from "./client-resource-binding";
 import { readAccountAuthEnv } from "./env";
 import {
   AOMI_CANONICAL_USER_CLAIM,
@@ -358,6 +359,15 @@ export const auth = betterAuth({
     cimd({
       fetchClientMetadataResource,
       metadataProfile: "mcp-2026-07-28",
+      onClientCreated: async ({ client, context }) => {
+        const resource = context.query?.resource;
+        if (typeof resource === "string") {
+          await bindAomiPublicClientResource({
+            clientId: client.clientId,
+            resource,
+          });
+        }
+      },
     }),
     compatiblePlugin(
       oauthDeviceAuthorization({
