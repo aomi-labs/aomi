@@ -11,6 +11,7 @@ import {
 import { loadStripe } from "@stripe/stripe-js";
 import type { StripeExpressCheckoutElementConfirmEvent } from "@stripe/stripe-js";
 import type { AomiFundingResult } from "@aomi-labs/client";
+import { aomiButton } from "@/ui/aomi/button";
 
 export default function CardForm(props: {
   publicKey: string;
@@ -151,7 +152,7 @@ function Form({
         />
       </div>
       {express && (
-        <p className="text-aomi-muted text-center text-xs">or pay by card</p>
+        <p className="text-aomi-muted text-center text-xs">or pay with card</p>
       )}
       {!ready && (
         <p role="status" className="text-aomi-muted text-xs">
@@ -171,7 +172,10 @@ function Form({
         }}
       />
       <button
-        className="bg-aomi-fg text-aomi-bg rounded-xl px-4 py-3 font-medium disabled:opacity-40"
+        className={aomiButton({
+          variant: "primary",
+          className: "h-10 w-full",
+        })}
         disabled={!stripe || !ready || busy || disabled}
         onClick={() => void pay()}
       >

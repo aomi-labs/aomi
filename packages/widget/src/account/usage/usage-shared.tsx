@@ -12,7 +12,6 @@ import type {
 import { ExternalLink, LoaderCircle } from "lucide-react";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { shortAddress } from "@aomi-labs/client";
-import { formatAllowanceCredits } from "../account-overview";
 
 /* ---------------------------------------------------------------------- */
 /* Formatting                                                              */
@@ -691,21 +690,20 @@ export function AllowanceSettlementSection({
         <>
           <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
             <span className="text-aomi-fg text-[13px] font-medium">
-              Monthly credits
+              Monthly allowance
             </span>
             <span className="text-aomi-muted text-[12px] tabular-nums">
               <span className="text-aomi-fg font-medium">
-                {formatAllowanceCredits(
+                {usd(
                   Math.max(
                     0,
                     payment.allowanceCredits.included -
                       payment.allowanceCredits.used,
-                  ),
+                  ) / 100,
                 )}
               </span>{" "}
-              of {formatAllowanceCredits(payment.allowanceCredits.included)}{" "}
-              left · {formatAllowanceCredits(payment.allowanceCredits.used)}{" "}
-              used
+              of {usd(payment.allowanceCredits.included / 100)} left ·{" "}
+              {usd(payment.allowanceCredits.used / 100)} used
             </span>
           </div>
           <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
@@ -713,7 +711,7 @@ export function AllowanceSettlementSection({
             <span className="text-aomi-muted text-[12px] leading-snug">
               Paid via {payment.settledVia}.{" "}
               {over
-                ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit balance beyond your ${usd(
+                ? `${usd(payment.creditBankAppliedUsd)} applied from your added balance beyond your ${usd(
                     payment.allowanceAppliedUsd,
                   )} monthly allowance.`
                 : `Compute fully covered by your allowance (${usd(
@@ -732,7 +730,7 @@ export function AllowanceSettlementSection({
           onRetry={onRetryAllowance}
           summary={
             hasAllowance
-              ? `${formatAllowanceCredits(payment.allowanceCredits.used)} / ${formatAllowanceCredits(payment.allowanceCredits.included)} used`
+              ? `${usd(payment.allowanceCredits.used / 100)} / ${usd(payment.allowanceCredits.included / 100)} used`
               : undefined
           }
         />
@@ -771,7 +769,7 @@ function AllowanceRow({
   return (
     <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
       <span className="text-aomi-fg text-[13px] font-medium">
-        Monthly credits
+        Monthly allowance
       </span>
       <span className="text-aomi-muted text-[12px]">
         {status === "loading" || status === "idle" ? (

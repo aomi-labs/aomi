@@ -4,12 +4,8 @@ import { useMemo } from "react";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
-import {
-  creditAllowanceFromPosition,
-  formatAllowanceCredits,
-  tierLabel,
-  useAccountOverview,
-} from "./account-overview";
+import { tierLabel, useAccountOverview } from "./account-overview";
+import { billingFromPosition, formatDollars } from "./usage/credits/format";
 import { useShellTransport } from "./transport";
 import { useSettings } from "./use-settings";
 import {
@@ -32,16 +28,20 @@ export function usePortalWalletAccountMenu(
   const account = useAccountOverview();
   const planLabel = account ? tierLabel(account.user.tier) : undefined;
   const position = useAccountCredits();
-  const credits =
+  const billing =
     position.isPending && position.fetchStatus !== "idle"
       ? undefined
-      : creditAllowanceFromPosition(position.data);
+      : billingFromPosition(position.data);
   // Hosts publish this menu into shell state. Keep its memo dependencies on
-  // displayed values; the allowance projection is a new object every render.
-  const secondaryLine = credits
-    ? formatAllowanceCredits(Math.max(0, credits.included - credits.used))
+  // displayed values; the billing projection is a new object every render.
+  const secondaryLine = billing
+    ? formatDollars(billing.availableUsd)
     : undefined;
-  const secondaryLoading = credits === undefined;
+  const allowanceLeft =
+    billing && billing.allowanceUsd > 0
+      ? Math.round(billing.allowanceLeft * 100) / 100
+      : undefined;
+  const secondaryLoading = billing === undefined;
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();
   const adapter = useAomiWalletKit();
@@ -69,6 +69,7 @@ export function usePortalWalletAccountMenu(
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
       planLabel,
+      allowanceLeft,
       secondaryLoading,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
@@ -91,6 +92,7 @@ export function usePortalWalletAccountMenu(
     onOpenSettings,
     secondaryLine,
     planLabel,
+    allowanceLeft,
     secondaryLoading,
     settings.colorMode,
     updateSetting,

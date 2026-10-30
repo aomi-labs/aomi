@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getChainInfo } from "@aomi-labs/react";
 import type { CreditBalance } from "@aomi-labs/client";
 import { AccountAvatar } from "./account-avatar";
@@ -8,11 +8,14 @@ import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
 import { getChainIcon } from "@/icons/chain-map";
-import { Meter } from "./usage/usage-shared";
+import { Chip } from "./usage/usage-shared";
+import { useUsageStatement } from "./usage/use-usage-statement";
+import { AllowanceRing } from "@/ui/aomi/allowance-ring";
+import { CreditCheckoutDialog } from "./usage/credits/credit-checkout-dialog";
+import { billingFromPosition, formatDollars } from "./usage/credits/format";
+import { ChevronRight } from "lucide-react";
 import { walletConnectionSummary } from "@/wallet/account-presentation";
 import {
-  creditAllowanceFromPosition,
-  formatAllowanceCredits,
   tierLabel,
   useAccountOverview,
   useAccountOverviewStore,
@@ -32,10 +35,10 @@ import {
  */
 export function GeneralSettings({
   onManageAccount,
-  onViewUsage,
+  onViewBilling,
 }: {
   onManageAccount?: () => void;
-  onViewUsage?: () => void;
+  onViewBilling?: () => void;
 }) {
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
@@ -92,8 +95,8 @@ export function GeneralSettings({
       <section className="flex flex-col gap-2">
         <SettingsSectionHeading
           title="Account overview"
-          detail="Profile, plan, and allowance"
-          hint="Your plan's monthly allowance pays for usage first. Anything beyond it settles from your wallet."
+          detail="Profile, plan, and this month"
+          hint="Your plan's monthly allowance pays for usage first. Anything beyond it comes from the funds you add."
         />
         {accountReady ? (
           <AccountSummaryCard
@@ -104,7 +107,7 @@ export function GeneralSettings({
             memberSince={formatMemberSince(account?.user.created_at)}
             credits={credits}
             onManageAccount={onManageAccount}
-            onViewUsage={onViewUsage}
+            onViewBilling={onViewBilling}
           />
         ) : (
           <div className={settingsPanelClass}>
@@ -175,7 +178,7 @@ function AccountSummaryCard({
   memberSince,
   credits,
   onManageAccount,
-  onViewUsage,
+  onViewBilling,
 }: {
   primary: string;
   accountId?: string;
@@ -184,93 +187,127 @@ function AccountSummaryCard({
   memberSince?: string;
   credits?: CreditBalance | null;
   onManageAccount?: () => void;
-  onViewUsage?: () => void;
+  onViewBilling?: () => void;
 }) {
-  const allowance = creditAllowanceFromPosition(credits);
-  const creditsUsed = allowance?.used ?? 0;
-  const creditsIncluded = allowance?.included ?? 0;
-  const remaining = Math.max(0, creditsIncluded - creditsUsed);
-  const periodLabel = formatPeriodLabel(credits?.period_utc_month);
-  const hasAllowance = creditsIncluded > 0;
+  const billing = billingFromPosition(credits);
+  const month = useUsageStatement().month;
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const position = useAccountCredits();
+  const turns = month?.apps.reduce((sum, app) => sum + app.model.turns, 0) ?? 0;
+  const calls =
+    month?.apps.reduce((sum, app) => sum + (app.tool?.calls ?? 0), 0) ?? 0;
 
   return (
     <div className={settingsPanelClass}>
       <SettingRow
         title={primary}
-        desc={walletDesc}
+        desc={[walletDesc, memberSince && `member since ${memberSince}`]
+          .filter(Boolean)
+          .join(" · ")}
         leading={<AccountAvatar seed={accountId} size={32} />}
         className="px-4 sm:px-5"
       >
+        <Chip>{`${tierLabel(tier)} plan`}</Chip>
         <AomiButton size="sm" onClick={onManageAccount}>
           Manage account
         </AomiButton>
       </SettingRow>
 
-      <Divider />
-
-      <SettingRow
-        title="Plan"
-        desc={
-          <>
-            {memberSince ? `Member since ${memberSince}` : "Account plan"}
-            {/* Without an allowance row, View usage lives here instead. */}
-            {!hasAllowance ? (
-              <>
-                {" · "}
-                <ViewUsageLink onClick={onViewUsage} />
-              </>
-            ) : null}
-          </>
-        }
-        className="px-4 sm:px-5"
-      >
-        <span className="text-aomi-fg text-[14px] font-medium">
-          {tierLabel(tier)}
-        </span>
-      </SettingRow>
-
-      {hasAllowance && (
+      {billing ? (
         <>
           <Divider />
-          <SettingRow
-            title="Monthly allowance"
-            desc={
-              <>
-                {periodLabel} · resets each UTC month
-                {" · "}
-                <ViewUsageLink onClick={onViewUsage} />
-              </>
-            }
-            className="px-4 sm:px-5"
-          >
-            <div className="flex w-[220px] flex-col gap-1.5">
-              <div className="text-aomi-muted flex justify-between text-[12px] tabular-nums">
-                <span>
-                  <span className="text-aomi-fg font-medium">
-                    {formatAllowanceCredits(remaining)}
-                  </span>{" "}
-                  of {formatAllowanceCredits(creditsIncluded)} left
-                </span>
-                <span>{formatAllowanceCredits(creditsUsed)} used</span>
-              </div>
-              <Meter pct={(creditsUsed / creditsIncluded) * 100} />
+          <div className="divide-aomi-border grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="flex items-center gap-3.5 px-4 py-4 sm:px-5">
+              {billing.allowanceUsd > 0 ? (
+                <AllowanceRing left={billing.allowanceLeft} size={44} />
+              ) : null}
+              <Stat
+                label="Monthly allowance"
+                value={
+                  billing.allowanceUsd > 0 ? (
+                    <>
+                      {formatDollars(billing.allowanceLeftUsd)}{" "}
+                      <span className="text-aomi-muted text-[12px] font-normal">
+                        of {formatDollars(billing.allowanceUsd)}
+                      </span>
+                    </>
+                  ) : (
+                    "—"
+                  )
+                }
+                detail={
+                  billing.allowanceUsd > 0
+                    ? `Resets ${billing.resetsOn}`
+                    : "Not on this plan"
+                }
+              />
             </div>
-          </SettingRow>
+            <div className="px-4 py-4 sm:px-5">
+              <Stat
+                label="Added balance"
+                value={formatDollars(billing.balanceUsd)}
+                detail="Never expires"
+              />
+            </div>
+            <div className="px-4 py-4 sm:px-5">
+              <Stat
+                label={
+                  month
+                    ? `Spent in ${month.period.periodLabel.split(" ")[0]}`
+                    : "Spent this month"
+                }
+                value={month ? formatDollars(month.summary.totalUsd) : "—"}
+                detail={
+                  month ? `${turns} turns · ${calls} tool calls` : "Loading…"
+                }
+              />
+            </div>
+          </div>
+          <Divider />
+          <div className="bg-aomi-surface flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+            <span className="type-meta text-aomi-muted">
+              Your allowance is used first, then your added balance.
+            </span>
+            <div className="flex gap-2">
+              <AomiButton size="sm" onClick={() => setCheckoutOpen(true)}>
+                Add funds
+              </AomiButton>
+              <AomiButton size="sm" onClick={onViewBilling}>
+                Billing
+                <ChevronRight />
+              </AomiButton>
+            </div>
+          </div>
+          <CreditCheckoutDialog
+            open={checkoutOpen}
+            onClose={() => setCheckoutOpen(false)}
+            onSuccess={async () => {
+              await position.refetch();
+            }}
+          />
         </>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function ViewUsageLink({ onClick }: { onClick?: () => void }) {
+function Stat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: ReactNode;
+  detail: string;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-aomi-accent-strong hover:text-aomi-fg font-medium transition-colors"
-    >
-      View usage
-    </button>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="type-meta text-aomi-muted">{label}</span>
+      <span className="text-[16px] font-semibold tabular-nums leading-6 tracking-[-0.01em]">
+        {value}
+      </span>
+      <span className="type-meta text-aomi-muted truncate">{detail}</span>
+    </div>
   );
 }
 
@@ -311,31 +348,4 @@ function formatMemberSince(createdAt?: number): string | undefined {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-function formatPeriodLabel(periodUtcMonth?: string): string {
-  if (!periodUtcMonth) {
-    const now = new Date();
-    return now.toLocaleDateString("en-US", {
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
-  }
-  const [year, month] = periodUtcMonth.split("-").map(Number);
-  const names = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${names[month - 1] ?? periodUtcMonth} ${year}`;
 }

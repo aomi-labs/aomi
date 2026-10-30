@@ -14,6 +14,7 @@ export type AccountSnapshot = {
   name: string;
   creditsLine?: string;
   planLabel?: string;
+  allowanceLeft?: number;
   wallets: { family: WalletFamily; address: string; brand: string }[];
 };
 
@@ -47,6 +48,9 @@ function read(key: string): AccountSnapshot | null {
               : {}),
             ...(typeof parsed.planLabel === "string"
               ? { planLabel: parsed.planLabel }
+              : {}),
+            ...(typeof parsed.allowanceLeft === "number"
+              ? { allowanceLeft: parsed.allowanceLeft }
               : {}),
           }
         : null;
