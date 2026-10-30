@@ -11,7 +11,7 @@ its guest and wallet-authenticated CORS contracts in Chromium. A PR therefore
 cannot make a package break pass by editing this consumer at the same time.
 
 ```sh
-pnpm --filter widget-consumer dev
+VITE_AOMI_API_URL=https://chat-staging.aomi.dev pnpm --filter widget-consumer dev
 ```
 
 Copy `.env.example` to `.env.local` and use a Para project key whose allowed

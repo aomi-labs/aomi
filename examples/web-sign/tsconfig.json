@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "baseUrl": "../../..",
+    "baseUrl": "../..",
     "paths": {
       "@aomi-labs/client": ["packages/client/src/index.ts"]
     }

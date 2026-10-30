@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": "../../..",
+    "baseUrl": "../..",
     "paths": {
-      "@aomi-labs/client": ["packages/client/src/index.ts"]
+      "@aomi-labs/client": ["packages/client/src/index.ts"],
+      "@aomi-labs/client/*": ["packages/client/src/*"]
     },
     "noEmit": true,
     "strict": true,

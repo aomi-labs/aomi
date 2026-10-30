@@ -10,7 +10,7 @@ export default defineConfig({
     // this alias and install `@aomi-labs/client` from npm.
     alias: {
       "@aomi-labs/client": fileURLToPath(
-        new URL("../../../packages/client/src/index.ts", import.meta.url),
+        new URL("../../packages/client/src/index.ts", import.meta.url),
       ),
     },
   },
