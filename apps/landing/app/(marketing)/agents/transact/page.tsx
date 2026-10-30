@@ -65,7 +65,7 @@ export default function AgentsTransactPage() {
         <div className={styles.prose}>
           <h2>Install</h2>
           <p>
-            Install the CLI with <code>npm install -g @aomi-labs/client</code>.
+            Install the CLI with <code>npm install -g @aomi-labs/cli@latest</code>.
           </p>
         </div>
 

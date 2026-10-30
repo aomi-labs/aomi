@@ -29,6 +29,7 @@ describePostgres("PostgreSQL OAuth client resource binding", () => {
       `create table if not exists ba_oauth_clients (
          id text primary key,
          client_id text not null unique,
+         client_discovery_id text,
          token_endpoint_auth_method text,
          grant_types jsonb,
          metadata jsonb

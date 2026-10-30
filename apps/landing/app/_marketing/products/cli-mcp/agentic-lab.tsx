@@ -30,7 +30,7 @@ const setupContent = {
     eyebrow: "Install on your machine",
     title: "Operate Aomi directly from the terminal.",
     body: "Use the client for conversations, session recovery, transaction inspection, simulation, and wallet-controlled signing.",
-    code: "npm install -g @aomi-labs/client@latest\naomi --version",
+    code: "npm install -g @aomi-labs/cli@latest\naomi --version",
     facts: [
       "Local session control",
       "Explicit transaction inspection",
@@ -118,12 +118,12 @@ const surfaceMatrix = [
   {
     id: "cli",
     name: "CLI",
-    sub: "@aomi-labs/client",
+    sub: "@aomi-labs/cli",
     api: "Both · chat and tx",
     runs: "Your machine",
     state: "Local sessions · session resume",
     signing: "Local key · tx sign",
-    trace: ["aomi chat", "tx list", "tx simulate", "tx sign", "session resume"],
+    trace: ["aomi chat", "tx list", "tx export", "tx sign", "session resume"],
   },
 ] as const;
 

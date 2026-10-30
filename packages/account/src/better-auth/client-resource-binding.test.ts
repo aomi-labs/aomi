@@ -1,4 +1,4 @@
-import { aomiOAuthResources } from "@aomi-labs/account/better-auth";
+import { aomiOAuthResources } from "./oauth-policy";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +10,7 @@ type RegisteredClient = {
   authMethod: string;
   grants: unknown;
   clientClass?: string;
+  discoveryId?: string;
 };
 
 class BindingDatabase implements ClientResourceBindingDatabase {
@@ -35,6 +36,7 @@ class BindingDatabase implements ClientResourceBindingDatabase {
                     token_endpoint_auth_method: client.authMethod,
                     grant_types: client.grants,
                     client_class: client.clientClass,
+                    client_discovery_id: client.discoveryId,
                   },
                 ] as Row[])
               : ([] as Row[]),
@@ -69,6 +71,42 @@ const agent = "https://portal.example/v1/agent/mcp";
 const pipeline = "https://portal.example/v1/pipeline/mcp";
 
 describe("public OAuth client resource binding", () => {
+  it("links a CIMD identity to both known MCP resources idempotently", async () => {
+    const db = new BindingDatabase();
+    db.clients.set("metadata", {
+      authMethod: "none",
+      grants: ["authorization_code", "refresh_token"],
+      discoveryId: "cimd",
+    });
+    const resources = aomiOAuthResources();
+    for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+      await expect(
+        bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
+      ).resolves.toBe("bound");
+      await expect(
+        bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
+      ).resolves.toBe("already_bound");
+    }
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "metadata",
+        resource: resources.agentRest,
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
+    await expect(
+      bindAomiPublicClientResource({
+        clientId: "metadata",
+        resource: "https://foreign.example/v1/agent/mcp",
+        db,
+      }),
+    ).resolves.toBe("resource_conflict");
+    expect([...db.resources.get("metadata")!]).toEqual([
+      resources.agentMcp,
+      resources.pipelineMcp,
+    ]);
+  });
+
   it("atomically binds an unscoped public authorization-code client", async () => {
     const db = new BindingDatabase();
     db.clients.set("codex", {
