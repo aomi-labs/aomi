@@ -76,17 +76,10 @@ pnpm run lint
 
 ## Environment
 
-```
-NEXT_PUBLIC_BACKEND_URL       # Browser backend base; "/" uses same-origin BFF proxy
-NEXT_PUBLIC_PROJECT_ID        # Reown/WalletConnect project id for demos
-BETTER_AUTH_SECRET            # Better Auth secret
-BETTER_AUTH_URL               # Better Auth base URL
-DATABASE_URL                  # Auth DB URL
-PORTAL_SERVICE_PRIVATE_KEY    # Ed25519 service key used to mint AccountBearer
-PRIVY_APP_ID                  # Privy app id for provider token verification
-PRIVY_APP_SECRET              # Privy REST secret for embedded-wallet listing
-PARA_API_KEY                  # Para REST key for embedded-wallet listing
-```
+Each app lists its real secrets and per-environment values in one example
+file: `apps/portal/.env.example`, `apps/build/.env.example`,
+`apps/landing/.env.example` and `apps/edge/.dev.vars.example`. The rules are in
+AGENTS.md under "Secrets and env vars".
 
 The real Better Auth browser cookie is `better-auth.session_token`.
 

@@ -237,7 +237,6 @@ function allStatus(status: number): Record<FamilyName, Outcome> {
 beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
   vi.stubEnv("DATABASE_URL", "postgres://unused");
-  vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://backend.example");
   vi.stubEnv("BACKEND_URL", "https://backend.example");
   vi.stubEnv("AOMI_AGENT_API_URL", "https://agent.example");
   vi.stubEnv("VERCEL", "");

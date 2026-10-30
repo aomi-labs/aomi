@@ -10,7 +10,7 @@ export type BuildContext = {
   buildOrigin: string;
   /** Where the Vercel Build app is reached from the edge (never the public host). */
   upstreamOrigin: string;
-  /** Origins whose cookie writes Build trusts. */
+  /** Origins whose cookie writes Build trusts: its own origin only. */
   trustedOrigins: readonly string[];
   /** Cookies are Secure everywhere except local development. */
   secureCookies: boolean;
@@ -40,9 +40,9 @@ export function buildContext(
     config: build,
     buildOrigin: url.origin,
     upstreamOrigin: build.upstream,
-    trustedOrigins: [...new Set([url.origin, ...build.trustedOrigins])],
+    trustedOrigins: [url.origin],
     secureCookies: !LOCAL_HOSTS.has(url.hostname),
-    production: env.EDGE_TOPOLOGY === "production" || url.hostname === "build.aomi.dev",
+    production: env.EDGE_TOPOLOGY === "production",
     fetchImpl,
     now,
   };

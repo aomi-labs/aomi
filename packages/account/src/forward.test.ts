@@ -203,22 +203,25 @@ describe("forward", () => {
   });
 });
 
-describe("signer and forwarder backend precedence", () => {
-  it("uses the server backend before the browser setting", () => {
+describe("backendUrlFromEnv", () => {
+  it("reads BACKEND_URL alone, never the browser setting", () => {
     expect(
       backendUrlFromEnv({
         BACKEND_URL: "https://api-staging.aomi.dev/",
         NEXT_PUBLIC_BACKEND_URL: "https://api.aomi.dev",
       }),
     ).toBe("https://api-staging.aomi.dev");
-  });
-  it("ignores browser-relative URLs and uses deployment defaults", () => {
     expect(
+      backendUrlFromEnv({ NEXT_PUBLIC_BACKEND_URL: "https://api.aomi.dev" }),
+    ).toBe("http://127.0.0.1:8080");
+  });
+  it("fails loud on Vercel without an absolute BACKEND_URL", () => {
+    expect(() =>
       backendUrlFromEnv({
-        BACKEND_URL: "/",
-        NEXT_PUBLIC_BACKEND_URL: "/",
+        NEXT_PUBLIC_BACKEND_URL: "https://api.aomi.dev",
         VERCEL_ENV: "production",
       }),
-    ).toBe("https://api.aomi.dev");
+    ).toThrow(/BACKEND_URL is required/);
+    expect(() => backendUrlFromEnv({ BACKEND_URL: "/" })).toThrow();
   });
 });

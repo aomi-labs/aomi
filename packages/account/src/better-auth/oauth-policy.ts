@@ -3,6 +3,7 @@ import {
   AGENT_SCOPES,
   appMcpName as appMcpNameOn,
   appMcpResource as appMcpResourceOn,
+  MCP_DPOP_REQUIRED,
   OFFLINE_ACCESS_SCOPE,
   resourcePolicies,
   resourcePolicy,
@@ -66,12 +67,6 @@ export const MCP_CLIENT_REGISTRATION_SCOPES = [
 export type AomiOAuthResourceKind = ResourceKind;
 export type AomiOAuthResourcePolicy = ResourcePolicy;
 
-export function isMcpDpopRequired(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return env.AOMI_MCP_DPOP_REQUIRED?.trim().toLowerCase() === "true";
-}
-
 export function aomiOAuthResources(
   env: Record<string, string | undefined> = process.env,
 ) {
@@ -81,7 +76,7 @@ export function aomiOAuthResources(
 export function aomiOAuthResourcePolicies(
   env: Record<string, string | undefined> = process.env,
 ): readonly AomiOAuthResourcePolicy[] {
-  return resourcePolicies(aomiOAuthResources(env), isMcpDpopRequired(env));
+  return resourcePolicies(aomiOAuthResources(env), MCP_DPOP_REQUIRED);
 }
 
 /** The fixed resources, and every app-locked MCP path (`/v1/apps/<app>/mcp`). */
@@ -89,11 +84,7 @@ export function aomiOAuthResourcePolicy(
   resource: string,
   env: Record<string, string | undefined> = process.env,
 ): AomiOAuthResourcePolicy | null {
-  return resourcePolicy(
-    aomiOAuthResources(env),
-    isMcpDpopRequired(env),
-    resource,
-  );
+  return resourcePolicy(aomiOAuthResources(env), MCP_DPOP_REQUIRED, resource);
 }
 
 /**

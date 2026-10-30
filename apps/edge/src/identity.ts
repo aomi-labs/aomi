@@ -5,18 +5,12 @@ import { EDGE_TOPOLOGIES } from "./topology-data";
 
 export const EDGE_SERVICE_NAME = "aomi-edge";
 
-const STAGING_HOSTS = new Set(["api-staging.aomi.dev"]);
-const RC_HOSTS = new Set(["api-rc.aomi.dev"]);
-const PRODUCTION_HOSTS = new Set(["api.aomi.dev"]);
-
-/** Which committed topology this request's deployment mints as. */
-export function edgeTopologyName(env: EdgeEnv, host: string): EdgeTopologyName {
-  if (env.EDGE_TOPOLOGY) return env.EDGE_TOPOLOGY;
-  const lower = host.toLowerCase();
-  if (PRODUCTION_HOSTS.has(lower)) return "production";
-  if (STAGING_HOSTS.has(lower)) return "staging";
-  if (RC_HOSTS.has(lower)) return "rc";
-  return "default";
+/**
+ * Which committed topology this deployment mints as. scripts/deploy.mjs always
+ * sets EDGE_TOPOLOGY; `wrangler dev` without it is the dev topology.
+ */
+export function edgeTopologyName(env: EdgeEnv): EdgeTopologyName {
+  return env.EDGE_TOPOLOGY ?? "default";
 }
 
 const cache = new Map<EdgeTopologyName, AomiService>();
@@ -26,8 +20,8 @@ const cache = new Map<EdgeTopologyName, AomiService>();
  * sends upstream is minted here; the Vercel apps mint nothing once the edge
  * is the only issuer.
  */
-export function edgeService(env: EdgeEnv, host: string): AomiService {
-  const name = edgeTopologyName(env, host);
+export function edgeService(env: EdgeEnv): AomiService {
+  const name = edgeTopologyName(env);
   const cached = cache.get(name);
   if (cached) return cached;
   const service = AomiService.fromTopology({

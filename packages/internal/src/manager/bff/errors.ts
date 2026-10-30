@@ -32,7 +32,7 @@ export function identifyLaunchError(error: unknown): LaunchFailureSource {
   if (requiredSecretsError) {
     // Carry the reason and its retryability through to the browser. Flattening
     // every one of these to "try again" told a builder whose BFF is missing
-    // its GITHUB_TOKEN to retry a request that can never succeed until an
+    // its BUILD_GITHUB_TOKEN to retry a request that can never succeed until an
     // operator fixes the deployment.
     const retryable = requiredSecretsError.retryable ?? true;
     const common = {

@@ -24,7 +24,6 @@ export {
   appMcpResource,
   guestScopesForAomiResource,
   narrowScopesForAomiResource,
-  isMcpDpopRequired,
   validateAomiResourceScopes,
   type AomiOAuthResourceKind,
   type AomiOAuthResourcePolicy,

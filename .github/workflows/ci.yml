@@ -221,10 +221,9 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
           NEXT_PUBLIC_PROJECT_ID: 000000000000000000000000000000000000000000
-          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
-          NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
+          BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: |
           set -euo pipefail

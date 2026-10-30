@@ -55,3 +55,38 @@ Never commit `.env` contents. Use the selected app's documented environment
 configuration and disposable test credentials. Keep provider secrets and
 identity verification on the server; consumer compatibility checks require no
 provider credentials or production accounts.
+
+## Secrets and env vars
+
+These rules exist because secrets set by hand were lost. The edge Worker's keys
+were set with `wrangler secret put`, their Vercel copies were Sensitive, and
+nobody could read any of them back.
+
+- **One root per secret.** A hosted secret has exactly one home, the matching
+  product-mono GitHub Environment (`staging`, `rc`, `production`). The deploy
+  pipeline pushes it to the Worker or app. Rotate it there, then redeploy.
+- **Never hand-set a secret.** Do not run `wrangler secret put` or add a
+  Sensitive Vercel value that exists nowhere else. A value with no stored
+  source cannot be recovered or rotated.
+- **Never one value in two stores.** If two stores must hold the same value,
+  that is a bug to remove. Until it is removed, document both names together
+  and rotate them together, such as the edge's `BUILD_SESSION_SECRET` and
+  Build's `PORTAL_ONLY_SESSION_SECRET`.
+- **Public halves are committed and verified.** A signing key's public half
+  lives in committed topology (`apps/edge/src/topology-data.ts`,
+  `packages/account/src/topology-data.ts`). Commit it in the same change that
+  stores the private half. `pnpm --filter aomi-edge generate-key <env>` prints
+  both halves and the `gh secret set` command.
+- **Non-secrets are committed config. Constants are code.** A value that is the
+  same in every environment is a literal in code, not a var. A value that
+  differs per environment is committed inventory or a deploy `--var`.
+- **One name and one reader per var.** No `NEXT_PUBLIC_*` fallback on the
+  server, no alias chains such as `A ?? B ?? C`. Server code reads the server
+  name only. Browser code reads its own `NEXT_PUBLIC_` name only.
+- **Fail loud.** A missing required value throws on a hosted deployment.
+  Defaults are for local development or deliberately public endpoints only.
+- **Document every var once.** Each app's `.env.example`
+  (`apps/portal`, `apps/build`, `apps/landing`) and `apps/edge/.dev.vars.example`
+  list its real secrets and per-environment values. Add a var there in the
+  same change that adds its reader, and delete it in the change that deletes
+  the reader.

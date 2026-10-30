@@ -94,6 +94,12 @@ export function resourcesFor(portalOrigin: string): Resources {
   };
 }
 
+/**
+ * The MCP DPoP rollout switch, one committed value for the portal and the edge.
+ * Flip it here to require DPoP-bound access tokens on every MCP resource.
+ */
+export const MCP_DPOP_REQUIRED = false;
+
 export function resourcePolicies(resources: Resources, dpopRequired: boolean): readonly ResourcePolicy[] {
   const base: Omit<ResourcePolicy, "grantableScopes">[] = [
     {

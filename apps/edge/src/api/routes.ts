@@ -154,7 +154,7 @@ export function resolveRoute(url: URL, env: EdgeEnv, routingKey: string | null =
   const payment = PAYMENT_ROUTES.find(([path]) => path.test(pathname));
   if (payment) return one("payment", cfg.payment, pathname, search, { methods: payment[1] });
   // Agent REST is public only where the RC identity path exists to authorize it.
-  if (cfg.apiServer && AGENT_PATH.test(pathname) && rcOidcConfig(env, url.host))
+  if (cfg.apiServer && AGENT_PATH.test(pathname) && rcOidcConfig(env))
     return one("agent", cfg.apiServer, pathname, search, {
       headers: AGENT_HEADERS,
       methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],

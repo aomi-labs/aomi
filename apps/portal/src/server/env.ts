@@ -1,13 +1,7 @@
 import "server-only";
-import { backendUrlFromEnv } from "@aomi-labs/account/forward";
 import { readAccountAuthEnv } from "@aomi-labs/account/better-auth/env";
 
 /** The portal BFF's settings, read from the environment in one place. */
-
-/** The Rust backend that signs and serves /api. */
-export function backendUrl(): string {
-  return backendUrlFromEnv(process.env);
-}
 
 /** The public agent API behind /v1. */
 export function agentApiUrl(): string {
