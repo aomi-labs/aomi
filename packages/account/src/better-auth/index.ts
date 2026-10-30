@@ -54,3 +54,5 @@ export {
 } from "./siws";
 export { aomiSiwsClient } from "../../../client/src/siws-client";
 export { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
+
+export { bindAomiPublicClientResource } from "./client-resource-binding";

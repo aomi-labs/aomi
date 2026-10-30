@@ -1,12 +1,12 @@
 import {
   aomiOAuthResourcePolicy,
+  bindAomiPublicClientResource,
   aomiOAuthResources,
   appMcpName,
   narrowScopesForAomiResource,
   validateAomiResourceScopes,
 } from "@aomi-labs/account/better-auth";
 import { registerAppMcpResource } from "./app-mcp-resource";
-import { bindAomiPublicClientResource } from "./client-resource-binding";
 
 type OAuthError =
   | "invalid_client_metadata"

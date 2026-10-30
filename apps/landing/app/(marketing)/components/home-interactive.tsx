@@ -24,7 +24,7 @@ const installers = [
   {
     id: "cli",
     label: "CLI",
-    command: "npm install -g @aomi-labs/client",
+    command: "npm install -g @aomi-labs/cli@latest",
     icon: Terminal,
   },
   {

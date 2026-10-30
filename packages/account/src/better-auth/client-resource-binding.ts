@@ -1,11 +1,10 @@
-import "server-only";
-
 import { randomUUID } from "node:crypto";
-import { getPool } from "@aomi-labs/account";
+import { getPool } from "../db/pool";
 import {
+  aomiOAuthResourcePolicy,
   acceptsAomiApiToken,
   aomiOAuthResources,
-} from "@aomi-labs/account/better-auth";
+} from "./oauth-policy";
 
 type QueryResult<Row> = { rows: Row[] };
 
@@ -38,13 +37,15 @@ const DEVICE_CODE_GRANTS = new Set([
 ]);
 
 /**
- * Bind a public Aomi client to its first exact resource, transactionally.
+ * Bind public clients to admitted resources, transactionally.
  *
  * RFC 7591 does not define registration-time `resources`, and Codex omits that
  * extension. The first authorize request is therefore the earliest request
  * that identifies which MCP server the client is for. Locking the client row
  * makes that first-use binding deterministic across concurrent instances. Any
- * later attempt to use the same client for another resource fails closed.
+ * later DCR attempt to use another resource fails closed. CIMD identities may
+ * link separate MCP resources; every authorization and token grant still carries
+ * one exact resource, enforced by the request policy and OAuth provider.
  */
 export async function bindAomiPublicClientResource(input: {
   clientId: string;
@@ -59,8 +60,9 @@ export async function bindAomiPublicClientResource(input: {
       token_endpoint_auth_method: unknown;
       grant_types: unknown;
       client_class: unknown;
+      client_discovery_id: unknown;
     }>(
-      `select token_endpoint_auth_method, grant_types,
+      `select token_endpoint_auth_method, grant_types, client_discovery_id,
               coalesce(metadata->>'aomi_client_class', metadata->>'client_class') as client_class
          from ba_oauth_clients
         where client_id = $1
@@ -80,6 +82,19 @@ export async function bindAomiPublicClientResource(input: {
     ) {
       await client.query("rollback");
       return "client_not_eligible";
+    }
+
+    // A metadata document identifies one client across resource servers. Bind
+    // each grant's audience exactly, without pinning that client's identity to
+    // the first MCP it used. DCR and managed-widget clients keep their policy.
+    const metadataClient = row.client_discovery_id === "cimd";
+    if (
+      metadataClient &&
+      (!input.resource.endsWith("/mcp") ||
+        !aomiOAuthResourcePolicy(input.resource))
+    ) {
+      await client.query("rollback");
+      return "resource_conflict";
     }
 
     const links = await client.query<{ resource_id: unknown }>(
@@ -104,11 +119,14 @@ export async function bindAomiPublicClientResource(input: {
       await client.query(allowed ? "commit" : "rollback");
       return allowed ? "already_bound" : "resource_conflict";
     }
-    if (resources.length === 1 && resources[0] === input.resource) {
+    if (
+      (metadataClient || resources.length === 1) &&
+      resources.includes(input.resource)
+    ) {
       await client.query("commit");
       return "already_bound";
     }
-    if (resources.length > 0) {
+    if (resources.length > 0 && !metadataClient) {
       await client.query("rollback");
       return "resource_conflict";
     }

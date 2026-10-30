@@ -1,6 +1,23 @@
 // @vitest-environment node
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+const fetchMetadata = vi.hoisted(() => vi.fn());
+const cimdClientId = "https://client.example/mcp-client.json";
+vi.mock(
+  "../../../../../../packages/account/node_modules/@better-auth/cimd/dist/node.mjs",
+  () => ({
+    fetchClientMetadataResource: fetchMetadata,
+  }),
+);
 
 const baseDatabaseUrl = process.env.AOMI_AUTH_TEST_DATABASE_URL?.trim();
 const schemaName = `aomi_oauth_mcp_refresh_${randomUUID().replaceAll("-", "")}`;
@@ -18,6 +35,21 @@ describePostgres("MCP grants keep a refresh token", () => {
   let pool: ReturnType<typeof import("@aomi-labs/account").getPool>;
   let route: typeof import("./[...all]/route");
   let protectedResource: typeof import("../../.well-known/oauth-protected-resource/[...path]/route");
+
+  beforeEach(() => {
+    fetchMetadata.mockImplementation(async () =>
+      Response.json({
+        client_id: cimdClientId,
+        client_name: "MCP interoperability test",
+        client_uri: "https://client.example/",
+        application_type: "native",
+        redirect_uris: ["http://127.0.0.1:43199/callback"],
+        token_endpoint_auth_method: "none",
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+      }),
+    );
+  });
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl;
@@ -58,11 +90,13 @@ describePostgres("MCP grants keep a refresh token", () => {
   // nothing to refresh. This drives the exact loop a client runs: read the
   // advertised scopes, ask for precisely those, then refresh.
   it.each([
-    ["Agent MCP", "/v1/agent/mcp"],
-    ["Pipeline MCP", "/v1/pipeline/mcp"],
+    ["DCR Agent MCP", "/v1/agent/mcp", "dcr"],
+    ["DCR Pipeline MCP", "/v1/pipeline/mcp", "dcr"],
+    ["CIMD Agent MCP", "/v1/agent/mcp", "cimd"],
+    ["CIMD Pipeline MCP", "/v1/pipeline/mcp", "cimd"],
   ])(
     "refreshes an %s grant built from the advertised scopes",
-    async (_name, path) => {
+    async (_name, path, strategy) => {
       const resource = `${origin}${path}`;
       const redirectUri = "http://127.0.0.1:43199/callback";
       const advertised = await protectedResourceMetadata(path);
@@ -70,23 +104,44 @@ describePostgres("MCP grants keep a refresh token", () => {
       const scope = advertised.scopes.join(" ");
       expect(advertised.scopes).toContain("offline_access");
 
-      const registration = await jsonRequest("/oauth2/register", {
-        client_name: `Aomi MCP client ${randomUUID()}`,
-        token_endpoint_auth_method: "none",
-        grant_types: ["authorization_code", "refresh_token"],
-        response_types: ["code"],
-        redirect_uris: [redirectUri],
-        application_type: "native",
-        scope,
-      });
-      expect(registration.response.status).toBe(201);
-      const clientId = requiredString(registration.body, "client_id");
+      let clientId = cimdClientId;
+      if (strategy === "dcr") {
+        const registration = await jsonRequest("/oauth2/register", {
+          client_name: `Aomi MCP client ${randomUUID()}`,
+          token_endpoint_auth_method: "none",
+          grant_types: ["authorization_code", "refresh_token"],
+          response_types: ["code"],
+          redirect_uris: [redirectUri],
+          application_type: "native",
+          scope,
+        });
+        expect(registration.response.status).toBe(201);
+        clientId = requiredString(registration.body, "client_id");
+      }
 
       const signedIn = await jsonRequest("/sign-in/anonymous", {});
       expect(signedIn.response.status).toBe(200);
       const sessionCookie = responseCookie(signedIn.response);
 
       const verifier = "a".repeat(64);
+      const withoutPkce = await getRequest(
+        `/oauth2/authorize?${new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope,
+          resource,
+        })}`,
+        sessionCookie,
+      );
+      expect(withoutPkce.response.status).toBe(302);
+      expect(
+        new URL(
+          withoutPkce.response.headers.get("location") ?? "",
+          origin,
+        ).searchParams.get("error"),
+      ).toBe("invalid_request");
+
       const authorized = await getRequest(
         `/oauth2/authorize?${new URLSearchParams({
           client_id: clientId,
@@ -102,7 +157,15 @@ describePostgres("MCP grants keep a refresh token", () => {
         })}`,
         sessionCookie,
       );
-      expect(authorized.response.status).toBe(302);
+      expect(
+        authorized.response.status,
+        JSON.stringify({
+          error: (authorized.body as Record<string, unknown>)?.error,
+          description: (authorized.body as Record<string, unknown>)
+            ?.error_description,
+          fetches: fetchMetadata.mock.calls.length,
+        }),
+      ).toBe(302);
       const consentQuery = new URL(
         authorized.response.headers.get("location") ?? "",
         origin,
@@ -156,6 +219,13 @@ describePostgres("MCP grants keep a refresh token", () => {
       expect(requiredString(refreshed.body, "refresh_token")).not.toBe(
         refreshToken,
       );
+      const wrongAudience = await formRequest("/oauth2/token", {
+        grant_type: "refresh_token",
+        refresh_token: requiredString(refreshed.body, "refresh_token"),
+        client_id: clientId,
+        resource: `${origin}${path === "/v1/agent/mcp" ? "/v1/pipeline/mcp" : "/v1/agent/mcp"}`,
+      });
+      expect(wrongAudience.response.status).toBe(400);
     },
   );
 
