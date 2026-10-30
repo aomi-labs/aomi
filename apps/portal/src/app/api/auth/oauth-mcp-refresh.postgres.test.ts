@@ -135,7 +135,12 @@ describePostgres("MCP grants keep a refresh token", () => {
         sessionCookie,
       );
       expect(withoutPkce.response.status).toBe(302);
-      expect(new URL(withoutPkce.response.headers.get("location") ?? "", origin).searchParams.get("error")).toBe("invalid_request");
+      expect(
+        new URL(
+          withoutPkce.response.headers.get("location") ?? "",
+          origin,
+        ).searchParams.get("error"),
+      ).toBe("invalid_request");
 
       const authorized = await getRequest(
         `/oauth2/authorize?${new URLSearchParams({
