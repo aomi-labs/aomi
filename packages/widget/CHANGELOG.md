@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 4.0.5
+
+- Use the React runtime's GPT-6.1 Terra preference for Auto, preserving manual selections and the existing fallbacks.
+
 ## 4.0.4
 
 - Clarify that Auto uses the default model. Provider routing and fallback remain backend policy for every selected model.

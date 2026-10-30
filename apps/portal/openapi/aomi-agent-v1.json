@@ -79,6 +79,7 @@
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
     "POST /v1/agent/chat/{sessionId}/interrupt",
+    "POST /v1/agent/chat/{sessionId}/steer",
     "POST /v1/agent/mcp",
     "POST /v1/apps/{app}/mcp",
     "POST /v1/builder/credits/funding-events",
@@ -362,6 +363,56 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/InterruptIntent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordered event page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}/steer": {
+      "post": {
+        "operationId": "steerTurn",
+        "description": "Add a follow-up to the running turn; it is applied at the turn's next model call. 409 no_active_turn when no turn is running: start a turn instead.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerIntent"
               }
             }
           }
@@ -5302,6 +5353,18 @@
         "properties": {
           "turnId": {
             "type": "string"
+          }
+        }
+      },
+      "SteerIntent": {
+        "type": "object",
+        "required": ["message"],
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
           }
         }
       },
