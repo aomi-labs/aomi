@@ -50,3 +50,18 @@ RPC, balance, auth, model, or simulation make the required scenario fail; none
 is skipped. Run the two login scenarios alone with `--grep 'signs a real
 challenge'` when there is no funded EVM wallet yet, and report the burn scenario
 as unverified.
+
+# Cross-service QA evidence
+
+The existing workflow exports `hosted-wallet-summary/summary.json` as the
+`hosted-wallet-summary` artifact. The file contains only checkout SHA, GitHub
+run ID, timestamps, fixed staging origin and chain, and scalar test counts.
+`assertions` counts completed passing test cases, not individual `expect` calls.
+Skipped, missing, failed or retried cases cannot produce `PASS`. No browser
+storage, traces, screenshots, test titles or error messages enter this artifact.
+
+Consumers must independently verify the workflow run source, actual frontend
+SHA and intended staging runtime. The summary does not prove a complete frozen
+release identity, GitHub OAuth coverage or permission to broadcast transactions.
+If configuration validation or setup fails before Playwright starts, no summary
+is published; consumers must classify that absence as incomplete coverage.
