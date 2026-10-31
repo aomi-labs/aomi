@@ -180,19 +180,9 @@ describe("help", () => {
   });
 });
 
-describe("aliases", () => {
-  it.each([
-    [["session"], "List, open, rename, archive"],
-    [["wallet"], "Agent wallets, local signer"],
-    [["app"], "Install apps, set credentials"],
-    [["byok"], "Your own provider keys"],
-    [["tx", "show"], "aomi tx review"],
-    [["apps", "add"], "aomi apps install"],
-    [["account", "login"], "aomi account login"],
-  ])("%j resolves to the new command", async (route, expected) => {
-    const { code, stdout } = await cli(...route, "--help-all");
-    expect(code).toBe(0);
-    expect(stdout).toContain(expected);
+describe("command validation", () => {
+  it.each(["session", "wallet", "app", "byok"])("rejects retired command %s", async (name) => {
+    expect((await cli(name)).code).toBe(2);
   });
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
