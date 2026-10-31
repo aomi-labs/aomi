@@ -23,8 +23,8 @@
 
 | Package | Main exports |
 | --- | --- |
-| `@aomi-labs/react` | `AomiRuntimeProvider`, runtime hooks, handlers, re-exported `AomiClient`/client types |
-| `@aomi-labs/client` | `Aomi` (threads, turns, commits, `aomi.account`), `AomiClient`, `/viem`, `/solana`, `/node` signer helpers, `/trace` decoder. The `aomi` bin forwards to `@aomi-labs/cli` |
+| `@aomi-labs/react` | `AomiRuntimeProvider`, runtime hooks and handlers; client types come from `@aomi-labs/client` |
+| `@aomi-labs/client` | `Aomi` (threads, turns, commits, `aomi.account`), `AomiClient`, `/viem`, `/solana`, `/node` signer helpers, `/trace` decoder. The terminal command is provided by `@aomi-labs/cli` |
 | `@aomi-labs/cli` | `aomi` terminal command (Stricli commands, pi-tui chat; `aomi login` device code or `--private-key`) |
 | `@aomi-labs/account` | `./account`, `./better-auth`, `./policy`, `./principal`, `./providers`, `./widget-auth` |
 
@@ -109,7 +109,7 @@ The real Better Auth browser cookie is `better-auth.session_token`.
 
 ## Build Output Policy
 
-`packages/react` and `packages/client` both publish from `dist/`, and their `package.json` exports point at `dist` files. The repo currently tracks those build artifacts and has no install-time build hook, so the committed policy is to keep `dist/` checked in until the package/export convention changes deliberately.
+`packages/react` and `packages/client` both publish from `dist/`, and their `package.json` exports point at `dist` files. Generated `dist/` trees are not committed; deterministic prepack hooks build package contents.
 
 ## Key Client Types
 

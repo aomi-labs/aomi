@@ -91,8 +91,7 @@ agent appears in chat.
 
 ## Platform-scoped launch (named partner platforms)
 
-Everything above deploys into your host's **default** platform (the first
-value of `BUILD_DEFAULT_PLATFORM`). A partner integration usually targets a
+Everything above deploys into your host's **default** platform (`BUILD_DEFAULT_PLATFORM`). A partner integration usually targets a
 specific named platform instead — `"somm.finance"`, not `"community"`. Two
 rules make that work:
 

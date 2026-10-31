@@ -2,6 +2,18 @@
 
 ## Last Updated
 
+2026-10-31 — CLEAN CUTOVER STACK ON #806 (`codex/ts-reform-cleanup`).
+  No legacy CLI migration/command aliases, guest endpoint aliases, SDK wallet
+  option, or widget compatibility exports/props/deep paths. Build APIs use
+  `/api/build`; development wallet routes use `/api/dev/e2e`. Edge keeps its
+  `aomi-edge` identity; the Build sandbox signer is `aomi-build` with
+  `BUILD_SERVICE_PRIVATE_KEY`. Build server modules live under `src/server`
+  by capability. `BUILD_DEFAULT_PLATFORM` is one slug, not a list. OAuth device
+  clients restore saved grants, and CLI conversation transitions reject active
+  turns and ignore obsolete asynchronous reads. Deployment must reconcile the
+  renamed settings, signing identities, callback URLs and frontend routes.
+  Build sandbox orchestration remains in the Build server, outside the Edge.
+
 2026-10-28 — TS REFORM (branch `feat/ts-reform`, one PR into main).
   Portal, Build and Landing run on TanStack Start (Vite + Nitro) instead of
   Next.js; every app builds for the `vercel` and `cloudflare-module` Nitro

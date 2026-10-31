@@ -170,3 +170,27 @@ For a deployment with its own GitHub App, set the Worker var
 credentials in Manager's second `[[apps]]` entry (app index 2). The client secret
 stays in Manager. Without this override, Build uses the staging or production App
 for its topology.
+
+## Clean cutover from #806
+
+The Edge owns authentication, account APIs and Build control-plane endpoints.
+The Build server still owns sandbox orchestration, integrations and sidecar
+access; it is a separate signer (`aomi-build`), not another Edge identity.
+
+Build app endpoints use `/api/build/*` (deployment operations under
+`/api/build/deployments/*`); dev wallet helpers use `/api/dev/e2e/*`.
+Guest sign-in has one endpoint, `POST /api/auth/guest`.
+
+Before deploying the stack, reconcile these external settings together:
+
+- Replace `APP_DEPLOY_PLATFORMS` with the single `BUILD_DEFAULT_PLATFORM` slug
+  in product-mono's Edge environment record.
+- Supply Build's existing signing key under `BUILD_SERVICE_PRIVATE_KEY` and
+  update the sidecar image to trust issuer `aomi-build`. The committed public
+  keys stay unchanged; the service and key identifiers are renamed.
+- Update the GitHub OAuth callback to `/api/build/auth/github/callback`.
+- Deploy the Edge and app/sidecar outputs as one coordinated cutover. No old
+  route, configuration-name or signing-identity aliases are retained.
+
+The Sentry project slug `aomi-bff` is an external project identifier, separate
+from the app service tags (`portal` and `build`); it does not name a signer.
