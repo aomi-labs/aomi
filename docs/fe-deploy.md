@@ -37,7 +37,7 @@ the browser never holds GitHub tokens or service credentials.
 | Layer                   | What runs                                               | Holds                                                        |
 | ----------------------- | ------------------------------------------------------- | ------------------------------------------------------------ |
 | **Browser (FE client)** | React onboarding wizard                                 | nothing secret                                               |
-| **Portal BFF**          | Next.js route handlers `app/api/launch/*` (server-side) | the `aomi-bff` service signing key; resolves `app_source.id` |
+| **Portal BFF**          | Next.js route handlers `app/api/launch/*` (server-side) | the `aomi-build` service signing key; resolves `app_source.id` |
 | **Backend (BE)**        | Rust service `/api/platforms/*`, `/api/integrations/*`  | GitHub App keys, DB                                          |
 
 Two distinct call patterns:
@@ -242,7 +242,7 @@ Per-user isolation: the candidate branch + release tag both encode the
 | GitHub App **Webhook URL**                                               | tunnel → `/api/integrations/github-app/webhook`             | `https://api-staging.aomi.dev/api/integrations/github-app/webhook`                                                                            |
 | GitHub App **Callback URL**                                              | tunnel → `/api/integrations/github-app/oauth/callback`      | `https://api-staging.aomi.dev/api/integrations/github-app/oauth/callback`                                                                     |
 | BE GitHub App secrets                                                    | `github_app.toml` / `GITHUB_APP_TOML` + `AOMI_GITHUB_APP_*` | same `AOMI_GITHUB_APP_*` as deployment secrets                                                                                                |
-| BFF service signer                                                       | `PORTAL_SERVICE_PRIVATE_KEY`                                | portal deployment secret; committed topology is auto-selected                                                                                 |
+| BFF service signer                                                       | `BUILD_SERVICE_PRIVATE_KEY`                                | portal deployment secret; committed topology is auto-selected                                                                                 |
 | Portal deploy defaults                                                   | `BUILD_DEFAULT_PLATFORM`, defaults to `community`             | set explicitly for white-labeled partner portals, e.g. `["somm.finance"]`; the first platform is used when a request does not name a platform |
 
 > Only the **webhook** strictly needs a public tunnel (server-to-server); the

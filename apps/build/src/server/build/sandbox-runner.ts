@@ -171,7 +171,7 @@ export async function dispatchSandboxRun(options: {
   runId: string;
   config: SandboxRunnerConfig;
   client?: SandboxClientLike;
-  /** aomi-bff's SPKI public key: the sidecar's bearer-verification anchor
+  /** aomi-build's SPKI public key: the sidecar's bearer-verification anchor
    *  (official service-bearer path — see sidecar-auth.ts). Public material,
    *  so safe in the VM env; empty = the sidecar fails closed. */
   sidecarPublicKeyPem?: string;
@@ -187,7 +187,7 @@ export async function dispatchSandboxRun(options: {
       SMITHER_DATABASE_URL: config.databaseUrl,
       AOMI_ALLOW_STALE_SDK: "1",
       // The exposed sidecar port is public; requests carry service bearers
-      // the BFF mints per request (PORTAL_SERVICE_PRIVATE_KEY), which the
+      // the BFF mints per request (BUILD_SERVICE_PRIVATE_KEY), which the
       // sidecar verifies against this public key + run id.
       AOMI_SIDECAR_PUBKEY: options.sidecarPublicKeyPem ?? "",
       AOMI_SIDECAR_RUN_ID: options.runId,

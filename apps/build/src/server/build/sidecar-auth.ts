@@ -3,7 +3,7 @@ import "@tanstack/react-start/server-only";
 import { AomiService, tierOf, topologyFor } from "@aomi-labs/service-identity";
 import { buildFailures } from "@/server/failures";
 
-// Build's sidecar signer (`aomi-bff`): the committed topology for the backend
+// Build's sidecar signer (`aomi-build`): the committed topology for the backend
 // it serves, with its private key from env (never in the TOML).
 let cached: AomiService | null = null;
 
@@ -21,27 +21,27 @@ function backendHost(
   return undefined;
 }
 
-/** Build's sidecar signer as an `AomiService` (self = `aomi-bff`), loaded once. */
-function bffService(): AomiService {
+/** Build's sidecar signer as an `AomiService` (self = `aomi-build`), loaded once. */
+function buildService(): AomiService {
   cached ??= AomiService.fromTopology({
     toml: topologyFor(
-      "aomi-bff",
+      "aomi-build",
       tierOf({
         host: backendHost(process.env),
         vercelEnv: process.env.VERCEL_ENV,
       }),
     ),
-    selfName: "aomi-bff",
-    privateKeyPem: process.env.PORTAL_SERVICE_PRIVATE_KEY,
+    selfName: "aomi-build",
+    privateKeyPem: process.env.BUILD_SERVICE_PRIVATE_KEY,
   });
   return cached;
 }
 
 /**
  * Sidecar auth rides the official service-bearer path (the same
- * PORTAL_SERVICE_PRIVATE_KEY + committed-topology signing that backend
- * bearers use): the BFF mints a short-lived EdDSA JWT per
- * proxied request, and the in-VM sidecar verifies it against aomi-bff's
+ * BUILD_SERVICE_PRIVATE_KEY + committed-topology signing that backend
+ * bearers use): the Build server mints a short-lived EdDSA JWT per
+ * proxied request, and the in-VM sidecar verifies it against aomi-build's
  * committed *public* key, which is safe to ship into a sandbox that runs
  * agent-generated code. No shared secret is stored anywhere — not in the
  * registry, not in the VM env.
@@ -57,7 +57,7 @@ const SIDECAR_BEARER_TTL_SECONDS = 5 * 60;
 
 /** Fresh bearer for one run's sidecar — minted per request, never stored. */
 export async function mintSidecarBearer(runId: string): Promise<string> {
-  const { accessToken } = await bffService().mint({
+  const { accessToken } = await buildService().mint({
     role: "service",
     subject: runId,
     audience: SIDECAR_AUDIENCE,
@@ -67,13 +67,13 @@ export async function mintSidecarBearer(runId: string): Promise<string> {
 }
 
 /**
- * aomi-bff's committed SPKI public key — the sidecar's verification anchor,
+ * aomi-build's committed SPKI public key — the sidecar's verification anchor,
  * passed into the sandbox env at dispatch. Empty string when the topology is
  * unavailable; the sidecar then fails closed (rejects every request).
  */
 export function sidecarVerifierPublicKeyPem(): string {
   try {
-    return bffService().self.publicKey;
+    return buildService().self.publicKey;
   } catch (error) {
     buildFailures.handle({
       source: "local",

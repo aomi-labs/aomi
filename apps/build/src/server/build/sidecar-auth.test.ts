@@ -51,7 +51,7 @@ function mintJwt(
   key: typeof privateKey = privateKey,
 ): string {
   const header = b64url(
-    JSON.stringify({ alg: "EdDSA", kid: "aomi-bff-dev-1" }),
+    JSON.stringify({ alg: "EdDSA", kid: "aomi-build-dev-1" }),
   );
   const payload = b64url(JSON.stringify(claims));
   const signature = edSign(null, Buffer.from(`${header}.${payload}`), key);
@@ -63,7 +63,7 @@ function claims(overrides: Record<string, unknown> = {}) {
   return {
     role: "service",
     sub: RUN_ID,
-    iss: "aomi-bff",
+    iss: "aomi-build",
     aud: "aomi-sidecar",
     iat: now,
     exp: now + 300,

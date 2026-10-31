@@ -109,8 +109,8 @@ public_key = ""
 `,
 };
 
-/** Build's sidecar signer (`aomi-bff`); it never runs in rc. */
-const BFF: Partial<Record<Tier, string>> = {
+/** Build's sidecar signer (`aomi-build`); it never runs in rc. */
+const BUILD: Partial<Record<Tier, string>> = {
   default: String.raw`# The AOMI service topology -- the portal's committed view of the mesh.
 #
 # One node per service: its identity (name/kid), SPKI public_key (the private
@@ -118,8 +118,8 @@ const BFF: Partial<Record<Tier, string>> = {
 # and the audiences it may sign for.
 
 [[services]]
-name = "aomi-bff"
-kid = "aomi-bff-dev-1"
+name = "aomi-build"
+kid = "aomi-build-dev-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
 public_key = """
@@ -150,8 +150,8 @@ public_key = ""
 # service.staging.toml. Private keys live only in env.
 
 [[services]]
-name = "aomi-bff"
-kid = "aomi-bff-staging-1"
+name = "aomi-build"
+kid = "aomi-build-staging-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
 public_key = """
@@ -182,8 +182,8 @@ public_key = ""
 # service.production.toml. Private keys live only in env.
 
 [[services]]
-name = "aomi-bff"
-kid = "aomi-bff-prod-1"
+name = "aomi-build"
+kid = "aomi-build-prod-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
 public_key = """
@@ -212,7 +212,7 @@ public_key = ""
 `,
 };
 
-export const TOPOLOGIES = { "aomi-edge": EDGE, "aomi-bff": BFF } as const;
+export const TOPOLOGIES = { "aomi-edge": EDGE, "aomi-build": BUILD } as const;
 
 export function topologyFor(self: keyof typeof TOPOLOGIES, tier: Tier): string {
   const toml = TOPOLOGIES[self][tier];
