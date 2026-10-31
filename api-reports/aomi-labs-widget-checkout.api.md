@@ -5,6 +5,9 @@
 ```ts
 
 import { AccountCreditsTransport } from '@aomi-labs/client';
+import { AccountGraphLinkedAccount } from '@aomi-labs/client';
+import { AccountGraphUser } from '@aomi-labs/client';
+import { AccountGraphWallet } from '@aomi-labs/client';
 import { AccountMergeOffer } from '@aomi-labs/client';
 import type { Chain } from 'viem';
 import { EvmWallet } from '@aomi-labs/client';
