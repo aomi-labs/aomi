@@ -1,7 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Geist:wght@300;400;500;600;700&family=PT+Serif:wght@400;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@aomi-labs/widget/themes/default.css";
+/* First-party host theme source; embedded consumers use the scoped styles.css export. */
+@import "../../../../packages/widget/src/themes/default.css";
 
 @font-face {
   font-family: "Aomi Source Serif";
