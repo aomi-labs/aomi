@@ -20,7 +20,7 @@ import { id, names, numeric, text } from "../kernel/route";
 import { endpoint, notFound, type BuildRoute, type Call, type Handler } from "./endpoint";
 import { buildError } from "./failures";
 import { managerClient, sdkBackendUrl } from "./manager-client";
-import { platform } from "./platform";
+import { platformSlug } from "./endpoint";
 
 type Project = Awaited<ReturnType<ManagerClient["listUserProjects"]>>[number];
 type ReleasePair = { app: string; releaseTag: string };
@@ -121,7 +121,7 @@ function deploy(preflight: boolean) {
 const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
   auth: { write: true },
   input: z.object({
-    platform: platform.optional(),
+    platform: platformSlug.optional(),
     installationId: z.string().trim().regex(/^\d+$/),
     repoName: z.string().trim().optional(),
   }),
@@ -149,7 +149,7 @@ const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
 
 const status = endpoint("launch.status", "GET", "", {
   auth: { cliScope: "deployment:read" },
-  input: z.object({ deploymentId: text, platform: platform.optional() }),
+  input: z.object({ deploymentId: text, platform: platformSlug.optional() }),
   run: async ({ input, client, session, ctx }) => {
     // The backend resolves CI live per poll and deep-links the run URL.
     const result = await client.status({
@@ -406,7 +406,7 @@ const SDK_SUMMARY = [
 // The signed-in user's projects (a `platform` narrows the list), or with
 // `projectId` that one project through the manager's detail read.
 const userProjects = endpoint("deployment.projects", "GET", "", {
-  input: z.object({ platform: platform.optional(), projectId: id.optional() }),
+  input: z.object({ platform: platformSlug.optional(), projectId: id.optional() }),
   run: async ({ input, client, session, visibilityGrant }) => {
     const scope = { githubUserId: session.githubUserId, visibilityGrant: visibilityGrant ?? undefined };
     if (input.projectId === undefined)

@@ -25,12 +25,12 @@ import { EdgeError } from "../kernel/errors";
 import { cursor, id, numeric, text } from "../kernel/route";
 import { endpoint, notFound, type BuildRoute, type Call } from "./endpoint";
 import { reportFailure } from "./failures";
-import { platform } from "./platform";
+import { platformSlug } from "./endpoint";
 
 const ops = (name: string) => `/api/bff/operate/${name}`;
 const BOT = (action: string) => new RegExp(`^/api/bff/operate/bots/(?<botId>[^/]+)/${action}$`);
 
-const scoped = z.object({ platform: platform.optional(), projectId: id.optional() });
+const scoped = z.object({ platform: platformSlug.optional(), projectId: id.optional() });
 type Scoped = z.output<typeof scoped>;
 
 /** A page size: the fallback when absent or invalid, capped at `max`. */
