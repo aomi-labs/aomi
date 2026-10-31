@@ -231,24 +231,6 @@ export class AomiAccount extends AccountTransport {
     });
   }
 
-  /**
-   * The CLI's provider sign-in (`/device-auth`): trade the provider's
-   * credential for the one-time code the CLI's loopback redeems. No session needed.
-   */
-  grantDeviceLink(input: {
-    linkIntent: string;
-    state: string;
-    redirectUri: string;
-    provider: "privy" | "para";
-    credential: unknown;
-  }): Promise<{ code: string; state: string }> {
-    return this.request("/v1/account/device-auth/link-grant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-  }
-
   /** Move the other account (from a merge offer's ticket) into this one. */
   merge(ticket: string): Promise<{
     moved: { chats: number; wallets: number };

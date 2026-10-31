@@ -124,7 +124,6 @@ function edge(path: string, init: RequestInit & { origin?: string } = {}) {
   return handleRequest(request(path, init), env, mocks.fetch);
 }
 
-
 function request(path: string, init: RequestInit & { origin?: string } = {}) {
   const headers = new Headers(init.headers);
   if (init.origin) headers.set("origin", init.origin);
@@ -258,7 +257,9 @@ describe("principal × route family", () => {
   );
 
   it("returns the guest projection without exposing the session token", async () => {
-    const response = await edge("/v1/account", { headers: { cookie: "session=guest" } });
+    const response = await edge("/v1/account", {
+      headers: { cookie: "session=guest" },
+    });
     expect(await response.json()).toEqual({
       guest: true,
       user: null,
@@ -311,15 +312,6 @@ describe("CORS per family", () => {
       false,
     );
   });
-
-  it("leaves device login without cross-origin access", async () => {
-    const response = await edge("/v1/account/device-auth/exchange", {
-      method: "POST",
-      origin: PARTNER,
-      body: "{",
-    });
-    expect(response.headers.has("access-control-allow-origin")).toBe(false);
-  });
 });
 
 describe("/v1/account/connections", () => {
@@ -365,7 +357,10 @@ describe("/v1/account/connections", () => {
     "does not list connections for %s",
     async (credential, status) => {
       const { headers, origin } = CREDENTIALS[credential];
-      const response = await edge("/v1/account/connections", { headers, origin });
+      const response = await edge("/v1/account/connections", {
+        headers,
+        origin,
+      });
       expect(response.status).toBe(status);
       expect(mocks.listConnections).not.toHaveBeenCalled();
     },
@@ -413,8 +408,12 @@ describe("the route table", () => {
     const { ROUTES } = await import("@aomi-labs/account/policy");
     const { HANDLERS } = await import("./routes");
     const owned = ROUTES.filter((route) => route.to === "account");
-    expect(owned.map((route) => route.operation).sort()).toEqual(Object.keys(HANDLERS).sort());
+    expect(owned.map((route) => route.operation).sort()).toEqual(
+      Object.keys(HANDLERS).sort(),
+    );
     for (const route of owned)
-      expect(Object.keys(route.methods).sort()).toEqual(Object.keys(HANDLERS[route.operation]!.handle).sort());
+      expect(Object.keys(route.methods).sort()).toEqual(
+        Object.keys(HANDLERS[route.operation]!.handle).sort(),
+      );
   });
 });

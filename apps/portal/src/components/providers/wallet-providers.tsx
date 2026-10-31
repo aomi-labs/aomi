@@ -1,6 +1,4 @@
 import {
-  Component,
-  type ErrorInfo,
   type ReactNode,
   useEffect,
   useCallback,
@@ -17,7 +15,7 @@ import {
   robinhood,
 } from "@aomi-labs/client";
 import { ExtUserProvider } from "@aomi-labs/react";
-import { usePathname, useSearchParams } from "@/lib/navigation";
+import { useSearchParams } from "@/lib/navigation";
 import {
   mainnet,
   arbitrum,
@@ -40,14 +38,7 @@ import {
   E2EWalletProvider,
   useE2EWalletSeed,
 } from "@/components/providers/e2e-wallet-provider";
-import {
-  isDeviceAuthRoute,
-  classifyProviderInitializationFailure,
-  providerConfigurationFailure,
-  providerFailureText,
-  requestedDeviceAuthProvider,
-  type DeviceAuthProvider,
-} from "@/lib/device-auth-provider";
+type SignInProvider = "privy" | "para";
 
 const paraApiKey = process.env.NEXT_PUBLIC_PARA_API_KEY?.trim() ?? "";
 const paraEnvironmentSetting =
@@ -147,7 +138,6 @@ function getBrowserAuthOrigin(): BrowserAuthOrigin | null {
 
 export function WalletProviders({ children }: Props) {
   const e2eWallet = useE2EWalletSeed();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const applicationId =
     searchParams.get("application_id") ??
@@ -162,8 +152,9 @@ export function WalletProviders({ children }: Props) {
       }),
     [applicationId],
   );
-  const [signInProvider, setSignInProvider] =
-    useState<DeviceAuthProvider | null>(null);
+  const [signInProvider, setSignInProvider] = useState<SignInProvider | null>(
+    null,
+  );
   const [providerRestored, setProviderRestored] = useState(false);
   useEffect(() => {
     try {
@@ -184,7 +175,7 @@ export function WalletProviders({ children }: Props) {
     }
   }, [preferenceStorage]);
   const chooseProvider = useCallback(
-    async (provider: DeviceAuthProvider) => {
+    async (provider: SignInProvider) => {
       try {
         preferenceStorage.set("walletProvider", provider);
       } catch {
@@ -195,7 +186,7 @@ export function WalletProviders({ children }: Props) {
     [preferenceStorage],
   );
   const signInOptions = useMemo(() => {
-    const providers: DeviceAuthProvider[] = [];
+    const providers: SignInProvider[] = [];
     if (privyAppId) providers.push("privy");
     if (paraApiKey) providers.push("para");
     return providers.map((provider) => ({
@@ -236,27 +227,14 @@ export function WalletProviders({ children }: Props) {
         : (["metamask", "rabby", "coinbase"] as const),
     [],
   );
-  const routeProvider = requestedDeviceAuthProvider(pathname, searchParams);
-  const routeProviderFailure = routeProvider
-    ? providerConfigurationFailure(routeProvider, {
-        paraApiKey,
-        paraEnvironment: paraEnvironmentSetting,
-        privyAppId,
-      })
-    : null;
-  const selectedProvider = isDeviceAuthRoute(pathname)
-    ? routeProviderFailure
-      ? null
-      : routeProvider
-    : signInProvider;
   const auth = useMemo(
     () =>
-      selectedProvider
-        ? selectedProvider === "privy"
+      signInProvider
+        ? signInProvider === "privy"
           ? ({ provider: "privy" } as const)
           : ({ provider: "para", methods: ["email", "google"] } as const)
         : false,
-    [selectedProvider],
+    [signInProvider],
   );
   const providers = useMemo(
     () =>
@@ -302,9 +280,7 @@ export function WalletProviders({ children }: Props) {
 
   const providerTree = (
     <WalletSignInOptionsContext.Provider
-      value={
-        !providerRestored || isDeviceAuthRoute(pathname) ? [] : signInOptions
-      }
+      value={!providerRestored ? [] : signInOptions}
     >
       <AomiWalletKitProvider
         fullTestnet={fullTestnet}
@@ -318,67 +294,5 @@ export function WalletProviders({ children }: Props) {
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
   );
-  const mounted =
-    isDeviceAuthRoute(pathname) && selectedProvider ? (
-      <DeviceAuthProviderErrorBoundary
-        key={`${pathname}:${selectedProvider}`}
-        provider={selectedProvider}
-      >
-        {providerTree}
-      </DeviceAuthProviderErrorBoundary>
-    ) : (
-      providerTree
-    );
-  // Keep account state above the route-keyed device-auth error boundary.
-  return <ExtUserProvider>{mounted}</ExtUserProvider>;
+  return <ExtUserProvider>{providerTree}</ExtUserProvider>;
 }
-
-class DeviceAuthProviderErrorBoundary extends Component<
-  { children: ReactNode; provider: DeviceAuthProvider },
-  { error: unknown | null }
-> {
-  state: { error: unknown | null } = { error: null };
-
-  static getDerivedStateFromError(error: unknown) {
-    return { error };
-  }
-
-  componentDidCatch(error: unknown, _info: ErrorInfo) {
-    const failure = classifyProviderInitializationFailure(
-      this.props.provider,
-      error,
-      providerConfiguration,
-    );
-    console.error("device_auth_provider_initialization_failed", {
-      provider: this.props.provider,
-      code: failure.code,
-    });
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children;
-    const failure = classifyProviderInitializationFailure(
-      this.props.provider,
-      this.state.error,
-      providerConfiguration,
-    );
-    return (
-      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
-        <section className="w-full max-w-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Sign in to Aomi CLI
-          </h1>
-          <p className="text-muted-foreground mt-3 text-sm">
-            {providerFailureText(failure)}
-          </p>
-        </section>
-      </main>
-    );
-  }
-}
-
-const providerConfiguration = {
-  paraApiKey,
-  paraEnvironment: paraEnvironmentSetting,
-  privyAppId,
-};

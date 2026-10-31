@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 
 import { EdgeError, errorResponse } from "../kernel/errors";
 
-// Account-library and device-auth failures thrown as plain errors whose
+// Account-library failures thrown as plain errors whose
 // message is a stable code: bad input from the caller, not a server fault.
 const CLIENT_ERROR_CODES = new Map<string, number>([
   ["invalid_provider_token", 401],

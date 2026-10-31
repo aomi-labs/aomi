@@ -160,9 +160,8 @@ describe("WalletProviders Privy configuration", () => {
       expect(walletKit.providers).toBe(original.providers);
       expect(walletKit.account).toBe(original.account);
     }
-    navigation.pathname = "/device-auth";
-    navigation.search = "provider=privy";
-    view.rerender(<WalletProviders>chat</WalletProviders>);
+    fireEvent.click(screen.getByRole("button", { name: "privy" }));
+    await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
     expect(walletKit.auth).toEqual({ provider: "privy" });
     expect(walletKit.wallets?.evm).toBe(original.wallets?.evm);
     const { baseSepolia } = await import("wagmi/chains");
@@ -274,106 +273,5 @@ describe("WalletProviders Privy configuration", () => {
     fireEvent.click(screen.getByRole("button", { name: "privy" }));
     await waitFor(() => expect(walletKit.auth).toEqual({ provider: "privy" }));
     expect(screen.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-  });
-
-  it("mounts no auth SDK while a device route is choosing a provider", async () => {
-    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
-    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-    navigation.pathname = "/device-auth";
-    const { WalletProviders } = await import("./wallet-providers");
-
-    const view = render(
-      <WalletProviders>
-        <span>child</span>
-      </WalletProviders>,
-    );
-
-    expect(walletKit.auth).toBe(false);
-    expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-  });
-
-  it("mounts exactly the Para auth SDK selected by a device route", async () => {
-    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
-    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-    navigation.pathname = "/device-auth";
-    navigation.search = "provider=para";
-    const { WalletProviders } = await import("./wallet-providers");
-
-    const view = render(
-      <WalletProviders>
-        <span>child</span>
-      </WalletProviders>,
-    );
-
-    expect(walletKit.auth).toEqual({
-      provider: "para",
-      methods: ["email", "google"],
-    });
-    expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-  });
-
-  it("does not mount a selected provider whose public config is missing", async () => {
-    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
-    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "");
-    navigation.pathname = "/device-auth";
-    navigation.search = "provider=para";
-    const { WalletProviders } = await import("./wallet-providers");
-
-    const view = render(
-      <WalletProviders>
-        <span>child</span>
-      </WalletProviders>,
-    );
-
-    expect(walletKit.auth).toBe(false);
-    expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-  });
-
-  it.each(["para", "privy"])(
-    "composes one provider owner for /device-auth with %s selected",
-    async (provider) => {
-      vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
-      vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-      navigation.pathname = "/device-auth";
-      navigation.search = `provider=${provider}&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback`;
-      const [{ WalletProviders }, { DeviceAuthClient }] = await Promise.all([
-        import("./wallet-providers"),
-        import("@/features/device-auth/device-auth-client"),
-      ]);
-
-      const view = render(
-        <WalletProviders>
-          <DeviceAuthClient />
-        </WalletProviders>,
-      );
-
-      expect(view.getAllByTestId("wallet-provider-root")).toHaveLength(1);
-      expect(walletKit.providerMounts).toBe(1);
-    },
-  );
-
-  it("contains an SDK mount failure behind a secret-safe provider code", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
-    navigation.pathname = "/device-auth";
-    navigation.search =
-      "provider=para&state=state_1234567890abcdef&code_challenge=challenge_1234567890abcdefghijklmnop&redirect_uri=http%3A%2F%2F127.0.0.1%3A4173%2Fcallback";
-    walletKit.throwOnProviderMount = "origin rejected with private detail";
-    const { WalletProviders } = await import("./wallet-providers");
-
-    render(
-      <WalletProviders>
-        <span>child</span>
-      </WalletProviders>,
-    );
-
-    expect(screen.getByText(/para_origin_rejected/)).toBeInTheDocument();
-    expect(screen.queryByText(/private detail/)).not.toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalledWith(
-      "device_auth_provider_initialization_failed",
-      { provider: "para", code: "para_origin_rejected" },
-    );
   });
 });
