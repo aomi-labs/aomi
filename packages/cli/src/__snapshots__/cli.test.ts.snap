@@ -135,7 +135,7 @@ COMMANDS
 `;
 
 exports[`help > prints the root help from the route table 1`] = `
-"aomi 0.2.1  the Aomi agent in your terminal
+"aomi 1.0.0  the Aomi agent in your terminal
 
 USAGE
   aomi                    Open the chat
