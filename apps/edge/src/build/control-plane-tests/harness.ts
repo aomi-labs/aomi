@@ -10,7 +10,7 @@ import { vi } from "vitest";
 
 import type { EdgeEnv } from "../../env";
 import { handleRequest } from "../../handler";
-import { GitHubSessionSigner, type GitHubSession } from "../session";
+import { GitHubSessionSigner, type GitHubSession } from "@aomi-labs/account/build-session";
 
 const SECRET = "build-session-secret-for-tests";
 export const BUILD_ORIGIN = "http://localhost:3000";

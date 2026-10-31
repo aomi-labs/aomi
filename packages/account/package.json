@@ -19,7 +19,8 @@
     "./widget-auth": "./src/widget-auth/index.ts",
     "./csrf": "./src/csrf.ts",
     "./rate-limit": "./src/rate-limit.ts",
-    "./rate-limits.sql": "./src/db/rate-limits.sql"
+    "./rate-limits.sql": "./src/db/rate-limits.sql",
+    "./build-session": "./src/build-session.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit"

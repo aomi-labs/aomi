@@ -2,7 +2,7 @@ import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import { EdgeError } from "../kernel/errors";
 import type { BuildContext } from "./context";
 import { githubSessionOf, signerFor, visibilityGrantOf } from "./github-auth";
-import { bearerOf, type GitHubCliScope, type GitHubSession } from "./session";
+import { bearerOf, type GitHubCliScope, type GitHubSession } from "@aomi-labs/account/build-session";
 
 export type AuthOptions = { write?: boolean; cliScope?: GitHubCliScope };
 
