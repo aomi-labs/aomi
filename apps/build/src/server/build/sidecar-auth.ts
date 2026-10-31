@@ -11,14 +11,11 @@ let cached: AomiService | null = null;
 function backendHost(
   env: Record<string, string | undefined>,
 ): string | undefined {
-  for (const value of [env.BACKEND_URL, env.NEXT_PUBLIC_BACKEND_URL]) {
-    try {
-      return new URL(value ?? "").hostname;
-    } catch {
-      // Unset or browser-relative: try the next setting.
-    }
+  try {
+    return new URL(env.BACKEND_URL ?? "").hostname;
+  } catch {
+    return undefined;
   }
-  return undefined;
 }
 
 /** Build's sidecar signer as an `AomiService` (self = `aomi-build`), loaded once. */
