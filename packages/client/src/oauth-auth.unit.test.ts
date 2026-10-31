@@ -27,10 +27,10 @@ describe("public API OAuth transport", () => {
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/api/commits/commit-1", {
+    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001", {
       method: "GET",
     });
-    await authorized("https://chat.aomi.dev/api/commits/commit-1/manual", {
+    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
       method: "POST",
     });
 
@@ -239,7 +239,7 @@ describe("Better Auth guest bootstrap", () => {
 
     await expect(guest()).resolves.toBe("server-guest-session");
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://portal.example/api/auth/sign-in/anonymous",
+      "https://portal.example/api/auth/guest",
       expect.objectContaining({ credentials: "omit" }),
     );
   });
@@ -277,7 +277,7 @@ describe("Better Auth guest bootstrap", () => {
 
     await expect(guest()).resolves.toBe("aomi_wst_widget_guest");
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://portal.example/api/auth/widget/guest",
+      "https://portal.example/api/auth/guest",
       expect.objectContaining({ credentials: "omit" }),
     );
   });
@@ -310,7 +310,7 @@ describe("Better Auth guest bootstrap", () => {
     await expect(guest()).resolves.toBeNull();
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/sign-in/anonymous",
+      "/api/auth/guest",
     );
   });
 
@@ -360,7 +360,7 @@ describe("Better Auth guest bootstrap", () => {
     ).toBe(200);
     expect(authFetch).toHaveBeenCalledTimes(1);
     expect(String(authFetch.mock.calls[0]?.[0])).toContain(
-      "/api/auth/sign-in/anonymous",
+      "/api/auth/guest",
     );
     expect(upstream).toHaveBeenCalledTimes(2);
     for (const [, init] of upstream.mock.calls) {
@@ -514,7 +514,7 @@ describe("Better Auth guest bootstrap", () => {
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/sign-in/anonymous",
+      "/api/auth/guest",
     );
   });
 });

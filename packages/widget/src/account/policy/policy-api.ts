@@ -1,27 +1,17 @@
-import type {
-  AomiBindOnchainPolicy,
-  AomiOnchainAddress,
-  AomiOnchainPolicy,
-  AomiOnchainPolicyProviderCtx,
-  AomiPreparedOnchainPolicy,
+import {
+  AccountGraphApiError,
+  type AccountPoliciesTransport,
+  type AomiBindOnchainPolicy,
+  type AomiOnchainAddress,
+  type AomiOnchainPolicy,
+  type AomiPreparedOnchainPolicy,
 } from "@aomi-labs/client";
-import type { ShellRequest } from "@/account/transport";
-
-/** The Swig provider context for one chain: targets, mints and the binding. */
-export function fetchPolicyContext(
-  chainRef: string,
-  request: ShellRequest,
-  signal?: AbortSignal,
-): Promise<AomiOnchainPolicyProviderCtx> {
-  return request<AomiOnchainPolicyProviderCtx>(
-    `/api/account/onchain-policies/swig?chain_ref=${encodeURIComponent(chainRef)}`,
-    { signal },
-  );
-}
 
 type PolicyApiError = { error?: string; error_code?: string };
 
 function parsePolicyError(cause: unknown): PolicyApiError {
+  if (cause instanceof AccountGraphApiError)
+    return (cause.body ?? {}) as PolicyApiError;
   try {
     return JSON.parse(
       cause instanceof Error ? cause.message : String(cause),
@@ -68,56 +58,24 @@ async function settled<T>(
   }
 }
 
-export function preparePolicy(
-  body: AomiBindOnchainPolicy,
-  request: ShellRequest,
-): Promise<AomiPreparedOnchainPolicy> {
-  return request("/api/account/onchain-policies/swig/prepare", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
+/** Confirm a binding, retrying while the backend's node catches up. */
 export function confirmPolicy(
+  policies: AccountPoliciesTransport,
   body: AomiBindOnchainPolicy,
-  request: ShellRequest,
   retryDelayMs = 2_000,
 ): Promise<AomiPreparedOnchainPolicy> {
-  return settled(
-    () =>
-      request("/api/account/onchain-policies/swig/confirm", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    retryDelayMs,
-  );
+  return settled(() => policies.confirm(body), retryDelayMs);
 }
 
-export function preparePolicyRevoke(
-  bindingId: number,
-  request: ShellRequest,
-): Promise<AomiPreparedOnchainPolicy> {
-  return request(
-    `/api/account/onchain-policies/swig/${bindingId}/revoke/prepare`,
-    { method: "POST" },
-  );
-}
-
+/** Confirm a revoke, retrying while the backend's node catches up. */
 export function confirmPolicyRevoke(
+  policies: AccountPoliciesTransport,
   bindingId: number,
   signature: string,
-  request: ShellRequest,
   retryDelayMs = 2_000,
 ): Promise<AomiPreparedOnchainPolicy> {
   return settled(
-    () =>
-      request(
-        `/api/account/onchain-policies/swig/${bindingId}/revoke/confirm`,
-        {
-          method: "POST",
-          body: JSON.stringify({ transaction_signature: signature }),
-        },
-      ),
+    () => policies.confirmRevoke(bindingId, signature),
     retryDelayMs,
   );
 }

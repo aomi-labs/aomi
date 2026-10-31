@@ -6,7 +6,12 @@ import { portalEnv } from "./tests/e2e/portal-env";
 // consumer runner builds them). Otherwise Playwright starts the fake upstream,
 // a production Portal build behind the edge Worker (tests/e2e/edge-host.ts)
 // and the Vite embed example on these ports; `portal` is the public origin.
-const ports = { portal: 3460, embed: 3461, upstream: 3462, portalUpstream: 3463 };
+const ports = {
+  portal: 3460,
+  embed: 3461,
+  upstream: 3462,
+  portalUpstream: 3463,
+};
 const external = process.env.JOURNEY_PORTAL_URL;
 const portal = external ?? `http://127.0.0.1:${ports.portal}`;
 const embed = external
@@ -39,7 +44,7 @@ function localHosts() {
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `pnpm exec tsx apps/portal/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal exec next build && pnpm --dir apps/portal exec next start -H 127.0.0.1 -p ${ports.portalUpstream}`,
+      command: `pnpm exec tsx apps/edge/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal exec vite build && pnpm --dir apps/portal exec vite preview --host 127.0.0.1 --port ${ports.portalUpstream} --strictPort`,
       url: portalUpstream,
       env,
       timeout: 300_000,

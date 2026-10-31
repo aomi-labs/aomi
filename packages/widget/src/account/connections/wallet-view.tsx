@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState, type ReactNode } from "react";
 import {
   BadgeCheck,
@@ -13,7 +14,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { shortAddress, type AomiLane } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { aomiButton } from "@/ui/aomi/button";

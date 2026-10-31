@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/control-plane/toast";

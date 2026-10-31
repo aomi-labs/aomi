@@ -1,0 +1,168 @@
+// @vitest-environment node
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  handler: vi.fn(),
+  oauthRedirectFailureDiagnostics: vi.fn(),
+}));
+
+vi.mock("@aomi-labs/account/better-auth", () => ({
+  aomiOAuthResources: () => ({
+    portalOrigin: "https://portal.example",
+  }),
+  guestScopesForAomiResource: (_resource: string, scopes: string[]) => scopes,
+  BETTER_AUTH_OAUTH_PROVIDER_VERSION: "1.7.1",
+  hashOAuthClientId: () => "hashed-client",
+  oauthRedirectFailureDiagnostics: mocks.oauthRedirectFailureDiagnostics,
+}));
+vi.mock("./oauth/request-policy", () => ({
+  // The policy hands the (possibly scope-narrowed) request back to the route,
+  // so the mock has to return one rather than a bare pass signal. A plain
+  // function, not vi.fn(), so the global mock reset cannot strip it.
+  enforceAomiOAuthRequestPolicy: async (request: Request) => ({
+    kind: "continue" as const,
+    request,
+  }),
+}));
+
+import type { PortalContext } from "../portal/context";
+import { handleBetterAuth } from "./better-auth";
+
+const ctx = {
+  env: {},
+  auth: () => ({ api: { getSession: mocks.getSession }, handler: mocks.handler }),
+} as unknown as PortalContext;
+const GET = (request: Request) => handleBetterAuth(request, ctx);
+const POST = GET;
+
+beforeEach(() => {
+  mocks.getSession.mockReset();
+  mocks.handler.mockReset().mockResolvedValue(Response.json({ ok: true }));
+  mocks.oauthRedirectFailureDiagnostics.mockReset();
+});
+
+describe("OAuth redirect rejection diagnostics", () => {
+  it("logs only safe diagnostics after Better Auth rejects a redirect", async () => {
+    const diagnostics = {
+      clientIdHash: "hashed-client",
+      clientFound: true,
+      registeredRedirectCount: 1,
+      registeredStorageShape: "json_array",
+      requestedUrlValid: true,
+      credentialsAbsent: true,
+      fragmentAbsent: true,
+      exactMatch: false,
+      loopbackMatch: false,
+      protocolMatch: true,
+      hostnameMatch: true,
+      portMatch: false,
+      pathMatch: false,
+      queryMatch: true,
+    };
+    mocks.oauthRedirectFailureDiagnostics.mockResolvedValue(diagnostics);
+    mocks.handler.mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location:
+            "https://portal.example/error?error=invalid_redirect&error_description=invalid",
+        },
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await GET(
+      new Request(
+        "https://portal.example/api/auth/oauth2/authorize?" +
+          new URLSearchParams({
+            client_id: "private-client",
+            redirect_uri: "http://user@127.0.0.1:52100/callback#private",
+            response_type: "code",
+            scope: "openid",
+          }),
+      ),
+    );
+
+    expect(mocks.oauthRedirectFailureDiagnostics).toHaveBeenCalledWith(
+      "private-client",
+      "http://user@127.0.0.1:52100/callback#private",
+    );
+    expect(warn).toHaveBeenCalledWith(
+      "better_auth_oauth_redirect_rejected",
+      expect.objectContaining({
+        ...diagnostics,
+        betterAuthVersion: "1.7.1",
+        diagnosticsAvailable: true,
+      }),
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("private-client");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("callback");
+  });
+
+  it("does not query or log redirect diagnostics for successful authorization", async () => {
+    mocks.handler.mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://portal.example/oauth/authorize" },
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await GET(
+      new Request(
+        "https://portal.example/api/auth/oauth2/authorize?client_id=client",
+      ),
+    );
+
+    expect(mocks.oauthRedirectFailureDiagnostics).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("observes Better Auth JSON redirects returned by hosted requests", async () => {
+    mocks.oauthRedirectFailureDiagnostics.mockResolvedValue({
+      clientIdHash: "hashed-client",
+    });
+    mocks.handler.mockResolvedValue(
+      Response.json({
+        redirect: true,
+        url: "https://portal.example/error?error=invalid_redirect",
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await GET(
+      new Request(
+        "https://portal.example/api/auth/oauth2/authorize?" +
+          new URLSearchParams({
+            client_id: "private-client",
+            redirect_uri: "http://127.0.0.1:52100/callback",
+          }),
+      ),
+    );
+
+    expect(mocks.oauthRedirectFailureDiagnostics).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(
+      "better_auth_oauth_redirect_rejected",
+      expect.objectContaining({ diagnosticsAvailable: true }),
+    );
+  });
+});
+
+describe("public DPoP endpoint", () => {
+  it("uses the configured public URL, never the transport host", async () => {
+    await POST(
+      new Request("http://internal:3000/api/auth/oauth2/token", {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "x-forwarded-host": "attacker.example",
+        },
+        body: "grant_type=authorization_code&code=fixture",
+      }),
+    );
+    const forwarded = mocks.handler.mock.calls[0][0] as Request;
+    expect(forwarded.url).toBe("https://portal.example/api/auth/oauth2/token");
+    expect(await forwarded.text()).toContain("code=fixture");
+  });
+});

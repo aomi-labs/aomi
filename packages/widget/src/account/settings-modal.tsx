@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   lazy,
   Suspense,
@@ -16,7 +17,6 @@ import {
   SlidersHorizontal,
   UserRound,
 } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
 import { LoadingPane } from "@/ui/aomi/loading-pane";

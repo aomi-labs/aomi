@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AccountGraphApiError,
   buildSiweMessage,
   buildWalletLinkMessage,
   withBrowserSessionTransition,
@@ -16,45 +17,34 @@ import {
   walletAppName,
 } from "./wallet-labels";
 import type { AomiAccountCredential } from "../types";
-import { AomiAccountRequestError } from "./aomi-backend-client";
 
 const mockState = vi.hoisted(() => ({
   accountClient: null as null | {
     getAccount: ReturnType<typeof vi.fn>;
     exchangeProviderCredential: ReturnType<typeof vi.fn>;
-    createSiweNonce: ReturnType<typeof vi.fn>;
+    siweNonce: ReturnType<typeof vi.fn>;
     verifySiwe: ReturnType<typeof vi.fn>;
-    createSiwsNonce: ReturnType<typeof vi.fn>;
+    siwsNonce: ReturnType<typeof vi.fn>;
     verifySiws: ReturnType<typeof vi.fn>;
     getWalletLinkNonce: ReturnType<typeof vi.fn>;
     linkWallet: ReturnType<typeof vi.fn>;
     signOut: ReturnType<typeof vi.fn>;
     deleteAccount: ReturnType<typeof vi.fn>;
     updateAccount: ReturnType<typeof vi.fn>;
-    renameWallet: ReturnType<typeof vi.fn>;
-    updateAuthIdentity: ReturnType<typeof vi.fn>;
+    updateWallet: ReturnType<typeof vi.fn>;
+    updateIdentity: ReturnType<typeof vi.fn>;
     unlinkWallet: ReturnType<typeof vi.fn>;
-    unlinkAuthIdentity: ReturnType<typeof vi.fn>;
+    unlinkIdentity: ReturnType<typeof vi.fn>;
+    merge: ReturnType<typeof vi.fn>;
+    switchTo: ReturnType<typeof vi.fn>;
   },
 }));
 
-vi.mock("./aomi-backend-client", () => ({
-  AomiAccountRequestError: class AomiAccountRequestError extends Error {
-    constructor(
-      readonly status: number,
-      readonly code: string | null,
-      readonly signalType: "wallet" | "identity" | "email" | null = null,
-      readonly mergeOffer: unknown = null,
-    ) {
-      super(
-        "This wallet or sign-in method belongs to another Aomi account. Sign in another way to open that account.",
-      );
-      this.name = "AomiAccountRequestError";
-    }
-  },
-  createAomiBackendAccountClient: vi.fn(() => mockState.accountClient),
-  mergeOfferFrom: (error: { mergeOffer?: unknown }) =>
-    error?.mergeOffer ?? null,
+vi.mock("@aomi-labs/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/client")>()),
+  Aomi: vi.fn(function () {
+    return { account: mockState.accountClient };
+  }),
 }));
 
 beforeEach(() => {
@@ -67,19 +57,21 @@ beforeEach(() => {
       session: null,
     }),
     exchangeProviderCredential: vi.fn(() => new Promise(() => undefined)),
-    createSiweNonce: vi.fn(),
+    siweNonce: vi.fn(),
     verifySiwe: vi.fn(),
-    createSiwsNonce: vi.fn(),
+    siwsNonce: vi.fn(),
     verifySiws: vi.fn(),
     getWalletLinkNonce: vi.fn(),
     linkWallet: vi.fn(),
     signOut: vi.fn(),
     deleteAccount: vi.fn(),
     updateAccount: vi.fn(),
-    renameWallet: vi.fn(),
-    updateAuthIdentity: vi.fn(),
+    updateWallet: vi.fn(),
+    updateIdentity: vi.fn(),
     unlinkWallet: vi.fn(),
-    unlinkAuthIdentity: vi.fn(),
+    unlinkIdentity: vi.fn(),
+    merge: vi.fn(),
+    switchTo: vi.fn(),
   };
 });
 
@@ -251,7 +243,7 @@ describe("useAomiBackendAccountRuntime", () => {
         session: null,
       });
     mockState.accountClient!.signOut.mockResolvedValue(undefined);
-    mockState.accountClient!.createSiweNonce.mockResolvedValue({
+    mockState.accountClient!.siweNonce.mockResolvedValue({
       nonce: "wallet-sign-in-nonce",
       domain: "localhost:3000",
       uri: "http://localhost:3000",
@@ -274,7 +266,7 @@ describe("useAomiBackendAccountRuntime", () => {
 
     await waitFor(() => expect(result.current.guest).toBe(true));
     expect(result.current.user).toBeUndefined();
-    expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.siweNonce).not.toHaveBeenCalled();
 
     let finishGuestTransition!: () => void;
     const guestTransition = withBrowserSessionTransition(
@@ -295,7 +287,7 @@ describe("useAomiBackendAccountRuntime", () => {
     });
     await Promise.resolve();
     expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
-    expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.siweNonce).not.toHaveBeenCalled();
 
     finishGuestTransition();
     await guestTransition;
@@ -306,7 +298,7 @@ describe("useAomiBackendAccountRuntime", () => {
     // The server merges the guest's chats in, so the guest cookie must reach
     // the sign-in.
     expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
-    expect(mockState.accountClient?.createSiweNonce).toHaveBeenCalledTimes(1);
+    expect(mockState.accountClient?.siweNonce).toHaveBeenCalledTimes(1);
     expect(mockState.accountClient?.getWalletLinkNonce).not.toHaveBeenCalled();
   });
   it("ignores an old account response after the provider subject changes", async () => {
@@ -445,10 +437,10 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() => {
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: false });
+      ).toHaveBeenCalledWith(credential, { newSession: true });
     });
 
-    expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.siweNonce).not.toHaveBeenCalled();
     expect(signMessageAsync).not.toHaveBeenCalled();
   });
 
@@ -517,7 +509,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: false }),
+      ).toHaveBeenCalledWith(credential, { newSession: true }),
     );
     expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
     await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
@@ -697,7 +689,7 @@ describe("useAomiBackendAccountRuntime", () => {
         await waitFor(() =>
           expect(
             mockState.accountClient?.exchangeProviderCredential,
-          ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+          ).toHaveBeenCalledWith(credential, { newSession: false }),
         );
         await waitFor(() =>
           expect(result.current.linkedAccounts).toEqual(
@@ -716,13 +708,22 @@ describe("useAomiBackendAccountRuntime", () => {
 
       it("offers a merge when the login belongs to another account", async () => {
         mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
-        const offer = { ticket: "ticket-1", other: { name: "privy user" } };
+        const offer = {
+          ticket: "ticket-1",
+          other: {
+            name: "privy user",
+            created_at: "2026-09-12T00:00:00Z",
+            chats: 1,
+            wallets: 1,
+            credits: "0",
+            dropped: [],
+          },
+        };
         mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
-          new AomiAccountRequestError(
+          new AccountGraphApiError(
             409,
-            "account_merge_available",
-            null,
-            offer as never,
+            { error: "account_merge_available", ...offer },
+            "",
           ),
         );
         const { result, signIn } = renderSignedIn();
@@ -742,13 +743,22 @@ describe("useAomiBackendAccountRuntime", () => {
 
       it("offers one merge per login when the provider refreshes its token", async () => {
         mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
-        const offer = { ticket: "ticket-1", other: { name: "privy user" } };
+        const offer = {
+          ticket: "ticket-1",
+          other: {
+            name: "privy user",
+            created_at: "2026-09-12T00:00:00Z",
+            chats: 1,
+            wallets: 1,
+            credits: "0",
+            dropped: [],
+          },
+        };
         mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
-          new AomiAccountRequestError(
+          new AccountGraphApiError(
             409,
-            "account_merge_available",
-            null,
-            offer as never,
+            { error: "account_merge_available", ...offer },
+            "",
           ),
         );
         const { result, signIn, refreshCredential } = renderSignedIn();
@@ -823,7 +833,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+      ).toHaveBeenCalledWith(credential, { newSession: false }),
     );
     expect(result.current.user?.id).toBe("current-account");
     expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
@@ -930,7 +940,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: false }),
+      ).toHaveBeenCalledWith(credential, { newSession: true }),
     );
   });
 
@@ -968,10 +978,10 @@ describe("useAomiBackendAccountRuntime", () => {
       providerToken: "provider-session",
     };
     mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
-      new AomiAccountRequestError(
+      new AccountGraphApiError(
         409,
-        "already_linked_to_another_account",
-        "wallet",
+        { error: "already_linked_to_another_account", signalType: "wallet" },
+        "",
       ),
     );
 
@@ -990,7 +1000,9 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() =>
-      expect(result.current.error).toContain("belongs to another Aomi account"),
+      expect(result.current.error).toContain(
+        "already signs in to another Aomi account",
+      ),
     );
     expect(result.current.conflict).toEqual({
       code: "already_linked_to_another_account",
@@ -1023,7 +1035,7 @@ describe("useAomiBackendAccountRuntime", () => {
         ],
         session: { betterAuthUserId: "ba-user" },
       });
-    mockState.accountClient!.createSiwsNonce.mockResolvedValue({
+    mockState.accountClient!.siwsNonce.mockResolvedValue({
       nonce: "siws-nonce",
       domain: "localhost:3000",
       uri: "http://localhost:3000",
@@ -1069,7 +1081,7 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() => expect(result.current.status).toBe("ready"));
-    expect(mockState.accountClient?.createSiwsNonce).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.siwsNonce).not.toHaveBeenCalled();
     await act(async () => {
       await result.current.linkWallet?.({
         accountId: "Phantom",
@@ -1078,7 +1090,7 @@ describe("useAomiBackendAccountRuntime", () => {
       });
     });
     expect(mockState.accountClient?.verifySiws).toHaveBeenCalledOnce();
-    expect(mockState.accountClient?.createSiwsNonce).toHaveBeenCalledWith({
+    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledWith({
       walletAddress: address,
       chainId: "solana:devnet",
     });
@@ -1215,7 +1227,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(mockState.accountClient?.getAccount).toHaveBeenCalled(),
     );
-    expect(mockState.accountClient?.createSiwsNonce).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.siwsNonce).not.toHaveBeenCalled();
     expect(signed).not.toHaveBeenCalled();
   });
 });

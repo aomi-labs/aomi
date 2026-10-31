@@ -1,3 +1,4 @@
+import { AomiError } from "../api-error";
 import type { AomiClient } from "../client";
 import {
   CommitController,
@@ -8,10 +9,21 @@ import {
   type CommitRecoveryRecord,
   type CommitReview,
   type CommitSubmissionPhase,
+  type CommitView,
   type OnChainOutcome,
 } from "../commits";
 import type { CommitRefView } from "../commit-ref";
 import type { Wallets } from "../wallet/types";
+
+export type CommitKind = `${"evm" | "svm"}_${"tx" | "message"}`;
+
+/** Where a commit's batch stands; see `CommitHandle.settlement`. */
+export type CommitSettlement = {
+  done: boolean;
+  confirmed: boolean;
+  failed?: CommitRefView;
+  last: CommitRefView;
+};
 
 /** A wallet, or the commit operations already adapted from one. */
 export type CommitSigner = Wallets | CommitCapabilities;
@@ -27,10 +39,17 @@ function capabilitiesOf(signer: CommitSigner): CommitCapabilities {
  * (GET polling while it is live) until `close()`.
  */
 export class CommitHandle {
+  /** The view the caller was handed or last reviewed; `sign()` and
+   * `approve()` name its version, so a commit that changed since fails as
+   * commit_stale instead of signing what nobody saw. */
+  private reviewed?: CommitView;
+
   constructor(
     readonly ref: string,
     private readonly controller: CommitController,
-  ) {}
+  ) {
+    this.reviewed = controller.all().find((view) => view.commit_id === ref);
+  }
 
   /** The latest authoritative view. */
   get view(): CommitRefView {
@@ -59,12 +78,7 @@ export class CommitHandle {
    * `confirmed` only when every one confirmed, and the first member that
    * did not (failed, rejected, expired) once done.
    */
-  get settled(): {
-    done: boolean;
-    confirmed: boolean;
-    failed?: CommitRefView;
-    last: CommitRefView;
-  } {
+  get settlement(): CommitSettlement {
     const batch = this.batch;
     const done = batch.every(isTerminalCommit);
     const failed = done
@@ -76,6 +90,66 @@ export class CommitHandle {
       failed,
       last: batch[batch.length - 1] ?? this.view,
     };
+  }
+
+  /**
+   * Wait until the whole batch is over, following the handle's own polling.
+   * Answers the last member once every one confirmed; rejects with a
+   * CommitSettleError for the first that did not, or with the signal's
+   * reason.
+   */
+  settled(options: { signal?: AbortSignal } = {}): Promise<CommitRefView> {
+    const { signal } = options;
+    return new Promise((resolve, reject) => {
+      // The poll timer does not hold a Node process open; a waiter does.
+      const keepAlive = setInterval(() => undefined, 2 ** 30);
+      let off = () => {};
+      const finish = (done: () => void) => {
+        clearInterval(keepAlive);
+        off();
+        signal?.removeEventListener("abort", abort);
+        done();
+      };
+      const abort = () => finish(() => reject(signal!.reason));
+      const check = () => {
+        const { done, failed, last } = this.settlement;
+        if (done)
+          finish(() =>
+            failed ? reject(new CommitSettleError(failed)) : resolve(last),
+          );
+      };
+      if (signal?.aborted) return abort();
+      signal?.addEventListener("abort", abort, { once: true });
+      off = this.subscribe(check);
+      check();
+      // Starts the controller's polling if nothing else did.
+      this.controller
+        .refresh(this.ref)
+        .catch((error: unknown) => finish(() => reject(error)));
+    });
+  }
+
+  /** evm_tx · evm_message · svm_tx · svm_message */
+  get kind(): CommitKind {
+    const view = this.view;
+    const payload =
+      view.action && "payload" in view.action
+        ? view.action.payload.kind
+        : undefined;
+    const message =
+      view.review?.request.type === "sign" ||
+      Boolean(payload?.endsWith("_message")) ||
+      typeof view.signature === "string";
+    return `${view.chain_family}_${message ? "message" : "tx"}`;
+  }
+
+  get state(): CommitRefView["state"] {
+    return this.view.state;
+  }
+
+  /** The Aomi page where a person reviews, signs or approves it. */
+  get signUrl(): string | undefined {
+    return this.view.sign_url;
   }
 
   /**
@@ -94,6 +168,7 @@ export class CommitHandle {
 
   /** The durable review in the Action vocabulary TransactionReview renders. */
   get review(): CommitReview | undefined {
+    this.reviewed = this.view;
     return this.controller.review(this.ref);
   }
 
@@ -124,6 +199,7 @@ export class CommitHandle {
   /** Refresh every member of the batch; answers this commit's view. */
   async refresh(): Promise<CommitRefView> {
     const view = (await this.controller.refresh(this.ref)) as CommitRefView;
+    this.reviewed = view;
     await Promise.all(
       (view.batch?.ordered_commit_ids ?? [])
         .filter((id) => id !== this.ref)
@@ -139,10 +215,7 @@ export class CommitHandle {
    */
   async sign(
     signer?: CommitSigner,
-    review: CommitExecutionReview = {
-      expectedVersion: this.view.version,
-      expectedReviewDigest: this.view.review?.digest,
-    },
+    review: CommitExecutionReview = reviewOf(this.reviewed ?? this.view),
   ): Promise<CommitRefView> {
     if (signer) this.controller.setCapabilities(capabilitiesOf(signer));
     return (await this.controller.execute(this.ref, review)) as CommitRefView;
@@ -161,10 +234,7 @@ export class CommitHandle {
   approve(shown?: CommitRefView): Promise<CommitRefView> {
     return this.controller.approve(
       this.ref,
-      shown && {
-        expectedVersion: shown.version,
-        expectedReviewDigest: shown.review?.digest,
-      },
+      reviewOf(shown ?? this.reviewed ?? this.view),
     );
   }
 
@@ -177,6 +247,29 @@ export class CommitHandle {
     this.controller.close();
   }
 }
+
+function reviewOf(view: CommitView): CommitExecutionReview {
+  return {
+    expectedVersion: view.version,
+    expectedReviewDigest: view.review?.digest,
+  };
+}
+
+/** A commit that ended without confirming. `code` is its failure code (else
+ * `commit_<state>`); `view` is the member that did not confirm. */
+export class CommitSettleError extends AomiError {
+  constructor(readonly view: CommitRefView) {
+    super(
+      view.failure_code ?? `commit_${view.state}`,
+      `Commit ${view.commit_id} ${view.state}${view.failure_code ? `: ${view.failure_code}` : ""}`,
+    );
+    this.name = "CommitSettleError";
+  }
+}
+
+/** The one Commit: transactions and messages, EVM and Solana. */
+export const Commit = CommitHandle;
+export type Commit = CommitHandle;
 
 /** `aomi.commits`: thread-less access to the caller's own commits. */
 export class AomiCommits {

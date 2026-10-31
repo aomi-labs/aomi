@@ -13,7 +13,7 @@ export const bffPrivateKey =
 /**
  * The edge Worker's development key (topology node `aomi-edge`, kid
  * `aomi-edge-dev-1`); its public half is the `default` topology in
- * apps/edge/src/topology-data.ts and apps/edge/.dev.vars.example carries it.
+ * packages/service-identity/src/topologies.ts and apps/edge/.dev.vars.example carries it.
  */
 export const edgePrivateKey =
   "-----BEGIN PRIVATE KEY-----\n" +

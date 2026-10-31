@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AomiClient,
+  Aomi,
   createScopedStorage,
   type ScopedStorage,
   type AomiHttpMethod,
@@ -29,12 +29,16 @@ export function getSettingsSecret(): string | null {
   return null;
 }
 
-const client = new AomiClient({
-  baseUrl: "",
-  fetch: (url, options) =>
-    fetch(url, { ...options, credentials: "same-origin", cache: "no-store" }),
-});
-/** @deprecated Prefer the host's ShellTransportProvider; retained through 4.x. */
+let deprecated: Aomi | undefined;
+/** The deprecated same-origin fetch helpers below share one `Aomi`. */
+function same(): Aomi {
+  return (deprecated ??= new Aomi({
+    baseUrl: "",
+    fetch: (url, options) =>
+      fetch(url, { ...options, credentials: "same-origin", cache: "no-store" }),
+  }));
+}
+/** @deprecated Use `Aomi` from @aomi-labs/client; removed in the next major. */
 export async function sessionScopedFetch<T>(
   path: string,
   options?: RequestInit & { secret?: string | null },
@@ -42,7 +46,8 @@ export async function sessionScopedFetch<T>(
   const { secret, ...init } = options ?? {};
   const headers = new Headers(init.headers);
   if (secret?.trim()) headers.set("Aomi-App-Key", secret.trim());
-  return client.request<T>((init.method ?? "GET") as AomiHttpMethod, path, {
+  // eslint-disable-next-line no-restricted-syntax -- deprecated path passthrough
+  return same().raw.request<T>((init.method ?? "GET") as AomiHttpMethod, path, {
     headers,
     sessionId: getSettingsSessionId(),
     signal: init.signal ?? undefined,
@@ -50,15 +55,22 @@ export async function sessionScopedFetch<T>(
   });
 }
 export const settingsApiFetch = sessionScopedFetch;
-/** @deprecated Prefer the host's ShellTransportProvider; retained through 4.x. */
+/** @deprecated Use `Aomi` from @aomi-labs/client; removed in the next major. */
 export async function accountScopedFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  return client.request<T>((options?.method ?? "GET") as AomiHttpMethod, path, {
-    headers: options?.headers,
-    signal: options?.signal ?? undefined,
-    body:
-      typeof options?.body === "string" ? JSON.parse(options.body) : undefined,
-  });
+  // eslint-disable-next-line no-restricted-syntax -- deprecated path passthrough
+  return same().raw.request<T>(
+    (options?.method ?? "GET") as AomiHttpMethod,
+    path,
+    {
+      headers: options?.headers,
+      signal: options?.signal ?? undefined,
+      body:
+        typeof options?.body === "string"
+          ? JSON.parse(options.body)
+          : undefined,
+    },
+  );
 }

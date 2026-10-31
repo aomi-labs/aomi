@@ -10,7 +10,7 @@ Origin: 2026-07-10 design session; grounded against the code paths cited inline.
 Four defects, one root cause:
 
 1. **FE talks to GitHub directly** in two places
-   (`apps/build/src/server/bff/launch/routes.ts` — `enrichPendingCiStatus`
+   (`apps/build/src/server/launch/routes.ts` — `enrichPendingCiStatus`
    ~L459 and the redeploy rerun call ~L1178; duplicated in
    `packages/deploy/src/bff/launch-routes.ts` L219/L676, which is the published
    partner SDK, not dead code). Unauthenticated = 60 req/hr per Vercel egress
@@ -127,7 +127,7 @@ FE/package:
 Also in this phase (auth hardening from the BFF review): partner-scoped
 service credentials — a partner's BFF bearer must only act on its own
 platform's sources, instead of the shared `role: "service"` mint
-(`apps/build/src/server/bff/backend.ts`).
+(`apps/build/src/server/backend.ts`).
 
 Exit: no GitHub credential exists outside the BE; partner package needs zero
 GitHub config.

@@ -1,8 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { AomiClient, Session, UserState } from "..";
+import { AomiClient, CLIENT_TYPE_TS_CLI, Session, UserState } from "..";
 import type { AomiAccountProfile, AomiChainKind, AomiSigningPolicy } from "..";
-import { buildCliUserState } from "../../../cli/src/user-state";
-import { buildCliConfig } from "../../../cli/src/commands/defs/shared";
+
+/** The user state the CLI sends for its signer. */
+const buildCliUserState = (address: string, chainId: number) =>
+  UserState.withExt(
+    {
+      evm: { address, chain_id: chainId },
+      connection: { is_connected: true },
+    },
+    "client_type",
+    CLIENT_TYPE_TS_CLI,
+  );
 
 function profile(
   chain: AomiChainKind,
@@ -59,13 +68,6 @@ function profile(
 }
 
 describe("preparation route selection", () => {
-  it("lets CLI Auto select a Solana account without its private key", () => {
-    const address = "11111111111111111111111111111111";
-    expect(buildCliConfig({ "solana-public-key": address }).svmPublicKey).toBe(
-      address,
-    );
-    expect(() => buildCliConfig({ "solana-public-key": "invalid" })).toThrow();
-  });
   it("replays an uncertain start unchanged even if settings change before retry", async () => {
     const client = new AomiClient({
       baseUrl: "https://example.test",

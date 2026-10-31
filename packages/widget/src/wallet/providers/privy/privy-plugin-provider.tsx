@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  toViemSignTypedDataArgs,
+  type WalletEip712Payload,
+} from "@aomi-labs/client";
 import { useWidgetStorage } from "@/lib/widget-storage";
 
 import {
@@ -11,8 +15,6 @@ import {
   type ReactNode,
 } from "react";
 import type { Chain, Hex } from "viem";
-import type { WalletEip712Payload } from "@aomi-labs/react";
-import { toViemSignTypedDataArgs } from "@aomi-labs/react";
 import { AomiWalletKitComposer } from "@/wallet/composer/aomi-wallet-kit-composer";
 import type { AuthRuntime, ExecutionRuntime } from "@/wallet/composer/types";
 import { useResolvedAccountRuntime } from "@/wallet/account/use-resolved-account-runtime";

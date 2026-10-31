@@ -4,6 +4,13 @@ packages:
   - packages/*
 
 overrides:
+  # Keep the root Vitest toolchain on Vite 7; the Start apps build on Vite 8.
+  vite: 7.3.7
+  "aomi-build>vite": 8.3.4
+  "landing>vite": 8.3.4
+  "portal>vite": 8.3.4
+  "@aomi-labs/app-kit>vite": 8.3.4
+  "@tanstack/react-query": 5.104.1
   "@modelcontextprotocol/sdk": 1.32.0
   viem: 2.47.11
   # Collapse react/react-dom to one version. Bun bundles the aomi-smither
@@ -76,7 +83,6 @@ patchedDependencies:
   "@better-auth/cimd@1.7.1": patches/@better-auth__cimd@1.7.1.patch
   "@better-auth/mcp@1.7.1": patches/@better-auth__mcp@1.7.1.patch
   "@better-auth/oauth-provider@1.7.1": patches/@better-auth__oauth-provider@1.7.1.patch
-  "next@16.1.0": patches/next@16.1.0.patch
 
 onlyBuiltDependencies:
   - "@parcel/watcher"

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Lock } from "lucide-react";
 import type {
-  AomiClient,
+  AccountTransport,
   AomiConnectionWalletsUpdate,
   AomiLane,
 } from "@aomi-labs/client";
@@ -26,7 +26,7 @@ export type ConsentWalletsState = {
 
 export type ConsentWalletsProps = {
   /** A portal-session client. */
-  client: AomiClient;
+  client: { account: AccountTransport };
   /** The connection being set up, e.g. `oauth:<client id>`; its lanes pre-fill. */
   connectionKey?: string;
   /** Its name, for "Ask in <name>". */

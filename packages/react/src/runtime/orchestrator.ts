@@ -20,11 +20,11 @@ import {
   type SendOptions,
   type SessionSnapshot,
   type UserState,
+  stripCapabilityHints,
 } from "@aomi-labs/client";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
 import { isGenericTitle, reconcileGeneratedThreadTitle } from "./thread-title";
-import { stripCapabilityHints } from "./capability-hints";
 import { isSending, isTurnActive, isTurnOver } from "./turn-state";
 
 type OrchestratorOptions = {

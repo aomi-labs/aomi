@@ -1,19 +1,17 @@
-"use client";
-
+import {
+  type WalletEip712Payload,
+  type WalletSolanaSignMessagePayload,
+  type WalletSolanaSignPayload,
+  type WalletTxPayload,
+} from "@aomi-labs/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AomiWalletKitContextProvider,
   type AomiWalletKit,
   type AomiSessionIdentity,
 } from "@aomi-labs/widget/host-composition";
-import {
-  ExtUserProvider,
-  type WalletEip712Payload,
-  type WalletSolanaSignMessagePayload,
-  type WalletSolanaSignPayload,
-  type WalletTxPayload,
-} from "@aomi-labs/react";
+import { ExtUserProvider } from "@aomi-labs/react";
 import { http, type Chain } from "viem";
 import { createConfig, WagmiProvider } from "wagmi";
 
@@ -23,6 +21,35 @@ export type E2EWalletSeedClient = {
   svmAddress?: string;
   svmCluster?: "solana:devnet" | "solana:testnet" | "solana:mainnet";
 };
+
+const E2E_WALLET_COOKIE = "aomi_e2e_wallet=";
+
+/**
+ * The wallet the local edge's E2E harness seeded (`/api/dev/e2e/wallet`), read
+ * from its signed cookie; the harness verifies that signature on every call.
+ * Development builds only.
+ */
+export function useE2EWalletSeed(): E2EWalletSeedClient | null {
+  const [seed, setSeed] = useState<E2EWalletSeedClient | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const payload = document.cookie
+      .split("; ")
+      .find((part) => part.startsWith(E2E_WALLET_COOKIE))
+      ?.slice(E2E_WALLET_COOKIE.length)
+      .split(".")[0];
+    if (!payload) return;
+    try {
+      const parsed = JSON.parse(
+        atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+      ) as E2EWalletSeedClient & { expiresAt?: number };
+      if ((parsed.expiresAt ?? 0) > Date.now() / 1000) setSeed(parsed);
+    } catch {
+      // A malformed cookie seeds nothing.
+    }
+  }, []);
+  return seed;
+}
 
 type Props = {
   children: ReactNode;
@@ -119,7 +146,7 @@ function fakeSignature(payload: WalletEip712Payload): `0x${string}` {
 async function executeRealE2ETransaction(
   payload: WalletTxPayload,
 ): Promise<E2EExecutionSuccess> {
-  const response = await fetch("/api/bff/e2e/execute", {
+  const response = await fetch("/api/dev/e2e/execute", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -143,7 +170,7 @@ async function executeRealE2ESolana(
   action: "sign" | "sign-and-send" | "sign-message",
   payload: WalletSolanaSignPayload | WalletSolanaSignMessagePayload,
 ): Promise<Extract<E2ESolanaResponse, { ok: true }>> {
-  const response = await fetch("/api/bff/e2e/solana", {
+  const response = await fetch("/api/dev/e2e/solana", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, payload }),

@@ -1,11 +1,9 @@
-"use client";
-
+import { cn } from "@aomi-labs/widget";
 import { History } from "lucide-react";
 
 import type { BuildSession } from "@/features/build/contracts";
 import { JOURNEY_STAGES } from "@/features/build/contracts";
 import { disambiguateSessionTitles } from "@/features/build/storage/session-title";
-import { cn } from "@/lib/class-names";
 
 type SessionHistoryProps = {
   sessions: BuildSession[];

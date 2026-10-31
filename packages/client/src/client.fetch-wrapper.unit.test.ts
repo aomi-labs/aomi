@@ -128,10 +128,10 @@ describe("wrapFetchWithAccountBearer", () => {
     });
 
     await client.requestResponse("GET", "/v1/agent/chat/thread-1");
-    await client.requestResponse("GET", "/api/commits/commit-1", {
+    await client.requestResponse("GET", "/api/commits/c0ffee00-0000-4000-8000-000000000001", {
       sessionId: "thread-1",
     });
-    await client.requestResponse("POST", "/api/commits/commit-1/manual", {
+    await client.requestResponse("POST", "/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
       sessionId: "thread-1",
       body: { kind: "rejected" },
     });
@@ -165,7 +165,7 @@ describe("wrapFetchWithAccountBearer", () => {
     });
 
     await expect(
-      client.requestResponse("GET", "/api/commits/commit-1"),
+      client.requestResponse("GET", "/api/commits/c0ffee00-0000-4000-8000-000000000001"),
     ).rejects.toThrow("session expired");
     expect(fetchMock).not.toHaveBeenCalled();
     expect(guest).not.toHaveBeenCalled();

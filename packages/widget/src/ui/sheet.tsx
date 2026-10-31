@@ -1,12 +1,11 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "./widget-scope";
 
 import * as React from "react";
 import { XIcon } from "lucide-react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-
-import { cn } from "@aomi-labs/react";
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;

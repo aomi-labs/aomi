@@ -1,5 +1,3 @@
-"use client";
-
 import { useSettings } from "@aomi-labs/widget/host-composition";
 
 // Client boundary that runs `useSettings()` at the app root so persisted user

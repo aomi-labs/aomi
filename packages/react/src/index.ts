@@ -1,46 +1,4 @@
 // =============================================================================
-// API Client (re-exported from @aomi-labs/client)
-// =============================================================================
-export { AomiClient } from "@aomi-labs/client";
-export type {
-  AgentMode,
-  AgentTarget,
-  AomiClientOptions,
-} from "@aomi-labs/client";
-export type {
-  Action,
-  ActionRequest,
-  ActionResult,
-  AomiAppDescriptor,
-  AomiPlatformFilter,
-  AomiSecretSlot,
-  NativeWalletExecutionPolicy,
-  NativeWalletSponsorship,
-  SponsorshipPaymasterServiceContext,
-  WalletCapabilities,
-  WalletEip712Payload,
-  WalletSolanaSignMessagePayload,
-  WalletSolanaSignPayload,
-  WalletTxPayload,
-  ViemSignMessageArgs,
-} from "@aomi-labs/client";
-export {
-  toViemSignTypedDataArgs,
-  toAAWalletCalls,
-  toAAWalletCall,
-  appendFeeCallToPayload,
-  buildFeeAAWalletCall,
-  normalizeSimulatedFee,
-  MAX_AUTO_FEE_WEI,
-  executeWalletCalls,
-  parseChainId,
-  aaModeFromExecutionKind,
-  toViemSignMessageArgs,
-  normalizeAppDescriptor,
-  appIdentityKey,
-} from "@aomi-labs/client";
-
-// =============================================================================
 // Runtime Provider
 // =============================================================================
 export { AomiRuntimeProvider } from "./runtime/aomi-runtime";
@@ -104,8 +62,6 @@ export { initThreadControl } from "./state/thread-store";
 // =============================================================================
 // Utilities
 // =============================================================================
-export { cn } from "./class-names";
-export { formatAddress } from "./format-address";
 export {
   getNetworkName,
   getChainInfo,

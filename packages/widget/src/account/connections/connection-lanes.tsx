@@ -7,7 +7,7 @@ import { useDisplayQuery } from "@aomi-labs/react";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { SheetAlert } from "@/wallet/picker/sheet-parts";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { agentWalletsQuery, connectionsQuery } from "@/account/account-queries";
 import { SettingsNavContext } from "@/account/settings-events";
 import { ConnectionMark } from "./connection-mark";
@@ -49,9 +49,9 @@ export function ConnectionLanes({
   /** Close the sheet before "Manage in Connections" moves the page. */
   onClose: () => void;
 }) {
-  const { client } = useShellTransport();
-  const connections = useDisplayQuery(connectionsQuery(client));
-  const agents = useDisplayQuery(agentWalletsQuery(client));
+  const aomi = useShellAomi();
+  const connections = useDisplayQuery(connectionsQuery(aomi));
+  const agents = useDisplayQuery(agentWalletsQuery(aomi));
   const goTo = useContext(SettingsNavContext);
   const { write, saving, error, dialog } = useAccessWrite();
   const rows = (connections.data?.connections ?? []).filter(

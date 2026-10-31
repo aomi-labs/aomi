@@ -1,10 +1,7 @@
 @import "@assistant-ui/react-markdown/styles/dot.css";
 
-/* @aomi-labs/widget default theme: Tailwind source for the widget build.
-   Importing "@aomi-labs/widget/themes/default.css" is deprecated and removed in
-   @aomi-labs/widget 4.0: it sets tokens on :root and body. Import
-   "@aomi-labs/widget/styles.css", which carries the same tokens scoped to the
-   widget root. */
+/* Internal Tailwind source. Consumers import the compiled, scoped
+   @aomi-labs/widget/styles.css entry. */
 
 /* ============================================
    Theme Configuration (Tailwind v4 compatible)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Compile consumers from the trusted base against the packages this checkout ships.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -103,12 +103,12 @@ function verifyHostCompositionExport(destination, widgetPackage) {
     `import {
   HeaderControls,
   getBackendUrl,
-  type UsageFixtureData,
+  type WalletAccountMenuOptions,
 } from "${widgetPackage}/host-composition";
 
 export const HostHeader: typeof HeaderControls = HeaderControls;
 export const backendUrl: string = getBackendUrl();
-export type HostUsage = UsageFixtureData;
+export type HostWalletOptions = WalletAccountMenuOptions;
 `,
   );
   run(
@@ -190,7 +190,7 @@ import { createRoot } from "react-dom/client";
 import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 createRoot(document.getElementById("root")).render(
-  React.createElement(AomiWidget, { applicationId: "1", apiUrl: "https://example.invalid" }),
+  React.createElement(AomiWidget, { applicationId: "1", baseUrl: "https://example.invalid" }),
 );
 `,
   );
@@ -252,24 +252,6 @@ for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvid
 `,
   );
   run("node", [sdkRuntimeCheck], sdkDestination);
-
-  // The client's old `aomi` bin only points users at @aomi-labs/cli.
-  const shim = spawnSync(
-    join(sdkDestination, "node_modules/.bin/aomi"),
-    ["--version"],
-    {
-      cwd: sdkDestination,
-      encoding: "utf8",
-    },
-  );
-  if (
-    shim.status !== 1 ||
-    !shim.stderr.includes("npm install -g @aomi-labs/cli")
-  ) {
-    throw new Error(
-      `The client's aomi shim did not point at @aomi-labs/cli: ${shim.stderr}`,
-    );
-  }
 
   const cliDestination = join(temporaryRoot, "fresh-cli-install");
   mkdirSync(cliDestination, { recursive: true });

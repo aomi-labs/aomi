@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 
 /**

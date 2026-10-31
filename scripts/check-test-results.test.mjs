@@ -16,7 +16,7 @@ describe("critical result gate", () => {
     const report = unit(
       "pending",
       "deduplicates a recipient-bucket settlement shared by two projects",
-      "/repo/apps/build/src/server/bff/operate/routes.test.ts",
+      "/repo/apps/build/src/server/operate/routes.test.ts",
     );
     report.testResults.push(...unit("passed").testResults);
     expect(() => verifyTestReport(report)).not.toThrow();

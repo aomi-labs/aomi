@@ -65,7 +65,7 @@ const wallet: Wallets = {
     },
   },
 };
-const aomi = new Aomi({ baseUrl, wallet });
+const aomi = new Aomi({ baseUrl, signer: wallet });
 
 console.log(`API: ${baseUrl}`);
 console.log(`Signer: ${wallet.evm!.address} on chain ${chainId}`);

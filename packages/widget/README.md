@@ -49,12 +49,12 @@ provider changes preserve the mounted chat, composer draft and thread state.
 `preloadWalletProvider("privy" | "para")` can warm the selected SDK on focus or
 hover without changing account state.
 
-The legacy `auth.kind` objects, `apiUrl`, the `./aomi-widget`, `./aomi-frame`,
-`./hooks/*` and `./components/*` subpaths, the raw `./themes/*.css` source and
-every main-entry export other than the widget, its types and the auth helpers
-are deprecated and removed in 4.0. Hosts that compose `AomiFrame` import it from
-`@aomi-labs/widget/frame` and the wallet kit, account UI and primitives from
-`@aomi-labs/widget/host-composition`.
+Use `baseUrl` and the `type`-based auth helpers shown above. The package exposes
+only the curated entrypoints: root widget, `/frame`, `/host-composition`,
+`/control-bar`, `/browser-auth`, `/providers/para`, `/providers/privy`,
+`/checkout` and `/styles.css`. Compose `AomiFrame` from `/frame` and import
+shared host UI from `/host-composition`. Retired props, re-exports and deep
+source paths have no compatibility aliases.
 
 ## Host composition and isolation
 

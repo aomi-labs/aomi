@@ -1,7 +1,6 @@
 export interface AccountAuthEnv {
   betterAuthSecret: string;
   betterAuthUrl: string;
-  databaseUrl: string;
   siweDomain: string;
   siweEmailDomain?: string;
   trustedOrigins: string[];
@@ -18,9 +17,8 @@ export interface AccountAuthEnv {
    *  for a user via `GET /v1/wallets`. Distinct from `paraAudience` (the public
    *  app id used as the JWT `aud`). Never expose client-side. */
   paraApiKey?: string;
-  /** The one request header the hosting edge overwrites with the client IP;
-   *  null means every caller shares one rate-limit bucket. */
-  clientIpHeader: string | null;
+  /** The one request header the edge's host overwrites with the client IP. */
+  clientIpHeader: string;
 }
 
 type AccountAuthEnvInput = Record<string, string | undefined>;
@@ -42,10 +40,12 @@ export function readAccountAuthEnv(
       allowDevDefaults,
     }),
     betterAuthUrl,
-    databaseUrl: requiredDatabaseUrl(env),
-    siweDomain: resolveSiweDomain(env, url.host),
+    siweDomain: env.AOMI_AUTH_DOMAIN ?? url.host,
     siweEmailDomain: env.AOMI_AUTH_EMAIL_DOMAIN,
-    trustedOrigins: collectTrustedOrigins(env, betterAuthUrl),
+    trustedOrigins: uniqueOrigins([
+      ...parseCsv(env.AOMI_TRUSTED_ORIGINS),
+      betterAuthUrl,
+    ]),
     // One server name per value. The browser reads its own NEXT_PUBLIC_ copy
     // of the Privy app id; the server never falls back to it.
     privyAppId: nonEmpty(env.PRIVY_APP_ID),
@@ -58,11 +58,9 @@ export function readAccountAuthEnv(
     paraAudience: nonEmpty(env.PARA_JWT_AUDIENCE),
     paraJwksUrl: nonEmpty(env.PARA_JWKS_URL),
     paraApiKey: nonEmpty(env.PARA_API_SECRET_KEY),
-    // Vercel overwrites x-vercel-forwarded-for at ingress; a self-hosted
-    // portal names the header its own proxy overwrites.
+    // Cloudflare sets CF-Connecting-IP at ingress; nothing upstream can forge it.
     clientIpHeader:
-      nonEmpty(env.AOMI_CLIENT_IP_HEADER)?.toLowerCase() ??
-      (env.VERCEL ? "x-vercel-forwarded-for" : null),
+      nonEmpty(env.AOMI_CLIENT_IP_HEADER)?.toLowerCase() ?? "cf-connecting-ip",
   };
 }
 
@@ -95,68 +93,12 @@ function requiredAuthEnvValue(input: {
   );
 }
 
-// One database. No dev fallback: a missing `DATABASE_URL` fails loudly in
-// every environment rather than silently splitting BetterAuth onto its own DB.
-function requiredDatabaseUrl(env: AccountAuthEnvInput): string {
-  const value = env.DATABASE_URL?.trim();
-  if (!value) {
-    throw new Error(
-      "DATABASE_URL is not set — BetterAuth and the canonical account graph share one Postgres URL",
-    );
-  }
-  return value;
-}
-
 function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
-  // A stable custom alias (for example chat-staging.aomi.dev) takes priority,
-  // including when Vercel labels its build as a preview. A branch alias is
-  // different: it moves between deployments, so it cannot be the issuer of
-  // an immutable preview even if it was supplied as an explicit override.
-  const explicit = firstUrl(env.BETTER_AUTH_URL);
-  // The branch alias can move to a newer deployment while an exact-commit
-  // preview remains live. Its issuer and SIWE domain must match that immutable
-  // deployment host, which is also the URL exercised by preview CI.
-  const branchUrl = firstUrl(env.VERCEL_BRANCH_URL);
-  const deploymentUrl = firstUrl(env.VERCEL_URL);
-  const vercelDeploymentUrl = deploymentUrl ?? branchUrl;
-  if (
-    env.VERCEL_ENV === "preview" &&
-    explicit &&
-    explicit === branchUrl &&
-    deploymentUrl
-  ) {
-    return deploymentUrl;
-  }
-  if (explicit) return explicit;
-  if (env.VERCEL_ENV === "preview" && vercelDeploymentUrl) {
-    return vercelDeploymentUrl;
-  }
 
   return (
-    firstUrl(env.VERCEL_PROJECT_PRODUCTION_URL, env.VERCEL_URL) ??
+    firstUrl(env.BETTER_AUTH_URL) ??
     "http://localhost:3001"
   );
-}
-
-function collectTrustedOrigins(
-  env: AccountAuthEnvInput,
-  betterAuthUrl: string,
-): string[] {
-  return uniqueOrigins([
-    ...parseCsv(env.AOMI_TRUSTED_ORIGINS),
-    betterAuthUrl,
-    firstUrl(env.VERCEL_BRANCH_URL),
-    firstUrl(env.VERCEL_URL),
-    firstUrl(env.VERCEL_PROJECT_PRODUCTION_URL),
-  ]);
-}
-
-function resolveSiweDomain(
-  env: AccountAuthEnvInput,
-  fallbackHost: string,
-): string {
-  if (env.VERCEL_ENV === "preview") return fallbackHost;
-  return env.AOMI_AUTH_DOMAIN ?? fallbackHost;
 }
 
 function firstUrl(...values: Array<string | undefined>): string | undefined {

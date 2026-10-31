@@ -1,6 +1,5 @@
+import { cn } from "@/lib/cn";
 import type { ComponentProps, ReactNode } from "react";
-
-import { cn } from "@aomi-labs/react";
 
 /**
  * The card surface of a row group, without the row dividers — for panels

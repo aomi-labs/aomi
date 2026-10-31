@@ -56,7 +56,7 @@ describe("useGitHubAppInstallations", () => {
     }
   });
 
-  it("stays signed out without asking the BFF", async () => {
+  it("stays signed out without asking the Build server", async () => {
     session.mockResolvedValueOnce({ signedIn: false, githubLogin: null });
     const { result } = renderHook(() => useGitHubAppInstallations(), {
       wrapper: wrapper(),

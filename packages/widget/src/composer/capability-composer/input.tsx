@@ -79,13 +79,13 @@ export const CapabilityMentionInput: FC<{
   autoFocus,
 }) => {
   const insertingHostTag = useRef(false);
-  const apiClient = useAomiDisplayCache()?.apiClient;
+  const aomi = useAomiDisplayCache()?.aomi;
   const prepareGuestSession = useCallback(() => {
     if (insertingHostTag.current) return;
-    void apiClient?.prepareGuestSession?.().catch(() => {
+    void aomi?.raw.prepareGuestSession().catch(() => {
       // Send joins the same operation and owns the actionable error surface.
     });
-  }, [apiClient]);
+  }, [aomi]);
   const editorRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerId = useId();

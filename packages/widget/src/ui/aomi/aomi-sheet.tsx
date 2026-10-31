@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { createContext, useRef, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { cn } from "@aomi-labs/react";
 import { ModalBackdrop } from "@/ui/modal-backdrop";
 import { useWidgetOverlay } from "@/ui/widget-scope";
 

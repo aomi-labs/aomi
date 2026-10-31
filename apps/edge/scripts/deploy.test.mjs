@@ -4,7 +4,7 @@ import ts from "typescript";
 
 import { describe, expect, it } from "vitest";
 
-import { deployArgs } from "./deploy.mjs";
+import { deployArgs, deployConfig } from "./deploy.mjs";
 
 const staging = {
   EDGE_TOPOLOGY: "staging",
@@ -15,6 +15,19 @@ const staging = {
 };
 
 describe("edge deploy script", () => {
+  it("passes provider settings to the deployed Worker", () => {
+    const providers = {
+      PRIVY_APP_ID: "privy-fixture",
+      PARA_JWT_AUDIENCE: "para-fixture",
+      PARA_JWKS_URL: "https://para.example/.well-known/jwks.json",
+      PARA_API_BASE_URL: "https://para.example",
+    };
+    const args = deployArgs({ ...staging, ...providers });
+    for (const [name, value] of Object.entries(providers)) {
+      expect(args).toContain(`${name}:${value}`);
+    }
+  });
+
   it("deploys the one configuration under the environment's name, routes and vars", () => {
     expect(
       deployArgs({
@@ -24,13 +37,19 @@ describe("edge deploy script", () => {
         BUILD_UPSTREAM_ORIGIN: "https://build.vercel.example",
         MANAGER_ORIGIN: "https://manager.example",
         PORTAL_HOSTS: "chat-staging.aomi.dev",
+        BETTER_AUTH_URL: "https://chat-staging.aomi.dev",
+        EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567",
         CORS_ALLOWED_HOST_PATTERNS: "*.aomi.dev,api-staging.aomi.dev",
         TASK_CORS_PUBLIC_ORIGINS: "https://stableops.dev",
-        APP_DEPLOY_PLATFORMS: "community",
+        BUILD_DEFAULT_PLATFORM: "community",
       }),
     ).toEqual([
       "wrangler",
       "deploy",
+      "--config",
+      "wrangler.deploy.jsonc",
+      "--env",
+      "",
       "--name",
       "aomi-edge-staging",
       "--route",
@@ -54,11 +73,13 @@ describe("edge deploy script", () => {
       "--var",
       "PORTAL_HOSTS:chat-staging.aomi.dev",
       "--var",
+      "BETTER_AUTH_URL:https://chat-staging.aomi.dev",
+      "--var",
       "CORS_ALLOWED_HOST_PATTERNS:*.aomi.dev,api-staging.aomi.dev",
       "--var",
       "TASK_CORS_PUBLIC_ORIGINS:https://stableops.dev",
       "--var",
-      "APP_DEPLOY_PLATFORMS:community",
+      "BUILD_DEFAULT_PLATFORM:community",
     ]);
   });
 
@@ -76,6 +97,20 @@ describe("edge deploy script", () => {
     expect(() => deployArgs({ ...staging, BACKEND_ORIGINS: "" })).toThrow(/BACKEND_ORIGINS must be set/);
     expect(() => deployArgs({ ...staging, BACKEND_ORIGINS: "http://b1.example" })).toThrow(/not https/);
     expect(() => deployArgs({ ...staging, MANAGER_ORIGIN: "http://manager.example" })).toThrow(/not https/);
+    expect(() => deployArgs({ ...staging, PORTAL_HOSTS: "chat-staging.aomi.dev" })).toThrow(/EDGE_HYPERDRIVE_ID must be set/);
+    expect(() => deployArgs({ ...staging, LANDING_HOSTS: "aomi.dev" })).toThrow(/LANDING_UPSTREAM_ORIGIN must be set/);
+  });
+
+  it("binds the environment's Hyperdrive config, or none where no portal runs", () => {
+    const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+    const parse = (text) => ts.parseConfigFileTextToJson("wrangler.jsonc", text).config;
+    const id = "9b2f30980123456789abcdef01234567";
+    expect(parse(deployConfig(source, id)).hyperdrive).toEqual([{ binding: "HYPERDRIVE", id }]);
+    expect(parse(deployConfig(source, "")).hyperdrive).toBeUndefined();
+    expect(() => deployConfig(source, "local; rm -rf")).toThrow(/not a Hyperdrive config id/);
+    const rc = readFileSync(new URL("../wrangler.rc.jsonc", import.meta.url), "utf8");
+    expect(deployConfig(rc, "")).toBe(rc);
+    expect(() => deployConfig(rc, id)).toThrow(/no Hyperdrive binding/);
   });
 
   it("passes the RC test identity to the rc topology only, and only as a complete set", () => {
@@ -86,8 +121,6 @@ describe("edge deploy script", () => {
       RC_OIDC_WORKFLOWS: "o/r/.github/workflows/w.yml@refs/heads/main",
     };
     const args = deployArgs({ ...rc, ...identity });
-    expect(args.slice(0, 4)).toEqual(["wrangler", "deploy", "--config", "wrangler.rc.jsonc"]);
-    expect(deployArgs(staging)).not.toContain("--config");
     expect(args).toContain("RC_OIDC_SUBJECT:repo:o/r:environment:rc");
     expect(args).toContain("RC_OIDC_ACCOUNT_ID:acct-1");
     expect(() => deployArgs({ ...staging, ...identity })).toThrow(/only valid for the rc topology/);
@@ -102,10 +135,11 @@ it("keeps the RC overlay equal to the shared config and migrations RC-only", () 
   const read = (name) => ts.parseConfigFileTextToJson(name, readFileSync(new URL(`../${name}`, import.meta.url), "utf8")).config;
   const shared = read("wrangler.jsonc");
   const { durable_objects, migrations, ...rc } = read("wrangler.rc.jsonc");
-  expect(rc).toEqual(shared);
+  // rc runs no portal, so it leaves out the account database and the placement next to it.
+  const { hyperdrive, placement, ...base } = shared;
+  expect(rc).toEqual(base);
   expect(shared.durable_objects).toBeUndefined();
   expect(shared.migrations).toBeUndefined();
   expect(durable_objects.bindings).toEqual([{ name: "RC_OIDC_REPLAY", class_name: "RcReplayStore" }]);
   expect(migrations).toEqual([{ tag: "rc-replay-1", new_sqlite_classes: ["RcReplayStore"] }]);
-  expect(deployArgs({ ...staging, EDGE_TOPOLOGY: "production" })).not.toContain("--config");
 });

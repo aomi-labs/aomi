@@ -33,7 +33,7 @@ const env: EdgeEnv = {
   BACKEND_ORIGINS: BACKEND,
   API_SERVER_ORIGIN: "https://agent.example",
   PAYMENT_ORIGIN: PAYMENT,
-  APP_DEPLOY_PLATFORMS: "web,telegram",
+  BUILD_DEFAULT_PLATFORM: "web",
   EDGE_TOPOLOGY: "default",
   EDGE_SERVICE_PRIVATE_KEY: DEV_PRIVATE_KEY,
 };
@@ -93,10 +93,10 @@ function cookiesOf(response: Response): Record<string, { value: string; raw: str
 }
 
 async function signedIn(): Promise<string> {
-  const login = await build("/api/bff/auth/github/login");
+  const login = await build("/api/build/auth/github/login");
   const oauthCookie = cookiesOf(login).aomi_github_oauth_request.value;
   const state = new URL(login.headers.get("location")!).searchParams.get("state")!;
-  const callback = await build(`/api/bff/auth/github/callback?code=c1&state=${state}`, {
+  const callback = await build(`/api/build/auth/github/callback?code=c1&state=${state}`, {
     headers: { cookie: `aomi_github_oauth_request=${oauthCookie}` },
   });
   return `aomi_github=${cookiesOf(callback).aomi_github.value}`;
@@ -120,12 +120,12 @@ beforeEach(() => {
 
 describe("build surface: GitHub sign-in", () => {
   it("starts OAuth at GitHub with the staging app and a signed request cookie", async () => {
-    const response = await build("/api/bff/auth/github/login?resume=template&platform=web");
+    const response = await build("/api/build/auth/github/login?resume=template&platform=web");
     expect(response.status).toBe(302);
     const location = new URL(response.headers.get("location")!);
     expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");
     expect(location.searchParams.get("client_id")).toBe("Iv23lilgvJz13pJekLSZ");
-    expect(location.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/bff/auth/github/callback`);
+    expect(location.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/build/auth/github/callback`);
     const cookie = cookiesOf(response).aomi_github_oauth_request;
     expect(cookie.raw).toMatch(/HttpOnly; SameSite=Lax; Max-Age=600; Secure/);
     expect(decodeJwt(cookie.value)).toMatchObject({
@@ -138,8 +138,8 @@ describe("build surface: GitHub sign-in", () => {
   });
 
   it("rejects an invalid template platform and a wrong method", async () => {
-    expect((await build("/api/bff/auth/github/login?resume=template&platform=bad/one")).status).toBe(400);
-    const wrong = await build("/api/bff/auth/github/login", { method: "POST" });
+    expect((await build("/api/build/auth/github/login?resume=template&platform=bad/one")).status).toBe(400);
+    const wrong = await build("/api/build/auth/github/login", { method: "POST" });
     expect(wrong.status).toBe(405);
     expect(wrong.headers.get("allow")).toBe("GET");
   });
@@ -149,17 +149,17 @@ describe("build surface: GitHub sign-in", () => {
     { topology: "production", expected: "Iv23li4wPpAfoGOJ6v0Q" },
   ] as const)("selects the committed OAuth client for $topology", async ({ topology, expected }) => {
     const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology };
-    const login = await handleRequest(new Request(`${BUILD}/api/bff/auth/github/login`), deployment, world);
+    const login = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), deployment, world);
     const authorize = new URL(login.headers.get("location")!);
     expect(authorize.searchParams.get("client_id")).toBe(expected);
-    expect(authorize.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/bff/auth/github/callback`);
+    expect(authorize.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/build/auth/github/callback`);
 
     // Either client uses the same index-2 Manager credentials; neither changes
     // the app index or bypasses the signed OAuth continuation.
     const state = authorize.searchParams.get("state")!;
     const cookie = cookiesOf(login).aomi_github_oauth_request.value;
     const response = await handleRequest(
-      new Request(`${BUILD}/api/bff/auth/github/callback?code=custom-app&state=${state}`, {
+      new Request(`${BUILD}/api/build/auth/github/callback?code=custom-app&state=${state}`, {
         headers: { cookie: `aomi_github_oauth_request=${cookie}` },
       }),
       deployment,
@@ -171,10 +171,10 @@ describe("build surface: GitHub sign-in", () => {
   });
 
   it("exchanges the code as the aomi-edge service and sets the session cookies", async () => {
-    const login = await build("/api/bff/auth/github/login");
+    const login = await build("/api/build/auth/github/login");
     const oauthCookie = cookiesOf(login).aomi_github_oauth_request.value;
     const state = new URL(login.headers.get("location")!).searchParams.get("state")!;
-    const response = await build(`/api/bff/auth/github/callback?code=c1&state=${state}`, {
+    const response = await build(`/api/build/auth/github/callback?code=c1&state=${state}`, {
       headers: { cookie: `aomi_github_oauth_request=${oauthCookie}` },
     });
     expect(response.status).toBe(302);
@@ -186,7 +186,7 @@ describe("build surface: GitHub sign-in", () => {
     expect(Object.fromEntries(exchangeUrl.searchParams)).toEqual({
       code: "c1",
       app: "2",
-      redirect_uri: `${BUILD}/api/bff/auth/github/callback`,
+      redirect_uri: `${BUILD}/api/build/auth/github/callback`,
     });
     expect(exchange.headers.cookie).toBeUndefined();
     expect(await bearerOf(exchange)).toMatchObject({ role: "service", sub: "aomi-edge", aud: "aomi-backend" });
@@ -202,14 +202,14 @@ describe("build surface: GitHub sign-in", () => {
   });
 
   it("sends the browser back with an error when the state or the exchange fails", async () => {
-    const stale = await build("/api/bff/auth/github/callback?code=c1&state=x");
+    const stale = await build("/api/build/auth/github/callback?code=c1&state=x");
     expect(stale.headers.get("location")).toBe(`${BUILD}/operate/deployments?launch=github&github_error=invalid_oauth_state`);
 
     exchangeStatus = 403;
-    const login = await build("/api/bff/auth/github/login");
+    const login = await build("/api/build/auth/github/login");
     const oauthCookie = cookiesOf(login).aomi_github_oauth_request.value;
     const state = new URL(login.headers.get("location")!).searchParams.get("state")!;
-    const forbidden = await build(`/api/bff/auth/github/callback?code=c1&state=${state}`, {
+    const forbidden = await build(`/api/build/auth/github/callback?code=c1&state=${state}`, {
       headers: { cookie: `aomi_github_oauth_request=${oauthCookie}` },
     });
     expect(new URL(forbidden.headers.get("location")!).searchParams.get("github_error")).toBe("service_auth_forbidden");
@@ -217,23 +217,23 @@ describe("build surface: GitHub sign-in", () => {
   });
 
   it("reports the session and signs it out", async () => {
-    const anonymous = await (await build("/api/bff/auth/github/status")).json();
+    const anonymous = await (await build("/api/build/auth/github/status")).json();
     expect(anonymous).toEqual({ signedIn: false, githubLogin: null, githubAvatarUrl: null, installationId: null });
 
     const cookie = await signedIn();
-    expect(await (await build("/api/bff/auth/github/status", { headers: { cookie } })).json()).toEqual({
+    expect(await (await build("/api/build/auth/github/status", { headers: { cookie } })).json()).toEqual({
       signedIn: true,
       githubLogin: "octocat",
       githubAvatarUrl: "https://avatars.githubusercontent.com/u/4242?s=96&v=4",
       installationId: "99",
     });
 
-    const signout = await build("/api/bff/auth/github/signout", { method: "POST", headers: { cookie } });
+    const signout = await build("/api/build/auth/github/signout", { method: "POST", headers: { cookie } });
     expect(await signout.json()).toEqual({ ok: true });
     expect(cookiesOf(signout).aomi_github.raw).toMatch(/^aomi_github=; .*Max-Age=0/);
   });
 
-  it("accepts a session cookie the Vercel Build BFF issued with the same secret", async () => {
+  it("accepts a session cookie the Vercel Build server issued with the same secret", async () => {
     const now = Math.floor(Date.now() / 1000);
     const token = await new SignJWT({ login: "hubot", installationId: null })
       .setProtectedHeader({ alg: "HS256" })
@@ -241,22 +241,22 @@ describe("build surface: GitHub sign-in", () => {
       .setIssuedAt(now)
       .setExpirationTime(now + 60)
       .sign(new TextEncoder().encode(SECRET));
-    const status = await build("/api/bff/auth/github/status", { headers: { cookie: `aomi_github=${token}` } });
+    const status = await build("/api/build/auth/github/status", { headers: { cookie: `aomi_github=${token}` } });
     expect(await status.json()).toMatchObject({ signedIn: true, githubLogin: "hubot", installationId: null });
   });
 });
 
 describe("build surface: claim", () => {
   it("needs a session and a project, then binds the project to the same GitHub user", async () => {
-    expect((await build("/api/bff/auth/github/claim?projectId=7")).status).toBe(401);
+    expect((await build("/api/build/auth/github/claim?projectId=7")).status).toBe(401);
     const cookie = await signedIn();
-    expect((await build("/api/bff/auth/github/claim?projectId=-1", { headers: { cookie } })).status).toBe(400);
+    expect((await build("/api/build/auth/github/claim?projectId=-1", { headers: { cookie } })).status).toBe(400);
 
-    const start = await build("/api/bff/auth/github/claim?projectId=7", { headers: { cookie } });
+    const start = await build("/api/build/auth/github/claim?projectId=7", { headers: { cookie } });
     const state = new URL(start.headers.get("location")!).searchParams.get("state")!;
     const oauthCookie = cookiesOf(start).aomi_github_oauth_request.value;
     seen = [];
-    const done = await build(`/api/bff/auth/github/callback?code=c2&state=${state}`, {
+    const done = await build(`/api/build/auth/github/callback?code=c2&state=${state}`, {
       headers: { cookie: `${cookie}; aomi_github_oauth_request=${oauthCookie}` },
     });
     expect(done.headers.get("location")).toBe(`${BUILD}/projects/7?claim=success`);
@@ -265,12 +265,12 @@ describe("build surface: claim", () => {
     expect(JSON.parse(claim.body)).toEqual({
       code: "c2",
       project_id: 7,
-      redirect_uri: `${BUILD}/api/bff/auth/github/callback`,
+      redirect_uri: `${BUILD}/api/build/auth/github/callback`,
     });
     expect(await bearerOf(claim)).toMatchObject({ role: "service", sub: "aomi-edge" });
 
     claimOwner = "1";
-    const changed = await build(`/api/bff/auth/github/callback?code=c2&state=${state}`, {
+    const changed = await build(`/api/build/auth/github/callback?code=c2&state=${state}`, {
       headers: { cookie: `${cookie}; aomi_github_oauth_request=${oauthCookie}` },
     });
     expect(new URL(changed.headers.get("location")!).searchParams.get("github_error")).toBe("github_account_changed");
@@ -282,11 +282,11 @@ describe("build surface: CLI login", () => {
   const STATE = "s".repeat(40);
   const VERIFIER = "v".repeat(64);
   const CHALLENGE = createHash("sha256").update(VERIFIER).digest("base64url");
-  const cliLogin = `/api/bff/cli/login?redirect_uri=${encodeURIComponent(LOOPBACK)}&state=${STATE}&code_challenge=${CHALLENGE}`;
+  const cliLogin = `/api/build/cli/login?redirect_uri=${encodeURIComponent(LOOPBACK)}&state=${STATE}&code_challenge=${CHALLENGE}`;
 
   it("rejects a non-loopback redirect", async () => {
     const bad = await build(
-      `/api/bff/cli/login?redirect_uri=${encodeURIComponent("https://evil.example/callback")}&state=${STATE}&code_challenge=${CHALLENGE}`,
+      `/api/build/cli/login?redirect_uri=${encodeURIComponent("https://evil.example/callback")}&state=${STATE}&code_challenge=${CHALLENGE}`,
     );
     expect(bad.status).toBe(400);
   });
@@ -300,13 +300,13 @@ describe("build surface: CLI login", () => {
     expect(loopback.searchParams.get("state")).toBe(STATE);
     const code = loopback.searchParams.get("code")!;
 
-    const wrong = await build("/api/bff/cli/exchange", {
+    const wrong = await build("/api/build/cli/exchange", {
       method: "POST",
       body: JSON.stringify({ code, codeVerifier: "w".repeat(64) }),
     });
     expect(wrong.status).toBe(401);
 
-    const exchanged = await build("/api/bff/cli/exchange", {
+    const exchanged = await build("/api/build/cli/exchange", {
       method: "POST",
       body: JSON.stringify({ code, codeVerifier: VERIFIER }),
     });
@@ -322,9 +322,9 @@ describe("build surface: CLI login", () => {
     });
     expect(claims.exp! - claims.iat!).toBe(86400);
 
-    const status = await build("/api/bff/cli/status", { headers: { authorization: `Bearer ${body.accessToken}` } });
+    const status = await build("/api/build/cli/status", { headers: { authorization: `Bearer ${body.accessToken}` } });
     expect(await status.json()).toEqual({ signedIn: true, githubLogin: "octocat", githubUserId: "4242" });
-    expect((await build("/api/bff/cli/status")).status).toBe(401);
+    expect((await build("/api/build/cli/status")).status).toBe(401);
   });
 
   it("sends a signed-out browser through GitHub and resumes the loopback continuation", async () => {
@@ -338,7 +338,7 @@ describe("build surface: CLI login", () => {
       state: STATE,
       codeChallenge: CHALLENGE,
     });
-    const done = await build(`/api/bff/auth/github/callback?code=c3&state=${location.searchParams.get("state")}`, {
+    const done = await build(`/api/build/auth/github/callback?code=c3&state=${location.searchParams.get("state")}`, {
       headers: { cookie: `aomi_github_oauth_request=${oauthCookie}` },
     });
     const loopback = new URL(done.headers.get("location")!);
@@ -347,7 +347,7 @@ describe("build surface: CLI login", () => {
     expect(cookiesOf(done).aomi_github).toBeDefined();
 
     exchangeStatus = 500;
-    const failed = await build(`/api/bff/auth/github/callback?code=c3&state=${location.searchParams.get("state")}`, {
+    const failed = await build(`/api/build/auth/github/callback?code=c3&state=${location.searchParams.get("state")}`, {
       headers: { cookie: `aomi_github_oauth_request=${oauthCookie}` },
     });
     const failedLoopback = new URL(failed.headers.get("location")!);
@@ -417,10 +417,10 @@ describe("build surface: install start and passthrough", () => {
   });
 
   it("passes everything else to the Vercel Build app with forwarding headers", async () => {
-    const response = await build("/api/bff/build/runs?id=1", { headers: { cookie: "aomi_github=t" } });
+    const response = await build("/api/build/runs?id=1", { headers: { cookie: "aomi_github=t" } });
     const body = await response.json();
     expect(body.tag).toBe("vercel");
-    expect(body.url).toBe(`${UPSTREAM}/api/bff/build/runs?id=1`);
+    expect(body.url).toBe(`${UPSTREAM}/api/build/runs?id=1`);
     expect(body.headers.cookie).toBe("aomi_github=t");
     expect(body.headers["x-forwarded-host"]).toBe("build.example");
     expect(response.headers.get("set-cookie")).toBe("vercel=1");

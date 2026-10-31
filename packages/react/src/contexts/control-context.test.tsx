@@ -25,31 +25,35 @@ Harness.displayName = "Harness";
 const renderControlContext = (
   clientOverrides?: Record<string, unknown>,
   threadMetadata = new Map<string, ThreadMetadata>(),
+  accountOverrides?: Record<string, unknown>,
 ) => {
   const ref = React.createRef<HarnessHandle>();
-  const aomiClient = {
+  const raw = {
     getApps: vi.fn(async () => [{ name: "default" }]),
     getModels: vi.fn(async () => []),
+    getPublicCatalog: vi.fn(async () => ({ models: [], apps: [] })),
     setModel: vi.fn(async () => ({})),
-    listByokKeys: vi.fn(async () => []),
-    saveByokKey: vi.fn(async () => ({
-      provider: "openai",
-      key_prefix: "sk-open",
-      label: null,
-      is_active: true,
-    })),
-    deleteByokKey: vi.fn(async () => true),
-    ingestSecrets: vi.fn(async () => ({ handles: {} })),
-    deleteSecret: vi.fn(async () => ({ deleted: true })),
-    clearSecrets: vi.fn(async () => ({ cleared: true })),
-    listSecrets: vi.fn(async () => ({ by_app: {} })),
     ...clientOverrides,
+  };
+  const aomi = {
+    raw,
+    account: {
+      credits: vi.fn(async () => ({})),
+      keys: {
+        set: vi.fn(async () => ({})),
+        list: vi.fn(async () => []),
+        remove: vi.fn(async () => true),
+        clear: vi.fn(async () => undefined),
+      },
+      apps: { credentials: vi.fn(() => ({})) },
+      ...accountOverrides,
+    },
   };
 
   const result = render(
     <ControlContextProvider
       accountSessionAvailable
-      aomiClient={aomiClient as never}
+      aomi={aomi as never}
       sessionId="session-1"
       getThreadMetadata={(threadId) => threadMetadata.get(threadId)}
       updateThreadMetadata={(threadId, updates) => {
@@ -68,7 +72,7 @@ const renderControlContext = (
 
   return {
     ...result,
-    aomiClient,
+    aomi,
     getControl: () => ref.current!.control,
     threadMetadata,
   };
@@ -196,42 +200,32 @@ describe("ControlContextProvider", () => {
   });
 
 
-  it("routes per-user app secrets through the control session", async () => {
-    globalThis.localStorage.setItem("aomi_client_id", "client-stored");
-    const listAppSecrets = vi.fn(async () => ({
-      application_id: 42,
-      app: "okx",
-      slots: [],
-    }));
-    const saveAppSecrets = vi.fn(async () => ({
-      application_id: 42,
-      app: "okx",
-      slots: [],
-    }));
-    const deleteAppSecret = vi.fn(async () => ({ deleted: true }));
-    const { getControl } = renderControlContext({
-      listAppSecrets,
-      saveAppSecrets,
-      deleteAppSecret,
+  it("routes per-user app secrets through the account's app credentials", async () => {
+    const emptySlots = { application_id: 42, app: "okx", slots: [] };
+    const credentials = {
+      list: vi.fn(async () => emptySlots),
+      save: vi.fn(async () => emptySlots),
+      remove: vi.fn(async () => ({ deleted: true })),
+      clear: vi.fn(async () => undefined),
+    };
+    const credentialsFor = vi.fn(() => credentials);
+    const { getControl } = renderControlContext({}, undefined, {
+      apps: { credentials: credentialsFor },
     });
 
     await act(async () => {
       await getControl().listAppSecrets(42);
       await getControl().saveAppSecrets(42, { OKX_API_KEY: "key" });
       expect(await getControl().deleteAppSecret(42, "OKX_API_KEY")).toBe(true);
+      await getControl().clearAppSecrets(42);
     });
 
-    expect(listAppSecrets).toHaveBeenCalledWith("control:client-stored", 42);
-    expect(saveAppSecrets).toHaveBeenCalledWith("control:client-stored", 42, {
-      OKX_API_KEY: "key",
-    });
-    expect(deleteAppSecret).toHaveBeenCalledWith(
-      "control:client-stored",
-      42,
-      "OKX_API_KEY",
-    );
+    expect(credentialsFor).toHaveBeenCalledWith(42);
+    expect(credentials.list).toHaveBeenCalledOnce();
+    expect(credentials.save).toHaveBeenCalledWith({ OKX_API_KEY: "key" });
+    expect(credentials.remove).toHaveBeenCalledWith("OKX_API_KEY");
+    expect(credentials.clear).toHaveBeenCalledOnce();
   });
-
 
   it("remembers a manually selected model for fresh threads", async () => {
     const threadMetadata = createThreadMetadata();

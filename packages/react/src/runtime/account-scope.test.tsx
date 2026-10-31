@@ -16,16 +16,16 @@ import {
   type ThreadContext,
 } from "../contexts/thread-context";
 import { useAomiDisplayCache } from "../query/display-cache";
-import type { AomiClient, GetAccountBearer } from "@aomi-labs/client";
+import type { Aomi, GetAccountBearer } from "@aomi-labs/client";
 import type { AomiRuntimeApi } from "../interface";
 import { useChatView } from "../state/use-chat-view";
 import type { ChatViewStore } from "../state/chat-view-store";
 
 describe("account changes without remounting the shell", () => {
   it("keeps its client and skips the session check once the host confirms a cookie session", async () => {
-    let client!: AomiClient;
+    let aomi!: Aomi;
     function Capture() {
-      client = useAomiDisplayCache()!.apiClient!;
+      aomi = useAomiDisplayCache()!.aomi;
       return null;
     }
     const fetch = vi.fn(async (input: string | URL | Request) => {
@@ -46,10 +46,10 @@ describe("account changes without remounting the shell", () => {
       </AomiRuntimeProvider>
     );
     const view = render(frame(false));
-    const original = client;
+    const original = aomi;
     view.rerender(frame(true));
-    expect(client).toBe(original);
-    await act(() => client.prepareGuestSession());
+    expect(aomi).toBe(original);
+    await act(() => aomi.raw.prepareGuestSession());
     expect(
       fetch.mock.calls.some(([input]) => String(input).includes("/api/auth/")),
     ).toBe(false);
@@ -434,7 +434,7 @@ describe("account changes without remounting the shell", () => {
       ),
     ).toBe(true);
     expect(paths.filter((path) => path === "/v1/agent/chat")).toHaveLength(1);
-    expect(paths.some((path) => path.includes("anonymous"))).toBe(false);
+    expect(paths.some((path) => path === "/api/auth/guest")).toBe(false);
   });
   it.each(["guest-a", "account-b"])(
     "closes the guest's chat unless the cookie guest becomes the same user (%s)",

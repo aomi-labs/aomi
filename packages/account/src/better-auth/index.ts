@@ -1,4 +1,4 @@
-export { auth, handleWalletAuthRequest } from "./auth";
+export { createAuth, handleWalletAuthRequest, type Auth } from "./auth";
 export {
   setBetterAuthFailureObserver,
   type BetterAuthFailure,
@@ -52,7 +52,6 @@ export {
   type SiwsCluster,
   type SiwsIntent,
 } from "./siws";
-export { aomiSiwsClient } from "../../../client/src/siws-client";
 export { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 
 export { bindAomiPublicClientResource } from "./client-resource-binding";

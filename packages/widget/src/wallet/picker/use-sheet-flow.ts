@@ -12,7 +12,7 @@ import {
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { AomiWalletKit, WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { mergeOfferFrom } from "@/wallet/account/aomi-backend-client";
+import { mergeOfferFrom } from "@/wallet/account/types";
 import { walletKey } from "@/wallet/wallet-utils";
 import { formatWalletProvider } from "@/wallet/identity";
 import { isExpectedWalletCancellation } from "./wallet-cancellation";

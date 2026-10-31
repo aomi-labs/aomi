@@ -1,52 +1,26 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { GitHubSessionSigner } from "@aomi-labs/account/build-session";
+import { getGitHubCliSessionFromRequest } from "./github";
 
-import {
-  getGitHubCliSessionFromRequest,
-  issueGitHubCliSession,
-  issueGitHubSession,
-  readGitHubCliSession,
-  readGitHubSession,
-} from "./github";
-
-const session = {
-  githubUserId: "12345",
-  githubLogin: "builder",
-  installationId: "67890",
-};
-
-describe("GitHub CLI sessions", () => {
-  beforeEach(() => {
-    vi.stubEnv(
-      "PORTAL_ONLY_SESSION_SECRET",
-      "test-only-session-secret-that-is-long-enough",
-    );
+afterEach(() => vi.unstubAllEnvs());
+it("reads Edge-issued CLI credentials through the Build adapter", async () => {
+  const secret = "test-only-session-secret-that-is-long-enough";
+  vi.stubEnv("BUILD_SESSION_SECRET", secret);
+  const session = {
+    githubUserId: "123",
+    githubLogin: "builder",
+    installationId: null,
+  };
+  const token = await new GitHubSessionSigner(secret).issueCliSession(session);
+  const request = new Request("https://build.example/api/build/runs", {
+    headers: { authorization: `Bearer ${token}` },
   });
-
-  it("accepts only the explicitly required CLI scopes", async () => {
-    const token = await issueGitHubCliSession(session);
-    const request = new Request(
-      "https://build.example.test/api/bff/cli/status",
-      { headers: { authorization: `Bearer ${token}` } },
-    );
-
-    await expect(readGitHubCliSession(token, "deploy")).resolves.toEqual(
-      session,
-    );
-    await expect(
-      getGitHubCliSessionFromRequest(request, "activate"),
-    ).resolves.toEqual(session);
-  });
-
-  it("does not accept a browser session cookie as a CLI bearer", async () => {
-    const browserToken = await issueGitHubSession(session);
-    await expect(readGitHubCliSession(browserToken)).resolves.toBeNull();
-  });
-
-  it("treats malformed credentials and missing read config as unauthenticated", async () => {
-    await expect(readGitHubSession("not-a-jwt")).resolves.toBeNull();
-
-    vi.stubEnv("PORTAL_ONLY_SESSION_SECRET", "");
-    await expect(readGitHubSession("not-a-jwt")).resolves.toBeNull();
-  });
+  await expect(
+    getGitHubCliSessionFromRequest(request, "deploy"),
+  ).resolves.toEqual(session);
+  vi.stubEnv("BUILD_SESSION_SECRET", "");
+  await expect(
+    getGitHubCliSessionFromRequest(request, "deploy"),
+  ).resolves.toBeNull();
 });
