@@ -92,12 +92,12 @@ public_key = ""
 
 [[services]]
 name = "aomi-edge"
-kid = "aomi-edge-prod-2"
+kid = "aomi-edge-prod-3"
 issues = ["user", "service"]
 audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAae8coEZrvwByJbaiBV3jEzQd32Tm82bF3mXNRZwttH8=
+MCowBQYDK2VwAyEAPRbEAzO5s5HPOeQFE9rSwU11b6Fxjd/x3gfb9+RMrUM=
 -----END PUBLIC KEY-----"""
 
 [[services]]
@@ -183,12 +183,12 @@ public_key = ""
 
 [[services]]
 name = "aomi-build"
-kid = "aomi-build-prod-1"
+kid = "aomi-build-prod-2"
 issues = ["service"]
 audiences = ["aomi-sidecar"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAyaIwzD82igAdhA3xw9Tkr5yJEpaRU3SY73bVqjE7Ajc=
+MCowBQYDK2VwAyEAM3MOpCDAxf1pSHYkgvyM/YWrnJzRpqiskDJidF7hoEI=
 -----END PUBLIC KEY-----
 """
 

@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/service-identity",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The AOMI service topology: parse the service mesh and mint or verify AccountBearers as one node. Runtime-agnostic (Node, Cloudflare Workers); never a browser bundle.",
   "type": "module",
   "main": "./src/index.ts",
