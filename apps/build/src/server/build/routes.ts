@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import type { FailureInput } from "@aomi-labs/observability";
-import { authorize } from "@/server/bff/auth";
+import { authorize } from "@/server/auth";
 import type {
   BuildRunDecisionRequest,
   CreateBuildRunRequest,
@@ -21,7 +21,7 @@ import {
   startBuildRun,
   storedCrateTarball,
 } from "./engine";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 function identifyBuildRouteFailure(
   error: unknown,

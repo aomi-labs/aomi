@@ -3,7 +3,7 @@ import {
   setAccountDiagnosticObserver,
   setAccountInternalFailureObserver,
 } from "@aomi-labs/account/observability";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 initBffSentry({ service: "build-bff" });
 setAccountInternalFailureObserver(({ kind, error }) => {

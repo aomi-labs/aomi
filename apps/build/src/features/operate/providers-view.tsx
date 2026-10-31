@@ -797,7 +797,7 @@ export function ProvidersView() {
   const onCreate = useCallback(
     (provider: Provider, material: string, label: string) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -812,7 +812,7 @@ export function ProvidersView() {
   const onRotate = useCallback(
     (key: ModelKey, material: string) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -828,7 +828,7 @@ export function ProvidersView() {
   const onGrants = useCallback(
     (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyId: key.id, applicationIds, modelIds }),
@@ -839,7 +839,7 @@ export function ProvidersView() {
   const onRemove = useCallback(
     (key: ModelKey) =>
       run(() =>
-        fetch(`${API_PATHS.bff.operate.modelKeys}?keyId=${key.id}`, {
+        fetch(`${API_PATHS.build.operate.modelKeys}?keyId=${key.id}`, {
           method: "DELETE",
         }),
       ),

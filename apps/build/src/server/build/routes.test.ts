@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: {
     handle: (input: {
       source: string;
@@ -59,7 +59,7 @@ vi.mock("@/server/bff/failures", () => ({
   },
 }));
 
-vi.mock("@/server/bff/auth", () => ({
+vi.mock("@/server/auth", () => ({
   authorize: vi.fn(async () => ({ session: null })),
 }));
 

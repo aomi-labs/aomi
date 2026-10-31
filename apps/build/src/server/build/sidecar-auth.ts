@@ -1,7 +1,7 @@
 import "@tanstack/react-start/server-only";
 
 import { AomiService, tierOf, topologyFor } from "@aomi-labs/service-identity";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 // Build's sidecar signer (`aomi-bff`): the committed topology for the backend
 // it serves, with its private key from env (never in the TOML).

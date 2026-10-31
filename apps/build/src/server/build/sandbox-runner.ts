@@ -1,7 +1,7 @@
 import "@tanstack/react-start/server-only";
 
 import type { FailureInput } from "@aomi-labs/observability";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 function expectedSandboxAbsence(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;

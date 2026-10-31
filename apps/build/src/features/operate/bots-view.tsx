@@ -184,8 +184,8 @@ function botsUrl(extra: Record<string, string> = {}): string {
   const params = new URLSearchParams(extra);
   const query = params.toString();
   return query
-    ? `${API_PATHS.bff.operate.bots}?${query}`
-    : API_PATHS.bff.operate.bots;
+    ? `${API_PATHS.build.operate.bots}?${query}`
+    : API_PATHS.build.operate.bots;
 }
 
 // ── shared glyphs (recipes shared with providers-view.tsx) ──────────────────
@@ -739,7 +739,7 @@ function BotCard({
                   onClick={() => {
                     setRevealing(true);
                     setError(null);
-                    fetch(API_PATHS.bff.operate.botCommandSecret(bot.id))
+                    fetch(API_PATHS.build.operate.botCommandSecret(bot.id))
                       .then(async (res) => {
                         const json = await readJsonResponse<{
                           commandSecret?: string;
@@ -874,7 +874,7 @@ function BotCard({
                 onClick={() => {
                   setChecking(true);
                   setCheckError(null);
-                  fetch(API_PATHS.bff.operate.botWebhook(bot.id), {
+                  fetch(API_PATHS.build.operate.botWebhook(bot.id), {
                     method: "POST",
                   })
                     .then(async (res) => {

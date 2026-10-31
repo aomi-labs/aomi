@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only";
 
-import { authorize } from "@/server/bff/auth";
+import { authorize } from "@/server/auth";
 import {
   INTEGRATION_PROVIDERS,
   getIntegrationProvider,

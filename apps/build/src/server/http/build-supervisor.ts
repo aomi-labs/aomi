@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { superviseOnce } from "@/server/bff/build/supervisor";
-import { buildFailures } from "@/server/bff/failures";
+import { superviseOnce } from "@/server/build/supervisor";
+import { buildFailures } from "@/server/failures";
 import { anonymousBuildAllowed, runCheckerSecret } from "@/server/env";
 
 /**

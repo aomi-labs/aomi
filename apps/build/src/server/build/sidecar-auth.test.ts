@@ -1,7 +1,7 @@
 import { generateKeyPairSync, sign as edSign } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { verifyBearer } from "../../../../../../infra/build-runner/sidecar";
+import { verifyBearer } from "../../../../../infra/build-runner/sidecar";
 import { sidecarVerifierPublicKeyPem } from "./sidecar-auth";
 
 const mocks = vi.hoisted(() => ({
@@ -15,7 +15,7 @@ vi.mock("@aomi-labs/service-identity", () => ({
   topologyFor: () => "",
 }));
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: {
     handle: (input: { error: unknown; context: Record<string, unknown> }) =>
       mocks.capture(input.error, { ...input.context, status: 500 }),

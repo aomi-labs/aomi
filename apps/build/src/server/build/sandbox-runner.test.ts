@@ -11,7 +11,7 @@ import {
 
 const telemetry = vi.hoisted(() => ({ capture: vi.fn() }));
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: {
     handle: (input: {
       error: unknown;

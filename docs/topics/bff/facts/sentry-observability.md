@@ -550,12 +550,12 @@ its typed validation, credential, and conflict errors ignored.
 
 Instrument these ownership boundaries:
 
-- `apps/build/src/server/bff/build/routes.ts`
-- `apps/build/src/server/bff/build/engine.ts`
-- `apps/build/src/server/bff/build/supervisor.ts`
-- `apps/build/src/server/bff/operate/routes.ts`
-- `apps/build/src/server/bff/failures.ts`
-- `apps/build/src/server/bff/deploy/routes.ts`
+- `apps/build/src/server/build/routes.ts`
+- `apps/build/src/server/build/engine.ts`
+- `apps/build/src/server/build/supervisor.ts`
+- `apps/build/src/server/operate/routes.ts`
+- `apps/build/src/server/failures.ts`
+- `apps/build/src/server/deploy/routes.ts`
 - `apps/build/src/app/api/[...slug]/route.ts`
 - `apps/build/src/app/api/build/auth/github/callback/route.ts`
 - `apps/build/src/app/api/build/supervise/route.ts`

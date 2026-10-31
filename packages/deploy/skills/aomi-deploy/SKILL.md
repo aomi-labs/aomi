@@ -62,7 +62,7 @@ npm install @aomi-labs/deploy      # or pnpm add / yarn add
 `@aomi-labs/deploy` ships no route handlers. Write the same-origin routes the
 browser client calls (`/api/build/launch/*` and `/api/build/auth/github/*`) in your
 server, each a plain `(Request) => Promise<Response>` over a `BackendClient`.
-Aomi's Build app is the worked example: `apps/build/src/server/bff/deploy/routes.ts`.
+Aomi's Build app is the worked example: `apps/build/src/server/deploy/routes.ts`.
 
 ```ts
 // server/aomi-deploy.ts  (server-only)

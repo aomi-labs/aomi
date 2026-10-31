@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
 }));
 
-vi.mock("@/server/bff/build/supervisor", () => ({
+vi.mock("@/server/build/supervisor", () => ({
   superviseOnce: mocks.superviseOnce,
 }));
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: {
     handle: (input: {
       error: unknown;

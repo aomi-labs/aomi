@@ -54,7 +54,7 @@ vi.mock("./sandbox-runner", () => ({
   stopSandbox: vi.fn(),
   stopSandboxById: vi.fn(),
 }));
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: { handle: vi.fn() },
 }));
 

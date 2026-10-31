@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const load = () => import("@/server/bff/integrations/routes");
+const load = () => import("@/server/integrations/routes");
 
 export const Route = createFileRoute("/api/build/integrations")({
   server: {

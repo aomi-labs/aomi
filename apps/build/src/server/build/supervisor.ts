@@ -9,7 +9,7 @@ import {
 } from "@aomi-labs/smither";
 import { listRunningRuns, updateRun, type BuildRunRecord } from "./registry";
 import { extendSandboxById, stopSandboxById } from "./sandbox-runner";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 function identifySupervisorFailure(
   error: unknown,

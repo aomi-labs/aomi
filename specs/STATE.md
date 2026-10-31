@@ -612,7 +612,7 @@ Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `list_json(None, Vec::new())`, so `sdk_version`/`sdk_versions` are always
   null there, whereas the list read (`list_builder_projects`) stamps them from
   `current_sdk_versions` (active promotion record). The BFF projects route
-  (`apps/build/src/server/bff/launch/routes.ts` `userProjectsRoute`) now fills
+  (`apps/build/src/server/launch/routes.ts` `userProjectsRoute`) now fills
   a live project's missing SDK summary from the same cached list read; the
   derivation moved to one `projectSdk(source, required)` model
   (`sdk-compatibility.ts`) that ProjectRow, Home, Chat and Settings all render
@@ -2167,7 +2167,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
     blocked, thread mode DISABLED with "can't be changed after registration
     yet" tooltip until the manager PATCH gains thread_mode). Data layer
     unchanged (react-query bots key, POST/PATCH/DELETE via
-    API_PATHS.bff.operate.bots, cache updates). `embedded` prop dropped.
+    API_PATHS.build.operate.bots, cache updates). `embedded` prop dropped.
   - `features/integrations/integrations-view.tsx`: slimmed to page header +
     BotsView (old Telegram hero + Discord placeholder cards gone; sign-in
     gates live in BotsView).
@@ -3482,7 +3482,7 @@ production.
   fixed separately since it doesn't go through the shared helper).
 - **Tests**: rewrote fixtures across
   `packages/deploy/test/release-manifest.test.ts`,
-  `apps/build/src/server/bff/launch/routes.test.ts`,
+  `apps/build/src/server/launch/routes.test.ts`,
   `apps/portal/src/server/bff/launch/routes.test.ts`, and
   `packages/deploy/test/launch-routes.test.ts` to use the real
   `latestDeployment: null` shape with a `getUserSourceLatestDeployment` stub,

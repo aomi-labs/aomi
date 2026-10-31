@@ -55,7 +55,7 @@ import type {
   BuildRunStageStatus,
   BuildRunStatus,
 } from "@/features/build/run-contracts";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 
 function identifyEngineFailure(
   error: unknown,

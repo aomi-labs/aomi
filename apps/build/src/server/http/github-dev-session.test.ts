@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const failures = vi.hoisted(() => ({ handle: vi.fn() }));
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: { handle: failures.handle },
 }));
 

@@ -173,7 +173,7 @@ existing session + source-ownership + `(app, releaseTag)` pair validation and
 Applied to all **three** copies of the route, so portal and the package BFF
 inherit it:
 
-- `apps/build/src/server/bff/launch/routes.ts`
+- `apps/build/src/server/launch/routes.ts`
 - `apps/portal/src/server/bff/launch/routes.ts`
 - `packages/deploy/src/bff/launch-routes.ts`
 

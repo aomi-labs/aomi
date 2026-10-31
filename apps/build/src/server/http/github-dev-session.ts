@@ -1,6 +1,6 @@
 import { redirectResponse } from "@/server/http-response";
 import { setGitHubSessionCookie } from "@/server/cookies/github";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 import { devToolsAllowed } from "@/server/env";
 
 type GitHubUserResponse = {
