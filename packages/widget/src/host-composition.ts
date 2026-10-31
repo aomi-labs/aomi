@@ -147,35 +147,6 @@ export {
 } from "./ui/sidebar";
 export { testIds, type TestId } from "./test-ids";
 
-// Earlier exports with no place in this entry; each keeps working until the
-// next major release.
-import type { UsageFixtureData as UsageFixture } from "./account/usage/types";
-import { getAppIcon as appIcon } from "./icons/app-map";
-import { getSkillIcon as skillIcon } from "./icons/skills/skill-icons";
-import {
-  skillIconGenericAliases as genericAliases,
-  skillIconSources as iconSources,
-} from "./icons/skills/source-manifest";
-import {
-  CURATED_APP_IDS as curatedAppIds,
-  resolveAppIdentity as appIdentity,
-} from "./lib/apps/app-identity";
-
-/** @deprecated A test fixture shape, not host API. Removed in @aomi-labs/widget 4.0. */
-export type UsageFixtureData = UsageFixture;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const getAppIcon: typeof appIcon = appIcon;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const getSkillIcon: typeof skillIcon = skillIcon;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const skillIconGenericAliases: typeof genericAliases = genericAliases;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const skillIconSources: typeof iconSources = iconSources;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const CURATED_APP_IDS: typeof curatedAppIds = curatedAppIds;
-/** @deprecated Development audit helper, not host API. Removed in @aomi-labs/widget 4.0. */
-export const resolveAppIdentity: typeof appIdentity = appIdentity;
-
 export { AccountMenu, type AccountMenuProps } from "./account/account-menu";
 export { AccountAvatar } from "./account/account-avatar";
 export { CreditCheckoutDialog } from "./account/usage/credits/credit-checkout-dialog";
