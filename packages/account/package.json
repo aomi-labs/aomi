@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Server-only account graph and Better Auth: resolve-or-create the canonical user for the edge. Never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",

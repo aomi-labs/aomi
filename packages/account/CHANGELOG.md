@@ -1,5 +1,11 @@
 # @aomi-labs/account
 
+## 0.6.0
+
+### Minor Changes
+
+- Complete the unreleased TypeScript clean cutover: remove the obsolete provider-link SDK method and terminal session endpoints, share Build GitHub session signing through `@aomi-labs/account/build-session`, and describe auth ownership as the Edge. Terminal sign-in continues to use OAuth device authorization.
+
 ## 0.5.0
 
 ### Minor Changes
