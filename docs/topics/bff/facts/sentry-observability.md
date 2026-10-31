@@ -557,8 +557,8 @@ Instrument these ownership boundaries:
 - `apps/build/src/server/bff/failures.ts`
 - `apps/build/src/server/bff/deploy/routes.ts`
 - `apps/build/src/app/api/[...slug]/route.ts`
-- `apps/build/src/app/api/bff/auth/github/callback/route.ts`
-- `apps/build/src/app/api/bff/build/supervise/route.ts`
+- `apps/build/src/app/api/build/auth/github/callback/route.ts`
+- `apps/build/src/app/api/build/supervise/route.ts`
 
 `BuildEngineError` remains an expected response when its status is 4xx. A 5xx
 `BuildEngineError` or an unknown build exception is a BFF Issue. Partial
@@ -739,7 +739,7 @@ account-specific values need discovery during execution.
 ## Staging Smoke Route
 
 Add one internal route to each app, for example
-`/api/bff/internal/sentry-smoke`. The route must:
+`/api/build/internal/sentry-smoke`. The route must:
 
 - return 404 unless `SENTRY_ENVIRONMENT=staging` and
   `SENTRY_SMOKE_ENABLED=1`;

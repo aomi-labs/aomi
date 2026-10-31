@@ -17,7 +17,7 @@ describe("build Sentry smoke route", () => {
     runSmokeMock.mockResolvedValue(false);
 
     const response = await POST(
-      new Request("https://build.aomi.dev/api/bff/internal/sentry-smoke"),
+      new Request("https://build.aomi.dev/api/build/internal/sentry-smoke"),
     );
 
     expect(response.status).toBe(404);
@@ -31,7 +31,7 @@ describe("build Sentry smoke route", () => {
     runSmokeMock.mockResolvedValue(true);
 
     const response = await POST(
-      new Request("https://build.aomi.dev/api/bff/internal/sentry-smoke", {
+      new Request("https://build.aomi.dev/api/build/internal/sentry-smoke", {
         method: "POST",
         headers: { "x-aomi-sentry-smoke": "secret" },
       }),

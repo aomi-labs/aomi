@@ -31,7 +31,7 @@ export async function runBffSentrySmoke(
 
   const attributes = {
     service: options.service,
-    route_family: "/api/bff/internal/sentry-smoke",
+    route_family: "/api/build/internal/sentry-smoke",
     operation: "sentry_smoke",
     method: "POST",
     handled: true,
@@ -42,7 +42,7 @@ export async function runBffSentrySmoke(
     source: "local",
     error: new Error("Aomi BFF Sentry smoke test"),
     context: {
-      routeFamily: "/api/bff/internal/sentry-smoke",
+      routeFamily: "/api/build/internal/sentry-smoke",
       operation: "sentry_smoke",
       method: "POST",
       smokeTest: true,

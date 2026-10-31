@@ -60,13 +60,13 @@ venue-specific URL.
   forwards the API consoles' public thread routes to the backend anonymously
   and passes every other path to `LANDING_UPSTREAM_ORIGIN`.
 - `src/dev.ts`: the local development entry (`wrangler dev --env dev`), the
-  Worker plus the E2E wallet harness (`/api/bff/e2e/*`). Never deployed.
+  Worker plus the E2E wallet harness (`/api/dev/e2e/*`). Never deployed.
 
 - `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
-  host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
-  login (`/api/bff/cli/*`), builder credits (`/v1/builder/credits/**`), the
+  host the edge serves Build's GitHub sign-in (`/api/build/auth/github/*`), CLI
+  login (`/api/build/cli/*`), builder credits (`/v1/builder/credits/**`), the
   anonymous GitHub App install start and the launch, deployments and operate
-  control-plane families (`/api/bff/{launch,deployments,operate}/**`);
+  control-plane families (`/api/build/{launch,deployments,operate}/**`);
   everything else passes through to `BUILD_UPSTREAM_ORIGIN` (the Vercel Build
   app) unchanged: the build sandbox, integrations and local-only helpers.
   - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
@@ -164,7 +164,7 @@ public host, or the Worker would call itself.
 
 The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
 `BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays
-`https://<build host>/api/bff/auth/github/callback`, which the edge now answers.
+`https://<build host>/api/build/auth/github/callback`, which the edge now answers.
 For a deployment with its own GitHub App, set the Worker var
 `BUILD_GITHUB_CLIENT_ID` to that App's OAuth client id and configure the matching
 credentials in Manager's second `[[apps]]` entry (app index 2). The client secret

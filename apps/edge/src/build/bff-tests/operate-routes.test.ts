@@ -50,11 +50,11 @@ vi.mock("../manager-client", async (original) => ({
 }));
 
 function getReq(qs = "") {
-  return new Request(`http://localhost:3000/api/bff/operate/bots${qs}`);
+  return new Request(`http://localhost:3000/api/build/operate/bots${qs}`);
 }
 
 function postJson(body: unknown) {
-  return new Request("http://localhost:3000/api/bff/operate/bots", {
+  return new Request("http://localhost:3000/api/build/operate/bots", {
     method: "POST",
     headers: {
       origin: "http://localhost:3000",
@@ -65,7 +65,7 @@ function postJson(body: unknown) {
 }
 
 function patchJson(body: unknown) {
-  return new Request("http://localhost:3000/api/bff/operate/bots", {
+  return new Request("http://localhost:3000/api/build/operate/bots", {
     method: "PATCH",
     headers: {
       origin: "http://localhost:3000",
@@ -77,19 +77,19 @@ function patchJson(body: unknown) {
 
 function commandSecretReq(botId: string) {
   return new Request(
-    `http://localhost:3000/api/bff/operate/bots/${botId}/command-secret`,
+    `http://localhost:3000/api/build/operate/bots/${botId}/command-secret`,
   );
 }
 
 function webhookReq(botId: string) {
   return new Request(
-    `http://localhost:3000/api/bff/operate/bots/${botId}/webhook`,
+    `http://localhost:3000/api/build/operate/bots/${botId}/webhook`,
     { method: "POST", headers: { origin: "http://localhost:3000" } },
   );
 }
 
 function deleteReq(qs: string) {
-  return new Request(`http://localhost:3000/api/bff/operate/bots${qs}`, {
+  return new Request(`http://localhost:3000/api/build/operate/bots${qs}`, {
     method: "DELETE",
     headers: { origin: "http://localhost:3000" },
   });
@@ -601,20 +601,20 @@ describe("operateBotsDeleteRoute", () => {
 });
 
 function usageReq(qs = "") {
-  return new Request(`http://localhost:3000/api/bff/operate/usage${qs}`);
+  return new Request(`http://localhost:3000/api/build/operate/usage${qs}`);
 }
 function observabilityReq() {
-  return new Request("http://localhost:3000/api/bff/operate/observability");
+  return new Request("http://localhost:3000/api/build/operate/observability");
 }
 function transactionsReq(qs = "") {
-  return new Request(`http://localhost:3000/api/bff/operate/transactions${qs}`);
+  return new Request(`http://localhost:3000/api/build/operate/transactions${qs}`);
 }
 function logsReq(qs = "") {
-  return new Request(`http://localhost:3000/api/bff/operate/logs${qs}`);
+  return new Request(`http://localhost:3000/api/build/operate/logs${qs}`);
 }
 function appDetailReq(qs = "?applicationId=77") {
   return new Request(
-    `http://localhost:3000/api/bff/operate/observability/detail${qs}`,
+    `http://localhost:3000/api/build/operate/observability/detail${qs}`,
   );
 }
 
@@ -1072,7 +1072,7 @@ describe("operateObservabilityRoute live data", () => {
 
     const res = await operateObservabilityRoute(
       new Request(
-        "http://localhost:3000/api/bff/operate/observability?platform=somm.finance",
+        "http://localhost:3000/api/build/operate/observability?platform=somm.finance",
       ),
     );
     const body = await res.json();
@@ -1126,7 +1126,7 @@ describe("operatePaymentsRoute", () => {
     ]);
 
     const res = await operatePaymentsRoute(
-      new Request("http://localhost:3000/api/bff/operate/payments"),
+      new Request("http://localhost:3000/api/build/operate/payments"),
     );
 
     expect(res.status).toBe(200);
@@ -1542,7 +1542,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     });
 
     const pending = operateObservabilityRoute(
-      new Request("http://localhost:3000/api/bff/operate/observability"),
+      new Request("http://localhost:3000/api/build/operate/observability"),
     );
     // Yield past the microtasks the route needs to reach its manager call.
     // If the snapshot were sequenced after the source list, it could not have
@@ -1569,7 +1569,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     });
 
     const pending = operateLogsRoute(
-      new Request("http://localhost:3000/api/bff/operate/logs"),
+      new Request("http://localhost:3000/api/build/operate/logs"),
     );
     await vi.waitFor(() => expect(pageStarted).toBe(true));
 
@@ -1588,7 +1588,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     client.getUserStatements.mockResolvedValue([]);
 
     const pending = operateTransactionsRoute(
-      new Request("http://localhost:3000/api/bff/operate/transactions"),
+      new Request("http://localhost:3000/api/build/operate/transactions"),
     );
     await vi.waitFor(() => expect(pageStarted).toBe(true));
     expect(client.listUserTransactions).toHaveBeenCalledOnce();
@@ -1610,7 +1610,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     client.getUserStatements.mockResolvedValue([]);
 
     const pending = operateUsageRoute(
-      new Request("http://localhost:3000/api/bff/operate/usage"),
+      new Request("http://localhost:3000/api/build/operate/usage"),
     );
     await vi.waitFor(() => expect(sweepStarted).toBe(true));
     expect(client.getUserUsage).toHaveBeenCalledOnce();
@@ -1634,7 +1634,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     });
 
     const pending = operatePaymentsRoute(
-      new Request("http://localhost:3000/api/bff/operate/payments"),
+      new Request("http://localhost:3000/api/build/operate/payments"),
     );
     await vi.waitFor(() => expect(ledgerStarted).toBe(true));
 
@@ -1660,7 +1660,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
     ]);
 
     const res = await operatePaymentsRoute(
-      new Request("http://localhost:3000/api/bff/operate/payments"),
+      new Request("http://localhost:3000/api/build/operate/payments"),
     );
     const body = await res.json();
 
@@ -1684,7 +1684,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
 
     const ok = await operatePaymentsRoute(
       new Request(
-        "http://localhost:3000/api/bff/operate/payments?projectId=42",
+        "http://localhost:3000/api/build/operate/payments?projectId=42",
       ),
     );
     expect(ok.status).toBe(200);
@@ -1692,7 +1692,7 @@ describe("account-wide reads do not waterfall behind listUserProjects", () => {
 
     const foreign = await operatePaymentsRoute(
       new Request(
-        "http://localhost:3000/api/bff/operate/payments?projectId=99",
+        "http://localhost:3000/api/build/operate/payments?projectId=99",
       ),
     );
     expect(foreign.status).toBe(404);

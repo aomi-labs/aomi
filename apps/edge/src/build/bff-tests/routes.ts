@@ -5,9 +5,9 @@ import { route } from "./harness";
 function at(method: string | undefined, ...paths: string[]) {
   return route((url) => (paths.includes(url.pathname) ? url.pathname : paths[0]), method);
 }
-const launch = (name: string) => `/api/bff/launch/${name}`;
-const deployments = (name: string) => `/api/bff/deployments/${name}`;
-const operate = (name: string) => `/api/bff/operate/${name}`;
+const launch = (name: string) => `/api/build/launch/${name}`;
+const deployments = (name: string) => `/api/build/deployments/${name}`;
+const operate = (name: string) => `/api/build/operate/${name}`;
 
 export const deployRoute = (preflight: boolean) =>
   preflight

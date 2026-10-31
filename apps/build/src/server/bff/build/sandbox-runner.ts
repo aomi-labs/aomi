@@ -25,7 +25,7 @@ function identifySandboxFailure(
     upstream: "vercel",
     error,
     context: {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation,
     },
   };

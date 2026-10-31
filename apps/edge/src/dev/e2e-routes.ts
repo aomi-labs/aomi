@@ -23,9 +23,9 @@ import {
 
 /** The local E2E wallet's routes, served by the dev entry only. */
 const ROUTES: Record<string, { method: string; handle: (request: Request) => Promise<Response> | Response }> = {
-  "/api/bff/e2e/wallet": { method: "GET", handle: seedWallet },
-  "/api/bff/e2e/execute": { method: "POST", handle: executeEvm },
-  "/api/bff/e2e/solana": { method: "POST", handle: executeSolana },
+  "/api/dev/e2e/wallet": { method: "GET", handle: seedWallet },
+  "/api/dev/e2e/execute": { method: "POST", handle: executeEvm },
+  "/api/dev/e2e/solana": { method: "POST", handle: executeSolana },
 };
 
 /** Serve an E2E wallet route; null for any other request. */

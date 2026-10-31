@@ -20,7 +20,7 @@ import {
 import { getGitHubSession } from "./harness";
 
 function writeReq(body: unknown) {
-  return new Request("http://localhost:3000/api/bff/launch/redeploy", {
+  return new Request("http://localhost:3000/api/build/launch/redeploy", {
     method: "POST",
     headers: {
       origin: "http://localhost:3000",
@@ -238,7 +238,7 @@ describe("createRepoRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await createRepoRoute(
-      new Request("http://localhost:3000/api/bff/launch/create", {
+      new Request("http://localhost:3000/api/build/launch/create", {
         method: "POST",
         headers: {
           origin: "http://localhost:3000",
@@ -273,14 +273,14 @@ describe("CLI bearer scope", () => {
     });
 
     const secrets = await deploymentSecretsWriteRoute(
-      cliWriteReq("/api/bff/deployments/secrets", {
+      cliWriteReq("/api/build/deployments/secrets", {
         app: "my-bot",
         projectId: 42,
         secrets: { API_KEY: "secret" },
       }),
     );
     const promote = await deploymentPromoteRoute(
-      cliWriteReq("/api/bff/deployments/promote", {
+      cliWriteReq("/api/build/deployments/promote", {
         deploymentId: "dep_1",
         projectId: 42,
       }),
@@ -297,7 +297,7 @@ describe("CLI bearer scope", () => {
     });
 
     const res = await deployRoute(false)(
-      new Request("http://localhost:3000/api/bff/deployments/deploy", {
+      new Request("http://localhost:3000/api/build/deployments/deploy", {
         method: "POST",
         headers: {
           authorization: "Bearer invalid",
@@ -335,7 +335,7 @@ describe("deployRoute", () => {
 
     const POST = deployRoute(false);
     const res = await POST(
-      new Request("http://localhost:3000/api/bff/launch/deploy", {
+      new Request("http://localhost:3000/api/build/launch/deploy", {
         method: "POST",
         headers: {
           origin: "http://localhost:3000",
@@ -358,7 +358,7 @@ describe("deployRoute", () => {
 
     const POST = deployRoute(false);
     const res = await POST(
-      new Request("http://localhost:3000/api/bff/launch/deploy", {
+      new Request("http://localhost:3000/api/build/launch/deploy", {
         method: "POST",
         headers: {
           origin: "http://localhost:3000",
@@ -394,7 +394,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -428,7 +428,7 @@ describe("deployRoute", () => {
 
     const POST = deployRoute(false);
     const res = await POST(
-      new Request("http://localhost:3000/api/bff/launch/deploy", {
+      new Request("http://localhost:3000/api/build/launch/deploy", {
         method: "POST",
         headers: {
           origin: "http://localhost:3000",
@@ -471,7 +471,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(true);
-    const req = new Request("http://localhost:3000/api/bff/launch/preflight", {
+    const req = new Request("http://localhost:3000/api/build/launch/preflight", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -507,7 +507,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -542,7 +542,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -598,7 +598,7 @@ describe("deployRoute", () => {
 
     const POST = deployRoute(false);
     const res = await POST(
-      new Request("https://build-staging.aomi.dev/api/bff/deployments/deploy", {
+      new Request("https://build-staging.aomi.dev/api/build/deployments/deploy", {
         method: "POST",
         headers: {
           authorization: "Bearer cli-session",
@@ -636,7 +636,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -661,7 +661,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -680,7 +680,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -702,7 +702,7 @@ describe("deployRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const POST = deployRoute(false);
-    const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
+    const req = new Request("http://localhost:3000/api/build/launch/deploy", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -739,7 +739,7 @@ describe("sdkStatusRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await sdkStatusRoute(
-      new Request("https://build.example.test/api/bff/launch/sdk-status"),
+      new Request("https://build.example.test/api/build/launch/sdk-status"),
     );
     const body = await res.json();
 
@@ -760,7 +760,7 @@ describe("deploymentPromoteRoute", () => {
   const DEPLOYMENT = "dep_555_r0123abcdef_a5a81b6b8be1";
 
   function promoteReq(body: unknown) {
-    return new Request("http://localhost:3000/api/bff/deployments/promote", {
+    return new Request("http://localhost:3000/api/build/deployments/promote", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -1152,7 +1152,7 @@ describe("redeployRoute", () => {
 
 describe("deploymentDeactivateRoute", () => {
   function deactReq(body: unknown) {
-    return new Request("http://localhost:3000/api/bff/deployments/deactivate", {
+    return new Request("http://localhost:3000/api/build/deployments/deactivate", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -1257,7 +1257,7 @@ describe("deploymentDeactivateRoute", () => {
 
 describe("activateRoute", () => {
   function activateReq(body: unknown) {
-    return new Request("http://localhost:3000/api/bff/launch/activate", {
+    return new Request("http://localhost:3000/api/build/launch/activate", {
       method: "POST",
       headers: {
         origin: "http://localhost:3000",
@@ -1526,7 +1526,7 @@ describe("activateRoute", () => {
 describe("requiredSecretsRoute", () => {
   function requiredSecretsReq(query: string) {
     return new Request(
-      `http://localhost:3000/api/bff/deployments/required-secrets${query}`,
+      `http://localhost:3000/api/build/deployments/required-secrets${query}`,
     );
   }
 
@@ -1677,7 +1677,7 @@ describe("projectAppsRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await projectAppsRoute(
-      new Request("http://localhost:3000/api/bff/launch/apps?projectId=1578"),
+      new Request("http://localhost:3000/api/build/launch/apps?projectId=1578"),
     );
 
     expect(res.status).toBe(200);
@@ -1714,7 +1714,7 @@ describe("deploymentRecordsRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
     const res = await deploymentRecordsRoute(
       new Request(
-        "http://localhost:3000/api/bff/deployments/records?app=my-bot&projectId=99",
+        "http://localhost:3000/api/build/deployments/records?app=my-bot&projectId=99",
       ),
     );
     expect(res.status).toBe(404);
@@ -1756,7 +1756,7 @@ describe("deploymentSecretsRoute", () => {
 
     const res = await deploymentSecretsRoute(
       new Request(
-        "http://localhost:3000/api/bff/deployments/secrets?applicationId=11",
+        "http://localhost:3000/api/build/deployments/secrets?applicationId=11",
       ),
     );
 
@@ -1799,7 +1799,7 @@ describe("deploymentFeedRoute", () => {
 
     const res = await deploymentFeedRoute(
       new Request(
-        "http://localhost:3000/api/bff/deployments/feed?platform=world-market-apps&limit=50&cursorCreatedAt=200&cursorId=10",
+        "http://localhost:3000/api/build/deployments/feed?platform=world-market-apps&limit=50&cursorCreatedAt=200&cursorId=10",
       ),
     );
     const body = await res.json();
@@ -1825,7 +1825,7 @@ describe("deploymentFeedRoute", () => {
 
     const res = await deploymentFeedRoute(
       new Request(
-        "http://localhost:3000/api/bff/deployments/feed?limit=50&cursorId=10",
+        "http://localhost:3000/api/build/deployments/feed?limit=50&cursorId=10",
       ),
     );
 
@@ -1859,7 +1859,7 @@ describe("deploymentStatusRoute", () => {
 
     const res = await deploymentStatusRoute(
       new Request(
-        "http://localhost:3000/api/bff/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
+        "http://localhost:3000/api/build/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
       ),
     );
     const body = await res.json();
@@ -1900,7 +1900,7 @@ describe("deploymentStatusRoute", () => {
 
     const res = await deploymentStatusRoute(
       new Request(
-        "http://localhost:3000/api/bff/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
+        "http://localhost:3000/api/build/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
       ),
     );
     const body = await res.json();

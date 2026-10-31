@@ -303,7 +303,7 @@ export function Onboarding({
         const target = platform || readPlatform() || DEFAULT_DEPLOY_PLATFORM;
         if (mode === "authorize") {
           const login = new URL(
-            "/api/bff/auth/github/login",
+            "/api/build/auth/github/login",
             window.location.origin,
           );
           login.searchParams.set("resume", "template");

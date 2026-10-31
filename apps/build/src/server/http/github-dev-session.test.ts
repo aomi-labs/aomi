@@ -22,7 +22,7 @@ describe("GitHub dev session route", () => {
   it("is not available off localhost", async () => {
     const res = await GET(
       new Request(
-        "https://chat-staging.aomi.dev/api/bff/auth/github/dev-session?login=alice",
+        "https://chat-staging.aomi.dev/api/build/auth/github/dev-session?login=alice",
       ),
     );
     expect(res.status).toBe(404);
@@ -30,7 +30,7 @@ describe("GitHub dev session route", () => {
 
   it("requires a login on localhost", async () => {
     const res = await GET(
-      new Request("http://localhost:3000/api/bff/auth/github/dev-session"),
+      new Request("http://localhost:3000/api/build/auth/github/dev-session"),
     );
     expect(res.status).toBe(400);
   });
@@ -49,7 +49,7 @@ describe("GitHub dev session route", () => {
 
     const res = await GET(
       new Request(
-        "http://localhost:3000/api/bff/auth/github/dev-session?login=alice",
+        "http://localhost:3000/api/build/auth/github/dev-session?login=alice",
       ),
     );
 
@@ -67,7 +67,7 @@ describe("GitHub dev session route", () => {
         error: "github_user_lookup_failed",
       },
       context: {
-        routeFamily: "/api/bff/auth/github/dev-session",
+        routeFamily: "/api/build/auth/github/dev-session",
         operation: "github.dev_session",
         method: "GET",
       },

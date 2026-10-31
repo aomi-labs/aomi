@@ -143,7 +143,7 @@ export function artifactFromOutputs(
         source: "artifact",
         error,
         context: {
-          routeFamily: "/api/bff/build/runs",
+          routeFamily: "/api/build/runs",
           operation: "build.artifact_tree_parse",
         },
       });

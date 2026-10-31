@@ -27,8 +27,8 @@ import { endpoint, notFound, type BuildRoute, type Call } from "./endpoint";
 import { reportFailure } from "./failures";
 import { platformSlug } from "./endpoint";
 
-const ops = (name: string) => `/api/bff/operate/${name}`;
-const BOT = (action: string) => new RegExp(`^/api/bff/operate/bots/(?<botId>[^/]+)/${action}$`);
+const ops = (name: string) => `/api/build/operate/${name}`;
+const BOT = (action: string) => new RegExp(`^/api/build/operate/bots/(?<botId>[^/]+)/${action}$`);
 
 const scoped = z.object({ platform: platformSlug.optional(), projectId: id.optional() });
 type Scoped = z.output<typeof scoped>;

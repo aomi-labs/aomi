@@ -127,7 +127,7 @@ describe("sidecar verifier configuration", () => {
     expect(sidecarVerifierPublicKeyPem()).toBe("");
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation: "build.sidecar_verifier_config",
       status: 500,
     });

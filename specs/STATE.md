@@ -112,7 +112,7 @@
   Build's Chat tab shows an "App key" panel for a private live app
   (`apps/build/src/features/deploy/components/deployments/app-key-panel.tsx`):
   the builder can reveal, copy and regenerate (confirm; revokes the old key)
-  the app's key through the BFF `GET|POST /api/bff/deployments/app-key`
+  the app's key through the BFF `GET|POST /api/build/deployments/app-key`
   (`@aomi-labs/deploy` `getBuilderAppKey` / `regenerateBuilderAppKey`). The
   portal now shows the composer's key button (`hideApiKey: false`), relabelled
   "App key", so anyone the builder shares the key with can use the app. Client
@@ -573,7 +573,7 @@ Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `/command-secret`. Widget: deploy SDK (still 0.8.0, unreleased; npm is
   0.7.2) adds `checkUserBotWebhook`, `BotWebhookStatus`,
   `UpdateUserBotResult.webhookWarning`; BFF `POST
-  /api/bff/operate/bots/:id/webhook` + update route returns `webhookWarning`
+  /api/build/operate/bots/:id/webhook` + update route returns `webhookWarning`
   beside `bot`; bot card has "Check webhook" in read mode with the result
   line and shows the save warning (held by the parent, keyed by bot id, since
   the card remounts on `configurationVersion`). Verified: worker 36/36,
@@ -597,7 +597,7 @@ Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   BFF validates shape only. IMPLEMENTED in the working tree of both repos
   (widget: deploy SDK 0.8.0 with `handoverApplicationId`/`miniAppUrl`/
   `commandEndpoint`/`commands` + `revealUserBotCommandSecret`, BFF operate
-  routes shape-only + `GET /api/bff/operate/bots/:id/command-secret`, bot card
+  routes shape-only + `GET /api/build/operate/bots/:id/command-secret`, bot card
   seeded from the bot with dirty-tracked save; product-mono: migration
   `20260922000000_bot_mini_app.sql`, bot-level columns, derived per-bot secret,
   `/app` panel restored with a bot-owned `bot_thread_selections` table behind `BotThreadService`; the runtime and `DbThread` are untouched). The two branches must
@@ -2117,7 +2117,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
 2026-08-01 — Renamed portal E2E executor `executeE2EWalletTransaction` →
   `executeE2EvmTransaction` (EVM-only; pairs with `executeE2ESolanaTransaction`).
   Touched: apps/portal/src/server/e2e-wallet.ts, e2e-wallet.test.ts,
-  apps/portal/src/app/api/bff/e2e/execute/route.ts.
+  apps/portal/src/app/api/dev/e2e/execute/route.ts.
 
 2026-07-31 — Fixed the browser POST /api/exec/simulate empty-body bug (on this
   branch, not committed). ROOT CAUSE (proven in real Chrome + undici): the
@@ -2246,7 +2246,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   (3) thread_mode/label not updatable via PATCH (manager + BFF + client).
   Dead FE stub also left in place: features/integrations/client.ts +
   server/bff/integrations/routes.ts (status always disconnected, connect
-  501) — wired to /api/bff/integrations but nothing calls it.
+  501) — wired to /api/build/integrations but nothing calls it.
 
 2026-07-30 — Operate batch reads for the REST of the herd: transactions,
   statement, usage, logs (branch `fix/operate-batch-reads` in aomi,
@@ -2749,7 +2749,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   material is write-only and only the stored prefix renders. Project pages gain
   a read-mostly Providers tab
   (`tabs/providers-tab.tsx`, apply/remove grants for this project; Details
-  merged into Home to make room). BFF `/api/bff/operate/model-keys`
+  merged into Home to make room). BFF `/api/build/operate/model-keys`
   (GET/POST/PUT/DELETE in `server/bff/operate/routes.ts`) fronts the manager
   routes `/api/integrations/github-app/user/model-keys[/:id[/grants]]` via
   five new DeploymentClient methods in `packages/deploy`. The existing
@@ -3064,12 +3064,12 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   the engine heartbeat in _smithers_runs — extends live work, reaps
   silent-death VMs after 2min grace (the 18:06/$4 zombie class, finding
   #1) and stale-heartbeat runs (finding #3), releases on settle; ticks via
-  GET /api/bff/build/supervise (BUILD_RUN_CHECKER_CRON_SECRET-guarded — cron wiring
+  GET /api/build/supervise (BUILD_RUN_CHECKER_CRON_SECRET-guarded — cron wiring
   is Phase-4) + in-process interval on long-lived servers; cancel now
   flips the registry + stops the sandbox by id even after restarts.
   (4) live files: infra/build-runner/sidecar.ts (Bun, bearer-auth,
   path-jailed /tree + /file on exposed port 8722) baked into the image;
-  dispatch launches it; BFF GET /api/bff/build/runs/file serves file
+  dispatch launches it; BFF GET /api/build/runs/file serves file
   contents from local disk → live sidecar → store tarball (minimal ustar
   reader tar.ts — file contents readable even after the sandbox dies);
   Files panel is now a click-to-view source browser (dialog in
@@ -3287,7 +3287,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   process); makeWorkAgent takes apiKey, wired from SMITHER_ANTHROPIC_API_KEY so
   headless runners bill an API key instead of a CLI login. BFF: Runner seam
   (AOMI_BUILD_RUNNER, LocalRunner today, SandboxRunner = phase 3 slot),
-  cancelBuildRun + POST /api/bff/build/runs/cancel, Esc on the page cancels
+  cancelBuildRun + POST /api/build/runs/cancel, Esc on the page cancels
   the real run. Cancel E2E verified against shared Postgres: store status
   `cancelled`, codegen node cancelled mid-flight. Note: wire status maps
   cancelled→failed (no distinct wire state yet — P1 polish).
@@ -3314,7 +3314,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   report (loadRunOutputs reads curation/result rows — covers replayed
   resumes), and per-stage transition times; completion message = curation
   summary + followUps verbatim; download = crate tarball route
-  (GET /api/bff/build/runs/download) wired to the Ship banner button;
+  (GET /api/build/runs/download) wired to the Ship banner button;
   mock artifacts swapped to the real Rust crate shape (Cargo.toml,
   openapi.yaml, src/{lib.rs,client/,tool.rs}, test.json) — flow unchanged.
   Verified E2E in-browser against the resumed geckoterminal run.
@@ -3335,7 +3335,7 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   seam in packages/smither run.ts/workflow.tsx; SMITHER_DATABASE_URL wins,
   Bun keeps bun:sqlite, Node falls back to per-app PGlite); aomi-build BFF
   build engine (src/server/bff/build/engine.ts + routes; POST/GET
-  /api/bff/build/runs, POST /api/bff/build/runs/decision; GitHub session +
+  /api/build/runs, POST /api/build/runs/decision; GitHub session +
   origin + rate-limit gated; autoApprove default until UI renders approvals);
   Node loader hooks for Bun-flavored smithers sources (src/instrumentation.ts
   + src/server/bun-compat.ts; serverExternalPackages in next.config.ts);
@@ -3411,7 +3411,7 @@ old app set and saw nothing missing.
 Not verified against staging data: the exact app/KEY pair is whatever the
 repo's current `aomi.toml` declares. If the symptom persists after a hard
 reload, capture
-`/api/bff/deployments/required-secrets?appSourceId=<id>` (status + body) — a
+`/api/build/deployments/required-secrets?appSourceId=<id>` (status + body) — a
 503 there means `RequiredSecretsCheckError` (missing `GITHUB_TOKEN`,
 unresolvable `platformRepo`, or an unreadable release `manifest.json`), which
 is a different failure with the same silent-UI symptom.
@@ -4129,7 +4129,7 @@ publishing 0.2.0; unifying the portal's own launch routes onto these factories.
 - BLOCKER: `/api/mcp/[transport]` is unauthenticated and trusts `x-aomi-user`; gate or session-auth before deploy.
 - BLOCKER: device-auth grant store is an in-process Map (`apps/portal/src/lib/device-auth-grants.ts`) — breaks on Vercel; move to Postgres.
 - BLOCKER: client `/api/control/provider-keys` calls 404 vs new backend (BYOK moved to `/api/account/payment/byok`).
-- HIGH: `packages/account/src/proxy.ts` fails open (mint failure → anonymous forward); apps/base forked its own anonymous proxy; committed `packages/{client,react}/dist` bundles; `scripts/smoke-auth-stack.mjs` targets deleted `/api/bff/auth/*` routes; portal next.config lost prod backend-URL fallback.
+- HIGH: `packages/account/src/proxy.ts` fails open (mint failure → anonymous forward); apps/base forked its own anonymous proxy; committed `packages/{client,react}/dist` bundles; `scripts/smoke-auth-stack.mjs` targets deleted `/api/build/auth/*` routes; portal next.config lost prod backend-URL fallback.
 - Cross-repo: `signing_authorization` migration has no frontend counterpart; `aomi_wallets` vs backend `identity_wallets` never sync; db-master's 48 migrations are uncommitted and `rename_sessions_to_threads` is fresh-DB-only (staging/prod variant needed).
 - Docs to prune before PR: AUTH-STACK-REVIEW.md, MERGE-BFF-BETTERAUTH-FIXES.md, WALLET-KIT-{CLEANUP,PR-WALKTHROUGH}.md, mcp-design.md; fix `apps/registry/` refs in DOMAIN.md/METADATA.md/repowiki.toml; prune this file's diary.
 

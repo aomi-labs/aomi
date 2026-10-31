@@ -401,14 +401,14 @@ function stubFetch() {
         : input instanceof URL
           ? input.href
           : input.url;
-    if (url.includes("/api/bff/auth/github/status"))
+    if (url.includes("/api/build/auth/github/status"))
       return Response.json(SESSION);
-    if (url.includes("/api/bff/operate/observability"))
+    if (url.includes("/api/build/operate/observability"))
       return Response.json(OBSERVABILITY);
-    if (url.includes("/api/bff/operate/transactions"))
+    if (url.includes("/api/build/operate/transactions"))
       return Response.json(TRANSACTIONS);
-    if (url.includes("/api/bff/operate/logs")) return Response.json(LOGS);
-    if (url.includes("/api/bff/operate/usage")) return Response.json(USAGE);
+    if (url.includes("/api/build/operate/logs")) return Response.json(LOGS);
+    if (url.includes("/api/build/operate/usage")) return Response.json(USAGE);
     return real(input, init);
   };
 }

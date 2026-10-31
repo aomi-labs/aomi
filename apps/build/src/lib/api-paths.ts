@@ -1,13 +1,13 @@
 // Single source of truth for Aomi Build BFF route paths.
 //
 // Isomorphic — imported by client call sites, server route handlers, and tests.
-// Boundary rule: every path under `/api/bff/*` is served by an app-local route
+// Boundary rule: every path under `/api/build/*` is served by an app-local route
 // handler; any other `/api/*` path is forwarded to the Rust backend by the
 // `[...slug]` proxy. Backend-contract paths
 // (e.g. `/api/integrations/github-app/oauth/start`) deliberately live outside
 // this registry — they are owned by the backend, not Aomi Build.
 
-const BFF = "/api/bff";
+const BFF = "/api/build";
 
 function withPlatform(path: string, platform?: string): string {
   if (!platform) return path;
@@ -114,8 +114,8 @@ export const API_PATHS = {
       base: `${BFF}/integrations`,
     },
     e2e: {
-      execute: `${BFF}/e2e/execute`,
-      wallet: `${BFF}/e2e/wallet`,
+      execute: "/api/dev/e2e/execute",
+      wallet: "/api/dev/e2e/wallet",
     },
   },
 } as const;

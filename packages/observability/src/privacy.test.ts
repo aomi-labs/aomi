@@ -13,11 +13,11 @@ describe("normalizeRequestPath", () => {
         "https://portal.aomi.dev/api/threads/89d96b41-cafb-4d6e-8516-70db2780f4a1?token=secret#prompt",
       ),
     ).toBe("/api/threads/:param");
-    expect(normalizeRequestPath("/api/bff/auth/[...all]")).toBe(
-      "/api/bff/auth/:catchall",
+    expect(normalizeRequestPath("/api/build/auth/[...all]")).toBe(
+      "/api/build/auth/:catchall",
     );
-    expect(normalizeRequestPath("/api/bff/auth/:catchall")).toBe(
-      "/api/bff/auth/:catchall",
+    expect(normalizeRequestPath("/api/build/auth/:catchall")).toBe(
+      "/api/build/auth/:catchall",
     );
   });
 });

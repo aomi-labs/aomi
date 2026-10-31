@@ -140,7 +140,7 @@ describe("Onboarding bfcache restore", () => {
     fireEvent.click(screen.getByRole("button", { name: /already installed/i }));
     await waitFor(() =>
       expect(window.location.href).toBe(
-        "https://build.test/api/bff/auth/github/login?resume=template&platform=community",
+        "https://build.test/api/build/auth/github/login?resume=template&platform=community",
       ),
     );
   });

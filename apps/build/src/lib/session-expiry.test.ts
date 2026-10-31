@@ -13,7 +13,7 @@ describe("Build session expiry", () => {
     const expired = vi.fn();
     window.addEventListener(BUILD_SESSION_EXPIRED, expired);
     try {
-      expect(await buildFetch("/api/bff/launch/projects")).toBe(response);
+      expect(await buildFetch("/api/build/launch/projects")).toBe(response);
       expect(expired).toHaveBeenCalledTimes(1);
       expect(await response.json()).toEqual({
         error: "Not signed in with GitHub",
@@ -30,7 +30,7 @@ describe("Build session expiry", () => {
     const expired = vi.fn();
     window.addEventListener(BUILD_SESSION_EXPIRED, expired);
     try {
-      await buildFetch("/api/bff/launch/projects");
+      await buildFetch("/api/build/launch/projects");
       expect(expired).not.toHaveBeenCalled();
     } finally {
       window.removeEventListener(BUILD_SESSION_EXPIRED, expired);

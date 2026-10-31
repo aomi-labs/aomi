@@ -76,7 +76,7 @@ vi.mock("./engine", () => ({
 }));
 
 function createRequest(): Request {
-  return new Request("http://localhost:3000/api/bff/build/runs", {
+  return new Request("http://localhost:3000/api/build/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt: "make an app" }),
@@ -112,7 +112,7 @@ describe("build route error classification", () => {
       error: expect.objectContaining({ message: "invalid build plan" }),
       response: { status: 400, error: "invalid build plan" },
       context: {
-        routeFamily: "/api/bff/build/runs",
+        routeFamily: "/api/build/runs",
         operation: "build.start",
         method: "POST",
       },
@@ -131,7 +131,7 @@ describe("build route error classification", () => {
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build/runs",
+      routeFamily: "/api/build/runs",
       operation: "build.start",
       method: "POST",
       status: 503,
@@ -158,7 +158,7 @@ describe("build route error classification", () => {
     mocks.snapshotBuildRun.mockRejectedValue(error);
 
     const response = await buildRunStatusRoute(
-      new Request("http://localhost:3000/api/bff/build/runs?id=private-run"),
+      new Request("http://localhost:3000/api/build/runs?id=private-run"),
     );
 
     expect(response.status).toBe(500);
@@ -167,7 +167,7 @@ describe("build route error classification", () => {
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build/runs",
+      routeFamily: "/api/build/runs",
       operation: "build.status",
       method: "GET",
       status: 500,
@@ -183,7 +183,7 @@ describe("build route error classification", () => {
       mocks.reconstructBuildRun.mockResolvedValue(undefined);
       const response = await route(
         new Request(
-          "http://localhost:3000/api/bff/build/runs/download?id=private-run&path=private-app/src/lib.rs",
+          "http://localhost:3000/api/build/runs/download?id=private-run&path=private-app/src/lib.rs",
         ),
       );
 
@@ -203,7 +203,7 @@ describe("build route error classification", () => {
 
     const response = await buildRunFileRoute(
       new Request(
-        "http://localhost:3000/api/bff/build/runs/file?id=private-run&path=private-app/src/lib.rs",
+        "http://localhost:3000/api/build/runs/file?id=private-run&path=private-app/src/lib.rs",
       ),
     );
 
@@ -213,7 +213,7 @@ describe("build route error classification", () => {
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build/runs/file",
+      routeFamily: "/api/build/runs/file",
       operation: "build.file",
       method: "GET",
       status: 500,
@@ -231,7 +231,7 @@ describe("build route error classification", () => {
 
     const response = await buildRunDownloadRoute(
       new Request(
-        "http://localhost:3000/api/bff/build/runs/download?id=private-run",
+        "http://localhost:3000/api/build/runs/download?id=private-run",
       ),
     );
 
@@ -241,7 +241,7 @@ describe("build route error classification", () => {
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build/runs/download",
+      routeFamily: "/api/build/runs/download",
       operation: "build.download_artifact_read",
       method: "GET",
       status: 409,

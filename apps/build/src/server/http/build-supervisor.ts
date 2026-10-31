@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       error,
       response: { status: 500, error: "build_supervision_failed" },
       context: {
-        routeFamily: "/api/bff/build/supervise",
+        routeFamily: "/api/build/supervise",
         operation: "build.supervisor_request",
         method: req.method,
       },

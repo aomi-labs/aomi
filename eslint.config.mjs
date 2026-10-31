@@ -4,11 +4,11 @@ import react from "eslint-plugin-react";
 
 /**
  * First-party code talks to Aomi one way: one `new Aomi()` and its namespaces.
- * Better Auth's own endpoints (`/api/auth/*`) and an app's own BFF routes
- * (`/api/bff/*`) are not the Aomi API and stay plain fetches.
+ * Better Auth's own endpoints (`/api/auth/*`) and app-owned routes
+ * (`/api/build/*`) are not the Aomi API and stay plain fetches.
  */
 // esquery regexes cannot contain "/": \x2F stands for it.
-const AOMI_PATH = "/^\\x2F(?:api\\x2F(?!auth\\x2F|bff\\x2F)|v1(?:\\x2F|$))/";
+const AOMI_PATH = "/^\\x2F(?:api\\x2F(?!auth\\x2F|build\\x2F|dev\\x2Fe2e(?:\\x2F|$))|v1(?:\\x2F|$))/";
 const fetchOf = (callee) => [
   `CallExpression[${callee}][arguments.0.type='Literal'][arguments.0.value=${AOMI_PATH}]`,
   `CallExpression[${callee}][arguments.0.type='TemplateLiteral'][arguments.0.quasis.0.value.raw=${AOMI_PATH}]`,

@@ -39,14 +39,14 @@ async function installStart(request: Request, ctx: BuildContext): Promise<Respon
 }
 
 export const BUILD_ROUTES: readonly BuildRoute[] = [
-  { operation: "github.login", method: "GET", path: "/api/bff/auth/github/login", handle: login },
-  { operation: "github.callback", method: "GET", path: "/api/bff/auth/github/callback", handle: callback },
-  { operation: "github.claim", method: "GET", path: "/api/bff/auth/github/claim", handle: claim },
-  { operation: "github.status", method: "GET", path: "/api/bff/auth/github/status", handle: status },
-  { operation: "github.signout", method: "POST", path: "/api/bff/auth/github/signout", handle: signout },
-  { operation: "cli.login", method: "GET", path: "/api/bff/cli/login", handle: cliLogin },
-  { operation: "cli.exchange", method: "POST", path: "/api/bff/cli/exchange", handle: cliExchange },
-  { operation: "cli.status", method: "GET", path: "/api/bff/cli/status", handle: cliStatus },
+  { operation: "github.login", method: "GET", path: "/api/build/auth/github/login", handle: login },
+  { operation: "github.callback", method: "GET", path: "/api/build/auth/github/callback", handle: callback },
+  { operation: "github.claim", method: "GET", path: "/api/build/auth/github/claim", handle: claim },
+  { operation: "github.status", method: "GET", path: "/api/build/auth/github/status", handle: status },
+  { operation: "github.signout", method: "POST", path: "/api/build/auth/github/signout", handle: signout },
+  { operation: "cli.login", method: "GET", path: "/api/build/cli/login", handle: cliLogin },
+  { operation: "cli.exchange", method: "POST", path: "/api/build/cli/exchange", handle: cliExchange },
+  { operation: "cli.status", method: "GET", path: "/api/build/cli/status", handle: cliStatus },
   { operation: "github_app.install_start", method: "GET", path: GITHUB_APP_INSTALL_START_PATH, handle: installStart },
   ...DEPLOY_ROUTES,
   ...OPERATE_ROUTES,

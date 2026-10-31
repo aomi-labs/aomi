@@ -25,8 +25,8 @@ import { platformSlug } from "./endpoint";
 type Project = Awaited<ReturnType<ManagerClient["listUserProjects"]>>[number];
 type ReleasePair = { app: string; releaseTag: string };
 
-const launch = (name: string) => `/api/bff/launch/${name}`;
-const deployments = (name: string) => `/api/bff/deployments/${name}`;
+const launch = (name: string) => `/api/build/launch/${name}`;
+const deployments = (name: string) => `/api/build/deployments/${name}`;
 
 const byProject = z.object({ projectId: id });
 const byApplication = z.object({ applicationId: id });

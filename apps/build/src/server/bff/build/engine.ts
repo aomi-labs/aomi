@@ -62,7 +62,7 @@ function identifyEngineFailure(
   operation: string,
   response?: { status: number; error: string },
 ): FailureInput {
-  const context = { routeFamily: "/api/bff/build", operation };
+  const context = { routeFamily: "/api/build", operation };
   return {
     source: "local",
     error,

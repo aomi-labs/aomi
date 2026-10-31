@@ -392,7 +392,7 @@ describe("BotsView", () => {
     expect(field).toHaveValue("deadbeef");
     expect(field).toHaveAttribute("readonly");
     expect(String(fetchSpy.mock.calls[0][0])).toBe(
-      "/api/bff/operate/bots/b1/command-secret",
+      "/api/build/operate/bots/b1/command-secret",
     );
     fetchSpy.mockRestore();
   });
@@ -421,7 +421,7 @@ describe("BotsView", () => {
       "Webhook was not pointed at Aomi; re-pointed now · 3 pending updates · last Telegram error: Wrong response from the webhook: 404 Not Found",
     );
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/bff/operate/bots/b1/webhook");
+    expect(String(url)).toBe("/api/build/operate/bots/b1/webhook");
     expect(init?.method).toBe("POST");
     fetchSpy.mockRestore();
   });

@@ -98,8 +98,8 @@ describe("createLaunchClient — bound platform", () => {
     await client.status({ deploymentId: "d-1" });
     await client.deployments.status({ deploymentId: "d-1" });
 
-    expect(calls[0]?.url).toContain("/api/bff/launch/status");
-    expect(calls[1]?.url).toContain("/api/bff/deployments/status");
+    expect(calls[0]?.url).toContain("/api/build/launch/status");
+    expect(calls[1]?.url).toContain("/api/build/deployments/status");
   });
 
   it("reads all runtime statuses through the project-scoped batch route", async () => {
@@ -107,6 +107,6 @@ describe("createLaunchClient — bound platform", () => {
 
     await client.appStatuses({ projectId: 1578 });
 
-    expect(calls[0]?.url).toBe("/api/bff/launch/apps?projectId=1578");
+    expect(calls[0]?.url).toBe("/api/build/launch/apps?projectId=1578");
   });
 });

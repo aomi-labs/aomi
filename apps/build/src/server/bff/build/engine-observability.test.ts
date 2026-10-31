@@ -86,7 +86,7 @@ describe("build engine operational failures", () => {
 
     await expect(reconstructBuildRun(runId)).resolves.toBeUndefined();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation: "build.reconstruct_run",
       status: 500,
     });
@@ -110,7 +110,7 @@ describe("build engine operational failures", () => {
 
     await expect(reconstructBuildRun(runId)).resolves.toBeUndefined();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation: "build.reconstruct_run",
       status: 500,
     });
@@ -164,7 +164,7 @@ describe("build engine operational failures", () => {
       dispatch: { sandbox: { sandboxId: "new-sandbox" } },
     });
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation: "build.resume_observer_store_read",
       status: 500,
     });
@@ -187,7 +187,7 @@ describe("build engine operational failures", () => {
       ),
     ).resolves.toBeNull();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build",
+      routeFamily: "/api/build",
       operation: "build.file_artifact_read",
       status: 404,
     });

@@ -79,7 +79,7 @@ export function sidecarVerifierPublicKeyPem(): string {
       source: "local",
       error,
       context: {
-        routeFamily: "/api/bff/build",
+        routeFamily: "/api/build",
         operation: "build.sidecar_verifier_config",
       },
     });

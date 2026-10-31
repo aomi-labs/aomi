@@ -18,7 +18,7 @@ function identifySupervisorFailure(
   return {
     source: "local",
     error,
-    context: { routeFamily: "/api/bff/build/supervise", operation },
+    context: { routeFamily: "/api/build/supervise", operation },
   };
 }
 

@@ -117,8 +117,8 @@ beforeEach(() => {
 
 describe("build control plane: launch and deployments", () => {
   it("lists the signed-in user's projects through the manager as the aomi-edge service", async () => {
-    expect((await build("/api/bff/launch/projects")).status).toBe(401);
-    const response = await build("/api/bff/deployments/projects", { headers: { cookie: await sessionCookie() } });
+    expect((await build("/api/build/launch/projects")).status).toBe(401);
+    const response = await build("/api/build/deployments/projects", { headers: { cookie: await sessionCookie() } });
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.githubLogin).toBe("octocat");
@@ -135,7 +135,7 @@ describe("build control plane: launch and deployments", () => {
   });
 
   it("answers the SDK status from the server tags with the CLI fix hint", async () => {
-    const response = await build("/api/bff/launch/sdk-status");
+    const response = await build("/api/build/launch/sdk-status");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       ok: true,
@@ -150,7 +150,7 @@ describe("build control plane: launch and deployments", () => {
 
   it("gates writes on the cookie origin and on project ownership", async () => {
     const cookie = await sessionCookie();
-    const crossSite = await build("/api/bff/deployments/preflight", {
+    const crossSite = await build("/api/build/deployments/preflight", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ projectId: 7 }),
@@ -158,7 +158,7 @@ describe("build control plane: launch and deployments", () => {
     });
     expect(crossSite.status).toBe(403);
 
-    const notOwned = await build("/api/bff/launch/activate", {
+    const notOwned = await build("/api/build/launch/activate", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ projectId: 999, releaseTags: ["api-v1"], apps: ["api"] }),
@@ -170,7 +170,7 @@ describe("build control plane: launch and deployments", () => {
 
   it("accepts a CLI bearer with the right scope on the attempts route", async () => {
     const readOnly = await cliBearer(["deployment:read"]);
-    const response = await build("/api/bff/launch/attempts?projectId=7", {
+    const response = await build("/api/build/launch/attempts?projectId=7", {
       headers: { authorization: `Bearer ${readOnly}` },
     });
     expect(response.status).toBe(200);
@@ -180,7 +180,7 @@ describe("build control plane: launch and deployments", () => {
 
     // Starting an attempt needs the deploy scope; a read-only bearer falls back
     // to the (absent) cookie session.
-    const write = await build("/api/bff/launch/attempts", {
+    const write = await build("/api/build/launch/attempts", {
       method: "POST",
       headers: { authorization: `Bearer ${readOnly}`, "content-type": "application/json" },
       body: JSON.stringify({ projectId: 7, action: "start" }),
@@ -190,7 +190,7 @@ describe("build control plane: launch and deployments", () => {
   });
 
   it("answers 405 for a method the route does not take", async () => {
-    const response = await build("/api/bff/launch/projects", { method: "DELETE" });
+    const response = await build("/api/build/launch/projects", { method: "DELETE" });
     expect(response.status).toBe(405);
     expect(response.headers.get("allow")).toBe("GET");
   });
@@ -199,13 +199,13 @@ describe("build control plane: launch and deployments", () => {
 describe("build control plane: operate", () => {
   it("scopes bots to the user's projects and refuses apps they do not own", async () => {
     const cookie = await sessionCookie();
-    const list = await build("/api/bff/operate/bots?projectId=7", { headers: { cookie } });
+    const list = await build("/api/build/operate/bots?projectId=7", { headers: { cookie } });
     expect(list.status).toBe(200);
     const body = await list.json();
     expect(body.bots).toEqual([]);
     expect(body.projects.map((project: { id: number }) => project.id)).toEqual([7]);
 
-    const foreign = await build("/api/bff/operate/bots", {
+    const foreign = await build("/api/build/operate/bots", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ applicationIds: [12], handoverApplicationId: 12, credential: "tg-token" }),
@@ -218,15 +218,15 @@ describe("build control plane: operate", () => {
   it("rejects an unknown project and a malformed platform before reaching the manager", async () => {
     const cookie = await sessionCookie();
     seen = [];
-    const badPlatform = await build("/api/bff/operate/usage?platform=Not%20Valid", { headers: { cookie } });
+    const badPlatform = await build("/api/build/operate/usage?platform=Not%20Valid", { headers: { cookie } });
     expect(badPlatform.status).toBe(400);
     expect(seen).toEqual([]);
-    const unknown = await build("/api/bff/operate/logs?projectId=999", { headers: { cookie } });
+    const unknown = await build("/api/build/operate/logs?projectId=999", { headers: { cookie } });
     expect(unknown.status).toBe(404);
   });
 
   it("still passes the build sandbox routes through to Vercel", async () => {
-    const response = await build("/api/bff/build/supervise", { method: "POST", headers: { cookie: "aomi_github=x" } });
+    const response = await build("/api/build/supervise", { method: "POST", headers: { cookie: "aomi_github=x" } });
     expect((await response.json()).tag).toBe("vercel");
   });
 });

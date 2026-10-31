@@ -128,10 +128,10 @@ function stubFetch() {
           : input.url;
     const method = (init?.method ?? "GET").toUpperCase();
 
-    if (url.includes("/api/bff/auth/github/status"))
+    if (url.includes("/api/build/auth/github/status"))
       return Response.json(SESSION);
 
-    if (url.includes("/api/bff/operate/bots")) {
+    if (url.includes("/api/build/operate/bots")) {
       if (method === "GET" && url.includes("/command-secret"))
         return Response.json({ commandSecret: "preview-secret-0000" });
       if (method === "POST" && url.includes("/webhook"))

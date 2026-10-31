@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const load = () => import("@/server/bff/build/routes");
 
-export const Route = createFileRoute("/api/bff/build/runs/download")({
+export const Route = createFileRoute("/api/build/runs/decision")({
   server: {
     handlers: {
-      GET: async ({ request }) => (await load()).buildRunDownloadRoute(request),
+      POST: async ({ request }) => (await load()).buildRunDecisionRoute(request),
     },
   },
 });

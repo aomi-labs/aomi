@@ -60,7 +60,7 @@ npm install @aomi-labs/deploy      # or pnpm add / yarn add
 ## Step 1 — Serve the BFF routes (server)
 
 `@aomi-labs/deploy` ships no route handlers. Write the same-origin routes the
-browser client calls (`/api/bff/launch/*` and `/api/bff/auth/github/*`) in your
+browser client calls (`/api/build/launch/*` and `/api/build/auth/github/*`) in your
 server, each a plain `(Request) => Promise<Response>` over a `BackendClient`.
 Aomi's Build app is the worked example: `apps/build/src/server/bff/deploy/routes.ts`.
 
@@ -80,10 +80,10 @@ export const client = () =>
 Routes the browser client expects (Next.js App Router paths shown):
 
 ```
-app/api/bff/launch/{preflight,create,deploy,activate,redeploy}/route.ts   POST
-app/api/bff/launch/{status,apps,projects}/route.ts                        GET
-app/api/bff/auth/github/{login,callback,status}/route.ts                  GET
-app/api/bff/auth/github/signout/route.ts                                  POST
+app/api/build/launch/{preflight,create,deploy,activate,redeploy}/route.ts   POST
+app/api/build/launch/{status,apps,projects}/route.ts                        GET
+app/api/build/auth/github/{login,callback,status}/route.ts                  GET
+app/api/build/auth/github/signout/route.ts                                  POST
 ```
 
 `@aomi-labs/deploy/bff` has the shared pieces: `identifyLaunchError` maps a
@@ -100,7 +100,7 @@ signed-in GitHub user from your own session.
 // client-side
 import { createLaunchClient } from "@aomi-labs/deploy/launch";
 
-const launch = createLaunchClient(); // defaults to /api/bff/launch + /api/bff/auth/github
+const launch = createLaunchClient(); // defaults to /api/build/launch + /api/build/auth/github
 // createLaunchClient({ basePath: "/api/deploy", authBasePath: "/api/gh" }) to relocate
 ```
 
@@ -160,7 +160,7 @@ page you'll have to hand-reconcile on every upstream change.
 
 ## Verify it works
 
-- Server routes return JSON, not HTML: `curl -s localhost:3000/api/bff/auth/github/status` → `{"signedIn":false,...}`.
+- Server routes return JSON, not HTML: `curl -s localhost:3000/api/build/auth/github/status` → `{"signedIn":false,...}`.
 - No secret in the browser bundle: grep your client build for the activation
   token — it must not appear. If it does, you imported `@aomi-labs/deploy` or
   `/bff` from a client component.

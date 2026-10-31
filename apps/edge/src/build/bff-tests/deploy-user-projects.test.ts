@@ -5,7 +5,7 @@ import { userProjectsRoute } from "./routes";
 import { getGitHubSession } from "./harness";
 
 function req(platform?: string, projectId?: string) {
-  const url = new URL("http://localhost:3000/api/bff/launch/projects");
+  const url = new URL("http://localhost:3000/api/build/launch/projects");
   if (platform) url.searchParams.set("platform", platform);
   if (projectId) url.searchParams.set("projectId", projectId);
   return new Request(url);

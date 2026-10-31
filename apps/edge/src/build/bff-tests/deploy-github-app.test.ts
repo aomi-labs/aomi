@@ -15,7 +15,7 @@ vi.mock("../manager-client", async (original) => ({
 
 import { githubAppInstallationsRoute } from "./routes";
 const get = (search = "") =>
-  new Request(`https://build.test/api/bff/deployments/github-app${search}`);
+  new Request(`https://build.test/api/build/deployments/github-app${search}`);
 const report = { status: "ok", repositories: [] };
 beforeEach(() => {
   vi.clearAllMocks();

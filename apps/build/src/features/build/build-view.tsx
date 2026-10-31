@@ -265,7 +265,7 @@ export function BuildView() {
     // Real runs download the generated crate as a tarball.
     if (BUILD_ENGINE_ACTIVE && engineRunId) {
       window.location.assign(
-        `/api/bff/build/runs/download?id=${encodeURIComponent(engineRunId)}`,
+        `/api/build/runs/download?id=${encodeURIComponent(engineRunId)}`,
       );
       toast({
         title: "Downloading crate",
@@ -305,7 +305,7 @@ export function BuildView() {
       void (async () => {
         try {
           const res = await fetch(
-            `/api/bff/build/runs/file?id=${encodeURIComponent(engineRunId)}&path=${encodeURIComponent(path)}`,
+            `/api/build/runs/file?id=${encodeURIComponent(engineRunId)}&path=${encodeURIComponent(path)}`,
           );
           if (!res.ok) {
             const body = (await res.json().catch(() => ({}))) as {

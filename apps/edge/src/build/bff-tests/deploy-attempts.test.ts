@@ -19,7 +19,7 @@ vi.mock("../manager-client", async (original) => ({
 
 import { deploymentAttemptsRoute } from "./routes";
 const post = (body: unknown) =>
-  new Request("https://build.test/api/bff/launch/attempts", {
+  new Request("https://build.test/api/build/launch/attempts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

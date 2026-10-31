@@ -23,7 +23,7 @@ import { createFailurePipeline } from "./pipeline";
 import { getBffSentryRelease, initBffSentry } from "./route";
 
 const context = {
-  routeFamily: "/api/bff/launch/deploy",
+  routeFamily: "/api/build/launch/deploy",
   operation: "launch.deploy",
   method: "POST",
 };

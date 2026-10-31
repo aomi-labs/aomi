@@ -136,7 +136,7 @@ describe("artifactFromOutputs", () => {
     ).toEqual({ fileTree: [], crateTarB64: "dGFy", warning: "" });
     expect(telemetry.capture).toHaveBeenCalledOnce();
     expect(telemetry.capture.mock.calls[0]?.[1]).toEqual({
-      routeFamily: "/api/bff/build/runs",
+      routeFamily: "/api/build/runs",
       operation: "build.artifact_tree_parse",
       status: 500,
     });

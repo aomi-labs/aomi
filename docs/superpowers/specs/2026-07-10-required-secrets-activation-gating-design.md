@@ -188,7 +188,7 @@ rather than a generic failure.
 
 ```
 GET /api/platforms/:p/apps        -> camelPlatformApp -> PlatformApp.secrets[]
-GET /api/bff/deployments/secrets  -> listAppSecrets   -> { byApp: string[] }
+GET /api/build/deployments/secrets  -> listAppSecrets   -> { byApp: string[] }
                                           |
                         missingRequiredSecrets(slots, configuredKeys)
                                           |
