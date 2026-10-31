@@ -78,6 +78,7 @@ export default defineConfig({
       "apps/landing/src/**/*.{test,spec}.{ts,tsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/edge/src/**/*.{test,spec}.ts",
+      "apps/edge/scripts/**/*.test.mjs",
       "apps/edge/scripts/**/*.{test,spec}.mjs",
     ],
     exclude: [
