@@ -1,5 +1,5 @@
 {
-  "version": "payments-v2",
-  "commit": "d27f488b0cc4b7cb21929475c347ededf6c22127",
-  "ref": "refs/tags/consumer-baseline/payments-v2"
+  "version": "ts-reform-clean-cutover",
+  "commit": "732600341df492a301f832073820fb23f5657daf",
+  "ref": "refs/tags/consumer-baseline/ts-reform-clean-cutover"
 }
