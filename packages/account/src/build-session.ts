@@ -1,11 +1,11 @@
-/**
- * Aomi Build's standalone GitHub session, ported from the Build server's
- * `server/cookies/github.ts` with the same cookie names, audiences, lifetimes
- * and claims so cookies issued by either side verify on the other during the
- * cutover. The backend resolves the verified GitHub identity; this module only
- * signs and reads what Build stores about it.
- */
-import { CompactEncrypt, SignJWT, compactDecrypt, jwtVerify, type JWTPayload } from "jose";
+/** Build's shared session format for the Edge and Build server. */
+import {
+  CompactEncrypt,
+  SignJWT,
+  compactDecrypt,
+  jwtVerify,
+  type JWTPayload,
+} from "jose";
 
 export const GITHUB_SESSION_COOKIE = "aomi_github";
 /** Opaque Manager-signed grant, intentionally separate from the session. */
@@ -93,7 +93,10 @@ export class GitHubSessionSigner {
     return token.sign(this.secret);
   }
 
-  private async verify(token: string | undefined, audience?: string): Promise<JWTPayload | null> {
+  private async verify(
+    token: string | undefined,
+    audience?: string,
+  ): Promise<JWTPayload | null> {
     if (!token) return null;
     try {
       return (
@@ -109,13 +112,15 @@ export class GitHubSessionSigner {
 
   private key(): Promise<Uint8Array> {
     this.exchangeKey ??= crypto.subtle
-      .digest("SHA-256", this.secret as BufferSource)
+      .digest("SHA-256", this.secret)
       .then((digest) => new Uint8Array(digest));
     return this.exchangeKey;
   }
 
   issueSession(session: GitHubSession): Promise<string> {
-    return this.sign(sessionClaims(session), SESSION_TTL_SECONDS, { subject: session.githubUserId });
+    return this.sign(sessionClaims(session), SESSION_TTL_SECONDS, {
+      subject: session.githubUserId,
+    });
   }
 
   async readSession(token: string | undefined): Promise<GitHubSession | null> {
@@ -137,20 +142,30 @@ export class GitHubSessionSigner {
   ): Promise<GitHubSession | null> {
     const payload = await this.verify(token, CLI_SESSION_AUDIENCE);
     const scopes = Array.isArray(payload?.scopes) ? payload.scopes : [];
-    if (!payload || payload.kind !== "cli_session" || (requiredScope && !scopes.includes(requiredScope)))
+    if (
+      !payload ||
+      payload.kind !== "cli_session" ||
+      (requiredScope && !scopes.includes(requiredScope))
+    )
       return null;
     return sessionFromPayload(payload);
   }
 
   issueOAuthRequest(request: GitHubOAuthRequest): Promise<string> {
     return this.sign(
-      { kind: "github_oauth_request", oauthState: request.oauthState, continuation: request.continuation },
+      {
+        kind: "github_oauth_request",
+        oauthState: request.oauthState,
+        continuation: request.continuation,
+      },
       OAUTH_REQUEST_TTL_SECONDS,
       { audience: OAUTH_REQUEST_AUDIENCE },
     );
   }
 
-  async readOAuthRequest(token: string | undefined): Promise<GitHubOAuthRequest | null> {
+  async readOAuthRequest(
+    token: string | undefined,
+  ): Promise<GitHubOAuthRequest | null> {
     const payload = await this.verify(token, OAUTH_REQUEST_AUDIENCE);
     const continuation = continuationFrom(payload?.continuation);
     if (
@@ -166,24 +181,43 @@ export class GitHubSessionSigner {
   /**
    * Encrypt the final CLI session inside the short-lived PKCE exchange code.
    * Repeating an exchange returns the same session token rather than minting
-   * additional credentials; the token is opaque until the edge decrypts it.
+   * additional credentials; the token is opaque until the server decrypts it.
    */
-  async issueCliExchange(session: GitHubSession, codeChallenge: string): Promise<string> {
+  async issueCliExchange(
+    session: GitHubSession,
+    codeChallenge: string,
+  ): Promise<string> {
     const accessToken = await this.issueCliSession(session);
     const payload = new TextEncoder().encode(
-      JSON.stringify({ accessToken, codeChallenge, expiresAt: this.seconds() + CLI_EXCHANGE_TTL_SECONDS }),
+      JSON.stringify({
+        accessToken,
+        codeChallenge,
+        expiresAt: this.seconds() + CLI_EXCHANGE_TTL_SECONDS,
+      }),
     );
     return new CompactEncrypt(payload)
-      .setProtectedHeader({ alg: "dir", enc: "A256GCM", typ: CLI_EXCHANGE_TYPE })
+      .setProtectedHeader({
+        alg: "dir",
+        enc: "A256GCM",
+        typ: CLI_EXCHANGE_TYPE,
+      })
       .encrypt(await this.key());
   }
 
-  async readCliExchange(code: string | undefined): Promise<GitHubCliExchange | null> {
+  async readCliExchange(
+    code: string | undefined,
+  ): Promise<GitHubCliExchange | null> {
     if (!code) return null;
     try {
-      const { plaintext, protectedHeader } = await compactDecrypt(code, await this.key());
+      const { plaintext, protectedHeader } = await compactDecrypt(
+        code,
+        await this.key(),
+      );
       if (protectedHeader.typ !== CLI_EXCHANGE_TYPE) return null;
-      const decoded = JSON.parse(new TextDecoder().decode(plaintext)) as Record<string, unknown>;
+      const decoded = JSON.parse(new TextDecoder().decode(plaintext)) as Record<
+        string,
+        unknown
+      >;
       if (
         typeof decoded.accessToken !== "string" ||
         typeof decoded.codeChallenge !== "string" ||
@@ -192,7 +226,13 @@ export class GitHubSessionSigner {
       )
         return null;
       const session = await this.readCliSession(decoded.accessToken);
-      return session ? { accessToken: decoded.accessToken, session, codeChallenge: decoded.codeChallenge } : null;
+      return session
+        ? {
+            accessToken: decoded.accessToken,
+            session,
+            codeChallenge: decoded.codeChallenge,
+          }
+        : null;
     } catch {
       return null;
     }
@@ -200,7 +240,10 @@ export class GitHubSessionSigner {
 }
 
 function sessionClaims(session: GitHubSession) {
-  return { login: session.githubLogin, installationId: session.installationId ?? null };
+  return {
+    login: session.githubLogin,
+    installationId: session.installationId ?? null,
+  };
 }
 
 function sessionFromPayload(payload: JWTPayload): GitHubSession | null {
@@ -209,7 +252,10 @@ function sessionFromPayload(payload: JWTPayload): GitHubSession | null {
   return {
     githubUserId,
     githubLogin: typeof payload.login === "string" ? payload.login : "",
-    installationId: typeof payload.installationId === "string" ? payload.installationId : null,
+    installationId:
+      typeof payload.installationId === "string"
+        ? payload.installationId
+        : null,
   };
 }
 
@@ -217,7 +263,11 @@ function continuationFrom(value: unknown): GitHubOAuthContinuation | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
   if (candidate.kind === "browser") return { kind: "browser" };
-  if (candidate.kind === "template" && typeof candidate.platform === "string" && PLATFORM_PATTERN.test(candidate.platform))
+  if (
+    candidate.kind === "template" &&
+    typeof candidate.platform === "string" &&
+    PLATFORM_PATTERN.test(candidate.platform)
+  )
     return { kind: "template", platform: candidate.platform };
   if (
     candidate.kind === "claim" &&
@@ -244,5 +294,7 @@ function continuationFrom(value: unknown): GitHubOAuthContinuation | null {
 /** The bearer a CLI presents, or nothing. */
 export function bearerOf(request: Request): string {
   const authorization = request.headers.get("authorization");
-  return authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : "";
+  return authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
 }

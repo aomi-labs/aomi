@@ -1,5 +1,12 @@
 # @aomi-labs/react
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @aomi-labs/client@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

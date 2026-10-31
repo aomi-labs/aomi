@@ -19,7 +19,7 @@ Generated wire types and the public SDK facade remain supported.
 | Canonical account graph response and account operations | `packages/client/src/account/` |
 | React orchestration and assistant-ui adaptation | `packages/react/src/runtime/` |
 | Chat display and wallet adapters | Widget package |
-| First-party cookies, widget origin binding, OAuth and upstream authority | `packages/account` and app BFFs |
+| First-party cookies, widget origin binding, OAuth and upstream authority | `packages/account` and the Edge |
 | Deployment console | `apps/build` |
 | Backend orchestration and on-chain execution | Rust backend; never a display cache |
 
@@ -50,7 +50,7 @@ cancels private work before the new identity can render it.
 ## Identity and wallets
 
 The first-party browser presents a Better Auth cookie; an embed presents an
-origin-bound widget session; the CLI uses its own credential. The BFF resolves
+origin-bound widget session; the CLI uses its own credential. The Edge resolves
 the principal, checks the route's grants and ownership, strips browser cookies
 and inbound authorization, and creates the appropriate upstream credential.
 An invalid explicit credential never falls back to an ambient cookie. Cookie
@@ -68,7 +68,7 @@ only an explicit public projection and carry no cookie or installed-app state.
 
 ## Hosts and compatibility
 
-Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Build owns deployment APIs and screens; Portal exposes no legacy deployment redirects.
+Portal hosts the chat and auth pages; the Edge serves auth, OAuth, MCP and API requests on its origin. Build owns deployment UI. Build owns deployment APIs and screens; Portal exposes no legacy deployment redirects.
 The dev wallet seam remains available only outside production because real
 auth, signing and account-isolation tests depend on it.
 

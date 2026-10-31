@@ -39,13 +39,13 @@ const RESOURCES: Record<string, string> = {
   "/v1/account": "your account settings",
 };
 
-/** `aomi account login` registers one client per machine under this name. */
+/** `aomi login` registers one client per machine under this name. */
 const firstParty = (name?: string) => Boolean(name?.startsWith("Aomi CLI · "));
 
 const home = () => window.location.assign("/");
 const normalized = (value: string) => value.trim().toUpperCase();
 
-/** `aomi account login`'s device code: the wallet picker if needed, then the code. */
+/** `aomi login`'s device code: the wallet picker if needed, then the code. */
 export function OAuthDeviceClient() {
   return (
     <StandalonePage
@@ -311,7 +311,7 @@ export function DeviceSheet() {
             ? { title: "Not connected", description: "You can close this tab." }
             : {
                 title: "This code doesn’t work",
-                description: "Run aomi account login again in your terminal.",
+                description: "Run aomi login again in your terminal.",
               })}
         onClose={home}
       />

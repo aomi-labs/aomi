@@ -2,6 +2,19 @@
 
 ## Last Updated
 
+2026-10-31 — AUTH CLEANUP FOLLOW-UP TO #814 (`codex/auth-cleanup`).
+  Terminal login uses OAuth device authorization (`aomi login`, `/oauth/device`).
+  Removed the retired Privy/Para loopback page, provider-link grant storage and
+  `/v1/account/device-auth/*` handlers, plus the unused Better Auth
+  `/v1/account/session/cli` rotation endpoint and their capabilities.
+  Provider browser sign-in/linking, widget sessions and ordinary REST session
+  bearers remain supported. Edge and Build use the same GitHub session signer
+  from `@aomi-labs/account/build-session`; cookie names, claims, audiences,
+  lifetimes and exchange encryption are unchanged. Auth errors and diagnostics
+  name the Edge, and the device page points to the current terminal command.
+  Public package versions and the client API report are updated for this
+  continuation of the unreleased TypeScript clean cutover.
+
 2026-10-31 — CLEAN CUTOVER STACK ON #806 (`codex/ts-reform-cleanup`).
   No legacy CLI migration/command aliases, guest endpoint aliases, SDK wallet
   option, or widget compatibility exports/props/deep paths. Build APIs use

@@ -24,7 +24,7 @@ import {
   type GitHubCliLoginRequest,
   type GitHubOAuthContinuation,
   type GitHubSession,
-} from "./session";
+} from "@aomi-labs/account/build-session";
 
 // Default one-shot App OAuth client ids (app index 2). A deployment may use
 // its own app, whose matching credentials stay in Manager's index-2 config.

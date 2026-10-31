@@ -52,8 +52,7 @@ venue-specific URL.
   (`@aomi-labs/account/better-auth`, built once per isolate) and its OAuth
   server, device login and consent under `/api/auth/**`, widget sign-in
   (`/api/auth/widget/**`), the account graph (`/v1/account`, identities,
-  wallets, connections, merge, provider links, CLI session), device auth
-  (`/v1/account/device-auth/**`), the OAuth discovery documents and
+  wallets, connections, merge and provider links), the OAuth discovery documents and
   `/openapi.json`. Every request that needs the database gets its own pg
   pool over the `HYPERDRIVE` binding (`withDatabase`), closed when it ends.
 - `src/landing.ts`: the Landing surface. On a `LANDING_HOSTS` host the edge

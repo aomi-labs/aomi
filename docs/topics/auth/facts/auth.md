@@ -82,3 +82,14 @@ only when the corresponding REST credentials are configured.
 - [auth/facts/wallet-kit.md](wallet-kit.md)
 - [auth/facts/base-account.md](base-account.md)
 - [client-runtime/facts/react-runtime.md](../../client-runtime/facts/react-runtime.md)
+
+### Terminal authentication
+
+`aomi login` uses the OAuth device authorization flow and `/oauth/device`.
+The retired Privy/Para loopback handoff (`/device-auth` and
+`/v1/account/device-auth/*`) and its SDK grant method are removed. Provider
+sign-in and linking remain available through the browser account flow.
+
+The unused `/v1/account/session/cli` rotation endpoint is removed. OAuth
+refresh remains the terminal renewal mechanism; Better Auth session bearers
+remain supported for REST sign-in.

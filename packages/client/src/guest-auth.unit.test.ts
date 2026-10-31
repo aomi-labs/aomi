@@ -30,7 +30,7 @@ describe("guest connection diagnostics", () => {
       });
 
       await expect(guest()).rejects.toThrow(
-        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal/BFF at https://${portal}. Check baseUrl.`,
+        `Aomi guest sign-in failed with HTTP 404 at https://${backend} (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal origin at https://${portal}. Check baseUrl.`,
       );
       expect(fetch).toHaveBeenCalledOnce();
       expect(String(fetch.mock.calls[0]?.[0])).toBe(
@@ -47,7 +47,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/guest\)\. Check that baseUrl points to the Portal\/BFF\.$/,
+      /^Aomi guest sign-in failed with HTTP 404 at https:\/\/custom.example \(\/api\/auth\/guest\)\. Check that baseUrl points to the Portal origin\.$/,
     );
   });
 
@@ -88,7 +88,7 @@ describe("guest connection diagnostics", () => {
     await expect(
       client.requestResponse("POST", "/v1/agent/chat", {}),
     ).rejects.toThrow(
-      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal/BFF at https://chat-staging.aomi.dev. Check baseUrl.",
+      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal origin at https://chat-staging.aomi.dev. Check baseUrl.",
     );
     expect(fetch).toHaveBeenCalledOnce();
   });

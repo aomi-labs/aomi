@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "license": "MIT",
   "repository": {
