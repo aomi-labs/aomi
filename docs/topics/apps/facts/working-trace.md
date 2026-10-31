@@ -5,10 +5,11 @@ status: authoritative
 area: apps
 review_after_days: 30
 sources_of_truth:
-  - packages/widget/src/thread/tool-interpreter/pipeline.ts
-  - packages/widget/src/thread/tool-interpreter/protocols/index.ts
-  - packages/widget/src/thread/tool-interpreter/identity.ts
-  - packages/widget/src/thread/tool-interpreter/present/descriptors.ts
+  - packages/client/src/trace/pipeline.ts
+  - packages/client/src/trace/protocols/protocol-matchers.ts
+  - packages/client/src/trace/identity.ts
+  - packages/client/src/trace/present/descriptors.ts
+  - packages/widget/src/thread/trace-icons.ts
   - packages/widget/src/thread/working-trace-rows.tsx
   - packages/widget/src/thread/working-trace-contract.test.tsx
 ---
@@ -84,15 +85,13 @@ core tools. `protocols` holds one adapter per integration, with its exact tool
 names, result validation, and semantic facts. `pipeline.ts` only asks the core
 and protocol registries for a matcher; it contains no protocol rules. To add a
 protocol such as Curve, add `protocols/curve.ts` and register its adapter in
-`protocols/index.ts`. The widget registry discovers protocol source files when
-it builds, so no second source-file manifest update is needed. A protocol
-adapter must return neutral fallback when its result is invalid.
+`protocols/protocol-matchers.ts`. A protocol adapter must return neutral
+fallback when its result is invalid.
 
 ## Verification
 
 `working-trace-contract.test.tsx` covers names, unknown tools, EVM and Solana
 count units, incomplete simulations, commit progress, pending row markers,
-and overflow. `tool-interpreter.test.ts` covers supported tool payloads.
+and overflow. `packages/client/src/trace/decode.test.ts` covers supported tool
+payloads.
 `tests/e2e/journeys/tx-review-sign.spec.ts` verifies review, rejection and replay on the Portal and embedded widget using the shared agent ledger. Real wallet authorization and signing remain in `visual-signing-contracts.spec.ts`. The image above is a historical illustration.
-The widget registry manifest must include every interpreter source dependency
-before generating or packing the registry.

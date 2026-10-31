@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { interpretToolStep } from "@/thread/attribution";
 import { ToolChipView, ToolStepRow } from "./working-trace-rows";
 
 const labels = (step: ReturnType<typeof interpretToolStep>) =>

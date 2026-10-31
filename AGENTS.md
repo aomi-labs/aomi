@@ -71,10 +71,9 @@ nobody could read any of them back.
 - **Never one value in two stores.** If two stores must hold the same value,
   that is a bug to remove. Until it is removed, document both names together
   and rotate them together, such as the edge's `BUILD_SESSION_SECRET` and
-  Build's `PORTAL_ONLY_SESSION_SECRET`.
+  the Build server's `BUILD_SESSION_SECRET`.
 - **Public halves are committed and verified.** A signing key's public half
-  lives in committed topology (`apps/edge/src/topology-data.ts`,
-  `packages/account/src/topology-data.ts`). Commit it in the same change that
+  lives in committed topology (`packages/service-identity/src/topologies.ts`). Commit it in the same change that
   stores the private half. `pnpm --filter aomi-edge generate-key <env>` prints
   both halves and the `gh secret set` command.
 - **Non-secrets are committed config. Constants are code.** A value that is the

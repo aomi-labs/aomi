@@ -25,12 +25,12 @@ import { EdgeError } from "../kernel/errors";
 import { cursor, id, numeric, text } from "../kernel/route";
 import { endpoint, notFound, type BuildRoute, type Call } from "./endpoint";
 import { reportFailure } from "./failures";
-import { platform } from "./platform";
+import { platformSlug } from "./endpoint";
 
-const ops = (name: string) => `/api/bff/operate/${name}`;
-const BOT = (action: string) => new RegExp(`^/api/bff/operate/bots/(?<botId>[^/]+)/${action}$`);
+const ops = (name: string) => `/api/build/operate/${name}`;
+const BOT = (action: string) => new RegExp(`^/api/build/operate/bots/(?<botId>[^/]+)/${action}$`);
 
-const scoped = z.object({ platform: platform.optional(), projectId: id.optional() });
+const scoped = z.object({ platform: platformSlug.optional(), projectId: id.optional() });
 type Scoped = z.output<typeof scoped>;
 
 /** A page size: the fallback when absent or invalid, capped at `max`. */
@@ -65,7 +65,7 @@ async function view(call: Call<Scoped>, account = false): Promise<View> {
   const { input, session, ctx } = call;
   const githubUserId = session.githubUserId;
   if (input.projectId === undefined) {
-    const selected = input.platform ?? ctx.config.platforms[0];
+    const selected = input.platform ?? ctx.config.defaultPlatform;
     return { githubUserId, platform: selected, projects: () => listProjects(call, account ? undefined : selected) };
   }
   const project = (await listProjects(call)).find((candidate) => candidate.id === input.projectId);

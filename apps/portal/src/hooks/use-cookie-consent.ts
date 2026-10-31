@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
 
 const CONSENT_KEY = "aomi-cookie-consent";

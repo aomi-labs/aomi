@@ -2,22 +2,18 @@
 
 import { describe, expect, it } from "vitest";
 import { readAccountAuthEnv } from "./env";
-import { aomiOAuthResources } from "./oauth-policy";
 
 const DEV_BETTER_AUTH_SECRET =
   "dev-better-auth-secret-change-me-at-least-32-bytes";
-const TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/aomi";
 
 describe("readAccountAuthEnv", () => {
-  it("keeps the local/test secret default but never defaults the database", () => {
+  it("keeps the local/test secret default", () => {
     const env = readAccountAuthEnv({
       BETTER_AUTH_URL: "http://localhost:3001",
-      DATABASE_URL: TEST_DATABASE_URL,
       NODE_ENV: "test",
     });
 
     expect(env.betterAuthSecret).toBe(DEV_BETTER_AUTH_SECRET);
-    expect(env.databaseUrl).toBe(TEST_DATABASE_URL);
   });
 
   it.each([
@@ -28,7 +24,6 @@ describe("readAccountAuthEnv", () => {
       readAccountAuthEnv({
         BETTER_AUTH_SECRET,
         BETTER_AUTH_URL: "https://app.aomi.dev",
-        DATABASE_URL: "postgresql://prod.example/aomi",
         NODE_ENV: "production",
       }),
     ).toThrow(
@@ -36,114 +31,26 @@ describe("readAccountAuthEnv", () => {
     );
   });
 
-  it("requires an explicit database URL in every environment", () => {
-    for (const NODE_ENV of ["development", "test", "production"]) {
-      expect(() =>
-        readAccountAuthEnv({
-          BETTER_AUTH_SECRET: "prod-secret",
-          BETTER_AUTH_URL: "https://app.aomi.dev",
-          NODE_ENV,
-        }),
-      ).toThrow("DATABASE_URL is not set");
-    }
-  });
-
-  it("uses the immutable Vercel deployment as an ephemeral preview issuer", () => {
-    const preview = {
-      BETTER_AUTH_SECRET: "preview-secret",
-      DATABASE_URL: "postgresql://preview.example/aomi",
-      NODE_ENV: "production",
-      VERCEL_ENV: "preview",
-      VERCEL_BRANCH_URL:
-        "chat-portal-git-codex-merge-bff-betterauth-aomi-labs.vercel.app",
-      VERCEL_URL: "chat-portal-random-deployment-id-aomi-labs.vercel.app",
-      VERCEL_PROJECT_PRODUCTION_URL: "chat.aomi.dev",
-      AOMI_AUTH_DOMAIN: "chat-staging.aomi.dev",
-      AOMI_TRUSTED_ORIGINS:
-        "https://chat-staging.aomi.dev, https://extra-preview.aomi.dev",
-    };
-    const env = readAccountAuthEnv(preview);
-
-    expect(env.betterAuthUrl).toBe(
-      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
-    );
-    expect(env.siweDomain).toBe(
-      "chat-portal-random-deployment-id-aomi-labs.vercel.app",
-    );
-    expect(env.trustedOrigins).toEqual([
-      "https://chat-staging.aomi.dev",
-      "https://extra-preview.aomi.dev",
-      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
-      "https://chat-portal-git-codex-merge-bff-betterauth-aomi-labs.vercel.app",
-      "https://chat.aomi.dev",
-    ]);
-    expect(aomiOAuthResources(preview).agentRest).toBe(
-      `${env.betterAuthUrl}/v1/agent`,
-    );
-  });
-
-  it("does not use an explicitly configured branch alias as an immutable issuer", () => {
-    const env = readAccountAuthEnv({
-      BETTER_AUTH_SECRET: "preview-secret",
-      BETTER_AUTH_URL: "https://chat-portal-git-feature-aomi-labs.vercel.app",
-      DATABASE_URL: "postgresql://preview.example/aomi",
-      NODE_ENV: "production",
-      VERCEL_ENV: "preview",
-      VERCEL_BRANCH_URL: "chat-portal-git-feature-aomi-labs.vercel.app",
-      VERCEL_URL: "chat-portal-immutable-aomi-labs.vercel.app",
-    });
-    expect(env.betterAuthUrl).toBe(
-      "https://chat-portal-immutable-aomi-labs.vercel.app",
-    );
-  });
-
-  it("lets an explicit BETTER_AUTH_URL win on preview (stable custom-alias deploys)", () => {
-    // chat-staging.aomi.dev is a stable alias over a `preview` build; the browser
-    // is served on the alias, not the *.vercel.app URL, so auth must key off the
-    // explicit host or SIWE domain/origin checks reject every login.
-    const env = readAccountAuthEnv({
-      BETTER_AUTH_SECRET: "preview-secret",
-      BETTER_AUTH_URL: "https://chat-staging.aomi.dev",
-      DATABASE_URL: "postgresql://preview.example/aomi",
-      NODE_ENV: "production",
-      VERCEL_ENV: "preview",
-      VERCEL_BRANCH_URL: "chat-portal-git-main-aomi-labs.vercel.app",
-      VERCEL_URL: "chat-portal-random-deployment-id-aomi-labs.vercel.app",
-    });
-
-    expect(env.betterAuthUrl).toBe("https://chat-staging.aomi.dev");
-    expect(env.siweDomain).toBe("chat-staging.aomi.dev");
-    // still trusts the auto-detected preview URLs so the deploy's own hostname works
-    expect(env.trustedOrigins).toEqual([
-      "https://chat-staging.aomi.dev",
-      "https://chat-portal-git-main-aomi-labs.vercel.app",
-      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
-    ]);
-  });
-
-  it("keeps explicit production auth URL while trusting Vercel aliases", () => {
+  it("trusts the configured origins and the auth URL, nothing inferred", () => {
     const env = readAccountAuthEnv({
       BETTER_AUTH_SECRET: "prod-secret",
       BETTER_AUTH_URL: "https://chat.aomi.dev",
-      DATABASE_URL: "postgresql://prod.example/aomi",
+      AOMI_TRUSTED_ORIGINS: "https://build.aomi.dev",
       NODE_ENV: "production",
-      VERCEL_ENV: "production",
-      VERCEL_URL: "chat-portal-prod-deployment-aomi-labs.vercel.app",
-      VERCEL_PROJECT_PRODUCTION_URL: "chat.aomi.dev",
     });
 
     expect(env.betterAuthUrl).toBe("https://chat.aomi.dev");
     expect(env.siweDomain).toBe("chat.aomi.dev");
+    expect(env.clientIpHeader).toBe("cf-connecting-ip");
     expect(env.trustedOrigins).toEqual([
+      "https://build.aomi.dev",
       "https://chat.aomi.dev",
-      "https://chat-portal-prod-deployment-aomi-labs.vercel.app",
     ]);
   });
 
   it("reads the Para JWT audience from PARA_JWT_AUDIENCE alone", () => {
     const env = readAccountAuthEnv({
       BETTER_AUTH_URL: "http://localhost:3001",
-      DATABASE_URL: TEST_DATABASE_URL,
       NODE_ENV: "test",
       PARA_JWT_AUDIENCE: "para-audience-uuid",
       NEXT_PUBLIC_PARA_API_KEY: "beta_public_api_key",
@@ -153,7 +60,6 @@ describe("readAccountAuthEnv", () => {
     expect(
       readAccountAuthEnv({
         BETTER_AUTH_URL: "http://localhost:3001",
-        DATABASE_URL: TEST_DATABASE_URL,
         NODE_ENV: "test",
         NEXT_PUBLIC_PARA_API_KEY: "beta_public_api_key",
       }).paraAudience,
@@ -165,7 +71,6 @@ describe("readAccountAuthEnv", () => {
     // read as unset, not as a configured empty string.
     const env = readAccountAuthEnv({
       BETTER_AUTH_URL: "http://localhost:3001",
-      DATABASE_URL: TEST_DATABASE_URL,
       NODE_ENV: "test",
       PARA_JWT_AUDIENCE: "  ",
       PARA_JWKS_URL: "",

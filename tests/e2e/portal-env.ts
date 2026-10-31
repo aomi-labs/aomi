@@ -1,3 +1,7 @@
+
+/** The Better Auth secret the edge under browser test signs sessions with. */
+export const BROWSER_TEST_AUTH_SECRET = "browser-test-secret-at-least-32-bytes-long";
+
 /**
  * Environment for a Portal under browser test: real Better Auth on the given
  * database, every backend call sent to the fake upstream, and the embed
@@ -13,10 +17,11 @@ export function portalEnv(input: {
     // Loopback fixtures use the development signer, independent of local Vercel settings.
     VERCEL_ENV: "development",
     BETTER_AUTH_URL: input.portal,
-    BETTER_AUTH_SECRET: "browser-test-secret-at-least-32-bytes-long",
+    BETTER_AUTH_SECRET: BROWSER_TEST_AUTH_SECRET,
     AOMI_AUTH_DOMAIN: new URL(input.portal).host,
     AOMI_TRUSTED_ORIGINS: [input.portal, ...input.embedOrigins].join(","),
     DATABASE_URL: input.databaseUrl,
+    NEXT_PUBLIC_BACKEND_URL: "/",
     BACKEND_URL: input.upstream,
     AOMI_AGENT_API_URL: input.upstream,
     NEXT_PUBLIC_PROJECT_ID: "000000000000000000000000000000000000000000",

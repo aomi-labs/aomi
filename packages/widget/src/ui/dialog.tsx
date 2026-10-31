@@ -1,12 +1,12 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "./widget-scope";
 
 import * as React from "react";
 import { XIcon } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
-import { cn } from "@aomi-labs/react";
 import { Button } from "./button";
 
 function Dialog({

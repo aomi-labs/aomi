@@ -1,5 +1,5 @@
 /**
- * Wire contracts between the /build page and the BFF build engine
+ * Wire contracts between the /build page and the Build server build engine
  * (src/server/bff/build). Shared by client hooks and server routes, so no
  * server-only imports here.
  */

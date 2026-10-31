@@ -7,7 +7,7 @@ import { ListGroup } from "@/ui/aomi/list-group";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { ActionRow } from "@/ui/aomi/action-row";
 import { SheetAlert, SheetHeader } from "@/wallet/picker/sheet-parts";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { useAccessWrite } from "./use-access-write";
 import { ConnectionMark } from "./connection-mark";
 import { WalletView } from "./wallet-view";
@@ -32,8 +32,8 @@ export function ConnectionManage({
   onRename?: () => void;
   onRemove?: () => void;
 }) {
-  const { client } = useShellTransport();
-  const { rows, agents, isPending } = useWalletRows(client);
+  const aomi = useShellAomi();
+  const { rows, agents, isPending } = useWalletRows(aomi);
   const { write, saving, error, dialog } = useAccessWrite();
   const portal = connection.kind === "portal";
   const title = connectionTitle(connection);

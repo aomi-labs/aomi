@@ -47,7 +47,6 @@ If the supplied docs mostly point to GitHub repositories, SDKs, or examples inst
 If the current repo is `aomi-widget`, also inspect:
 
 - `apps/landing/content/examples/*.mdx`
-- `apps/landing/content/guides/build/**/*.mdx`
 
 If the SDK repo is not available, read:
 

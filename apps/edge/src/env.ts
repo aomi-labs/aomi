@@ -15,13 +15,14 @@ export interface ReplayStore {
   get(id: unknown): { fetch(request: Request): Promise<Response> };
 }
 
-export type EdgeTopologyName = "default" | "staging" | "rc" | "production";
+export type EdgeTopologyName = import("@aomi-labs/service-identity").Tier;
 
 /**
  * Worker bindings. Per-environment values are `--var`s from scripts/deploy.mjs.
- * The three secrets (EDGE_SERVICE_PRIVATE_KEY, BUILD_SESSION_SECRET,
- * BUILD_GITHUB_TOKEN) live in product-mono's GitHub Environments and are pushed
- * by its deploy pipeline. Nobody sets them by hand. Constants live in code.
+ * The secrets (EDGE_SERVICE_PRIVATE_KEY, BETTER_AUTH_SECRET, BUILD_SESSION_SECRET,
+ * BUILD_GITHUB_TOKEN and the provider keys) live in product-mono's GitHub
+ * Environments and are pushed by its deploy pipeline. Nobody sets them by hand.
+ * Constants live in code.
  */
 export interface EdgeEnv {
   /** Comma-separated backend fleet, in rollout order. */
@@ -42,6 +43,17 @@ export interface EdgeEnv {
   /** PKCS#8 PEM of the `aomi-edge` signing key (secret, pushed by deploy). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
 
+  // Account surface (sign-in, OAuth server, account graph) on the portal hosts.
+  /** Hyperdrive in front of the environment's Postgres; one pool per request. */
+  HYPERDRIVE?: { connectionString: string };
+  /** Better Auth's session and cookie signing secret (secret, pushed by deploy, 32+ characters). */
+  BETTER_AUTH_SECRET?: string;
+  /** The public portal origin Better Auth issues for (cookies, OAuth issuer, SIWE domain). */
+  BETTER_AUTH_URL?: string;
+  /** Sentry project DSN; unset leaves error reporting off. */
+  SENTRY_DSN?: string;
+  /** This deployment's version, for diagnostics. */
+  CF_VERSION_METADATA?: { id: string };
   // RC-only test identity (rc topology; see api/rc-oidc.ts). All three or the path is off.
   /** Durable Object namespace that remembers used OIDC `jti` values (rc only). */
   RC_OIDC_REPLAY?: ReplayStore;
@@ -66,6 +78,12 @@ export interface EdgeEnv {
   /** Platforms /api/thread/apps is filtered to when the caller names none. */
   APP_CATALOG_PLATFORMS?: string;
 
+  // Landing surface: the edge is routed on these hosts' /api/* paths.
+  /** Comma-separated public Landing hosts (for example aomi.dev). */
+  LANDING_HOSTS?: string;
+  /** Where the Landing app is reached from the edge. */
+  LANDING_UPSTREAM_ORIGIN?: string;
+
   // Build surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public Build hosts (for example build.aomi.dev). */
   BUILD_HOSTS?: string;
@@ -73,12 +91,12 @@ export interface EdgeEnv {
   BUILD_UPSTREAM_ORIGIN?: string;
   /**
    * HS256 secret of Build's GitHub session cookies (secret, pushed by deploy,
-   * at least 16 characters). Until Build's Vercel routes stop reading the
-   * cookie, its PORTAL_ONLY_SESSION_SECRET holds the same value.
+   * at least 16 characters). The Build server reads the same value as its own
+   * BUILD_SESSION_SECRET until its last cookie-reading routes move here.
    */
   BUILD_SESSION_SECRET?: string;
-  /** Platforms Build deploys to; the first is the default for the GitHub App install start. */
-  APP_DEPLOY_PLATFORMS?: string;
+  /** Default deployment platform when a Build request does not name one. */
+  BUILD_DEFAULT_PLATFORM?: string;
   /** GitHub token the release-manifest secret gate reads with (secret, pushed by deploy). */
   BUILD_GITHUB_TOKEN?: string;
 }

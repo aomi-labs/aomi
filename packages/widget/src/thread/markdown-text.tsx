@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
@@ -23,7 +24,6 @@ import {
   remarkExplorerLinks,
   toolExplorerLinks,
 } from "./explorer-links";
-import { cn } from "@aomi-labs/react";
 
 // Each renderer owns its selector cache. Text/tool updates with unchanged
 // explorer meaning must not recreate the Markdown parser's plugin inputs.

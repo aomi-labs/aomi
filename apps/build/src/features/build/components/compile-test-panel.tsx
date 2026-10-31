@@ -1,8 +1,5 @@
-"use client";
-
+import { cn } from "@aomi-labs/widget";
 import { Check, Play, Terminal } from "lucide-react";
-
-import { cn } from "@/lib/class-names";
 
 type CompileTestPanelProps = {
   compileDone: boolean;

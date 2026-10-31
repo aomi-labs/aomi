@@ -1,10 +1,7 @@
-"use client";
-
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Button } from "@aomi-labs/widget/host-composition";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
-import Script from "next/script";
 
 export function CookieConsent() {
   const { showBanner, acceptCookies, declineCookies } = useCookieConsent();
@@ -22,7 +19,7 @@ export function CookieConsent() {
               We use cookies to understand how you use our site and improve your
               experience.{" "}
               <Link
-                href="/privacy"
+                to="/privacy"
                 className="text-foreground underline underline-offset-2 hover:no-underline"
               >
                 Privacy Policy
@@ -54,37 +51,32 @@ export function CookieConsent() {
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
+/** Loads gtag once consent is given, never on pages whose URL carries a code. */
 export function GoogleAnalytics() {
   const { consent } = useCookieConsent();
-  const [allowed, setAllowed] = useState(false);
   useEffect(() => {
-    setAllowed(
-      !window.location.pathname.startsWith("/link/") &&
-        !new URLSearchParams(window.location.search).has("return_to"),
-    );
-  }, []);
-
-  if (!allowed || !GA_MEASUREMENT_ID) {
-    return null;
-  }
-
-  if (consent !== "accepted") {
-    return null;
-  }
-  return (
-    <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        strategy="afterInteractive"
-      />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_MEASUREMENT_ID}');
-        `}
-      </Script>
-    </>
-  );
+    if (!GA_MEASUREMENT_ID || consent !== "accepted") return;
+    if (
+      window.location.pathname.startsWith("/link/") ||
+      new URLSearchParams(window.location.search).has("return_to")
+    )
+      return;
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_MEASUREMENT_ID)}`;
+    document.head.appendChild(script);
+    const analytics = window as typeof window & {
+      dataLayer?: unknown[];
+      gtag?: (...args: unknown[]) => void;
+    };
+    analytics.dataLayer ??= [];
+    analytics.gtag = function () {
+      // gtag queues its `arguments` object, not an array.
+      analytics.dataLayer!.push(arguments);
+    };
+    analytics.gtag("js", new Date());
+    analytics.gtag("config", GA_MEASUREMENT_ID);
+    return () => script.remove();
+  }, [consent]);
+  return null;
 }

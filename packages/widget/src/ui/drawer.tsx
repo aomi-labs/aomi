@@ -1,10 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "./widget-scope";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
-
-import { cn } from "@aomi-labs/react";
 
 const Drawer = ({
   shouldScaleBackground = false,

@@ -1,6 +1,6 @@
+import { type WalletTxPayload } from "@aomi-labs/client";
 import { describe, expect, it, vi } from "vitest";
 import { mainnet } from "viem/chains";
-import { type WalletTxPayload } from "@aomi-labs/react";
 
 import {
   describeAtomicBatch,

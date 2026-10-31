@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { appendCapabilityHints } from "./capability-hints";
+import { appendCapabilityHints } from "@aomi-labs/client";
 import { privateAppKey } from "./private-app-key";
 
 const keys = new Map<string | number, string>([

@@ -1,5 +1,7 @@
 "use client";
 
+import { type AgentTarget, type AomiClientOptions } from "@aomi-labs/client";
+import { cn } from "@/lib/cn";
 import {
   type CSSProperties,
   type ReactNode,
@@ -10,10 +12,7 @@ import {
 import {
   AomiRuntimeProvider,
   AomiChatBoundary,
-  cn,
   useAomiRuntime,
-  type AomiClientOptions,
-  type AgentTarget,
   type DisplayPersistence,
   type RuntimeAccount,
 } from "@aomi-labs/react";

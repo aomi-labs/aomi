@@ -28,7 +28,7 @@ export function aomiAccountMergePlugin() {
   return {
     id: "aomi-account-merge",
     endpoints: {
-      // Server-only: the BFF checks the merge ticket, then calls this.
+      // Server-only: the Edge checks the merge ticket, then calls this.
       switchAccountSession: createAuthEndpoint(
         "/aomi/account/switch",
         {

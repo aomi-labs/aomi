@@ -23,13 +23,15 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useOptionalAomiRuntime: () => runtime,
 }));
 
-// Credits are read through the shell transport's client.
+// Credits are read through the shell transport's Aomi.
 vi.mock("@/account/transport", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/account/transport")>();
   const transport = actual.createShellTransport();
   return {
     ...actual,
-    useShellTransport: () => ({ ...transport, client: runtime }),
+    useShellTransport: () => ({ ...transport, aomi: runtime }),
+    useShellAomi: () => runtime,
+    useAomi: () => runtime,
   };
 });
 

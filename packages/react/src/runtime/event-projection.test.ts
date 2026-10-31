@@ -3,6 +3,7 @@ import {
   projectConversationEvents,
   type Action,
   type Event,
+  appendCapabilityHints,
 } from "@aomi-labs/client";
 
 import {
@@ -19,7 +20,6 @@ import {
   callbackRoot,
   callbackTurn,
 } from "../../../../tests/fixtures/commit-callback-events";
-import { appendCapabilityHints } from "./capability-hints";
 
 const meta = (
   sequence: number,

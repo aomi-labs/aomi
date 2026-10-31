@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -45,7 +46,6 @@ import { isWorkLimitPause } from "./notice-codes";
 import { TooltipIconButton } from "./tooltip-icon-button";
 
 import {
-  cn,
   useOptionalAomiRuntime,
   useThreadContext,
   useThreadTaskRuns,

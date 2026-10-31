@@ -15,17 +15,17 @@ import {
   providerEmailDisplayHint,
   visibleSignInMethods,
 } from "@/wallet/account-presentation";
-import { useShellTransport } from "./transport";
+import { useShellAomi } from "./transport";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const adapter = useAomiWalletKit();
-  const { client } = useShellTransport();
+  const aomi = useShellAomi();
   const cache = useAomiDisplayCache();
   const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
   const agentQuery = useDisplayQuery({
-    ...agentWalletsQuery(client),
+    ...agentWalletsQuery(aomi),
     enabled: signedIn,
   });
   const pendingRef = useRef(false);

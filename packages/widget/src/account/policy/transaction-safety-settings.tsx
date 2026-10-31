@@ -1,15 +1,16 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState, type KeyboardEvent } from "react";
 import { CheckIcon, Loader2 } from "lucide-react";
 import type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
-import { cn, useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
+import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import {
   accountSafetyQuery,
   safetyErrorMessage,
@@ -35,9 +36,9 @@ const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
  * loaded revision; a chat's own level is set from the composer, not here.
  */
 export function TransactionSafetySettings() {
-  const { json: request } = useShellTransport();
+  const guard = useShellAomi().account.guard;
   const cache = useAomiDisplayCache();
-  const query = useDisplayQuery(accountSafetyQuery(request));
+  const query = useDisplayQuery(accountSafetyQuery(guard));
   const policy = query.data;
   const [draft, setDraft] = useState<TransactionSafetyMode>();
   const [saveError, setSaveError] = useState<string>();
@@ -66,7 +67,7 @@ export function TransactionSafetySettings() {
     setDraft(mode);
     setSaveError(undefined);
     const saved = await saveOrReloadTransactionSafety(
-      request,
+      guard,
       mode,
       policy.revision,
     );

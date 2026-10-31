@@ -1,9 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { Fragment, useEffect, useState, type FC } from "react";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { ChevronsUpDownIcon } from "lucide-react";
-import { cn, getChainInfo } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import { useAomiWalletKit } from "./context";
 import { formatWalletAddress } from "./identity";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";

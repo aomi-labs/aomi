@@ -1,9 +1,8 @@
-import type { ProxyFailure } from "@aomi-labs/account";
 import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
-export type BffService = "portal-bff" | "build-bff";
+export type AppService = "portal" | "build";
 
-export type BffUpstream = "rust" | "github" | "vercel" | "supabase";
+export type AppUpstream = "rust" | "github" | "vercel" | "supabase";
 
 export type FailureAction = "issue" | "log" | "ignore";
 
@@ -31,7 +30,7 @@ export type PublicFailure = {
   retryable?: boolean;
   /**
    * Public fields from the Manager's structured deploy failure. Internal
-   * diagnostic details stay behind the BFF boundary.
+   * diagnostic details stay behind the app server boundary.
    */
   deployError?: DeployErrorDetail;
 };
@@ -51,19 +50,6 @@ export type FailureContext = {
   smokeTest?: boolean;
 };
 
-export type RequestErrorDetails = {
-  request: {
-    path: string;
-    method: string;
-    headers: Record<string, string | string[] | undefined>;
-  };
-  errorContext: {
-    routerKind: string;
-    routePath: string;
-    routeType: string;
-  };
-};
-
 type ContextualFailure = { context: FailureContext };
 
 export type FailureInput =
@@ -81,13 +67,13 @@ export type FailureInput =
     })
   | (ContextualFailure & {
       source: "upstream_request";
-      upstream: BffUpstream;
+      upstream: AppUpstream;
       error: unknown;
       response?: PublicFailure;
     })
   | (ContextualFailure & {
       source: "upstream_response";
-      upstream: BffUpstream;
+      upstream: AppUpstream;
       status: number;
       credential?: "service" | "user";
       error?: unknown;
@@ -97,30 +83,24 @@ export type FailureInput =
       source: "launch";
       error: unknown;
     })
-  | {
-      source: "proxy";
-      failure: ProxyFailure;
-    }
   | (ContextualFailure & {
       source: "artifact";
       error: unknown;
     })
-  | (ContextualFailure &
-      RequestErrorDetails & {
-        source: "uncaught";
-        error: unknown;
-      });
+  | (ContextualFailure & {
+      source: "uncaught";
+      error: unknown;
+    });
 
 export type IdentifiedFailure = {
   origin: "expected" | "local" | "upstream_request" | "upstream_response";
   error: unknown;
   context: FailureContext;
   handled: boolean;
-  upstream?: BffUpstream;
+  upstream?: AppUpstream;
   upstreamStatus?: number;
   credential?: "service" | "user";
   responseHint?: PublicFailure;
-  requestError?: RequestErrorDetails;
   localDiagnostic?: LocalDiagnostic;
 };
 
@@ -135,9 +115,8 @@ export type FailureDecision = {
   responseCode?: string;
   responseRetryable?: boolean;
   responseDeployError?: DeployErrorDetail;
-  upstream?: BffUpstream;
+  upstream?: AppUpstream;
   upstreamStatus?: number;
-  requestError?: RequestErrorDetails;
   localDiagnostic?: LocalDiagnostic;
 };
 

@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ComponentType, ReactNode } from "react";
 import { X } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 import { ModalBackdrop } from "@/ui/modal-backdrop";
 import { LoadingLine } from "./loading-pane";
 

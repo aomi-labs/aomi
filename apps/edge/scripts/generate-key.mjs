@@ -6,7 +6,7 @@
 // to the Worker on every deploy. Never run `wrangler secret put` by hand: a value
 // set only on the Worker is stored nowhere else and cannot be recovered.
 //
-// The public half is committed in src/topology-data.ts and product-mono's
+// The public half is committed in packages/service-identity/src/topologies.ts and product-mono's
 // aomi/bin/{backend,api-server,payment}/service.<env>.toml. Commit it in the
 // same change that stores the private half, so the two never drift.
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";

@@ -1,5 +1,5 @@
 // Shared definitions for the external bot/channel integrations surfaced on the
-// Integrations page. Imported by both the client view and the BFF route so the
+// Integrations page. Imported by both the client view and the Build server route so the
 // two validate against the same provider ids and field shapes.
 
 export type IntegrationProviderId = "telegram" | "discord";

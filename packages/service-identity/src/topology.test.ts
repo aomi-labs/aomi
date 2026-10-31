@@ -9,25 +9,26 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { AomiService, parseTopology } from "./topology";
+import { TOPOLOGIES } from "./topologies";
 
 // A self-contained Ed25519 keypair so the test signs and verifies for real,
 // no committed keys.
-let bffPrivatePem: string;
+let buildPrivatePem: string;
 let toml: string;
 
 beforeAll(async () => {
   const { publicKey, privateKey } = await generateKeyPair("EdDSA", {
     extractable: true,
   });
-  const bffPublicPem = await exportSPKI(publicKey);
-  bffPrivatePem = await exportPKCS8(privateKey);
+  const buildPublicPem = await exportSPKI(publicKey);
+  buildPrivatePem = await exportPKCS8(privateKey);
   toml = `
 [[services]]
-name = "aomi-bff"
-kid = "aomi-bff-test-1"
+name = "aomi-build"
+kid = "aomi-build-test-1"
 issues = ["user", "service"]
 audiences = ["aomi-backend"]
-public_key = """${bffPublicPem}"""
+public_key = """${buildPublicPem}"""
 
 [[services]]
 name = "aomi-backend"
@@ -41,15 +42,15 @@ name = "empty-issuer"
 kid = "empty-issuer"
 issues = []
 audiences = ["aomi-backend"]
-public_key = """${bffPublicPem}"""
+public_key = """${buildPublicPem}"""
 `;
 });
 
 const issuer = () =>
   AomiService.fromTopology({
     toml,
-    selfName: "aomi-bff",
-    privateKeyPem: bffPrivatePem,
+    selfName: "aomi-build",
+    privateKeyPem: buildPrivatePem,
   });
 const verifier = () =>
   AomiService.fromTopology({ toml, selfName: "aomi-backend" });
@@ -58,14 +59,14 @@ describe("AomiService topology", () => {
   it("mints and verifies a service bearer across the topology", async () => {
     const { accessToken } = await issuer().mint({
       role: "service",
-      subject: "aomi-bff",
+      subject: "aomi-build",
       audience: "aomi-backend",
     });
     const claims = await verifier().verifyRole(accessToken, "service");
     expect(claims.role).toBe("service");
-    expect(claims.iss).toBe("aomi-bff");
+    expect(claims.iss).toBe("aomi-build");
     expect(claims.aud).toBe("aomi-backend");
-    expect(claims.sub).toBe("aomi-bff");
+    expect(claims.sub).toBe("aomi-build");
   });
 
   it("refuses to mint a role the service is not authorized for", async () => {
@@ -83,7 +84,7 @@ describe("AomiService topology", () => {
   it("verifyRole rejects a role mismatch", async () => {
     const { accessToken } = await issuer().mint({
       role: "service",
-      subject: "aomi-bff",
+      subject: "aomi-build",
       audience: "aomi-backend",
     });
     await expect(verifier().verifyRole(accessToken, "user")).rejects.toThrow(
@@ -100,7 +101,7 @@ describe("AomiService topology", () => {
   it("parseTopology reads the mesh nodes", () => {
     const mesh = parseTopology(toml);
     expect(mesh.services.map((s) => s.name)).toEqual([
-      "aomi-bff",
+      "aomi-build",
       "aomi-backend",
       "empty-issuer",
     ]);
@@ -121,14 +122,45 @@ describe("AomiService topology", () => {
 });
 
 async function bearerWithKid(kid: string): Promise<string> {
-  const privateKey = await importPKCS8(bffPrivatePem, "EdDSA");
+  const privateKey = await importPKCS8(buildPrivatePem, "EdDSA");
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ role: "user" })
     .setProtectedHeader({ alg: "EdDSA", kid })
     .setSubject("alice")
-    .setIssuer("aomi-bff")
+    .setIssuer("aomi-build")
     .setAudience("aomi-backend")
     .setIssuedAt(now)
     .setExpirationTime(now + 60)
     .sign(privateKey);
 }
+
+describe("tierOf", () => {
+  it("prefers the named tier, then the API host, then the Vercel environment", async () => {
+    const { tierOf } = await import("./topologies");
+    expect(tierOf({ tier: "rc", host: "api.aomi.dev" })).toBe("rc");
+    expect(tierOf({ host: "API-STAGING.aomi.dev" })).toBe("staging");
+    expect(tierOf({ host: "api.aomi.dev.evil.example" })).toBe("default");
+    expect(tierOf({ vercelEnv: "preview" })).toBe("staging");
+    expect(tierOf({})).toBe("default");
+  });
+});
+
+describe("aomi-build", () => {
+  it("may mint for Build's sidecar in every tier", () => {
+    // A bearer leaked from the sandbox carries "aomi-sidecar", never "aomi-backend".
+    for (const tier of Object.values(TOPOLOGIES["aomi-build"])) {
+      const bff = parseTopology(tier).services.find(
+        (node) => node.name === "aomi-build",
+      );
+      expect(bff?.audiences).toContain("aomi-sidecar");
+    }
+  });
+});
+
+it("restricts the deployed Build identity to sidecar service credentials", () => {
+  for (const toml of Object.values(TOPOLOGIES["aomi-build"])) {
+    const service = AomiService.fromTopology({ toml, selfName: "aomi-build" });
+    expect(service.self.issues).toEqual(["service"]);
+    expect(service.self.audiences).toEqual(["aomi-sidecar"]);
+  }
+});

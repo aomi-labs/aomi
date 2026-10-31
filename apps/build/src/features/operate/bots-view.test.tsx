@@ -374,7 +374,7 @@ describe("BotsView", () => {
     expect(screen.getByRole("button", { name: /^save/i })).toBeEnabled();
   });
 
-  it("reveals the command secret through the BFF route", async () => {
+  it("reveals the command secret through the Build server route", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
     const fetchSpy = vi
@@ -392,12 +392,12 @@ describe("BotsView", () => {
     expect(field).toHaveValue("deadbeef");
     expect(field).toHaveAttribute("readonly");
     expect(String(fetchSpy.mock.calls[0][0])).toBe(
-      "/api/bff/operate/bots/b1/command-secret",
+      "/api/build/operate/bots/b1/command-secret",
     );
     fetchSpy.mockRestore();
   });
 
-  it("checks the webhook through the BFF route and reports a repair", async () => {
+  it("checks the webhook through the Build server route and reports a repair", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -421,7 +421,7 @@ describe("BotsView", () => {
       "Webhook was not pointed at Aomi; re-pointed now · 3 pending updates · last Telegram error: Wrong response from the webhook: 404 Not Found",
     );
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/bff/operate/bots/b1/webhook");
+    expect(String(url)).toBe("/api/build/operate/bots/b1/webhook");
     expect(init?.method).toBe("POST");
     fetchSpy.mockRestore();
   });

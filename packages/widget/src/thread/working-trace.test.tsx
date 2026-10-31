@@ -1,16 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
-import {
-  AppWindowIcon,
-  CircleIcon,
-  ClockIcon,
-  BlocksIcon,
-  CircleCheckIcon,
-  FuelIcon,
-  PuzzleIcon,
-  ReceiptTextIcon,
-} from "lucide-react";
 
 import type { Event } from "@aomi-labs/client";
 import type { TaskRunState } from "@aomi-labs/react";
@@ -31,13 +21,12 @@ vi.mock("./markdown-text", async () => {
 
 import {
   activeWorkDurationMs,
-  buildTraceItems,
   MinimalWorkingTrace,
   RenderedText,
   WorkingTrace,
 } from "./working-trace";
+import { buildTraceItems } from "@aomi-labs/client/trace";
 import { TraceAttributionContext } from "./trace-attribution";
-import { readOutputDetail } from "./read-output-step";
 import { ToolStepRow } from "./working-trace-rows";
 
 const resizeCallbacks = new Map<Element, ResizeObserverCallback>();
@@ -203,7 +192,7 @@ describe("WorkingTrace", () => {
     const { getByText, queryByText, container } = render(
       <ToolStepRow
         interpretation={{
-          icon: CircleIcon,
+          icon: "tool",
           title: "Commit transactions",
           confidence: "high",
           rawLabel: "evm_commit_txs",
@@ -214,19 +203,19 @@ describe("WorkingTrace", () => {
               id: "app:hoodit",
               attribution: "app",
               label: "Hoodit",
-              icon: AppWindowIcon,
+              icon: "app",
             },
             {
               id: "skill:portfolio",
               attribution: "skill",
               label: "Portfolio",
-              icon: PuzzleIcon,
+              icon: "skill:portfolio",
             },
-            { label: "Arc", icon: BlocksIcon, essential: true },
-            { label: "1 tx", icon: ReceiptTextIcon, essential: true },
-            { label: "Pending confirmation", icon: ClockIcon, essential: true },
-            { label: "extra", icon: FuelIcon },
-            { label: "hidden", icon: FuelIcon },
+            { label: "Arc", icon: "block", essential: true },
+            { label: "1 tx", icon: "receipt", essential: true },
+            { label: "Pending confirmation", icon: "pending", essential: true },
+            { label: "extra", icon: "gas" },
+            { label: "hidden", icon: "gas" },
             { label: "iconless" },
           ],
         }}
@@ -266,7 +255,7 @@ describe("WorkingTrace", () => {
 
   it("animates only badges that arrive on an existing live row", () => {
     const base = {
-      icon: CircleIcon,
+      icon: "tool" as const,
       title: "Commit transactions",
       confidence: "high" as const,
       rawLabel: "evm_commit_txs",
@@ -276,7 +265,7 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Pending", icon: ClockIcon }],
+          chips: [{ label: "Pending", icon: "pending" }],
         }}
         done={false}
         active
@@ -292,8 +281,8 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base", icon: BlocksIcon },
-            { label: "Pending", icon: ClockIcon },
+            { label: "Base", icon: "block" },
+            { label: "Pending", icon: "pending" },
           ],
         }}
         done
@@ -311,8 +300,8 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base", icon: BlocksIcon },
-            { label: "Success", icon: CircleCheckIcon },
+            { label: "Base", icon: "block" },
+            { label: "Success", icon: "success" },
           ],
         }}
         done
@@ -330,8 +319,8 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base", icon: BlocksIcon },
-            { label: "Success", icon: CircleCheckIcon },
+            { label: "Base", icon: "block" },
+            { label: "Success", icon: "success" },
           ],
         }}
         done
@@ -349,9 +338,9 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base", icon: BlocksIcon },
-            { label: "21,000 gas", icon: FuelIcon },
-            { label: "Success", icon: CircleCheckIcon },
+            { label: "Base", icon: "block" },
+            { label: "21,000 gas", icon: "gas" },
+            { label: "Success", icon: "success" },
           ],
         }}
         done
@@ -837,110 +826,6 @@ describe("WorkingTrace", () => {
     expect(cappedScrolls).toContain("260px");
   });
 
-  it("keeps a failed delegation at its transcript position after recovery", () => {
-    const failedRun: TaskRunState = {
-      ...run([]),
-      status: "failed",
-      message: "LI.FI route was unavailable",
-    };
-    const delegatedTask = {
-      type: "tool-call" as const,
-      argsText: "{}",
-      toolCallId: failedRun.callId,
-      toolName: "task",
-      args: { label: "Prepare swap", app: "default", prompt: "Swap" },
-      result: { status: "failed" },
-    } satisfies ToolCallMessagePart;
-    const recoveredCommit = {
-      type: "tool-call" as const,
-      argsText: "{}",
-      toolCallId: "call-2",
-      toolName: "commit",
-      args: {},
-      result: { status: "completed" },
-    } satisfies ToolCallMessagePart;
-
-    const items = buildTraceItems(
-      [delegatedTask, recoveredCommit],
-      [failedRun],
-    );
-
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({
-      kind: "agent",
-      agentId: failedRun.agentId,
-      run: failedRun,
-      tool: delegatedTask,
-    });
-    expect(items[1]).toMatchObject({
-      kind: "tool",
-      tool: recoveredCommit,
-    });
-  });
-
-  it("reconciles a legacy inline task part by its nested failure agent id", () => {
-    const failedRun: TaskRunState = {
-      ...run([]),
-      status: "failed",
-      message: "child failed",
-    };
-    const delegatedTask = {
-      type: "tool-call" as const,
-      argsText: "{}",
-      toolCallId: "inline:legacy-task-message",
-      toolName: "task",
-      args: {},
-      result: {
-        error: { agent_id: failedRun.agentId, code: "child_turn_failed" },
-      },
-    } satisfies ToolCallMessagePart;
-
-    const items = buildTraceItems([delegatedTask], [failedRun]);
-
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      kind: "agent",
-      agentId: failedRun.agentId,
-      run: failedRun,
-      tool: delegatedTask,
-    });
-  });
-
-  it("expands one batch task part into one reconciled row per child", () => {
-    const first: TaskRunState = {
-      ...run([]),
-      agentId: "task-agent:first",
-      callId: "call-batch:1",
-    };
-    const second: TaskRunState = {
-      ...run([]),
-      agentId: "task-agent:second",
-      callId: "call-batch:2",
-    };
-    const delegatedTask = {
-      type: "tool-call" as const,
-      argsText: "{}",
-      toolCallId: "call-batch",
-      toolName: "task",
-      args: { tasks: [{ prompt: "one" }, { prompt: "two" }] },
-      result: {
-        status: "completed",
-        results: [
-          { agent_id: first.agentId, status: "completed" },
-          { agent_id: second.agentId, status: "completed" },
-        ],
-      },
-    } satisfies ToolCallMessagePart;
-
-    const items = buildTraceItems([delegatedTask], [first, second]);
-
-    expect(items).toHaveLength(2);
-    expect(items.map((item) => item.kind === "agent" && item.agentId)).toEqual([
-      first.agentId,
-      second.agentId,
-    ]);
-  });
-
   it("names each batched child from its own work order", () => {
     // History carries the mother's `{tasks: […]}` batch and the per-child
     // results, but no live sidecar. Each row still belongs to one work order,
@@ -976,60 +861,6 @@ describe("WorkingTrace", () => {
     expect(getByText("Ethereum latest block")).toBeInTheDocument();
     expect(getByText("Base latest block")).toBeInTheDocument();
     expect(queryByText("agent")).toBeNull();
-  });
-
-  it("keeps repeated child invocations distinct without borrowing the latest state", () => {
-    const latest = { ...run([]), callId: "second-call" };
-    const task = (toolCallId: string): ToolCallMessagePart =>
-      ({
-        type: "tool-call",
-        argsText: "{}",
-        toolCallId,
-        toolName: "task",
-        args: {},
-        result: { agent_id: latest.agentId, status: "completed" },
-      }) satisfies ToolCallMessagePart;
-    const items = buildTraceItems(
-      [task("first-call"), task("second-call")],
-      [latest],
-    );
-
-    expect(items).toHaveLength(2);
-    expect(new Set(items.map((item) => item.key)).size).toBe(2);
-    expect(items[0]).toMatchObject({ kind: "agent", run: undefined });
-    expect(items[1]).toMatchObject({ kind: "agent", run: latest });
-  });
-
-  it("preserves every transcript child when only part of a batch is live", () => {
-    const latest = { ...run([]), agentId: "child-b", callId: "batch:2" };
-    const task = {
-      type: "tool-call",
-      argsText: "{}",
-      toolCallId: "batch",
-      toolName: "task",
-      args: {},
-      result: { results: [{ agent_id: "child-a" }, { agent_id: "child-b" }] },
-    } satisfies ToolCallMessagePart;
-    const items = buildTraceItems([task], [latest]);
-
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({ agentId: "child-a", run: undefined });
-    expect(items[1]).toMatchObject({ agentId: "child-b", run: latest });
-  });
-
-  it("keeps a live child key stable when its transcript arrives", () => {
-    const latest = run([]);
-    const task = {
-      type: "tool-call",
-      argsText: "{}",
-      toolCallId: latest.callId,
-      toolName: "task",
-      args: {},
-      result: { agent_id: latest.agentId },
-    } satisfies ToolCallMessagePart;
-    expect(buildTraceItems([task], [latest])[0]?.key).toBe(
-      buildTraceItems([], [latest])[0]?.key,
-    );
   });
 });
 
@@ -1111,11 +942,6 @@ describe("context steps", () => {
     expect(getByText("151k tokens")).toBeTruthy();
   });
 
-  it("become their own trace rows in place, except a trimmed output", () => {
-    const items = buildTraceItems([trimmed, compacted], []);
-    expect(items.map((item) => item.kind)).toEqual(["context"]);
-  });
-
   it("read as plain steps with their sizes", () => {
     const { getByText, queryByText } = render(
       <WorkingTrace
@@ -1182,27 +1008,6 @@ describe("reading a shortened output", () => {
     expect(getByText("Read commit transactions output")).toBeTruthy();
     expect(getByText(`All ${output.length} chars`)).toBeTruthy();
     expect(getByText("3 reads")).toBeTruthy();
-  });
-
-  it("open to the stitched output instead of the paging envelopes", () => {
-    expect(readOutputDetail(reads)).toBe(
-      JSON.stringify(JSON.parse(output), null, 2),
-    );
-    expect(readOutputDetail(reads.slice(0, 1))).toBe(
-      '{\n  "commits": [\n    {\n      "i',
-    );
-  });
-
-  it("keep a finished read without an id on its own row", () => {
-    const anonymous = {
-      ...reads[1],
-      toolCallId: "read-anon",
-      args: {},
-      argsText: "{}",
-      result: { error: "expired" },
-    } satisfies ToolCallMessagePart;
-    const items = buildTraceItems([trimmed, reads[0], anonymous], []);
-    expect(items.map((item) => item.kind)).toEqual(["read", "read"]);
   });
 
   it("report a partial read and an expired output", () => {

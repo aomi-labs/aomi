@@ -1,8 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { memo, useState, type FC } from "react";
 import { KeyIcon, CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
-import { useApiKey, cn } from "@aomi-labs/react";
+import { useApiKey } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";

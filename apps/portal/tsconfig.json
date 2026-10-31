@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -17,99 +14,27 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
-      "@aomi-labs/account": [
-        "../../packages/account/src/index.ts"
-      ],
-      "@aomi-labs/account/account": [
-        "../../packages/account/src/account.ts"
-      ],
-      "@aomi-labs/account/better-auth": [
-        "../../packages/account/src/better-auth/index.ts"
-      ],
-      "@aomi-labs/account/better-auth/client": [
-        "../../packages/client/src/browser-auth.ts"
-      ],
-      "@aomi-labs/account/better-auth/env": [
-        "../../packages/account/src/better-auth/env.ts"
-      ],
-      "@aomi-labs/account/better-auth/siwe": [
-        "../../packages/account/src/better-auth/siwe.ts"
-      ],
-      "@aomi-labs/account/providers": [
-        "../../packages/account/src/providers/index.ts"
-      ],
-      "@aomi-labs/account/*": [
-        "../../packages/account/src/*"
-      ],
-      "@aomi-labs/client": [
-        "../../packages/client/src/index.ts"
-      ],
-      "@aomi-labs/client/*": [
-        "../../packages/client/src/*"
-      ],
-      "@aomi-labs/deploy": [
-        "../../packages/deploy/src/index.ts"
-      ],
-      "@aomi-labs/deploy/*": [
-        "../../packages/deploy/src/*"
-      ],
-      "@aomi-labs/react": [
-        "../../packages/react/src/index.ts"
-      ],
-      "@aomi-labs/react/*": [
-        "../../packages/react/src/*"
-      ],
-      "@getpara/react-sdk": [
-        "./node_modules/@getpara/react-sdk"
-      ],
-      "@tanstack/react-query": [
-        "./node_modules/@tanstack/react-query"
-      ],
-      "react": [
-        "./node_modules/@types/react/index.d.ts"
-      ],
-      "react/*": [
-        "./node_modules/@types/react/*"
-      ],
-      "react-dom": [
-        "./node_modules/@types/react-dom/index.d.ts"
-      ],
-      "react-dom/*": [
-        "./node_modules/@types/react-dom/*"
-      ],
-      "viem": [
-        "./node_modules/viem"
-      ],
-      "viem/*": [
-        "./node_modules/viem/*"
-      ],
-      "wagmi": [
-        "./node_modules/wagmi"
-      ],
-      "wagmi/*": [
-        "./node_modules/wagmi/*"
-      ],
-      "@/*": [
-        "./src/*"
-      ]
-    }
+      "@aomi-labs/client": ["../../packages/client/src/index.ts"],
+      "@aomi-labs/client/*": ["../../packages/client/src/*"],
+      "@aomi-labs/deploy": ["../../packages/deploy/src/index.ts"],
+      "@aomi-labs/deploy/*": ["../../packages/deploy/src/*"],
+      "@aomi-labs/react": ["../../packages/react/src/index.ts"],
+      "@aomi-labs/react/*": ["../../packages/react/src/*"],
+      "@getpara/react-sdk": ["./node_modules/@getpara/react-sdk"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"],
+      "viem": ["./node_modules/viem"],
+      "viem/*": ["./node_modules/viem/*"],
+      "wagmi": ["./node_modules/wagmi"],
+      "wagmi/*": ["./node_modules/wagmi/*"],
+      "@/*": ["./src/*"]
+    },
+    "types": ["vite/client"]
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/*.test.ts",
-    "**/*.test.tsx"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

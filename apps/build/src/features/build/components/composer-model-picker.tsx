@@ -1,9 +1,7 @@
-"use client";
-
+import { cn } from "@aomi-labs/widget";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { cn } from "@/lib/class-names";
 
 /**
  * UI-only Create composer model list.

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetStorage } from "@/lib/widget-storage";
 import type { ScopedStorage } from "@aomi-labs/client";
 
@@ -12,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { TriangleAlert } from "lucide-react";
-import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
+import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { TransactionSafetyMode } from "@aomi-labs/client";
 import { Button } from "@/ui/button";
 import { AomiButton } from "@/ui/aomi/button";

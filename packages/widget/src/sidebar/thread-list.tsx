@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   Fragment,
   type FC,
@@ -32,7 +33,7 @@ import {
 } from "lucide-react";
 import type { ThreadOrigin } from "@aomi-labs/client";
 
-import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
+import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { testIds } from "@/test-ids";

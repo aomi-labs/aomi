@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { AomiClient } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 import { useAuthEndpointsImpl } from "./auth-endpoints";
 
 describe("model reads", () => {
@@ -27,12 +27,12 @@ describe("model reads", () => {
         },
       ]),
     };
-    const aomiClientRef = { current: client as unknown as AomiClient };
+    const aomiRef = { current: { raw: client } as unknown as Aomi };
     const apiKeyRef = { current: null };
     const getControlSessionId = () => "sponsored-model-session";
     const view = renderHook(() =>
       useAuthEndpointsImpl({
-        aomiClientRef,
+        aomiRef,
         apiKeyRef,
         getControlSessionId,
         apiKey: null,
@@ -59,12 +59,12 @@ describe("model reads", () => {
       getApps: vi.fn().mockResolvedValue([{ name: "default" }]),
     };
     // Stable refs, as the provider passes them, so the mount fetch runs once.
-    const aomiClientRef = { current: client as unknown as AomiClient };
+    const aomiRef = { current: { raw: client } as unknown as Aomi };
     const apiKeyRef = { current: null };
     const getControlSessionId = () => "client-session";
     const view = renderHook(() =>
       useAuthEndpointsImpl({
-        aomiClientRef,
+        aomiRef,
         apiKeyRef,
         getControlSessionId,
         apiKey: null,

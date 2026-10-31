@@ -31,8 +31,9 @@ describe("server env reads", () => {
       "packages/account/src",
       "apps/portal/src/server",
       "apps/build/src/server",
+      // Landing's /api proxy lives in the edge; apps/landing/src/server only
+      // renders Markdown pages, whose sample code quotes browser env names.
       "apps/edge/src",
-      "apps/landing/app/api",
     ]) {
       for (const file of sources(join(root, directory))) {
         readFileSync(file, "utf8")

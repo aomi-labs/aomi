@@ -148,7 +148,7 @@ describe("usage settings wiring", () => {
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input.toString(), "https://portal.test");
-        if (url.pathname === "/api/auth/sign-in/anonymous") {
+        if (url.pathname === "/api/auth/guest") {
           return Response.json({ code: "session_exists" }, { status: 409 });
         }
         if (url.pathname === "/v1/account/statement") {

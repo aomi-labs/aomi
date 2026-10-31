@@ -1,5 +1,3 @@
-"use client";
-
 import { buildFetch } from "@/lib/session-expiry";
 import { API_PATHS } from "@/lib/api-paths";
 import { HttpRequestError, readJsonResponse } from "@/lib/request-retry";
@@ -44,7 +42,7 @@ export async function operateFetch<T>(
   kind: OperateKind,
   options: OperateFetchOptions = {},
 ): Promise<T> {
-  const path = API_PATHS.bff.operate[kind];
+  const path = API_PATHS.build.operate[kind];
   const params = new URLSearchParams();
   if (options.projectId) {
     params.set("projectId", String(options.projectId));
@@ -67,7 +65,7 @@ export async function operatePaymentsFetch<T>(
   const params = new URLSearchParams();
   if (options.projectId) params.set("projectId", String(options.projectId));
   return operateJson<T>(
-    `${API_PATHS.bff.operate.payments}${params.size ? `?${params}` : ""}`,
+    `${API_PATHS.build.operate.payments}${params.size ? `?${params}` : ""}`,
     "payments",
   );
 }
@@ -76,11 +74,11 @@ export async function operateAppDetailFetch<T>(
   applicationId: number,
 ): Promise<T> {
   return operateJson<T>(
-    API_PATHS.bff.operate.observabilityDetail(applicationId),
+    API_PATHS.build.operate.observabilityDetail(applicationId),
     "observability detail",
   );
 }
 
 export async function modelKeysFetch<T>(): Promise<T> {
-  return operateJson<T>(API_PATHS.bff.operate.modelKeys, "model keys");
+  return operateJson<T>(API_PATHS.build.operate.modelKeys, "model keys");
 }

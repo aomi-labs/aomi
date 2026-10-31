@@ -1,7 +1,6 @@
+import { cn } from "@/lib/cn";
 import type { ComponentProps } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-
-import { cn } from "@aomi-labs/react";
 
 /**
  * Aomi action buttons, built only from `aomi-*` tokens. `ui/button` keeps the

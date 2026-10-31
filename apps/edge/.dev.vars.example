@@ -1,6 +1,6 @@
 # Local Wrangler dev bindings. Copy to .dev.vars (gitignored).
 # The dev signing key for topology node aomi-edge; its public key is committed
-# in src/topology-data.ts (default topology). Development only.
+# in packages/service-identity/src/topologies.ts (default topology). Development only.
 EDGE_SERVICE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIAJez/5pUy9hG5xNVsHP+4GQ6ZgxHDdzFoZ2GwvkHgx/\n-----END PRIVATE KEY-----"
 EDGE_TOPOLOGY=default
 BACKEND_ORIGINS=http://127.0.0.1:8080
@@ -12,12 +12,17 @@ PORTAL_HOSTS=localhost:8787
 PORTAL_UPSTREAM_ORIGIN=http://localhost:3001
 PAYMENT_ORIGIN=http://127.0.0.1:8084
 # Build surface: serve Build's moved routes for this host and pass the rest to
-# the Build Next.js dev server. Locally, give Build's PORTAL_ONLY_SESSION_SECRET
-# the same development value. Hosted secrets come only from product-mono's
-# GitHub Environments, pushed by its deploy.
+# the Build dev server. Locally, give Build's BUILD_SESSION_SECRET the same
+# development value. Hosted secrets come only from product-mono's GitHub
+# Environments, pushed by its deploy.
 BUILD_HOSTS=localhost:8788
 BUILD_UPSTREAM_ORIGIN=http://localhost:3002
 BUILD_SESSION_SECRET=development-only-build-session-secret
-APP_DEPLOY_PLATFORMS=web
+BUILD_DEFAULT_PLATFORM=web
 # Read access to the template and project repos for the release-manifest secret gate.
 BUILD_GITHUB_TOKEN=
+# Account surface: Better Auth on the local database (the Hyperdrive binding's
+# local connection string, CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE).
+BETTER_AUTH_URL=http://localhost:8787
+BETTER_AUTH_SECRET=development-only-better-auth-secret-32-bytes
+AOMI_TRUSTED_ORIGINS=http://localhost:8787
