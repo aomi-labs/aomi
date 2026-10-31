@@ -46,7 +46,7 @@ describe("edge identity", () => {
   it("commits a usable dev public key and placeholders for the deployed ones", async () => {
     const dev = /public_key = """\n([\s\S]*?)"""/.exec(EDGE_TOPOLOGIES.default)?.[1] ?? "";
     await expect(importSPKI(dev.trim(), "EdDSA")).resolves.toBeDefined();
-    for (const [name, kid] of [["staging", "staging-1"], ["rc", "rc-1"], ["production", "prod-2"]] as const) {
+    for (const [name, kid] of [["staging", "staging-1"], ["rc", "rc-1"], ["production", "prod-3"]] as const) {
       expect(EDGE_TOPOLOGIES[name]).toMatch(/name = "aomi-edge"/);
       expect(EDGE_TOPOLOGIES[name]).toMatch(new RegExp(`kid = "aomi-edge-${kid}"`));
     }
