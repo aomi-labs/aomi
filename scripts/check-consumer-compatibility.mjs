@@ -103,12 +103,12 @@ function verifyHostCompositionExport(destination, widgetPackage) {
     `import {
   HeaderControls,
   getBackendUrl,
-  type UsageFixtureData,
+  type WalletAccountMenuOptions,
 } from "${widgetPackage}/host-composition";
 
 export const HostHeader: typeof HeaderControls = HeaderControls;
 export const backendUrl: string = getBackendUrl();
-export type HostUsage = UsageFixtureData;
+export type HostWalletOptions = WalletAccountMenuOptions;
 `,
   );
   run(
