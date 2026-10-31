@@ -5720,6 +5720,22 @@
           {
             "type": "object",
             "additionalProperties": false,
+            "required": ["kind", "calls_id"],
+            "description": "Only EIP-5792 status 400 for the matched bundle: not included on chain and wallet will not retry. Never an unknown error.",
+            "properties": {
+              "kind": {
+                "const": "calls_not_submitted"
+              },
+              "calls_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8194
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
             "required": ["kind", "transaction_id"],
             "properties": {
               "kind": {

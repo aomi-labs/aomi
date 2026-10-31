@@ -84,6 +84,8 @@ export interface AtomicBatchArgs {
     [key: string]: unknown;
   };
   forceAtomic?: boolean;
+  /** Persist the wallet bundle identity before waiting for its result. */
+  onAccepted?: (callsId: string) => void;
   pollingInterval?: number;
   status?: (status: unknown) => boolean;
   throwOnFailure?: boolean;
@@ -121,6 +123,7 @@ export interface NativeWalletExecutionPolicy {
 
 export interface ExecuteWalletCallsParams {
   callList: AAWalletCall[];
+  onAccepted?: (callsId: string) => void;
   currentChainId: number | undefined;
   capabilities: Record<string, WalletCapabilities> | undefined;
   localPrivateKey: `0x${string}` | null;

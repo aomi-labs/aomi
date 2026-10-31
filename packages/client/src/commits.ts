@@ -127,6 +127,11 @@ export type CommitExecutionReview = {
 export type CommitRecoveryRecord = {
   clientRequestId: string;
   attemptId?: string;
+  /** EIP-5792 bundle identity, retained when status lookup fails. */
+  callsId?: string;
+  /** Original wallet failure, retained across reloads while outcome is unknown. */
+  walletError?: string;
+  callsNotSubmitted?: true;
   transactionId?: string;
   /** Hashes a `send_calls` bundle landed, saved before they are reported. */
   transactionIds?: string[];
@@ -173,7 +178,19 @@ export type CommitCapabilities = {
     commit: CommitView,
     request: WalletCallsCommit,
     onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void,
+    onAccepted?: (callsId: string) => void,
   ) => Promise<string[]>;
+  /** Read an accepted bundle without invoking another send. */
+  walletCallsStatus?: (
+    commit: CommitView,
+    callsId: string,
+  ) => Promise<
+    | Extract<
+        CommitWalletAttemptOutcome,
+        { kind: "calls" | "calls_not_submitted" }
+      >
+    | undefined
+  >;
   /** The connected wallet is the signer and may be asked to bundle on the
    * commit's chain: it is not known to lack batching there. */
   canWalletSendCalls?: (commit: CommitView) => boolean;
@@ -195,6 +212,7 @@ const COMMIT_CAPABILITY_KEYS = [
   "walletSendPreflight",
   "canWalletSend",
   "walletSendCalls",
+  "walletCallsStatus",
   "canWalletSendCalls",
   "recovery",
 ] as const satisfies readonly (keyof CommitCapabilities)[];
@@ -345,6 +363,8 @@ function walletRejection(phase?: WalletRejection["phase"]): WalletRejection {
 function recordedOutcome(
   record: CommitRecoveryRecord,
 ): CommitWalletAttemptOutcome {
+  if (record.callsNotSubmitted && record.callsId)
+    return { kind: "calls_not_submitted", calls_id: record.callsId };
   if (record.transactionIds?.length)
     return { kind: "calls", transaction_ids: record.transactionIds };
   return record.transactionId
@@ -353,7 +373,10 @@ function recordedOutcome(
 }
 const hasRecordedOutcome = (record: CommitRecoveryRecord): boolean =>
   Boolean(
-    record.transactionId || record.transactionIds?.length || record.rejected,
+    record.transactionId ||
+    record.transactionIds?.length ||
+    record.rejected ||
+    (record.callsNotSubmitted && record.callsId),
   );
 /** A 4xx answer proves the attempt was not admitted; 408 stays ambiguous. */
 function isDefiniteRequestFailure(error: unknown): boolean {
@@ -361,6 +384,38 @@ function isDefiniteRequestFailure(error: unknown): boolean {
     error instanceof Error ? error.message : "",
   )?.[1];
   return status !== undefined && status !== "408";
+}
+
+/** Only bounded human diagnostics, never a serialized provider response. */
+function walletFailureMessage(error: unknown): string {
+  if (typeof error === "string") return error.split("\n", 1)[0].slice(0, 256);
+  const messages = errorChain(error)
+    .slice(0, 4)
+    .flatMap((link) => {
+      const record = link as Record<string, unknown>;
+      const message = [
+        record.shortMessage,
+        record.message,
+        record.details,
+      ].find((value): value is string => typeof value === "string");
+      const code =
+        typeof record.code === "string" || typeof record.code === "number"
+          ? ` (code ${String(record.code).slice(0, 40)})`
+          : "";
+      return message
+        ? [
+            message
+              .split(/\n|URL:|Request body:|Request Arguments:/, 1)[0]
+              .slice(0, 256) + code,
+          ]
+        : code
+          ? [code.trim()]
+          : [];
+    });
+  return (
+    [...new Set(messages)].join(": ").slice(0, 700) ||
+    "Wallet request failed; its outcome is unknown"
+  );
 }
 
 /** A 4001 before the wallet accepted anything: once it answered a call id,
@@ -508,7 +563,7 @@ export function commitCapabilities(
               supportsAtomicBatch(Number(commit.chain_ref))
             );
           },
-          async walletSendCalls(commit, request, onPhase) {
+          async walletSendCalls(commit, request, onPhase, onAccepted) {
             if (
               !payloadMatchesCommit(commit, request) ||
               evm.address.toLowerCase() !== commit.signer.toLowerCase()
@@ -521,11 +576,24 @@ export function commitCapabilities(
                 to: normalizeEvmWalletTarget(call.to),
               })),
             };
-            return onPhase
-              ? sendPreparedCalls(walletRequest, onPhase)
+            return onPhase || onAccepted
+              ? sendPreparedCalls(walletRequest, onPhase, onAccepted)
               : sendPreparedCalls(walletRequest);
           },
         }
+      : {}),
+    ...(evm?.getPreparedCallsStatus
+      ? ({
+          async walletCallsStatus(commit, callsId) {
+            if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
+              throw new Error("Connect the expected signing wallet");
+            return evm.getPreparedCallsStatus!({
+              callsId,
+              chainId: Number(commit.chain_ref),
+              signer: commit.signer,
+            });
+          },
+        } satisfies Pick<CommitCapabilities, "walletCallsStatus">)
       : {}),
     ...(evm?.waitForReceipt
       ? {
@@ -797,7 +865,8 @@ export class CommitController {
     if (
       view.wallet_attempt &&
       recovery?.attemptId === view.wallet_attempt.attempt_id &&
-      hasRecordedOutcome(recovery)
+      (hasRecordedOutcome(recovery) ||
+        (recovery.callsId && this.available.walletCallsStatus))
     )
       return true;
     const walletSend = this.walletSendPlan(view);
@@ -1263,13 +1332,39 @@ export class CommitController {
     const attempt = view.wallet_attempt;
     const record = recovery?.load(this.scope(view.commit_id), view.commit_id);
     if (!recovery || !attempt || !record) return view;
-    if (attempt.state === "mismatched") return view;
+    if (
+      attempt.state === "mismatched" ||
+      (record.attemptId && record.attemptId !== attempt.attempt_id)
+    )
+      return view;
     const recovered =
       record.attemptId === attempt.attempt_id
         ? record
         : { ...record, attemptId: attempt.attempt_id };
     if (recovered !== record)
       recovery.save(this.scope(view.commit_id), view.commit_id, recovered);
+    if (
+      !hasRecordedOutcome(recovered) &&
+      recovered.callsId &&
+      this.available.walletCallsStatus
+    ) {
+      const outcome = await this.available.walletCallsStatus(
+        view,
+        recovered.callsId,
+      );
+      if (
+        outcome?.kind === "calls" &&
+        outcome.transaction_ids.length &&
+        outcome.transaction_ids.every((hash) => hash)
+      )
+        recovered.transactionIds = outcome.transaction_ids;
+      if (
+        outcome?.kind === "calls_not_submitted" &&
+        outcome.calls_id === recovered.callsId
+      )
+        recovered.callsNotSubmitted = true;
+      recovery.save(this.scope(view.commit_id), view.commit_id, recovered);
+    }
     if (!hasRecordedOutcome(recovered)) return view;
     return this.reportWalletOutcome(
       view.commit_id,
@@ -1377,7 +1472,10 @@ export class CommitController {
     };
     try {
       transactionIds = bundle
-        ? await sendCalls!(view, bundle, onPhase)
+        ? await sendCalls!(view, bundle, onPhase, (callsId) => {
+            record = { ...record!, callsId };
+            recovery.save(this.scope(view.commit_id), view.commit_id, record);
+          })
         : [await send!(view, single!, onPhase)];
     } catch (error) {
       // Legs a sequential fallback already sent are on chain: report them so
@@ -1388,7 +1486,35 @@ export class CommitController {
           : undefined;
       if (landed) transactionIds = landed;
       else {
-        if (!isExplicitWalletRejection(error)) throw error;
+        const callsId = errorChain(error)
+          .map((link) => link.callsId)
+          .find((id): id is string => typeof id === "string" && id.length > 0);
+        record = {
+          ...record,
+          ...(callsId ? { callsId } : {}),
+          walletError: walletFailureMessage(error),
+        };
+        recovery.save(this.scope(view.commit_id), view.commit_id, record);
+        if (!isExplicitWalletRejection(error)) {
+          // An accepted bundle may have a definitive status even though its
+          // synchronous wait failed. Query it once; preserve the original
+          // failure if the query itself cannot establish an outcome.
+          if (record.callsId && this.available.walletCallsStatus) {
+            try {
+              const recovered = await this.recoverWalletOutcome(
+                await this.refresh(view.commit_id),
+              );
+              if (
+                isTerminalCommit(recovered) ||
+                recovered.state === "submitted"
+              )
+                return recovered;
+            } catch {
+              /* Unknown: the durable attempt still blocks resubmission. */
+            }
+          }
+          throw error;
+        }
         const rejection = walletRejection(rejectionPhase);
         record = { ...record, rejected: true, rejection };
         recovery.save(this.scope(view.commit_id), view.commit_id, record);

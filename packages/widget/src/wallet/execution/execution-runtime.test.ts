@@ -5,6 +5,82 @@ import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
 
 describe("buildEvmExecutionRuntime", () => {
+  describe("bundle status recovery", () => {
+    const signer = "0x2222222222222222222222222222222222222222";
+    const callsId = "0xbundle";
+    const status = (answer: unknown) => {
+      const request = vi.fn().mockResolvedValue(answer);
+      const getWalletClientFor = vi.fn().mockResolvedValue({ request });
+      const runtime = buildEvmExecutionRuntime({
+        activeConnector: { uid: "known-wallet" },
+        activeEvmConnection: { address: signer },
+        chainsById: { [arbitrum.id]: arbitrum },
+        getWalletClientFor,
+      } as unknown as EvmWalletRuntime);
+      return {
+        request,
+        getWalletClientFor,
+        check: () =>
+          runtime.getPreparedEvmCallsStatus!({
+            callsId,
+            chainId: arbitrum.id,
+            signer,
+          }),
+      };
+    };
+    it.each([100, 500, 600, 999])(
+      "leaves status %i without receipts blocked",
+      async (code) => {
+        await expect(
+          status({
+            id: callsId,
+            chainId: `0x${arbitrum.id.toString(16)}`,
+            status: code,
+          }).check(),
+        ).resolves.toBeUndefined();
+      },
+    );
+    it("reports only the matched terminal offchain failure without hashes", async () => {
+      const { check, request, getWalletClientFor } = status({
+        id: callsId,
+        chainId: `0x${arbitrum.id.toString(16)}`,
+        status: 400,
+      });
+      await expect(check()).resolves.toEqual({
+        kind: "calls_not_submitted",
+        calls_id: callsId,
+      });
+      expect(request).toHaveBeenCalledWith({
+        method: "wallet_getCallsStatus",
+        params: [callsId],
+      });
+      expect(getWalletClientFor).toHaveBeenCalledWith({
+        connector: { uid: "known-wallet" },
+      });
+    });
+    it.each([200, 500, 600])(
+      "reports status %i receipt hashes for server verification",
+      async (code) => {
+        await expect(
+          status({
+            id: callsId,
+            chainId: `0x${arbitrum.id.toString(16)}`,
+            status: code,
+            receipts: [{ transactionHash: "0xreceipt" }],
+          }).check(),
+        ).resolves.toEqual({ kind: "calls", transaction_ids: ["0xreceipt"] });
+      },
+    );
+    it.each([
+      { id: "wrong-id", chainId: "0xa4b1" },
+      { id: callsId, chainId: "0x1" },
+    ])("refuses a status for another bundle or chain", async (identity) => {
+      await expect(
+        status({ ...identity, status: 400 }).check(),
+      ).rejects.toThrow("identity mismatch");
+    });
+  });
+
   describe("prepared commit bundles", () => {
     const address = "0x2222222222222222222222222222222222222222";
     const bundle = {

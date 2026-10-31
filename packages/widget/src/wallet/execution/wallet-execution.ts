@@ -384,6 +384,7 @@ function failedBundleHashes(error: unknown): string[] | undefined {
  * that prefix.
  */
 export async function sendWalletCallBundle({
+  onAccepted,
   calls,
   state,
   onPhase,
@@ -391,6 +392,7 @@ export async function sendWalletCallBundle({
 }: {
   calls: WalletExecutionCallList;
   state: WalletExecutionKitState;
+  onAccepted?: (callsId: string) => void;
   onPhase?: (phase: "switching_chain" | "awaiting_wallet") => void;
   onRefused?: () => void;
 }): Promise<string[]> {
@@ -406,6 +408,7 @@ export async function sendWalletCallBundle({
       capabilities: state.capabilities,
       localPrivateKey: null,
       bundle: true,
+      onAccepted,
       sendCallsSyncAsync:
         sendCallsSyncAsync ??
         (async () => {

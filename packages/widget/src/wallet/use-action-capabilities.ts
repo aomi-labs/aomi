@@ -78,6 +78,15 @@ function browserCommitRecoveryStore(
               ...(typeof record.attemptId === "string"
                 ? { attemptId: record.attemptId }
                 : {}),
+              ...(record.callsNotSubmitted === true
+                ? { callsNotSubmitted: true as const }
+                : {}),
+              ...(typeof record.callsId === "string"
+                ? { callsId: record.callsId }
+                : {}),
+              ...(typeof record.walletError === "string"
+                ? { walletError: record.walletError }
+                : {}),
               ...(typeof record.transactionId === "string"
                 ? { transactionId: record.transactionId }
                 : {}),
@@ -157,6 +166,7 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
     preparePreparedTransaction: wallet.preparePreparedEvmTransaction,
     sendPreparedTransaction: wallet.sendPreparedEvmTransaction,
     sendPreparedCalls: wallet.sendPreparedEvmCalls,
+    getPreparedCallsStatus: wallet.getPreparedEvmCallsStatus,
     waitForReceipt: wallet.waitForEvmReceipt,
     supportsAtomicBatch: wallet.supportsAtomicEvmBatch,
     signTransaction: wallet.signEvmTransaction,

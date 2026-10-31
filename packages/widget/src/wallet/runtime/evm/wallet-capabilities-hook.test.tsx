@@ -81,7 +81,11 @@ describe("useWalletCapabilities", () => {
 describe("useSendCallsSyncExecutor", () => {
   it("marks any failure after the wallet answered a call id as accepted", async () => {
     const send = renderHook(() => useSendCallsSyncExecutor()).result.current;
-    const error = await send({ calls: [] } as never).catch((e: unknown) => e);
+    const onAccepted = vi.fn();
+    const error = await send({ calls: [], onAccepted } as never).catch(
+      (e: unknown) => e,
+    );
+    expect(onAccepted).toHaveBeenCalledWith("0xid");
     expect(error).toMatchObject({ callsId: "0xid", cause: { code: 4001 } });
     expect(error).not.toHaveProperty("code");
   });
