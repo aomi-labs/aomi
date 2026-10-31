@@ -120,8 +120,8 @@ const BUILD: Partial<Record<Tier, string>> = {
 [[services]]
 name = "aomi-build"
 kid = "aomi-build-dev-1"
-issues = ["user", "service"]
-audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
+issues = ["service"]
+audiences = ["aomi-sidecar"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAcz9wTX8DsJmDChhmt02UIhv9LCceCsJBSlsBgJlExc4=
@@ -152,8 +152,8 @@ public_key = ""
 [[services]]
 name = "aomi-build"
 kid = "aomi-build-staging-1"
-issues = ["user", "service"]
-audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
+issues = ["service"]
+audiences = ["aomi-sidecar"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAgLSENuOGsWvaeM+7eU6BWSp9tY61HF7Ml4Vv/fxaupY=
@@ -184,8 +184,8 @@ public_key = ""
 [[services]]
 name = "aomi-build"
 kid = "aomi-build-prod-1"
-issues = ["user", "service"]
-audiences = ["aomi-backend", "aomi-api-server", "aomi-sidecar", "aomi-payment"]
+issues = ["service"]
+audiences = ["aomi-sidecar"]
 public_key = """
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAyaIwzD82igAdhA3xw9Tkr5yJEpaRU3SY73bVqjE7Ajc=

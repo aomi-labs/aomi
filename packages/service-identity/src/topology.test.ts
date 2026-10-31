@@ -156,3 +156,11 @@ describe("aomi-build", () => {
     }
   });
 });
+
+it("restricts the deployed Build identity to sidecar service credentials", () => {
+  for (const toml of Object.values(TOPOLOGIES["aomi-build"])) {
+    const service = AomiService.fromTopology({ toml, selfName: "aomi-build" });
+    expect(service.self.issues).toEqual(["service"]);
+    expect(service.self.audiences).toEqual(["aomi-sidecar"]);
+  }
+});
