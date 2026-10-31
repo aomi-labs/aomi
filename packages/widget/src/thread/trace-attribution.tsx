@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useControl } from "@aomi-labs/react";
 import { useSkillCatalog } from "@/composer/capabilities/skill-catalog";
-import type { TraceAttribution } from "@/thread/tool-interpreter/attribution";
+import type { TraceAttribution } from "./attribution";
 
 export const TraceAttributionContext = createContext<TraceAttribution>({});
 export const useTraceAttribution = () => useContext(TraceAttributionContext);

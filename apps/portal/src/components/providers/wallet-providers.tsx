@@ -1,15 +1,10 @@
-"use client";
-
 import {
-  Component,
-  type ErrorInfo,
   type ReactNode,
   useEffect,
   useCallback,
   useMemo,
   useState,
 } from "react";
-import { hostedPortalOrigin, hostedPortalApiOrigin } from "@/lib/hosted-portal";
 import {
   arc,
   arcTestnet,
@@ -20,7 +15,7 @@ import {
   robinhood,
 } from "@aomi-labs/client";
 import { ExtUserProvider } from "@aomi-labs/react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "@/lib/navigation";
 import {
   mainnet,
   arbitrum,
@@ -36,23 +31,14 @@ import { type Chain } from "viem";
 import {
   AomiWalletKitProvider,
   parseRpcOverrides,
-  ShellTransportProvider,
-  useAomiWalletKit,
   useFullTestnet,
   WalletSignInOptionsContext,
 } from "@aomi-labs/widget/host-composition";
 import {
   E2EWalletProvider,
-  type E2EWalletSeedClient,
+  useE2EWalletSeed,
 } from "@/components/providers/e2e-wallet-provider";
-import {
-  isDeviceAuthRoute,
-  classifyProviderInitializationFailure,
-  providerConfigurationFailure,
-  providerFailureText,
-  requestedDeviceAuthProvider,
-  type DeviceAuthProvider,
-} from "@/lib/device-auth-provider";
+type SignInProvider = "privy" | "para";
 
 const paraApiKey = process.env.NEXT_PUBLIC_PARA_API_KEY?.trim() ?? "";
 const paraEnvironmentSetting =
@@ -61,10 +47,7 @@ const paraEnvironment: "PROD" | "BETA" =
   paraEnvironmentSetting === "PROD" ? "PROD" : "BETA";
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "";
 
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() ||
-  process.env.NEXT_PUBLIC_PROJECT_ID?.trim() ||
-  "";
+const walletConnectProjectId = process.env.NEXT_PUBLIC_PROJECT_ID?.trim() || "";
 
 const fullTestnet =
   process.env.NEXT_PUBLIC_USE_FULL_TESTNET === "true"
@@ -102,11 +85,8 @@ const solanaNetworks = [
     cluster: "solana:devnet",
     rpcHttpUrl:
       process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
       "https://api.devnet.solana.com",
-    rpcWsUrl:
-      process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_WS_URL,
+    rpcWsUrl: process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL,
   },
   {
     id: "solana-mainnet",
@@ -135,7 +115,6 @@ const solanaNetworks = [
 type Props = {
   children: ReactNode;
   cookies?: string | null;
-  e2eWallet?: E2EWalletSeedClient | null;
 };
 
 type BrowserAuthOrigin = {
@@ -151,8 +130,8 @@ function getBrowserAuthOrigin(): BrowserAuthOrigin | null {
   };
 }
 
-export function WalletProviders({ children, e2eWallet }: Props) {
-  const pathname = usePathname();
+export function WalletProviders({ children }: Props) {
+  const e2eWallet = useE2EWalletSeed();
   const searchParams = useSearchParams();
   const applicationId =
     searchParams.get("application_id") ??
@@ -167,8 +146,9 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       }),
     [applicationId],
   );
-  const [signInProvider, setSignInProvider] =
-    useState<DeviceAuthProvider | null>(null);
+  const [signInProvider, setSignInProvider] = useState<SignInProvider | null>(
+    null,
+  );
   const [providerRestored, setProviderRestored] = useState(false);
   useEffect(() => {
     try {
@@ -189,7 +169,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     }
   }, [preferenceStorage]);
   const chooseProvider = useCallback(
-    async (provider: DeviceAuthProvider) => {
+    async (provider: SignInProvider) => {
       try {
         preferenceStorage.set("walletProvider", provider);
       } catch {
@@ -200,7 +180,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     [preferenceStorage],
   );
   const signInOptions = useMemo(() => {
-    const providers: DeviceAuthProvider[] = [];
+    const providers: SignInProvider[] = [];
     if (privyAppId) providers.push("privy");
     if (paraApiKey) providers.push("para");
     return providers.map((provider) => ({
@@ -230,18 +210,9 @@ export function WalletProviders({ children, e2eWallet }: Props) {
   // UI still reads "Ethereum · Mainnet" while transactions hit a local fork.
   // Inert unless NEXT_PUBLIC_USE_FULL_TESTNET=true and the RPC map parses.
   const { routedChains } = useFullTestnet(networks, fullTestnet);
-  const hostedOrigin = hostedPortalOrigin();
   const account = useMemo(
-    () => ({
-      mode: "aomi-backend" as const,
-      ...(hostedOrigin
-        ? {
-            baseUrl: hostedPortalApiOrigin(),
-            widgetAuth: { mode: "wallet" as const },
-          }
-        : (browserAuthOrigin ?? {})),
-    }),
-    [browserAuthOrigin, hostedOrigin],
+    () => ({ mode: "aomi-backend" as const, ...browserAuthOrigin }),
+    [browserAuthOrigin],
   );
   const evmWallets = useMemo(
     () =>
@@ -250,27 +221,14 @@ export function WalletProviders({ children, e2eWallet }: Props) {
         : (["metamask", "rabby", "coinbase"] as const),
     [],
   );
-  const routeProvider = requestedDeviceAuthProvider(pathname, searchParams);
-  const routeProviderFailure = routeProvider
-    ? providerConfigurationFailure(routeProvider, {
-        paraApiKey,
-        paraEnvironment: paraEnvironmentSetting,
-        privyAppId,
-      })
-    : null;
-  const selectedProvider = isDeviceAuthRoute(pathname)
-    ? routeProviderFailure
-      ? null
-      : routeProvider
-    : signInProvider;
   const auth = useMemo(
     () =>
-      selectedProvider
-        ? selectedProvider === "privy"
+      signInProvider
+        ? signInProvider === "privy"
           ? ({ provider: "privy" } as const)
           : ({ provider: "para", methods: ["email", "google"] } as const)
         : false,
-    [selectedProvider],
+    [signInProvider],
   );
   const providers = useMemo(
     () =>
@@ -316,99 +274,19 @@ export function WalletProviders({ children, e2eWallet }: Props) {
 
   const providerTree = (
     <WalletSignInOptionsContext.Provider
-      value={
-        !providerRestored || isDeviceAuthRoute(pathname) || hostedOrigin
-          ? []
-          : signInOptions
-      }
+      value={!providerRestored ? [] : signInOptions}
     >
       <AomiWalletKitProvider
         fullTestnet={fullTestnet}
         initializing={!providerRestored}
-        auth={hostedOrigin ? false : auth}
+        auth={auth}
         account={account}
         providers={providers}
         wallets={wallets}
       >
-        <HostedPortalShell>{children}</HostedPortalShell>
+        {children}
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
   );
-  const mounted =
-    isDeviceAuthRoute(pathname) && selectedProvider ? (
-      <DeviceAuthProviderErrorBoundary
-        key={`${pathname}:${selectedProvider}`}
-        provider={selectedProvider}
-      >
-        {providerTree}
-      </DeviceAuthProviderErrorBoundary>
-    ) : (
-      providerTree
-    );
-  // Keep account state above the route-keyed device-auth error boundary.
-  return <ExtUserProvider>{mounted}</ExtUserProvider>;
-}
-
-class DeviceAuthProviderErrorBoundary extends Component<
-  { children: ReactNode; provider: DeviceAuthProvider },
-  { error: unknown | null }
-> {
-  state: { error: unknown | null } = { error: null };
-
-  static getDerivedStateFromError(error: unknown) {
-    return { error };
-  }
-
-  componentDidCatch(error: unknown, _info: ErrorInfo) {
-    const failure = classifyProviderInitializationFailure(
-      this.props.provider,
-      error,
-      providerConfiguration,
-    );
-    console.error("device_auth_provider_initialization_failed", {
-      provider: this.props.provider,
-      code: failure.code,
-    });
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children;
-    const failure = classifyProviderInitializationFailure(
-      this.props.provider,
-      this.state.error,
-      providerConfiguration,
-    );
-    return (
-      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
-        <section className="w-full max-w-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Sign in to Aomi CLI
-          </h1>
-          <p className="text-muted-foreground mt-3 text-sm">
-            {providerFailureText(failure)}
-          </p>
-        </section>
-      </main>
-    );
-  }
-}
-
-const providerConfiguration = {
-  paraApiKey,
-  paraEnvironment: paraEnvironmentSetting,
-  privyAppId,
-};
-
-function HostedPortalShell({ children }: { children: ReactNode }) {
-  const origin = hostedPortalOrigin();
-  const kit = useAomiWalletKit();
-  if (!origin) return <>{children}</>;
-  return (
-    <ShellTransportProvider
-      baseUrl={hostedPortalApiOrigin()}
-      getBearer={kit.getAccountBearer}
-    >
-      {children}
-    </ShellTransportProvider>
-  );
+  return <ExtUserProvider>{providerTree}</ExtUserProvider>;
 }

@@ -6,6 +6,7 @@
 // docs/topics/account-authentication/facts/service-identity.md.
 
 export { AomiService, parseTopology, assertServerOnly } from "./topology";
+export { TOPOLOGIES, tierOf, topologyFor, type Tier } from "./topologies";
 export type {
   ServiceNode,
   Topology,

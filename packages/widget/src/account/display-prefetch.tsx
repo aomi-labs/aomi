@@ -24,24 +24,25 @@ import { accountSafetyQuery } from "./policy/transaction-safety-api";
  */
 export function DisplayPrefetch() {
   const cache = useAomiDisplayCache();
-  const { json: request, client } = useShellTransport();
+  const transport = useShellTransport();
   useEffect(() => {
-    const api = cache?.apiClient;
+    const api = cache?.aomi;
     if (!cache || !api) return;
+    const shell = transport.aomi;
     const userId =
       cache.scope.account?.kind === "user" ? cache.scope.account.id : undefined;
     const queries: DisplayQuery<unknown>[] = [
-      skillCatalogQuery(api, request),
-      packageCatalogQuery(api, request),
+      skillCatalogQuery(api),
+      packageCatalogQuery(api),
       ...(userId
         ? [
-            accountProfileQuery(request, userId),
+            accountProfileQuery(transport, userId),
             displayQueries.credits(api),
-            packageCatalogQuery(api, request, userId),
-            agentWalletsQuery(client),
-            accountWalletsQuery(client),
-            connectionsQuery(client),
-            accountSafetyQuery(request),
+            packageCatalogQuery(shell, userId),
+            agentWalletsQuery(shell),
+            accountWalletsQuery(shell),
+            connectionsQuery(shell),
+            accountSafetyQuery(shell.account.guard),
           ]
         : []),
     ];
@@ -55,6 +56,6 @@ export function DisplayPrefetch() {
     }
     const id = window.setTimeout(warm, 0);
     return () => window.clearTimeout(id);
-  }, [cache, client, request]);
+  }, [cache, transport]);
   return null;
 }

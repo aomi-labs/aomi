@@ -13,11 +13,11 @@ describe("normalizeRequestPath", () => {
         "https://portal.aomi.dev/api/threads/89d96b41-cafb-4d6e-8516-70db2780f4a1?token=secret#prompt",
       ),
     ).toBe("/api/threads/:param");
-    expect(normalizeRequestPath("/api/bff/auth/[...all]")).toBe(
-      "/api/bff/auth/:catchall",
+    expect(normalizeRequestPath("/api/build/auth/[...all]")).toBe(
+      "/api/build/auth/:catchall",
     );
-    expect(normalizeRequestPath("/api/bff/auth/:catchall")).toBe(
-      "/api/bff/auth/:catchall",
+    expect(normalizeRequestPath("/api/build/auth/:catchall")).toBe(
+      "/api/build/auth/:catchall",
     );
   });
 });
@@ -62,7 +62,7 @@ describe("scrubSentryEvent", () => {
       timestamp: 123,
       level: "warning",
       platform: "node",
-      release: "portal-bff@abcdef0",
+      release: "portal@abcdef0",
       environment: "staging",
       transaction: "/api/threads/private-thread?oauth_code=secret",
       message: "prompt and generated source",
@@ -119,7 +119,7 @@ describe("scrubSentryEvent", () => {
         },
       },
       tags: {
-        service: "portal-bff",
+        service: "portal",
         route_family: "/api/threads/[id]",
         operation: "thread_proxy",
         method: "POST",
@@ -177,10 +177,10 @@ describe("scrubSentryEvent", () => {
     expect(event).toMatchObject({
       level: "error",
       environment: "staging",
-      release: "portal-bff@abcdef0",
+      release: "portal@abcdef0",
       transaction: "/api/threads/:param",
       tags: {
-        service: "portal-bff",
+        service: "portal",
         route_family: "/api/threads/:param",
         operation: "thread_proxy",
         method: "POST",
@@ -190,7 +190,7 @@ describe("scrubSentryEvent", () => {
         values: [
           {
             type: "DatabaseError",
-            value: "BFF exception",
+            value: "app server exception",
             mechanism: { type: "generic", handled: true },
             stacktrace: {
               frames: [
@@ -322,6 +322,36 @@ describe("scrubSentryEvent", () => {
     });
   });
 
+  it("retains Start server artifact source maps while stripping URL credentials", () => {
+    const codeFile = "/var/task/.output/server/_ssr/assets/server-abcdef12.mjs";
+    const debugId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const event = scrubSentryEvent({
+      exception: {
+        values: [{
+          stacktrace: { frames: [{ filename: `${codeFile}?token=secret#private`, lineno: 17 }] },
+        }],
+      },
+      debug_meta: {
+        images: [{ type: "sourcemap", code_file: `${codeFile}?cookie=secret`, debug_id: debugId }],
+      },
+    });
+
+    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 17 });
+    expect(event?.debug_meta?.images).toEqual([{ type: "sourcemap", code_file: codeFile, debug_id: debugId }]);
+    expect(JSON.stringify(event)).not.toContain("secret");
+  });
+
+  it("retains Vercel function bundle paths", () => {
+    const codeFile = "/var/task/_ssr/ssr.mjs";
+    const event = scrubSentryEvent({
+      exception: {
+        values: [{ stacktrace: { frames: [{ filename: codeFile, lineno: 3 }] } }],
+      },
+    });
+
+    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 3 });
+  });
+
   it("drops non-error events and unsafe environment values", () => {
     expect(scrubSentryEvent({ type: "transaction" })).toBeNull();
     expect(scrubSentryEvent({ environment: "preview" })).not.toHaveProperty(
@@ -346,15 +376,15 @@ describe("scrubSentryLog", () => {
     expect(
       scrubSentryLog({
         level: "fatal",
-        message: "bff.upstream_failure",
+        message: "app.upstream_failure",
         attributes: {
-          service: "build-bff",
+          service: "build",
           operation: "launch",
           upstream: "rust",
           "upstream.status_code": 503,
           handled: true,
           "sentry.environment": "staging",
-          "sentry.release": "build-bff@abcdef0",
+          "sentry.release": "build@abcdef0",
           "sentry.sdk.name": "sentry.javascript.nextjs",
           "user.id": "private-user",
           prompt: "private prompt",
@@ -369,15 +399,15 @@ describe("scrubSentryLog", () => {
       }),
     ).toEqual({
       level: "error",
-      message: "bff.upstream_failure",
+      message: "app.upstream_failure",
       attributes: {
-        service: "build-bff",
+        service: "build",
         operation: "launch",
         upstream: "rust",
         "upstream.status_code": 503,
         handled: true,
         "sentry.environment": "staging",
-        "sentry.release": "build-bff@abcdef0",
+        "sentry.release": "build@abcdef0",
       },
       severityNumber: undefined,
     });

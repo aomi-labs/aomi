@@ -173,7 +173,7 @@ existing session + source-ownership + `(app, releaseTag)` pair validation and
 Applied to all **three** copies of the route, so portal and the package BFF
 inherit it:
 
-- `apps/build/src/server/bff/launch/routes.ts`
+- `apps/build/src/server/launch/routes.ts`
 - `apps/portal/src/server/bff/launch/routes.ts`
 - `packages/deploy/src/bff/launch-routes.ts`
 
@@ -188,7 +188,7 @@ rather than a generic failure.
 
 ```
 GET /api/platforms/:p/apps        -> camelPlatformApp -> PlatformApp.secrets[]
-GET /api/bff/deployments/secrets  -> listAppSecrets   -> { byApp: string[] }
+GET /api/build/deployments/secrets  -> listAppSecrets   -> { byApp: string[] }
                                           |
                         missingRequiredSecrets(slots, configuredKeys)
                                           |

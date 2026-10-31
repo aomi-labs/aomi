@@ -98,7 +98,6 @@ function decision(
     ...(failure.upstreamStatus !== undefined
       ? { upstreamStatus: failure.upstreamStatus }
       : {}),
-    ...(failure.requestError ? { requestError: failure.requestError } : {}),
     ...(failure.localDiagnostic
       ? { localDiagnostic: failure.localDiagnostic }
       : {}),

@@ -1,6 +1,6 @@
+import { cn } from "@/lib/cn";
 import { useState } from "react";
 import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import type { WalletRow } from "@/wallet/composer/wallet-state";

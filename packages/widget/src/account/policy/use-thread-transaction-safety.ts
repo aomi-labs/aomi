@@ -6,7 +6,7 @@ import type {
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
 import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import {
   accountSafetyQuery,
   fetchTransactionSafety,
@@ -61,12 +61,12 @@ export function useThreadTransactionSafety({
   enabled?: boolean;
   canHold?: boolean;
 }): ThreadTransactionSafety {
-  const { json: request } = useShellTransport();
+  const guard = useShellAomi().account.guard;
   const cache = useAomiDisplayCache();
   // Levels live in the display cache, so a chat switch reads them without a
   // request; changes are written straight into it.
   const accountQuery = useDisplayQuery({
-    ...accountSafetyQuery(request),
+    ...accountSafetyQuery(guard),
     enabled,
   });
   const threadLoads = enabled && Boolean(threadId) && threadReady;
@@ -74,7 +74,7 @@ export function useThreadTransactionSafety({
     resource: "transaction-safety",
     parameters: ["thread", threadId],
     enabled: threadLoads,
-    fetcher: () => fetchTransactionSafety(request, threadId),
+    fetcher: () => fetchTransactionSafety(guard, threadId),
   });
   const account = enabled ? accountQuery.data : undefined;
   const storePolicy = useCallback(
@@ -138,7 +138,7 @@ export function useThreadTransactionSafety({
       setBusy(true);
       setError(undefined);
       const saved = await saveOrReloadTransactionSafety(
-        request,
+        guard,
         mode,
         prior.revision,
         id,
@@ -158,7 +158,7 @@ export function useThreadTransactionSafety({
       if (saved.latest) storePolicy(id, saved.latest);
       return false;
     },
-    [request, storePolicy],
+    [guard, storePolicy],
   );
 
   const select = useCallback(
@@ -175,7 +175,7 @@ export function useThreadTransactionSafety({
       const prior =
         thread?.id === threadId
           ? thread.policy
-          : await fetchTransactionSafety(request, threadId).catch(
+          : await fetchTransactionSafety(guard, threadId).catch(
               () => undefined,
             );
       if (!prior) {
@@ -189,7 +189,7 @@ export function useThreadTransactionSafety({
       busy,
       canHold,
       enabled,
-      request,
+      guard,
       thread,
       threadId,
       threadReady,
@@ -209,7 +209,7 @@ export function useThreadTransactionSafety({
     setError(undefined);
     // An unsent chat reads as the account default with that revision; the
     // PUT materializes the thread from the same snapshot.
-    const prior = await fetchTransactionSafety(request, held.threadId).catch(
+    const prior = await fetchTransactionSafety(guard, held.threadId).catch(
       () => undefined,
     );
     if (!prior) {
@@ -230,7 +230,7 @@ export function useThreadTransactionSafety({
       );
     setBusy(false);
     return saved;
-  }, [request, threadId, write]);
+  }, [guard, threadId, write]);
 
   // A second send while the first save is in flight (Enter, then the
   // form's own `requestSubmit`) joins that save rather than starting another.

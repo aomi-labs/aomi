@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@aomi-labs/widget";
 import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
-import { cn } from "@aomi-labs/react";
 import { Button, Card, CardContent } from "@aomi-labs/widget/host-composition";
 import { CopyButton } from "./copy-button";
 

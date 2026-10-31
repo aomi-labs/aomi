@@ -34,29 +34,52 @@ export type AccountGraphWallet = {
   providerWalletId?: string;
   chainScope?: string;
   chainId?: number;
-  linkedVia: string;
-  label?: string;
+  linkedVia:
+    | "siwe"
+    | "siws"
+    | "para"
+    | "privy"
+    | "challenge"
+    | "import"
+    | "observed"
+    | "migration"
+    | (string & {});
+  /** The user's name for this address; null when unnamed. */
+  label?: string | null;
+  /** The wallet app it was linked from, e.g. "Rabby". */
+  walletApp?: string;
   verifiedAt?: number;
   lastSeenAt?: number;
+  capability?: "read" | "write";
 };
 
-export type AccountGraphResponse =
+/** `/v1/account`: who is signed in and how. */
+export type AccountGraphResponse = {
+  /** A temporary Better Auth guest: never an account owner. */
+  guest?: boolean;
+} & (
   | {
       user: AccountGraphUser;
       linkedAccounts: AccountGraphLinkedAccount[];
       wallets: AccountGraphWallet[];
-      session: {
-        betterAuthUserId: string;
-        expiresAt?: number;
-        fresh?: boolean;
-      };
+      session:
+        | {
+            carrier?: "better_auth";
+            betterAuthUserId: string;
+            expiresAt?: number;
+            fresh?: boolean;
+          }
+        | { carrier: "widget"; expiresAt: number; authMethod: string };
     }
   | {
       user: null;
       linkedAccounts: [];
       wallets: [];
       session: null;
-    };
+    }
+);
+
+export type AccountNonce = { nonce: string; domain?: string; uri?: string };
 
 export type AccountGraphLinkWalletResponse = {
   status: "linked" | "noop";
@@ -109,13 +132,54 @@ export class AccountGraphTransport {
   }
 
   signOut(): Promise<unknown> {
-    return this.request("/api/auth/sign-out", { method: "POST" });
+    return this.request("/api/auth/sign-out", { method: "POST", body: "{}" });
   }
 
+  /** A sign-in nonce for a wallet; verify the signed message with `verifySiwe` or `verifySiws`. */
+  siweNonce(): Promise<AccountNonce> {
+    return this.request("/api/auth/siwe/nonce", { method: "POST", body: "{}" });
+  }
+
+  siwsNonce(body: {
+    walletAddress: string;
+    chainId: string;
+  }): Promise<AccountNonce> {
+    return this.request("/api/auth/siws/nonce", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** Sign in with the signed SIWE message; the session is a cookie. */
+  async verifySiwe(body: {
+    message: string;
+    signature: string;
+    walletApp?: string;
+  }): Promise<void> {
+    await this.request("/api/auth/siwe/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async verifySiws(body: {
+    message: string;
+    signature: string;
+    walletAddress: string;
+    chainId: string;
+    walletApp?: string;
+  }): Promise<void> {
+    await this.request("/api/auth/siws/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** EVM passes a numeric chain id, SVM its cluster. */
   async getWalletLinkNonce(input: {
     address: string;
-    chainId: number;
-  }): Promise<{ nonce: string; domain?: string; uri?: string }> {
+    chainId: number | string;
+  }): Promise<AccountNonce> {
     const params = new URLSearchParams({
       address: input.address,
       chainId: String(input.chainId),
@@ -126,13 +190,14 @@ export class AccountGraphTransport {
   }
 
   linkWallet(body: {
-    family: "evm";
+    family: "evm" | "svm";
     address: string;
-    chainId: number;
+    chainId: number | string;
     nonce: string;
     message: string;
     signature: string;
     label?: string | null;
+    walletApp?: string;
   }): Promise<AccountGraphLinkWalletResponse> {
     return this.request<AccountGraphLinkWalletResponse>(
       "/v1/account/wallets/link",
@@ -144,11 +209,15 @@ export class AccountGraphTransport {
     );
   }
 
+  /** Link a provider sign-in; `newSession` signs in with it when there is no session yet. */
   exchangeProviderCredential(
     credential: unknown,
+    options: { newSession?: boolean } = {},
   ): Promise<AccountGraphProviderExchangeResponse> {
     return this.request<AccountGraphProviderExchangeResponse>(
-      "/v1/account/provider/exchange",
+      options.newSession
+        ? "/api/auth/aomi/provider/exchange"
+        : "/v1/account/provider/exchange",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -208,6 +277,7 @@ export class AccountGraphTransport {
     const response = await this.transport(method, path, {
       headers: Object.fromEntries(headers.entries()),
       body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+      signal: init.signal ?? undefined,
     });
     const text = await response.text();
     let body: unknown;
@@ -216,11 +286,32 @@ export class AccountGraphTransport {
     } catch {
       body = undefined;
     }
-    if (!response.ok)
-      throw new AccountGraphApiError(response.status, body, text);
+    if (!response.ok) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      throw new AccountGraphApiError(
+        response.status,
+        body,
+        text,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+      );
+    }
     return body as T;
   }
 }
+
+/** A link that proved a sign-in method of another account: `merge(ticket)` moves it in. */
+export type AccountMergeOffer = {
+  ticket: string;
+  other: {
+    name: string;
+    created_at: string;
+    chats: number;
+    wallets: number;
+    credits: string;
+    /** What the other account loses because this one already has it. */
+    dropped: string[];
+  };
+};
 
 export class AccountGraphApiError extends AomiApiError {
   override name = "AccountGraphApiError";
@@ -229,11 +320,26 @@ export class AccountGraphApiError extends AomiApiError {
     status: number,
     readonly body: unknown,
     detail: string,
+    /** Seconds to wait before retrying, from `Retry-After`. */
+    readonly retryAfter?: number,
   ) {
+    const fields = apiErrorFields(body);
     super(
       status,
-      apiErrorFields(body).code ?? "account_request_failed",
-      detail || `Account request failed: HTTP ${status}`,
+      fields.code ?? "account_request_failed",
+      fields.message ??
+        fields.code ??
+        (detail || `Account request failed: HTTP ${status}`),
     );
+  }
+
+  /** Set on `account_merge_available`. */
+  get mergeOffer(): AccountMergeOffer | undefined {
+    const { ticket, other } = (this.body ?? {}) as Partial<AccountMergeOffer>;
+    return this.code === "account_merge_available" &&
+      typeof ticket === "string" &&
+      other
+      ? { ticket, other }
+      : undefined;
   }
 }

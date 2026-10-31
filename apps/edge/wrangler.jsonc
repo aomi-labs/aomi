@@ -9,15 +9,37 @@
   "name": "aomi-edge",
   "main": "src/index.ts",
   "compatibility_date": "2026-03-25",
+  // pg, Better Auth and the account package use node:crypto, node:net and
+  // AsyncLocalStorage; process.env carries the vars and secrets.
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  // Minified, with source maps uploaded so stack traces keep their names.
+  "minify": true,
+  "upload_source_maps": true,
   "observability": { "enabled": true },
+  // Run next to the us-east-1 database: every auth request queries it several
+  // times, and from a European colo each round trip crosses the Atlantic
+  // (preview: session p50 1.66 s unplaced, 0.33 s placed).
+  "placement": { "region": "aws:us-east-1" },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  // The account database (sign-in, sessions, OAuth). Locally, point it at your
+  // Postgres with CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE. A
+  // deploy swaps in EDGE_HYPERDRIVE_ID, a Hyperdrive config created with
+  // --caching-disabled (device-code polling and session reads must never see a
+  // cached row), or drops the binding where the environment runs no portal.
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],
   // The Task discovery challenge cache. Once a namespace exists, bind it here
   // as EDGE_CACHE; the Worker falls back to an in-isolate cache without it.
   // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
-  "vars": {
-    // A placement miss wakes the backend reconciler; keep the original
-    // request at the edge while the small hosted artifact materializes.
-    "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-    "HOSTED_APP_WARMUP_RETRY_MS": "1000"
+  // No committed vars: constants live in code, per-environment values come
+  // from scripts/deploy.mjs and secrets from product-mono's deploy pipeline.
+  "vars": {},
+  "env": {
+    // Local development only: adds the E2E wallet harness (src/dev.ts). Never deployed.
+    "dev": {
+      "main": "src/dev.ts",
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }]
+    }
   }
 }

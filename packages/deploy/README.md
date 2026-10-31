@@ -31,7 +31,7 @@ Three steps:
 ### 1. Serve the BFF routes (server)
 
 The package ships no route handlers. Your server exposes the same-origin routes
-the browser client calls (`/api/bff/launch/*`, `/api/bff/auth/github/*`) over
+the browser client calls (`/api/build/deployments/*`, `/api/build/auth/github/*`) over
 the manager client, so the activation token never reaches the browser. Inside
 the Aomi workspace that client is `ManagerClient` from `@aomi-labs/internal`
 (the edge Worker and the Build BFF both use it); it is not published, so an
@@ -61,7 +61,7 @@ your product needs — often just a button, a status line, and a chat embed.
 "use client";
 import { createLaunchClient } from "@aomi-labs/deploy/launch";
 
-const launch = createLaunchClient(); // defaults to /api/bff/launch + /api/bff/auth/github
+const launch = createLaunchClient(); // defaults to /api/build/deployments + /api/build/auth/github
 const { deployment, releaseTags, apps } = await launch.deploy({
   projectId,
   sourceRef,
@@ -91,8 +91,7 @@ agent appears in chat.
 
 ## Platform-scoped launch (named partner platforms)
 
-Everything above deploys into your host's **default** platform (the first
-entry of `APP_DEPLOY_PLATFORMS`). A partner integration usually targets a
+Everything above deploys into your host's **default** platform (`BUILD_DEFAULT_PLATFORM`). A partner integration usually targets a
 specific named platform instead — `"somm.finance"`, not `"community"`. Two
 rules make that work:
 
@@ -228,7 +227,7 @@ const state = loadLaunch(PLATFORM);
 ### Deployments console endpoints
 
 `launch.deployments.*` covers the project-dashboard surface (default mount
-`/api/bff/deployments`, override via `deploymentsBasePath`): `sources`,
+`/api/build/deployments`, override via `deploymentsBasePath`): `sources`,
 `status`, `history`, `feed`, `records`, `promote`, `deactivate`, `secrets` /
 `setSecrets` / `deleteSecret`, `requiredSecrets`, `upgradeSdk` /
 `sdkUpgradeStatus`. All inherit the client's bound platform.

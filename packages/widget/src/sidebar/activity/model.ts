@@ -6,8 +6,7 @@ import type {
 } from "@aomi-labs/client";
 import { isMessageReview, summarizeSimulation } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
-import { messageChainId } from "@/thread/tool-interpreter/families/general/commit-view";
-import { unwrapToolStep } from "@/thread/tool-interpreter/unwrap";
+import { messageChainId, unwrapToolStep } from "@aomi-labs/client/trace";
 
 type RecordValue = Record<string, unknown>;
 export type ActivityTransaction = {

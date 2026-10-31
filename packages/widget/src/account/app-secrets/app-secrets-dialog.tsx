@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useMemo, useState, type FC } from "react";
 import {
   KeyRoundIcon,
@@ -8,7 +9,7 @@ import {
   EyeOffIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useControl, cn } from "@aomi-labs/react";
+import { useControl } from "@aomi-labs/react";
 import type { AomiAppDescriptor, ApplicationId } from "@aomi-labs/client";
 import { useAppSecretsState } from "./use-app-secrets-state";
 import { Button } from "@/ui/button";

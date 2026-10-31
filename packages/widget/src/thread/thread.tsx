@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -45,7 +46,6 @@ import { isWorkLimitPause } from "./notice-codes";
 import { TooltipIconButton } from "./tooltip-icon-button";
 
 import {
-  cn,
   useOptionalAomiRuntime,
   useThreadContext,
   useThreadTaskRuns,
@@ -69,6 +69,7 @@ import { PaymentRequiredGate } from "@/controls/payment-required-gate";
 import { CapabilityMessageText } from "./capability-message-text";
 import {
   useThread,
+  useComposer,
   useComposerRuntime,
   useMessage,
   useThreadRuntime,
@@ -489,6 +490,14 @@ const ComposerAction: FC = () => {
   const { hostError, selectedApp } = useCapabilityComposer();
   const safety = useThreadSafety();
   const committingSafety = Boolean(safety?.pending && safety.busy);
+  const running = useThread((thread) => thread.isRunning);
+  const hasText = useComposer((composer) => Boolean(composer.text.trim()));
+  // Typed text while the turn works sends a follow-up into that turn.
+  const followUp =
+    running &&
+    hasText &&
+    aomiRuntime?.turnState === "processing" &&
+    !aomiRuntime.isSubmitting;
 
   return (
     <div className="aui-composer-action-wrapper relative mx-1 mb-3 mt-2 flex min-h-[38px] items-center gap-1">
@@ -512,7 +521,7 @@ const ComposerAction: FC = () => {
       {!composerControl.enabled && <div className="flex-1" />}
 
       <div className="shrink-0">
-        <ThreadPrimitive.If running={false}>
+        {(!running || followUp) && (
           <ComposerPrimitive.Send asChild>
             <Button
               type="submit"
@@ -531,9 +540,9 @@ const ComposerAction: FC = () => {
               <ArrowUpIcon className="aui-composer-send-icon size-4" />
             </Button>
           </ComposerPrimitive.Send>
-        </ThreadPrimitive.If>
+        )}
 
-        <ThreadPrimitive.If running>
+        {running && !followUp && (
           <ComposerPrimitive.Cancel asChild>
             <Button
               type="button"
@@ -564,7 +573,7 @@ const ComposerAction: FC = () => {
               )}
             </Button>
           </ComposerPrimitive.Cancel>
-        </ThreadPrimitive.If>
+        )}
       </div>
     </div>
   );

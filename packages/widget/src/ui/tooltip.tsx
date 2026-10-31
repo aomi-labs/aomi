@@ -1,11 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "./widget-scope";
 
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-
-import { cn } from "@aomi-labs/react";
 
 function TooltipProvider({
   delayDuration = 0,

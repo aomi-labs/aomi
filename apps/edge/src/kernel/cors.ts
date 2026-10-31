@@ -16,6 +16,29 @@ export type CorsPolicy = {
   maxAge?: number;
 };
 
+/**
+ * The open widget: any https site (or a local dev host) may embed it without
+ * registering. Nothing allows credentials, so only an explicit widget session
+ * or OAuth token can authorize a cross-origin call.
+ */
+export const openWidget = (methods: readonly string[]): CorsPolicy => ({
+  origin: "echo",
+  methods,
+  headers: [
+    "Authorization", "Content-Type", "Aomi-App-Key", "Last-Event-ID", "DPoP", "Idempotency-Key",
+    "Payment-Signature", "X-Aomi-Inference-Funding", "X-Aomi-Run-Budget-Microusd", "X-Aomi-CSRF",
+    "X-Request-Id", "X-Session-Id", "X-Thread-Id",
+  ],
+  expose: [
+    "DPoP-Nonce", "WWW-Authenticate", "Payment-Required", "Payment-Receipt", "Payment-Response",
+    "X-Payment-Response", "Retry-After", "X-Request-Id",
+  ],
+  maxAge: 600,
+});
+
+/** Credential-free documents anyone may read (catalogs, JWKS, discovery). */
+export const publicRead = (methods: readonly string[] = ["GET", "HEAD"]): CorsPolicy => ({ origin: "any", methods });
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** The request's Origin when it is a usable https (or local http) origin. */

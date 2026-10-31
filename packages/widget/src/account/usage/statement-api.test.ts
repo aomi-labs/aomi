@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { accountScopedFetch } from "@/account/settings-api";
+import { Aomi } from "@aomi-labs/client";
 
 import {
   fetchMonthlyStatement,
@@ -7,12 +7,12 @@ import {
   recentMonthKeys,
 } from "@/account/usage/statement-api";
 
-vi.mock(
-  "@/account/settings-api",
-  () => ({ accountScopedFetch: vi.fn() }),
-);
-
-const fetchMock = vi.mocked(accountScopedFetch);
+// The statement reads go over the wire; each queued value is one response body.
+const fetchMock = vi.fn<(url: string) => Promise<unknown>>();
+const account = new Aomi({
+  baseUrl: "",
+  fetch: async (input) => Response.json(await fetchMock(String(input))),
+}).account;
 
 describe("statement adapter", () => {
   beforeEach(() => fetchMock.mockReset());
@@ -93,7 +93,7 @@ describe("statement adapter", () => {
         { name: "uniswap", application_id: 7, is_public: true },
       ]);
 
-    const month = await fetchMonthlyStatement("2026-07");
+    const month = await fetchMonthlyStatement("2026-07", account);
 
     expect(month.period.periodLabel).toBe("July 2026");
     expect(month.summary.totalUsd).toBeCloseTo(1.5);
@@ -159,13 +159,13 @@ describe("statement adapter", () => {
         { name: "uniswap", application_id: 7, is_public: true },
       ]);
 
-    const statement = await fetchMonthlyStatement("2026-08");
+    const statement = await fetchMonthlyStatement("2026-08", account);
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
     expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
     expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
-    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/account/apps");
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/v1/account/apps");
     expect(statement.apps[0]?.name).toBe("uniswap");
     expect(statement.apps[0]?.model.turns).toBe(250);
     expect(statement.summary.totalUsd).toBe(2.5);
@@ -196,7 +196,7 @@ describe("statement adapter", () => {
       next_cursor: null,
     });
 
-    const month = await fetchMonthlyStatement("2026-07");
+    const month = await fetchMonthlyStatement("2026-07", account);
 
     expect(month.apps[0]?.model.byModel).toMatchObject([
       {

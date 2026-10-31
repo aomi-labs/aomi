@@ -74,7 +74,7 @@ only when the corresponding REST credentials are configured.
 
 - Raw provider credentials must never be returned to MCP callers or persisted in approval rows.
 - Raw Privy/Para tokens must never be stored in Aomi account tables.
-- `PORTAL_SERVICE_PRIVATE_KEY` provides the portal BFF's Ed25519 signing key. The matching public key lives in `packages/account/src/topology-data.ts` and the backend `service.toml`.
+- `PORTAL_SERVICE_PRIVATE_KEY` provides the `aomi-bff` Ed25519 signing key. Only Build reads it, to mint sidecar bearers. The portal and landing mint nothing; the edge mints as `aomi-edge`. The matching public key lives in `packages/account/src/topology-data.ts` and the backend `service.toml`.
 - Privy and Para verification keys/secrets are server-only and must not be exposed to the browser.
 
 ## Related Topics
@@ -82,3 +82,14 @@ only when the corresponding REST credentials are configured.
 - [auth/facts/wallet-kit.md](wallet-kit.md)
 - [auth/facts/base-account.md](base-account.md)
 - [client-runtime/facts/react-runtime.md](../../client-runtime/facts/react-runtime.md)
+
+### Terminal authentication
+
+`aomi login` uses the OAuth device authorization flow and `/oauth/device`.
+The retired Privy/Para loopback handoff (`/device-auth` and
+`/v1/account/device-auth/*`) and its SDK grant method are removed. Provider
+sign-in and linking remain available through the browser account flow.
+
+The unused `/v1/account/session/cli` rotation endpoint is removed. OAuth
+refresh remains the terminal renewal mechanism; Better Auth session bearers
+remain supported for REST sign-in.

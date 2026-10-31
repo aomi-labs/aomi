@@ -1,5 +1,5 @@
 import { useCallback, type MutableRefObject } from "react";
-import { secretNamesFrom, type AomiClient } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 
 export type SecretsActions = {
   ingestSecrets: (
@@ -11,54 +11,50 @@ export type SecretsActions = {
   listSecrets: () => Promise<string[]>;
 };
 
-
-export function useSecretsImpl({ aomiClientRef, clientIdRef, getControlSessionId }: {
-  aomiClientRef: MutableRefObject<AomiClient>;
+/** This browser's secrets vault, through `aomi.account.keys`. */
+export function useSecretsImpl({
+  aomiRef,
+  clientIdRef,
+  getControlSessionId,
+}: {
+  aomiRef: MutableRefObject<Aomi>;
   clientIdRef: MutableRefObject<string | null>;
   getControlSessionId: () => string;
 }): SecretsActions {
+  const scope = useCallback(
+    () => ({
+      thread: getControlSessionId(),
+      clientId: clientIdRef.current ?? undefined,
+    }),
+    [clientIdRef, getControlSessionId],
+  );
+
   const ingestSecrets = useCallback(
     async (
       secrets: Record<string, string>,
     ): Promise<Record<string, string>> => {
-      const clientId = clientIdRef.current;
-      if (!clientId) throw new Error("clientId not initialized");
-      const { handles } = await aomiClientRef.current.ingestSecrets(
-        getControlSessionId(),
-        clientId,
-        secrets,
-      );
-      return handles;
+      if (!clientIdRef.current) throw new Error("clientId not initialized");
+      return aomiRef.current.account.keys.set(secrets, scope());
     },
-    [aomiClientRef, clientIdRef, getControlSessionId],
+    [aomiRef, clientIdRef, scope],
   );
 
   const clearSecrets = useCallback(async (): Promise<void> => {
-    const clientId = clientIdRef.current;
-    if (!clientId) return;
-    await aomiClientRef.current.clearSecrets?.(getControlSessionId(), clientId);
-  }, [aomiClientRef, clientIdRef, getControlSessionId]);
+    if (clientIdRef.current) await aomiRef.current.account.keys.clear(scope());
+  }, [aomiRef, clientIdRef, scope]);
 
   const deleteSecret = useCallback(
     async (name: string): Promise<void> => {
-      const clientId = clientIdRef.current;
-      if (!clientId) return;
-      await aomiClientRef.current.deleteSecret(
-        getControlSessionId(),
-        clientId,
-        name,
-      );
+      if (clientIdRef.current)
+        await aomiRef.current.account.keys.remove(name, scope());
     },
-    [aomiClientRef, clientIdRef, getControlSessionId],
+    [aomiRef, clientIdRef, scope],
   );
 
-  const listSecrets = useCallback(async (): Promise<string[]> => {
-    const response = await aomiClientRef.current.listSecrets(
-      getControlSessionId(),
-      clientIdRef.current ?? undefined,
-    );
-    return secretNamesFrom(response);
-  }, [aomiClientRef, clientIdRef, getControlSessionId]);
+  const listSecrets = useCallback(
+    (): Promise<string[]> => aomiRef.current.account.keys.list(scope()),
+    [aomiRef, scope],
+  );
 
   return { ingestSecrets, clearSecrets, deleteSecret, listSecrets };
 }

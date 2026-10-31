@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { type FC, memo, useEffect, useRef } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import {
@@ -10,9 +11,10 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { cn, useChatViewFlag } from "@aomi-labs/react";
+import { useChatViewFlag } from "@aomi-labs/react";
 import { MarkdownText } from "./markdown-text";
-import type { InterpretedToolStep } from "@/thread/tool-interpreter/interpret";
+import type { InterpretedToolStep } from "@aomi-labs/client/trace";
+import { traceIcon } from "./trace-icons";
 import { ToolChipView } from "./tool-chip";
 import { testIds } from "@/test-ids";
 
@@ -80,7 +82,7 @@ export const ToolStepRow: FC<{
     false,
   );
   const hasDetail = detailText !== undefined || argsText !== undefined;
-  const Icon = interpretation.icon;
+  const Icon = traceIcon(interpretation.icon);
   const outcome =
     interpretation.outcome ?? (interpretation.failed ? "failed" : "success");
   const visibleChips = interpretation.chips.filter((chip) => chip.icon != null);

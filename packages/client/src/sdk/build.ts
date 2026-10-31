@@ -1,3 +1,5 @@
+import { AomiError } from "../api-error";
+import type { CommitHandle } from "./commits";
 import type {
   EvmPipelineTransport,
   SvmPipelineTransport,
@@ -233,5 +235,61 @@ export class SvmBuild {
 
   toJSON(): SvmSimulatedBuild {
     return this.raw;
+  }
+}
+
+/**
+ * A simulated build of one operation, EVM or Solana. Review it, then, for
+ * EVM, `commit()` to get the Commit to sign. Solana builds review and
+ * simulate only: the backend does not make commits of them yet.
+ */
+export class Build {
+  constructor(
+    readonly raw: EvmBuild | SvmBuild,
+    private readonly open: (result: EvmCommitResult) => CommitHandle,
+  ) {}
+
+  get chainFamily(): "evm" | "svm" {
+    return this.raw instanceof SvmBuild ? "svm" : "evm";
+  }
+
+  get actions(): (EvmPresentedAction | SvmPresentedAction)[] {
+    return this.raw.actions;
+  }
+
+  get simulation(): PipelineSimulation {
+    return this.raw.simulation;
+  }
+
+  /** Wallet asset movements decoded from successful simulation steps. */
+  get balanceChanges(): PipelineBalanceChange[] {
+    return this.raw.simulation.balanceChanges;
+  }
+
+  /** Allowance, token, and operator permissions changed by the build. */
+  get approvals(): PipelineApprovalChange[] {
+    return this.raw.simulation.approvals;
+  }
+
+  get digest(): string {
+    return this.raw.digest;
+  }
+
+  /** When the build stops being committable. */
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  /**
+   * EVM only: the Commit to sign. A Solana build throws
+   * `svm_commit_unavailable`; `raw.commit()` answers its wallet requests.
+   */
+  async commit(options?: PipelineCommitOptions): Promise<CommitHandle> {
+    if (this.raw instanceof SvmBuild)
+      throw new AomiError(
+        "svm_commit_unavailable",
+        "Solana builds do not create commits yet; sign raw.commit()'s requests with your wallet",
+      );
+    return this.open(await this.raw.commit(options));
   }
 }

@@ -154,12 +154,7 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
   // Account auth imports the client package built by the compatibility check.
   await hosts.run(
     "corepack",
-    [
-      "pnpm",
-      "exec",
-      "tsx",
-      "apps/portal/scripts/migrate-browser-contract-db.ts",
-    ],
+    ["pnpm", "exec", "tsx", "apps/edge/scripts/migrate-browser-contract-db.ts"],
     env,
   );
   const consumerServer = await serveStatic(
@@ -173,12 +168,13 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
     "portal",
     process.execPath,
     [
-      "node_modules/next/dist/bin/next",
-      "start",
-      "-H",
+      "node_modules/vite/bin/vite.js",
+      "preview",
+      "--host",
       "127.0.0.1",
-      "-p",
+      "--port",
       String(portalUpstreamPort),
+      "--strictPort",
     ],
     { cwd: join(root, "apps/portal"), env, origin: portalUpstream },
   );
@@ -187,6 +183,7 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
     portalUpstream,
     agentUpstream: upstream.origin,
     trustedOrigins: [origins.consumer, origins.next],
+    databaseUrl,
     log: hosts.log,
   });
   hosts.onStop(() => edge.close());

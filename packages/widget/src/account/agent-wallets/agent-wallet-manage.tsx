@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState } from "react";
 import {
   Archive,
@@ -14,7 +15,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";

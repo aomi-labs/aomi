@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type {
   AomiAccountWallet,
   AomiAgentWallet,
-  AomiClient,
+  AccountTransport,
   AomiLane,
 } from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
@@ -61,9 +61,9 @@ function walletViewRows(
 }
 
 /** The account's wallets for the wallet view, and the agent wallet list. */
-export function useWalletRows(client: AomiClient) {
-  const agents = useDisplayQuery(agentWalletsQuery(client));
-  const entries = useDisplayQuery(accountWalletsQuery(client));
+export function useWalletRows(aomi: { account: AccountTransport }) {
+  const agents = useDisplayQuery(agentWalletsQuery(aomi));
+  const entries = useDisplayQuery(accountWalletsQuery(aomi));
   const rows = useMemo(
     () =>
       agents.data

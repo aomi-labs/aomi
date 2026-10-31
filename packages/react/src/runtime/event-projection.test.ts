@@ -3,6 +3,7 @@ import {
   projectConversationEvents,
   type Action,
   type Event,
+  appendCapabilityHints,
 } from "@aomi-labs/client";
 
 import {
@@ -19,7 +20,6 @@ import {
   callbackRoot,
   callbackTurn,
 } from "../../../../tests/fixtures/commit-callback-events";
-import { appendCapabilityHints } from "./capability-hints";
 
 const meta = (
   sequence: number,
@@ -1390,5 +1390,74 @@ it("places context steps in the turn's trace in event order", () => {
     tokensBefore: 151_000,
     tokensAfter: 38_000,
     durationMs: 2_400,
+  });
+});
+
+describe("follow-ups within a turn", () => {
+  const steered: Event[] = [
+    {
+      ...meta(1, "message", "t"),
+      type: "message",
+      sender: "user",
+      message_key: "t:prompt",
+      content: "buy 0xabc",
+    },
+    {
+      ...meta(2, "message", "t"),
+      type: "message",
+      sender: "agent",
+      message_key: "t:a1",
+      content: "Looking it up",
+    },
+    {
+      ...meta(3, "message", "t"),
+      type: "message",
+      sender: "user",
+      message_key: "t:steer:1",
+      content: "use $5",
+    },
+    {
+      ...meta(4, "message", "t"),
+      type: "message",
+      sender: "agent",
+      message_key: "t:a2",
+      content: "Buying $5",
+    },
+  ];
+
+  it("splits the turn's work at the follow-up", () => {
+    const messages = projectAssistantMessages(steered);
+    expect(messages.map((message) => [message.role, message.id])).toEqual([
+      ["user", "aomi-user-0"],
+      ["assistant", "turn:t"],
+      ["user", "aomi-user-1"],
+      ["assistant", "turn:t#1"],
+    ]);
+    expect(messages[1]!.metadata?.custom).toMatchObject({
+      aomiTurnId: "t",
+      aomiTraceClosedAt: steered[2]!.occurred_at,
+    });
+    expect(messages[3]!.metadata?.custom).toMatchObject({
+      aomiTurnId: "t",
+      aomiTraceStartedAt: steered[2]!.occurred_at,
+    });
+    expect(messages[3]!.metadata?.custom?.aomiTraceClosedAt).toBeUndefined();
+  });
+
+  it("echoes a follow-up until the turn takes it, under the same id", () => {
+    const pending = projectRuntimeMessages(
+      steered.slice(0, 2),
+      undefined,
+      [],
+      undefined,
+      [],
+      undefined,
+      ["use $5"],
+    );
+    expect(pending.at(-1)).toMatchObject({
+      id: "aomi-user-1",
+      role: "user",
+      content: [{ type: "text", text: "use $5" }],
+    });
   });
 });

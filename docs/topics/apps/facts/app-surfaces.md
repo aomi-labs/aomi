@@ -6,7 +6,8 @@ area: apps
 review_after_days: 30
 sources_of_truth:
   - package.json
-  - apps/base/package.json
+  - apps/build/package.json
+  - apps/edge/package.json
   - apps/landing/package.json
   - apps/portal/package.json
 ---
@@ -18,8 +19,9 @@ The app surfaces in `apps/` are the main product and validation targets for pack
 ## Main Surfaces
 
 - `apps/landing` is the primary marketing and docs surface, and the root `dev` workflow points at it.
-- `apps/base` is a small Next.js app for direct local widget integration checks.
-- `apps/portal` is a fuller Next.js consumer with its own lint, type-check, and test commands.
+- `apps/portal` is the chat portal: TanStack Start pages only, with its own lint, type-check, and test commands. Its server routes live in `apps/edge`.
+- `apps/build` is the Aomi Build control plane (TanStack Start).
+- `apps/edge` is the Cloudflare Worker that serves auth, account, the proxy and the Build BFF.
 
 ## Common Workflows
 

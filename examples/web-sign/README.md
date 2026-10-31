@@ -110,7 +110,7 @@ ABIs to decode their calls by name.
 The browser talks to the Aomi Portal directly, so authentication has to work
 cross-origin. With no `auth` option, `new Aomi({ baseUrl })` signs in as a
 guest. When the page's origin differs from `baseUrl`, the SDK calls
-`POST /api/auth/widget/guest`. The Portal returns an anonymous **widget
+`POST /api/auth/guest`. The Portal returns an anonymous **widget
 session** bound to the page's `Origin`, and the SDK sends it as
 `Authorization: Bearer …` on `/v1/agent` calls. That is the same mechanism the
 embeddable Widget uses. No cookies, client secret, or OAuth client

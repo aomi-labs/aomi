@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
-  expectVerifiedBffRecord,
+  expectVerifiedAppRecord,
   portalAccount,
   requiredOrigin,
   resetContractState,
@@ -49,7 +49,7 @@ for (const family of ["evm", "svm"] as const) {
     const chat = (await upstreamRecords()).find(
       (record) => record.method === "POST" && record.path === "/v1/agent/chat",
     );
-    expectVerifiedBffRecord(chat, account.user!.id!, "session");
+    expectVerifiedAppRecord(chat, account.user!.id!, "session");
     expect(wallet.blocked).toEqual([]);
 
     if (family === "evm") {

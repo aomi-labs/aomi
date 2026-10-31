@@ -1,37 +1,29 @@
-import { AomiService } from "@aomi-labs/service-identity";
+import { AomiService, tierOf, topologyFor, type Tier } from "@aomi-labs/service-identity";
 
-import type { EdgeEnv, EdgeTopologyName } from "./env";
-import { EDGE_TOPOLOGIES } from "./topology-data";
+import type { EdgeEnv } from "./env";
 
 export const EDGE_SERVICE_NAME = "aomi-edge";
 
-const STAGING_HOSTS = new Set(["api-staging.aomi.dev"]);
-const RC_HOSTS = new Set(["api-rc.aomi.dev"]);
-const PRODUCTION_HOSTS = new Set(["api.aomi.dev"]);
-
-/** Which committed topology this request's deployment mints as. */
-export function edgeTopologyName(env: EdgeEnv, host: string): EdgeTopologyName {
-  if (env.EDGE_TOPOLOGY) return env.EDGE_TOPOLOGY;
-  const lower = host.toLowerCase();
-  if (PRODUCTION_HOSTS.has(lower)) return "production";
-  if (STAGING_HOSTS.has(lower)) return "staging";
-  if (RC_HOSTS.has(lower)) return "rc";
-  return "default";
+/**
+ * Which committed topology this deployment mints as. scripts/deploy.mjs always
+ * sets EDGE_TOPOLOGY; `wrangler dev` without it is the dev topology.
+ */
+export function edgeTopologyName(env: EdgeEnv): Tier {
+  return tierOf({ tier: env.EDGE_TOPOLOGY });
 }
 
-const cache = new Map<EdgeTopologyName, AomiService>();
+const cache = new Map<Tier, AomiService>();
 
 /**
  * The edge as an `AomiService` (self = `aomi-edge`). Every bearer the edge
- * sends upstream is minted here; the Vercel apps mint nothing once the edge
- * is the only issuer.
+ * sends upstream is minted here; the apps mint nothing.
  */
-export function edgeService(env: EdgeEnv, host: string): AomiService {
-  const name = edgeTopologyName(env, host);
+export function edgeService(env: EdgeEnv): AomiService {
+  const name = edgeTopologyName(env);
   const cached = cache.get(name);
   if (cached) return cached;
   const service = AomiService.fromTopology({
-    toml: EDGE_TOPOLOGIES[name],
+    toml: topologyFor(EDGE_SERVICE_NAME, name),
     selfName: EDGE_SERVICE_NAME,
     privateKeyPem: env.EDGE_SERVICE_PRIVATE_KEY,
   });

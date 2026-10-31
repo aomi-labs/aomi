@@ -1,4 +1,0 @@
-/* Docs-only CSS. Marketing routes must not load Fumadocs styles. */
-@import "tailwindcss";
-@import "fumadocs-ui/css/shadcn.css";
-@import "fumadocs-ui/css/preset.css";

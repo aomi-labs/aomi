@@ -442,6 +442,7 @@ export function AomiRuntimeCore({
         snapshot.stoppedTurnId,
         snapshot.terminalTurns,
         snapshot.pendingReplacesMessageKey,
+        snapshot.pendingSteers,
       ),
     [
       snapshot.events,
@@ -450,6 +451,7 @@ export function AomiRuntimeCore({
       snapshot.stoppedTurnId,
       snapshot.terminalTurns,
       snapshot.pendingReplacesMessageKey,
+      snapshot.pendingSteers,
     ],
   );
   const isRunning =

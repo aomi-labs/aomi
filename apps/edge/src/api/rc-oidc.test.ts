@@ -85,7 +85,7 @@ const exchange = (token: string, method = "POST", query = "") =>
     exchangeRcToken(
       new Request(`https://api-rc.aomi.dev/v1/rc/token${query}`, { method, headers: { authorization: `Bearer ${token}` } }),
       env,
-      rcOidcConfig(env, "api-rc.aomi.dev")!,
+      rcOidcConfig(env)!,
       async () => oidcPublic,
       NOW,
     ),
@@ -145,7 +145,7 @@ describe("rc oidc exchange", () => {
     const token = await oidc();
     const response = await settle(() => exchangeRcToken(
       new Request("https://api-rc.aomi.dev/v1/rc/token", { method: "POST", headers: { authorization: `Bearer ${token}` } }),
-      env, rcOidcConfig(env, "api-rc.aomi.dev")!, async () => { throw Object.assign(new Error("lookup"), { code }); }, NOW,
+      env, rcOidcConfig(env)!, async () => { throw Object.assign(new Error("lookup"), { code }); }, NOW,
     ));
     expect(response.status).toBe(["ERR_JWKS_TIMEOUT", "ECONNRESET"].includes(code) ? 502 : 401);
   });
@@ -158,7 +158,7 @@ describe("rc oidc exchange", () => {
     const response = await settle(() =>
       exchangeRcToken(
         new Request("https://api-rc.aomi.dev/v1/rc/token", { method: "POST", headers: { authorization: "Basic abc" } }),
-        env, rcOidcConfig(env, "api-rc.aomi.dev")!, async () => oidcPublic, NOW,
+        env, rcOidcConfig(env)!, async () => oidcPublic, NOW,
       ),
     );
     expect(response.status).toBe(401);
@@ -179,10 +179,10 @@ describe("rc oidc exchange", () => {
 
 describe("rc identity gating", () => {
   it("is off outside the rc topology or when incompletely configured", () => {
-    expect(rcOidcConfig({ ...env, EDGE_TOPOLOGY: "production" }, "api.aomi.dev")).toBeNull();
-    expect(rcOidcConfig({ ...env, EDGE_TOPOLOGY: "staging" }, "api-staging.aomi.dev")).toBeNull();
-    expect(rcOidcConfig({ ...env, RC_OIDC_ACCOUNT_ID: "" }, "api-rc.aomi.dev")).toBeNull();
-    expect(rcOidcConfig({ ...env, RC_OIDC_WORKFLOWS: undefined }, "api-rc.aomi.dev")).toBeNull();
+    expect(rcOidcConfig({ ...env, EDGE_TOPOLOGY: "production" })).toBeNull();
+    expect(rcOidcConfig({ ...env, EDGE_TOPOLOGY: "staging" })).toBeNull();
+    expect(rcOidcConfig({ ...env, RC_OIDC_ACCOUNT_ID: "" })).toBeNull();
+    expect(rcOidcConfig({ ...env, RC_OIDC_WORKFLOWS: undefined })).toBeNull();
   });
 
   it("routes agent REST only on rc and never MCP", () => {

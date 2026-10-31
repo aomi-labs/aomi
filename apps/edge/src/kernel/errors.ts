@@ -1,3 +1,5 @@
+import { captureException } from "@sentry/cloudflare";
+
 /**
  * The one failure type. Anything a handler throws ends up as an EdgeError (or
  * is treated as an unexpected 500) and becomes `{ error: code, ...body }`.
@@ -37,9 +39,12 @@ function describe(value: unknown): string {
 
 export type FailureScope = { surface: string; operation: string; request: Request };
 
-/** Log a failure that is the edge's or an upstream's fault. */
+/** Log (and report) a failure that is the edge's or an upstream's fault. */
 export function logFailure(error: unknown, scope: FailureScope, extra: Record<string, unknown> = {}): void {
   const { pathname } = new URL(scope.request.url);
+  captureException(error instanceof EdgeError && error.cause ? error.cause : error, {
+    tags: { surface: scope.surface, operation: scope.operation },
+  });
   console.error(`edge.${scope.surface}.failure`, {
     operation: scope.operation,
     method: scope.request.method,

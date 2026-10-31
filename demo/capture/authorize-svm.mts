@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   const key = keyFromSolanaJson(keypairPath);
 
   // 1. Seed the E2E cookie (Solana-only identity, fork-mainnet cluster).
-  const seedUrl = new URL("/api/bff/e2e/wallet", PORTAL_URL);
+  const seedUrl = new URL("/api/dev/e2e/wallet", PORTAL_URL);
   seedUrl.searchParams.set("token", E2E_TOKEN);
   seedUrl.searchParams.set("svmAddress", pubkey);
   seedUrl.searchParams.set("svmCluster", "solana:mainnet");

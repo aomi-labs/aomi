@@ -1,11 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "./widget-scope";
 
 import * as React from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-
-import { cn } from "@aomi-labs/react";
 
 function Popover({
   ...props

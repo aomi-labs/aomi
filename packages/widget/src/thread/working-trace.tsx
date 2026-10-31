@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   type FC,
   memo,
@@ -25,28 +26,25 @@ import {
 } from "lucide-react";
 
 import {
-  cn,
   useChatViewFlag,
   useChatView,
   useOptionalAomiRuntime,
   useThreadTaskRuns,
   walletContinuationPending,
-  CONTEXT_STEP_TOOL,
-  type ContextStep,
   type TaskRunState,
 } from "@aomi-labs/react";
 import type { Event, TurnState } from "@aomi-labs/client";
+import {
+  buildTraceItems,
+  type TraceItem as TraceRow,
+} from "@aomi-labs/client/trace";
 import { MarkdownText } from "./markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
 import { testIds } from "@/test-ids";
-import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { interpretToolStep } from "./attribution";
 import { agentStepCount, WorkingAgent } from "./working-agent";
 import { ContextStepRow } from "./context-step";
-import {
-  isReadOutputTool,
-  ReadOutputRow,
-  readOutputId,
-} from "./read-output-step";
+import { ReadOutputRow } from "./read-output-step";
 import {
   prefersReducedMotion,
   toDetailString,
@@ -81,11 +79,15 @@ export function activeWorkDurationMs(
   events: readonly Event[],
   turnIds: readonly string[],
   nowMs: number,
+  /** Clip to one segment of a turn a follow-up split. */
+  bounds: { start?: number; end?: number } = {},
 ): number | null {
   const ids = new Set(turnIds);
   const started = new Map<string, number>();
   let total = 0;
   let observed = false;
+  const span = (from: number, to: number) =>
+    Math.max(0, Math.min(to, bounds.end ?? to) - Math.max(from, bounds.start ?? from));
   for (const event of events) {
     if (
       event.type !== "turn_state_changed" ||
@@ -100,11 +102,11 @@ export function activeWorkDurationMs(
       if (!started.has(event.turn_id)) started.set(event.turn_id, at);
     } else {
       const from = started.get(event.turn_id);
-      if (from !== undefined) total += Math.max(0, at - from);
+      if (from !== undefined) total += span(from, at);
       started.delete(event.turn_id);
     }
   }
-  for (const from of started.values()) total += Math.max(0, nowMs - from);
+  for (const from of started.values()) total += span(from, nowMs);
   return observed ? total : null;
 }
 
@@ -162,64 +164,15 @@ const WorkingStep: FC<{
   );
 };
 
-/**
- * One rendered row of the trace: a tool step, a run of interstitial talk, or a
- * delegated agent (whose own steps hang off it).
- */
-type TraceItem =
-  | { kind: "tool"; tool: ToolCallMessagePart; key: string }
-  | { kind: "note"; text: string; key: string }
-  | { kind: "context"; step: ContextStep; key: string }
-  | {
-      kind: "read";
-      /** Saved-output id every read in this run pages through. */
-      id?: string;
-      parts: ToolCallMessagePart[];
-      /** The tool whose output was shortened, when its trim is in this turn. */
-      sourceTool?: string;
-      key: string;
-    }
-  | {
-      kind: "agent";
-      agentId: string;
-      /** Present once the mother's `task` part has landed in the transcript. */
-      tool?: ToolCallMessagePart;
-      /** Present while the live sidecar knows about the run. */
-      run?: TaskRunState;
-      /** Appearance order within the turn — picks the row's identity color. */
-      order: number;
-      key: string;
-    };
+/** One rendered row of the trace, over this transcript's parts and runs. */
+type TraceItem = TraceRow<ToolCallMessagePart, TaskRunState>;
+
+// Published from ./components/assistant-ui/working-trace before the decoder moved.
+export { buildTraceItems };
 
 /** Child steps an agent row contributes to the header/pill step count. */
 const childStepCount = (item: TraceItem): number =>
   item.kind === "agent" ? agentStepCount(item.run) : 0;
-
-const taskResultAgentIds = (result: unknown): string[] => {
-  if (!result || typeof result !== "object") return [];
-  const record = result as Record<string, unknown>;
-  const candidates: unknown[] = [record.agent_id];
-  if (record.error && typeof record.error === "object") {
-    candidates.push((record.error as Record<string, unknown>).agent_id);
-  }
-  if (Array.isArray(record.results)) {
-    for (const item of record.results) {
-      if (!item || typeof item !== "object") continue;
-      const child = item as Record<string, unknown>;
-      candidates.push(child.agent_id);
-      if (child.error && typeof child.error === "object") {
-        candidates.push((child.error as Record<string, unknown>).agent_id);
-      }
-    }
-  }
-  return [
-    ...new Set(
-      candidates.filter(
-        (id): id is string => typeof id === "string" && id.length > 0,
-      ),
-    ),
-  ];
-};
 
 const ThinkingStatusGlyph: FC = () => (
   <span
@@ -261,6 +214,7 @@ export const WorkingTrace: FC<{
   startedAtMs?: number;
   phaseEvents?: readonly Event[];
   phaseTurnIds?: readonly string[];
+  phaseBounds?: { start?: number; end?: number };
   /** The turn stopped at its work limit and can be continued. */
   paused?: boolean;
 }> = ({
@@ -273,6 +227,7 @@ export const WorkingTrace: FC<{
   startedAtMs,
   phaseEvents,
   phaseTurnIds,
+  phaseBounds,
   paused = false,
 }) => {
   const [open, setOpen] = useChatViewFlag(`${viewKey}:open`, running);
@@ -327,7 +282,12 @@ export const WorkingTrace: FC<{
   }, [latestEventMs]);
   const persistedActiveMs =
     phaseEvents && phaseTurnIds
-      ? activeWorkDurationMs(phaseEvents, phaseTurnIds, clockMs - clockSkewMs)
+      ? activeWorkDurationMs(
+          phaseEvents,
+          phaseTurnIds,
+          clockMs - clockSkewMs,
+          phaseBounds,
+        )
       : null;
   const runningSeconds = Math.max(
     0,
@@ -804,149 +764,21 @@ export const RenderedText: FC<{ text: string }> = memo(function RenderedText({
   );
 });
 
-/**
- * Reconcile the ordered transcript with the live delegation sidecar.
- *
- * A task exists in the sidecar before its transcript tool part arrives. Once
- * that part does arrive, it replaces the synthetic row at the transcript's
- * chronological position instead of being appended again at the bottom. This
- * matters when a failed child is followed by successful parent work: the
- * failure remains useful history without looking like the final active step.
- */
-export const buildTraceItems = (
-  content: readonly (TextMessagePart | ToolCallMessagePart)[],
-  liveDelegations: readonly TaskRunState[],
-): TraceItem[] => {
-  const items: TraceItem[] = [];
-  const runsByAgentId = new Map(
-    liveDelegations.map((run) => [run.agentId, run] as const),
-  );
-  const taskParts = content.filter(
-    (part): part is ToolCallMessagePart =>
-      part.type === "tool-call" && part.toolName === "task",
-  );
-  const occurrences = new Map<string, number>();
-  for (const part of taskParts) {
-    for (const agentId of taskResultAgentIds(part.result)) {
-      occurrences.set(agentId, (occurrences.get(agentId) ?? 0) + 1);
-    }
-  }
-  const consumedRuns = new Set<TaskRunState>();
-  const invocationKey = (callId: string, agentId: string) =>
-    `agent-${JSON.stringify([callId, agentId])}`;
-  let agentOrder = 0;
-  // Saved-output id -> the tool that produced it, from this turn's trims.
-  const trimmedSources = new Map<string, string>();
-
-  content.forEach((part, i) => {
-    if (part.type === "tool-call") {
-      if (part.toolName === CONTEXT_STEP_TOOL) {
-        const step = part.args as unknown as ContextStep;
-        // Shortening a large output is bookkeeping, not a step: the reads
-        // that page it back in carry the source tool's name instead.
-        if (step.kind === "trimmed") {
-          if (step.id) trimmedSources.set(step.id, step.tool);
-          return;
-        }
-        items.push({
-          kind: "context",
-          step,
-          key: part.toolCallId ?? `context-${i}`,
-        });
-        return;
-      }
-      if (part.toolName === "task") {
-        const resultAgentIds = taskResultAgentIds(part.result);
-        const callId = part.toolCallId ?? `task-${i}`;
-        // Batch children use <tool call>:<one-based index> on the wire.
-        const matchedRuns = liveDelegations.filter(
-          (run) =>
-            run.callId === callId ||
-            (run.callId.startsWith(`${callId}:`) &&
-              /^\d+$/.test(run.callId.slice(callId.length + 1))),
-        );
-        const agentIds = [
-          ...new Set([
-            ...resultAgentIds,
-            ...matchedRuns.map((run) => run.agentId),
-          ]),
-        ];
-        for (const agentId of agentIds.length ? agentIds : [callId]) {
-          const exactRun = matchedRuns.find((run) => run.agentId === agentId);
-          // Legacy inline messages lack canonical call identity. Only join an
-          // unambiguous child once; a continuation must not rewrite history.
-          const legacyRun =
-            callId.startsWith("inline:") && occurrences.get(agentId) === 1
-              ? runsByAgentId.get(agentId)
-              : undefined;
-          const run = exactRun ?? legacyRun;
-          if (run) consumedRuns.add(run);
-          items.push({
-            kind: "agent",
-            agentId,
-            run,
-            tool: part,
-            order: agentOrder++,
-            key: invocationKey(run?.callId ?? callId, agentId),
-          });
-        }
-        return;
-      }
-
-      if (isReadOutputTool(part.toolName)) {
-        const id = readOutputId(part);
-        const prev = items[items.length - 1];
-        // Paging one output is one step. A read still streaming its args most
-        // likely continues the run before it; a finished one without an id
-        // stands alone.
-        const streaming = id === undefined && part.result === undefined;
-        if (prev?.kind === "read" && (streaming || (id && id === prev.id))) {
-          prev.parts.push(part);
-          prev.id ??= id;
-          prev.sourceTool ??= id ? trimmedSources.get(id) : undefined;
-        } else {
-          items.push({
-            kind: "read",
-            id,
-            parts: [part],
-            sourceTool: id ? trimmedSources.get(id) : undefined,
-            key: part.toolCallId ?? `read-${i}`,
-          });
-        }
-        return;
-      }
-
-      items.push({
-        kind: "tool",
-        tool: part,
-        key: part.toolCallId ?? `tool-${i}`,
-      });
-      return;
-    }
-
-    if (part.text.trim().length === 0) return;
-    const prev = items[items.length - 1];
-    if (prev?.kind === "note") prev.text += `\n\n${part.text}`;
-    else items.push({ kind: "note", text: part.text, key: `note-${i}` });
-  });
-
-  for (const run of liveDelegations) {
-    if (consumedRuns.has(run)) continue;
-    items.push({
-      kind: "agent",
-      agentId: run.agentId,
-      run,
-      order: agentOrder++,
-      key: invocationKey(run.callId, run.agentId),
-    });
-  }
-
-  return items;
-};
-
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
   const messageId = useMessage((s) => s.id);
+  // A follow-up splits a turn: the work above it is a closed segment.
+  const segment = useMessage(
+    (s) =>
+      s.metadata?.custom as
+        | {
+            aomiTurnId?: string;
+            aomiTraceStartedAt?: number;
+            aomiTraceClosedAt?: number;
+          }
+        | undefined,
+  );
+  const closed = segment?.aomiTraceClosedAt !== undefined;
   const pausedAtWorkLimit = useMessage((s) =>
     isWorkLimitPause(
       (s.metadata?.custom as { aomiNoticeCode?: string } | undefined)
@@ -981,9 +813,11 @@ export const AssistantTurnParts: FC = () => {
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
   const taskRuns = useThreadTaskRuns("turn");
-  const turnId = messageId.startsWith("turn:")
-    ? messageId.slice("turn:".length)
-    : undefined;
+  const turnId =
+    segment?.aomiTurnId ??
+    (messageId.startsWith("turn:")
+      ? messageId.slice("turn:".length)
+      : undefined);
   const turnEvents = runtime?.events ?? [];
   const ownState = turnId
     ? turnEvents.findLast(
@@ -1014,6 +848,7 @@ export const AssistantTurnParts: FC = () => {
   // broadcast-terminal continuation. A later turn's processing state must not
   // reanimate an unrelated completed trace.
   const live =
+    !closed &&
     !ownStopped &&
     (walletContinuation ||
       (isLast &&
@@ -1024,7 +859,9 @@ export const AssistantTurnParts: FC = () => {
           ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
+    : closed
+      ? "complete"
+      : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
       ? "failed"
       : ownStatus === "interrupted" ||
           (isLast && runtime?.turnState === "interrupted")
@@ -1071,10 +908,11 @@ export const AssistantTurnParts: FC = () => {
   // operation has finished. Parent completion precedes wallet callbacks, and
   // response text can arrive before the callback's durable complete event.
   const answerReady =
-    !live &&
+    closed ||
+    (!live &&
     !ownStopped &&
     (ownStatus === "complete" ||
-      (ownStatus === undefined && isLast && runtime?.turnState === "complete"));
+      (ownStatus === undefined && isLast && runtime?.turnState === "complete")));
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -1122,7 +960,7 @@ export const AssistantTurnParts: FC = () => {
     );
     if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
   }
-  const traceItems = buildTraceItems(
+  const traceItems = buildTraceItems<ToolCallMessagePart, TaskRunState>(
     parts.filter((part, index) => !answerIndexes.has(index)),
     delegations,
   );
@@ -1147,6 +985,10 @@ export const AssistantTurnParts: FC = () => {
           startedAtMs={startedAtMs}
           phaseEvents={turnEvents}
           phaseTurnIds={turnId ? [turnId, ...(continuationTurnIds ?? [])] : []}
+          phaseBounds={{
+            start: segment?.aomiTraceStartedAt,
+            end: segment?.aomiTraceClosedAt,
+          }}
         />
       )}
       {answerParts.map((part, index) =>

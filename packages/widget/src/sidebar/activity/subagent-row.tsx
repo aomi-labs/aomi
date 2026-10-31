@@ -1,8 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState } from "react";
 import { Bot, Check, CircleAlert, LoaderCircle } from "lucide-react";
-import { cn, type TaskRunState } from "@aomi-labs/react";
+import { type TaskRunState } from "@aomi-labs/react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import { MarkdownText } from "@/thread/markdown-text";
 import { focusRing } from "./presentation";

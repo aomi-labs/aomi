@@ -1,10 +1,10 @@
 /**
  * Builder credits: GitHub is the builder identity; the Payment service resolves
- * its canonical owner. Ported from the Build BFF's `server/bff/credits.ts`.
+ * its canonical owner. Ported from the Build server's `server/bff/credits.ts`.
  */
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";
-import { cookieWriteAllowed } from "../kernel/csrf";
+import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import { EdgeError, minted, unreachable } from "../kernel/errors";
 import { proxy, target } from "../kernel/proxy";
 import { AGENT_API_HEADERS } from "../portal/headers";
@@ -30,7 +30,7 @@ export async function credits(request: Request, ctx: BuildContext): Promise<Resp
   const scopes = [`builder:credits:${read ? "read" : "fund"}`];
   if (request.headers.has("payment-signature")) scopes.push("payments:submit");
   const { accessToken } = await minted(() =>
-    edgeService(ctx.env, url.host).mint({
+    edgeService(ctx.env).mint({
       role: "user",
       subject: session.githubUserId,
       audience: "aomi-payment",

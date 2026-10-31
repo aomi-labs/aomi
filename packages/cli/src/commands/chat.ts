@@ -1,298 +1,99 @@
-import { CliSession } from "../cli-session";
+import type { CommitHandle } from "@aomi-labs/client";
+import { decode } from "@aomi-labs/client/trace";
 import {
-  DIM,
-  RESET,
-  YELLOW,
-  getToolNameFromEvent,
-  getToolResultFromEvent,
-  isAlwaysVisibleTool,
-  inlineToolResultFromMessage,
-  printNewAgentMessages,
-  printPaymentEvent,
-  printTaskActivity,
-  printTaskCompleted,
-  printTaskStarted,
-  printToolComplete,
-  printToolResultLine,
-} from "../output";
-import {
-  applyRequestedModelIfPresent,
-  ingestSecretsForSession,
+  CliError,
+  connect,
+  err,
+  json,
+  out,
+  ownerOf,
+  turnOptions,
+  usage,
+  type ConnectFlags,
 } from "../context";
-import { fatal } from "../errors";
-import type { CliConfig } from "../types";
-import { parseSolanaKeypairSecret } from "../solana-signer";
-import type { SendOptions } from "@aomi-labs/client";
-import type { Session as ClientSession } from "@aomi-labs/client";
-import type { Event, MessageEvent } from "@aomi-labs/client";
-import {
-  AomiCommits,
-  isTerminalCommit,
-  type AomiClient,
-  type CommitView,
-} from "@aomi-labs/client";
+import { loadState, updateState } from "../state";
+import { chipsOf, paint, statusOf, stepLine } from "../trace";
 
-const STOPPED_TURN_STATES = new Set([
-  "awaiting_action",
-  "complete",
-  "interrupted",
-  "failed",
-]);
+export type ChatFlags = ConnectFlags & {
+  prompt?: string;
+  thread?: string;
+  new?: boolean;
+  app?: string;
+  model?: string;
+  json?: boolean;
+};
 
-function waitForTurnStop(session: ClientSession): Promise<void> {
-  return new Promise((resolve) => {
-    const check = () => {
-      const state = session.getSnapshot().turnState;
-      if (!state || !STOPPED_TURN_STATES.has(state)) return;
-      unsubscribe();
-      resolve();
-    };
-    const unsubscribe = session.subscribe(check);
-    check();
-  });
+/** `aomi chat [message]`, `aomi -p`: one turn, or the chat screen without one. */
+export async function chat(flags: ChatFlags, message?: string): Promise<void> {
+  const text = (flags.prompt ?? message)?.trim();
+  if (text) return ask(flags, text);
+  if (!process.stdin.isTTY || !process.stdout.isTTY)
+    throw usage('No terminal for the chat screen; use aomi -p "<message>"');
+  const { runTui } = await import("../tui/chat");
+  await runTui(flags);
 }
 
-/**
- * Derive the Solana public key from a keypair secret string if provided.
- * Returns undefined on any parse failure (non-fatal — just omits svm.address).
- */
-function deriveSvmAddress(
-  solanaPrivateKey: string | undefined,
-): string | undefined {
-  if (!solanaPrivateKey) return undefined;
+/** Trace on stderr, the reply on stdout; `--json` makes stdout NDJSON. */
+export async function ask(flags: ChatFlags, text: string): Promise<void> {
+  const aomi = await connect(flags);
+  const options = turnOptions(aomi, loadState(), {
+    ...flags,
+    thread: flags.new ? crypto.randomUUID() : flags.thread,
+  });
+  const turn = aomi.agent.thread(options.sessionId).send(text, options);
+  const stop = () => void turn.interrupt();
+  process.once("SIGINT", stop);
+  const color = Boolean(process.stderr.isTTY);
+  let steps = 0;
   try {
-    return parseSolanaKeypairSecret(solanaPrivateKey).publicKey.toBase58();
-  } catch {
-    return undefined;
+    for await (const step of turn.steps({ decode })) {
+      steps += 1;
+      if (flags.json)
+        json({
+          type: "step",
+          status: statusOf(step),
+          icon: step.icon,
+          title: step.title,
+          chips: chipsOf(step),
+        });
+      else err(stepLine(step, color));
+    }
+    const result = await turn;
+    updateState({ thread: result.threadId, owner: ownerOf(aomi) });
+    if (flags.json) {
+      json({ type: "reply", thread: result.threadId, text: result.reply });
+      for (const commit of result.commits)
+        json({ type: "commit", ...commitEvent(commit) });
+    } else {
+      if (steps && result.reply) err();
+      if (result.reply) out(result.reply);
+      for (const commit of result.commits) err(commitHint(commit, color));
+    }
+    for (const commit of result.commits) commit.close();
+    if (result.state === "interrupted") throw new CliError("Interrupted");
+    if (result.commits.length) process.exitCode = 3;
+    else if (!result.reply) throw new CliError("The agent returned no reply");
+  } finally {
+    process.off("SIGINT", stop);
   }
 }
 
-export function resolveSvmAddressForChat(
-  persistedSvmAddress: string | undefined,
-  solanaPrivateKey: string | undefined,
-): string | undefined {
-  return deriveSvmAddress(solanaPrivateKey) ?? persistedSvmAddress;
-}
-
-export function printBoundaryForTurn(
-  events: readonly Event[],
-  messages: readonly MessageEvent[],
-  turnId: string | undefined,
-) {
-  const firstTurnEvent = events.find((event) => event.turn_id === turnId);
+export function commitEvent(commit: CommitHandle) {
   return {
-    handledSequence: firstTurnEvent ? firstTurnEvent.sequence - 1 : 0,
-    printedAgentCount: messages.filter(
-      (message) => message.sender === "agent" && message.turn_id !== turnId,
-    ).length,
+    ref: commit.ref,
+    kind: commit.kind,
+    state: commit.state,
+    signUrl: commit.signUrl,
   };
 }
 
-/**
- * One "Waiting for your approval" line per parked commit. The chat's
- * CommitView has no sign_url, so read it from the ref view.
- */
-export async function approvalHints(
-  client: AomiClient,
-  commits: readonly CommitView[],
-): Promise<string[]> {
-  const parked = commits.filter(
-    (commit) => commit.state === "awaiting_approval",
-  );
-  return Promise.all(
-    parked.map(async ({ commit_id: ref }) => {
-      const signUrl = await new AomiCommits(client).get(ref).then(
-        (handle) => {
-          handle.close();
-          return handle.view.sign_url;
-        },
-        // Unreadable ref: name only the CLI command.
-        () => undefined,
-      );
-      return `Waiting for your approval: \`aomi tx approve ${ref}\`${signUrl ? ` (or ${signUrl})` : ""}`;
-    }),
-  );
-}
-
-export async function chatCommand(
-  config: CliConfig,
-  message: string,
-  verbose: boolean,
-  branch: SendOptions = {},
-): Promise<void> {
-  if (!message && !branch.regenerate) {
-    fatal("Usage: aomi chat <message>");
-  }
-
-  const cli = CliSession.loadOrCreate(config);
-  const session = cli.createClientSession(config, {
-    onPayment: printPaymentEvent,
-  });
-
-  try {
-    await ingestSecretsForSession(config, cli, session.client);
-    await applyRequestedModelIfPresent(config, cli, session);
-    const previousActionIds = new Set(
-      session.actions.all().map((action) => action.id),
-    );
-    const previousCommitIds = new Set(
-      session.commits.all().map((commit) => commit.commit_id),
-    );
-    let printedAgentCount = 0;
-    let handledSequence = 0;
-    let thinkingPrinted = false;
-    const agentLabels = new Map<string, string>();
-    // One printed line per (turn, tool) pair, whichever wire shape lands
-    // first. Suppressing by turn alone silently drops a distinct tool's only
-    // trace whenever another tool in the turn used the other shape.
-    const seenToolPairs = new Set<string>();
-    const toolPairKey = (turnId: string, name: string) => `${turnId}::${name}`;
-    const render = () => {
-      const snapshot = session.getSnapshot();
-      if (
-        verbose &&
-        !thinkingPrinted &&
-        (snapshot.isSubmitting || snapshot.turnState === "processing")
-      ) {
-        thinkingPrinted = true;
-        console.log(`${DIM}⏳ Thinking…${RESET}`);
-      }
-      for (const event of snapshot.events) {
-        if (event.sequence <= handledSequence) continue;
-        handledSequence = event.sequence;
-        if (event.type === "tool_complete") {
-          const name = getToolNameFromEvent(event);
-          // Subagent lifecycles print through the task_* lines, not as tools.
-          if (name === "task") continue;
-          const turnId = event.turn_id ?? `event:${event.event_id}`;
-          const pair = toolPairKey(turnId, name);
-          const firstForPair = !seenToolPairs.has(pair);
-          seenToolPairs.add(pair);
-          if (firstForPair && (verbose || isAlwaysVisibleTool(name))) {
-            printToolComplete(event);
-          }
-        } else if (event.type === "message") {
-          const tool = inlineToolResultFromMessage(event);
-          if (tool) {
-            const pair = toolPairKey(tool.turnId, tool.name);
-            const firstForPair = !seenToolPairs.has(pair);
-            seenToolPairs.add(pair);
-            if (firstForPair && (verbose || isAlwaysVisibleTool(tool.name))) {
-              printToolResultLine(tool.name, tool.result);
-            }
-          } else if (verbose && event.sender === "notice") {
-            console.log(`${YELLOW}📢 ${event.content}${RESET}`);
-          }
-        } else if (verbose && event.type === "task_started") {
-          agentLabels.set(event.agent_id, event.label || event.agent_id);
-          printTaskStarted(event);
-        } else if (verbose && event.type === "task_activity") {
-          printTaskActivity(event);
-        } else if (verbose && event.type === "task_completed") {
-          printTaskCompleted(event, agentLabels.get(event.agent_id));
-          agentLabels.delete(event.agent_id);
-        } else if (verbose && event.type === "error") {
-          console.log(`\x1b[31m❌ ${event.message}${RESET}`);
-        }
-      }
-      if (verbose) {
-        printedAgentCount = printNewAgentMessages(
-          snapshot.messages,
-          printedAgentCount,
-        );
-      }
-    };
-    if (verbose) {
-      thinkingPrinted = true;
-      console.log(`${DIM}⏳ Thinking…${RESET}`);
-    }
-    if (branch.edit && branch.regenerate) fatal("Choose --edit or --rerun.");
-    await session.sendAsync(message, branch);
-    const boundary = printBoundaryForTurn(
-      session.getSnapshot().events,
-      session.getSnapshot().messages,
-      session.getSnapshot().turnId,
-    );
-    handledSequence = boundary.handledSequence;
-    printedAgentCount = boundary.printedAgentCount;
-    const unsubscribe = session.subscribe(render);
-    render();
-    await waitForTurnStop(session);
-    render();
-    unsubscribe();
-
-    if (verbose) {
-      console.log(`${DIM}✅ Done${RESET}`);
-    }
-
-    const newActions = session.actions
-      .pending()
-      .filter((action) => !previousActionIds.has(action.id));
-    const newCommits = session.commits
-      .all()
-      .filter(
-        (commit) =>
-          !previousCommitIds.has(commit.commit_id) && !isTerminalCommit(commit),
-      );
-
-    // Parked commits get the approval hint below, not a signing prompt.
-    const signableCommits = newCommits.filter(
-      (commit) => commit.state !== "awaiting_approval",
-    );
-    for (const commit of signableCommits) {
-      console.log(
-        `🔐 Commit awaiting ${commit.action?.kind ?? "confirmation"}: ${commit.commit_id} (${commit.chain_family.toUpperCase()}, ${commit.state})`,
-      );
-    }
-
-    for (const action of newActions) {
-      console.log(`⚡ Action awaiting response: ${action.id}`);
-      if (action.request.type === "execute_evm") {
-        console.log(
-          `   EVM transactions: ${action.request.transactions.length}`,
-        );
-      } else if (action.request.type === "execute_svm") {
-        console.log(
-          `   SVM transactions: ${action.request.transactions.length}`,
-        );
-      } else {
-        console.log(`   ${action.request.chainFamily.toUpperCase()} signature`);
-        if (action.request.description) {
-          console.log(`   ${action.request.description}`);
-        }
-      }
-    }
-
-    if (!verbose) {
-      const agentMessages = session
-        .getSnapshot()
-        .messages.filter((entry) => entry.sender === "agent");
-      const last = agentMessages[agentMessages.length - 1];
-
-      if (last?.content) {
-        console.log(last.content);
-      } else if (session.getSnapshot().turnState === "interrupted") {
-        console.log("(interrupted)");
-      } else if (newActions.length === 0 && newCommits.length === 0) {
-        console.log("(no response)");
-        fatal("Backend returned an empty agent message.");
-      }
-    }
-
-    const hints = await approvalHints(session.client, newCommits);
-    if (hints.length > 0) console.log(`\n${hints.join("\n")}`);
-
-    if (newActions.length > 0 || signableCommits.length > 0) {
-      console.log(
-        "\nRun `aomi tx list` to inspect commits and Actions, then `aomi tx sign <id>` or `aomi tx reject <id>`.",
-      );
-      if (signableCommits.length > 0) {
-        console.log(
-          "For an external signer, export one exact review with `aomi tx export <id> --format commit`.",
-        );
-      }
-    }
-  } finally {
-    session.close();
-  }
+/** What a commit waits for, and the command that does it. */
+export function commitHint(commit: CommitHandle, color: boolean): string {
+  const [label, command] =
+    commit.state === "awaiting_approval"
+      ? ["Waiting for you", `aomi tx approve ${commit.ref}`]
+      : ["Sign it", `aomi tx sign ${commit.ref}`];
+  const head = `\n${color ? paint.yellow(label) : label}  ${command}`;
+  if (!commit.signUrl) return head;
+  return `${head}\n${color ? paint.dim(commit.signUrl) : commit.signUrl}`;
 }

@@ -1,37 +1,37 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
-import type { BffService } from "./failure";
+import type { AppService } from "./failure";
 import { createFailurePipeline } from "./pipeline";
-import { getBffSentryRelease } from "./route";
+import { getAppSentryRelease } from "./route";
 
-export const BFF_SENTRY_SMOKE_HEADER = "x-aomi-sentry-smoke";
+export const APP_SENTRY_SMOKE_HEADER = "x-aomi-sentry-smoke";
 
-export type BffSentrySmokeOptions = {
-  service: BffService;
+export type AppSentrySmokeOptions = {
+  service: AppService;
   providedSecret: string | null;
   flushTimeoutMs?: number;
 };
 
-export async function runBffSentrySmoke(
-  options: BffSentrySmokeOptions,
+export async function runAppSentrySmoke(
+  options: AppSentrySmokeOptions,
 ): Promise<boolean> {
   if (
     !options ||
-    (options.service !== "portal-bff" && options.service !== "build-bff")
+    (options.service !== "portal" && options.service !== "build")
   ) {
     return false;
   }
   if (
-    !isBffSentrySmokeRequestAllowed(options.providedSecret, options.service)
+    !isAppSentrySmokeRequestAllowed(options.providedSecret, options.service)
   ) {
     return false;
   }
 
   const attributes = {
     service: options.service,
-    route_family: "/api/bff/internal/sentry-smoke",
+    route_family: "/api/build/internal/sentry-smoke",
     operation: "sentry_smoke",
     method: "POST",
     handled: true,
@@ -40,9 +40,9 @@ export async function runBffSentrySmoke(
 
   createFailurePipeline(options.service).handle({
     source: "local",
-    error: new Error("Aomi BFF Sentry smoke test"),
+    error: new Error("Aomi app server Sentry smoke test"),
     context: {
-      routeFamily: "/api/bff/internal/sentry-smoke",
+      routeFamily: "/api/build/internal/sentry-smoke",
       operation: "sentry_smoke",
       method: "POST",
       smokeTest: true,
@@ -52,7 +52,7 @@ export async function runBffSentrySmoke(
     Sentry.withIsolationScope((scope) => {
       scope.setLevel("error");
       scope.setTags(attributes);
-      Sentry.logger.error("bff.smoke_test", attributes, { scope });
+      Sentry.logger.error("app.smoke_test", attributes, { scope });
     });
     return await Sentry.flush(boundedFlushTimeout(options.flushTimeoutMs));
   } catch {
@@ -60,16 +60,16 @@ export async function runBffSentrySmoke(
   }
 }
 
-export function isBffSentrySmokeRequestAllowed(
+export function isAppSentrySmokeRequestAllowed(
   providedSecret: string | null,
-  service: BffService = "portal-bff",
+  service: AppService = "portal",
 ): boolean {
   if (process.env.NODE_ENV !== "production") return false;
   if (process.env.SENTRY_ENABLED !== "1") return false;
   if (process.env.SENTRY_ENVIRONMENT !== "staging") return false;
   if (process.env.SENTRY_SMOKE_ENABLED !== "1") return false;
   if (!process.env.SENTRY_DSN?.trim()) return false;
-  if (!getBffSentryRelease(service)) return false;
+  if (!getAppSentryRelease(service)) return false;
 
   const expectedSecret = process.env.SENTRY_SMOKE_SECRET;
   if (

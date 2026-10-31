@@ -1,8 +1,8 @@
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
 import type {
-  BffService,
-  BffUpstream,
+  AppService,
+  AppUpstream,
   FailureDecision,
   FailureResult,
   LocalDiagnostic,
@@ -14,23 +14,23 @@ import {
   scrubSentryLog,
 } from "./privacy";
 
-export type BffSentryOptions = { service: BffService };
+export type AppSentryOptions = { service: AppService };
 
 type EventContext = {
-  service: BffService;
+  service: AppService;
   routeFamily: string;
   operation: string;
   method?: string;
   status: number;
-  upstream?: BffUpstream;
+  upstream?: AppUpstream;
   upstreamStatus?: number;
   handled: boolean;
   durationMs?: number;
   smokeTest?: boolean;
 };
 
-const SERVICES = new Set<BffService>(["portal-bff", "build-bff"]);
-const UPSTREAMS = new Set<BffUpstream>([
+const SERVICES = new Set<AppService>(["portal", "build"]);
+const UPSTREAMS = new Set<AppUpstream>([
   "rust",
   "github",
   "vercel",
@@ -67,12 +67,12 @@ const DISABLED_INTEGRATIONS = new Set([
   "RequestData",
   "VercelAI",
 ]);
-const INITIALIZED_SERVICES = new Set<BffService>();
+const INITIALIZED_SERVICES = new Set<AppService>();
 
 /** Layer 3: route one classified decision to its approved destinations. */
 export function routeFailure(
   decision: FailureDecision,
-  service: BffService,
+  service: AppService,
 ): FailureResult {
   try {
     return routeDecision(decision, service);
@@ -95,7 +95,7 @@ export function routeFailure(
 
 function routeDecision(
   decision: FailureDecision,
-  service: BffService,
+  service: AppService,
 ): FailureResult {
   const routedDecision = normalizeDecision(decision);
   const response = Response.json(
@@ -132,12 +132,12 @@ function routeDecision(
   }
 
   if (routedDecision.action === "log") {
-    writeLocalError("bff.upstream_failure", attributes);
+    writeLocalError("app.upstream_failure", attributes);
     try {
       Sentry.withIsolationScope((scope) => {
         scope.setLevel("error");
         scope.setTags(attributes);
-        Sentry.logger.error("bff.upstream_failure", attributes, { scope });
+        Sentry.logger.error("app.upstream_failure", attributes, { scope });
       });
     } catch {
       // Telemetry delivery must never replace the owned response.
@@ -148,25 +148,13 @@ function routeDecision(
   const error =
     routedDecision.error instanceof Error
       ? routedDecision.error
-      : new Error("Non-Error BFF exception");
-  writeLocalError("bff.exception", attributes, error);
+      : new Error("Non-Error app server exception");
+  writeLocalError("app.exception", attributes, error);
   try {
     Sentry.withIsolationScope((scope) => {
       scope.setLevel("error");
       scope.setTags(attributes);
-      if (routedDecision.requestError) {
-        Sentry.captureRequestError(
-          error,
-          routedDecision.requestError.request as Parameters<
-            typeof Sentry.captureRequestError
-          >[1],
-          routedDecision.requestError.errorContext as Parameters<
-            typeof Sentry.captureRequestError
-          >[2],
-        );
-      } else {
-        Sentry.captureException(error);
-      }
+      Sentry.captureException(error);
     });
   } catch {
     // Telemetry delivery must never replace the owned response.
@@ -188,7 +176,7 @@ function normalizeDecision(decision: FailureDecision): FailureDecision {
 }
 
 function invalidContextAttributes(
-  service: BffService,
+  service: AppService,
   decision: FailureDecision,
 ): Record<string, string | number | boolean> {
   return {
@@ -197,11 +185,11 @@ function invalidContextAttributes(
     operation: "observability.invalid_context",
     "http.status_code": decision.responseStatus,
     handled: decision.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
 }
 
-export function initBffSentry(options: BffSentryOptions): boolean {
+export function initAppSentry(options: AppSentryOptions): boolean {
   if (!options || !SERVICES.has(options.service)) return false;
   const configuration = sentryConfiguration(options.service);
   if (!configuration) return false;
@@ -237,7 +225,7 @@ export function initBffSentry(options: BffSentryOptions): boolean {
         }),
       ],
       initialScope: {
-        tags: { service: options.service, runtime: bffRuntime() },
+        tags: { service: options.service, runtime: "nodejs" },
       },
     });
     INITIALIZED_SERVICES.add(options.service);
@@ -248,18 +236,18 @@ export function initBffSentry(options: BffSentryOptions): boolean {
   }
 }
 
-export function getBffSentryRelease(service: BffService): string | undefined {
+export function getAppSentryRelease(service: AppService): string | undefined {
   if (!SERVICES.has(service)) return undefined;
   const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA;
   return sha && SAFE_SHA.test(sha) ? `${service}@${sha}` : undefined;
 }
 
-export function isBffSentryEnabled(): boolean {
-  return sentryConfiguration("portal-bff") !== undefined;
+export function isAppSentryEnabled(): boolean {
+  return sentryConfiguration("portal") !== undefined;
 }
 
 function sentryConfiguration(
-  service: BffService,
+  service: AppService,
 ):
   | { dsn: string; environment: "staging" | "production"; release: string }
   | undefined {
@@ -272,7 +260,7 @@ function sentryConfiguration(
   if (environment !== "staging" && environment !== "production") {
     return undefined;
   }
-  const release = getBffSentryRelease(service);
+  const release = getAppSentryRelease(service);
   return release ? { dsn, environment, release } : undefined;
 }
 
@@ -291,11 +279,11 @@ function eventAttributes(
     operation: context.operation,
     "http.status_code": context.status,
     handled: context.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
-  const environment = bffEnvironment();
+  const environment = appEnvironment();
   if (environment) attributes.environment = environment;
-  const release = getBffSentryRelease(context.service);
+  const release = getAppSentryRelease(context.service);
   if (release) attributes.release = release;
   if (context.method) attributes.method = context.method.toUpperCase();
   if (context.upstream) attributes.upstream = context.upstream;
@@ -346,11 +334,7 @@ function isValidContext(context: EventContext): boolean {
   );
 }
 
-function bffRuntime(): "edge" | "nodejs" {
-  return process.env.NEXT_RUNTIME === "edge" ? "edge" : "nodejs";
-}
-
-function bffEnvironment(): "staging" | "production" | undefined {
+function appEnvironment(): "staging" | "production" | undefined {
   const environment = process.env.SENTRY_ENVIRONMENT;
   return environment === "staging" || environment === "production"
     ? environment
@@ -373,7 +357,7 @@ function isResponseStatus(value: number): boolean {
 }
 
 function writeLocalError(
-  message: "bff.exception" | "bff.upstream_failure",
+  message: "app.exception" | "app.upstream_failure",
   attributes: Record<string, string | number | boolean>,
   error?: Error,
 ): void {
@@ -382,8 +366,8 @@ function writeLocalError(
   const productionFallback =
     process.env.NODE_ENV === "production" &&
     typeof service === "string" &&
-    SERVICES.has(service as BffService) &&
-    !INITIALIZED_SERVICES.has(service as BffService);
+    SERVICES.has(service as AppService) &&
+    !INITIALIZED_SERVICES.has(service as AppService);
   if (!development && !productionFallback) return;
   try {
     if (development && error) console.error(message, attributes, error);
@@ -401,7 +385,7 @@ function writeLocalDiagnostic(
   const attributes = localDiagnosticAttributes(diagnostic);
   if (!attributes) return;
   try {
-    console.warn("bff.expected_failure", { ...attributes, ...context });
+    console.warn("app.expected_failure", { ...attributes, ...context });
   } catch {
     // Local diagnostics are best-effort and must not change request behavior.
   }

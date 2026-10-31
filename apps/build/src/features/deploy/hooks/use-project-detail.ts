@@ -1,6 +1,4 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import { useDeploymentAttempts } from "./use-deployment-attempts";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -238,7 +236,7 @@ export function useProjectDetail(projectId: number) {
     {},
   );
   // Whether the failure above is worth retrying. A missing deploy-time
-  // GITHUB_TOKEN is not: no amount of clicking Retry will conjure one, and
+  // BUILD_GITHUB_TOKEN is not: no amount of clicking Retry will conjure one, and
   // offering the button implies otherwise.
   const [requiredSecretsRetryable, setRequiredSecretsRetryable] =
     useState(true);
@@ -610,9 +608,9 @@ export function useProjectDetail(projectId: number) {
     async (branch = "") => {
       const requestEpoch = projectEpochRef.current;
       const operation = startAttempt(branch);
-      router.push(
-        `/projects/${projectId}?tab=deployments&platform=${encodeURIComponent(source?.platformName ?? "community")}`,
-      );
+      router.navigate({
+        href: `/projects/${projectId}?tab=deployments&platform=${encodeURIComponent(source?.platformName ?? "community")}`,
+      });
       const attempt = await operation;
       if (attempt && projectEpochRef.current === requestEpoch) await reload();
       return attempt;

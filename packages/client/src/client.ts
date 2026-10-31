@@ -1,4 +1,6 @@
+import { AomiApiError, AomiError } from "./api-error";
 import { SimulationApiError } from "./simulation";
+import { ROUTE_SCOPES } from "./generated/route-scopes";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
@@ -220,7 +222,8 @@ export function wrapFetchWithPublicApiAuthorization(input: {
           forceRefresh,
         });
         if (!token)
-          throw new Error(
+          throw new AomiError(
+            "insufficient_scope",
             "No OAuth grant covers this Aomi resource and scope set",
           );
         const tokenType = token.tokenType ?? "Bearer";
@@ -284,121 +287,22 @@ export function wrapFetchWithPublicApiAuthorization(input: {
   };
 }
 
+/** The OAuth resource and scopes a route needs, from the edge's own table. */
 function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
-  const origin = url.origin;
-  const payment = new Headers(headers).has("payment-signature")
-    ? ["payments:submit"]
-    : [];
-  if (
-    method.toUpperCase() === "POST" &&
-    ["/api/thread/model", "/api/thread/sim/world"].includes(url.pathname)
-  ) {
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:write"],
-      method: "POST",
-    };
-  }
-  if (isCommitPath(url.pathname)) {
-    const write = url.pathname.startsWith("/v1/")
-      ? "agent:write"
-      : "agent:actions:resolve";
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: [
-        method.toUpperCase() === "GET" ? "agent:read" : write,
-        ...payment,
-      ],
-      method: method.toUpperCase(),
-    };
-  }
-  if (url.pathname === "/api/thread/wallet") {
-    // `aomi wallets use`: the portal asks agent:write of the switch.
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:write", ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  if (url.pathname === "/v1/agent" || url.pathname.startsWith("/v1/agent/")) {
-    const scopes =
-      method === "GET"
-        ? ["agent:read"]
-        : /\/actions\/[^/]+\/result$/.test(url.pathname)
-          ? ["agent:actions:resolve"]
-          : ["agent:write"];
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: [...scopes, ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  if (
-    url.pathname === "/v1/pipeline" ||
-    url.pathname.startsWith("/v1/pipeline/")
-  ) {
-    return {
-      resource: `${origin}/v1/pipeline` as AomiOAuthResource,
-      scopes: [
-        method === "GET" &&
-        !url.pathname.startsWith("/v1/pipeline/evm/commits/")
-          ? "pipeline:catalog"
-          : "pipeline:execute",
-        ...payment,
-      ],
-      method: method.toUpperCase(),
-    };
-  }
-  if (
-    method.toUpperCase() === "GET" &&
-    /^\/v1\/account\/(?:wallets(?:\/[^/]+\/balance)?|agent-wallets(?:\/[^/]+\/balances)?)$/.test(
-      url.pathname,
-    )
-  ) {
-    // api-server serves the wallet list and balances on the agent resource.
-    return {
-      resource: `${origin}/v1/agent` as AomiOAuthResource,
-      scopes: ["agent:read", ...payment],
-      method: "GET",
-    };
-  }
-  if (
-    url.pathname === "/v1/account" ||
-    url.pathname.startsWith("/v1/account/")
-  ) {
-    const isAppCredential =
-      /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
-    const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
-    let scope: string;
-    if (url.pathname.startsWith("/v1/account/transaction-safety")) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:transaction-safety:read"
-          : "account:transaction-safety:write";
-    } else if (isAppCredential) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:credentials:read"
-          : "account:credentials:write";
-    } else if (isAccountApp) {
-      scope =
-        method.toUpperCase() === "GET"
-          ? "account:apps:read"
-          : "account:apps:write";
-    } else if (url.pathname === "/v1/account/statement") {
-      scope = "account:usage:read";
-    } else if (url.pathname.startsWith("/v1/account/credits/funding-events") && method.toUpperCase() === "POST") {
-      scope = "account:credits:fund";
-    } else {
-      scope = "account:credits:read";
-    }
-    return {
-      resource: `${origin}/v1/account` as AomiOAuthResource,
-      scopes: [scope, ...payment],
-      method: method.toUpperCase(),
-    };
-  }
-  return null;
+  const upper = method.toUpperCase();
+  const route = ROUTE_SCOPES.find(
+    (row) => row.path.test(url.pathname) && row.methods[upper],
+  );
+  if (!route) return null;
+  const payment =
+    route.paid && new Headers(headers).has("payment-signature")
+      ? ["payments:submit"]
+      : [];
+  return {
+    resource: `${url.origin}${route.resource}` as AomiOAuthResource,
+    scopes: [route.methods[upper]!, ...payment],
+    method: upper,
+  };
 }
 
 function absoluteBase(baseUrl: string): string {
@@ -515,9 +419,8 @@ export class AomiClient {
     // may already have settled.
     this.rawFetchImpl = authenticatedRawFetch;
     this.logger = options.logger;
-    this.agent = new AgentTransport(
-      (method, path, requestOptions) =>
-        this.requestResponse(method, path, requestOptions),
+    this.agent = new AgentTransport((method, path, requestOptions) =>
+      this.requestResponse(method, path, requestOptions),
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
@@ -594,16 +497,15 @@ export class AomiClient {
 
     const requestFetch = options?.x402
       ? wrapFetchWithPaymentChallenges(this.rawFetchImpl, options.x402)
-      : options?.raw ? this.rawFetchImpl : this.fetchImpl;
-    const response = await requestFetch(
-      url,
-      {
-        method,
-        headers,
-        body: encodeJsonBody(options?.body),
-        signal: options?.signal,
-      },
-    );
+      : options?.raw
+        ? this.rawFetchImpl
+        : this.fetchImpl;
+    const response = await requestFetch(url, {
+      method,
+      headers,
+      body: encodeJsonBody(options?.body),
+      signal: options?.signal,
+    });
 
     return response;
   }
@@ -626,27 +528,12 @@ export class AomiClient {
     clientId: string,
     secrets: Record<string, string>,
   ): Promise<AomiIngestSecretsResponse> {
-    const url = joinApiPath(this.baseUrl, "/api/secrets");
-    const body: {
-      client_id: string;
-      secrets: Record<string, string>;
-    } = {
-      client_id: clientId,
-      secrets,
-    };
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
+    return {
+      handles: await this.account.keys.set(secrets, {
+        thread: sessionId,
+        clientId,
       }),
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiIngestSecretsResponse;
+    };
   }
 
   /** Clear every client-scoped secret and unbind the session. */
@@ -654,19 +541,8 @@ export class AomiClient {
     sessionId: string,
     clientId: string,
   ): Promise<AomiClearSecretsResponse> {
-    const url = buildApiUrl(this.baseUrl, "/api/secrets", {
-      client_id: clientId,
-    });
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiClearSecretsResponse;
+    await this.account.keys.clear({ thread: sessionId, clientId });
+    return { cleared: true };
   }
 
   /** Remove a single named client-scoped secret. */
@@ -675,51 +551,29 @@ export class AomiClient {
     clientId: string,
     name: string,
   ): Promise<AomiDeleteSecretResponse> {
-    const params: Record<string, string> = { client_id: clientId };
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/secrets/${encodeURIComponent(name)}`,
-      params,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiDeleteSecretResponse;
+    return {
+      deleted: await this.account.keys.remove(name, {
+        thread: sessionId,
+        clientId,
+      }),
+    };
   }
 
   /**
-   * List the stored secret NAMES for this client — never values.
-   *
-   * Read the result with {@link secretNamesFrom}, which tolerates the
-   * pre-cutover `by_app` shape as well as the flat `names` list.
+   * List the stored secret NAMES for this client — never values. Pass the
+   * client_id so the read finds the vault even after a backend restart lost
+   * the session→client binding.
    */
   async listSecrets(
     sessionId: string,
     clientId?: string,
   ): Promise<AomiListSecretsResponse> {
-    // Pass the client_id explicitly so the read resolves the vault by the key
-    // the caller already holds, not via the in-memory session→client_id binding
-    // (which is lost on a backend restart, leaving cold reads empty).
-    const url =
-      clientId && clientId.trim().length > 0
-        ? buildApiUrl(this.baseUrl, "/api/secrets", { client_id: clientId })
-        : joinApiPath(this.baseUrl, "/api/secrets");
-    const response = await this.fetchImpl(url, {
-      method: "GET",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiListSecretsResponse;
+    return {
+      names: await this.account.keys.list({
+        thread: sessionId,
+        clientId: clientId?.trim() || undefined,
+      }),
+    };
   }
 
   /** Credential-free projection suitable for shared caching and public persistence. */
@@ -790,6 +644,27 @@ export class AomiClient {
       .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
+  /** The one private app an App key opens. Credential-free. */
+  async resolveAppKey(
+    appKey: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AomiAppDescriptor[]> {
+    const response = await this.publicFetchImpl(
+      buildApiUrl(this.baseUrl, "/api/thread/apps", { resolve_key: "true" }),
+      { headers: { [APP_KEY_HEADER]: appKey }, signal: options.signal },
+    );
+    if (!response.ok)
+      throw new AomiApiError(
+        response.status,
+        "app_key_unresolved",
+        `Failed to resolve the App key: HTTP ${response.status}`,
+      );
+    const rows: unknown = await response.json();
+    return (Array.isArray(rows) ? rows : []).flatMap(
+      (row) => normalizeAppDescriptor(row) ?? [],
+    );
+  }
+
   /**
    * Fetch the account bound to the authenticated request (resolved from the
    * account bearer). Returns `null` when the session is not bound to a real
@@ -848,7 +723,11 @@ export class AomiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch account: HTTP ${response.status}`);
+      throw new AomiApiError(
+        response.status,
+        "account_request_failed",
+        `Failed to fetch account: HTTP ${response.status}`,
+      );
     }
 
     return (await response.json()) as AomiAccountResponse;
@@ -872,19 +751,22 @@ export class AomiClient {
       .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
-  /** Atomically install one exact application row. */
+  /**
+   * Atomically install one exact application row. A private app the account
+   * cannot see yet needs its `apiKey`; the backend reads it on its own route.
+   */
   async addAccountApp(
     sessionId: string,
     applicationId: ApplicationId,
+    options: { apiKey?: string } = {},
   ): Promise<AomiAccountAppMutationResponse> {
     const url = buildApiUrl(
       this.baseUrl,
-      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
+      `${options.apiKey ? "/api/account/apps" : this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
     );
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId),
-    });
+    const headers = new Headers(withSessionHeader(sessionId));
+    if (options.apiKey) headers.set(APP_KEY_HEADER, options.apiKey);
+    const response = await this.fetchImpl(url, { method: "POST", headers });
 
     if (!response.ok) {
       throw new Error(`Failed to install account app: HTTP ${response.status}`);

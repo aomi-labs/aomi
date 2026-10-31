@@ -64,7 +64,7 @@ describe("published widget package boundaries", () => {
   it("marks every browser entry as a client module", () => {
     for (const entry of [
       "index.js",
-      "aomi-widget.js",
+      "frame.js",
       "host-composition.js",
       "providers/para.js",
       "providers/privy.js",

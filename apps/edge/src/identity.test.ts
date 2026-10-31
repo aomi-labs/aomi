@@ -3,19 +3,19 @@ import { decodeProtectedHeader, exportPKCS8, exportSPKI, generateKeyPair, import
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { edgeService, edgeTopologyName, resetEdgeServices } from "./identity";
-import { EDGE_TOPOLOGIES } from "./topology-data";
+import { TOPOLOGIES } from "@aomi-labs/service-identity";
+
+const EDGE_TOPOLOGIES = TOPOLOGIES["aomi-edge"];
 
 beforeEach(() => {
   resetEdgeServices();
 });
 
 describe("edge identity", () => {
-  it("selects the topology from the var, then the request host", () => {
-    expect(edgeTopologyName({}, "api.aomi.dev")).toBe("production");
-    expect(edgeTopologyName({}, "api-staging.aomi.dev")).toBe("staging");
-    expect(edgeTopologyName({}, "api-rc.aomi.dev")).toBe("rc");
-    expect(edgeTopologyName({}, "localhost:8787")).toBe("default");
-    expect(edgeTopologyName({ EDGE_TOPOLOGY: "staging" }, "api.aomi.dev")).toBe("staging");
+  it("selects the topology from EDGE_TOPOLOGY alone, dev when unset", () => {
+    expect(edgeTopologyName({})).toBe("default");
+    expect(edgeTopologyName({ EDGE_TOPOLOGY: "staging" })).toBe("staging");
+    expect(edgeTopologyName({ EDGE_TOPOLOGY: "production" })).toBe("production");
   });
 
   it("mints as aomi-edge with the topology's kid and audiences", async () => {
@@ -46,9 +46,9 @@ describe("edge identity", () => {
   it("commits a usable dev public key and placeholders for the deployed ones", async () => {
     const dev = /public_key = """\n([\s\S]*?)"""/.exec(EDGE_TOPOLOGIES.default)?.[1] ?? "";
     await expect(importSPKI(dev.trim(), "EdDSA")).resolves.toBeDefined();
-    for (const [name, kid] of [["staging", "staging"], ["rc", "rc"], ["production", "prod"]] as const) {
+    for (const [name, kid] of [["staging", "staging-1"], ["rc", "rc-1"], ["production", "prod-3"]] as const) {
       expect(EDGE_TOPOLOGIES[name]).toMatch(/name = "aomi-edge"/);
-      expect(EDGE_TOPOLOGIES[name]).toMatch(new RegExp(`kid = "aomi-edge-${kid}-1"`));
+      expect(EDGE_TOPOLOGIES[name]).toMatch(new RegExp(`kid = "aomi-edge-${kid}"`));
     }
     // rc is its own environment: it never mints with Beta's (staging) key.
     const key = (name: keyof typeof EDGE_TOPOLOGIES) => /public_key = """\n([\s\S]*?)"""/.exec(EDGE_TOPOLOGIES[name])?.[1];

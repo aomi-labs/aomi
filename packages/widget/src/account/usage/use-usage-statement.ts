@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { useAccountCredits } from "@/account/use-account-credits";
 import { creditAllowanceFromPosition } from "@/account/account-overview";
 import { explainAccountError } from "@/account/account-api";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { useAomiWalletKit } from "@/wallet/context";
 import { packageCatalogQuery } from "@/library/use-package-catalog";
 import {
@@ -29,8 +29,7 @@ const NO_NAMES: ReadonlyMap<number, string> = new Map();
  * months hide it rather than showing today's value.
  */
 export function useUsageStatement(monthCount = 6) {
-  const { json: request } = useShellTransport();
-  const api = useAomiDisplayCache()?.apiClient;
+  const aomi = useShellAomi();
   const accountUserId = useAomiWalletKit().accountUser?.id;
   const monthKeys = useMemo(() => recentMonthKeys(monthCount), [monthCount]);
   const [selectedKey, setSelectedKey] = useState(() => currentMonthKey());
@@ -39,14 +38,15 @@ export function useUsageStatement(monthCount = 6) {
   const charges = useDisplayQuery({
     resource: "usage",
     parameters: ["statement", accountUserId ?? "", selectedKey],
-    fetcher: (signal) => fetchStatementCharges(selectedKey, request, signal),
+    fetcher: (signal) =>
+      fetchStatementCharges(selectedKey, aomi.account, signal),
   });
   const needsNames = Boolean(
     accountUserId &&
     charges.data?.some((charge) => charge.applicationId !== null),
   );
   const apps = useDisplayQuery({
-    ...packageCatalogQuery(api, request, accountUserId),
+    ...packageCatalogQuery(aomi, accountUserId),
     enabled: needsNames,
   });
   const names = useMemo(

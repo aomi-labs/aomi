@@ -1,5 +1,4 @@
-"use client";
-
+import { cn } from "@aomi-labs/widget";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as FileDialog from "@radix-ui/react-dialog";
 import {
@@ -43,7 +42,6 @@ import {
   writeRecentRailPreference,
 } from "@/features/build/storage/recent-rail-preference";
 import { BUILD_TEMPLATES } from "@/features/build/templates";
-import { cn } from "@/lib/class-names";
 
 const actionPills = [
   { label: "Arb bot", action: "tpl_arbitrage_bot" },
@@ -267,7 +265,7 @@ export function BuildView() {
     // Real runs download the generated crate as a tarball.
     if (BUILD_ENGINE_ACTIVE && engineRunId) {
       window.location.assign(
-        `/api/bff/build/runs/download?id=${encodeURIComponent(engineRunId)}`,
+        `/api/build/runs/download?id=${encodeURIComponent(engineRunId)}`,
       );
       toast({
         title: "Downloading crate",
@@ -307,7 +305,7 @@ export function BuildView() {
       void (async () => {
         try {
           const res = await fetch(
-            `/api/bff/build/runs/file?id=${encodeURIComponent(engineRunId)}&path=${encodeURIComponent(path)}`,
+            `/api/build/runs/file?id=${encodeURIComponent(engineRunId)}&path=${encodeURIComponent(path)}`,
           );
           if (!res.ok) {
             const body = (await res.json().catch(() => ({}))) as {

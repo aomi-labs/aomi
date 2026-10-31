@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { ExternalLink, Loader2, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@aomi-labs/widget/host-composition";
@@ -12,7 +10,7 @@ import { launchCreateRepo } from "@/features/deploy/client";
 import { TEMPLATE_REPO } from "@/features/deploy/contracts";
 import { chatAppUrl } from "@/lib/chat-url";
 import { Stepper } from "./stepper";
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import { LivePanel } from "./live-panel";
 
 const STEPS = [

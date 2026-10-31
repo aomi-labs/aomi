@@ -1,4 +1,4 @@
-import type { AomiBackendNonceResponse } from "./aomi-backend-client";
+import type { AccountNonce } from "@aomi-labs/client";
 
 export type AuthMessageConfig = {
   domain: string;
@@ -23,7 +23,7 @@ export function resolveAuthMessageConfig(input: {
 }
 
 export function messageConfigFromNonce(
-  nonce: AomiBackendNonceResponse,
+  nonce: AccountNonce,
   fallback: AuthMessageConfig,
 ): AuthMessageConfig {
   return completeAuthMessageConfig({

@@ -1,8 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
-
-import { cn } from "@aomi-labs/react";
 
 export type SegmentedOption<T extends string> = {
   value: T;

@@ -1,7 +1,22 @@
 "use client";
 
+import {
+  AccountGraphApiError,
+  type AccountGraphLinkedAccount,
+  type AccountGraphResponse,
+  type AccountGraphUser,
+  type AccountGraphWallet,
+  type AccountMergeOffer,
+} from "@aomi-labs/client";
 import type { WalletFamily } from "../types";
-import type { MergeOffer } from "./aomi-backend-client";
+
+/** A link proved a sign-in method of another account; confirming merges it in. */
+export type MergeOffer = AccountMergeOffer;
+
+/** The merge offer carried by a failed link or provider exchange, if any. */
+export function mergeOfferFrom(error: unknown): MergeOffer | undefined {
+  return error instanceof AccountGraphApiError ? error.mergeOffer : undefined;
+}
 
 export type AccountRuntimeStatus = "disabled" | "loading" | "ready" | "error";
 
@@ -15,51 +30,9 @@ export type AccountConflict = {
   mergeOffer?: MergeOffer;
 };
 
-export type AomiUserRef = {
-  id: string;
-  displayName?: string;
-  email?: string;
-  avatarUrl?: string;
-};
-
-export type LinkedAuthAccount = {
-  id: string;
-  provider: string;
-  subject: string;
-  email?: string;
-  displayLabel?: string;
-  linkedAt?: number;
-  lastSeenAt?: number;
-};
-
-export type AccountWallet = {
-  id: string;
-  family: WalletFamily;
-  address: string;
-  /** `agent`: an Aomi agent wallet, which signs on the server under its rule. */
-  kind?: "external" | "embedded" | "smart_account" | "agent";
-  provider?: string;
-  providerWalletId?: string;
-  chainScope?: string;
-  chainId?: number;
-  linkedVia:
-    | "siwe"
-    | "siws"
-    | "para"
-    | "privy"
-    | "challenge"
-    | "import"
-    | "observed"
-    | "migration"
-    | (string & {});
-  /** The user's name for this address; null when unnamed. */
-  label?: string | null;
-  /** The wallet app it was linked from, e.g. "Rabby". */
-  walletApp?: string;
-  verifiedAt?: number;
-  lastSeenAt?: number;
-  capability?: "read" | "write";
-};
+export type AomiUserRef = AccountGraphUser;
+export type LinkedAuthAccount = AccountGraphLinkedAccount;
+export type AccountWallet = AccountGraphWallet;
 
 export type LinkWalletInput = {
   accountId?: string;
@@ -82,6 +55,9 @@ export type UpdateAccountInput = {
   displayName?: string | null;
   avatarUrl?: string | null;
 };
+
+/** `/v1/account`: who is signed in and how. */
+export type AomiBackendAccountResponse = AccountGraphResponse;
 
 export type AccountRuntime = {
   status: AccountRuntimeStatus;

@@ -1,9 +1,9 @@
 import { classifyFailure } from "./classify";
-import type { BffService, FailurePipeline } from "./failure";
+import type { AppService, FailurePipeline } from "./failure";
 import { identifyFailure } from "./identify";
 import { routeFailure } from "./route";
 
-export function createFailurePipeline(service: BffService): FailurePipeline {
+export function createFailurePipeline(service: AppService): FailurePipeline {
   return Object.freeze({
     handle(input) {
       try {

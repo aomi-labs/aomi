@@ -14,9 +14,10 @@ export const REQUIRED_SECRETS_CHECK_UNAVAILABLE =
  * Why the check could not answer. All of these close the gate, but they are
  * not the same problem and the builder can only act on one of them:
  *
- * - `bff_misconfigured` — this deployment has no `GITHUB_TOKEN`. Retrying can
- *   never fix it; it needs an operator. Telling a builder to "try again" here
- *   is the wrong instruction, which is why it is not folded in with the rest.
+ * - `bff_misconfigured`: the caller passed no GitHub token (the edge's
+ *   `BUILD_GITHUB_TOKEN`). Retrying can never fix it; it needs an operator.
+ *   Telling a builder to "try again" here is the wrong instruction, which is
+ *   why it is not folded in with the rest.
  * - `github_unavailable` / `backend_unavailable` — transient upstream; retry
  *   is the right advice.
  * - `unresolvable_project` — no platform repo for the project yet.
@@ -179,16 +180,12 @@ export async function missingSecretsForActivation(input: {
   githubUserId: string;
   project: UserProject;
   pairs: { app: string; releaseTag: string }[];
-  githubToken?: string;
+  /** The caller's GitHub read token; the edge passes its BUILD_GITHUB_TOKEN. */
+  githubToken: string | undefined;
 }): Promise<Record<string, string[]>> {
   if (input.pairs.length === 0) return {};
 
-  // The Node BFF may fall back to its environment; the edge Worker has no
-  // `process` and always passes the token in.
-  const githubToken =
-    input.githubToken ??
-    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-      ?.GITHUB_TOKEN?.trim();
+  const githubToken = input.githubToken?.trim();
   if (!githubToken) {
     throw new RequiredSecretsCheckError({ reason: "bff_misconfigured" });
   }

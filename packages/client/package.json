@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/client",
-  "version": "0.11.2",
+  "version": "1.0.1",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "license": "MIT",
   "repository": {
@@ -12,9 +12,6 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "aomi": "./bin/aomi.js"
-  },
   "exports": {
     ".": {
       "import": {
@@ -35,16 +32,55 @@
         "types": "./dist/browser-auth.d.cts",
         "default": "./dist/browser-auth.cjs"
       }
+    },
+    "./viem": {
+      "import": {
+        "types": "./dist/viem.d.ts",
+        "default": "./dist/viem.js"
+      },
+      "require": {
+        "types": "./dist/viem.d.cts",
+        "default": "./dist/viem.cjs"
+      }
+    },
+    "./solana": {
+      "import": {
+        "types": "./dist/solana.d.ts",
+        "default": "./dist/solana.js"
+      },
+      "require": {
+        "types": "./dist/solana.d.cts",
+        "default": "./dist/solana.cjs"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    },
+    "./trace": {
+      "import": {
+        "types": "./dist/trace.d.ts",
+        "default": "./dist/trace.js"
+      },
+      "require": {
+        "types": "./dist/trace.d.cts",
+        "default": "./dist/trace.cjs"
+      }
     }
   },
   "files": [
     "dist",
-    "bin",
     "skills",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm run clean:dist && tsup",
     "clean:dist": "rm -rf dist",
     "prepack": "pnpm run build",
     "typecheck": "tsc --project tsconfig.typecheck.json"
@@ -53,22 +89,25 @@
     "fast-check": "^4.8.0",
     "better-auth": "1.7.1",
     "@better-auth/oauth-provider": "1.7.1",
-    "@better-auth/core": "1.7.1"
+    "@better-auth/core": "1.7.1",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.98.4",
     "@x402/core": "^2.10.0",
     "@x402/evm": "^2.10.0",
     "@x402/fetch": "^2.10.0",
-    "bs58": "^6.0.0",
     "jose": "^6.2.3",
-    "tweetnacl": "^1.0.3",
     "viem": "^2.47.11"
   },
   "peerDependencies": {
     "better-auth": "1.7.1",
     "@better-auth/oauth-provider": "1.7.1",
-    "@better-auth/core": "1.7.1"
+    "@better-auth/core": "1.7.1",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
   },
   "peerDependenciesMeta": {
     "better-auth": {
@@ -78,6 +117,15 @@
       "optional": true
     },
     "@better-auth/core": {
+      "optional": true
+    },
+    "@solana/web3.js": {
+      "optional": true
+    },
+    "bs58": {
+      "optional": true
+    },
+    "tweetnacl": {
       "optional": true
     }
   }

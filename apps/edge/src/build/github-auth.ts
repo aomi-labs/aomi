@@ -1,6 +1,6 @@
 /**
- * Build's GitHub sign-in and CLI login, ported from the Build BFF
- * (`server/github-auth.ts` and the `/api/bff/auth/github/*`, `/api/bff/cli/*`
+ * Build's GitHub sign-in and CLI login, ported from the Build server
+ * (`server/github-auth.ts` and the `/api/build/auth/github/*`, `/api/build/cli/*`
  * routes). Browser login ends in Build; CLI login resumes a signed loopback
  * continuation after minting the same browser session.
  */
@@ -24,15 +24,11 @@ import {
   type GitHubCliLoginRequest,
   type GitHubOAuthContinuation,
   type GitHubSession,
-} from "./session";
+} from "@aomi-labs/account/build-session";
 
-// Default one-shot App OAuth client ids (app index 2). A deployment may use
-// its own app, whose matching credentials stay in Manager's index-2 config.
-const STAGING_CLIENT_ID = "Iv23lilgvJz13pJekLSZ";
-const PRODUCTION_CLIENT_ID = "Iv23li4wPpAfoGOJ6v0Q";
 const GITHUB_LOGIN_APP_INDEX = 2;
 
-export const GITHUB_CALLBACK_PATH = "/api/bff/auth/github/callback";
+export const GITHUB_CALLBACK_PATH = "/api/build/auth/github/callback";
 
 export function signerFor(ctx: BuildContext): GitHubSessionSigner {
   return new GitHubSessionSigner(ctx.env.BUILD_SESSION_SECRET, ctx.now);
@@ -121,7 +117,9 @@ async function startGitHubOAuth(
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set(
     "client_id",
-    ctx.env.BUILD_GITHUB_CLIENT_ID?.trim() || (ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID),
+    // The one-shot App OAuth client ids (app index 2). Their secrets stay in
+    // Manager's index-2 config; the ids are public.
+    ctx.production ? "Iv23li4wPpAfoGOJ6v0Q" : "Iv23lilgvJz13pJekLSZ",
   );
   authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
   authorize.searchParams.set("state", oauthState);
@@ -149,9 +147,9 @@ async function finishCliAuthorization(
   return redirect(target);
 }
 
-// ── /api/bff/auth/github/* ───────────────────────────────────────────────────
+// ── /api/build/auth/github/* ───────────────────────────────────────────────────
 
-/** GET /api/bff/auth/github/login — the single entrypoint for GitHub OAuth. */
+/** GET /api/build/auth/github/login — the single entrypoint for GitHub OAuth. */
 export async function login(request: Request, ctx: BuildContext): Promise<Response> {
   const params = new URL(request.url).searchParams;
   if (params.get("resume") === "template") {
@@ -164,7 +162,7 @@ export async function login(request: Request, ctx: BuildContext): Promise<Respon
 }
 
 /**
- * GET /api/bff/auth/github/claim?projectId — the project viewer is the entry
+ * GET /api/build/auth/github/claim?projectId — the project viewer is the entry
  * point for Claim. GitHub OAuth only starts after this explicit click.
  */
 export async function claim(request: Request, ctx: BuildContext): Promise<Response> {
@@ -200,7 +198,7 @@ function oauthError(
   return redirect(target);
 }
 
-/** GET /api/bff/auth/github/callback — the only GitHub OAuth callback. */
+/** GET /api/build/auth/github/callback — the only GitHub OAuth callback. */
 export async function callback(request: Request, ctx: BuildContext): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -260,7 +258,7 @@ export async function callback(request: Request, ctx: BuildContext): Promise<Res
   }
 }
 
-/** GET /api/bff/auth/github/status — what the client needs to gate the UI. */
+/** GET /api/build/auth/github/status — what the client needs to gate the UI. */
 export async function status(request: Request, ctx: BuildContext): Promise<Response> {
   const session = await githubSessionOf(request, ctx);
   return Response.json({
@@ -275,16 +273,16 @@ export async function status(request: Request, ctx: BuildContext): Promise<Respo
   });
 }
 
-/** POST /api/bff/auth/github/signout — drop the Aomi Build GitHub session. */
+/** POST /api/build/auth/github/signout — drop the Aomi Build GitHub session. */
 export function signout(_request: Request, ctx: BuildContext): Response {
   const response = Response.json({ ok: true });
   clearSessionCookie(response, ctx);
   return response;
 }
 
-// ── /api/bff/cli/* ───────────────────────────────────────────────────────────
+// ── /api/build/cli/* ───────────────────────────────────────────────────────────
 
-/** GET /api/bff/cli/login — authorize the CLI from the existing browser session. */
+/** GET /api/build/cli/login — authorize the CLI from the existing browser session. */
 export async function cliLogin(request: Request, ctx: BuildContext): Promise<Response> {
   const login = parseCliLoginRequest(new URL(request.url));
   if (!login) return Response.json({ error: "invalid CLI login request" }, { status: 400 });
@@ -302,7 +300,7 @@ async function pkceChallenge(verifier: string): Promise<string> {
     .replace(/=+$/, "");
 }
 
-/** POST /api/bff/cli/exchange { code, codeVerifier } — loopback code → CLI bearer. */
+/** POST /api/build/cli/exchange { code, codeVerifier } — loopback code → CLI bearer. */
 export async function cliExchange(request: Request, ctx: BuildContext): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as { code?: unknown; codeVerifier?: unknown };
   if (
@@ -324,7 +322,7 @@ export async function cliExchange(request: Request, ctx: BuildContext): Promise<
   });
 }
 
-/** GET /api/bff/cli/status — validate a saved CLI bearer without exposing it. */
+/** GET /api/build/cli/status — validate a saved CLI bearer without exposing it. */
 export async function cliStatus(request: Request, ctx: BuildContext): Promise<Response> {
   const session = await signerFor(ctx).readCliSession(bearerOf(request));
   if (!session) return Response.json({ signedIn: false }, { status: 401 });

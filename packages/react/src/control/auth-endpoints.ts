@@ -7,7 +7,7 @@ import { useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
 import type {
   AomiAppDescriptor,
-  AomiClient,
+  Aomi,
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -33,7 +33,7 @@ export type AuthEndpointsActions = {
 };
 
 type UseAuthEndpointsOptions = {
-  aomiClientRef: MutableRefObject<AomiClient>;
+  aomiRef: MutableRefObject<Aomi>;
   apiKeyRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
@@ -60,7 +60,7 @@ const appNames = (apps: ReadonlyArray<{ name: string }>) =>
 
 /** Provider-internal: consumers use `useAuthEndpoints` from control-context. */
 export function useAuthEndpointsImpl({
-  aomiClientRef,
+  aomiRef,
   apiKeyRef,
   getControlSessionId,
   apiKey,
@@ -72,7 +72,7 @@ export function useAuthEndpointsImpl({
   state: AuthEndpointsState;
   actions: AuthEndpointsActions;
 } {
-  const api = aomiClientRef.current;
+  const api = aomiRef.current;
   const appId = applicationId?.toString() ?? "";
   const credential = {
     sessionId: getControlSessionId,
@@ -95,23 +95,16 @@ export function useAuthEndpointsImpl({
       : displayQueries.appCatalog(api, appPlatforms),
   );
   const appDescriptors = apps.data ?? (apps.error ? DEFAULT_APPS : NO_APPS);
-  const availableModels = useMemo(
-    () => [...new Set([
-      ...(models.data ?? NO_MODELS),
-      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
-    ])],
-    [models.data, appDescriptors],
-  );
+  // App sponsorship describes that app's funding, not general chat model
+  // availability. Supplier selection belongs to the backend routing policy.
+  const availableModels = models.data ?? NO_MODELS;
   const authorizedApps = useMemo(
     () => appNames(appDescriptors),
     [appDescriptors],
   );
   const getAvailableModels = useCallback(
-    async () => [...new Set([
-      ...((await models.refetch()).data ?? []),
-      ...appDescriptors.flatMap((app) => app.metadata?.sponsoredModelIds ?? []),
-    ])],
-    [models.refetch, appDescriptors],
+    async () => (await models.refetch()).data ?? NO_MODELS,
+    [models.refetch],
   );
   const getAuthorizedApps = useCallback(
     async () => appNames((await apps.refetch()).data ?? DEFAULT_APPS),
