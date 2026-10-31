@@ -1,5 +1,11 @@
 # @aomi-labs/service-identity
 
+## 0.2.1
+
+### Patch Changes
+
+- Select the prepared production Edge and Build signing identities for the cutover. Staging, rc and development identities are unchanged.
+
 ## 0.2.0
 
 ### Minor Changes
