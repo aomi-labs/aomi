@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
     host: "0.0.0.0",
   });
   return mergeConfig(base, {
-    plugins: [sentryTanstackStart(sentryOptions(env, "build-bff"))],
+    plugins: [sentryTanstackStart(sentryOptions(env, "build"))],
     resolve: {
       dedupe: ["@assistant-ui/react", "viem", "wagmi", "zustand"],
     },

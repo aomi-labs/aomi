@@ -63,7 +63,7 @@ describe("GitHub sign-out state isolation", () => {
       if (fails) await expect(result).rejects.toThrow("offline");
       else await result;
 
-      expect(fetch).toHaveBeenCalledWith("/api/bff/auth/github/signout", {
+      expect(fetch).toHaveBeenCalledWith("/api/build/auth/github/signout", {
         method: "POST",
       });
       expect(loadLaunch().oneshot).toEqual({});

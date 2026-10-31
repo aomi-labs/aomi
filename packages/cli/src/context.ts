@@ -70,11 +70,7 @@ const SCOPES = [
   "offline_access",
 ];
 
-/**
- * The grant `aomi login` holds, for the one `/v1` resource. A 0.2 install kept
- * per-resource grants whose OAuth clients are bound to those resources, so
- * they can neither sign in again nor count as signed in.
- */
+/** The saved device sign-in for this backend and its REST resource. */
 async function heldGrant(baseUrl: string) {
   const issuer = `${baseUrl}/api/auth`;
   const resource = `${new URL(baseUrl).origin}/v1`;
@@ -95,9 +91,7 @@ export async function deviceAuth(
   baseUrl: string,
   onCode: ShowCode = codeOnStderr,
 ): Promise<AomiAuthStrategy> {
-  const held = await heldGrant(baseUrl);
   return oauth({
-    clientId: held?.clientId,
     clientName: `Aomi CLI · ${hostname()}`,
     scopes: SCOPES,
     store: grants,

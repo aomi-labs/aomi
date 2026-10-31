@@ -25,7 +25,7 @@ export type E2EWalletSeedClient = {
 const E2E_WALLET_COOKIE = "aomi_e2e_wallet=";
 
 /**
- * The wallet the local edge's E2E harness seeded (`/api/bff/e2e/wallet`), read
+ * The wallet the local edge's E2E harness seeded (`/api/dev/e2e/wallet`), read
  * from its signed cookie; the harness verifies that signature on every call.
  * Development builds only.
  */
@@ -146,7 +146,7 @@ function fakeSignature(payload: WalletEip712Payload): `0x${string}` {
 async function executeRealE2ETransaction(
   payload: WalletTxPayload,
 ): Promise<E2EExecutionSuccess> {
-  const response = await fetch("/api/bff/e2e/execute", {
+  const response = await fetch("/api/dev/e2e/execute", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -170,7 +170,7 @@ async function executeRealE2ESolana(
   action: "sign" | "sign-and-send" | "sign-message",
   payload: WalletSolanaSignPayload | WalletSolanaSignMessagePayload,
 ): Promise<Extract<E2ESolanaResponse, { ok: true }>> {
-  const response = await fetch("/api/bff/e2e/solana", {
+  const response = await fetch("/api/dev/e2e/solana", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, payload }),

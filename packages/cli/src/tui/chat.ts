@@ -139,17 +139,23 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   let walletPick: AomiActiveWallet | undefined;
   /** Whether the thread exists on the server (it has history). */
   let started = false;
+  let revision = 0;
+  let commandRunning = false;
+  let loadingThread = false;
   let guard: TransactionSafetyMode | undefined;
-  const loadGuard = () =>
-    aomi.auth.mode === "guest"
+  const loadGuard = () => {
+    const own = revision;
+    return aomi.auth.mode === "guest"
       ? undefined
       : void aomi.account.guard
           .get({ thread })
           .then((policy) => {
+            if (own !== revision || closing.signal.aborted) return;
             guard = policy.mode;
             tui.requestRender();
           })
           .catch(() => undefined);
+  };
 
   const terminal = new ProcessTerminal();
   const tui = new TuiMainScreen(terminal);
@@ -191,8 +197,12 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   }
   /** What "@" can tag; filled in once the screen is up. */
   let catalog: MentionItem[] = [];
-  const loadMentions = () =>
-    void mentionCatalog(aomi, thread).then((items) => (catalog = items));
+  const loadMentions = () => {
+    const own = revision;
+    void mentionCatalog(aomi, thread).then((items) => {
+      if (own === revision && !closing.signal.aborted) catalog = items;
+    });
+  };
   const mentions = new MentionAutocomplete(SLASH, () => catalog);
   editor.setAutocompleteProvider(mentions);
 
@@ -320,6 +330,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   const closing = new AbortController();
   const exit = () => {
     closing.abort();
+    revision++;
     for (const turn of turns) for (const commit of turn.commits) commit.close();
     tui.stop();
     quit();
@@ -352,6 +363,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
 
   /** Approve or reject `commit` once, its progress on its turn's last line. */
   async function decide(commit: CommitHandle, approve: boolean) {
+    const own = revision;
+    const source = thread;
     const turn = turns.findLast((entry) => entry.commits.includes(commit));
     if (!turn || deciding.has(commit.ref)) return;
     deciding.add(commit.ref);
@@ -381,7 +394,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
             : `✓ Confirmed · ${last.transaction_url ?? last.transaction_id ?? ""}`,
         ),
       );
-      void followUp(await said);
+      if (own === revision) void followUp(await said, source, own);
     } catch (error) {
       deciding.delete(commit.ref);
       show(paint.red(error instanceof Error ? error.message : String(error)));
@@ -389,19 +402,23 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   }
 
   /** The agent's answer to a settled commit: it continues the thread on its own. */
-  async function followUp(said: number | undefined) {
+  async function followUp(
+    said: number | undefined,
+    source: string,
+    own: number,
+  ) {
     if (said === undefined) return;
-    const started = thread;
     for (
       let attempt = 0;
-      attempt < 45 && thread === started && !closing.signal.aborted;
+      attempt < 45 && own === revision && !closing.signal.aborted;
       attempt++
     ) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       const history = await aomi.agent
-        .thread(thread)
+        .thread(source)
         .history()
         .catch(() => undefined);
+      if (own !== revision || closing.signal.aborted) return;
       const fresh = history?.messages.slice(said) ?? [];
       if (!fresh.some((message) => message.sender === "agent")) continue;
       for (const message of fresh)
@@ -470,6 +487,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     const [name, ...rest] = line.slice(1).trim().split(/\s+/);
     const arg = rest.join(" ");
     if (name === "exit") return exit();
+    if (running && name !== "help") return note("Still working; esc stops it");
     if (name === "help") return note(HELP);
     if (name === "login") {
       if (aomi.auth.mode !== "guest") return note("Already signed in");
@@ -481,8 +499,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       }
       signing = undefined;
       aomi = await connect(flags, showCode);
-      loadMentions();
       // The guest's threads stay with the guest.
+      resetThread();
       thread = crypto.randomUUID();
       title = "new thread";
       turns.length = 0;
@@ -490,6 +508,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       active = {};
       bar.who = "";
       loadGuard();
+      loadMentions();
       void statusBar(aomi, bar).then((list) => {
         wallets = list;
         tui.requestRender();
@@ -497,12 +516,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       return note("Signed in");
     }
     if (name === "new") {
+      resetThread();
       thread = crypto.randomUUID();
       title = "new thread";
       turns.length = 0;
       started = false;
       active = {};
       loadGuard();
+      loadMentions();
       return note("New thread");
     }
     if (name === "threads") {
@@ -518,11 +539,14 @@ export async function runTui(flags: ChatFlags): Promise<void> {
         })),
         thread,
         (id) => {
+          if (running) return note("Still working; esc stops it");
+          resetThread();
           thread = id;
           title = threads.find((entry) => entry.id === id)?.title || title;
           updateState({ thread: id, owner: ownerOf(aomi) });
           void loadThread();
           loadGuard();
+          loadMentions();
         },
       );
     }
@@ -612,12 +636,30 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     const text = raw.trim();
     if (!text) return;
     editor.addToHistory?.(text);
-    if (text.startsWith("/")) void slash(text);
-    else if (running) note("Still working; esc stops it");
+    if (text.startsWith("/")) {
+      if (commandRunning) return note("A command is still working");
+      commandRunning = true;
+      void slash(text)
+        .catch((error: unknown) =>
+          note(error instanceof Error ? error.message : String(error)),
+        )
+        .finally(() => {
+          commandRunning = false;
+        });
+    } else if (loadingThread || commandRunning || running)
+      note("Still working; esc stops it");
     else void send(text);
   };
 
-  /** Make `id` the thread's wallet: now, or with the first turn of a new thread. */
+  function resetThread() {
+    revision++;
+    loadingThread = false;
+    for (const turn of turns) for (const commit of turn.commits) commit.close();
+    walletPick = undefined;
+    guard = undefined;
+    catalog = [];
+  }
+
   /** Trade with the wallet `id` belongs to: each of its keys for its family. */
   async function useWallet(id: string) {
     const own = walletGroups(wallets).find((group) =>
@@ -638,16 +680,20 @@ export async function runTui(flags: ChatFlags): Promise<void> {
 
   /** The thread's wallet as the server has it. */
   async function loadWallet() {
+    const own = revision;
     const history = await aomi.agent
       .thread(thread)
       .history()
       .catch(() => undefined);
+    if (own !== revision || closing.signal.aborted) return;
     if (history) active = { ...active, ...history.activeWallet };
     tui.requestRender();
   }
 
   /** Show the thread so far: its turns, title and wallet. */
   async function loadThread() {
+    const own = revision;
+    loadingThread = true;
     turns.length = 0;
     started = false;
     active = {};
@@ -656,6 +702,8 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       .thread(thread)
       .history({ decode })
       .catch(() => undefined);
+    if (own !== revision || closing.signal.aborted) return;
+    loadingThread = false;
     if (!history?.turns.length) return;
     started = true;
     active = history.activeWallet;

@@ -148,8 +148,10 @@ export type AccountGraphProviderExchangeResponse = {
     error?: string;
 };
 
-// @public (undocumented)
+// @public
 export type AccountGraphResponse = {
+    guest?: boolean;
+} & ({
     user: AccountGraphUser;
     linkedAccounts: AccountGraphLinkedAccount[];
     wallets: AccountGraphWallet[];
@@ -168,7 +170,7 @@ export type AccountGraphResponse = {
     linkedAccounts: [];
     wallets: [];
     session: null;
-};
+});
 
 // @public
 export class AccountGraphTransport {
@@ -255,10 +257,12 @@ export type AccountGraphWallet = {
     providerWalletId?: string;
     chainScope?: string;
     chainId?: number;
-    linkedVia: string;
-    label?: string;
+    linkedVia: "siwe" | "siws" | "para" | "privy" | "challenge" | "import" | "observed" | "migration" | (string & {});
+    label?: string | null;
+    walletApp?: string;
     verifiedAt?: number;
     lastSeenAt?: number;
+    capability?: "read" | "write";
 };
 
 // @public
@@ -1845,6 +1849,80 @@ export function apiErrorFields(body: unknown): ApiErrorFields;
 export function apiResource(resource: AomiOAuthResource): AomiOAuthResource;
 
 // @public (undocumented)
+export const APP_CATEGORIES: {
+    default: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    modes: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    cex: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    dex: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    analytics: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    perps: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    social: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    prediction: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    yield: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    gaming: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    wallets: {
+        id: string;
+        label: string;
+        order: number;
+    };
+    custom: {
+        id: string;
+        label: string;
+        order: number;
+    };
+};
+
+// @public (undocumented)
+export type AppCategoryInfo = {
+    id: string;
+    label: string;
+    order: number;
+};
+
+// @public
+export function appendCapabilityHints(text: string, raw: unknown): string;
+
+// @public (undocumented)
 export function appendFeeCallToPayload(payload: WalletTxPayload, fee: AomiSimulateFee, defaultChainId: number, options?: {
     forceAaPreference?: WalletTxAaPreference;
     strictAa?: boolean;
@@ -1852,6 +1930,16 @@ export function appendFeeCallToPayload(payload: WalletTxPayload, fee: AomiSimula
 
 // @public
 export function appIdentityKey(descriptor: AomiAppDescriptor): string;
+
+// @public (undocumented)
+export type AppInfo = {
+    id: string;
+    brandId: string;
+    applicationId?: AomiAppDescriptor["applicationId"];
+    displayName: string;
+    abbr: string;
+    category: AppCategoryInfo;
+};
 
 // @public
 export type ApplicationId = number | string | null;
@@ -2105,6 +2193,35 @@ export type CallVerificationField = "request" | "simulation" | "count" | "chainI
 
 // @public
 export type CallVerificationSubject = Action | ActionRequest | SignableCommit | null | undefined;
+
+// @public
+export function canonicalAppId(appId: string | null | undefined): string;
+
+// @public (undocumented)
+export type CapabilityHint = {
+    kind: CapabilityKind;
+    id: string;
+    label?: string;
+    appName?: string;
+};
+
+// @public
+export function capabilityHintPayload(selections: readonly CapabilitySelection[], removedApps?: readonly CapabilitySelection[]): {
+    capabilities: CapabilityHint[];
+    removedApps?: CapabilityHint[];
+} | undefined;
+
+// @public (undocumented)
+export type CapabilityKind = "app" | "skill" | "chain" | "wallet";
+
+// @public
+export type CapabilitySelection = {
+    kind: CapabilityKind;
+    id: string;
+    label?: string;
+    appName?: string;
+    walletIds?: readonly string[];
+};
 
 // @public (undocumented)
 export const CHAIN_NAMES: Record<number, string>;
@@ -2368,6 +2485,9 @@ export type CommitWalletAttemptRequest = components["schemas"]["CommitWalletAtte
 // @public (undocumented)
 export type CommitWalletAttemptView = components["schemas"]["CommitWalletAttemptView"];
 
+// @public
+export function conciseSkillDescription(description: string): string;
+
 // @public (undocumented)
 export type ContextCompactedEvent = Schemas$3["ContextCompactedEvent"];
 
@@ -2485,6 +2605,9 @@ export type CreditLedger = components["schemas"]["CreditLedger"];
 
 // @public (undocumented)
 export type CreditLedgerEntry = CreditLedger["entries"][number];
+
+// @public (undocumented)
+export const CURATED_APP_IDS: readonly (keyof typeof CURATED_APP_INFO)[];
 
 // @public (undocumented)
 export function discoverAomiAuthorizationServer(input: {
@@ -2872,6 +2995,9 @@ export interface ExpectedCallsOptions {
 // @public (undocumented)
 export function extractBatchTransactionHashes(batchResult: unknown): string[];
 
+// @public
+export function extractCapabilityHints(text: string): CapabilityHint[];
+
 // @public (undocumented)
 export type GetAccountBearer = ((options?: {
     forceRefresh?: boolean;
@@ -2919,6 +3045,13 @@ export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean;
 
 // @public (undocumented)
 export const isTerminalCommit: (view: CommitView) => boolean;
+
+// @public
+export function isTestnetChain(chain: {
+    id: number;
+    name: string;
+    testnet?: boolean;
+}): boolean;
 
 // @public (undocumented)
 export function isUnboundWalletError(error: unknown): boolean;
@@ -3030,6 +3163,29 @@ export const megaeth: {
     }] | undefined;
     serializers?: viem.ChainSerializers<undefined, viem.TransactionSerializable> | undefined;
     verifyHash?: ((client: viem.Client, parameters: viem.VerifyHashActionParameters) => Promise<viem.VerifyHashActionReturnType>) | undefined;
+};
+
+// @public (undocumented)
+export type MentionGroup<T extends MentionItem = MentionItem> = {
+    kind: CapabilityKind;
+    label: string;
+    items: T[];
+};
+
+// @public
+export function mentionGroups<T extends MentionItem>(items: readonly T[], query: string): MentionGroup<T>[];
+
+// @public
+export type MentionItem = {
+    kind: CapabilityKind;
+    id: string;
+    label: string;
+    description?: string;
+    searchText: string;
+    appName?: string;
+    walletIds?: readonly string[];
+    testnet?: boolean;
+    disabled?: boolean;
 };
 
 // @public
@@ -3236,6 +3392,9 @@ export type OnChainOutcome = "success" | "reverted";
 
 // @public (undocumented)
 export function parseChainId(value: unknown): number | undefined;
+
+// @public (undocumented)
+export function parseSkillCatalog(value: unknown): SkillSummary[];
 
 // @public
 export function parseWalletRef(value: string): string | undefined;
@@ -3523,6 +3682,9 @@ export function refreshAomiOAuthGrant(input: {
 
 // @public
 export function requiresSignatureAdmission(request: ActionRequest): boolean;
+
+// @public
+export function resolveAppIdentity(app: string | AomiAppDescriptor): AppInfo;
 
 // @public (undocumented)
 export type ResolvedAccountLink = {
@@ -3868,6 +4030,26 @@ export type SiwsChainId = "solana:mainnet" | "solana:devnet" | "solana:testnet";
 // @public (undocumented)
 export type SiwsIntent = "sign-in" | "link";
 
+// @public
+export function skillBrandLabel(id: string): string | undefined;
+
+// @public
+export function skillLabel(skill: {
+    name: string;
+}): string;
+
+// @public (undocumented)
+export type SkillSummary = {
+    id: string;
+    name: string;
+    description: string;
+    tags: string[];
+    featureCatalog: string[];
+    chainIds: number[];
+    injectedTools: string[];
+    estimatedTokens?: number;
+};
+
 // @public (undocumented)
 export type SponsorshipPaymasterServiceContext = Record<string, unknown> & {
     erc20?: never;
@@ -3888,6 +4070,9 @@ export type StorageScope = {
 };
 
 // @public
+export function stripCapabilityHints(text: string): string;
+
+// @public
 export function summarizeSimulation(value: unknown): {
     passed: boolean;
     gas: number;
@@ -3896,7 +4081,7 @@ export function summarizeSimulation(value: unknown): {
 } | undefined;
 
 // @public (undocumented)
-export const SUPPORTED_CHAIN_IDS: (1 | 10 | 5042 | 5042002 | 143 | 10143 | 4663 | 4326 | 137 | 42161 | 8453 | 84532 | 11155111 | 59144 | 59141 | 31337)[];
+export const SUPPORTED_CHAIN_IDS: (1 | 10 | 5042 | 5042002 | 31337 | 143 | 10143 | 4663 | 4326 | 137 | 42161 | 8453 | 84532 | 11155111 | 59144 | 59141)[];
 
 // @public (undocumented)
 export const SUPPORTED_CHAINS: readonly [{
@@ -4254,7 +4439,7 @@ export type TelegramLinkResult = LinkResultShared & {
 
 // @public
 export class Thread {
-    constructor(id: string, start: (text: string, threadId: string) => AgentRun, open: (ref: string) => Promise<CommitHandle>, agent: AgentTransport);
+    constructor(id: string, start: (text: string, threadId: string, options?: Omit<AgentRunOptions, "sessionId">) => AgentRun, open: (ref: string) => Promise<CommitHandle>, agent: AgentTransport);
     history(): Promise<ThreadHistory>;
     // (undocumented)
     history<T>(options: {
@@ -4264,8 +4449,7 @@ export class Thread {
     readonly id: string;
     // (undocumented)
     rename(title: string): Promise<ThreadSummary>;
-    // (undocumented)
-    send(text: string): Turn;
+    send(text: string, options?: Omit<AgentRunOptions, "sessionId">): Turn;
 }
 
 // @public
@@ -4402,6 +4586,9 @@ export class TypedEventEmitter<EventMap extends Record<string, unknown> = Record
     // (undocumented)
     removeAllListeners(): void;
 }
+
+// @public
+export const UNTAGGABLE_APPS: ReadonlySet<string>;
 
 // @public (undocumented)
 export type UserState = Schemas$4["UserState"];

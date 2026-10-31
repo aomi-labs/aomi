@@ -51,7 +51,7 @@ export type ViewKind = Exclude<OperateKind, "bots">;
 type Projectish = Project & { apps?: unknown[] };
 
 type OperatePayload = {
-  /** True when the BFF filled gaps with example fixture data (BE not live yet). */
+  /** True when the Build server filled gaps with example fixture data (BE not live yet). */
   example?: boolean;
   projects?: Projectish[];
   transactions?: Array<Record<string, any>>;

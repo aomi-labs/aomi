@@ -68,8 +68,7 @@ only an explicit public projection and carry no cookie or installed-app state.
 
 ## Hosts and compatibility
 
-Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Portal
-preserves supported deploy APIs and redirects old deployment screens to Build.
+Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Build owns deployment APIs and screens; Portal exposes no legacy deployment redirects.
 The dev wallet seam remains available only outside production because real
 auth, signing and account-isolation tests depend on it.
 
@@ -78,3 +77,7 @@ window. Validate immutable baseline consumers against packed candidate packages,
 as well as fresh Vite and Next.js installs. Do not rewrite the protected
 consumer to accommodate a candidate change. Registry JSON stays frozen during
 retirement so existing shadcn clients still receive JSON.
+
+The #806 cleanup stack is an owner-authorized clean cutover: no legacy aliases
+or state migrations are retained. Its immutable consumer baseline is recorded
+in tests/contracts/consumer-baseline.json; the normal enforcement remains.

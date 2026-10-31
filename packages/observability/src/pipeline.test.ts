@@ -20,10 +20,10 @@ vi.mock("@sentry/node", () => ({
 }));
 
 import { createFailurePipeline } from "./pipeline";
-import { getBffSentryRelease, initBffSentry } from "./route";
+import { getAppSentryRelease, initAppSentry } from "./route";
 
 const context = {
-  routeFamily: "/api/bff/launch/deploy",
+  routeFamily: "/api/build/deployments/deploy",
   operation: "launch.deploy",
   method: "POST",
 };
@@ -48,7 +48,7 @@ describe("three-layer failure pipeline", () => {
       "private message",
       "private body",
     );
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "launch",
       error,
       context,
@@ -70,7 +70,7 @@ describe("three-layer failure pipeline", () => {
   });
 
   it("preserves an expected launch response and routes it nowhere", async () => {
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "launch",
       error: new DeployError("INVALID_REQUEST", "invalid release"),
       context,
@@ -87,7 +87,7 @@ describe("three-layer failure pipeline", () => {
   it("prints an opt-in expected diagnostic only to the development console", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "expected",
       response: { status: 401, error: "invalid_wallet_signature" },
       context: {
@@ -111,9 +111,9 @@ describe("three-layer failure pipeline", () => {
       error: "invalid_wallet_signature",
     });
     expect(consoleWarn).toHaveBeenCalledWith(
-      "bff.expected_failure",
+      "app.expected_failure",
       expect.objectContaining({
-        service: "portal-bff",
+        service: "portal",
         route_family: "/v1/account/wallets/link",
         operation: "wallet.link",
         diagnostic: "wallet.signature_mismatch",
@@ -129,7 +129,7 @@ describe("three-layer failure pipeline", () => {
     vi.stubEnv("NODE_ENV", "production");
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "expected",
       response: { status: 400, error: "invalid_request" },
       context,
@@ -145,7 +145,7 @@ describe("three-layer failure pipeline", () => {
     vi.stubEnv("NODE_ENV", "development");
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "expected",
       response: { status: 400, error: "invalid_request" },
       context,
@@ -170,7 +170,7 @@ describe("three-layer failure pipeline", () => {
     });
 
     expect(() =>
-      createFailurePipeline("portal-bff").handle({
+      createFailurePipeline("portal").handle({
         source: "expected",
         response: { status: 400, error: "invalid_request" },
         context,
@@ -180,7 +180,7 @@ describe("three-layer failure pipeline", () => {
   });
 
   it("routes an upstream 5xx to one structured log", async () => {
-    const result = createFailurePipeline("build-bff").handle({
+    const result = createFailurePipeline("build").handle({
       source: "launch",
       error: new BackendError("deploy", 503, "private", "private body"),
       context,
@@ -196,7 +196,7 @@ describe("three-layer failure pipeline", () => {
 
   it("captures the original network cause", () => {
     const cause = new Error("socket refused");
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "launch",
       error: new BackendError("deploy", 0, "request failed", undefined, {
         cause,
@@ -219,7 +219,7 @@ describe("three-layer failure pipeline", () => {
       hint: deployError.hint,
       retryable: false,
     };
-    const result = createFailurePipeline("build-bff").handle({
+    const result = createFailurePipeline("build").handle({
       source: "launch",
       error: new BackendError(
         "deploy",
@@ -256,7 +256,7 @@ describe("three-layer failure pipeline", () => {
       upstream: "github",
       upstreamStatus: 503,
     });
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "launch",
       error,
       context,
@@ -279,7 +279,7 @@ describe("three-layer failure pipeline", () => {
       .mockImplementation(() => {});
     const error = new Error("database connection refused");
 
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "local",
       error,
       context: {
@@ -290,9 +290,9 @@ describe("three-layer failure pipeline", () => {
     });
 
     expect(consoleError).toHaveBeenCalledWith(
-      "bff.exception",
+      "app.exception",
       expect.objectContaining({
-        service: "portal-bff",
+        service: "portal",
         route_family: "/api/account/:param",
         operation: "account.lookup",
       }),
@@ -302,7 +302,7 @@ describe("three-layer failure pipeline", () => {
 
   it("captures uncaught framework errors as exceptions", () => {
     const error = new Error("uncaught");
-    createFailurePipeline("build-bff").handle({
+    createFailurePipeline("build").handle({
       source: "uncaught",
       error,
       context: { routeFamily: "/ssr", operation: "start.render_error" },
@@ -316,7 +316,7 @@ describe("three-layer failure pipeline", () => {
       throw new Error("console unavailable");
     });
     expect(() =>
-      createFailurePipeline("build-bff").handle({
+      createFailurePipeline("build").handle({
         source: "local",
         error: new Error("original"),
         context,
@@ -343,7 +343,7 @@ describe("three-layer failure pipeline", () => {
       });
 
       expect(() =>
-        createFailurePipeline("portal-bff").handle({ ...input, context }),
+        createFailurePipeline("portal").handle({ ...input, context }),
       ).not.toThrow();
     },
   );
@@ -351,7 +351,7 @@ describe("three-layer failure pipeline", () => {
   it.each([101, 204, 205, 304])(
     "normalizes invalid response status %i without throwing",
     async (status) => {
-      const result = createFailurePipeline("portal-bff").handle({
+      const result = createFailurePipeline("portal").handle({
         source: "expected",
         response: { status, error: "invalid_request" },
         context,
@@ -375,7 +375,7 @@ describe("three-layer failure pipeline", () => {
       },
     });
 
-    const result = createFailurePipeline("portal-bff").handle({
+    const result = createFailurePipeline("portal").handle({
       source: "launch",
       error,
       context,
@@ -395,7 +395,7 @@ describe("three-layer failure pipeline", () => {
   it("captures invalid context under a fixed safe fallback", () => {
     const error = new Error("database unavailable");
 
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "local",
       error,
       context: {
@@ -414,7 +414,7 @@ describe("three-layer failure pipeline", () => {
   });
 
   it("accepts the root route family", () => {
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "local",
       error: new Error("root failed"),
       context: { routeFamily: "/", operation: "root.request" },
@@ -426,7 +426,7 @@ describe("three-layer failure pipeline", () => {
   });
 
   it("keeps the 499/500 upstream boundary exact", () => {
-    const pipeline = createFailurePipeline("portal-bff");
+    const pipeline = createFailurePipeline("portal");
     const rejected = pipeline.handle({
       source: "upstream_response",
       upstream: "rust",
@@ -451,15 +451,15 @@ describe("three-layer failure pipeline", () => {
       .mockImplementation(() => {});
     const error = new Error("private database detail");
 
-    createFailurePipeline("portal-bff").handle({
+    createFailurePipeline("portal").handle({
       source: "local",
       error,
       context,
     });
 
     expect(consoleError).toHaveBeenCalledWith(
-      "bff.exception",
-      expect.objectContaining({ service: "portal-bff" }),
+      "app.exception",
+      expect.objectContaining({ service: "portal" }),
     );
     expect(consoleError).not.toHaveBeenCalledWith(
       expect.anything(),
@@ -469,7 +469,7 @@ describe("three-layer failure pipeline", () => {
   });
 });
 
-describe("initBffSentry", () => {
+describe("initAppSentry", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
@@ -480,7 +480,7 @@ describe("initBffSentry", () => {
     vi.stubEnv("SENTRY_ENABLED", "1");
     vi.stubEnv("SENTRY_DSN", "https://public@sentry.example/1");
     vi.stubEnv("SENTRY_ENVIRONMENT", "staging");
-    expect(initBffSentry({ service: "portal-bff" })).toBe(false);
+    expect(initAppSentry({ service: "portal" })).toBe(false);
     expect(sentry.init).not.toHaveBeenCalled();
   });
 
@@ -491,8 +491,8 @@ describe("initBffSentry", () => {
     vi.stubEnv("SENTRY_ENVIRONMENT", "staging");
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "abcdef0123456789");
 
-    expect(initBffSentry({ service: "build-bff" })).toBe(true);
-    expect(getBffSentryRelease("build-bff")).toBe("build-bff@abcdef0123456789");
+    expect(initAppSentry({ service: "build" })).toBe(true);
+    expect(getAppSentryRelease("build")).toBe("build@abcdef0123456789");
     expect(sentry.init).toHaveBeenCalledWith(
       expect.objectContaining({
         environment: "staging",
@@ -528,6 +528,6 @@ describe("initBffSentry", () => {
       throw new Error("Sentry unavailable");
     });
 
-    expect(initBffSentry({ service: "portal-bff" })).toBe(false);
+    expect(initAppSentry({ service: "portal" })).toBe(false);
   });
 });

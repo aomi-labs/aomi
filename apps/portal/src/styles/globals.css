@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@aomi-labs/widget/themes/default.css";
+/* First-party host theme source; embedded consumers use the scoped styles.css export. */
+@import "../../../../packages/widget/src/themes/default.css";
 @source "../../../../packages/widget/src/**/*.{ts,tsx}";
 
 @font-face {
@@ -143,9 +144,8 @@
   --apkt-tokens-core-foregroundPrimary: var(--foreground) !important;
 }
 
-/* Aomi design-system `aomi-*` tokens + utilities now live in the shared
-   widget theme (@aomi-labs/widget themes/default.css), imported above,
-   so every widget consumer resolves them identically. */
+/* Aomi design-system `aomi-*` tokens + utilities come from the workspace
+   theme source imported above. */
 @theme inline {
   /* PT Serif display face (loaded in app/layout) — portal-only. */
   --font-display: var(--font-pt-serif);

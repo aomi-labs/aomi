@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 
 describe("guest sign-in", () => {
-  it.each(["/api/auth/guest", "/api/auth/widget/guest"])("returns only an origin-bound widget session to an embed (%s)", async (path) => {
+  it.each(["/api/auth/guest"])("returns only an origin-bound widget session to an embed (%s)", async (path) => {
     const response = await POST(
       new Request(`https://portal.example${path}`, {
         method: "POST",
@@ -75,7 +75,7 @@ describe("guest sign-in", () => {
     });
   });
 
-  it.each(["/api/auth/guest", "/api/auth/sign-in/anonymous"])(
+  it.each(["/api/auth/guest"])(
     "gives the portal's own origin a Better Auth guest cookie and bearer (%s)",
     async (path) => {
       mocks.getSession.mockResolvedValue(null);

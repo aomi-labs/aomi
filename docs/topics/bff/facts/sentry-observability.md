@@ -37,8 +37,8 @@ from both Next.js BFF deployments:
 
 | Application   | Service tag  | Current API route count |
 | ------------- | ------------ | ----------------------: |
-| `apps/portal` | `portal-bff` |                      49 |
-| `apps/build`  | `build-bff`  |                      48 |
+| `apps/portal` | `portal` |                      49 |
+| `apps/build`  | `build`  |                      48 |
 
 The project uses `staging` and `production` environments. Temporary Vercel
 preview/branch deployments, local development, tests, and browser-side code
@@ -111,8 +111,8 @@ Ownership is intentionally narrow:
 The only app-specific error objects are:
 
 ```ts
-export const portalFailures = createFailurePipeline("portal-bff");
-export const buildFailures = createFailurePipeline("build-bff");
+export const portalFailures = createFailurePipeline("portal");
+export const buildFailures = createFailurePipeline("build");
 ```
 
 A call point identifies its source and then receives the routed safe result:
@@ -197,7 +197,7 @@ Required external access for full completion:
 | Sentry projects       | One `aomi-bff` project for both apps and both environments                     |
 | Environment model     | `staging` and `production` in the same project                                 |
 | Temporary previews    | Disabled                                                                       |
-| Service separation    | Bounded `service=portal-bff` or `service=build-bff` tag                        |
+| Service separation    | Bounded `service=portal` or `service=build` tag                        |
 | Primary telemetry     | Unexpected Issues plus failure-focused structured logs                         |
 | Stack information     | Full source-mapped exception stacks                                            |
 | Performance tracing   | Disabled; Rust continues to trace transactions                                 |
@@ -259,7 +259,7 @@ Use a narrow public API so app code cannot attach arbitrary event context. The
 implemented app interface is conceptually:
 
 ```ts
-type BffService = "portal-bff" | "build-bff";
+type AppService = "portal" | "build";
 
 type FailureContext = {
   routeFamily: string;
@@ -276,8 +276,8 @@ type FailurePipeline = {
   };
 };
 
-createFailurePipeline(service: BffService): FailurePipeline;
-initBffSentry(options: { service: BffService }): void;
+createFailurePipeline(service: AppService): FailurePipeline;
+initAppSentry(options: { service: AppService }): void;
 ```
 
 Exact names may change during implementation, but arbitrary `extra`, user
@@ -550,15 +550,15 @@ its typed validation, credential, and conflict errors ignored.
 
 Instrument these ownership boundaries:
 
-- `apps/build/src/server/bff/build/routes.ts`
-- `apps/build/src/server/bff/build/engine.ts`
-- `apps/build/src/server/bff/build/supervisor.ts`
-- `apps/build/src/server/bff/operate/routes.ts`
-- `apps/build/src/server/bff/failures.ts`
-- `apps/build/src/server/bff/deploy/routes.ts`
+- `apps/build/src/server/build/routes.ts`
+- `apps/build/src/server/build/engine.ts`
+- `apps/build/src/server/build/supervisor.ts`
+- `apps/build/src/server/operate/routes.ts`
+- `apps/build/src/server/failures.ts`
+- `apps/build/src/server/deploy/routes.ts`
 - `apps/build/src/app/api/[...slug]/route.ts`
-- `apps/build/src/app/api/bff/auth/github/callback/route.ts`
-- `apps/build/src/app/api/bff/build/supervise/route.ts`
+- `apps/build/src/app/api/build/auth/github/callback/route.ts`
+- `apps/build/src/app/api/build/supervise/route.ts`
 
 `BuildEngineError` remains an expected response when its status is 4xx. A 5xx
 `BuildEngineError` or an unknown build exception is a BFF Issue. Partial
@@ -713,8 +713,8 @@ Source-map upload also requires `SENTRY_PROJECT` to match `aomi-bff` exactly.
 That is an intentional fail-closed guard: renaming the Sentry project requires
 an explicit code/config review instead of silently uploading to another target.
 
-Use distinct release names, for example `portal-bff@<git-sha>` and
-`build-bff@<git-sha>`, so source-map artifacts from the two Next.js builds
+Use distinct release names, for example `portal@<git-sha>` and
+`build@<git-sha>`, so source-map artifacts from the two Next.js builds
 cannot collide inside the shared Sentry project.
 
 The following operational values are intentionally not guessed in this
@@ -739,7 +739,7 @@ account-specific values need discovery during execution.
 ## Staging Smoke Route
 
 Add one internal route to each app, for example
-`/api/bff/internal/sentry-smoke`. The route must:
+`/api/build/internal/sentry-smoke`. The route must:
 
 - return 404 unless `SENTRY_ENVIRONMENT=staging` and
   `SENTRY_SMOKE_ENABLED=1`;

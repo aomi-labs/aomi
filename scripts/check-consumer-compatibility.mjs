@@ -103,12 +103,12 @@ function verifyHostCompositionExport(destination, widgetPackage) {
     `import {
   HeaderControls,
   getBackendUrl,
-  type UsageFixtureData,
+  type WalletAccountMenuOptions,
 } from "${widgetPackage}/host-composition";
 
 export const HostHeader: typeof HeaderControls = HeaderControls;
 export const backendUrl: string = getBackendUrl();
-export type HostUsage = UsageFixtureData;
+export type HostWalletOptions = WalletAccountMenuOptions;
 `,
   );
   run(
@@ -190,7 +190,7 @@ import { createRoot } from "react-dom/client";
 import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 createRoot(document.getElementById("root")).render(
-  React.createElement(AomiWidget, { applicationId: "1", apiUrl: "https://example.invalid" }),
+  React.createElement(AomiWidget, { applicationId: "1", baseUrl: "https://example.invalid" }),
 );
 `,
   );

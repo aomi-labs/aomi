@@ -1,7 +1,7 @@
 export { classifyFailure } from "./classify";
 export type {
-  BffService,
-  BffUpstream,
+  AppService,
+  AppUpstream,
   FailureAction,
   FailureContext,
   FailureDecision,
@@ -22,9 +22,9 @@ export {
   scrubSentryLog,
 } from "./privacy";
 export {
-  getBffSentryRelease,
-  initBffSentry,
-  isBffSentryEnabled,
+  getAppSentryRelease,
+  initAppSentry,
+  isAppSentryEnabled,
   routeFailure,
-  type BffSentryOptions,
+  type AppSentryOptions,
 } from "./route";

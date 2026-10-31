@@ -48,7 +48,6 @@ export type PrivyAuthOptions = {
     appName?: string;
     appLogoUrl?: string;
     methods?: readonly AuthMethodId[];
-    environment?: string;
 };
 
 // @public (undocumented)

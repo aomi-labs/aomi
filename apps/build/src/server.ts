@@ -5,7 +5,7 @@ import {
   trailingSlashRedirect,
 } from "@aomi-labs/app-kit/http";
 import { registerBunCompatHooks } from "./server/bun-compat";
-import { buildFailures } from "./server/bff/failures";
+import { buildFailures } from "./server/failures";
 
 // The external Smithers modules must load after their Node compatibility hooks.
 const initialized = (async () => {

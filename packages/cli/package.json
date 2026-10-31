@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/cli",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Aomi terminal client",
   "type": "module",
   "bin": {

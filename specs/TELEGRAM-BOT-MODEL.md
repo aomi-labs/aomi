@@ -93,7 +93,7 @@ mapped-app set, so a live `TelegramBot` reloads its config.
   `POST .../user/bots/:id/webhook` (same ownership check as update) calls
   `getWebhookInfo`, returns `{ url_matches, pending_update_count,
   last_error_message, reasserted, warning? }` (never the token, secret or
-  URL) and re-asserts on a mismatch. BFF `POST /api/bff/operate/bots/:id/webhook`,
+  URL) and re-asserts on a mismatch. BFF `POST /api/build/operate/bots/:id/webhook`,
   SDK `checkUserBotWebhook`, UI "Check webhook" on the bot card in read mode.
 
 ## Runtime rules

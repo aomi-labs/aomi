@@ -161,7 +161,7 @@ async function serve(
   } else if (principal.kind === "none" || (row.to === "bearer" && principal.kind === "oauth")) {
     throw new PrincipalError(401, "unauthenticated");
   } else if (row.to === "bearer") {
-    // Hosted backends trust `aomi-edge` only, so the former Vercel `aomi-bff` mint moved here.
+    // Hosted backends trust `aomi-edge` only, so the former Vercel `aomi-build` mint moved here.
     const { accessToken, expiresAt } = await mintToken(ctx, request, {
       role: "user",
       subject: principal.accountId,

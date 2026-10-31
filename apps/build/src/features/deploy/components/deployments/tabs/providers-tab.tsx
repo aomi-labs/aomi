@@ -45,7 +45,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
   );
 
   const reload = useCallback(async () => {
-    const res = await fetch(API_PATHS.bff.operate.modelKeys);
+    const res = await fetch(API_PATHS.build.operate.modelKeys);
     const json = await readJsonResponse<ProvidersPayload>(res, "Failed");
     setKeys((json.keys ?? []).map(withUsage));
   }, []);
@@ -79,7 +79,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
       setBusy(true);
       setError(null);
       try {
-        const res = await fetch(API_PATHS.bff.operate.modelKeys, {
+        const res = await fetch(API_PATHS.build.operate.modelKeys, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyId: key.id, applicationIds }),

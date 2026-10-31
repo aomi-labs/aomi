@@ -71,27 +71,14 @@ describe("AomiWidget props", () => {
     expect(alert.className).toContain("aomi-widget");
   });
 
-  it("accepts a numeric applicationId and the deprecated apiUrl", () => {
-    render(<AomiWidget applicationId={42} apiUrl="https://example.test/" />);
+  it("accepts a numeric applicationId and baseUrl", () => {
+    render(<AomiWidget applicationId={42} baseUrl="https://example.test/" />);
     expect(screen.getByTestId("widget-root").dataset.backend).toBe(
       "https://example.test",
     );
     expect(kit.provider.mock.calls[0]![0]).toMatchObject({
       applicationId: "42",
     });
-  });
-
-  it("prefers baseUrl over apiUrl", () => {
-    render(
-      <AomiWidget
-        applicationId="1"
-        baseUrl="https://base.test"
-        apiUrl="https://api.test"
-      />,
-    );
-    expect(screen.getByTestId("widget-root").dataset.backend).toBe(
-      "https://base.test",
-    );
   });
 
   it("keeps the host's transform on the widget root", () => {

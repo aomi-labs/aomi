@@ -180,19 +180,9 @@ describe("help", () => {
   });
 });
 
-describe("aliases", () => {
-  it.each([
-    [["session"], "List, open, rename, archive"],
-    [["wallet"], "Agent wallets, local signer"],
-    [["app"], "Install apps, set credentials"],
-    [["byok"], "Your own provider keys"],
-    [["tx", "show"], "aomi tx review"],
-    [["apps", "add"], "aomi apps install"],
-    [["account", "login"], "aomi account login"],
-  ])("%j resolves to the new command", async (route, expected) => {
-    const { code, stdout } = await cli(...route, "--help-all");
-    expect(code).toBe(0);
-    expect(stdout).toContain(expected);
+describe("command validation", () => {
+  it.each(["session", "wallet", "app", "byok"])("rejects retired command %s", async (name) => {
+    expect((await cli(name)).code).toBe(2);
   });
 
   it("is a usage error to mistype a command or pass a non-decimal chain", async () => {
@@ -332,47 +322,5 @@ describe("sign-in", () => {
     );
   });
 
-  it("reads a 0.2 session once: thread, keys and grants", async () => {
-    mkdirSync(join(dir, "sessions"), { recursive: true });
-    writeFileSync(join(dir, "active-session.txt"), "2");
-    writeFileSync(
-      join(dir, "sessions", "session-2.json"),
-      JSON.stringify({
-        sessionId: "old-thread",
-        baseUrl: BASE,
-        privateKey: KEY,
-        oauthGrants: {
-          [`${BASE}/v1`]: {
-            clientId: "cli-1",
-            accessToken: "a",
-            expiresAt: 1,
-            resource: `${BASE}/v1`,
-            scopes: ["agent:read"],
-          },
-        },
-      }),
-    );
-    const { stdout } = await cli("config");
-    expect(stdout).toContain("thread   old-thread");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const [grant] = JSON.parse(readFileSync(join(dir, "grants.json"), "utf8"));
-    expect(grant).toMatchObject({
-      issuer: `${BASE}/api/auth`,
-      clientId: "cli-1",
-    });
-  });
 
-  it("asks a 0.2 SIWE session to sign in again", async () => {
-    mkdirSync(join(dir, "sessions"), { recursive: true });
-    writeFileSync(join(dir, "active-session.txt"), "1");
-    writeFileSync(
-      join(dir, "sessions", "session-1.json"),
-      JSON.stringify({
-        sessionId: "s",
-        baseUrl: BASE,
-        auth: { sessionToken: "t", expiresAt: 1 },
-      }),
-    );
-    expect((await cli("config")).stderr).toBe("sign in again: aomi login\n");
-  });
 });

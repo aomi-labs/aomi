@@ -52,7 +52,7 @@ const accountSession =
 const aomi = new Aomi({
   baseUrl,
   fetch: accountSession ? portalFetch : undefined,
-  wallet,
+  signer: wallet,
   ...(accountSession ? { getAccountBearer: accountSession, guest: false } : {}),
 });
 const commitOps = wallet ? commitCapabilities(wallet) : {};

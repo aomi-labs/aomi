@@ -147,13 +147,28 @@ export async function createAomiDeviceGrantManager(input: {
     portalBaseUrl: input.portalBaseUrl,
     fetch: fetchImpl,
   });
+  const resource = `${normalizedPortal(input.portalBaseUrl).origin}/v1`;
+  const stored = input.clientId?.trim()
+    ? []
+    : [...((await input.store?.load()) ?? []), ...(input.initial ?? [])];
+  const previous = stored
+    .filter(
+      (grant) =>
+        grant.issuer.replace(/\/+$/, "") ===
+          metadata.issuer.replace(/\/+$/, "") &&
+        grant.resource === resource &&
+        grant.subject === input.subject &&
+        grant.tokenType !== "DPoP",
+    )
+    .sort((a, b) => b.expiresAt - a.expiresAt)[0];
   const clientId =
     input.clientId?.trim() ||
+    previous?.clientId ||
     (await registerDeviceClient(
       metadata,
       {
         ...input,
-        resource: `${normalizedPortal(input.portalBaseUrl).origin}/v1`,
+        resource,
       },
       fetchImpl,
     ));

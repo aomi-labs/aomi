@@ -1,6 +1,6 @@
 import { redirectResponse } from "@/server/http-response";
 import { setGitHubSessionCookie } from "@/server/cookies/github";
-import { buildFailures } from "@/server/bff/failures";
+import { buildFailures } from "@/server/failures";
 import { devToolsAllowed } from "@/server/env";
 
 type GitHubUserResponse = {
@@ -39,7 +39,7 @@ async function resolveGitHubUserId(login: string): Promise<string> {
   return String(body.id);
 }
 
-// GET /api/bff/auth/github/dev-session?login=octocat[&id=...]
+// GET /api/build/auth/github/dev-session?login=octocat[&id=...]
 //
 // Local development helper only. It mints the same signed httpOnly
 // `aomi_github` cookie as the real OAuth callback so copied-link/account
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
         error: "github_user_lookup_failed",
       },
       context: {
-        routeFamily: "/api/bff/auth/github/dev-session",
+        routeFamily: "/api/build/auth/github/dev-session",
         operation: "github.dev_session",
         method: req.method,
       },

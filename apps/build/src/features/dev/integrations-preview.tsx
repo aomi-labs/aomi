@@ -1,6 +1,6 @@
 // Visual harness for the REAL Integrations page (same pattern as
 // /dev/operate-preview): window.fetch is stubbed to serve the operate/bots
-// BFF wire shape from in-memory fixtures, so the actual IntegrationsView —
+// Build API wire shape from in-memory fixtures, so the actual IntegrationsView —
 // including add/edit/remove flows — is fully interactive without a GitHub
 // session or backend. Design iteration happened here before the port; this
 // file now only carries fixtures + the theme switch.
@@ -128,10 +128,10 @@ function stubFetch() {
           : input.url;
     const method = (init?.method ?? "GET").toUpperCase();
 
-    if (url.includes("/api/bff/auth/github/status"))
+    if (url.includes("/api/build/auth/github/status"))
       return Response.json(SESSION);
 
-    if (url.includes("/api/bff/operate/bots")) {
+    if (url.includes("/api/build/operate/bots")) {
       if (method === "GET" && url.includes("/command-secret"))
         return Response.json({ commandSecret: "preview-secret-0000" });
       if (method === "POST" && url.includes("/webhook"))

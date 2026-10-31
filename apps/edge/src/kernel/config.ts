@@ -32,8 +32,8 @@ export type Config = {
     hosts: ReadonlySet<string>;
     upstream: string | null;
     trustedOrigins: readonly string[];
-    /** Never empty; the first is the default. */
-    platforms: readonly string[];
+    /** Fallback when a request does not name a platform. */
+    defaultPlatform: string;
     templateRepo: string;
     createdRepoPrivate: boolean;
   };
@@ -72,7 +72,6 @@ const parsed = new WeakMap<EdgeEnv, Config>();
 export function config(env: EdgeEnv): Config {
   const cached = parsed.get(env);
   if (cached) return cached;
-  const platforms = list(env.APP_DEPLOY_PLATFORMS);
   const value: Config = {
     pool: list(env.BACKEND_ORIGINS),
     apiServer: origin(env.API_SERVER_ORIGIN),
@@ -101,7 +100,7 @@ export function config(env: EdgeEnv): Config {
       hosts: hosts(env.BUILD_HOSTS),
       upstream: origin(env.BUILD_UPSTREAM_ORIGIN),
       trustedOrigins: list(env.BUILD_TRUSTED_ORIGINS),
-      platforms: platforms.length ? platforms : ["web"],
+      defaultPlatform: env.BUILD_DEFAULT_PLATFORM?.trim() || "web",
       templateRepo: (env.BUILD_TEMPLATE_REPO ?? "").trim() || "aomi-labs/playground-example",
       createdRepoPrivate: flag(env.BUILD_CREATED_REPO_PRIVATE),
     },

@@ -59,7 +59,7 @@ function formatOklch(hex: string): string {
 
 /**
  * Generate a complete CSS string for a theme, matching the structure of
- * `@aomi-labs/widget/themes/default.css`.
+ * the workspace theme source in `packages/widget/src/themes/default.css`.
  */
 export function generateThemeCSS(
   preset: ThemePreset,
@@ -75,9 +75,9 @@ export function generateThemeCSS(
 
   const indent = "  ";
   const formatBlock = (colors: ThemeColors) =>
-    THEME_COLOR_KEYS
-      .map((key) => `${indent}--${key}: ${formatOklch(colors[key])};`)
-      .join("\n");
+    THEME_COLOR_KEYS.map(
+      (key) => `${indent}--${key}: ${formatOklch(colors[key])};`,
+    ).join("\n");
 
   return `/* Custom Theme: ${preset.label} */
 /* Drop this into your globals.css (after importing @aomi-labs/widget/styles.css) */

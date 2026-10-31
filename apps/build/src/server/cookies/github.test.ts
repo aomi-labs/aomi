@@ -22,7 +22,7 @@ const session = {
 describe("GitHub CLI sessions", () => {
   beforeEach(() => {
     vi.stubEnv(
-      "PORTAL_ONLY_SESSION_SECRET",
+      "BUILD_SESSION_SECRET",
       "test-only-session-secret-that-is-long-enough",
     );
   });
@@ -30,7 +30,7 @@ describe("GitHub CLI sessions", () => {
   it("accepts only the explicitly required CLI scopes", async () => {
     const token = await issueGitHubCliSession(session);
     const request = new Request(
-      "https://build.example.test/api/bff/cli/status",
+      "https://build.example.test/api/build/cli/status",
       { headers: { authorization: `Bearer ${token}` } },
     );
 
@@ -50,7 +50,7 @@ describe("GitHub CLI sessions", () => {
   it("treats malformed credentials and missing read config as unauthenticated", async () => {
     await expect(readGitHubSession("not-a-jwt")).resolves.toBeNull();
 
-    vi.stubEnv("PORTAL_ONLY_SESSION_SECRET", "");
+    vi.stubEnv("BUILD_SESSION_SECRET", "");
     await expect(readGitHubSession("not-a-jwt")).resolves.toBeNull();
     await expect(readGitHubCliExchange("not-an-exchange")).resolves.toBeNull();
   });

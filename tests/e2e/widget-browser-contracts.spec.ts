@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createSiweMessage } from "viem/siwe";
 import { privateKeyToAccount } from "viem/accounts";
 import {
-  expectVerifiedBffRecord,
+  expectVerifiedAppRecord,
   jsonFromPage,
   requiredOrigin,
   resetContractState,
@@ -56,7 +56,7 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
   );
-  expectVerifiedBffRecord(chat, first.session.user.id, "widget", "guest");
+  expectVerifiedAppRecord(chat, first.session.user.id, "widget", "guest");
 
   const secondGuest = waitForWidgetSession(page, "/api/auth/guest");
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -223,7 +223,7 @@ test("wallet-authenticated packaged widget persists its WST and canonical user",
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
   );
-  expectVerifiedBffRecord(chat, session.user.id, "widget");
+  expectVerifiedAppRecord(chat, session.user.id, "widget");
   expect(chat?.principal?.principal_class).toBe("user");
 
   await page.reload({ waitUntil: "domcontentloaded" });

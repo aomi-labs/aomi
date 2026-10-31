@@ -129,14 +129,12 @@ const routes = <R extends string>(
   map: Record<R, ReturnType<typeof command> | RouteMap<CommandContext>>,
   more: {
     default?: NoInfer<R>;
-    aliases?: Record<string, NoInfer<R>>;
     hidden?: NoInfer<R>[];
   } = {},
 ) =>
   buildRouteMap({
     routes: map,
     defaultCommand: more.default,
-    aliases: more.aliases,
     docs: {
       brief,
       hideRoute: Object.fromEntries(
@@ -164,13 +162,6 @@ const BRIEFS = {
   secret: "Secrets the agent's tools can use",
   config: "Where the CLI points",
   completion: "Shell completion script",
-};
-
-const ALIASES: Record<string, keyof typeof BRIEFS> = {
-  session: "threads",
-  wallet: "wallets",
-  app: "apps",
-  byok: "keys",
 };
 
 const chatCommand = command(
@@ -255,7 +246,7 @@ const root = routes(
           threads.archive,
         ),
       },
-      { default: "list", aliases: { resume: "open" } },
+      { default: "list" },
     ),
     login,
     logout,
@@ -315,14 +306,9 @@ const root = routes(
           [],
           account.statement,
         ),
-        login,
-        logout,
-        whoami,
       },
       {
         default: "show",
-        aliases: { links: "connections" },
-        hidden: ["login", "logout", "whoami"],
       },
     ),
     wallets: routes(
@@ -417,7 +403,7 @@ const root = routes(
           tx.exportCommit,
         ),
       },
-      { default: "list", aliases: { show: "review" } },
+      { default: "list" },
     ),
     guard: command(
       BRIEFS.guard,
@@ -471,7 +457,7 @@ const root = routes(
           { default: "list" },
         ),
       },
-      { default: "list", aliases: { add: "install", remove: "uninstall" } },
+      { default: "list" },
     ),
     pipeline: routes(
       BRIEFS.pipeline,
@@ -557,7 +543,7 @@ const root = routes(
           pipeline.build,
         ),
       },
-      { default: "ops", aliases: { operations: "ops", operation: "op" } },
+      { default: "ops" },
     ),
     deploy: routes(
       BRIEFS.deploy,
@@ -697,7 +683,6 @@ const root = routes(
       completion,
     ),
   },
-  { aliases: ALIASES },
 );
 
 export const app = buildApplication(root, {
@@ -722,15 +707,13 @@ const SETTINGS: (keyof typeof BRIEFS)[] = [
   "completion",
 ];
 
-/** `aomi --help`: the route table in groups, aliases in grey. */
+/** `aomi --help`: the command tree grouped by purpose. */
 export function rootHelp(color = Boolean(process.stdout.isTTY)): string {
   const [b, c, d] = color
     ? ["\u001b[1m", "\u001b[36m", "\u001b[2m"].map(
         (on) => (s: string) => `${on}${s}\u001b[0m`,
       )
     : [(s: string) => s, (s: string) => s, (s: string) => s];
-  const alias = (name: string) =>
-    Object.entries(ALIASES).find(([, target]) => target === name)?.[0];
   const lines = [
     `${b!(`aomi ${packageJson.version}`)}  the Aomi agent in your terminal`,
     "",
@@ -743,16 +726,15 @@ export function rootHelp(color = Boolean(process.stdout.isTTY)): string {
     lines.push("", b!(group));
     for (const name of names) {
       const row = `  ${c!(name.padEnd(10))} ${BRIEFS[name]}`;
-      const grey = alias(name);
-      lines.push(grey ? `${row.padEnd(44 + (color ? 9 : 0))}${d!(grey)}` : row);
+      lines.push(row);
     }
   }
   lines.push(
     "",
     b!("SETTINGS"),
-    `  ${SETTINGS.map((name) => `${c!(name)}${alias(name) ? ` ${d!(alias(name)!)}` : ""}`).join("  ")}`,
+    `  ${SETTINGS.map((name) => `${c!(name)}`).join("  ")}`,
     "",
-    d!("aomi <command> --help for flags · grey names are aliases"),
+    d!("aomi <command> --help for flags"),
   );
   return `${lines.join("\n")}\n`;
 }

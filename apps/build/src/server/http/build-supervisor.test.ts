@@ -8,11 +8,11 @@ const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
 }));
 
-vi.mock("@/server/bff/build/supervisor", () => ({
+vi.mock("@/server/build/supervisor", () => ({
   superviseOnce: mocks.superviseOnce,
 }));
 
-vi.mock("@/server/bff/failures", () => ({
+vi.mock("@/server/failures", () => ({
   buildFailures: {
     handle: (input: {
       error: unknown;
@@ -46,7 +46,7 @@ describe("build supervisor route", () => {
     mocks.superviseOnce.mockRejectedValue(error);
 
     const response = await GET(
-      new Request("http://localhost:3000/api/bff/build/supervise"),
+      new Request("http://localhost:3000/api/build/supervise"),
     );
 
     expect(response.status).toBe(500);
@@ -55,7 +55,7 @@ describe("build supervisor route", () => {
     });
     expect(mocks.capture).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith(error, {
-      routeFamily: "/api/bff/build/supervise",
+      routeFamily: "/api/build/supervise",
       operation: "build.supervisor_request",
       method: "GET",
       status: 500,
@@ -65,7 +65,7 @@ describe("build supervisor route", () => {
     vi.stubEnv("AOMI_BUILD_ALLOW_ANON", "0");
     vi.stubEnv("BUILD_RUN_CHECKER_CRON_SECRET", "cron-test-secret");
     mocks.superviseOnce.mockResolvedValue([]);
-    const url = "https://build.example/api/bff/build/supervise";
+    const url = "https://build.example/api/build/supervise";
     expect(
       (
         await GET(

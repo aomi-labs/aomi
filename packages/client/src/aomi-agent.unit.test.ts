@@ -176,7 +176,7 @@ describe("high-level Aomi Agent", () => {
       baseUrl: "https://api.example",
       fetch,
       guest: false,
-      wallet: {
+      signer: {
         evm: {
           address: commit.signer,
           signTransaction: vi.fn(),
@@ -205,7 +205,7 @@ describe("high-level Aomi Agent", () => {
     const aomi = new Aomi({
       baseUrl: "https://api.example",
       guest: false,
-      wallet: {
+      signer: {
         evm: { address: commit.signer, signTransaction: vi.fn() },
       },
     });
@@ -404,7 +404,7 @@ describe("high-level Aomi Agent", () => {
       baseUrl: "https://api.example",
       fetch: fetch as typeof globalThis.fetch,
       guest: false,
-      wallet: wallets,
+      signer: wallets,
     });
     expect(aomi.wallet).toBe(wallets);
     const run = aomi.agent.run("Execute", {

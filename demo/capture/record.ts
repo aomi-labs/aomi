@@ -75,7 +75,7 @@ const E2E_ADDRESS =
 const E2E_SVM_ADDRESS = process.env.AOMI_E2E_SVM_ADDRESS ?? "";
 
 function seedUrl(scenario: Scenario): string {
-  const url = new URL("/api/bff/e2e/wallet", PORTAL_URL);
+  const url = new URL("/api/dev/e2e/wallet", PORTAL_URL);
   url.searchParams.set("token", E2E_TOKEN);
   // EVM identity only when the scenario has an EVM leg; a pure-Solana take
   // seeds a Solana-only wallet, exactly like a Solana-native user.

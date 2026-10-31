@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@aomi-labs/observability/smoke", () => ({
-  BFF_SENTRY_SMOKE_HEADER: "x-aomi-sentry-smoke",
-  runBffSentrySmoke: vi.fn(),
+  APP_SENTRY_SMOKE_HEADER: "x-aomi-sentry-smoke",
+  runAppSentrySmoke: vi.fn(),
 }));
 
-import { runBffSentrySmoke } from "@aomi-labs/observability/smoke";
+import { runAppSentrySmoke } from "@aomi-labs/observability/smoke";
 import { GET, OPTIONS, POST } from "./sentry-smoke";
 
-const runSmokeMock = vi.mocked(runBffSentrySmoke);
+const runSmokeMock = vi.mocked(runAppSentrySmoke);
 
 describe("build Sentry smoke route", () => {
   beforeEach(() => runSmokeMock.mockReset());
@@ -17,12 +17,12 @@ describe("build Sentry smoke route", () => {
     runSmokeMock.mockResolvedValue(false);
 
     const response = await POST(
-      new Request("https://build.aomi.dev/api/bff/internal/sentry-smoke"),
+      new Request("https://build.aomi.dev/api/build/internal/sentry-smoke"),
     );
 
     expect(response.status).toBe(404);
     expect(runSmokeMock).toHaveBeenCalledWith({
-      service: "build-bff",
+      service: "build",
       providedSecret: null,
     });
   });
@@ -31,7 +31,7 @@ describe("build Sentry smoke route", () => {
     runSmokeMock.mockResolvedValue(true);
 
     const response = await POST(
-      new Request("https://build.aomi.dev/api/bff/internal/sentry-smoke", {
+      new Request("https://build.aomi.dev/api/build/internal/sentry-smoke", {
         method: "POST",
         headers: { "x-aomi-sentry-smoke": "secret" },
       }),
@@ -39,7 +39,7 @@ describe("build Sentry smoke route", () => {
 
     expect(response.status).toBe(204);
     expect(runSmokeMock).toHaveBeenCalledWith({
-      service: "build-bff",
+      service: "build",
       providedSecret: "secret",
     });
   });

@@ -6,9 +6,9 @@
  *
  * Runs on Bun (`bun sidecar.ts <sdkRoot>`). Auth rides the official AOMI
  * service-bearer path: every request must carry an `Authorization: Bearer`
- * EdDSA JWT that aomi-bff minted with PORTAL_SERVICE_PRIVATE_KEY (audience
+ * EdDSA JWT that aomi-build minted with BUILD_SERVICE_PRIVATE_KEY (audience
  * "aomi-sidecar", subject = this run's id). The sidecar verifies it against
- * aomi-bff's committed *public* key ($AOMI_SIDECAR_PUBKEY) — the VM holds no
+ * aomi-build's committed *public* key ($AOMI_SIDECAR_PUBKEY) — the VM holds no
  * secret, and a leaked bearer is short-lived, run-scoped, and rejected by
  * every other audience in the mesh. The exposed port is public and this VM
  * executes agent-generated code, so the browser never talks to this
@@ -27,13 +27,13 @@ const TREE_SKIP = new Set(["target", "node_modules", ".git", "Cargo.lock"]);
 const MAX_FILE_BYTES = 256 * 1024;
 
 export type SidecarBearerExpectations = {
-  /** aomi-bff's SPKI public key (PEM). Empty = fail closed. */
+  /** aomi-build's SPKI public key (PEM). Empty = fail closed. */
   publicKeyPem: string;
   /** The run this sidecar belongs to; the bearer's `sub` must match. */
   runId: string;
 };
 
-const EXPECTED_ISSUER = "aomi-bff";
+const EXPECTED_ISSUER = "aomi-build";
 const EXPECTED_AUDIENCE = "aomi-sidecar";
 
 function b64urlDecode(part: string): Buffer {

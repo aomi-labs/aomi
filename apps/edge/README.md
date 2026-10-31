@@ -60,13 +60,13 @@ venue-specific URL.
   forwards the API consoles' public thread routes to the backend anonymously
   and passes every other path to `LANDING_UPSTREAM_ORIGIN`.
 - `src/dev.ts`: the local development entry (`wrangler dev --env dev`), the
-  Worker plus the E2E wallet harness (`/api/bff/e2e/*`). Never deployed.
+  Worker plus the E2E wallet harness (`/api/dev/e2e/*`). Never deployed.
 
 - `src/build/*`: the Build surface (cutover 1, step 3). On a `BUILD_HOSTS`
-  host the edge serves Build's GitHub sign-in (`/api/bff/auth/github/*`), CLI
-  login (`/api/bff/cli/*`), builder credits (`/v1/builder/credits/**`), the
+  host the edge serves Build's GitHub sign-in (`/api/build/auth/github/*`), CLI
+  login (`/api/build/cli/*`), builder credits (`/v1/builder/credits/**`), the
   anonymous GitHub App install start and the launch, deployments and operate
-  control-plane families (`/api/bff/{launch,deployments,operate}/**`);
+  control-plane families (`/api/build/{launch,deployments,operate}/**`);
   everything else passes through to `BUILD_UPSTREAM_ORIGIN` (the Vercel Build
   app) unchanged: the build sandbox, integrations and local-only helpers.
   - `session.ts`: the `aomi_github`, `aomi_github_visibility` and
@@ -131,7 +131,7 @@ this repository:
   and `MANAGER_ORIGIN`;
 - the hosts and policies `PORTAL_HOSTS`, `BUILD_HOSTS`, `LANDING_HOSTS`,
   `CORS_ALLOWED_HOST_PATTERNS`, `TASK_CORS_PUBLIC_ORIGINS`,
-  `APP_CATALOG_PLATFORMS` and `APP_DEPLOY_PLATFORMS`;
+  `APP_CATALOG_PLATFORMS` and `BUILD_DEFAULT_PLATFORM`;
 - the optional auth settings `PORTAL_TRUSTED_ORIGINS`, `BUILD_TRUSTED_ORIGINS`,
   `AOMI_TRUSTED_ORIGINS` and `AOMI_AUTH_DOMAIN` (the SIWE domain, default the
   `BETTER_AUTH_URL` host);
@@ -148,8 +148,7 @@ routing a new host (the production portal at cutover, for example) is a
 product-mono change plus a deploy, with no change here. Secrets, per Worker
 (`wrangler secret put <NAME> --name aomi-edge-<env>`):
 `EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`),
-`BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
-GitHub sessions survive the cutover), `BUILD_GITHUB_TOKEN` (Build's
+`BUILD_SESSION_SECRET` (shared with the Build server for GitHub cookies), `BUILD_GITHUB_TOKEN` (Build's
 `GITHUB_TOKEN`, read access for the release-manifest secret gate),
 `BETTER_AUTH_SECRET` (the portal's, so sessions and the encrypted JWKS keys
 survive the move) and the Privy and Para keys the portal reads today.
@@ -164,9 +163,33 @@ public host, or the Worker would call itself.
 
 The same holds for `build-staging.aomi.dev/api/*` and `/v1/*` with
 `BUILD_UPSTREAM_ORIGIN`. The GitHub OAuth apps' callback URL stays
-`https://<build host>/api/bff/auth/github/callback`, which the edge now answers.
+`https://<build host>/api/build/auth/github/callback`, which the edge now answers.
 For a deployment with its own GitHub App, set the Worker var
 `BUILD_GITHUB_CLIENT_ID` to that App's OAuth client id and configure the matching
 credentials in Manager's second `[[apps]]` entry (app index 2). The client secret
 stays in Manager. Without this override, Build uses the staging or production App
 for its topology.
+
+## Clean cutover from #806
+
+The Edge owns authentication, account APIs and Build control-plane endpoints.
+The Build server still owns sandbox orchestration, integrations and sidecar
+access; it is a separate signer (`aomi-build`), not another Edge identity.
+
+Build app endpoints use `/api/build/*` (deployment operations under
+`/api/build/deployments/*`); dev wallet helpers use `/api/dev/e2e/*`.
+Guest sign-in has one endpoint, `POST /api/auth/guest`.
+
+Before deploying the stack, reconcile these external settings together:
+
+- Replace `APP_DEPLOY_PLATFORMS` with the single `BUILD_DEFAULT_PLATFORM` slug
+  in product-mono's Edge environment record.
+- Supply Build's existing signing key under `BUILD_SERVICE_PRIVATE_KEY` and
+  update the sidecar image to trust issuer `aomi-build`. The committed public
+  keys stay unchanged; the service and key identifiers are renamed.
+- Update the GitHub OAuth callback to `/api/build/auth/github/callback`.
+- Deploy the Edge and app/sidecar outputs as one coordinated cutover. No old
+  route, configuration-name or signing-identity aliases are retained.
+
+The Sentry project slug `aomi-bff` is an external project identifier, separate
+from the app service tags (`portal` and `build`); it does not name a signer.

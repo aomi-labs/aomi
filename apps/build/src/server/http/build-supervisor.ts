@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { superviseOnce } from "@/server/bff/build/supervisor";
-import { buildFailures } from "@/server/bff/failures";
+import { superviseOnce } from "@/server/build/supervisor";
+import { buildFailures } from "@/server/failures";
 import { anonymousBuildAllowed, runCheckerSecret } from "@/server/env";
 
 /**
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       error,
       response: { status: 500, error: "build_supervision_failed" },
       context: {
-        routeFamily: "/api/bff/build/supervise",
+        routeFamily: "/api/build/supervise",
         operation: "build.supervisor_request",
         method: req.method,
       },

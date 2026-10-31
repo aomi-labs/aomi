@@ -53,17 +53,17 @@ sign-in.
 | Command | What it does |
 | --- | --- |
 | `chat [message]` | Ask once (`-p`) or open the chat screen. `--thread`, `--new`, `--app`, `--model` |
-| `threads` (`session`) | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>` |
+| `threads` | `list`, `open <id>`, `new`, `rename <id> <title>`, `archive <id>` |
 | `login`, `logout`, `whoami` | Sign in and out |
 | `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
-| `wallets` (`wallet`) | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
+| `wallets` | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
 | `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
 | `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
-| `apps` (`app`) | `list`, `install`, `uninstall`, `use`, `credentials` |
+| `apps` | `list`, `install`, `uninstall`, `use`, `credentials` |
 | `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
 | `deploy` | Deploy the current commit; `status [--watch]`, `activate` |
 | `model`, `chain` | `current`, `list`, `set` |
-| `keys` (`byok`) | Your own provider keys: `list`, `set <provider>`, `remove` |
+| `keys` | Your own provider keys: `list`, `set <provider>`, `remove` |
 | `secret` | `list`, `add NAME=value…`, `clear` |
 | `config` | `current`, `set-backend <url>` |
 | `completion` | `eval "$(aomi completion)"` |
@@ -84,6 +84,5 @@ for a run. Esc stops a turn; ctrl+c quits.
 
 Everything lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it): `cli.json`
 (backend, thread, model, chain, local signer keys) and `grants.json`.
-The first run reads a 0.2 session once; an old wallet or bearer sign-in asks
-you to `aomi login` again. `AOMI_BACKEND_URL` or `aomi config set-backend`
+`AOMI_BACKEND_URL` or `aomi config set-backend`
 point the CLI at another Aomi, e.g. `https://chat-staging.aomi.dev`.

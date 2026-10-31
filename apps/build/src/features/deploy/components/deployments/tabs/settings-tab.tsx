@@ -49,7 +49,7 @@ export function SettingsTab({ detail }: { detail: Detail }) {
           repository administrator before the transfer.
         </p>
         <a
-          href={`/api/bff/auth/github/claim?projectId=${source.id}`}
+          href={`/api/build/auth/github/claim?projectId=${source.id}`}
           className="border-border text-foreground mt-3 inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
         >
           Claim operator access

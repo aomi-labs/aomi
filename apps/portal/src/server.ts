@@ -4,7 +4,6 @@ import {
   trailingSlashRedirect,
 } from "@aomi-labs/app-kit/http";
 import { portalFailures } from "./server/failures";
-import { legacyDeploymentRedirect } from "./server/legacy-redirect";
 import "./sentry.server.config";
 
 const startHandler = (async () => {
@@ -18,8 +17,7 @@ const EDGE_PATHS = /^\/(?:api|v1|\.well-known)(?:\/|$)/;
 
 export default createServerEntry({
   async fetch(request, options) {
-    const redirect =
-      trailingSlashRedirect(request) ?? legacyDeploymentRedirect(request);
+    const redirect = trailingSlashRedirect(request);
     if (redirect) return redirect;
     const { pathname } = new URL(request.url);
     try {
