@@ -762,7 +762,7 @@ describe("OperateView failure and empty states", () => {
 
   // A total backend outage now surfaces as a BFF error, not an empty page
   // with a warning banner (and never as example data).
-  it("shows the error state when the BFF reports the reads unavailable", async () => {
+  it("shows the error state when the Build server reports the reads unavailable", async () => {
     operateFetch.mockRejectedValue(
       new Error("Operate reads are temporarily unavailable — retry shortly."),
     );

@@ -1,8 +1,8 @@
 import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
-export type BffService = "portal-bff" | "build-bff";
+export type AppService = "portal" | "build";
 
-export type BffUpstream = "rust" | "github" | "vercel" | "supabase";
+export type AppUpstream = "rust" | "github" | "vercel" | "supabase";
 
 export type FailureAction = "issue" | "log" | "ignore";
 
@@ -30,7 +30,7 @@ export type PublicFailure = {
   retryable?: boolean;
   /**
    * Public fields from the Manager's structured deploy failure. Internal
-   * diagnostic details stay behind the BFF boundary.
+   * diagnostic details stay behind the app server boundary.
    */
   deployError?: DeployErrorDetail;
 };
@@ -67,13 +67,13 @@ export type FailureInput =
     })
   | (ContextualFailure & {
       source: "upstream_request";
-      upstream: BffUpstream;
+      upstream: AppUpstream;
       error: unknown;
       response?: PublicFailure;
     })
   | (ContextualFailure & {
       source: "upstream_response";
-      upstream: BffUpstream;
+      upstream: AppUpstream;
       status: number;
       credential?: "service" | "user";
       error?: unknown;
@@ -97,7 +97,7 @@ export type IdentifiedFailure = {
   error: unknown;
   context: FailureContext;
   handled: boolean;
-  upstream?: BffUpstream;
+  upstream?: AppUpstream;
   upstreamStatus?: number;
   credential?: "service" | "user";
   responseHint?: PublicFailure;
@@ -115,7 +115,7 @@ export type FailureDecision = {
   responseCode?: string;
   responseRetryable?: boolean;
   responseDeployError?: DeployErrorDetail;
-  upstream?: BffUpstream;
+  upstream?: AppUpstream;
   upstreamStatus?: number;
   localDiagnostic?: LocalDiagnostic;
 };

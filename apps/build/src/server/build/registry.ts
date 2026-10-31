@@ -5,7 +5,7 @@ import { storeQuery, type AomiSmitherApi } from "@aomi-labs/smither";
 /**
  * Durable run registry, keyed by (owner, app): the identity layer the
  * smithers store deliberately doesn't have. Alice's "arb-bot" and Bob's
- * "arb-bot" are distinct rows pointing at distinct runs; a BFF restart looks
+ * "arb-bot" are distinct rows pointing at distinct runs; a Build server restart looks
  * runs up here instead of minting new ids; the supervisor reads sandbox ids
  * from here to extend or reap.
  *

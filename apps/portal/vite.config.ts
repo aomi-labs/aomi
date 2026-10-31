@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadAppEnv(root, mode);
   const base = appConfig({ root, env, walletShims: true });
   return mergeConfig(base, {
-    plugins: [sentryTanstackStart(sentryOptions(env, "portal-bff"))],
+    plugins: [sentryTanstackStart(sentryOptions(env, "portal"))],
     resolve: {
       dedupe: ["@assistant-ui/react", "viem", "wagmi", "zustand"],
     },

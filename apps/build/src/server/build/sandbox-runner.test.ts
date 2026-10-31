@@ -112,7 +112,7 @@ describe("dispatchSandboxRun", () => {
       },
     });
     // The sidecar's verification anchor rides the env — public key + run id,
-    // never a secret; bearers are minted per request by the BFF.
+    // never a secret; bearers are minted per request by the Build server.
     const createdEnv = (created[0] as { env: Record<string, string> }).env;
     expect(createdEnv.AOMI_SIDECAR_PUBKEY).toContain("BEGIN PUBLIC KEY");
     expect(createdEnv.AOMI_SIDECAR_RUN_ID).toBe("smither-my-app-0000");

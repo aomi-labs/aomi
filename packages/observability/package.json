@@ -2,7 +2,7 @@
   "name": "@aomi-labs/observability",
   "version": "0.1.0",
   "private": true,
-  "description": "Server-only privacy boundary for Aomi BFF Sentry errors and failure logs.",
+  "description": "Server-only privacy boundary for Aomi app server Sentry errors and failure logs.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",

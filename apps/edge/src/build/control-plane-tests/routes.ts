@@ -1,4 +1,4 @@
-// The Build BFF's route handlers by their old names, served by the edge.
+// The Build server's route handlers by their old names, served by the edge.
 import { route } from "./harness";
 
 /** Serve at the request's own path when it is one of this route's aliases. */

@@ -235,7 +235,7 @@ describe("build surface: GitHub sign-in", () => {
     expect(cookiesOf(signout).aomi_github.raw).toMatch(/^aomi_github=; .*Max-Age=0/);
   });
 
-  it("accepts a session cookie the Vercel Build BFF issued with the same secret", async () => {
+  it("accepts a session cookie the Vercel Build server issued with the same secret", async () => {
     const now = Math.floor(Date.now() / 1000);
     const token = await new SignJWT({ login: "hubot", installationId: null })
       .setProtectedHeader({ alg: "HS256" })

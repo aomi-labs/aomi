@@ -1,6 +1,6 @@
 /**
  * Builder credits: GitHub is the builder identity; the Payment service resolves
- * its canonical owner. Ported from the Build BFF's `server/bff/credits.ts`.
+ * its canonical owner. Ported from the Build server's `server/bff/credits.ts`.
  */
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";

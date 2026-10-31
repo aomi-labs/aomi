@@ -1,5 +1,5 @@
 /**
- * Build's GitHub sign-in and CLI login, ported from the Build BFF
+ * Build's GitHub sign-in and CLI login, ported from the Build server
  * (`server/github-auth.ts` and the `/api/build/auth/github/*`, `/api/build/cli/*`
  * routes). Browser login ends in Build; CLI login resumes a signed loopback
  * continuation after minting the same browser session.

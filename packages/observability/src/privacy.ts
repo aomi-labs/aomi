@@ -18,7 +18,7 @@ const SAFE_EVENT_TAGS = new Set([
   "upstream.status_code",
 ]);
 
-const SAFE_LOG_MESSAGES = new Set(["bff.smoke_test", "bff.upstream_failure"]);
+const SAFE_LOG_MESSAGES = new Set(["app.smoke_test", "app.upstream_failure"]);
 
 const STATIC_ROUTE_SEGMENTS = new Set([
   "account",
@@ -195,7 +195,7 @@ function scrubException(exception: Event["exception"]): Event["exception"] {
     values: exception.values.map((value) => ({
       type:
         value.type && SAFE_ERROR_TYPE.test(value.type) ? value.type : "Error",
-      value: "BFF exception",
+      value: "app server exception",
       mechanism: value.mechanism
         ? {
             type: safeScalar(value.mechanism.type) ?? "generic",

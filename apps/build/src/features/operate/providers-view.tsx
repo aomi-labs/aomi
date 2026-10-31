@@ -60,7 +60,7 @@ export type ModelKey = {
   updatedAt: number;
   applicationIds: number[];
   grants?: { applicationId: number; keyId: number; modelIds: "*" | string[] }[];
-  /** Wire form from the BFF: all-time funded-turn sums per application. */
+  /** Wire form from the Build server: all-time funded-turn sums per application. */
   usageByApplication?: ModelKeyAppUsage[];
   /** applicationId -> usage, derived from `usageByApplication` on load. */
   usage?: Record<number, ModelKeyUsage>;

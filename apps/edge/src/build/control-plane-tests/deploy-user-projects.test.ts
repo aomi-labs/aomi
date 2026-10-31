@@ -146,7 +146,7 @@ describe("userProjectsRoute", () => {
   });
 
   // The manager's detail read omits the live SDK summary its list read
-  // carries; the BFF fills it from the list so the page and the index agree.
+  // carries; the Build server fills it from the list so the page and the index agree.
   it("stamps the list's live SDK onto a detail read that lacks it", async () => {
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",

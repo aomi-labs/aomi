@@ -1908,12 +1908,12 @@ describe("deploymentStatusRoute", () => {
     expect(res.status).toBe(200);
     expect(body.state).toBe("building");
     expect(body.ci.status).toBe("running");
-    // The backend deep-links the actual run URL; the BFF adds nothing.
+    // The backend deep-links the actual run URL; the Build server adds nothing.
     expect(body.ci.url).toContain("/actions/runs/28048200284");
     expect(body.releaseTags).toEqual([
       "apps-141780080-r2849901c35-playground-example-af4f107b0331",
     ]);
-    // Exactly one backend call — the BFF never talks to api.github.com.
+    // Exactly one backend call — the Build server never talks to api.github.com.
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(String(fetchMock.mock.calls[0][0])).not.toContain("api.github.com");
   });

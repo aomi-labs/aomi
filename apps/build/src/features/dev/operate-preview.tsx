@@ -1,7 +1,7 @@
 // TEMPORARY visual harness for the Operate pages. All four tabs render the
 // REAL OperateView components; window.fetch is stubbed to serve ./fixtures
 // (goal-digger: SVM, playground-example: SVM+EVM, geckoterminal: EVM) in the
-// exact BFF wire shape. Only the app drill-down remains a design mock.
+// exact Build API wire shape. Only the app drill-down remains a design mock.
 
 import { Suspense, useState } from "react";
 import { useRouter } from "@tanstack/react-router";

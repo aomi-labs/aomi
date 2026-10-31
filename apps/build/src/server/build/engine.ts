@@ -79,7 +79,7 @@ function identifyEngineFailure(
  * restart loses only this in-memory registry, not the run — re-creating the
  * same app resumes it. The registry itself is process-local: on multi-instance
  * deployments, polling must reach the instance that executes the run (pin the
- * BFF to one instance, or move execution into a sandbox provider — v2).
+ * Build server to one instance, or move execution into a sandbox provider — v2).
  *
  * Runtime note: smithers-orchestrator ships Bun-flavored TS; on Node the
  * module hooks registered in src/server.ts make it loadable, and

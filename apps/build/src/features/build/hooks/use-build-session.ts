@@ -40,7 +40,7 @@ import {
   streamEventsFromSnapshot,
 } from "@/features/build/smither-run-mapper";
 
-/** When set, Create runs a real aomi-smither build through the BFF instead of
+/** When set, Create runs a real aomi-smither build through the Build server instead of
  *  the local mock pipeline. */
 const ENGINE_MODE = process.env.NEXT_PUBLIC_BUILD_ENGINE === "smither";
 
@@ -356,7 +356,7 @@ export function useBuildSession() {
   }, [clearTimers, engineRunId, fileTree.length]);
 
   /**
-   * Real-engine driver: create a run through the BFF and poll its snapshot
+   * Real-engine driver: create a run through the Build server and poll its snapshot
    * into the same view state the mock pipeline writes. Compile/smoke run
    * inside the workflow, so the manual verify gates stay closed here.
    */

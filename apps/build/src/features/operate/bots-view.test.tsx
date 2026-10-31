@@ -374,7 +374,7 @@ describe("BotsView", () => {
     expect(screen.getByRole("button", { name: /^save/i })).toBeEnabled();
   });
 
-  it("reveals the command secret through the BFF route", async () => {
+  it("reveals the command secret through the Build server route", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
     const fetchSpy = vi
@@ -397,7 +397,7 @@ describe("BotsView", () => {
     fetchSpy.mockRestore();
   });
 
-  it("checks the webhook through the BFF route and reports a repair", async () => {
+  it("checks the webhook through the Build server route and reports a repair", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

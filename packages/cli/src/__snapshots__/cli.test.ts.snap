@@ -56,9 +56,6 @@ exports[`help > prints ["threads"] --help 1`] = `
 
 List, open, rename, archive
 
-ALIASES
-  aomi session
-
 FLAGS
   -h --help  Print help information and exit
 
@@ -126,9 +123,6 @@ exports[`help > prints ["wallets"] --help 1`] = `
 
 Agent wallets, local signer
 
-ALIASES
-  aomi wallet
-
 FLAGS
   -h --help  Print help information and exit
 
@@ -150,7 +144,7 @@ USAGE
 
 CHAT
   chat       Ask once or continue a thread
-  threads    List, open, rename, archive    session
+  threads    List, open, rename, archive
 
 ACCOUNT
   login      Sign in with one device code
@@ -159,18 +153,18 @@ ACCOUNT
   account    Profile, connections, credits
 
 WALLETS & TRADES
-  wallets    Agent wallets, local signer    wallet
+  wallets    Agent wallets, local signer
   tx         Review, approve, sign, export
   guard      Spending limits for signing
 
 APPS
-  apps       Install apps, set credentials  app
+  apps       Install apps, set credentials
   pipeline   Call app operations directly
   deploy     Ship your own app
 
 SETTINGS
-  model  chain  keys byok  secret  config  completion
+  model  chain  keys  secret  config  completion
 
-aomi <command> --help for flags · grey names are aliases
+aomi <command> --help for flags
 "
 `;

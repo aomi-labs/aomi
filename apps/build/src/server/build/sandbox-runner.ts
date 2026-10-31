@@ -187,7 +187,7 @@ export async function dispatchSandboxRun(options: {
       SMITHER_DATABASE_URL: config.databaseUrl,
       AOMI_ALLOW_STALE_SDK: "1",
       // The exposed sidecar port is public; requests carry service bearers
-      // the BFF mints per request (BUILD_SERVICE_PRIVATE_KEY), which the
+      // the Build server mints per request (BUILD_SERVICE_PRIVATE_KEY), which the
       // sidecar verifies against this public key + run id.
       AOMI_SIDECAR_PUBKEY: options.sidecarPublicKeyPem ?? "",
       AOMI_SIDECAR_RUN_ID: options.runId,

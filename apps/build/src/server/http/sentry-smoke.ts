@@ -1,6 +1,6 @@
 import {
-  BFF_SENTRY_SMOKE_HEADER,
-  runBffSentrySmoke,
+  APP_SENTRY_SMOKE_HEADER,
+  runAppSentrySmoke,
 } from "@aomi-labs/observability/smoke";
 
 function notFound(): Response {
@@ -8,9 +8,9 @@ function notFound(): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const emitted = await runBffSentrySmoke({
-    service: "build-bff",
-    providedSecret: request.headers.get(BFF_SENTRY_SMOKE_HEADER),
+  const emitted = await runAppSentrySmoke({
+    service: "build",
+    providedSecret: request.headers.get(APP_SENTRY_SMOKE_HEADER),
   });
   return new Response(null, { status: emitted ? 204 : 404 });
 }

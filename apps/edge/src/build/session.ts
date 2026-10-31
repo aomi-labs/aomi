@@ -1,5 +1,5 @@
 /**
- * Aomi Build's standalone GitHub session, ported from the Build BFF's
+ * Aomi Build's standalone GitHub session, ported from the Build server's
  * `server/cookies/github.ts` with the same cookie names, audiences, lifetimes
  * and claims so cookies issued by either side verify on the other during the
  * cutover. The backend resolves the verified GitHub identity; this module only

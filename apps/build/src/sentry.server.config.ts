@@ -1,11 +1,11 @@
-import { initBffSentry } from "@aomi-labs/observability";
+import { initAppSentry } from "@aomi-labs/observability";
 import {
   setAccountDiagnosticObserver,
   setAccountInternalFailureObserver,
 } from "@aomi-labs/account/observability";
 import { buildFailures } from "@/server/failures";
 
-initBffSentry({ service: "build-bff" });
+initAppSentry({ service: "build" });
 setAccountInternalFailureObserver(({ kind, error }) => {
   buildFailures.handle({
     source: "local",

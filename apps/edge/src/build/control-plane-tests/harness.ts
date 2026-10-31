@@ -1,6 +1,6 @@
 /**
- * Test harness for the Build control plane: the Vercel Build BFF's own route
- * tests, run against the edge. Each export takes the Request the BFF test
+ * Test harness for the Build control plane: the Vercel Build server's own route
+ * tests, run against the edge. Each export takes the Request the Build server test
  * built and serves it through `handleRequest` on a Build host at that route's
  * path and method, with the test's mocked GitHub session as a signed cookie
  * (or a CLI bearer for "Bearer cli-session") and the test's global `fetch` as
@@ -33,7 +33,7 @@ export const env: EdgeEnv = {
   EDGE_SERVICE_PRIVATE_KEY: DEV_PRIVATE_KEY,
 };
 
-/** The signed-in GitHub user, as the BFF tests mock it (null = signed out). */
+/** The signed-in GitHub user, as the Build server tests mock it (null = signed out). */
 export const getGitHubSession = vi.fn<() => Promise<Partial<GitHubSession> | null>>();
 
 const signer = new GitHubSessionSigner(SECRET);
@@ -59,7 +59,7 @@ async function asEdgeRequest(original: Request, path: string, method: string): P
   return new Request(`${BUILD_ORIGIN}${path}${incoming.search}`, { method, headers, body });
 }
 
-/** The manager is the test's global fetch, called the way the BFF called it. */
+/** The manager is the test's global fetch, called the way the Build server called it. */
 async function manager(request: Request): Promise<Response> {
   const headers: Record<string, string> = {};
   request.headers.forEach((value, name) => (headers[name] = value));
