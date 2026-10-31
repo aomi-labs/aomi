@@ -26,3 +26,8 @@ BUILD_GITHUB_TOKEN=
 BETTER_AUTH_URL=http://localhost:8787
 BETTER_AUTH_SECRET=development-only-better-auth-secret-32-bytes
 AOMI_TRUSTED_ORIGINS=http://localhost:8787
+# Provider settings differ by environment; leave blank to disable locally.
+PRIVY_APP_ID=
+PARA_JWT_AUDIENCE=
+PARA_JWKS_URL=
+PARA_API_BASE_URL=

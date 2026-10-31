@@ -15,6 +15,19 @@ const staging = {
 };
 
 describe("edge deploy script", () => {
+  it("passes provider settings to the deployed Worker", () => {
+    const providers = {
+      PRIVY_APP_ID: "privy-fixture",
+      PARA_JWT_AUDIENCE: "para-fixture",
+      PARA_JWKS_URL: "https://para.example/.well-known/jwks.json",
+      PARA_API_BASE_URL: "https://para.example",
+    };
+    const args = deployArgs({ ...staging, ...providers });
+    for (const [name, value] of Object.entries(providers)) {
+      expect(args).toContain(`${name}:${value}`);
+    }
+  });
+
   it("deploys the one configuration under the environment's name, routes and vars", () => {
     expect(
       deployArgs({
