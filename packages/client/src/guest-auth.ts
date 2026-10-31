@@ -242,8 +242,8 @@ function guestConnectionError(
         : null;
   return new Error(
     portal
-      ? `${message} This is a backend origin; guest sign-in requires the Portal/BFF at ${portal}. Check baseUrl.`
-      : `${message} Check that baseUrl points to the Portal/BFF.`,
+      ? `${message} This is a backend origin; guest sign-in requires the Portal origin at ${portal}. Check baseUrl.`
+      : `${message} Check that baseUrl points to the Portal origin.`,
   );
 }
 
