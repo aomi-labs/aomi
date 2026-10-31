@@ -68,8 +68,7 @@ only an explicit public projection and carry no cookie or installed-app state.
 
 ## Hosts and compatibility
 
-Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Portal
-preserves supported deploy APIs and redirects old deployment screens to Build.
+Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Build owns deployment APIs and screens; Portal exposes no legacy deployment redirects.
 The dev wallet seam remains available only outside production because real
 auth, signing and account-isolation tests depend on it.
 
