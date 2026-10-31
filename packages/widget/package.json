@@ -44,15 +44,13 @@
       "types": "./dist/styles.d.ts",
       "default": "./dist/styles.css"
     },
-    "./themes/*.css": "./src/themes/*.css",
     "./checkout": {
       "types": "./dist/checkout.d.ts",
       "import": "./dist/checkout.js"
     }
   },
   "files": [
-    "dist",
-    "src/themes"
+    "dist"
   ],
   "scripts": {
     "build": "tsup && tsc --project tsconfig.types.json && node scripts/build-package-types.mjs && node scripts/build-package-css.mjs",

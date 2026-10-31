@@ -8,7 +8,6 @@ export {
   type AomiWidgetFeatures,
   type AomiWidgetProps,
   type AomiWidgetTheme,
-  type CrossOriginWidgetAuth,
   type ParaAuthOptions,
   type PrivyAuthOptions,
   type WalletPresentationConfig,
