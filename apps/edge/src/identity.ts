@@ -4,9 +4,12 @@ import type { EdgeEnv } from "./env";
 
 export const EDGE_SERVICE_NAME = "aomi-edge";
 
-/** Which committed topology this request's deployment mints as. */
-export function edgeTopologyName(env: EdgeEnv, host: string): Tier {
-  return tierOf({ tier: env.EDGE_TOPOLOGY, host });
+/**
+ * Which committed topology this deployment mints as. scripts/deploy.mjs always
+ * sets EDGE_TOPOLOGY; `wrangler dev` without it is the dev topology.
+ */
+export function edgeTopologyName(env: EdgeEnv): Tier {
+  return tierOf({ tier: env.EDGE_TOPOLOGY });
 }
 
 const cache = new Map<Tier, AomiService>();
@@ -15,8 +18,8 @@ const cache = new Map<Tier, AomiService>();
  * The edge as an `AomiService` (self = `aomi-edge`). Every bearer the edge
  * sends upstream is minted here; the apps mint nothing.
  */
-export function edgeService(env: EdgeEnv, host: string): AomiService {
-  const name = edgeTopologyName(env, host);
+export function edgeService(env: EdgeEnv): AomiService {
+  const name = edgeTopologyName(env);
   const cached = cache.get(name);
   if (cached) return cached;
   const service = AomiService.fromTopology({

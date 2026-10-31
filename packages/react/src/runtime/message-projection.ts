@@ -117,6 +117,11 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
 
 type AssistantProjection = {
   message: ThreadMessageLike & { id: string };
+  /** The backend turn; a follow-up splits it into several projections. */
+  root: string;
+  /** Bounds of this segment of the turn, in ms, when a follow-up split it. */
+  startedAt?: number;
+  closedAt?: number;
   parts: MessageContentPart[];
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
@@ -316,6 +321,12 @@ export function projectAssistantMessages(
     }
   }
   const standaloneMessages = new Map<string, number>();
+  // Follow-ups seen per turn: each starts a new segment below it.
+  const segments = new Map<string, { count: number; at: number }>();
+  const segmentKey = (root: string) => {
+    const count = segments.get(root)?.count;
+    return count ? `${root}#${count}` : root;
+  };
   // The notice code that ended each turn, so its trace can drop the generic
   // failure line when the notice already explains what happened.
   const noticeCodes = new Map<string, string>();
@@ -344,7 +355,8 @@ export function projectAssistantMessages(
   // persisted call, even when a wallet callback has a different wire turn.
   // A tool name alone is not identity: repeated calls must remain distinct.
   const assistantTurn = (event: Event, index: number): AssistantProjection => {
-    const key = turnKeys[index]!;
+    const root = turnKeys[index]!;
+    const key = segmentKey(root);
     const existing = assistantTurns.get(key);
     if (existing) return existing;
     const projection: AssistantProjection = {
@@ -354,6 +366,8 @@ export function projectAssistantMessages(
         content: [],
         createdAt: new Date(parseTimestamp(event.occurred_at)),
       },
+      root,
+      startedAt: segments.get(root)?.at,
       parts: [],
       textParts: new Map(),
       toolParts: new Map(),
@@ -423,6 +437,17 @@ export function projectAssistantMessages(
       if (existingIndex === undefined) {
         if (projected.role === "user") {
           projected = { ...projected, id: userMessageId(userMessageOrdinal++) };
+          // A follow-up within a turn closes the work above it.
+          const root = turnKeys[index]!;
+          const open = assistantTurns.get(segmentKey(root));
+          if (open) {
+            const at = parseTimestamp(event.occurred_at);
+            open.closedAt = at;
+            segments.set(root, {
+              count: (segments.get(root)?.count ?? 0) + 1,
+              at,
+            });
+          }
         }
         standaloneMessages.set(key, output.length);
         output.push(projected);
@@ -452,7 +477,9 @@ export function projectAssistantMessages(
   return output
     .map((entry) => {
       if (!("parts" in entry)) return entry;
-      const root = entry.message.id.slice("turn:".length);
+      const root = entry.root;
+      const segmented =
+        entry.message.id !== `turn:${root}` || entry.closedAt !== undefined;
       const callbackTurns = continuationTurnIds.get(root);
       const callbackTerminalStates = Object.fromEntries(
         (callbackTurns ?? []).flatMap((turnId) => {
@@ -469,10 +496,18 @@ export function projectAssistantMessages(
         callbackTurns ||
         entry.responseMessageKey ||
         noticeCodes.has(root) ||
-        terminalTurns.has(root)
+        terminalTurns.has(root) ||
+        segmented
           ? {
               metadata: {
                 custom: {
+                  ...(segmented
+                    ? {
+                        aomiTurnId: root,
+                        aomiTraceStartedAt: entry.startedAt,
+                        aomiTraceClosedAt: entry.closedAt,
+                      }
+                    : {}),
                   ...(terminalTurns.has(root)
                     ? { aomiTurnState: terminalTurns.get(root)!.state }
                     : {}),
@@ -518,6 +553,7 @@ export function projectRuntimeMessages(
   stoppedTurnId?: string,
   terminalTurns: SessionSnapshot["terminalTurns"] = [],
   pendingReplacesMessageKey?: string,
+  pendingSteers: readonly string[] = [],
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -585,29 +621,33 @@ export function projectRuntimeMessages(
         ),
     ),
   );
-  if (pendingUserMessage === undefined) return projected;
-  // Edit and Rerun replace the conversation from this user message onward.
-  const replaced = projected.findIndex(
-    (message) =>
-      message.role === "user" &&
-      message.metadata?.custom?.aomiUserMessageKey ===
-        pendingReplacesMessageKey,
-  );
-  if (pendingReplacesMessageKey && replaced >= 0) projected.length = replaced;
-
-  const userMessageOrdinal = projected.reduce(
+  const pending = [...pendingSteers];
+  if (pendingUserMessage !== undefined) {
+    // Edit and Rerun replace the conversation from this user message onward.
+    const replaced = projected.findIndex(
+      (message) =>
+        message.role === "user" &&
+        message.metadata?.custom?.aomiUserMessageKey ===
+          pendingReplacesMessageKey,
+    );
+    if (pendingReplacesMessageKey && replaced >= 0) projected.length = replaced;
+    pending.unshift(pendingUserMessage);
+  }
+  let userMessageOrdinal = projected.reduce(
     (count, message) => count + Number(message.role === "user"),
     0,
   );
-  const capabilityHints = extractCapabilityHints(pendingUserMessage);
-  projected.push({
-    id: userMessageId(userMessageOrdinal),
-    role: "user",
-    content: [{ type: "text", text: stripCapabilityHints(pendingUserMessage) }],
-    createdAt: new Date(),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
-      : {}),
-  });
+  for (const text of pending) {
+    const capabilityHints = extractCapabilityHints(text);
+    projected.push({
+      id: userMessageId(userMessageOrdinal++),
+      role: "user",
+      content: [{ type: "text", text: stripCapabilityHints(text) }],
+      createdAt: new Date(),
+      ...(capabilityHints.length > 0
+        ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+        : {}),
+    });
+  }
   return projected;
 }

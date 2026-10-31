@@ -49,6 +49,10 @@
 - Updated dependencies
   - @aomi-labs/client@1.0.0
 
+## 0.9.2
+
+- Prefer GPT-6.1 Terra for Auto when the backend offers it, preserving manual selections and the existing fallbacks.
+
 ## 0.9.1
 
 - Use the backend model catalog without adding app-sponsored supplier routes to the general picker. Recover saved supplier selections as the same manual model in the current catalog, preserving the backend's provider routing and the default-model Auto setting.

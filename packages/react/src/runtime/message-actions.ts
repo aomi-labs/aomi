@@ -52,18 +52,25 @@ export function messageActions({
       () => unavailable(failure),
     );
   };
+  const onNew = async (message: AppendMessage) => {
+    const text = textContent(message.content);
+    if (text.trim())
+      await submit(
+        appendCapabilityHints(text, message.runConfig?.custom?.aomiCapabilityHints),
+        undefined,
+        () => restore(text),
+      );
+  };
   return {
-    onNew: async (message: AppendMessage) => {
-      const text = textContent(message.content);
-      if (text.trim())
-        await submit(
-          appendCapabilityHints(
-            text,
-            message.runConfig?.custom?.aomiCapabilityHints,
-          ),
-          undefined,
-          () => restore(text),
-        );
+    onNew,
+    // Keeps Send usable while a turn works. Nothing waits here: a follow-up
+    // joins the running turn, otherwise it starts one.
+    queue: {
+      items: [],
+      enqueue: (message: AppendMessage) => void onNew(message),
+      steer: () => {},
+      remove: () => {},
+      clear: () => {},
     },
     onEdit: async (message: AppendMessage) => {
       const original = messages.find(

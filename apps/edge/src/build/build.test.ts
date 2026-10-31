@@ -145,19 +145,17 @@ describe("build surface: GitHub sign-in", () => {
   });
 
   it.each([
-    { topology: "default", clientId: "  Iv-local-builder  ", expected: "Iv-local-builder" },
-    { topology: "production", clientId: "Iv-local-builder", expected: "Iv-local-builder" },
-    { topology: "default", clientId: " \t ", expected: "Iv23lilgvJz13pJekLSZ" },
-    { topology: "production", clientId: undefined, expected: "Iv23li4wPpAfoGOJ6v0Q" },
-  ] as const)("selects the deployment OAuth client ($topology, $clientId)", async ({ topology, clientId, expected }) => {
-    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology, BUILD_GITHUB_CLIENT_ID: clientId };
+    { topology: "default", expected: "Iv23lilgvJz13pJekLSZ" },
+    { topology: "production", expected: "Iv23li4wPpAfoGOJ6v0Q" },
+  ] as const)("selects the committed OAuth client for $topology", async ({ topology, expected }) => {
+    const deployment: EdgeEnv = { ...env, EDGE_TOPOLOGY: topology };
     const login = await handleRequest(new Request(`${BUILD}/api/build/auth/github/login`), deployment, world);
     const authorize = new URL(login.headers.get("location")!);
     expect(authorize.searchParams.get("client_id")).toBe(expected);
     expect(authorize.searchParams.get("redirect_uri")).toBe(`${BUILD}/api/build/auth/github/callback`);
 
-    // The client override selects the same index-2 Manager credentials; it
-    // never changes the app index or bypasses the signed OAuth continuation.
+    // Either client uses the same index-2 Manager credentials; neither changes
+    // the app index or bypasses the signed OAuth continuation.
     const state = authorize.searchParams.get("state")!;
     const cookie = cookiesOf(login).aomi_github_oauth_request.value;
     const response = await handleRequest(

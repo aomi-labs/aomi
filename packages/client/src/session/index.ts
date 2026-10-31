@@ -99,6 +99,7 @@ export class ClientSession {
   >();
   private supersededTurns = new Set<string>();
   private callbackOwners = new Map<string, string>();
+  private pendingSteers: string[] = [];
   private pendingUserMessage?: {
     content: string;
     sinceSequence: number;
@@ -279,6 +280,53 @@ export class ClientSession {
       this.startStreaming();
     }
     return page;
+  }
+
+  /**
+   * Add a follow-up to the running turn; the turn takes it at its next model
+   * call. Resolves `false` when no turn is running: send it instead.
+   */
+  async steer(message: string): Promise<boolean> {
+    this.assertOpen();
+    const text = message.trim();
+    if (!text) throw new TypeError("message is required");
+    this.pendingSteers.push(text);
+    this.publish();
+    try {
+      await this.client.agent.steer(this.sessionId, text);
+      this.startStreaming();
+      return true;
+    } catch (error) {
+      const queued = this.pendingSteers.indexOf(text);
+      if (queued >= 0) this.pendingSteers.splice(queued, 1);
+      this.publish();
+      if (!(error instanceof AgentApiError)) throw error;
+      // The turn just ended: send once this session has seen that end too.
+      if (error.code === "no_active_turn") {
+        await this.turnEnded();
+        return false;
+      }
+      // A chat the server has not seen yet has no running turn either.
+      if (error.status === 404) return false;
+      throw error;
+    }
+  }
+
+  /** Resolves once the stream delivers the running turn's end (or after 10s). */
+  private turnEnded(): Promise<void> {
+    if (this.turnState !== "processing") return Promise.resolve();
+    this.startStreaming();
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve();
+      };
+      const timer = setTimeout(done, 10_000);
+      const unsubscribe = this.subscribe(() => {
+        if (this.turnState !== "processing") done();
+      });
+    });
   }
 
   interrupt(): Promise<void> {
@@ -878,6 +926,10 @@ export class ClientSession {
               }
             }
             this.applyMessage(event);
+            if (event.message_key?.includes(":steer:")) {
+              const index = this.pendingSteers.indexOf(event.content);
+              if (index >= 0) this.pendingSteers.splice(index, 1);
+            }
             if (
               event.sender === "user" &&
               ownsActiveTurn &&
@@ -916,6 +968,8 @@ export class ClientSession {
             }
             if (TERMINAL_TURN_STATES.has(event.state)) {
               this.terminalTurnId = event.turn_id ?? this.turnId;
+              // A turn that ended keeps the follow-ups it took in its events.
+              this.pendingSteers = [];
             }
             break;
           case "branch":
@@ -1426,6 +1480,9 @@ export class ClientSession {
         : {}),
       ...(this.pendingUserMessage?.replaces
         ? { pendingReplacesMessageKey: this.pendingUserMessage.replaces }
+        : {}),
+      ...(this.pendingSteers.length
+        ? { pendingSteers: [...this.pendingSteers] }
         : {}),
       actionAttempts: this.actions.allAttempts(),
       ...(this.error === undefined ? {} : { error: this.error }),

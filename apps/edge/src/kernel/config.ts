@@ -16,13 +16,11 @@ export type Config = {
   /** The manager tunnel; null keeps the control-plane routes on the backend pool. */
   manager: string | null;
   cors: { hostPatterns: readonly string[]; taskPublicOrigins: readonly string[] };
-  warmup: { attempts: number; retryMs: number };
   portal: {
     hosts: ReadonlySet<string>;
     upstream: string | null;
     trustedOrigins: readonly string[];
     catalogPlatforms: readonly string[];
-    dpopRequired: boolean;
   };
   landing: {
     hosts: ReadonlySet<string>;
@@ -31,11 +29,8 @@ export type Config = {
   build: {
     hosts: ReadonlySet<string>;
     upstream: string | null;
-    trustedOrigins: readonly string[];
     /** Fallback when a request does not name a platform. */
     defaultPlatform: string;
-    templateRepo: string;
-    createdRepoPrivate: boolean;
   };
 };
 
@@ -48,15 +43,6 @@ export function list(value: string | undefined): string[] {
         .filter(Boolean),
     ),
   ];
-}
-
-export function flag(value: string | undefined): boolean {
-  return ["1", "true", "yes"].includes((value ?? "").trim().toLowerCase());
-}
-
-function int(value: string | undefined, fallback: number, min: number, max: number): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
 }
 
 function origin(value: string | undefined): string | null {
@@ -81,16 +67,11 @@ export function config(env: EdgeEnv): Config {
       hostPatterns: list(env.CORS_ALLOWED_HOST_PATTERNS).map((pattern) => pattern.toLowerCase()),
       taskPublicOrigins: list(env.TASK_CORS_PUBLIC_ORIGINS),
     },
-    warmup: {
-      attempts: int(env.HOSTED_APP_WARMUP_ATTEMPTS, 1, 1, 10),
-      retryMs: int(env.HOSTED_APP_WARMUP_RETRY_MS, 0, 0, 2_000),
-    },
     portal: {
       hosts: hosts(env.PORTAL_HOSTS),
       upstream: origin(env.PORTAL_UPSTREAM_ORIGIN),
       trustedOrigins: list(env.PORTAL_TRUSTED_ORIGINS),
       catalogPlatforms: list(env.APP_CATALOG_PLATFORMS),
-      dpopRequired: flag(env.AOMI_MCP_DPOP_REQUIRED),
     },
     landing: {
       hosts: hosts(env.LANDING_HOSTS),
@@ -99,10 +80,7 @@ export function config(env: EdgeEnv): Config {
     build: {
       hosts: hosts(env.BUILD_HOSTS),
       upstream: origin(env.BUILD_UPSTREAM_ORIGIN),
-      trustedOrigins: list(env.BUILD_TRUSTED_ORIGINS),
       defaultPlatform: env.BUILD_DEFAULT_PLATFORM?.trim() || "web",
-      templateRepo: (env.BUILD_TEMPLATE_REPO ?? "").trim() || "aomi-labs/playground-example",
-      createdRepoPrivate: flag(env.BUILD_CREATED_REPO_PRIVATE),
     },
   };
   parsed.set(env, value);

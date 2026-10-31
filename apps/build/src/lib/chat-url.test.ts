@@ -4,6 +4,7 @@ import { resolveChatUrl, chatAppUrl } from "./chat-url";
 
 beforeEach(() => {
   delete process.env.NEXT_PUBLIC_CHAT_URL;
+
 });
 
 describe("resolveChatUrl", () => {

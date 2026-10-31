@@ -1,4 +1,10 @@
-import { resourcePolicy, resourcesFor, type ResourcePolicy, type Resources } from "@aomi-labs/account/policy";
+import {
+  MCP_DPOP_REQUIRED,
+  resourcePolicy,
+  resourcesFor,
+  type ResourcePolicy,
+  type Resources,
+} from "@aomi-labs/account/policy";
 
 import type { Auth } from "@aomi-labs/account/better-auth";
 
@@ -19,7 +25,6 @@ export type PortalContext = {
   /** Origins whose cookie writes and reads the portal trusts. */
   trustedOrigins: readonly string[];
   resources: Resources;
-  dpopRequired: boolean;
   fetchImpl: FetchLike;
   now: () => number;
 };
@@ -44,15 +49,14 @@ export function portalContext(
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
     auth: () => authServer(env),
     resources: resourcesFor(url.origin),
-    dpopRequired: portal.dpopRequired,
     fetchImpl,
     now,
   };
 }
 
 /** The policy of one protected resource this portal origin hosts (an app-locked MCP path included). */
-export function policyFor(resource: string, ctx: Pick<PortalContext, "resources" | "dpopRequired">): ResourcePolicy {
-  const policy = resourcePolicy(ctx.resources, ctx.dpopRequired, resource);
+export function policyFor(resource: string, ctx: Pick<PortalContext, "resources">): ResourcePolicy {
+  const policy = resourcePolicy(ctx.resources, MCP_DPOP_REQUIRED, resource);
   if (!policy) throw new Error(`unknown protected resource ${resource}`);
   return policy;
 }

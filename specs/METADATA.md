@@ -80,6 +80,11 @@ pnpm run lint
 
 ## Environment
 
+Each app lists its real secrets and per-environment values in one example
+file: `apps/portal/.env.example`, `apps/build/.env.example`,
+`apps/landing/.env.example` and `apps/edge/.dev.vars.example`. The rules are in
+AGENTS.md under "Secrets and env vars".
+
 Apps (public, inlined at build; keys in `apps/*/public-env.keys.json`):
 
 ```
@@ -88,7 +93,7 @@ NEXT_PUBLIC_PROJECT_ID        # Reown/WalletConnect project id for demos
 AOMI_DEPLOY_TARGET            # vercel (default) or cloudflare: the Nitro preset
 ```
 
-Edge Worker (`apps/edge/src/env.ts`; secrets via Wrangler, Hyperdrive binding):
+Edge Worker (`apps/edge/src/env.ts`; secrets pushed by product-mono's deploy, Hyperdrive binding):
 
 ```
 HYPERDRIVE                    # Postgres for auth and the account graph

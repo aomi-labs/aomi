@@ -21,6 +21,9 @@ overrides:
 packageExtensionsChecksum: sha256-VymsTr/dSKFS0ijmJqY7S+P+J2E+BUJLSHAi8GyUgIU=
 
 patchedDependencies:
+  '@better-auth/cimd@1.7.1':
+    hash: f74e31eedb93e1ae5d55b007fdf168c522072ed6faca0a02e46a24080e4539dd
+    path: patches/@better-auth__cimd@1.7.1.patch
   '@better-auth/mcp@1.7.1':
     hash: dbb9f7cbb6c24e0cc4d2c98808ed6ed5eb27f9e5cc59f5d72a8f599da7b079b5
     path: patches/@better-auth__mcp@1.7.1.patch

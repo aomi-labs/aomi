@@ -52,6 +52,13 @@
   no route loads (first load about 147 KB): the widget root and
   `host-composition` entries keep the wallet plugin chunks alive, so a `cn`
   and `Button` entry free of them would drop it to about 0.46 MB.
+2026-10-29 — AUTO MODEL PREFERS GPT-6.1 TERRA.
+  `resolveAutoModel` (`packages/react/src/control/model-selection.ts`) puts
+  GPT-6.1 Terra ahead of GPT-6.1 Sol, matching the backend default in
+  product-mono#1545. Auto mode sends a concrete model, so the backend default
+  alone never reached portal threads. Auto threads already on Sol move to
+  Terra on next load; manual selections stay. Pending: merge only together
+  with (or after) product-mono#1545's Terra default.
 
 2026-10-28 — EDGE WORKER: ONE CONFIG FOR EVERY ENVIRONMENT.
   `apps/edge/wrangler.jsonc` has no `env` blocks; staging, rc and production

@@ -46,18 +46,16 @@ export function readAccountAuthEnv(
       ...parseCsv(env.AOMI_TRUSTED_ORIGINS),
       betterAuthUrl,
     ]),
-    privyAppId:
-      nonEmpty(env.PRIVY_APP_ID) ?? nonEmpty(env.NEXT_PUBLIC_PRIVY_APP_ID),
+    // One server name per value. The browser reads its own NEXT_PUBLIC_ copy
+    // of the Privy app id; the server never falls back to it.
+    privyAppId: nonEmpty(env.PRIVY_APP_ID),
     privyAppSecret: nonEmpty(env.PRIVY_APP_SECRET),
     privyAccessTokenVerificationKey: nonEmpty(env.PRIVY_JWT_VERIFICATION_KEY),
-    privyIdentityTokenVerificationKey:
-      nonEmpty(env.PRIVY_IDENTITY_JWT_VERIFICATION_KEY) ??
-      nonEmpty(env.PRIVY_JWT_VERIFICATION_KEY),
-    paraAudience:
-      nonEmpty(env.PARA_JWT_AUDIENCE) ??
-      nonEmpty(env.PARA_AUDIENCE) ??
-      nonEmpty(env.PARA_API_KEY) ??
-      nonEmpty(env.NEXT_PUBLIC_PARA_API_KEY),
+    privyIdentityTokenVerificationKey: nonEmpty(
+      env.PRIVY_IDENTITY_JWT_VERIFICATION_KEY,
+    ),
+    // Para's JWT `aud` is its own id, never the public API key.
+    paraAudience: nonEmpty(env.PARA_JWT_AUDIENCE),
     paraJwksUrl: nonEmpty(env.PARA_JWKS_URL),
     paraApiKey: nonEmpty(env.PARA_API_SECRET_KEY),
     // Cloudflare sets CF-Connecting-IP at ingress; nothing upstream can forge it.
@@ -67,8 +65,7 @@ export function readAccountAuthEnv(
 }
 
 // An env var created with a blank value (easy to do in the Vercel dashboard/CLI)
-// must behave like an unset one: "" is not nullish, so it would otherwise stop a
-// `??` fallback chain and then read as "configured" downstream.
+// must behave like an unset one, or it would read as "configured" downstream.
 function nonEmpty(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -97,8 +94,9 @@ function requiredAuthEnvValue(input: {
 }
 
 function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
+
   return (
-    firstUrl(env.BETTER_AUTH_URL, env.AOMI_PORTAL_BASE_URL) ??
+    firstUrl(env.BETTER_AUTH_URL) ??
     "http://localhost:3001"
   );
 }

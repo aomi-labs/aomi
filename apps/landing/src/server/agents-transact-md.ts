@@ -7,6 +7,15 @@ const FILES = [
     heading: "## Operating procedure — the aomi-transact skill",
   },
   {
+    rel: "references/commands.md",
+    heading: "## CLI installation and command reference",
+  },
+  {
+    rel: "references/workflows.md",
+    heading: "## Funding, review and execution",
+  },
+  { rel: "references/gotchas.md", heading: "## Credentials and recovery" },
+  {
     rel: "references/account-abstraction.md",
     heading: "## Account abstraction (signing internals)",
   },
@@ -32,18 +41,18 @@ This page is for an AI agent that has been told something like *"swap 1 ETH for 
 
 \`\`\`bash
 # Recommended for repeated use
-npm install -g @aomi-labs/client
+npm install -g @aomi-labs/cli@latest
 
 # Or run on demand (no install)
-npx @aomi-labs/client --version
+npx @aomi-labs/cli@latest --version
 \`\`\`
 
-Throughout this guide, commands are written as \`aomi <command>\`. If \`aomi\` is not on PATH, substitute \`npx @aomi-labs/client\` everywhere.
+Throughout this guide, commands are written as \`aomi <command>\`. If \`aomi\` is not on PATH, substitute \`npx @aomi-labs/cli@latest\` everywhere.
 
 ## Quick verification
 
 \`\`\`bash
-aomi --version            # Must be >= 0.1.30
+aomi --version            # Standalone CLI >= 0.2.0
 aomi --prompt "what is the price of ETH?"
 \`\`\`
 
@@ -52,9 +61,9 @@ If that returns a price quote, the install works and you can proceed.
 ## Hard rules (these always apply)
 
 - **Never invent or guess credentials.** Pass through only what the user gave you in this turn. Never echo a credential value back after using it.
-- **Always simulate before signing multi-step batches.** \`approve → swap\`, \`approve → deposit\`, etc. are state-dependent — simulate them together with \`aomi tx simulate tx-1 tx-2\` before \`aomi tx sign\`.
+- **Review the exact durable Commit before signing.** Export it with \`aomi tx export <commit-id> --format commit\` and match its simulation evidence to the intent. \`tx simulate\` applies only to legacy EVM Actions.
 - **Default to \`--new-session\`** on the first command of a fresh task so old session state doesn't bleed in.
-- **Only call \`aomi tx sign\` after \`aomi tx list\` shows a pending tx.** Don't sweep queues; sign only what the user asked for.
+- **Only call \`aomi tx sign\` after \`aomi tx list --json\` shows the exact reviewed Commit.** Don't sweep queues; sign only what the user asked for.
 - **Match the signing RPC to the pending tx's chain.** \`--chain\` (session context) and \`--rpc-url\` (signing transport) are independent — keep them aligned.
 
 `;
@@ -72,7 +81,7 @@ const TAIL = `
 ## Source
 
 - Skills repo (canonical): <https://github.com/aomi-labs/skills>
-- npm package: <https://www.npmjs.com/package/@aomi-labs/client>
+- npm package: <https://www.npmjs.com/package/@aomi-labs/cli>
 - Full corpus (every doc + both skills): <https://aomi.dev/llms-full.txt>
 `;
 

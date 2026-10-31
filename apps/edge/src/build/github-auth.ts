@@ -26,10 +26,6 @@ import {
   type GitHubSession,
 } from "@aomi-labs/account/build-session";
 
-// Default one-shot App OAuth client ids (app index 2). A deployment may use
-// its own app, whose matching credentials stay in Manager's index-2 config.
-const STAGING_CLIENT_ID = "Iv23lilgvJz13pJekLSZ";
-const PRODUCTION_CLIENT_ID = "Iv23li4wPpAfoGOJ6v0Q";
 const GITHUB_LOGIN_APP_INDEX = 2;
 
 export const GITHUB_CALLBACK_PATH = "/api/build/auth/github/callback";
@@ -121,7 +117,9 @@ async function startGitHubOAuth(
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set(
     "client_id",
-    ctx.env.BUILD_GITHUB_CLIENT_ID?.trim() || (ctx.production ? PRODUCTION_CLIENT_ID : STAGING_CLIENT_ID),
+    // The one-shot App OAuth client ids (app index 2). Their secrets stay in
+    // Manager's index-2 config; the ids are public.
+    ctx.production ? "Iv23li4wPpAfoGOJ6v0Q" : "Iv23lilgvJz13pJekLSZ",
   );
   authorize.searchParams.set("redirect_uri", new URL(GITHUB_CALLBACK_PATH, ctx.buildOrigin).toString());
   authorize.searchParams.set("state", oauthState);

@@ -27,9 +27,7 @@ import {
 const useAnvilForWallet = process.env.NEXT_PUBLIC_ANVIL_FOR_WALLET === "true";
 const LOCALHOST_CHAIN_ID = 31337;
 
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
-  process.env.NEXT_PUBLIC_PROJECT_ID;
+const walletConnectProjectId = process.env.NEXT_PUBLIC_PROJECT_ID;
 const paraApiKey = process.env.NEXT_PUBLIC_PARA_API_KEY;
 const paraEnvironment: "PROD" | "BETA" =
   process.env.NEXT_PUBLIC_PARA_ENVIRONMENT === "PROD" ? "PROD" : "BETA";
@@ -95,11 +93,8 @@ const solanaNetworks = [
     cluster: "solana:devnet",
     rpcHttpUrl:
       process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
       "https://api.devnet.solana.com",
-    rpcWsUrl:
-      process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_WS_URL,
+    rpcWsUrl: process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL,
   },
   {
     id: "solana-mainnet",

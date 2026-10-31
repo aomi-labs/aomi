@@ -10,6 +10,7 @@
 
 ### Minor Changes
 
+- Require canonical server environment names, share the MCP DPoP policy, and remove the default SIWE Alchemy credential.
 - e008a8d: The edge Worker is the only server that uses this package. `createAuth(env)` builds Better Auth over a per-request pool (`withDatabase`, `currentPool`) and replaces the `auth` singleton; `./principal` reads the request's credentials. Removed: the bearer minting exports (`mintAccountBearer`, `mintDelegatedBearer`, `AUDIENCE`, `ACCOUNT_BEARER_TTL_SECONDS`), `createBackendProxy`, `aomiSiwsClient`, the `./forward`, `./better-auth/client` and `./service-topology` subpaths (use `@aomi-labs/service-identity`), the `e2e` session kind and the `next` peer.
 - 186e352: Add `@aomi-labs/account/policy`: the framework-free authorization policy (OAuth resources and scope ceilings, session capabilities and `authorize`). The Better Auth OAuth policy, the portal BFF and the edge Worker now read this one copy.
 - 4661a6d: Remove the unused mintAgentApiBearer and AGENT_API_AUDIENCE exports and the obsolete response_transform proxy failure variant.

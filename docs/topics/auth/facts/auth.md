@@ -74,7 +74,7 @@ only when the corresponding REST credentials are configured.
 
 - Raw provider credentials must never be returned to MCP callers or persisted in approval rows.
 - Raw Privy/Para tokens must never be stored in Aomi account tables.
-- `PORTAL_SERVICE_PRIVATE_KEY` provides the portal BFF's Ed25519 signing key. The matching public key lives in `packages/account/src/topology-data.ts` and the backend `service.toml`.
+- `PORTAL_SERVICE_PRIVATE_KEY` provides the `aomi-bff` Ed25519 signing key. Only Build reads it, to mint sidecar bearers. The portal and landing mint nothing; the edge mints as `aomi-edge`. The matching public key lives in `packages/account/src/topology-data.ts` and the backend `service.toml`.
 - Privy and Para verification keys/secrets are server-only and must not be exposed to the browser.
 
 ## Related Topics

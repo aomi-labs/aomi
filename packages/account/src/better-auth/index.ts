@@ -24,7 +24,6 @@ export {
   appMcpResource,
   guestScopesForAomiResource,
   narrowScopesForAomiResource,
-  isMcpDpopRequired,
   validateAomiResourceScopes,
   type AomiOAuthResourceKind,
   type AomiOAuthResourcePolicy,
@@ -54,3 +53,5 @@ export {
   type SiwsIntent,
 } from "./siws";
 export { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
+
+export { bindAomiPublicClientResource } from "./client-resource-binding";

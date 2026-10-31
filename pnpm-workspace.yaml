@@ -80,6 +80,7 @@ packageExtensions:
 # Pipeline, and REST clients even when they request one exact resource. Aomi
 # binds resource-less RFC 7591 clients on their first authorize request instead.
 patchedDependencies:
+  "@better-auth/cimd@1.7.1": patches/@better-auth__cimd@1.7.1.patch
   "@better-auth/mcp@1.7.1": patches/@better-auth__mcp@1.7.1.patch
   "@better-auth/oauth-provider@1.7.1": patches/@better-auth__oauth-provider@1.7.1.patch
 

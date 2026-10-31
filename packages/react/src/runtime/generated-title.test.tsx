@@ -18,6 +18,8 @@ vi.mock("@aomi-labs/client", async (importOriginal) => {
     Session: class {
       syncRuntimeOptions() {}
       sendAsync = fake.send;
+      // No running turn takes the follow-up; it is sent as a new message.
+      steer = async () => false;
       fetchCurrentState = fake.hydrate;
       subscribe = (listener: () => void) => {
         fake.listeners.add(listener);

@@ -196,6 +196,7 @@ function allStatus(status: number): Record<FamilyName, Outcome> {
 
 beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_URL", PORTAL);
+
   mocks.fetch
     .mockReset()
     .mockImplementation(async () => Response.json({ ok: true }));

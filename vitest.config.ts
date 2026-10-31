@@ -70,6 +70,7 @@ export default defineConfig({
     },
   },
   test: {
+    server: { deps: { inline: ["@better-auth/cimd"] } },
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts", "./apps/build/vitest.setup.ts"],
     include: [
@@ -80,6 +81,7 @@ export default defineConfig({
       "apps/edge/src/**/*.{test,spec}.ts",
       "apps/edge/scripts/**/*.test.mjs",
       "apps/edge/scripts/**/*.{test,spec}.mjs",
+
     ],
     exclude: [
       ".claude/**",

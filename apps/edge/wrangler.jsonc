@@ -31,12 +31,9 @@
   // The Task discovery challenge cache. Once a namespace exists, bind it here
   // as EDGE_CACHE; the Worker falls back to an in-isolate cache without it.
   // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
-  "vars": {
-    // A placement miss wakes the backend reconciler; keep the original
-    // request at the edge while the small hosted artifact materializes.
-    "HOSTED_APP_WARMUP_ATTEMPTS": "10",
-    "HOSTED_APP_WARMUP_RETRY_MS": "1000"
-  },
+  // No committed vars: constants live in code, per-environment values come
+  // from scripts/deploy.mjs and secrets from product-mono's deploy pipeline.
+  "vars": {},
   "env": {
     // Local development only: adds the E2E wallet harness (src/dev.ts). Never deployed.
     "dev": {

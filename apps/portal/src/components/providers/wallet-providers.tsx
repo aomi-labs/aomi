@@ -47,10 +47,7 @@ const paraEnvironment: "PROD" | "BETA" =
   paraEnvironmentSetting === "PROD" ? "PROD" : "BETA";
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "";
 
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() ||
-  process.env.NEXT_PUBLIC_PROJECT_ID?.trim() ||
-  "";
+const walletConnectProjectId = process.env.NEXT_PUBLIC_PROJECT_ID?.trim() || "";
 
 const fullTestnet =
   process.env.NEXT_PUBLIC_USE_FULL_TESTNET === "true"
@@ -88,11 +85,8 @@ const solanaNetworks = [
     cluster: "solana:devnet",
     rpcHttpUrl:
       process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
       "https://api.devnet.solana.com",
-    rpcWsUrl:
-      process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL ??
-      process.env.NEXT_PUBLIC_SOLANA_RPC_WS_URL,
+    rpcWsUrl: process.env.NEXT_PUBLIC_SOLANA_DEVNET_RPC_WS_URL,
   },
   {
     id: "solana-mainnet",

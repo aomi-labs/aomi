@@ -30,7 +30,7 @@ export async function credits(request: Request, ctx: BuildContext): Promise<Resp
   const scopes = [`builder:credits:${read ? "read" : "fund"}`];
   if (request.headers.has("payment-signature")) scopes.push("payments:submit");
   const { accessToken } = await minted(() =>
-    edgeService(ctx.env, url.host).mint({
+    edgeService(ctx.env).mint({
       role: "user",
       subject: session.githubUserId,
       audience: "aomi-payment",
