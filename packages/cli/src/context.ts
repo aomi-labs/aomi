@@ -95,9 +95,7 @@ export async function deviceAuth(
   baseUrl: string,
   onCode: ShowCode = codeOnStderr,
 ): Promise<AomiAuthStrategy> {
-  const held = await heldGrant(baseUrl);
   return oauth({
-    clientId: held?.clientId,
     clientName: `Aomi CLI · ${hostname()}`,
     scopes: SCOPES,
     store: grants,
