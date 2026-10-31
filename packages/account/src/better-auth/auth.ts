@@ -147,7 +147,7 @@ export function createAuth(input: Env) {
   secret: env.betterAuthSecret,
   baseURL: env.betterAuthUrl,
   basePath: "/api/auth",
-  disabledPaths: ["/token"],
+  disabledPaths: ["/token", "/sign-in/anonymous"],
   advanced: {
     ipAddress: {
       ipAddressHeaders: env.clientIpHeader ? [env.clientIpHeader] : [],
