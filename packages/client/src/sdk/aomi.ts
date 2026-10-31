@@ -49,15 +49,12 @@ type AomiExecutionOptions =
   | {
       /** What signs this process's commits: `viemSigner(...)`, `solanaSigner(...)`. */
       signer?: Wallets;
-      /** @deprecated Use `signer`. */
-      wallet?: Wallets;
       actions?: never;
       commits?: CommitCapabilities;
     }
   | {
       actions?: ActionCapabilities;
       signer?: never;
-      wallet?: never;
       commits?: CommitCapabilities;
     };
 
@@ -108,7 +105,7 @@ export class Aomi {
       cookieSession,
       ...unmanagedClientOptions
     } = options;
-    const wallet = signer ?? options.wallet;
+    const wallet = signer;
     const clientOptions: AomiClientOptions = {
       baseUrl: DEFAULT_BASE_URL,
       ...unmanagedClientOptions,
@@ -200,13 +197,7 @@ export class Aomi {
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
     // A signer keeps its wallet attempts in memory, which lets browser
     // wallets send (and bundle with EIP-5792) instead of only signing.
-    const commitOps =
-      commits ??
-      (signer
-        ? commitCapabilities(signer, memoryRecovery())
-        : wallet
-          ? commitCapabilities(wallet)
-          : {});
+    const commitOps = commits ?? (signer ? commitCapabilities(signer, memoryRecovery()) : {});
     this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.commits = new AomiCommits(this.raw, commitOps);
     this.wallets = new AomiWallets(this.raw);
