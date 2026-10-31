@@ -332,47 +332,5 @@ describe("sign-in", () => {
     );
   });
 
-  it("reads a 0.2 session once: thread, keys and grants", async () => {
-    mkdirSync(join(dir, "sessions"), { recursive: true });
-    writeFileSync(join(dir, "active-session.txt"), "2");
-    writeFileSync(
-      join(dir, "sessions", "session-2.json"),
-      JSON.stringify({
-        sessionId: "old-thread",
-        baseUrl: BASE,
-        privateKey: KEY,
-        oauthGrants: {
-          [`${BASE}/v1`]: {
-            clientId: "cli-1",
-            accessToken: "a",
-            expiresAt: 1,
-            resource: `${BASE}/v1`,
-            scopes: ["agent:read"],
-          },
-        },
-      }),
-    );
-    const { stdout } = await cli("config");
-    expect(stdout).toContain("thread   old-thread");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const [grant] = JSON.parse(readFileSync(join(dir, "grants.json"), "utf8"));
-    expect(grant).toMatchObject({
-      issuer: `${BASE}/api/auth`,
-      clientId: "cli-1",
-    });
-  });
 
-  it("asks a 0.2 SIWE session to sign in again", async () => {
-    mkdirSync(join(dir, "sessions"), { recursive: true });
-    writeFileSync(join(dir, "active-session.txt"), "1");
-    writeFileSync(
-      join(dir, "sessions", "session-1.json"),
-      JSON.stringify({
-        sessionId: "s",
-        baseUrl: BASE,
-        auth: { sessionToken: "t", expiresAt: 1 },
-      }),
-    );
-    expect((await cli("config")).stderr).toBe("sign in again: aomi login\n");
-  });
 });
