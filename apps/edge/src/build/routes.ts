@@ -34,7 +34,7 @@ async function installStart(request: Request, ctx: BuildContext): Promise<Respon
     GITHUB_APP_INSTALL_START_PATH,
     new URL(request.url).search,
   );
-  if (!url.searchParams.get("platform")) url.searchParams.set("platform", ctx.config.platforms[0]);
+  if (!url.searchParams.get("platform")) url.searchParams.set("platform", ctx.config.defaultPlatform);
   return proxy(request, url, { fetchImpl: ctx.fetchImpl, headers: BACKEND_API_HEADERS });
 }
 

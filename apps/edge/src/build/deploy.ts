@@ -128,7 +128,7 @@ const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
   run: async ({ input, client, session, ctx }) => {
     const { config } = ctx;
     const project = await client.scaffold({
-      platform: input.platform ?? config.platforms[0],
+      platform: input.platform ?? config.defaultPlatform,
       installationId: Number(input.installationId),
       templateRepo: config.templateRepo,
       repoName: input.repoName || `my-playground-${randomHex(4)}`,
@@ -153,7 +153,7 @@ const status = endpoint("launch.status", "GET", "", {
   run: async ({ input, client, session, ctx }) => {
     // The backend resolves CI live per poll and deep-links the run URL.
     const result = await client.status({
-      platform: input.platform ?? ctx.config.platforms[0],
+      platform: input.platform ?? ctx.config.defaultPlatform,
       deploymentId: input.deploymentId,
       githubUserId: session.githubUserId,
     });

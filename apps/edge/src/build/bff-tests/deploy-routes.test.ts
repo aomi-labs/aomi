@@ -576,7 +576,7 @@ describe("deployRoute", () => {
   });
 
   it("deploys by Project identity without a client-selected platform", async () => {
-    vi.stubEnv("APP_DEPLOY_PLATFORMS", "community,somm.finance");
+    vi.stubEnv("BUILD_DEFAULT_PLATFORM", "community");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(ownedBoundProject(777, "somm.finance"))

@@ -28,7 +28,7 @@ describe("edge deploy script", () => {
         EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567",
         CORS_ALLOWED_HOST_PATTERNS: "*.aomi.dev,api-staging.aomi.dev",
         TASK_CORS_PUBLIC_ORIGINS: "https://stableops.dev",
-        APP_DEPLOY_PLATFORMS: "community",
+        BUILD_DEFAULT_PLATFORM: "community",
       }),
     ).toEqual([
       "wrangler",
@@ -66,7 +66,7 @@ describe("edge deploy script", () => {
       "--var",
       "TASK_CORS_PUBLIC_ORIGINS:https://stableops.dev",
       "--var",
-      "APP_DEPLOY_PLATFORMS:community",
+      "BUILD_DEFAULT_PLATFORM:community",
     ]);
   });
 

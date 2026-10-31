@@ -693,7 +693,7 @@ function sharedSettlementPayments(applicationId: number | null = null) {
 
 describe("operateUsageRoute statement fallback", () => {
   it("uses the canonical Project platform for ownership and usage reads", async () => {
-    vi.stubEnv("APP_DEPLOY_PLATFORMS", "community,somm.finance");
+    vi.stubEnv("BUILD_DEFAULT_PLATFORM", "community");
     setSession({ githubUserId: "gh-1" });
     oneSource("somm.finance");
     client.getUserProjectUsage.mockResolvedValue({
@@ -731,7 +731,7 @@ describe("operateUsageRoute statement fallback", () => {
   });
 
   it("ignores a URL platform once a canonical Project ID exists", async () => {
-    vi.stubEnv("APP_DEPLOY_PLATFORMS", "community");
+    vi.stubEnv("BUILD_DEFAULT_PLATFORM", "community");
     setSession({ githubUserId: "gh-1" });
     oneSource("known.partner");
     client.getUserProjectUsage.mockResolvedValue(emptyUsage);

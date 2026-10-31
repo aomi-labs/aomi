@@ -33,7 +33,7 @@ const env: EdgeEnv = {
   BACKEND_ORIGINS: BACKEND,
   API_SERVER_ORIGIN: "https://agent.example",
   PAYMENT_ORIGIN: PAYMENT,
-  APP_DEPLOY_PLATFORMS: "web,telegram",
+  BUILD_DEFAULT_PLATFORM: "web",
   EDGE_TOPOLOGY: "default",
   EDGE_SERVICE_PRIVATE_KEY: DEV_PRIVATE_KEY,
 };

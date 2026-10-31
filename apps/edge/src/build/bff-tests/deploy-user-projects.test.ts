@@ -86,7 +86,7 @@ describe("userProjectsRoute", () => {
   });
 
   it("looks up an exact partner platform without a frontend list", async () => {
-    vi.stubEnv("APP_DEPLOY_PLATFORMS", "community");
+    vi.stubEnv("BUILD_DEFAULT_PLATFORM", "community");
     getGitHubSession.mockResolvedValueOnce({
       githubUserId: "42",
       githubLogin: "alice",

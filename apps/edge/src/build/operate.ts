@@ -65,7 +65,7 @@ async function view(call: Call<Scoped>, account = false): Promise<View> {
   const { input, session, ctx } = call;
   const githubUserId = session.githubUserId;
   if (input.projectId === undefined) {
-    const selected = input.platform ?? ctx.config.platforms[0];
+    const selected = input.platform ?? ctx.config.defaultPlatform;
     return { githubUserId, platform: selected, projects: () => listProjects(call, account ? undefined : selected) };
   }
   const project = (await listProjects(call)).find((candidate) => candidate.id === input.projectId);

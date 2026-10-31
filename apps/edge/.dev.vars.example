@@ -16,7 +16,7 @@ PAYMENT_ORIGIN=http://127.0.0.1:8084
 BUILD_HOSTS=localhost:8788
 BUILD_UPSTREAM_ORIGIN=http://localhost:3002
 BUILD_SESSION_SECRET=development-only-build-session-secret
-APP_DEPLOY_PLATFORMS=web
+BUILD_DEFAULT_PLATFORM=web
 BUILD_TEMPLATE_REPO=aomi-labs/playground-example
 # Read access to the template and project repos for the release-manifest secret gate.
 BUILD_GITHUB_TOKEN=

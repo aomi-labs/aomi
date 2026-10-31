@@ -30,7 +30,7 @@ const env: EdgeEnv = {
   BACKEND_ORIGINS: "https://backend.example",
   MANAGER_ORIGIN: MANAGER,
   API_SERVER_ORIGIN: "https://agent.example",
-  APP_DEPLOY_PLATFORMS: "web",
+  BUILD_DEFAULT_PLATFORM: "web",
   EDGE_TOPOLOGY: "default",
   EDGE_SERVICE_PRIVATE_KEY: DEV_PRIVATE_KEY,
 };
