@@ -93,7 +93,6 @@ export const HANDLERS: Record<string, Handler> = {
   "account.merge": accountRoute({ POST: account.mergeAccount }),
   "account.merge_switch": accountRoute({ POST: account.switchToMergeSource }),
   "provider.link": accountRoute({ POST: account.linkProvider }),
-  "account.cli_session": { handle: { POST: account.rotateCliSession } },
   guest: signIn(widgetAuth.signInGuest, WIDGET_BUDGETS.guest),
   "widget.provider.exchange": signIn(widgetAuth.exchangeProvider),
   "widget.siwe.nonce": signIn(widgetAuth.siweNonce),

@@ -260,7 +260,6 @@ export type Capability =
   | "settings" // installed apps, app secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
   | "backend_bearer" // a raw 15-minute backend token
-  | "cli_session" // a separate one-day CLI session
   | "mcp"; // MCP transport, OAuth grants only
 
 const SIGNED_IN: readonly Capability[] = [
@@ -272,7 +271,6 @@ const SIGNED_IN: readonly Capability[] = [
   "settings",
   "safety_policy",
   "backend_bearer",
-  "cli_session",
 ];
 const GUEST: readonly Capability[] = [
   "chat",
@@ -281,25 +279,18 @@ const GUEST: readonly Capability[] = [
   "backend_bearer",
 ];
 // Any https site may embed the widget, so its sessions never get a raw backend
-// token or mint CLI logins.
-const EMBEDDED: readonly Capability[] = ["backend_bearer", "cli_session"];
+// token.
 
 /** Session-shaped principals; OAuth grants are the token's own scopes. */
 export type SessionKind = "cookie" | "session_bearer" | "widget";
+
+const EMBEDDED: readonly Capability[] = ["backend_bearer"];
 
 const GRANTS: Record<
   SessionKind,
   { user: readonly Capability[]; guest: readonly Capability[] }
 > = {
-  // Rotating a CLI session revokes the presented one, so a browser cookie may
-  // not ask for it.
-  cookie: {
-    user: [
-      ...SIGNED_IN.filter((capability) => capability !== "cli_session"),
-      "portal_session",
-    ],
-    guest: GUEST,
-  },
+  cookie: { user: [...SIGNED_IN, "portal_session"], guest: GUEST },
   session_bearer: { user: SIGNED_IN, guest: GUEST },
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
@@ -828,9 +819,6 @@ export const ROUTES: readonly Route[] = [
   }),
   own(/^\/v1\/account\/provider\/exchange$/, "provider.link", {
     POST: signedIn,
-  }),
-  own(/^\/v1\/account\/session\/cli$/, "account.cli_session", {
-    POST: { capability: "cli_session" },
   }),
   own(/^\/api\/auth\/guest$/, "guest", { POST: "public" }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {

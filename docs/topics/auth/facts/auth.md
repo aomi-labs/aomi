@@ -89,3 +89,7 @@ only when the corresponding REST credentials are configured.
 The retired Privy/Para loopback handoff (`/device-auth` and
 `/v1/account/device-auth/*`) and its SDK grant method are removed. Provider
 sign-in and linking remain available through the browser account flow.
+
+The unused `/v1/account/session/cli` rotation endpoint is removed. OAuth
+refresh remains the terminal renewal mechanism; Better Auth session bearers
+remain supported for REST sign-in.

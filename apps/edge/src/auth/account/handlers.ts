@@ -42,7 +42,6 @@ import { PrincipalError } from "../../portal/principal";
 import type { Call } from "../routes";
 import { sessionUserSeed } from "../server";
 import { verifyWidgetProviderCredential } from "../widget/exchange";
-import { createCliSession, revokeSession } from "./cli-session";
 
 type Account = Extract<
   Principal,
@@ -556,13 +555,4 @@ async function walletSignatureMismatch(
     nonce_matches: lines.includes(`Nonce: ${signed.nonce}`),
   });
   return error(401, "invalid_wallet_signature");
-}
-
-/** Rotate a CLI's session: the presented one is revoked once its one-day replacement exists. */
-export async function rotateCliSession({ principal, auth }: Call): Promise<Response> {
-  if (principal.kind !== "session_bearer")
-    throw new PrincipalError(403, "insufficient_scope");
-  const next = await createCliSession(auth, principal.betterAuthUserId);
-  await revokeSession(auth, principal.session.session?.token);
-  return Response.json(next, { headers: { "cache-control": "no-store" } });
 }

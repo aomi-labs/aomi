@@ -7,8 +7,6 @@ var PARTNER = "https://partner.example";
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   managedClient: vi.fn(),
-  deleteSession: vi.fn(),
-  createSession: vi.fn(),
   listConnections: vi.fn(),
   revokeConnection: vi.fn(),
 }));
@@ -80,12 +78,6 @@ vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
 vi.mock("./server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./server")>()),
   authServer: () => ({
-    $context: Promise.resolve({
-      internalAdapter: {
-        createSession: mocks.createSession,
-        deleteSession: mocks.deleteSession,
-      },
-    }),
     api: {
       getSession: async ({ headers }: { headers: Headers }) => {
         const token = headers.get("authorization")?.split(/\s+/)[1];
@@ -165,7 +157,6 @@ const CREDENTIALS: Record<string, Credential> = {
 
 const FAMILIES = {
   "/v1/account": ["GET", "/v1/account"],
-  "/v1/account/session/cli": ["POST", "/v1/account/session/cli"],
 } as const;
 type FamilyName = keyof typeof FAMILIES;
 
@@ -173,23 +164,18 @@ type Outcome = number;
 const MATRIX: Record<string, Record<FamilyName, Outcome>> = {
   "cookie user": {
     "/v1/account": 200,
-    "/v1/account/session/cli": 403,
   },
   "cookie guest": {
     "/v1/account": 200,
-    "/v1/account/session/cli": 403,
   },
   "session bearer": {
     "/v1/account": 200,
-    "/v1/account/session/cli": 200,
   },
   "widget user": {
     "/v1/account": 200,
-    "/v1/account/session/cli": 403,
   },
   "widget guest": {
     "/v1/account": 200,
-    "/v1/account/session/cli": 403,
   },
   "widget, wrong origin": allStatus(401),
   "invalid widget session": allStatus(401),
@@ -214,10 +200,6 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async () => Response.json({ ok: true }));
   mocks.managedClient.mockReset().mockResolvedValue(null);
-  mocks.createSession
-    .mockReset()
-    .mockResolvedValue({ token: "new-cli-token", expiresAt: new Date(0) });
-  mocks.deleteSession.mockReset();
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -267,17 +249,6 @@ describe("principal × route family", () => {
       wallets: [],
       session: { carrier: "better_auth", betterAuthUserId: "guest" },
     });
-  });
-
-  it("rotates a CLI session by revoking the one presented", async () => {
-    const response = await edge("/v1/account/session/cli", {
-      method: "POST",
-      headers: { authorization: "Bearer cli-token" },
-    });
-    expect(await response.json()).toMatchObject({
-      sessionToken: "new-cli-token",
-    });
-    expect(mocks.deleteSession).toHaveBeenCalledWith("cli-token");
   });
 });
 
