@@ -7,8 +7,13 @@ const EVM_PRIVATE_KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 
 export function parseChainId(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  // parseInt would read "8453abc" as 8453 and "base" as NaN (dropped silently).
+  if (!/^\d+$/.test(trimmed)) {
+    fatal(`Invalid chain ID "${value}". Use a decimal chain ID, such as 8453.`);
+  }
+  const n = Number(trimmed);
   if (!(SUPPORTED_CHAIN_IDS as readonly number[]).includes(n)) {
     const list = SUPPORTED_CHAIN_IDS.map(
       (id) => `  ${id} (${CHAIN_NAMES[id]})`,
