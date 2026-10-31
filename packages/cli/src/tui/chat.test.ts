@@ -14,8 +14,12 @@ vi.mock("@earendil-works/pi-tui", () => ({
   ProcessTerminal: class {},
   TuiMainScreen: class {
     children: unknown[] = [];
-    addChild(child: unknown) { this.children.push(child); }
-    addInputListener(input: typeof screen.input) { screen.input = input; }
+    addChild(child: unknown) {
+      this.children.push(child);
+    }
+    addInputListener(input: typeof screen.input) {
+      screen.input = input;
+    }
     setFocus() {}
     requestRender() {}
     start() {}
@@ -23,9 +27,13 @@ vi.mock("@earendil-works/pi-tui", () => ({
   },
   Editor: class {
     onSubmit = (_text: string) => {};
-    constructor() { screen.editor = this; }
+    constructor() {
+      screen.editor = this;
+    }
     setAutocompleteProvider() {}
-    getText() { return ""; }
+    getText() {
+      return "";
+    }
     addToHistory() {}
   },
   SelectList: class {},
@@ -35,29 +43,45 @@ vi.mock("@earendil-works/pi-tui", () => ({
   wrapTextWithAnsi: (text: string) => [text],
 }));
 vi.mock("./mentions", () => ({
-  MentionAutocomplete: class { hint(text: string) { return text; } },
+  MentionAutocomplete: class {
+    hint(text: string) {
+      return text;
+    }
+  },
   mentionCatalog: async () => [],
   walletGroups: () => [],
 }));
-vi.mock("../state", () => ({ loadState: () => ({}), updateState: (value: object) => screen.updates.push(value) }));
+vi.mock("../state", () => ({
+  loadState: () => ({}),
+  updateState: (value: object) => screen.updates.push(value),
+}));
 vi.mock("../context", () => ({
   connect: vi.fn(),
   baseUrlOf: () => "https://chat.example",
   ownerOf: () => "guest",
   openUrl() {},
-  turnOptions: (_aomi: unknown, _state: unknown, options: { thread: string }) => ({ sessionId: options.thread }),
+  turnOptions: (
+    _aomi: unknown,
+    _state: unknown,
+    options: { thread: string },
+  ) => ({ sessionId: options.thread }),
 }));
 vi.mock("../commands/account", () => ({ signIn: vi.fn() }));
 vi.mock("../commands/guard", () => ({ guardMode: vi.fn() }));
 vi.mock("../commands/wallets", () => ({ signsWith: vi.fn() }));
-vi.mock("../commands/tx", () => ({ reviewLines: vi.fn(), reviewSummary: vi.fn() }));
+vi.mock("../commands/tx", () => ({
+  reviewLines: vi.fn(),
+  reviewSummary: vi.fn(),
+}));
 
 import { connect } from "../context";
 import { runTui } from "./chat";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
   return { resolve, promise };
 }
 
@@ -65,15 +89,34 @@ it("keeps /new from replacing a thread while its turn is running", async () => {
   screen.updates = [];
   const gate = deferred<void>();
   let thread = "";
-  const send = vi.fn(() => Object.assign(
-    gate.promise.then(() => ({ threadId: thread, title: "Original", reply: "Done", commits: [] })),
-    { steps: async function* () { await gate.promise; }, interrupt: vi.fn() },
-  ));
+  const send = vi.fn(() =>
+    Object.assign(
+      gate.promise.then(() => ({
+        threadId: thread,
+        title: "Original",
+        reply: "Done",
+        commits: [],
+      })),
+      {
+        steps: async function* () {
+          await gate.promise;
+        },
+        interrupt: vi.fn(),
+      },
+    ),
+  );
   const aomi = {
     auth: { mode: "guest" },
-    agent: { thread: vi.fn((id: string) => { thread = id; return { send, history: async () => ({ activeWallet: {} }) }; }) },
+    agent: {
+      thread: vi.fn((id: string) => {
+        thread = id;
+        return { send, history: async () => ({ activeWallet: {} }) };
+      }),
+    },
   };
-  vi.mocked(connect).mockResolvedValue(aomi as Awaited<ReturnType<typeof connect>>);
+  vi.mocked(connect).mockResolvedValue(
+    aomi as Awaited<ReturnType<typeof connect>>,
+  );
   const finished = runTui({});
   try {
     await vi.waitFor(() => expect(screen.editor).toBeDefined());
@@ -81,7 +124,12 @@ it("keeps /new from replacing a thread while its turn is running", async () => {
     const original = thread;
     screen.editor!.onSubmit("/new");
     gate.resolve();
-    await vi.waitFor(() => expect(screen.updates).toContainEqual({ thread: original, owner: "guest" }));
+    await vi.waitFor(() =>
+      expect(screen.updates).toContainEqual({
+        thread: original,
+        owner: "guest",
+      }),
+    );
     screen.editor!.onSubmit("again");
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     expect(aomi.agent.thread.mock.calls.at(-1)?.[0]).toBe(original);

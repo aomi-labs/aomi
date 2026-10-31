@@ -197,7 +197,8 @@ export class Aomi {
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
     // A signer keeps its wallet attempts in memory, which lets browser
     // wallets send (and bundle with EIP-5792) instead of only signing.
-    const commitOps = commits ?? (signer ? commitCapabilities(signer, memoryRecovery()) : {});
+    const commitOps =
+      commits ?? (signer ? commitCapabilities(signer, memoryRecovery()) : {});
     this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.commits = new AomiCommits(this.raw, commitOps);
     this.wallets = new AomiWallets(this.raw);

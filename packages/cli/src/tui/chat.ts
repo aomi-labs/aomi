@@ -402,7 +402,11 @@ export async function runTui(flags: ChatFlags): Promise<void> {
   }
 
   /** The agent's answer to a settled commit: it continues the thread on its own. */
-  async function followUp(said: number | undefined, source: string, own: number) {
+  async function followUp(
+    said: number | undefined,
+    source: string,
+    own: number,
+  ) {
     if (said === undefined) return;
     for (
       let attempt = 0;
@@ -635,9 +639,15 @@ export async function runTui(flags: ChatFlags): Promise<void> {
     if (text.startsWith("/")) {
       if (commandRunning) return note("A command is still working");
       commandRunning = true;
-      void slash(text).catch((error: unknown) => note(error instanceof Error ? error.message : String(error))).finally(() => { commandRunning = false; });
-    }
-    else if (loadingThread || commandRunning || running) note("Still working; esc stops it");
+      void slash(text)
+        .catch((error: unknown) =>
+          note(error instanceof Error ? error.message : String(error)),
+        )
+        .finally(() => {
+          commandRunning = false;
+        });
+    } else if (loadingThread || commandRunning || running)
+      note("Still working; esc stops it");
     else void send(text);
   };
 
