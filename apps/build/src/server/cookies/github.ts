@@ -69,7 +69,7 @@ function secret(): Uint8Array {
   const value = githubSessionSecret();
   if (!value || value.length < 16) {
     throw new Error(
-      "PORTAL_ONLY_SESSION_SECRET is not set (or too short) — the GitHub session cookie needs a signing secret",
+      "BUILD_SESSION_SECRET is not set (or too short) — the GitHub session cookie needs a signing secret",
     );
   }
   return new TextEncoder().encode(value);

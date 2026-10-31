@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only";
 import { hosted } from "@aomi-labs/app-kit/platform";
-/** Build's server configuration for its BFF. */
+/** Build server configuration. */
 
 /** Local runs may use the Build UI and supervisor without GitHub sign-in. */
 export function anonymousBuildAllowed(): boolean {
@@ -17,7 +17,7 @@ export function runCheckerSecret(): string | undefined {
 
 /** Signs the GitHub session cookies; at least 16 characters. */
 export function githubSessionSecret(): string | undefined {
-  return process.env.PORTAL_ONLY_SESSION_SECRET?.trim() || undefined;
+  return process.env.BUILD_SESSION_SECRET?.trim() || undefined;
 }
 
 /** Cookies are Secure everywhere except local development. */

@@ -91,7 +91,7 @@ export interface EdgeEnv {
   /**
    * HS256 secret of Build's GitHub session cookies (a Wrangler secret, at least
    * 16 characters). Until the Vercel routes are deleted it must equal Build's
-   * PORTAL_ONLY_SESSION_SECRET so both sides read the same cookies.
+   * BUILD_SESSION_SECRET so both sides read the same cookies.
    */
   BUILD_SESSION_SECRET?: string;
   /** OAuth client id for Manager's GitHub App at index 2; defaults to the deployed app for this topology. */

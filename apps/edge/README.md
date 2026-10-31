@@ -148,8 +148,7 @@ routing a new host (the production portal at cutover, for example) is a
 product-mono change plus a deploy, with no change here. Secrets, per Worker
 (`wrangler secret put <NAME> --name aomi-edge-<env>`):
 `EDGE_SERVICE_PRIVATE_KEY` (`pnpm --filter aomi-edge generate-key`),
-`BUILD_SESSION_SECRET` (Build's `PORTAL_ONLY_SESSION_SECRET`, so existing
-GitHub sessions survive the cutover), `BUILD_GITHUB_TOKEN` (Build's
+`BUILD_SESSION_SECRET` (shared with the Build server for GitHub cookies), `BUILD_GITHUB_TOKEN` (Build's
 `GITHUB_TOKEN`, read access for the release-manifest secret gate),
 `BETTER_AUTH_SECRET` (the portal's, so sessions and the encrypted JWKS keys
 survive the move) and the Privy and Para keys the portal reads today.
