@@ -117,7 +117,7 @@ beforeEach(() => {
 
 describe("build control plane: launch and deployments", () => {
   it("lists the signed-in user's projects through the manager as the aomi-edge service", async () => {
-    expect((await build("/api/build/launch/projects")).status).toBe(401);
+    expect((await build("/api/build/deployments/projects")).status).toBe(401);
     const response = await build("/api/build/deployments/projects", { headers: { cookie: await sessionCookie() } });
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -135,7 +135,7 @@ describe("build control plane: launch and deployments", () => {
   });
 
   it("answers the SDK status from the server tags with the CLI fix hint", async () => {
-    const response = await build("/api/build/launch/sdk-status");
+    const response = await build("/api/build/deployments/sdk-status");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       ok: true,
@@ -158,7 +158,7 @@ describe("build control plane: launch and deployments", () => {
     });
     expect(crossSite.status).toBe(403);
 
-    const notOwned = await build("/api/build/launch/activate", {
+    const notOwned = await build("/api/build/deployments/activate", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ projectId: 999, releaseTags: ["api-v1"], apps: ["api"] }),
@@ -170,7 +170,7 @@ describe("build control plane: launch and deployments", () => {
 
   it("accepts a CLI bearer with the right scope on the attempts route", async () => {
     const readOnly = await cliBearer(["deployment:read"]);
-    const response = await build("/api/build/launch/attempts?projectId=7", {
+    const response = await build("/api/build/deployments/attempts?projectId=7", {
       headers: { authorization: `Bearer ${readOnly}` },
     });
     expect(response.status).toBe(200);
@@ -180,7 +180,7 @@ describe("build control plane: launch and deployments", () => {
 
     // Starting an attempt needs the deploy scope; a read-only bearer falls back
     // to the (absent) cookie session.
-    const write = await build("/api/build/launch/attempts", {
+    const write = await build("/api/build/deployments/attempts", {
       method: "POST",
       headers: { authorization: `Bearer ${readOnly}`, "content-type": "application/json" },
       body: JSON.stringify({ projectId: 7, action: "start" }),
@@ -190,7 +190,7 @@ describe("build control plane: launch and deployments", () => {
   });
 
   it("answers 405 for a method the route does not take", async () => {
-    const response = await build("/api/build/launch/projects", { method: "DELETE" });
+    const response = await build("/api/build/deployments/projects", { method: "DELETE" });
     expect(response.status).toBe(405);
     expect(response.headers.get("allow")).toBe("GET");
   });

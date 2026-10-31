@@ -23,7 +23,7 @@ import { createFailurePipeline } from "./pipeline";
 import { getAppSentryRelease, initAppSentry } from "./route";
 
 const context = {
-  routeFamily: "/api/build/launch/deploy",
+  routeFamily: "/api/build/deployments/deploy",
   operation: "launch.deploy",
   method: "POST",
 };

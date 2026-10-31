@@ -146,7 +146,7 @@ export async function attemptRequest<T>(
   if (input.runId) params.set("runId", String(input.runId));
   if (input.page) params.set("page", String(input.page));
   const response = await buildFetch(
-    `/api/build/launch/attempts?${params}`,
+    `/api/build/deployments/attempts?${params}`,
     input.action
       ? {
           method: "POST",

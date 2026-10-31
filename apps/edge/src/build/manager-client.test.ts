@@ -26,7 +26,7 @@ describe.each([
   { name: "origin base paths", backend: "https://backend.example/backend", manager: "https://manager.example/manager" },
 ])("Build client routing: $name", ({ backend, manager }) => {
   it("keeps vault operations on Backend and control-plane operations on Manager", async () => {
-    const request = new Request("https://build.example/api/build/launch/secrets", {
+    const request = new Request("https://build.example/api/build/deployments/secrets", {
       headers: { cookie: "aomi_github=browser-session", authorization: "Bearer browser-token" },
     });
     const env: EdgeEnv = {

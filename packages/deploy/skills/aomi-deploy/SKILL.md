@@ -60,7 +60,7 @@ npm install @aomi-labs/deploy      # or pnpm add / yarn add
 ## Step 1 — Serve the BFF routes (server)
 
 `@aomi-labs/deploy` ships no route handlers. Write the same-origin routes the
-browser client calls (`/api/build/launch/*` and `/api/build/auth/github/*`) in your
+browser client calls (`/api/build/deployments/*` and `/api/build/auth/github/*`) in your
 server, each a plain `(Request) => Promise<Response>` over a `BackendClient`.
 Aomi's Build app is the worked example: `apps/build/src/server/deploy/routes.ts`.
 
@@ -80,8 +80,8 @@ export const client = () =>
 Routes the browser client expects (Next.js App Router paths shown):
 
 ```
-app/api/build/launch/{preflight,create,deploy,activate,redeploy}/route.ts   POST
-app/api/build/launch/{status,apps,projects}/route.ts                        GET
+app/api/build/deployments/{preflight,create,deploy,activate,redeploy}/route.ts   POST
+app/api/build/deployments/{status,apps,projects}/route.ts                        GET
 app/api/build/auth/github/{login,callback,status}/route.ts                  GET
 app/api/build/auth/github/signout/route.ts                                  POST
 ```
@@ -100,7 +100,7 @@ signed-in GitHub user from your own session.
 // client-side
 import { createLaunchClient } from "@aomi-labs/deploy/launch";
 
-const launch = createLaunchClient(); // defaults to /api/build/launch + /api/build/auth/github
+const launch = createLaunchClient(); // defaults to /api/build/deployments + /api/build/auth/github
 // createLaunchClient({ basePath: "/api/deploy", authBasePath: "/api/gh" }) to relocate
 ```
 

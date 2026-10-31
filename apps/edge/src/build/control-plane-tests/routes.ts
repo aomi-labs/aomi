@@ -5,22 +5,21 @@ import { route } from "./harness";
 function at(method: string | undefined, ...paths: string[]) {
   return route((url) => (paths.includes(url.pathname) ? url.pathname : paths[0]), method);
 }
-const launch = (name: string) => `/api/build/launch/${name}`;
 const deployments = (name: string) => `/api/build/deployments/${name}`;
 const operate = (name: string) => `/api/build/operate/${name}`;
 
 export const deployRoute = (preflight: boolean) =>
   preflight
-    ? at("POST", launch("preflight"), deployments("preflight"))
-    : at("POST", launch("deploy"), deployments("deploy"));
-export const activateRoute = at("POST", launch("activate"));
-export const createRepoRoute = at("POST", launch("create"));
-export const projectAppsRoute = at("GET", launch("apps"));
-export const userProjectsRoute = at("GET", launch("projects"), deployments("projects"));
-export const redeployRoute = at("POST", launch("redeploy"), deployments("redeploy"));
-export const sdkStatusRoute = at("GET", launch("sdk-status"), deployments("sdk-status"));
-export const deploymentStatusRoute = at("GET", launch("status"), deployments("status"));
-export const deploymentAttemptsRoute = at(undefined, launch("attempts"));
+    ? at("POST", deployments("preflight"))
+    : at("POST", deployments("deploy"));
+export const activateRoute = at("POST", deployments("activate"));
+export const createRepoRoute = at("POST", deployments("create"));
+export const projectAppsRoute = at("GET", deployments("apps"));
+export const userProjectsRoute = at("GET", deployments("projects"));
+export const redeployRoute = at("POST", deployments("redeploy"));
+export const sdkStatusRoute = at("GET", deployments("sdk-status"));
+export const deploymentStatusRoute = at("GET", deployments("status"));
+export const deploymentAttemptsRoute = at(undefined, deployments("attempts"));
 export const deploymentDeactivateRoute = at("POST", deployments("deactivate"));
 export const deploymentFeedRoute = at("GET", deployments("feed"));
 export const githubAppInstallationsRoute = at("GET", deployments("github-app"));

@@ -5,7 +5,7 @@
 // routes); the GitHub session cookie and the activation/service bearer stay
 // server-side.
 //
-// Two mounts, two shapes: the launch flow (`/api/build/launch/*`) sits on the
+// Two mounts, two shapes: the launch flow (`/api/build/deployments/*`) sits on the
 // client itself, the project console (`/api/build/deployments/*`) under
 // `.deployments`. They are different handlers, not aliases, so the namespace
 // says which one you are calling instead of a `deployment` name prefix.
@@ -41,7 +41,7 @@ import type { UserProject } from "../types";
 
 export type { UserProject };
 
-export const DEFAULT_LAUNCH_BASE_PATH = "/api/build/launch";
+export const DEFAULT_LAUNCH_BASE_PATH = "/api/build/deployments";
 export const DEFAULT_DEPLOYMENTS_BASE_PATH = "/api/build/deployments";
 export const DEFAULT_GITHUB_AUTH_BASE_PATH = "/api/build/auth/github";
 
@@ -104,7 +104,7 @@ export type GithubAppOAuthStartResponse = {
 };
 
 export type LaunchClientOptions = {
-  /** Where the launch routes are mounted. Default `/api/build/launch`. */
+  /** Where the launch routes are mounted. Default `/api/build/deployments`. */
   basePath?: string;
   /** Where the deployments console routes are mounted. Default `/api/build/deployments`. */
   deploymentsBasePath?: string;

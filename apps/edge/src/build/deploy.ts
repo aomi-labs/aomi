@@ -25,7 +25,6 @@ import { platformSlug } from "./endpoint";
 type Project = Awaited<ReturnType<ManagerClient["listUserProjects"]>>[number];
 type ReleasePair = { app: string; releaseTag: string };
 
-const launch = (name: string) => `/api/build/launch/${name}`;
 const deployments = (name: string) => `/api/build/deployments/${name}`;
 
 const byProject = z.object({ projectId: id });
@@ -72,7 +71,7 @@ async function requireSecrets(call: Call<unknown>, project: Project, pairs: Rele
 }
 
 function deploy(preflight: boolean) {
-  return endpoint(preflight ? "launch.preflight" : "launch.deploy", "POST", "", {
+  return endpoint(preflight ? "deployment.preflight" : "deployment.deploy", "POST", deployments(preflight ? "preflight" : "deploy"), {
     auth: { write: true, cliScope: "deploy" },
     input: z.object({
       projectId: id.optional(),
@@ -118,7 +117,7 @@ function deploy(preflight: boolean) {
   });
 }
 
-const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
+const createRepo = endpoint("deployment.create_repo", "POST", deployments("create"), {
   auth: { write: true },
   input: z.object({
     platform: platformSlug.optional(),
@@ -147,7 +146,7 @@ const createRepo = endpoint("launch.create_repo", "POST", launch("create"), {
   },
 });
 
-const status = endpoint("launch.status", "GET", "", {
+const status = endpoint("deployment.status", "GET", deployments("status"), {
   auth: { cliScope: "deployment:read" },
   input: z.object({ deploymentId: text, platform: platformSlug.optional() }),
   run: async ({ input, client, session, ctx }) => {
@@ -161,7 +160,7 @@ const status = endpoint("launch.status", "GET", "", {
   },
 });
 
-const activate = endpoint("launch.activate", "POST", launch("activate"), {
+const activate = endpoint("deployment.activate", "POST", deployments("activate"), {
   auth: { write: true, cliScope: "activate" },
   input: z
     .object({ releaseTags: z.array(text), projectId: id, apps: names })
@@ -187,7 +186,7 @@ const activate = endpoint("launch.activate", "POST", launch("activate"), {
   },
 });
 
-const projectApps = endpoint("launch.apps", "GET", launch("apps"), {
+const projectApps = endpoint("deployment.apps", "GET", deployments("apps"), {
   input: byProject,
   run: async (call) => {
     const project = await owned(call, call.input.projectId);
@@ -405,7 +404,7 @@ const SDK_SUMMARY = [
 
 // The signed-in user's projects (a `platform` narrows the list), or with
 // `projectId` that one project through the manager's detail read.
-const userProjects = endpoint("deployment.projects", "GET", "", {
+const userProjects = endpoint("deployment.projects", "GET", deployments("projects"), {
   input: z.object({ platform: platformSlug.optional(), projectId: id.optional() }),
   run: async ({ input, client, session, visibilityGrant }) => {
     const scope = { githubUserId: session.githubUserId, visibilityGrant: visibilityGrant ?? undefined };
@@ -476,7 +475,7 @@ function appKey(method: "GET" | "POST") {
   });
 }
 
-const attemptsRead = endpoint("launch.attempts", "GET", launch("attempts"), {
+const attemptsRead = endpoint("deployment.attempts", "GET", deployments("attempts"), {
   auth: { cliScope: "deployment:read" },
   input: z.object({
     projectId: id,
@@ -487,7 +486,7 @@ const attemptsRead = endpoint("launch.attempts", "GET", launch("attempts"), {
     client.projectDeploymentAttempts({ ...input, githubUserId: session.githubUserId }),
 });
 
-const attemptsWrite = endpoint("launch.attempts", "POST", launch("attempts"), {
+const attemptsWrite = endpoint("deployment.attempts", "POST", deployments("attempts"), {
   auth: { write: true, cliScope: "deploy" },
   input: z.discriminatedUnion("action", [
     z.object({ action: z.literal("start"), projectId: id, branch: z.string().max(120).optional() }),
@@ -526,21 +525,13 @@ const sdkUpgradeStatus = endpoint("deployment.sdk_upgrade_status", "GET", deploy
   run: ({ input, client, session }) => client.sdkUpgradeStatus({ ...input, githubUserId: session.githubUserId }),
 });
 
-/** A route served at both its launch and its deployments path. */
-function both(route: BuildRoute, name: string): BuildRoute[] {
-  return [
-    { ...route, path: launch(name) },
-    { ...route, path: deployments(name), operation: route.operation.replace(/^launch\./, "deployment.") },
-  ];
-}
-
 export const DEPLOY_ROUTES: readonly BuildRoute[] = [
-  ...both(deploy(false), "deploy"),
-  ...both(deploy(true), "preflight"),
-  ...both(userProjects, "projects"),
-  ...both(redeploy, "redeploy"),
-  ...both(status, "status"),
-  ...both({ operation: "launch.sdk_status", method: "GET", path: "", handle: sdkStatus }, "sdk-status"),
+  deploy(false),
+  deploy(true),
+  userProjects,
+  redeploy,
+  status,
+  { operation: "deployment.sdk_status", method: "GET", path: deployments("sdk-status"), handle: sdkStatus },
   createRepo,
   activate,
   projectApps,
