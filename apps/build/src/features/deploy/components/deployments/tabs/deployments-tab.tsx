@@ -24,7 +24,8 @@ type Detail = ReturnType<typeof useProjectDetail>;
 type OpState = {
   kind: "promote" | "deactivate";
   deploymentId: string;
-  status: "running" | "done" | "error";
+  /** `held`: the promote waits for an Aomi reviewer; the live release is unchanged. */
+  status: "running" | "done" | "held" | "error";
   message: string;
 };
 type Pending =
@@ -235,16 +236,19 @@ export function DeploymentsTab({
     });
     try {
       const result = await detail.promote(deploymentId);
+      const awaitingReview = result.promote.status === "awaiting_review";
       setOp({
         kind: "promote",
         deploymentId,
-        status: result.ok ? "done" : "error",
-        message: result.ok
-          ? `Promoted ${result.promote.releaseTags.length} release tag(s).`
-          : result.promote.status,
+        status: awaitingReview ? "held" : result.ok ? "done" : "error",
+        message: awaitingReview
+          ? `Awaiting review. An Aomi reviewer approves deployment ${deploymentId}, then it goes live.`
+          : result.ok
+            ? `Promoted ${result.promote.releaseTags.length} release tag(s).`
+            : result.promote.status,
       });
       toast({
-        title: result.ok ? "Promoted" : "Failed. Retry",
+        title: awaitingReview ? "Awaiting review" : result.ok ? "Promoted" : "Failed. Retry",
         tone: result.ok ? "success" : "error",
       });
       detail.reload();

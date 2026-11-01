@@ -318,7 +318,7 @@ describe("build surface: CLI login", () => {
       sub: "4242",
       aud: "aomi-build-cli",
       kind: "cli_session",
-      scopes: ["deploy", "deployment:read", "activate"],
+      scopes: ["deploy", "deployment:read", "activate", "approve"],
     });
     expect(claims.exp! - claims.iat!).toBe(86400);
 

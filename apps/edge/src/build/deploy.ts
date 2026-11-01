@@ -17,6 +17,7 @@ import { z } from "zod";
 import { randomHex } from "../kernel/crypto";
 import { EdgeError } from "../kernel/errors";
 import { id, names, numeric, text } from "../kernel/route";
+import { requireApprover } from "./auth";
 import { endpoint, notFound, type BuildRoute, type Call, type Handler } from "./endpoint";
 import { buildError } from "./failures";
 import { managerClient, sdkBackendUrl } from "./manager-client";
@@ -340,6 +341,32 @@ const promote = endpoint("deployment.promote", "POST", deployments("promote"), {
   },
 });
 
+/** An approver approves a deployment's exact app libraries, which runs the activation they waited for. */
+const approve = endpoint("deployment.approve", "POST", deployments("approve"), {
+  auth: { write: true, cliScope: "approve" },
+  input: z.object({ deploymentId: text, platform: platformSlug.optional(), apps: names.optional().catch(undefined) }),
+  status: 202,
+  run: async ({ input, client, session, ctx }) => {
+    requireApprover(session);
+    const result = await client.approveDeployment({
+      platform: input.platform ?? ctx.config.defaultPlatform,
+      deploymentId: input.deploymentId,
+      approvedBy: session.githubLogin,
+      apps: input.apps,
+    });
+    return result.ok ? result : Response.json(result, { status: 409 });
+  },
+});
+
+/** Day-0 snapshot when enforcement switches on: every live hosted app's library is approved. */
+const grandfather = endpoint("deployment.grandfather", "POST", deployments("grandfather"), {
+  auth: { write: true, cliScope: "approve" },
+  run: async ({ client, session }) => {
+    requireApprover(session);
+    return { ok: true, ...(await client.grandfatherApprovals({ approvedBy: session.githubLogin })) };
+  },
+});
+
 const deactivate = endpoint("deployment.deactivate", "POST", deployments("deactivate"), {
   auth: { write: true },
   input: z.object({ projectId: id, apps: someNames }),
@@ -534,6 +561,8 @@ export const DEPLOY_ROUTES: readonly BuildRoute[] = [
   { operation: "deployment.sdk_status", method: "GET", path: deployments("sdk-status"), handle: sdkStatus },
   createRepo,
   activate,
+  approve,
+  grandfather,
   projectApps,
   attemptsRead,
   attemptsWrite,
