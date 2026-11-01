@@ -132,12 +132,38 @@ async function toScopedApi(
       sid: !oauth || oauth.sessionBound ? "session-bound" : undefined,
     },
   });
-  return proxy(request, target(serviceOrigin(ctx, service), pathname, search), {
-    fetchImpl: ctx.fetchImpl,
-    headers: AGENT_API_HEADERS,
-    bearer,
-    set: threadId(request),
-  });
+  const send = (attempt: Request) =>
+    proxy(attempt, target(serviceOrigin(ctx, service), pathname, search), {
+      fetchImpl: ctx.fetchImpl,
+      headers: AGENT_API_HEADERS,
+      bearer,
+      set: threadId(request),
+    });
+  return service === "agent" ? untilLoaded(request, send, ctx.wait) : send(request);
+}
+
+const APP_LOADING_ATTEMPTS = 8;
+
+/**
+ * The API server refuses a turn with 503 `app_loading` before dispatching
+ * anything (the turn provably never started) while a hosted app's artifact
+ * lands on its backend. Wait that out here, bounded by its Retry-After, so a
+ * cold host reads as a slow first turn rather than an error.
+ */
+async function untilLoaded(
+  request: Request,
+  send: (attempt: Request) => Promise<Response>,
+  wait: PortalContext["wait"],
+): Promise<Response> {
+  for (let attempt = 1; ; attempt += 1) {
+    const last = attempt === APP_LOADING_ATTEMPTS;
+    const response = await send(last ? request : request.clone());
+    if (last || response.status !== 503) return response;
+    const body = (await response.clone().json().catch(() => null)) as { error?: { code?: unknown } } | null;
+    if (body?.error?.code !== "app_loading") return response;
+    void response.body?.cancel();
+    await wait(1_000 * (Number(response.headers.get("retry-after")) || 2));
+  }
 }
 
 async function serve(

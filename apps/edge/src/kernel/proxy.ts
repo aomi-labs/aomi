@@ -1,6 +1,8 @@
 import { errorResponse, unreachable } from "./errors";
 
 export type FetchLike = (request: Request, init?: RequestInit) => Promise<Response>;
+export type WaitLike = (delayMs: number) => Promise<unknown>;
+export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
 /** Which headers cross the edge in each direction; an absent side passes all. */
 export type HeaderPolicy = {

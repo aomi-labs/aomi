@@ -2,6 +2,15 @@
 
 ## Last Updated
 
+2026-11-01 — EDGE WAITS OUT `app_loading` (`fix/edge-app-loading-retry`).
+  Portal and widget `/v1/agent/*` calls retry the API server's 503
+  `app_loading` (a turn that provably never started) up to 8 times, honouring
+  Retry-After, so a Direct turn to a hosted app on a cold host is slow instead
+  of failing with "app is loading". Other statuses pass through untouched.
+  `WaitLike`/`wait` moved to `kernel/proxy.ts`; `PortalContext` carries `wait`.
+  Pending (product-mono): backend `resolve_requested_app` still wakes the whole
+  catalog instead of `wake_application(row)`, which makes the wait longer.
+
 2026-10-31 — AUTH CLEANUP FOLLOW-UP TO #814 (`codex/auth-cleanup`).
   Terminal login uses OAuth device authorization (`aomi login`, `/oauth/device`).
   Removed the retired Privy/Para loopback page, provider-link grant storage and
