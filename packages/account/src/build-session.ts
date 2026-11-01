@@ -22,7 +22,7 @@ const CLI_SESSION_AUDIENCE = "aomi-build-cli";
 const CLI_EXCHANGE_TYPE = "aomi-build-cli-exchange";
 const OAUTH_REQUEST_AUDIENCE = "aomi-build-github-oauth-request";
 
-export const CLI_SCOPES = ["deploy", "deployment:read", "activate"] as const;
+export const CLI_SCOPES = ["deploy", "deployment:read", "activate", "approve"] as const;
 export type GitHubCliScope = (typeof CLI_SCOPES)[number];
 
 export interface GitHubSession {

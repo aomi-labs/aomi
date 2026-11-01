@@ -264,7 +264,7 @@ function promoted(deploymentId: string, ok: boolean, activation: ActivateResult[
     promote: {
       deploymentId,
       releaseTags: activation.apps.map((app) => app.releaseTag).filter(present),
-      status: ok ? "promoted" : "blocked",
+      status: activation.status === "awaiting_review" ? "awaiting_review" : ok ? "promoted" : "blocked",
       activation,
     },
   };
@@ -349,6 +349,26 @@ export const ENDPOINTS = {
       read: (raw): RerunDeploymentResult => ({ ...RerunDeploymentResultSchema.parse(raw), deploymentId }),
     });
   },
+
+  /** An approver's exact-binary approval of a deployment's apps, then the activation it waited for. */
+  approveDeployment: (input: { platform: string; deploymentId: string; approvedBy: string; apps?: string[] }) => {
+    const deploymentId = required(input.deploymentId, "deploymentId");
+    return platform(input, `deployments/${segment(deploymentId)}/approve`, {
+      op: "approve",
+      method: "POST",
+      body: { approved_by: required(input.approvedBy, "approvedBy"), ...(input.apps?.length ? { apps: input.apps } : {}) },
+      read: (raw) => promoted(deploymentId, raw.ok === true, ActivateResultSchema.parse(raw).activation),
+    });
+  },
+
+  /** Approve the library every live hosted app serves now (the day-0 snapshot). */
+  grandfatherApprovals: (input: { approvedBy: string }) => ({
+    op: "grandfather approvals",
+    method: "POST" as const,
+    path: "/api/app-approvals/grandfather",
+    body: { approved_by: required(input.approvedBy, "approvedBy") },
+    read: (raw: Raw) => ({ apps: (raw.apps ?? []) as Record<string, unknown>[] }),
+  }),
 
   serverTags: () => ({
     op: "server tags",
