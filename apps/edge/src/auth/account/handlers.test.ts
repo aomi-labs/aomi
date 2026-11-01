@@ -147,6 +147,8 @@ describe("account merge handlers", () => {
       betterAuthUserId: "ba-a",
       currentUserId: "acct-a",
       credential: { provider: "privy", providerToken: "token" },
+      // A portal session enrolls the provider's wallets for login.
+      loginAllowed: true,
     });
     expect(service.offerAccountMerge).toHaveBeenCalledWith({
       targetUserId: "acct-a",
