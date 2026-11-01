@@ -246,6 +246,7 @@ export async function linkProvider({
       userId: current.accountId,
       identity,
       policy: descriptor.policy,
+      loginAllowed: false,
     });
     if (result.status === "conflict") return linkConflict(current, result);
     return Response.json({
@@ -257,6 +258,7 @@ export async function linkProvider({
     betterAuthUserId: current.betterAuthUserId,
     currentUserId: current.accountId,
     credential: credential as AomiAccountCredential,
+    loginAllowed: current.kind === "cookie",
   });
   if (result.status === "conflict") return linkConflict(current, result);
   return Response.json(result);
@@ -365,6 +367,9 @@ export async function linkWallet({
           .trim()
           .slice(0, 80) || null
       : null;
+  // Only a portal session proves the human enrolled this wallet for login; a
+  // widget or bearer link is for execution only.
+  const loginAllowed = principal.kind === "cookie";
   let resolution: SignalResolution;
   if (target.family === "evm") {
     const signed = {
@@ -392,6 +397,7 @@ export async function linkWallet({
       linkedVia: "siwe",
       label: input.label ?? null,
       walletApp,
+      loginAllowed,
     });
   } else {
     if (
@@ -417,6 +423,7 @@ export async function linkWallet({
       linkedVia: "siws",
       label: input.label ?? null,
       walletApp,
+      loginAllowed,
     });
   }
   if (resolution.status === "conflict")

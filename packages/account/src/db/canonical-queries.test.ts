@@ -76,6 +76,7 @@ describe("canonical account queries", () => {
           false,
           JSON.stringify({ display_label: "CLI wallet", wallet_app: "Rabby" }),
           expect.any(Number),
+          true,
         ]);
         return {
           rows: [
@@ -107,6 +108,7 @@ describe("canonical account queries", () => {
       linkedVia: "siwe",
       label: "CLI wallet",
       walletApp: "Rabby",
+      loginAllowed: true,
       db: db as never,
     });
 

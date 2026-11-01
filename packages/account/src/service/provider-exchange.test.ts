@@ -266,6 +266,20 @@ describe("provider sign-in and linking", () => {
     expect(serviceMocks.syncProviderWallets).toHaveBeenCalledTimes(1);
   });
 
+  it("enrolls a linked provider's wallets for login only from a portal session", async () => {
+    await linkVerifiedProviderCredentialForUser({
+      userId: "user-b",
+      verified: verifiedCredential(),
+      loginAllowed: false,
+    });
+    await linkVerifiedProviderCredentialForUser({
+      userId: "user-b",
+      verified: verifiedCredential(),
+      loginAllowed: true,
+    });
+    expect(serviceMocks.syncProviderWallets.mock.calls.map(([input]) => input.loginAllowed)).toEqual([false, true]);
+  });
+
   it("uses the signed-in canonical owner instead of resolving or creating another account", async () => {
     await expect(
       exchangeProviderForExistingSession({
