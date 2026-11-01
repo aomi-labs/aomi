@@ -2,6 +2,12 @@
 
 ## Last Updated
 
+2026-11-01 — GUEST ALIASES BACK FOR PUBLISHED SDKs (`fix/edge-widget-guest-alias`).
+  `/api/auth/widget/guest` and `/api/auth/sign-in/anonymous` route to the one
+  guest handler again. Every published widget (widget-lib 3.x, widget 4.0.2,
+  client <= 0.11) still calls them, and partner embeds such as Hoodit got 404 on
+  staging. Drop them once the new SDK is published and partners have upgraded.
+
 2026-11-01 — EDGE WAITS OUT `app_loading` (`fix/edge-app-loading-retry`).
   Portal and widget `/v1/agent/*` calls retry the API server's 503
   `app_loading` (a turn that provably never started) up to 8 times, honouring

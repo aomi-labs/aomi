@@ -196,7 +196,9 @@ access; it is a separate signer (`aomi-build`), not another Edge identity.
 
 Build app endpoints use `/api/build/*` (deployment operations under
 `/api/build/deployments/*`); dev wallet helpers use `/api/dev/e2e/*`.
-Guest sign-in has one endpoint, `POST /api/auth/guest`.
+Guest sign-in has one endpoint, `POST /api/auth/guest`; `/api/auth/widget/guest`
+and `/api/auth/sign-in/anonymous` stay as aliases for published SDKs
+(client <= 0.11, widget <= 4) until partners have upgraded.
 
 Before deploying the stack, reconcile these external settings together:
 
