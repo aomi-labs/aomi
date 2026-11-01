@@ -217,13 +217,14 @@ export function ThreadUrlBootstrap({
         void createThread();
         return;
       }
-    } else if (threadListLoading) {
-      return;
     } else if (isRemoteThread?.(currentThreadId) ?? events.length > 0) {
+      if (threadListLoading) return;
       void createThread();
       return;
     }
-    if (threadListLoading) return;
+    // An unlinked new chat needs no ownership lookup. Finish that startup
+    // navigation before a Recent selection can be mistaken for a reset.
+    if (threadListLoading && requestedThread) return;
     locationState.settle();
   }, [
     ready,
