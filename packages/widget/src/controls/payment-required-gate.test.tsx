@@ -29,11 +29,8 @@ import { PaymentRequiredGate } from "./payment-required-gate";
 describe("out-of-credit recovery", () => {
   it("links to the credit dialog without changing funding or saving a key", () => {
     render(<PaymentRequiredGate />);
-    const link = screen.getByRole("link", { name: "Add credits on Aomi" });
-    expect(link).toHaveAttribute(
-      "href",
-      "/?topup=credits",
-    );
+    const link = screen.getByRole("link", { name: "Add funds" });
+    expect(link).toHaveAttribute("href", "/?topup=credits");
     expect(link).toHaveAttribute("target", "_blank");
     expect(screen.getByText(/same Aomi account/)).toBeTruthy();
     expect(
@@ -46,9 +43,10 @@ describe("out-of-credit recovery", () => {
   it("sends staging users to the staging host they are already using", () => {
     mocks.baseUrl = "https://chat-staging.aomi.dev";
     render(<PaymentRequiredGate />);
-    expect(
-      screen.getByRole("link", { name: "Add credits on Aomi" }),
-    ).toHaveAttribute("href", "https://chat-staging.aomi.dev/?topup=credits");
+    expect(screen.getByRole("link", { name: "Add funds" })).toHaveAttribute(
+      "href",
+      "https://chat-staging.aomi.dev/?topup=credits",
+    );
     expect(screen.getByText(/chat-staging\.aomi\.dev/)).toBeTruthy();
     mocks.baseUrl = "";
   });

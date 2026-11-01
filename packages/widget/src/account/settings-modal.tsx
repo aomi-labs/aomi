@@ -10,7 +10,7 @@ import {
   type ComponentType,
 } from "react";
 import {
-  ChartNoAxesCombined,
+  CreditCard,
   Plug,
   Settings2,
   ShieldCheck,
@@ -28,7 +28,7 @@ import {
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
 import { GeneralSettings } from "./general-settings";
-import { UsageSettings } from "@/account/usage/usage-settings";
+import { BillingSettings } from "@/account/usage/billing-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
 import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
@@ -80,9 +80,9 @@ const NAV: {
   },
   {
     id: "usage",
-    label: "Usage",
-    description: "Spend, allowance, and statements",
-    Icon: ChartNoAxesCombined,
+    label: "Billing",
+    description: "Plan, balance, usage and payments",
+    Icon: CreditCard,
   },
 ];
 
@@ -232,7 +232,7 @@ export function SettingsModal({
             {id === "general" ? (
               <GeneralSettings
                 onManageAccount={() => selectTab("account")}
-                onViewUsage={() => selectTab("usage")}
+                onViewBilling={() => selectTab("usage")}
               />
             ) : id === "account" ? (
               <Suspense fallback={<LoadingPane label="Loading your account" />}>
@@ -243,7 +243,7 @@ export function SettingsModal({
                 <ConnectionsSettings />
               </Suspense>
             ) : id === "usage" ? (
-              <UsageSettings initialTopUp={initialTopUp} />
+              <BillingSettings initialTopUp={initialTopUp} />
             ) : (
               <PolicyPage />
             )}

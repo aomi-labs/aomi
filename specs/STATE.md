@@ -8,6 +8,22 @@
   client <= 0.11) still calls them, and partner embeds such as Hoodit got 404 on
   staging. Drop them once the new SDK is published and partners have upgraded.
 
+2026-10-30 — BILLING UI (branch `feat/billing-ui-main`).
+  Settings › Usage is now Billing (tab id stays `usage`): Overview with the
+  monthly allowance (ring + plan chip) and added balance side by side, this
+  month's spend, and a scrolling payments table; Usage keeps the statement;
+  Payments lists the ledger. Add funds is a stepped sheet like the wallet
+  picker: amount → card (Stripe) or crypto (USDC over x402) → that rail, with a
+  "not available" state when no rail is configured. Everything shows dollars,
+  never credits: General overview, the sidebar chip ("Pro · ring · $39.98",
+  amount = allowance left + added balance), the account menu (plan tag + ring)
+  and the out-of-allowance gate. Shared `AllowanceRing` (`ui/aomi`), percent
+  inside from 40px. Design: claude.ai artifact QhkEwz25Gj1Q6LoFwetNiw.
+  Pending: auto top-up and plan comparison have no backend yet.
+  Nov 1: fits phones (payments stack below 560px), crypto step picks the
+  paying wallet with the real USDC mark, card is offered whenever enabled,
+  closing after a finished payment starts fresh.
+
 2026-11-01 — EDGE WAITS OUT `app_loading` (`fix/edge-app-loading-retry`).
   Portal and widget `/v1/agent/*` calls retry the API server's 503
   `app_loading` (a turn that provably never started) up to 8 times, honouring
