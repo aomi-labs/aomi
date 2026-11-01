@@ -25,7 +25,7 @@ export function AccountStatusLine({
         </>
       ) : null}
       {allowanceLeft !== undefined ? (
-        <AllowanceRing left={allowanceLeft} size={12} className="mx-px" />
+        <AllowanceRing left={allowanceLeft} size={11} className="mx-px" />
       ) : null}
       <span title="Available to spend">{creditsLine}</span>
     </span>

@@ -19,8 +19,10 @@ const NETWORKS: Record<string, { name: string; explorer: string }> = {
   "eip155:42161": { name: "Arbitrum", explorer: "https://arbiscan.io" },
 };
 
+// Six columns from 560px; below that each row stacks into two lines:
+// description and amount, then date · method and status.
 const COLS =
-  "grid-cols-[64px_minmax(0,1fr)_minmax(0,140px)_80px_76px_28px] gap-3";
+  "@[560px]:grid-cols-[64px_minmax(0,1fr)_minmax(0,140px)_80px_76px_28px] gap-x-3";
 
 /** Top-ups, refunds and balance usage, newest first, in a scrolling table. */
 export function PaymentsTable({
@@ -31,13 +33,13 @@ export function PaymentsTable({
   maxHeight?: number;
 }) {
   return (
-    <div className="border-aomi-border bg-aomi-raised rounded-card overflow-hidden border">
-      <div className="overflow-auto" style={{ maxHeight }}>
-        <div className="min-w-[560px]" role="table" aria-label="Payments">
+    <div className="border-aomi-border bg-aomi-raised rounded-card @container overflow-hidden border">
+      <div className="overflow-y-auto" style={{ maxHeight }}>
+        <div role="table" aria-label="Payments">
           <div
             role="row"
             className={cn(
-              "border-aomi-border bg-aomi-surface text-aomi-muted sticky top-0 grid h-9 items-center border-b px-4 text-[12px] font-medium",
+              "border-aomi-border bg-aomi-surface text-aomi-muted @[560px]:grid sticky top-0 hidden h-9 items-center border-b px-4 text-[12px] font-medium",
               COLS,
             )}
           >
@@ -75,60 +77,76 @@ function PaymentRow({ entry }: { entry: CreditLedgerEntry }) {
   return (
     <div
       role="row"
-      className={cn("grid h-11 items-center px-4 text-[13px]", COLS)}
+      className={cn(
+        "@[560px]:h-11 @[560px]:py-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-y-0.5 px-4 py-2.5 text-[13px]",
+        COLS,
+      )}
     >
-      <span className="text-aomi-muted tabular-nums">
-        {new Date(entry.created_at * 1000).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          timeZone: "UTC",
-        })}
-      </span>
-      <span className="truncate">{description(entry.entry_kind)}</span>
-      <span className="text-aomi-muted flex min-w-0 items-center gap-1.5">
-        <Icon size={14} className="shrink-0" aria-hidden />
-        <span className="truncate">
-          {entry.payment_method === "wallet"
-            ? `USDC${network ? ` · ${network.name}` : ""}`
-            : entry.payment_method === "card"
-              ? "Card"
-              : "From balance"}
-        </span>
+      <span className="@[560px]:order-2 truncate">
+        {description(entry.entry_kind)}
       </span>
       <span
         className={cn(
-          "text-right font-medium tabular-nums",
+          "@[560px]:order-4 text-right font-medium tabular-nums",
           refunded && "text-aomi-muted",
         )}
       >
         {added ? "" : "−"}
         {formatDollars(Math.abs(entry.amount_microusd) / 1_000_000)}
       </span>
-      <span>
-        <span
-          className={cn(
-            "inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide",
-            entry.entry_kind === "purchase"
-              ? "border-aomi-success/25 bg-aomi-success/10 text-aomi-success"
-              : "border-aomi-border bg-aomi-surface-2 text-aomi-muted",
-          )}
-        >
-          {status(entry.entry_kind)}
+      <span className="text-aomi-muted type-meta @[560px]:contents @[560px]:text-[13px] flex min-w-0 items-center gap-1.5">
+        <span className="@[560px]:order-1 shrink-0 tabular-nums">
+          {new Date(entry.created_at * 1000).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          })}
+        </span>
+        <span aria-hidden className="@[560px]:hidden">
+          ·
+        </span>
+        <span className="@[560px]:order-3 flex min-w-0 items-center gap-1.5">
+          <Icon
+            size={14}
+            className="@[560px]:block hidden shrink-0"
+            aria-hidden
+          />
+          <span className="truncate">
+            {entry.payment_method === "wallet"
+              ? `USDC${network ? ` · ${network.name}` : ""}`
+              : entry.payment_method === "card"
+                ? "Card"
+                : "From balance"}
+          </span>
         </span>
       </span>
-      {txUrl ? (
-        <a
-          href={txUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="View transaction"
-          className="text-aomi-muted hover:text-aomi-fg flex size-7 items-center justify-center rounded-[8px] transition-colors"
-        >
-          <ExternalLink size={14} />
-        </a>
-      ) : (
-        <span />
-      )}
+      <span className="@[560px]:contents flex items-center justify-end gap-1">
+        <span className="@[560px]:order-5">
+          <span
+            className={cn(
+              "inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide",
+              entry.entry_kind === "purchase"
+                ? "border-aomi-success/25 bg-aomi-success/10 text-aomi-success"
+                : "border-aomi-border bg-aomi-surface-2 text-aomi-muted",
+            )}
+          >
+            {status(entry.entry_kind)}
+          </span>
+        </span>
+        {txUrl ? (
+          <a
+            href={txUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View transaction"
+            className="text-aomi-muted hover:text-aomi-fg @[560px]:order-6 @[560px]:size-7 flex size-6 items-center justify-center rounded-[8px] transition-colors"
+          >
+            <ExternalLink size={14} />
+          </a>
+        ) : (
+          <span className="@[560px]:order-6 @[560px]:block hidden" />
+        )}
+      </span>
     </div>
   );
 }

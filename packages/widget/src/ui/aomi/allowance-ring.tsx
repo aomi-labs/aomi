@@ -18,6 +18,8 @@ export function AllowanceRing({
   const pct = Math.round(Math.min(1, Math.max(0, left)) * 100);
   const small = size < 24;
   const stroke = small ? 6 : size < 48 ? 3.6 : 3.2;
+  // Keep the stroke inside the 36-unit box, or its edges are clipped flat.
+  const r = 18 - stroke / 2 - 0.25;
   const label = `${pct}% of monthly allowance left`;
   return (
     <span
@@ -31,7 +33,8 @@ export function AllowanceRing({
         <circle
           cx="18"
           cy="18"
-          r="15.9155"
+          r={r}
+          pathLength={100}
           fill="none"
           strokeWidth={stroke}
           className={small ? "stroke-aomi-border" : "stroke-aomi-surface-2"}
@@ -40,7 +43,8 @@ export function AllowanceRing({
           <circle
             cx="18"
             cy="18"
-            r="15.9155"
+            r={r}
+            pathLength={100}
             fill="none"
             strokeWidth={stroke}
             strokeLinecap={small ? "butt" : "round"}

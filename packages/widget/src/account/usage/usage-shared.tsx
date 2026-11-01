@@ -336,7 +336,7 @@ export function Chip({
 }) {
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+      className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
         accent
           ? "border-aomi-accent-outline bg-aomi-accent-tint text-aomi-accent"
           : "border-aomi-border bg-aomi-surface-2 text-aomi-muted"

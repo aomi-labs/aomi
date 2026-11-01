@@ -169,7 +169,7 @@ function AllowanceCard({ billing, plan }: { billing: Billing; plan: string }) {
           <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[22px] font-semibold tabular-nums leading-6 tracking-[-0.02em]">
               {formatDollars(billing.allowanceLeftUsd)}{" "}
-              <span className="text-aomi-muted text-[13px] font-medium tracking-normal">
+              <span className="text-aomi-muted whitespace-nowrap text-[13px] font-medium tracking-normal">
                 of {formatDollars(billing.allowanceUsd)} left
               </span>
             </span>
@@ -259,12 +259,10 @@ function MonthSoFar({
           detail={calls ? `${calls} calls` : "No charges"}
         />
         <StatTile
-          label="On-chain fees"
+          label="On-chain"
           value={usd(summary.onchainUsd)}
           muted={txns === 0}
-          detail={
-            txns ? `${txns} txn${txns === 1 ? "" : "s"}` : "Settle in-token"
-          }
+          detail={txns ? `${txns} txn${txns === 1 ? "" : "s"}` : "No charges"}
         />
       </div>
     </section>

@@ -7,6 +7,7 @@ import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
+import { cn } from "@/lib/cn";
 import { getChainIcon } from "@/icons/chain-map";
 import { Chip } from "./usage/usage-shared";
 import { useUsageStatement } from "./usage/use-usage-statement";
@@ -24,7 +25,6 @@ import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useSettings, type ColorMode } from "./use-settings";
 import {
   Divider,
-  SettingRow,
   SettingsSectionHeading,
   settingsPanelClass,
 } from "./settings-rows";
@@ -198,26 +198,36 @@ function AccountSummaryCard({
     month?.apps.reduce((sum, app) => sum + (app.tool?.calls ?? 0), 0) ?? 0;
 
   return (
-    <div className={settingsPanelClass}>
-      <SettingRow
-        title={primary}
-        desc={[walletDesc, memberSince && `member since ${memberSince}`]
-          .filter(Boolean)
-          .join(" · ")}
-        leading={<AccountAvatar seed={accountId} size={32} />}
-        className="px-4 sm:px-5"
+    <div className={cn(settingsPanelClass, "@container")}>
+      {/* The whole account row opens Account; the label hides on phones. */}
+      <button
+        type="button"
+        onClick={onManageAccount}
+        className="hover:bg-aomi-hover/60 group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors sm:px-5"
       >
-        <Chip>{`${tierLabel(tier)} plan`}</Chip>
-        <AomiButton size="sm" onClick={onManageAccount}>
-          Manage account
-        </AomiButton>
-      </SettingRow>
+        <AccountAvatar seed={accountId} size={36} />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="type-row truncate">{primary}</span>
+            <Chip>{`${tierLabel(tier)} plan`}</Chip>
+          </span>
+          <span className="type-meta text-aomi-muted">
+            {[walletDesc, memberSince && `member since ${memberSince}`]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </span>
+        <span className="type-meta text-aomi-muted group-hover:text-aomi-fg flex shrink-0 items-center gap-1 transition-colors">
+          <span className="@[30rem]:inline hidden">Manage account</span>
+          <ChevronRight size={14} aria-hidden />
+        </span>
+      </button>
 
       {billing ? (
         <>
           <Divider />
-          <div className="divide-aomi-border grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <div className="flex items-center gap-3.5 px-4 py-4 sm:px-5">
+          <div className="[&>*]:border-aomi-border grid grid-cols-2 sm:grid-cols-3">
+            <div className="col-span-2 flex items-center gap-3.5 border-b px-4 py-4 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5">
               {billing.allowanceUsd > 0 ? (
                 <AllowanceRing left={billing.allowanceLeft} size={44} />
               ) : null}
@@ -242,7 +252,7 @@ function AccountSummaryCard({
                 }
               />
             </div>
-            <div className="px-4 py-4 sm:px-5">
+            <div className="border-r px-4 py-4 sm:px-5">
               <Stat
                 label="Added balance"
                 value={formatDollars(billing.balanceUsd)}

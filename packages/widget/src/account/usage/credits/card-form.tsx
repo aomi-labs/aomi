@@ -12,6 +12,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import type { StripeExpressCheckoutElementConfirmEvent } from "@stripe/stripe-js";
 import type { AomiFundingResult } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { cn } from "@/lib/cn";
 
 export default function CardForm(props: {
   publicKey: string;
@@ -125,64 +127,77 @@ function Form({
       onBusy(false);
     }
   }
+  // Stripe draws its fields in iframes: keep them mounted but out of sight
+  // behind a spinner until they are ready, so nothing half-drawn shows.
   return (
-    <div className="flex flex-col gap-4">
-      <div hidden={express === false}>
-        <ExpressCheckoutElement
-          options={{
-            layout: { maxColumns: 1 },
-            paymentMethods: {
-              applePay: "auto",
-              link: "auto",
-              googlePay: "never",
-              amazonPay: "never",
-              paypal: "never",
-              klarna: "never",
-            },
-          }}
-          onReady={(event) =>
-            setExpress(
-              Boolean(
-                event.availablePaymentMethods?.applePay ||
-                event.availablePaymentMethods?.link,
-              ),
+    <div className={cn("relative", !ready && "min-h-40")}>
+      {!ready ? (
+        <LoadingPane
+          label="Loading secure card fields"
+          className="absolute inset-0 min-h-0"
+        />
+      ) : null}
+      <div
+        aria-hidden={!ready}
+        className={cn(
+          "flex flex-col gap-4 transition-opacity duration-200",
+          !ready && "pointer-events-none opacity-0",
+        )}
+      >
+        <div hidden={express === false}>
+          <ExpressCheckoutElement
+            options={{
+              layout: { maxColumns: 1 },
+              paymentMethods: {
+                applePay: "auto",
+                link: "auto",
+                googlePay: "never",
+                amazonPay: "never",
+                paypal: "never",
+                klarna: "never",
+              },
+            }}
+            onReady={(event) =>
+              setExpress(
+                Boolean(
+                  event.availablePaymentMethods?.applePay ||
+                  event.availablePaymentMethods?.link,
+                ),
+              )
+            }
+            onConfirm={(event) => void pay(event)}
+          />
+        </div>
+        {express && (
+          <p className="text-aomi-muted text-center text-xs">
+            or pay with card
+          </p>
+        )}
+        <PaymentElement
+          onReady={() => setReady(true)}
+          onLoadError={() =>
+            failed(
+              "Secure card fields could not load. Check your connection and reopen checkout.",
             )
           }
-          onConfirm={(event) => void pay(event)}
+          options={{
+            layout: "tabs",
+            wallets: { applePay: "never", googlePay: "never" },
+          }}
         />
+        <button
+          className={aomiButton({
+            variant: "primary",
+            className: "h-10 w-full",
+          })}
+          disabled={!stripe || !ready || busy || disabled}
+          onClick={() => void pay()}
+        >
+          {busy
+            ? "Confirming payment…"
+            : `Pay $${(amount / 1_000_000).toFixed(2)}`}
+        </button>
       </div>
-      {express && (
-        <p className="text-aomi-muted text-center text-xs">or pay with card</p>
-      )}
-      {!ready && (
-        <p role="status" className="text-aomi-muted text-xs">
-          Loading secure card fields…
-        </p>
-      )}
-      <PaymentElement
-        onReady={() => setReady(true)}
-        onLoadError={() =>
-          failed(
-            "Secure card fields could not load. Check your connection and reopen checkout.",
-          )
-        }
-        options={{
-          layout: "tabs",
-          wallets: { applePay: "never", googlePay: "never" },
-        }}
-      />
-      <button
-        className={aomiButton({
-          variant: "primary",
-          className: "h-10 w-full",
-        })}
-        disabled={!stripe || !ready || busy || disabled}
-        onClick={() => void pay()}
-      >
-        {busy
-          ? "Confirming payment…"
-          : `Pay $${(amount / 1_000_000).toFixed(2)}`}
-      </button>
     </div>
   );
 }
