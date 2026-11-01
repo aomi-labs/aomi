@@ -182,6 +182,42 @@ export async function logAccountEvent(_input?: {
   // There is no canonical account-events table in the backend graph yet.
 }
 
+/** Whether `wallet` may sign in to the account that owns it. A key the
+ *  server can sign for (an agent wallet) proves no human is present, and a
+ *  wallet a widget or bearer linked was never enrolled by one. */
+export async function walletLoginAllowed(
+  wallet: SignalRef & { type: "wallet" },
+  db: Db = getPool(),
+): Promise<boolean> {
+  const result = await db.query(
+    `select login_allowed and not provider_managed as allowed
+       from public_keys
+      where chain_type = $1 and address = $2`,
+    [
+      canonicalChainType(wallet.family),
+      canonicalAddress(wallet.family, wallet.normalizedAddress),
+    ],
+  );
+  return result.rows[0]?.allowed === true;
+}
+
+/** Enroll `userId`'s own `wallet` for login. */
+export async function enrollWalletLogin(
+  userId: AomiUserId,
+  wallet: SignalRef & { type: "wallet" },
+  db: Db = getPool(),
+): Promise<void> {
+  await db.query(
+    `update public_keys set login_allowed = true
+      where chain_type = $1 and address = $2 and user_id = $3`,
+    [
+      canonicalChainType(wallet.family),
+      canonicalAddress(wallet.family, wallet.normalizedAddress),
+      userId,
+    ],
+  );
+}
+
 export async function findSignalOwner(
   signal: SignalRef,
   db: Db = getPool(),
@@ -425,6 +461,9 @@ export async function upsertWallet(input: {
   label?: string | null;
   /** The wallet app the address was linked from, e.g. "Rabby". */
   walletApp?: string | null;
+  /** Whether this wallet's signature may sign in: only when a human-authenticated
+   *  flow linked it. A later such link upgrades it; no link downgrades it. */
+  loginAllowed: boolean;
   db?: Db;
 }): Promise<DbAomiWallet> {
   const db = input.db ?? getPool();
@@ -440,11 +479,12 @@ export async function upsertWallet(input: {
   const result = await db.query(
     `insert into public_keys
        (chain_type, address, user_id, auth_provider_id, is_primary,
-        authorization_metadata, created_at, updated_at)
-     values ($1, $2, $3, $4, $5, $6::jsonb, $7, $7)
+        authorization_metadata, login_allowed, created_at, updated_at)
+     values ($1, $2, $3, $4, $5, $6::jsonb, $8, $7, $7)
      on conflict (chain_type, address)
      do update set
        user_id = excluded.user_id,
+       login_allowed = public_keys.login_allowed or excluded.login_allowed,
        auth_provider_id = excluded.auth_provider_id,
        is_primary = excluded.is_primary,
        -- A name the user already gave this address wins over one sent at link time.
@@ -466,6 +506,7 @@ export async function upsertWallet(input: {
       false,
       JSON.stringify(walletMetadata),
       now,
+      input.loginAllowed,
     ],
   );
   if (!result.rows[0]) {

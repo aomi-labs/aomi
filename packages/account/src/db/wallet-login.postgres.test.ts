@@ -104,7 +104,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
               ),
             ).toString("base64");
       },
-      async signIn() {
+      async verify() {
         const nonceResponse = await request(
           `${family === "evm" ? "siwe" : "siws"}/nonce`,
           family === "evm" ? {} : { walletAddress: address, chainId },
@@ -139,14 +139,14 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
                   svm.secretKey,
                 ),
               ).toString("base64");
-        const response = await request(
-          `${family === "evm" ? "siwe" : "siws"}/verify`,
-          {
-            message,
-            signature,
-            ...(family === "svm" ? { walletAddress: address, chainId } : {}),
-          },
-        );
+        return request(`${family === "evm" ? "siwe" : "siws"}/verify`, {
+          message,
+          signature,
+          ...(family === "svm" ? { walletAddress: address, chainId } : {}),
+        });
+      },
+      async signIn() {
+        const response = await this.verify();
         expect(response.status).toBe(200);
         const result = await response.json();
         const user = await service.getOrCreateAomiUserForBetterAuthSession({
@@ -159,7 +159,13 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       },
     };
   }
-  async function link(userId: string, w: ReturnType<typeof wallet>) {
+  /** Link `w` to `userId` from a portal session, or from a widget session. */
+  async function link(
+    owner: { userId: string; betterAuthUserId?: string },
+    w: ReturnType<typeof wallet>,
+    from: "cookie" | "widget" = "cookie",
+  ) {
+    const { userId } = owner;
     const { issueWalletLinkNonce } = await import("../service/wallet-linking");
     const nonce = await issueWalletLinkNonce({
       userId,
@@ -197,17 +203,25 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
           signature: await w.signMessage(message),
         }),
       }),
-      principal: {
-        kind: "widget",
-        accountId: userId,
-        guest: false,
-        expiresAt: Math.floor(Date.now() / 1000) + 300,
-        authMethod: "test",
-      },
+      principal:
+        from === "cookie"
+          ? {
+              kind: "cookie",
+              accountId: userId,
+              guest: false,
+              betterAuthUserId: owner.betterAuthUserId,
+              session: { user: { id: owner.betterAuthUserId } },
+            }
+          : {
+              kind: "widget",
+              accountId: userId,
+              guest: false,
+              expiresAt: Math.floor(Date.now() / 1000) + 300,
+              authMethod: "test",
+            },
       params: {},
     } as never);
     expect(response.status).toBe(200);
-    expect((await response.json()).status).toBe("linked");
   }
   it("maps an agent wallet to kind agent, never removes it and never counts it as a login", async () => {
     const w = wallet("evm");
@@ -373,7 +387,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     it(`${family}: sign in, unlink, sign in creates a new account without duplicate email`, async () => {
       const w = wallet(family);
       const first = await w.signIn();
-      await link(first.userId, wallet(family));
+      await link(first, wallet(family));
       const key = await pool.query(
         `select id from public_keys where address = $1`,
         [family === "evm" ? w.address.toLowerCase() : w.address],
@@ -399,7 +413,18 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     it(`${family}: linked wallet signs into its canonical owner`, async () => {
       const a = await wallet(family).signIn();
       const w = wallet(family);
-      await link(a.userId, w);
+      await link(a, w);
+      expect((await w.signIn()).userId).toBe(a.userId);
+    });
+    it(`${family}: a widget-linked wallet executes but never signs in until a portal link`, async () => {
+      const a = await wallet(family).signIn();
+      const w = wallet(family);
+      await link(a, w, "widget");
+      expect((await w.verify()).status).toBe(401);
+      await link(a, w, "cookie");
+      expect((await w.signIn()).userId).toBe(a.userId);
+      // A later widget link does not take the login back.
+      await link(a, w, "widget");
       expect((await w.signIn()).userId).toBe(a.userId);
     });
     it(`${family}: creates a BA mapping for a canonical-only wallet owner`, async () => {
@@ -408,7 +433,9 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
         userId,
       ]);
       const w = wallet(family);
-      await link(userId, w);
+      // A wallet row from before login enrollment (backfilled login_allowed).
+      await link({ userId }, w, "widget");
+      await pool.query(`update public_keys set login_allowed = true where user_id = $1`, [userId]);
       expect((await w.signIn()).userId).toBe(userId);
     });
     it(`${family}: merged wallet signs into the target`, async () => {
@@ -440,7 +467,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     it(`${family}: stale BA rows cannot override canonical ownership or resurrect a removed wallet`, async () => {
       const w = wallet(family);
       const a = await w.signIn();
-      await link(a.userId, wallet(family));
+      await link(a, wallet(family));
       const key = await pool.query(
         `select id from public_keys where address = $1`,
         [family === "evm" ? w.address.toLowerCase() : w.address],
@@ -467,12 +494,12 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
         ).rowCount,
       ).toBe(0);
       const b = await wallet(family).signIn();
-      await link(b.userId, w);
+      await link(b, w);
       expect((await w.signIn()).userId).toBe(b.userId);
     });
-    it(`${family}: wallet sign-in preserves managed provider ownership and capabilities`, async () => {
+    it(`${family}: a provider-managed key never signs in and keeps its ownership and capabilities`, async () => {
       const w = wallet(family);
-      const a = await w.signIn();
+      await w.signIn();
       const key = await pool.query(
         `select id, auth_provider_id from public_keys where address = $1`,
         [family === "evm" ? w.address.toLowerCase() : w.address],
@@ -485,7 +512,8 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
         `update public_keys set provider_managed = true, signing_mode = 'autonomous', authorization_version = 7 where id = $1`,
         [key.rows[0].id],
       );
-      expect((await w.signIn()).userId).toBe(a.userId);
+      // The server can sign for it, so its signature proves no human is present.
+      expect((await w.verify()).status).toBe(401);
       const after = await pool.query(
         `select auth_provider_id, provider_managed, signing_mode, authorization_version from public_keys where id = $1`,
         [key.rows[0].id],

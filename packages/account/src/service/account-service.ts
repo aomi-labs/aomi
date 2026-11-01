@@ -28,7 +28,9 @@ import {
   updateWalletLabel,
   upsertAuthIdentity,
   upsertEmailIdentity,
+  enrollWalletLogin,
   upsertWallet,
+  walletLoginAllowed,
   withTransaction,
 } from "../db/queries";
 import { createDefaultWalletAttesters } from "../providers/default-wallet-attesters";
@@ -40,6 +42,7 @@ import {
   type WalletAttesterRegistry,
 } from "../providers/wallet-attestation";
 import { observeAccountInternalFailure } from "../observability";
+import { WidgetAuthError } from "../widget-auth/origin";
 import {
   IDENTITY_SCOPES,
   type AomiAccountResponse,
@@ -381,6 +384,7 @@ export async function upsertVerifiedWallet(input: {
   linkedVia: LinkedVia;
   label?: string | null;
   walletApp?: string | null;
+  loginAllowed: boolean;
   db?: import("pg").Pool | import("pg").PoolClient;
 }): Promise<SignalResolution> {
   await ensureAccountSchema();
@@ -438,8 +442,11 @@ export async function upsertVerifiedWallet(input: {
     resolution.status === "noop" &&
     (!identityResolution || identityResolution.status === "noop")
   ) {
-    // Already in this account; a sign-in still records the app it came from.
+    // Already in this account; a link still records the app it came from,
+    // and a portal link enrolls an execution-only wallet for login (a
+    // targeted update: re-running upsertWallet would also reset is_primary).
     if (input.walletApp) await upsertWallet(input);
+    else if (input.loginAllowed) await enrollWalletLogin(input.userId, signal, input.db);
     return { status: "noop" };
   }
   await upsertWallet(input);
@@ -517,6 +524,8 @@ async function getOrCreateAomiUserForWalletSignIn(
   return withTransaction(async (db) => {
     await lockSignalRefs([walletSignal, identitySignal], db);
     const owner = await findSignalOwner(walletSignal, db);
+    if (owner && !(await walletLoginAllowed(walletSignal, db)))
+      throw new WidgetAuthError("wallet_login_not_allowed", 401);
     const identityOwner = await findSignalOwner(identitySignal, db);
     // A stale login identity cannot override public_keys, including after unlink.
     if (identityOwner && identityOwner !== owner) {
@@ -541,6 +550,7 @@ async function getOrCreateAomiUserForWalletSignIn(
         kind: "external",
         provider: config.provider,
         linkedVia: config.provider,
+        loginAllowed: true,
         db,
       });
       if (wallet.status === "conflict")
@@ -650,6 +660,8 @@ export async function syncProviderWallets(input: {
   tenantId: string;
   subject?: string | null;
   attested: AttestedWallet[];
+  /** Whether the attested wallets may sign in; see `upsertWallet`. */
+  loginAllowed: boolean;
   db?: import("pg").Pool | import("pg").PoolClient;
 }): Promise<SignalResolution> {
   if (!input.db) {
@@ -732,6 +744,7 @@ export async function syncProviderWallets(input: {
         providerTenantId: input.tenantId,
         providerWalletId: wallet.providerWalletId,
         linkedVia: input.provider,
+        loginAllowed: input.loginAllowed,
         db: input.db,
       });
     } catch (error) {
@@ -874,6 +887,7 @@ export async function syncProviderAttestedWallets(input: {
   attesters?: WalletAttesterRegistry;
   logger?: WalletAttestationLogger;
   fallbackAttested?: readonly AttestedWallet[];
+  loginAllowed: boolean;
 }): Promise<SignalResolution> {
   const fetched = await fetchAttestedProviderWallets({
     provider: input.provider,
@@ -894,6 +908,7 @@ export async function syncProviderAttestedWallets(input: {
     tenantId: input.tenantId,
     subject: input.subject,
     attested: wallets,
+    loginAllowed: input.loginAllowed,
     db: input.db,
   });
 }

@@ -10,6 +10,7 @@
 --   20260725000000_auth_provider_scope.sql
 --   20260726020000_signing_mode_rename.sql
 --   20260726030000_public_keys_provider_managed.sql
+--   20261101020000_public_keys_login_allowed.sql
 --   20261020040000_agent_wallets.sql (agent_wallets, agent_wallet_keys,
 --     users.agents_paused, account_connections and wallet_access; without
 --     the backfill and the composite same-user foreign keys)
@@ -78,6 +79,7 @@ create table if not exists public_keys (
   authorization_version bigint not null default 0,
   authorization_metadata jsonb not null default '{}'::jsonb,
   provider_managed boolean not null default false,
+  login_allowed boolean not null default true,
   created_at bigint not null,
   updated_at bigint not null,
   constraint public_keys_unique_address unique (chain_type, address),
