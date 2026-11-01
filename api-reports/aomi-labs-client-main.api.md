@@ -2060,6 +2060,7 @@ export interface AtomicBatchArgs {
     connector?: unknown;
     // (undocumented)
     forceAtomic?: boolean;
+    onAccepted?: (callsId: string) => void;
     // (undocumented)
     pollingInterval?: number;
     // (undocumented)
@@ -2276,7 +2277,10 @@ export type CommitCapabilities = {
     canWalletSend?: (commit: CommitView, payload: Extract<SignableCommit, {
         kind: "evm_transaction";
     }>) => boolean;
-    walletSendCalls?: (commit: CommitView, request: WalletCallsCommit, onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void) => Promise<string[]>;
+    walletSendCalls?: (commit: CommitView, request: WalletCallsCommit, onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void, onAccepted?: (callsId: string) => void) => Promise<string[]>;
+    walletCallsStatus?: (commit: CommitView, callsId: string) => Promise<Extract<CommitWalletAttemptOutcome, {
+        kind: "calls" | "calls_not_submitted";
+    }> | undefined>;
     canWalletSendCalls?: (commit: CommitView) => boolean;
     walletReceipt?: (commit: CommitView, transactionIds: string[]) => Promise<OnChainOutcome>;
     recovery?: CommitRecoveryStore;
@@ -2408,6 +2412,9 @@ export type CommitPresentation = {
 export type CommitRecoveryRecord = {
     clientRequestId: string;
     attemptId?: string;
+    callsId?: string;
+    walletError?: string;
+    callsNotSubmitted?: true;
     transactionId?: string;
     transactionIds?: string[];
     rejected?: true;
@@ -2850,6 +2857,13 @@ export interface EvmWallet {
     broadcastTransaction?: (signedTransaction: string, chainId: number) => Promise<string>;
     // (undocumented)
     chainId?: number | (() => number | undefined);
+    getPreparedCallsStatus?: (input: {
+        callsId: string;
+        chainId: number;
+        signer: string;
+    }) => Promise<Extract<CommitWalletAttemptOutcome, {
+        kind: "calls" | "calls_not_submitted";
+    }> | undefined>;
     // (undocumented)
     preparePreparedTransaction?: (payload: Extract<SignableCommit, {
         kind: "evm_transaction";
@@ -2859,7 +2873,7 @@ export interface EvmWallet {
         chainId: number;
         calls: EvmWalletCall[];
     }) => Promise<WalletTransactionResult>;
-    sendPreparedCalls?: (payload: WalletCallsCommit, onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void) => Promise<string[]>;
+    sendPreparedCalls?: (payload: WalletCallsCommit, onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void, onAccepted?: (callsId: string) => void) => Promise<string[]>;
     // (undocumented)
     sendPreparedTransaction?: (payload: Extract<SignableCommit, {
         kind: "evm_transaction";
@@ -2928,6 +2942,8 @@ export interface ExecuteWalletCallsParams {
     localPrivateKey: `0x${string}` | null;
     // (undocumented)
     nativeWalletExecution?: NativeWalletExecutionPolicy;
+    // (undocumented)
+    onAccepted?: (callsId: string) => void;
     sendCallsSyncAsync: (args: AtomicBatchArgs) => Promise<unknown>;
     // (undocumented)
     sendTransactionAsync: (args: {

@@ -448,9 +448,9 @@ export function WalletReview() {
         connect={signerSwitch.connect}
         note={signerSwitch.note}
         rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
-        status={status ?? signerSwitch.error}
+        status={recovery?.walletError ?? status ?? signerSwitch.error}
         statusIsError={
-          Boolean(!status && signerSwitch.error) ||
+          Boolean(recovery?.walletError || (!status && signerSwitch.error)) ||
           signatureAdmissionUnavailable ||
           walletMismatch ||
           lifecycle?.onChain === "reverted" ||

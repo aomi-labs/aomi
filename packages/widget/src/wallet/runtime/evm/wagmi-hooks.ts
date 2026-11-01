@@ -186,6 +186,7 @@ export function useSendCallsSyncExecutor(): NonNullable<SendCallsSync> {
     connector: anyConnector,
     forceAtomic,
     pollingInterval,
+    onAccepted,
     status,
     throwOnFailure,
     timeout,
@@ -202,6 +203,7 @@ export function useSendCallsSyncExecutor(): NonNullable<SendCallsSync> {
       version,
     });
     try {
+      onAccepted?.(id);
       return await waitForCallsStatus(config, {
         connector,
         id,

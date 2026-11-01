@@ -39,7 +39,21 @@ export interface EvmWallet {
     onPhase?: (
       phase: Exclude<import("../commits").CommitSubmissionPhase, "preparing">,
     ) => void,
+    onAccepted?: (callsId: string) => void,
   ) => Promise<string[]>;
+  /** Read an already accepted EIP-5792 bundle; never opens a new send.
+   * Returns terminal receipt hashes or a proven offchain failure; unknown stays undefined. */
+  getPreparedCallsStatus?: (input: {
+    callsId: string;
+    chainId: number;
+    signer: string;
+  }) => Promise<
+    | Extract<
+        import("../commits").CommitWalletAttemptOutcome,
+        { kind: "calls" | "calls_not_submitted" }
+      >
+    | undefined
+  >;
   /** Wait for a transaction's receipt on the wallet's own public client (one
    * confirmation). Display only: the Commit Service still settles the commit. */
   waitForReceipt?: (input: {
