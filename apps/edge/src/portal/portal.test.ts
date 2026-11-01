@@ -338,6 +338,61 @@ describe("portal surface: widget sessions", () => {
   });
 });
 
+describe("portal surface: a hosted app still loading", () => {
+  const loading = () =>
+    Response.json(
+      { error: { code: "app_loading", message: "Application 7 is loading on this server. Retry shortly." } },
+      { status: 503, headers: { "retry-after": "2" } },
+    );
+
+  // The agent API answers from `answers` in order, then echoes; every wait is recorded.
+  function chat(answers: (() => Response)[]) {
+    const waits: number[] = [];
+    const fetchImpl: FetchLike = async (request, init) => {
+      const response = await world(request, init);
+      const next = new URL(request.url).origin === AGENT ? answers.shift() : undefined;
+      return next ? next() : response;
+    };
+    const request = new Request(`${PORTAL}/v1/agent/chat`, {
+      method: "POST",
+      headers: { authorization: "Bearer aomi_wst_user", "content-type": "application/json", origin: PARTNER },
+      body: '{"message":"hi"}',
+    });
+    const response = handleRequest(request, env, fetchImpl, async (ms) => void waits.push(ms));
+    return { response, waits };
+  }
+
+  it("waits out app_loading at the edge and sends the same turn once the app is ready", async () => {
+    const { response, waits } = chat([loading, loading]);
+    expect((await response).status).toBe(200);
+    expect(seen.map((record) => record.body)).toEqual(Array(3).fill('{"message":"hi"}'));
+    expect(waits).toEqual([2_000, 2_000]);
+  });
+
+  it("gives up after a bounded number of attempts and keeps the caller's Retry-After", async () => {
+    const { response, waits } = chat(Array(20).fill(loading));
+    const last = await response;
+    expect(last.status).toBe(503);
+    expect(last.headers.get("retry-after")).toBe("2");
+    expect(await last.json()).toMatchObject({ error: { code: "app_loading" } });
+    expect(seen).toHaveLength(8);
+    expect(waits).toHaveLength(7);
+  });
+
+  it("never replays any other refusal or failure", async () => {
+    for (const answer of [
+      () => Response.json({ error: { code: "not_ready" } }, { status: 503 }),
+      () => new Response("bad gateway", { status: 502 }),
+    ]) {
+      seen = [];
+      const { response, waits } = chat([answer]);
+      expect((await response).status).toBe(answer().status);
+      expect(seen).toHaveLength(1);
+      expect(waits).toEqual([]);
+    }
+  });
+});
+
 describe("portal surface: OAuth tokens", () => {
   describe.each(["/api/thread/model", "/api/thread/sim/world"])("Fuzzer setup %s", (path) => {
     it.each([false, true])("forwards Agent write for guest=%s with the canonical account", async (guest) => {

@@ -11,7 +11,7 @@ import type { Auth } from "@aomi-labs/account/better-auth";
 import { authServer } from "../auth/server";
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
-import type { FetchLike } from "../kernel/proxy";
+import { wait as sleep, type FetchLike, type WaitLike } from "../kernel/proxy";
 
 /** Everything the portal surface needs per request, resolved once. */
 export type PortalContext = {
@@ -26,6 +26,7 @@ export type PortalContext = {
   trustedOrigins: readonly string[];
   resources: Resources;
   fetchImpl: FetchLike;
+  wait: WaitLike;
   now: () => number;
 };
 
@@ -37,6 +38,7 @@ export function portalContext(
   request: Request,
   env: EdgeEnv,
   fetchImpl: FetchLike,
+  wait: WaitLike = sleep,
   now: () => number = Date.now,
 ): PortalContext | null {
   const url = new URL(request.url);
@@ -50,6 +52,7 @@ export function portalContext(
     auth: () => authServer(env),
     resources: resourcesFor(url.origin),
     fetchImpl,
+    wait,
     now,
   };
 }

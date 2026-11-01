@@ -9,14 +9,11 @@ import { config } from "../kernel/config";
 import { preflight, withCors } from "../kernel/cors";
 import { EdgeError, errorResponse } from "../kernel/errors";
 import { routingKeyFor } from "../kernel/pool";
-import { proxy, target, type FetchLike } from "../kernel/proxy";
+import { proxy, target, type FetchLike, type WaitLike } from "../kernel/proxy";
 import { exchangeRcToken, RC_TOKEN_PATH, rcOidcConfig } from "./rc-oidc";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
 import { adaptTaskBuild, taskDocument } from "./task";
 import { listOnBazaar } from "./task/bazaar";
-
-export type WaitLike = (delayMs: number) => Promise<unknown>;
-export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
 /**
  * Hosted-app placement: keep only the targets that hold the app's active
