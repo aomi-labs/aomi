@@ -62,6 +62,24 @@ describe("thread title persistence", () => {
     expect(store.getThreadMetadata("saved-thread")?.title).toBe("Original");
   });
 
+  it("shows a listed conversation without a title under the default label", () => {
+    const store = new ThreadStore({ initialThreadId: "untitled-thread" });
+    store.updateThreadMetadata("untitled-thread", { title: "" });
+    const adapter = buildThreadListAdapter({
+      aomiClientRef: {
+        current: new AomiClient({
+          baseUrl: "https://portal.example",
+          fetch: vi.fn(),
+        }),
+      },
+      threadContext: store.getSnapshot(),
+      isRemoteThread: () => true,
+    });
+    expect(adapter.threads).toEqual([
+      { id: "untitled-thread", title: "New Chat", status: "regular" },
+    ]);
+  });
+
   it("shows one pending conversation before a server title exists", () => {
     const store = new ThreadStore({ initialThreadId: "pending-thread" });
     store.updateThreadMetadata("pending-thread", { title: "", pending: true });

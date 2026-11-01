@@ -24,12 +24,12 @@ const sortByLastActiveDesc = (
 
 function buildThreadLists(
   threadMetadata: Map<string, ThreadMetadata>,
-  shouldShowThread: (threadId: string) => boolean,
+  isRemoteThread: (threadId: string) => boolean,
 ) {
-  const entries = Array.from(threadMetadata.entries()).filter(
-    ([threadId, meta]) =>
-      (meta.pending || !isPlaceholderTitle(meta.title)) &&
-      shouldShowThread(threadId),
+  // The server lists only chats with a message, so an untitled one still has
+  // content and shows under the default label.
+  const entries = Array.from(threadMetadata.entries()).filter(([threadId]) =>
+    isRemoteThread(threadId),
   );
 
   const regularThreads = entries
@@ -76,12 +76,9 @@ export function buildThreadListAdapter({
   getInitialControl = initThreadControl,
   isRemoteThread = () => true,
 }: ThreadListAdapterConfig) {
-  const shouldShowThread = (threadId: string) => {
-    return isRemoteThread(threadId);
-  };
   const { regularThreads, archivedThreads } = buildThreadLists(
     threadContext.allThreadsMetadata,
-    shouldShowThread,
+    isRemoteThread,
   );
 
   /** Remove the unsent local placeholder before switching elsewhere. */
@@ -189,7 +186,7 @@ export function buildThreadListAdapter({
           if (firstRegularThread) {
             threadContext.setCurrentThreadId(firstRegularThread[0]);
           } else {
-            const defaultId = "default-session";
+            const defaultId = generateUUID();
             threadContext.setThreadMetadata((prev) =>
               new Map(prev).set(defaultId, {
                 title: "",
