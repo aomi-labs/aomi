@@ -20,6 +20,8 @@ const coreTitles: Record<string, string> = {
   simulate_batch: "Simulate transaction",
   svm_simulate_ix: "Simulate transaction",
   svm_simulate_tx: "Simulate transaction",
+  evm_discard_tx: "Discard transactions",
+  svm_discard_tx: "Discard transactions",
   evm_commit_txs: "Commit transactions",
   svm_commit_txs: "Commit transactions",
   evm_commit_message: "Sign message",
