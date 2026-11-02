@@ -8,6 +8,40 @@ const labelsFor = (chips: { label: string }[]) =>
   chips.map((chip) => chip.label);
 
 describe("tool interpreter", () => {
+  it.each(["evm_discard_tx", "svm_discard_tx"])(
+    "shows confirmed discard counts for %s and never counts a refused request",
+    (toolName) => {
+      expect(decode({ toolName }).title).toBe("Discard transactions");
+      expect(decode({ toolName }).icon).toBe("receipt");
+      for (const [discarded, label] of [
+        [[1], "1 tx discarded"],
+        [[1, 2, 2], "2 txs discarded"],
+      ] as const) {
+        const step = decode({ toolName, result: { discarded } });
+        expect(step.outcome).toBe("success");
+        expect(step.chips).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ label, icon: "receipt" }),
+          ]),
+        );
+      }
+      const pending = decode({ toolName, argsText: '{"tx_ids":[1,2]}' });
+      expect(pending.chips).toEqual([]);
+      const failed = decode({
+        toolName,
+        argsText: '{"tx_ids":[1,2]}',
+        result: {
+          is_error: true,
+          error: "commit is still pending",
+          discarded: [1, 2],
+        },
+      });
+      expect(failed.title).toBe("Discard transactions");
+      expect(failed.outcome).toBe("failed");
+      expect(labelsFor(failed.chips)).toEqual(["Failed"]);
+    },
+  );
+
   it("formats token units without losing bigint precision", () => {
     expect(formatTokenUnits("123456789012345678901234", 6)).toBe(
       "123456789012345678.901234",

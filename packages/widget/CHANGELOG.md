@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.0.3
+
+### Patch Changes
+
+- Remove discarded EVM and Solana drafts from the activity sidebar, including earlier turns and persisted event replay. Show discard count bubbles in the Working trace.
+
 ## 5.0.2
 
 ### Patch Changes
