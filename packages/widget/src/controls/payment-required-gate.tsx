@@ -96,11 +96,7 @@ function PaymentRequiredDialog({
           ) : null}
         </div>
         <div className="border-aomi-border flex justify-end gap-2 border-t px-6 py-3.5">
-          <AomiButton
-            variant="ghost"
-            className="h-9"
-            onClick={onDismiss}
-          >
+          <AomiButton variant="ghost" className="h-9" onClick={onDismiss}>
             Not now
           </AomiButton>
           <a
