@@ -10,9 +10,9 @@ test("a real 402 opens the payment setup gate and cannot admit or replay a turn"
   const gate = widget.page.getByTestId(testIds.paygate);
   await expect(gate).toBeVisible();
   await expect(
-    gate.getByRole("heading", { name: "Add credits to continue" }),
+    gate.getByRole("heading", { name: "You’ve used this month’s allowance" }),
   ).toBeVisible();
-  const topUp = gate.getByRole("link", { name: "Add credits on Aomi" });
+  const topUp = gate.getByRole("link", { name: "Add funds" });
   await expect(topUp).toHaveJSProperty(
     "href",
     new URL("/?topup=credits", portal).href,

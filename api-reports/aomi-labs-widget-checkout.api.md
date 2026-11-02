@@ -19,10 +19,10 @@ import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
 import { WalletSolanaSignPayload } from '@aomi-labs/client';
 import { WalletTxPayload } from '@aomi-labs/client';
 
-// @public (undocumented)
+// @public
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
-    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
+    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect"> & Partial<Pick<AomiWalletKit, "wallets" | "activateWallet">>;
     open: boolean;
     onClose: () => void;
     onSuccess: () => Promise<void>;

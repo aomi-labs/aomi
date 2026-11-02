@@ -1,5 +1,12 @@
 # @aomi-labs/widget
 
+## 5.0.2
+
+### Patch Changes
+
+- Replace Usage settings with Billing and show dollar balances throughout the account UI. Add a stepped card and USDC checkout with optional wallet selection while preserving existing host wallet integrations.
+- Subscribe to billing data only while the payment gate is visible, keeping the closed gate out of ordinary chat updates.
+
 ## 5.0.1
 
 ### Patch Changes

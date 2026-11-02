@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import type { ComponentType, ReactNode } from "react";
+import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { ModalBackdrop } from "@/ui/modal-backdrop";
@@ -166,8 +166,19 @@ export function ModalNavItem({
    * "loading" draws a placeholder until it is known. */
   count?: number | "loading";
 }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  // On phones the nav is a sideways strip: bring a deep-linked tab into view.
+  useEffect(() => {
+    const item = ref.current;
+    const nav = item?.closest("nav");
+    if (!active || !item || !nav || nav.scrollWidth <= nav.clientWidth) return;
+    const offset =
+      item.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+    nav.scrollLeft += offset - (nav.clientWidth - item.offsetWidth) / 2;
+  }, [active]);
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       aria-pressed={active}

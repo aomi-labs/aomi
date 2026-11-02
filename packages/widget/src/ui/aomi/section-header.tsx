@@ -41,7 +41,7 @@ export function SectionHeader({
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Heading id={id} className="type-section truncate">
+        <Heading id={id} className="type-section max-w-full shrink-0 truncate">
           {title}
         </Heading>
         {count !== undefined && count !== null ? (
