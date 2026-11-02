@@ -1,25 +1,29 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   dismissNotification: vi.fn(),
-  baseUrl: "",
   notifications: [{ id: "payment", kind: "payment_required" }],
-  credits: vi.fn(() => ({ data: undefined })),
+  refetch: vi.fn(async () => {}),
+  credits: vi.fn(() => ({ data: undefined, refetch: mocks.refetch })),
 }));
 vi.mock("@/account/use-account-credits", () => ({
   useAccountCredits: mocks.credits,
 }));
-vi.mock("@/account/transport", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/account/transport")>();
-  return {
-    ...actual,
-    useShellTransport: () => ({
-      ...actual.createShellTransport(),
-      baseUrl: mocks.baseUrl,
-    }),
-  };
-});
+vi.mock("@/account/usage/credits/credit-checkout-dialog", () => ({
+  CreditCheckoutDialog: ({
+    onSuccess,
+    onClose,
+  }: {
+    onSuccess: () => Promise<void>;
+    onClose: () => void;
+  }) => (
+    <div data-testid="checkout">
+      <button onClick={() => void onSuccess()}>Pay</button>
+      <button onClick={onClose}>Back</button>
+    </div>
+  ),
+}));
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useNotification: () => ({
@@ -35,6 +39,7 @@ describe("out-of-credit recovery", () => {
   beforeEach(() => {
     mocks.notifications = [{ id: "payment", kind: "payment_required" }];
     mocks.credits.mockClear();
+    mocks.dismissNotification.mockClear();
   });
 
   it("only subscribes to the balance while the payment gate is visible", () => {
@@ -48,27 +53,29 @@ describe("out-of-credit recovery", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
   });
 
-  it("links to the credit dialog without changing funding or saving a key", () => {
+  it("opens checkout in the widget without saving a key", async () => {
     render(<PaymentRequiredGate />);
-    const link = screen.getByRole("link", { name: "Add funds" });
-    expect(link).toHaveAttribute("href", "/?topup=credits");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(screen.getByText(/same Aomi account/)).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Save and use BYOK" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
-    expect(mocks.dismissNotification).toHaveBeenCalledWith("payment");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add funds" }));
+    expect(screen.getByTestId("checkout")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: "Add funds" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add funds" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pay" }));
+    await waitFor(() =>
+      expect(mocks.dismissNotification).toHaveBeenCalledWith("payment"),
+    );
+    expect(mocks.refetch).toHaveBeenCalled();
   });
 
-  it("sends staging users to the staging host they are already using", () => {
-    mocks.baseUrl = "https://chat-staging.aomi.dev";
+  it("dismisses on Not now", () => {
     render(<PaymentRequiredGate />);
-    expect(screen.getByRole("link", { name: "Add funds" })).toHaveAttribute(
-      "href",
-      "https://chat-staging.aomi.dev/?topup=credits",
-    );
-    expect(screen.getByText(/chat-staging\.aomi\.dev/)).toBeTruthy();
-    mocks.baseUrl = "";
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(mocks.dismissNotification).toHaveBeenCalledWith("payment");
   });
 });

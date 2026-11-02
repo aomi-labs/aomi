@@ -1,21 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useNotification } from "@aomi-labs/react";
 import { Wallet } from "lucide-react";
-import { useShellTransport } from "@/account/transport";
 import { useAccountCredits } from "@/account/use-account-credits";
+import { CreditCheckoutDialog } from "@/account/usage/credits/credit-checkout-dialog";
 import {
   billingFromPosition,
   formatDollars,
 } from "@/account/usage/credits/format";
 import { AllowanceRing } from "@/ui/aomi/allowance-ring";
-import { AomiButton, aomiButton } from "@/ui/aomi/button";
+import { AomiButton } from "@/ui/aomi/button";
 import { testIds } from "@/test-ids";
 
 export function PaymentRequiredGate() {
   const { notifications, dismissNotification } = useNotification();
-  // An empty transport origin means this host, including staging and local Chat.
-  const topUpOrigin = useShellTransport().baseUrl;
   const paymentNotification = notifications.find(
     (notification) => notification.kind === "payment_required",
   );
@@ -24,20 +23,29 @@ export function PaymentRequiredGate() {
 
   return (
     <PaymentRequiredDialog
-      topUpOrigin={topUpOrigin}
       onDismiss={() => dismissNotification(paymentNotification.id)}
     />
   );
 }
 
-function PaymentRequiredDialog({
-  topUpOrigin,
-  onDismiss,
-}: {
-  topUpOrigin: string;
-  onDismiss: () => void;
-}) {
-  const billing = billingFromPosition(useAccountCredits().data);
+function PaymentRequiredDialog({ onDismiss }: { onDismiss: () => void }) {
+  const position = useAccountCredits();
+  const billing = billingFromPosition(position.data);
+  // Checkout runs here, in the widget, so an embedded host's visitor tops up
+  // without leaving the page or signing in again on another origin.
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  if (checkoutOpen)
+    return (
+      <CreditCheckoutDialog
+        open
+        onClose={() => setCheckoutOpen(false)}
+        onSuccess={async () => {
+          await position.refetch();
+          onDismiss();
+        }}
+      />
+    );
 
   return (
     <div
@@ -56,9 +64,7 @@ function PaymentRequiredDialog({
             <p className="text-aomi-muted mt-1.5 text-[13px] leading-[19px]">
               Add funds to finish this task
               {billing ? `. Your allowance refills on ${billing.resetsOn}` : ""}
-              . Funds are added on{" "}
-              {topUpOrigin ? new URL(topUpOrigin).host : "this site"} with the
-              same Aomi account.
+              .
             </p>
           </div>
           {billing ? (
@@ -99,14 +105,13 @@ function PaymentRequiredDialog({
           <AomiButton variant="ghost" className="h-9" onClick={onDismiss}>
             Not now
           </AomiButton>
-          <a
-            href={`${topUpOrigin}/?topup=credits`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={aomiButton({ variant: "primary", className: "h-9" })}
+          <AomiButton
+            variant="primary"
+            className="h-9"
+            onClick={() => setCheckoutOpen(true)}
           >
             Add funds
-          </a>
+          </AomiButton>
         </div>
       </div>
     </div>

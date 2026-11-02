@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const state = vi.hoisted(() => ({ get: vi.fn(), ledger: vi.fn() }));
 vi.mock("@aomi-labs/client", () => ({
   Aomi: class {
@@ -40,7 +41,12 @@ beforeEach(() => {
     });
 });
 it("uses builder ownership and refreshes debt after shared checkout succeeds", async () => {
-  render(<SettingsBillingPanel />);
+  const queryClient = new QueryClient();
+  render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsBillingPanel />
+    </QueryClientProvider>,
+  );
   expect(await screen.findByText(/Pay \$10.00 to restore/)).toBeInTheDocument();
   state.get.mockResolvedValue({
     balance_microusd: 0,
@@ -51,4 +57,8 @@ it("uses builder ownership and refreshes debt after shared checkout succeeds", a
   fireEvent.click(screen.getByRole("button", { name: "Confirm test funding" }));
   expect(await screen.findByText("$0.00")).toBeInTheDocument();
   expect(screen.queryByText(/Pay \$10.00 to restore/)).not.toBeInTheDocument();
+  // The shell's debt banner reads this cache entry.
+  expect(queryClient.getQueryData(["builder-credits"])).toMatchObject({
+    debt_microusd: 0,
+  });
 });
