@@ -1,0 +1,105 @@
+/* Live desk: the Aomi widget in the middle column of the concept desk. */
+
+.desk-shell.live {
+  min-height: 680px;
+}
+.desk-shell.live .conversation {
+  min-height: 680px;
+}
+.live-chat {
+  flex: 1 0 auto;
+  height: 600px;
+  display: flex;
+}
+.live-chat > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Dottie's palette on the widget's tokens. `.dottie-widget.light` outranks the
+   widget's own `:root, .light` defaults. */
+.dottie-widget.light {
+  --aomi-bg: #fdf9ff;
+  --aomi-surface: #faf4fc;
+  --aomi-surface-2: #f5e7fb;
+  --aomi-raised: #ffffff;
+  --aomi-border: #e6d8ec;
+  --aomi-fg: #31113e;
+  --aomi-muted: #735680;
+  --aomi-accent: #8e44ad;
+  --aomi-accent-strong: #6c3483;
+  --aomi-accent-subtle: #f0dff8;
+  --aomi-on-accent: #ffffff;
+  --aomi-hover: #e7d0f1;
+  --aomi-success: #1f7a44;
+  --aomi-radius-shell: 0px;
+  font-family: var(--body);
+  border: 0;
+  box-shadow: none;
+}
+
+/* Sidebar: playbook cards fill the composer instead of swapping canned replies. */
+.desk-shell.live .side-caption {
+  margin-top: 25px;
+}
+.live-hint .avatar-dot {
+  background: var(--violet);
+  color: white;
+}
+
+/* Right column. */
+.live-steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 0 0 28px;
+  padding: 0;
+}
+.live-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  column-gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e3d4e9;
+}
+.live-steps li::before {
+  content: counter(step, decimal-leading-zero);
+  grid-row: span 2;
+  font: 600 11px/1.9 var(--mono);
+  color: var(--purple);
+}
+.live-steps b {
+  font-size: 13.5px;
+}
+.live-steps small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* Telegram preview: the same live chat in a phone-sized column. */
+.desk-shell.live.telegram-mode .live-chat {
+  justify-content: center;
+  padding: 18px 0;
+}
+.desk-shell.live.telegram-mode .live-chat > * {
+  flex: 0 1 400px;
+  border: 2px solid var(--ink);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 5px 5px var(--ink);
+}
+
+@media (max-width: 580px) {
+  .desk-shell.live,
+  .desk-shell.live .conversation {
+    min-height: 0;
+  }
+  .desk-shell.live .live-chat {
+    height: min(640px, calc(100svh - 120px));
+  }
+  .desk-shell.live .side-caption {
+    display: none;
+  }
+}

@@ -1,0 +1,78 @@
+name: Deploy Sol Dottie (Cloudflare Pages)
+
+# Builds examples/sol-dottie and publishes it to the Cloudflare Pages project
+# `sol-dottie`. Pushes to main deploy production (sol-dottie.pages.dev); a
+# manual run on any other branch deploys a preview at <branch>.sol-dottie.pages.dev.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - examples/sol-dottie/**
+      - packages/widget/**
+      - packages/client/**
+      - packages/react/**
+      - pnpm-lock.yaml
+      - .github/workflows/deploy-sol-dottie.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sol-dottie-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The Cloudflare token's one root is this GitHub Environment.
+    environment: sol-dottie
+    env:
+      PAGES_PROJECT: sol-dottie
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @aomi-labs/example-sol-dottie... --filter aomi-edge
+
+      - name: Build the widget and its workspace dependencies
+        run: pnpm --filter '@aomi-labs/example-sol-dottie^...' run --if-present build
+
+      - name: Build the site
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: pnpm --filter @aomi-labs/example-sol-dottie build
+
+      - name: Create the Pages project if it does not exist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! pnpm --filter aomi-edge exec wrangler pages project list | grep -qw "$PAGES_PROJECT"; then
+            pnpm --filter aomi-edge exec wrangler pages project create "$PAGES_PROJECT" --production-branch main
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          pnpm --filter aomi-edge exec wrangler pages deploy \
+            "$GITHUB_WORKSPACE/examples/sol-dottie/dist" \
+            --project-name "$PAGES_PROJECT" --branch "$BRANCH" \
+            --commit-hash "$GITHUB_SHA" --commit-dirty=true

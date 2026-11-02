@@ -2,6 +2,17 @@
 
 ## Last Updated
 
+2026-11-02 — SOL DOTTIE SITE (`claude/project-thread-ob14pb`).
+  New `examples/sol-dottie`: the Breakpoint workshop's Sol Dottie landing page
+  (from the `dottie.html` concept, recoloured to the workshop palette) with a
+  live desk: `AomiWidget`, Solana wallets only, pinned Direct to the Dottie App.
+  No Application ID (or `?concept`) keeps the sample-data desk. Deployed to the
+  Cloudflare Pages project `sol-dottie` by `deploy-sol-dottie.yml`.
+  Pending: create the `sol-dottie` GitHub Environment (secret
+  `CLOUDFLARE_API_TOKEN` with Pages Edit, variable `CLOUDFLARE_ACCOUNT_ID`);
+  set `DOTTIE_APPLICATION_ID` in `src/site-config.ts` once the Dottie App is
+  hosted; Telegram bot URL.
+
 2026-11-01 — GUEST ALIASES BACK FOR PUBLISHED SDKs (`fix/edge-widget-guest-alias`).
   `/api/auth/widget/guest` and `/api/auth/sign-in/anonymous` route to the one
   guest handler again. Every published widget (widget-lib 3.x, widget 4.0.2,
