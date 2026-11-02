@@ -558,6 +558,7 @@ export function AomiWalletKitComposer({
             sendPreparedEvmTransaction:
               execution.evm.sendPreparedEvmTransaction,
             sendPreparedEvmCalls: execution.evm.sendPreparedEvmCalls,
+            getPreparedEvmCallsStatus: execution.evm.getPreparedEvmCallsStatus,
             waitForEvmReceipt: execution.evm.waitForEvmReceipt,
             supportsAtomicEvmBatch: execution.evm.supportsAtomicEvmBatch,
             signEvmTransaction: execution.evm.signEvmTransaction,

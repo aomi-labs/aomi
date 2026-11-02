@@ -2008,9 +2008,11 @@ describe("send_calls bundles", () => {
   function setup({
     atomic = true,
     walletSendCalls = vi.fn().mockResolvedValue(["0xbundle"]),
+    walletCallsStatus,
     current = views(leader, member),
   }: {
     atomic?: boolean;
+    walletCallsStatus?: CommitCapabilities["walletCallsStatus"];
     walletSendCalls?: NonNullable<CommitCapabilities["walletSendCalls"]>;
     current?: Map<string, CommitView>;
   } = {}) {
@@ -2054,6 +2056,7 @@ describe("send_calls bundles", () => {
         walletSend,
         walletSendPreflight,
         walletSendCalls,
+        walletCallsStatus,
         canWalletSendCalls,
         recovery: recovery.store,
       },
@@ -2094,6 +2097,7 @@ describe("send_calls bundles", () => {
     expect(walletSendCalls).toHaveBeenCalledWith(
       expect.objectContaining({ commit_id: leader.commit_id }),
       bundleRequest,
+      expect.any(Function),
       expect.any(Function),
     );
     expect(walletSend).not.toHaveBeenCalled();
@@ -2392,7 +2396,151 @@ describe("send_calls bundles", () => {
     expect(recovery.records.get(leader.commit_id)).toEqual({
       clientRequestId: expect.any(String),
       attemptId: "attempt-1",
+      callsId: "0xid",
+      walletError: "Wallet batch request failed: status unknown: (code 4001)",
     });
+    controller.close();
+  });
+
+  it("checks a saved bundle after reload and reports its hashes without sending again", async () => {
+    const walletCallsStatus = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        kind: "calls",
+        transaction_ids: ["0xrecovered"],
+      });
+    const current = views(
+      { ...leader, action: null, wallet_attempt: leaderAttempt },
+      member,
+    );
+    const { controller, recovery, reports, walletSendCalls, attempts } = setup({
+      current,
+      walletCallsStatus,
+    });
+    recovery.store.save(leader.thread_id, leader.commit_id, {
+      clientRequestId: "original-request",
+      attemptId: "attempt-1",
+      callsId: "0xid",
+      walletError: "original provider failure",
+    });
+    expect(controller.canExecute(current.get(leader.commit_id)!)).toBe(true);
+    await controller.execute(leader.commit_id);
+    expect(reports).toEqual([]);
+    expect(recovery.records.get(leader.commit_id)?.walletError).toBe(
+      "original provider failure",
+    );
+    const settled = await controller.execute(leader.commit_id);
+    expect(settled.state).toBe("submitted");
+    expect(walletCallsStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ commit_id: leader.commit_id }),
+      "0xid",
+    );
+    expect(reports).toMatchObject([
+      { body: { kind: "calls", transaction_ids: ["0xrecovered"] } },
+    ]);
+    expect(walletSendCalls).not.toHaveBeenCalled();
+    expect(attempts).toEqual([]);
+    expect(recovery.records.has(leader.commit_id)).toBe(false);
+    controller.close();
+  });
+
+  it("persists a proven offchain failure before reporting it and never sends again", async () => {
+    const walletCallsStatus = vi
+      .fn()
+      .mockResolvedValue({ kind: "calls_not_submitted", calls_id: "0xid" });
+    const current = views(
+      { ...leader, action: null, wallet_attempt: leaderAttempt },
+      member,
+    );
+    const { controller, recovery, reports, walletSendCalls } = setup({
+      current,
+      walletCallsStatus,
+    });
+    recovery.store.save(leader.thread_id, leader.commit_id, {
+      clientRequestId: "original",
+      attemptId: "attempt-1",
+      callsId: "0xid",
+    });
+    await controller.execute(leader.commit_id);
+    expect(reports).toMatchObject([
+      {
+        body: { kind: "calls_not_submitted", calls_id: "0xid" },
+        saved: { callsNotSubmitted: true },
+      },
+    ]);
+    expect(walletSendCalls).not.toHaveBeenCalled();
+    controller.close();
+  });
+
+  it("keeps a different attempt's saved bundle blocked", async () => {
+    const walletCallsStatus = vi
+      .fn()
+      .mockResolvedValue({
+        kind: "calls_not_submitted",
+        calls_id: "old-bundle",
+      });
+    const current = views(
+      { ...leader, action: null, wallet_attempt: leaderAttempt },
+      member,
+    );
+    const { controller, recovery, reports, walletSendCalls } = setup({
+      current,
+      walletCallsStatus,
+    });
+    recovery.store.save(leader.thread_id, leader.commit_id, {
+      clientRequestId: "old",
+      attemptId: "old-attempt",
+      callsId: "old-bundle",
+    });
+    await controller.execute(leader.commit_id);
+    expect(walletCallsStatus).not.toHaveBeenCalled();
+    expect(walletSendCalls).not.toHaveBeenCalled();
+    expect(reports).toEqual([]);
+    controller.close();
+  });
+
+  it("saves a bundle ID while its result is still pending", async () => {
+    let finish!: (hashes: string[]) => void;
+    const walletSendCalls: NonNullable<CommitCapabilities["walletSendCalls"]> =
+      vi.fn(async (_commit, _request, _phase, onAccepted) => {
+        onAccepted?.("0xaccepted");
+        return new Promise<string[]>((resolve) => {
+          finish = resolve;
+        });
+      });
+    const { controller, recovery } = setup({ walletSendCalls });
+    const sending = controller.execute(leader.commit_id);
+    await vi.waitFor(() =>
+      expect(recovery.records.get(leader.commit_id)?.callsId).toBe(
+        "0xaccepted",
+      ),
+    );
+    finish(["0xreceipt"]);
+    await sending;
+    controller.close();
+  });
+
+  it("retains bounded non-Error wallet diagnostics without serializing provider data", async () => {
+    const failure = {
+      message: "Internal wallet failure\nRequest body: private body",
+      code: -32603,
+      providerResponse: { token: "must not persist" },
+    };
+    const { controller, recovery, reports } = setup({
+      walletSendCalls: vi.fn().mockRejectedValue(failure),
+    });
+    await expect(controller.execute(leader.commit_id)).rejects.toBe(failure);
+    expect(recovery.records.get(leader.commit_id)?.walletError).toBe(
+      "Internal wallet failure (code -32603)",
+    );
+    expect(
+      JSON.stringify(recovery.records.get(leader.commit_id)),
+    ).not.toContain("private body");
+    expect(
+      JSON.stringify(recovery.records.get(leader.commit_id)),
+    ).not.toContain("must not persist");
+    expect(reports).toEqual([]);
     controller.close();
   });
 

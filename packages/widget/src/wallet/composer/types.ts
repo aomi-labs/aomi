@@ -92,6 +92,7 @@ export type EvmExecutionRuntime = {
   sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
   preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
   sendPreparedEvmCalls?: import("@aomi-labs/client").EvmWallet["sendPreparedCalls"];
+  getPreparedEvmCallsStatus?: import("@aomi-labs/client").EvmWallet["getPreparedCallsStatus"];
   waitForEvmReceipt?: import("@aomi-labs/client").EvmWallet["waitForReceipt"];
   supportsAtomicEvmBatch?: import("@aomi-labs/client").EvmWallet["supportsAtomicBatch"];
   signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];

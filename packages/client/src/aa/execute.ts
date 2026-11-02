@@ -257,6 +257,7 @@ export async function executeWalletCalls(
     try {
       const sendCallsArgs = {
         chainId,
+        ...(params.onAccepted ? { onAccepted: params.onAccepted } : {}),
         calls: normalizedCalls.map(({ to, value, data }) => ({
           to,
           value,

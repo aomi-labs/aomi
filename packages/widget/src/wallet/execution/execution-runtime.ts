@@ -241,14 +241,48 @@ export function buildEvmExecutionRuntime(
             return decision.supported;
           }
         : undefined),
+    getPreparedEvmCallsStatus:
+      runtime.getPreparedEvmCallsStatus ??
+      (activeConnector && activeAddress
+        ? async ({ callsId, chainId, signer }) => {
+            assertActiveSignerAddress({ signer });
+            const client = (await runtime.getWalletClientFor({
+              connector: activeConnector,
+            })) as WalletClient | null;
+            if (!client)
+              throw new Error("Expected signing wallet is not connected");
+            const result = await client.request({
+              method: "wallet_getCallsStatus",
+              params: [callsId],
+            });
+            if (result.id !== callsId || Number(result.chainId) !== chainId)
+              throw new Error("Wallet bundle status identity mismatch");
+            if (result.status === 400 && !result.receipts?.length)
+              return { kind: "calls_not_submitted", calls_id: callsId };
+            // EIP-5792: 100 is pending; 200 and 400-699 are terminal. A
+            // receipt hash is still required for Commit Service to verify on chain.
+            if (
+              result.status !== 200 &&
+              !(result.status >= 400 && result.status < 700)
+            )
+              return undefined;
+            const hashes = result.receipts?.map(
+              (receipt) => receipt.transactionHash,
+            );
+            return hashes?.length
+              ? { kind: "calls", transaction_ids: hashes }
+              : undefined;
+          }
+        : undefined),
     sendPreparedEvmCalls:
       runtime.sendPreparedEvmCalls ??
       (canSendPreparedCalls
-        ? async (payload, onPhase) => {
+        ? async (payload, onPhase, onAccepted) => {
             assertActiveSignerAddress(payload);
             if (!runtime.chainsById[payload.chain_id])
               throw new Error("Commit chain is not configured");
             return sendWalletCallBundle({
+              onAccepted,
               onRefused: () =>
                 markNoBatch(
                   activeConnector!.uid,

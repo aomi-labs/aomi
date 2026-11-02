@@ -233,6 +233,7 @@ export type AomiWalletKit = {
     sendPreparedEvmTransaction?: EvmWallet["sendPreparedTransaction"];
     preparePreparedEvmTransaction?: EvmWallet["preparePreparedTransaction"];
     sendPreparedEvmCalls?: EvmWallet["sendPreparedCalls"];
+    getPreparedEvmCallsStatus?: EvmWallet["getPreparedCallsStatus"];
     waitForEvmReceipt?: EvmWallet["waitForReceipt"];
     supportsAtomicEvmBatch?: EvmWallet["supportsAtomicBatch"];
     signEvmTransaction?: EvmWallet["signTransaction"];

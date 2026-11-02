@@ -11,6 +11,7 @@ import {
   AomiCommits,
   commitCapabilities,
   type CommitHandle,
+  type CommitCapabilities,
   type CommitRefView,
 } from "@aomi-labs/client";
 import { CommitSignPanel, commitRelativeTime } from "./commit-sign-panel";
@@ -33,13 +34,18 @@ const kit = vi.hoisted(() => ({
   ],
 }));
 const signTransaction = vi.hoisted(() => vi.fn(async () => "0xsigned"));
+const recoveryFixture = vi.hoisted(() => ({
+  capabilities: {} as CommitCapabilities,
+}));
 
 vi.mock("@/wallet/context", () => ({ useAomiWalletKit: () => kit }));
 vi.mock("@/wallet/use-action-capabilities", () => ({
-  useCommitCapabilities: () =>
-    commitCapabilities({
+  useCommitCapabilities: () => ({
+    ...commitCapabilities({
       evm: { address: signer, chainId: () => 1, signTransaction },
     }),
+    ...recoveryFixture.capabilities,
+  }),
 }));
 
 const view = (overrides: Partial<CommitRefView> = {}): CommitRefView => ({
@@ -175,6 +181,7 @@ beforeEach(() => {
   kit.connect.mockReset();
   kit.activateWallet.mockReset();
   signTransaction.mockClear();
+  recoveryFixture.capabilities = {};
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -438,5 +445,73 @@ describe("commitRelativeTime", () => {
     expect(commitRelativeTime(now / 1000 - 30, now)).toBe("just now");
     expect(commitRelativeTime(now / 1000 - 86_400, now)).toBe("yesterday");
     expect(commitRelativeTime(undefined, now)).toBeUndefined();
+  });
+});
+
+describe("CommitSignPanel · accepted bundle recovery", () => {
+  it("shows the saved wallet error and checks a bundle when the backend exposes no new action", async () => {
+    let record:
+      | {
+          clientRequestId: string;
+          attemptId: string;
+          callsId: string;
+          walletError: string;
+        }
+      | undefined = {
+      clientRequestId: "original",
+      attemptId: "attempt-1",
+      callsId: "0xbundle",
+      walletError: "Original wallet failure",
+    };
+    const walletCallsStatus = vi
+      .fn()
+      .mockResolvedValue({ kind: "calls_not_submitted", calls_id: "0xbundle" });
+    recoveryFixture.capabilities = {
+      walletCallsStatus,
+      recovery: {
+        load: () => record,
+        save: (_thread, _id, value) => {
+          record = value as typeof record;
+        },
+        remove: () => {
+          record = undefined;
+        },
+      },
+    };
+    const initial = view({
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "send_calls",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    });
+    const { handle, writes } = await open(
+      initial,
+      view({
+        version: 3,
+        state: "failed",
+        action: null,
+        failure_code: "wallet_calls_offchain_failure_400",
+      }),
+    );
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    expect(screen.getByText("Original wallet failure")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Check status" }));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        {
+          path: `/v1/commits/${ref}/attempts/attempt-1/report`,
+          body: { kind: "calls_not_submitted", calls_id: "0xbundle" },
+        },
+      ]),
+    );
+    expect(walletCallsStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ commit_id: ref }),
+      "0xbundle",
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
   });
 });

@@ -149,7 +149,12 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
       isTerminalCommit(view) ||
       lifecycle.phase === "signing" ||
       lifecycle.phase === "submitted");
-  const awaitingWallet = Boolean(view.action) && !terminal && !parkedOrSigning;
+  const awaitingWallet =
+    Boolean(
+      view.action || view.wallet_attempt || leg.recoveryRecord?.attemptId,
+    ) &&
+    !terminal &&
+    !parkedOrSigning;
   const canSign = connected && leg.canSign(capabilities);
   const signerRow = wallet.wallets.find(
     (row) => walletKey(row.family, row.address) === signer,
@@ -304,6 +309,11 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
                 lifecycle.phase,
               )
             }
+            approveLabel={
+              lifecycle.phase === "checking_submission"
+                ? "Check status"
+                : undefined
+            }
             approveDisabled={!canSign}
             connect={
               awaitingWallet && !connected
@@ -331,8 +341,15 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
                   }
                 : undefined
             }
-            status={error ?? (lifecycle.onChain ? lifecycle.label : undefined)}
-            statusIsError={Boolean(error) || lifecycle.onChain === "reverted"}
+            status={
+              leg.recoveryRecord?.walletError ??
+              error ??
+              (lifecycle.onChain ? lifecycle.label : undefined)
+            }
+            statusIsError={
+              Boolean(error ?? leg.recoveryRecord?.walletError) ||
+              lifecycle.onChain === "reverted"
+            }
             recoveringExistingAttempt={Boolean(
               view.wallet_attempt || leg.recoveryRecord?.attemptId,
             )}
