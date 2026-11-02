@@ -22,18 +22,18 @@ vi.mock("@/wallet/context", () => ({
 vi.mock("./general-settings", () => ({
   GeneralSettings: ({
     onManageAccount,
-    onViewUsage,
+    onViewBilling,
   }: {
     onManageAccount: () => void;
-    onViewUsage: () => void;
+    onViewBilling: () => void;
   }) => (
     <div>
       General content
       <button type="button" onClick={onManageAccount}>
         Manage account
       </button>
-      <button type="button" onClick={onViewUsage}>
-        View usage
+      <button type="button" onClick={onViewBilling}>
+        View billing
       </button>
     </div>
   ),
@@ -43,9 +43,9 @@ vi.mock("./account-settings", () => ({
   AccountSettings: () => <div>Account content</div>,
 }));
 
-vi.mock("@/account/usage/usage-settings", () => ({
-  UsageSettings: ({ initialTopUp }: { initialTopUp?: boolean }) => (
-    <div data-topup={String(initialTopUp)}>Usage content</div>
+vi.mock("@/account/usage/billing-settings", () => ({
+  BillingSettings: ({ initialTopUp }: { initialTopUp?: boolean }) => (
+    <div data-topup={String(initialTopUp)}>Billing content</div>
   ),
 }));
 
@@ -67,12 +67,12 @@ describe("SettingsModal directory shell", () => {
     const view = render(
       <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
     );
-    expect(screen.queryByText("Usage content")).toBeNull();
+    expect(screen.queryByText("Billing content")).toBeNull();
     session.status = "ready";
     view.rerender(
       <SettingsModal initialTab="usage" initialTopUp onClose={vi.fn()} />,
     );
-    expect(screen.getByText("Usage content")).toHaveAttribute(
+    expect(screen.getByText("Billing content")).toHaveAttribute(
       "data-topup",
       "true",
     );
@@ -124,9 +124,9 @@ describe("SettingsModal directory shell", () => {
     expect(await screen.findByText("Connections content")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "View usage" }));
-    expect(screen.getByText("Usage content")).toBeTruthy();
-    expect(screen.getByText("Spend, allowance, and statements")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View billing" }));
+    expect(screen.getByText("Billing content")).toBeTruthy();
+    expect(screen.getByText("Plan, balance, usage and payments")).toBeTruthy();
   });
 
   it("gives every tab the same reading column", () => {
@@ -136,7 +136,7 @@ describe("SettingsModal directory shell", () => {
       ["General", "General content"],
       ["Account", "Account content"],
       ["Safety", "Policy content"],
-      ["Usage", "Usage content"],
+      ["Billing", "Billing content"],
     ]) {
       fireEvent.click(screen.getByRole("button", { name: tab }));
       const column = screen

@@ -71,10 +71,26 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     .getByRole("button", { name: "Settings", exact: true })
     .click();
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
-  await settings.getByRole("button", { name: "Usage", exact: true }).click();
-  await expect(settings.getByText("Monthly credits")).toBeVisible({
+  const billingNav = settings
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "Billing", exact: true });
+  await billingNav.click();
+  await expect(billingNav).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    settings.getByText("of $10.00 left", { exact: true }),
+  ).toBeVisible({
     timeout: 30_000,
   });
+  await expect(settings.getByRole("table", { name: "Payments" })).toBeVisible();
+  await settleVisuals(page);
+  await expect(settings).toHaveScreenshot("billing-settings.png", screenshot());
+  await settings
+    .getByRole("group", { name: "Billing view" })
+    .getByRole("button", { name: "Usage", exact: true })
+    .click();
+  await expect(
+    settings.getByRole("link", { name: /Full statement/ }),
+  ).toBeVisible();
   await settleVisuals(page);
   await expect(settings).toHaveScreenshot("usage-settings.png", screenshot());
 });

@@ -63,6 +63,7 @@ export type AccountMenuProps = {
     walletLabel?: string;
     allowanceLine?: string;
     planLabel?: string;
+    allowanceLeft?: number;
     allowanceLoading?: boolean;
     noticeLine?: string;
     themeLabel?: string;
@@ -388,10 +389,10 @@ export type ConsentWalletsState = {
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">, terms?: Parameters<typeof createEvmPaymentClient>[1]): ReturnType<typeof createEvmPaymentClient> | undefined;
 
-// @public (undocumented)
+// @public
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
-    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
+    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect"> & Partial<Pick<AomiWalletKit, "wallets" | "activateWallet">>;
     open: boolean;
     onClose: () => void;
     onSuccess: () => Promise<void>;
@@ -739,6 +740,7 @@ export type WalletAccountMenuOptions = {
     primaryLine?: string;
     secondaryLine?: string;
     planLabel?: string;
+    allowanceLeft?: number;
     secondaryLoading?: boolean;
     noticeLine?: string;
     walletLabel?: string;
