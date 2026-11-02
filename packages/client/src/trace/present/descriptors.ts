@@ -231,6 +231,12 @@ const descriptorById: Record<string, Descriptor> = {
     "chain",
     "txId",
   ),
+  "general.tx.discard": {
+    title: "fixed",
+    fixedTitle: "Discard transactions",
+    icon: "receipt",
+    chipPlan: [{ kind: "count", role: "tx" }, { kind: "status" }],
+  },
   "sign.message": {
     title: "fixed",
     fixedTitle: "Sign message",

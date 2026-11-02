@@ -13,6 +13,7 @@ import {
   matchStagedTx,
 } from "./evm/transactions";
 import { matchGetTransaction, matchListTransactions } from "./general/activity";
+import { matchDiscardTx } from "./general/discard-tx";
 import { matchSignMessage } from "./general/sign-message";
 import { matchSkillActivation } from "./general/skills";
 import { matchSleep } from "./general/sleep";
@@ -27,6 +28,7 @@ import {
 
 const evmMatchers: Record<string, ToolMatcher[]> = {
   evm_stage_tx: [matchStagedTx],
+  evm_discard_tx: [matchDiscardTx],
   "evm stage": [matchStagedTx],
   simulate_batch: [matchEvmSimulation],
   evm_commit_txs: [matchEvmPendingApproval],
@@ -56,6 +58,7 @@ const generalMatchers: Record<string, ToolMatcher> = {
 const svmMatchers: Record<string, ToolMatcher> = {
   svm_stage_ix: matchSvmStage,
   svm_stage_tx: matchSvmStage,
+  svm_discard_tx: matchDiscardTx,
   svm_simulate_ix: matchSvmSimulation,
   svm_simulate_tx: matchSvmSimulation,
   svm_commit_txs: matchSvmPendingApproval,

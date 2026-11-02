@@ -1,5 +1,11 @@
 # @aomi-labs/client
 
+## 1.0.2
+
+### Patch Changes
+
+- Describe EVM and SVM discard calls in the Working trace with a transaction icon and the number of drafts actually discarded; refused calls show failure without a discard count, and unconfirmed discards stay neutral.
+
 ## 1.0.1
 
 ### Patch Changes

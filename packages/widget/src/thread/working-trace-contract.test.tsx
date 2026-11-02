@@ -15,6 +15,45 @@ describe("working trace contract", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it.each([undefined, {}])(
+    "keeps an unconfirmed discard neutral for %j",
+    (result) => {
+      const step = interpretToolStep({ toolName: "evm_discard_tx", result });
+      const { container } = render(
+        <ToolStepRow
+          interpretation={step}
+          done
+          active={false}
+          animate={false}
+        />,
+      );
+      expect(step.outcome).toBe("unknown");
+      expect(container.querySelector("svg.text-aomi-success")).toBeNull();
+      expect(container.querySelector("svg.lucide-receipt-text")).not.toBeNull();
+    },
+  );
+
+  it.each(["evm_discard_tx", "svm_discard_tx"])(
+    "renders %s with a transaction count bubble",
+    (toolName) => {
+      const step = interpretToolStep({
+        toolName,
+        result: { discarded: [1, 2] },
+      });
+      const { getByText } = render(
+        <ToolStepRow
+          interpretation={step}
+          done
+          active={false}
+          animate={false}
+        />,
+      );
+      const count = getByText("2 txs discarded");
+      expect(count.parentElement?.querySelector("svg")).not.toBeNull();
+      expect(getByText("Discard transactions")).toBeVisible();
+    },
+  );
+
   it("keeps the failure marker for older callers without an outcome", () => {
     const step = interpretToolStep({ toolName: "unknown_tool" });
     const { container } = render(
@@ -35,6 +74,8 @@ describe("working trace contract", () => {
     ["simulate_batch", "Simulate transaction"],
     ["svm_simulate_ix", "Simulate transaction"],
     ["evm_commit_txs", "Commit transactions"],
+    ["evm_discard_tx", "Discard transactions"],
+    ["svm_discard_tx", "Discard transactions"],
     ["svm_commit_txs", "Commit transactions"],
     ["brave_search", "Search web"],
     ["web_search", "Search web"],

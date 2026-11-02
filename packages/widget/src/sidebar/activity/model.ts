@@ -213,6 +213,22 @@ export function selectActivity(
       /svm|solana|jupiter/.test(name) || result.chain_kind === "svm"
         ? "svm"
         : "evm";
+    if (name === "evm_discard_tx" || name === "svm_discard_tx") {
+      const discarded = new Set(ids(result.discarded));
+      // Pending ids are unique per family and thread across networks, not
+      // scoped to the turn that staged them. Replay removes the same drafts.
+      for (const [key, tx] of staged) {
+        const pendingId =
+          number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id);
+        if (
+          tx.family === family &&
+          pendingId != null &&
+          discarded.has(pendingId)
+        )
+          staged.delete(key);
+      }
+      continue;
+    }
     // Protocol staging tools list their pending txs under `staged`; the
     // chain stage tools return one record (SVM wraps it in `tx` or `ix`).
     const stagedRecords = Array.isArray(result.staged)
@@ -261,7 +277,7 @@ export function selectActivity(
             label: string(result.description) ?? "Jupiter swap instruction",
             kind: "swap",
             cluster: string(result.cluster),
-            raw: result,
+            raw: { ...result, pending_ix_id: id },
             stage: "staged",
           });
       }
