@@ -86,7 +86,7 @@ jobs:
         run: pnpm run check:frontend-boundaries
 
       - name: Lint and typecheck workspace
-        run: pnpm run lint && pnpm run typecheck
+        run: pnpm run lint && pnpm run typecheck && pnpm run check:route-scopes
 
       - name: Build every publishable package
         run: pnpm run build:packages
@@ -210,6 +210,7 @@ jobs:
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run lint:landing
             pnpm run typecheck:landing
+            pnpm run test:landing
           fi
 
       - name: Build affected apps
@@ -221,21 +222,24 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
           NEXT_PUBLIC_PROJECT_ID: 000000000000000000000000000000000000000000
-          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
-          NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
+          BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
             pnpm run build:portal
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter portal build:app
           fi
+          # Start apps build for Vercel (deployed) and Cloudflare Workers.
           if [ "$CHECK_BUILD" = true ]; then
             pnpm run build:aomi-build
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter aomi-build build:app
           fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run build:landing
+            AOMI_DEPLOY_TARGET=cloudflare pnpm --filter landing build:app
           fi
 
   journeys:

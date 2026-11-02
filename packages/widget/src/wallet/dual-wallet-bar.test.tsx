@@ -692,13 +692,13 @@ it("shows saved credits and plan until live values replace them", () => {
       accountId: "user-1",
       name: "Ada",
       wallets: [],
-      creditsLine: "498",
+      creditsLine: "$4.98",
       planLabel: "Free",
     }),
   );
   adapterState.current.accountStatus = "loading";
   const view = render(<DualWalletBar families={["evm"]} />);
-  expect(screen.getByText("498 credits")).toBeInTheDocument();
+  expect(screen.getByText("$4.98")).toBeInTheDocument();
   expect(screen.getByTitle("Free plan")).toBeInTheDocument();
 
   adapterState.current.accountStatus = "ready";
@@ -713,28 +713,28 @@ it("shows saved credits and plan until live values replace them", () => {
       }}
     />,
   );
-  expect(screen.getByText("498 credits")).toBeInTheDocument();
+  expect(screen.getByText("$4.98")).toBeInTheDocument();
   view.rerender(
     <DualWalletBar
       families={["evm"]}
       accountMenu={{
         enabled: true,
         primaryLine: "Ada",
-        secondaryLine: "490",
+        secondaryLine: "$4.90",
         planLabel: "Pro",
       }}
     />,
   );
-  expect(screen.getByText("490 credits")).toBeInTheDocument();
+  expect(screen.getByText("$4.90")).toBeInTheDocument();
   expect(screen.getByTitle("Pro plan")).toBeInTheDocument();
   expect(
     JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
-  ).toMatchObject({ creditsLine: "490", planLabel: "Pro" });
+  ).toMatchObject({ creditsLine: "$4.90", planLabel: "Pro" });
 
   adapterState.current.accountUser = undefined;
   view.rerender(<DualWalletBar families={["evm"]} />);
   expect(window.localStorage.getItem("aomi:account-chip:default")).toBeNull();
-  expect(screen.queryByText("490 credits")).not.toBeInTheDocument();
+  expect(screen.queryByText("$4.90")).not.toBeInTheDocument();
 });
 
 it("never borrows another account's cached credits", () => {

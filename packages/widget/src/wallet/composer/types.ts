@@ -1,8 +1,11 @@
 "use client";
 
+import {
+  type WalletEip712Payload,
+  type WalletTxPayload,
+} from "@aomi-labs/client";
 import type { Chain } from "viem";
 import type { Connector } from "wagmi";
-import type { WalletEip712Payload, WalletTxPayload } from "@aomi-labs/react";
 import type {
   AomiAccount,
   AomiAccountCredential,

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { findAomiUserById } from "../db/queries";
+import { WIDGET_TOKEN_PREFIX, widgetBearerToken } from "../principal";
 import { observedWidgetOrigin } from "./origin";
 import {
   widgetAuthStore,
@@ -8,7 +9,6 @@ import {
 } from "./store";
 
 export const WIDGET_SESSION_TTL_SECONDS = 30 * 60;
-const WIDGET_TOKEN_PREFIX = "aomi_wst_";
 
 export type AccountSession = {
   token: string;
@@ -112,10 +112,6 @@ export async function revokeWidgetSession(input: {
   return store.delete({ identifier });
 }
 
-export function hasWidgetSessionBearer(request: Request): boolean {
-  return widgetBearerToken(request) !== null;
-}
-
 export function widgetSessionIdentifierForRequest(
   request: Request,
 ): string | null {
@@ -151,13 +147,6 @@ export async function validateWidgetSessionBinding(input: {
   return Boolean(await findAomiUserById(ticket.userId));
 }
 
-function widgetBearerToken(request: Request): string | null {
-  const authorization = request.headers.get("authorization");
-  if (!authorization) return null;
-  const [scheme, token, extra] = authorization.trim().split(/\s+/);
-  if (scheme?.toLowerCase() !== "bearer" || !token || extra) return null;
-  return token.startsWith(WIDGET_TOKEN_PREFIX) ? token : null;
-}
 
 function sessionIdentifier(token: string): string {
   return `${WIDGET_SESSION_NAMESPACE}${createHash("sha256").update(token).digest("hex")}`;

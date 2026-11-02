@@ -20,6 +20,8 @@ export class SessionManager {
     let session = this.sessions.get(threadId);
     if (session) return session;
 
+    // The runtime's per-thread store is where the React SDK builds its sessions.
+    // eslint-disable-next-line no-restricted-syntax
     session = new ClientSession(this.clientFactory(), {
       ...opts,
       sessionId: threadId,

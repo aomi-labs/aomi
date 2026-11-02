@@ -1,5 +1,3 @@
-"use client";
-
 // Table primitives shared by the Operate surfaces: a titled card shell plus the
 // header/cell class pair every Operate table uses.
 

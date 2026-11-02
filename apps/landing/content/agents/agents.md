@@ -25,17 +25,17 @@ Read prices, balances, build/sign transfers, swaps, stakes, lends, bridges.
 **Install once:**
 ```bash
 npx skills add aomi-labs/skills
-npm install -g @aomi-labs/client
+npm install -g @aomi-labs/cli@latest
 ```
 
-**Then operate:** the [`aomi-transact` skill](https://github.com/aomi-labs/skills/blob/main/aomi-transact/SKILL.md) handles the chat → simulate → sign flow over the `aomi` CLI.
+**Then operate:** the [`aomi-transact` skill](https://github.com/aomi-labs/skills/blob/main/aomi-transact/SKILL.md) handles the chat → durable Commit review → authorized signing flow over the `aomi` CLI.
 
 **Verify it works:**
 ```bash
 aomi --prompt "what is the price of ETH?"
 ```
 
-If `aomi` is not on PATH, replace `aomi` with `npx @aomi-labs/client` everywhere — same flags, same behavior.
+If `aomi` is not on PATH, replace `aomi` with `npx @aomi-labs/cli@latest` everywhere — same flags, same behavior.
 
 **Hard rules** (the skill enforces these; respect them even without the skill):
 - Never invent or guess credentials. Pass through only what the user gave you in this turn.

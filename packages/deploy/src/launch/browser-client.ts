@@ -5,8 +5,8 @@
 // routes); the GitHub session cookie and the activation/service bearer stay
 // server-side.
 //
-// Two mounts, two shapes: the launch flow (`/api/bff/launch/*`) sits on the
-// client itself, the project console (`/api/bff/deployments/*`) under
+// Two mounts, two shapes: the launch flow (`/api/build/deployments/*`) sits on the
+// client itself, the project console (`/api/build/deployments/*`) under
 // `.deployments`. They are different handlers, not aliases, so the namespace
 // says which one you are calling instead of a `deployment` name prefix.
 // =============================================================================
@@ -41,9 +41,9 @@ import type { UserProject } from "../types";
 
 export type { UserProject };
 
-export const DEFAULT_LAUNCH_BASE_PATH = "/api/bff/launch";
-export const DEFAULT_DEPLOYMENTS_BASE_PATH = "/api/bff/deployments";
-export const DEFAULT_GITHUB_AUTH_BASE_PATH = "/api/bff/auth/github";
+export const DEFAULT_LAUNCH_BASE_PATH = "/api/build/deployments";
+export const DEFAULT_DEPLOYMENTS_BASE_PATH = "/api/build/deployments";
+export const DEFAULT_GITHUB_AUTH_BASE_PATH = "/api/build/auth/github";
 
 /**
  * Every launch BFF route returns the payload on success or `{ error }` on
@@ -104,11 +104,11 @@ export type GithubAppOAuthStartResponse = {
 };
 
 export type LaunchClientOptions = {
-  /** Where the launch routes are mounted. Default `/api/bff/launch`. */
+  /** Where the launch routes are mounted. Default `/api/build/deployments`. */
   basePath?: string;
-  /** Where the deployments console routes are mounted. Default `/api/bff/deployments`. */
+  /** Where the deployments console routes are mounted. Default `/api/build/deployments`. */
   deploymentsBasePath?: string;
-  /** Where the GitHub auth routes are mounted. Default `/api/bff/auth/github`. */
+  /** Where the GitHub auth routes are mounted. Default `/api/build/auth/github`. */
   authBasePath?: string;
   /**
    * The platform for calls made BEFORE a project exists — project creation,
@@ -231,7 +231,7 @@ function createBaseClient(options: LaunchClientOptions) {
     );
   }
 
-  /** The project console — `/api/bff/deployments/*`. */
+  /** The project console — `/api/build/deployments/*`. */
   const deployments = {
     projects(
       input: { platform?: string; projectId?: number } = {},

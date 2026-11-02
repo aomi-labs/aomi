@@ -16,8 +16,7 @@ sources_of_truth:
 
 Portal exposes both configured account providers, Privy and Para, in the wallet
 picker. The host selects one provider SDK at a time and opens its sign-in flow;
-device authorization routes remain pinned to the requested provider. Choosing a
-login provider does not grant delegation or select an Auto transaction account.
+choosing a login provider does not grant delegation or select an Auto transaction account.
 The explicit provider choice is remembered on this browser. Restore it before
 mounting an SDK; a reload must neither open login again nor briefly exchange
 credentials from a different default provider.

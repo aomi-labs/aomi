@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { Aomi } from "@aomi-labs/client";
 import { AddPrivateAppDialog } from "./add-private-app-dialog";
 const fixture = vi.hoisted(() => ({
   apps: [] as { applicationId: number }[],
@@ -17,7 +18,14 @@ vi.mock("@aomi-labs/react", async (original) => ({
   usePrivateApps: () => ({ apps: fixture.apps, add: fixture.add }),
 }));
 vi.mock("@/account/transport", () => ({
-  useShellTransport: () => ({ fetch: fixture.fetch }),
+  useShellTransport: () => ({
+    aomi: new Aomi({
+      baseUrl: "",
+      guest: false,
+      fetch: (...args: Parameters<typeof fetch>) => fixture.fetch(...args),
+    }),
+    settingsThread: () => "thread-1",
+  }),
 }));
 vi.mock("@/account/account-overview", () => ({
   useAccountOverview: () => null,

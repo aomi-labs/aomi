@@ -12,7 +12,7 @@ import {
 import { ExtUserProvider } from "@aomi-labs/react";
 import type { AomiWalletKit } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { AomiAccountRequestError } from "@/wallet/account/aomi-backend-client";
+import { AccountGraphApiError } from "@aomi-labs/client";
 import {
   AOMI_BOOTING_WALLET_KIT,
   AomiWalletKitContextProvider,
@@ -325,20 +325,25 @@ describe("wallet sheet", () => {
     "offers a merge in a %s session and handles %s with supported actions",
     async (session, action) => {
       const linkWallet = vi.fn().mockRejectedValue(
-        new AomiAccountRequestError(409, "account_merge_available", null, {
-          ticket: "t1",
-          other: {
-            name: "0xdA65…3CF0",
-            createdAt: "2026-09-12T00:00:00Z",
-            chats: 12,
-            wallets: 2,
-            credits: "0",
-            dropped: [
-              "OpenAI model key (you already have one here)",
-              "Search app · token (re-enter it after merging)",
-            ],
+        new AccountGraphApiError(
+          409,
+          {
+            error: "account_merge_available",
+            ticket: "t1",
+            other: {
+              name: "0xdA65…3CF0",
+              created_at: "2026-09-12T00:00:00Z",
+              chats: 12,
+              wallets: 2,
+              credits: "0",
+              dropped: [
+                "OpenAI model key (you already have one here)",
+                "Search app · token (re-enter it after merging)",
+              ],
+            },
           },
-        }),
+          "",
+        ),
       );
       const mergeAccount = vi.fn(async () => ({ chats: 12 }));
       const switchToMergeSource = session === "cookie" ? vi.fn() : undefined;
@@ -411,7 +416,7 @@ describe("wallet sheet", () => {
   ])("explains why a merge remains blocked: %s", async (code, copy) => {
     const mergeAccount = vi
       .fn()
-      .mockRejectedValue(new AomiAccountRequestError(409, code));
+      .mockRejectedValue(new AccountGraphApiError(409, { error: code }, ""));
     render(
       <Harness
         open={false}
@@ -429,7 +434,7 @@ describe("wallet sheet", () => {
             ticket: "billing-ticket",
             other: {
               name: "Other account",
-              createdAt: "2026-09-12T00:00:00Z",
+              created_at: "2026-09-12T00:00:00Z",
               chats: 1,
               wallets: 1,
               credits: "0",
@@ -467,7 +472,7 @@ describe("wallet sheet", () => {
             ticket: "t2",
             other: {
               name: "privy user",
-              createdAt: "2026-09-12T00:00:00Z",
+              created_at: "2026-09-12T00:00:00Z",
               chats: 3,
               wallets: 2,
               credits: "0",

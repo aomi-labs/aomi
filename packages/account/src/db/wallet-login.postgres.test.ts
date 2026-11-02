@@ -21,10 +21,10 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
   let pool: Pool;
   let admin: Pool;
   let databaseCreated = false;
-  let auth: typeof import("../better-auth/auth").auth;
+  let auth: import("../better-auth/auth").Auth;
   let service: typeof import("../service/account-service");
   let merge: typeof import("../service/account-merge");
-  let handlers: typeof import("../../../../apps/portal/src/server/account/handlers");
+  let handlers: typeof import("../../../../apps/edge/src/auth/account/handlers");
   const origin = "http://localhost:3999";
   beforeAll(async () => {
     const url = new URL(connectionString!);
@@ -61,12 +61,12 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
         "utf8",
       ),
     );
-    ({ auth } = await import("../better-auth/auth"));
+    auth = (await import("../better-auth/auth")).createAuth(process.env);
     await (await getMigrations(auth.options)).runMigrations();
     service = await import("../service/account-service");
     merge = await import("../service/account-merge");
     handlers =
-      await import("../../../../apps/portal/src/server/account/handlers");
+      await import("../../../../apps/edge/src/auth/account/handlers");
   }, 30_000);
   afterAll(async () => {
     await pool?.end();

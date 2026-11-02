@@ -1,4 +1,4 @@
-import type { AgentMode, AgentTarget } from "@aomi-labs/react";
+import { type AgentMode, type AgentTarget } from "@aomi-labs/client";
 
 export type DirectRoutingApp =
   | { app: string; applicationId?: never }

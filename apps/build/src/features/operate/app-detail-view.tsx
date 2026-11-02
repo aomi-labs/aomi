@@ -1,5 +1,3 @@
-"use client";
-
 // Per-app drill-down dashboard shared by the live product route and the fixture
 // design harness. Product data is rendered as received; empty series are an
 // honest no-data state rather than substituted example values.

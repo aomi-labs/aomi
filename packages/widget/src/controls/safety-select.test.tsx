@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TransactionSafetyPolicy } from "@aomi-labs/client";
+import type { Aomi, TransactionSafetyPolicy } from "@aomi-labs/client";
 import { WidgetStorageProvider } from "@/lib/widget-storage";
 
 const state = vi.hoisted(() => ({
@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
   walletKit: { accountUser: { id: "acct" } as { id: string } | undefined },
   account: undefined as unknown,
   thread: undefined as unknown,
+  aomi: undefined as unknown as Aomi,
 }));
 vi.mock("@aomi-labs/react", async (original) => ({
   ...(await original<typeof import("@aomi-labs/react")>()),
@@ -25,9 +26,26 @@ vi.mock("@aomi-labs/react", async (original) => ({
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => state.walletKit,
 }));
-vi.mock("@/account/transport", () => ({
-  useShellTransport: () => ({ json: state.request }),
-}));
+vi.mock("@/account/transport", async () => {
+  // A real Aomi whose wire is the `state.request(path, init)` stub: a resolved
+  // value is a 200 body; a thrown Error is a failed response with its message.
+  const { Aomi } = await import("@aomi-labs/client");
+  state.aomi = new Aomi({
+    baseUrl: "",
+    fetch: async (input, init) => {
+      try {
+        return Response.json(await state.request(String(input), init));
+      } catch (cause) {
+        return new Response((cause as Error).message, { status: 409 });
+      }
+    },
+  });
+  return {
+    useShellTransport: () => ({ aomi: state.aomi }),
+    useShellAomi: () => state.aomi,
+    useAomi: () => state.aomi,
+  };
+});
 
 import { useState, type ReactNode } from "react";
 import { DisplayCacheProvider } from "../../../react/src/query/display-cache";
@@ -110,9 +128,7 @@ beforeEach(() => {
         return Promise.resolve(state.thread);
       }
       return Promise.resolve(
-        path === "/api/thread/transaction-safety"
-          ? state.thread
-          : state.account,
+        path.includes("/threads/") ? state.thread : state.account,
       );
     });
 });
@@ -149,7 +165,7 @@ describe("SafetySelect", () => {
         new Promise((resolve) =>
           pending.push(() =>
             resolve(
-              path === "/api/thread/transaction-safety"
+              path.includes("/threads/")
                 ? state.thread
                 : policy("balanced", 1, "account_default"),
             ),
@@ -161,6 +177,7 @@ describe("SafetySelect", () => {
       screen.getByRole("button", { name: "Guard policy: Strict" }),
     ).toHaveAttribute("aria-disabled", "true");
 
+    await waitFor(() => expect(pending.length).toBeGreaterThan(0));
     await act(async () => pending.forEach((answer) => answer()));
     await waitFor(() =>
       expect(createScopedStorage({ backendUrl: "" }).get("safetyDefault")).toBe(
@@ -176,7 +193,7 @@ describe("SafetySelect", () => {
     let answerThread: (() => void) | undefined;
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
-      path === "/api/thread/transaction-safety"
+      path.includes("/threads/")
         ? new Promise((resolve) => {
             answerThread = () => resolve(state.thread);
           })
@@ -212,9 +229,7 @@ describe("SafetySelect", () => {
 
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
-      path === "/api/thread/transaction-safety"
-        ? new Promise(() => {})
-        : request(path, init),
+      path.includes("/threads/") ? new Promise(() => {}) : request(path, init),
     );
     render(
       <WidgetStorageProvider
@@ -233,7 +248,7 @@ describe("SafetySelect", () => {
     state.thread = policy("unrestricted", 4, "thread");
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
-      path === "/api/thread/transaction-safety"
+      path.includes("/threads/")
         ? Promise.reject(new Error("backend down"))
         : request(path, init),
     );
@@ -301,7 +316,9 @@ describe("SafetySelect", () => {
 
     // Only the save event can move the footer: the account GET still answers
     // Balanced.
-    await act(() => saveTransactionSafety(state.request, "guarded_only", 1));
+    await act(() =>
+      saveTransactionSafety(state.aomi.account.guard, "guarded_only", 1),
+    );
     expect(
       await screen.findByText("New chats start on Strict"),
     ).toBeInTheDocument();
@@ -316,9 +333,8 @@ describe("SafetySelect", () => {
 
     expect(puts()).toEqual([
       [
-        "/api/thread/transaction-safety",
+        "/v1/account/transaction-safety/threads/chat-a",
         expect.objectContaining({
-          headers: { "X-Thread-Id": "chat-a", "X-Session-Id": "chat-a" },
           body: JSON.stringify({ mode: "guarded_only", expectedRevision: 3 }),
         }),
       ],
@@ -368,10 +384,8 @@ describe("SafetySelect", () => {
     const reads = (chat: string) =>
       state.request.mock.calls.filter(
         ([path, init]) =>
-          path === "/api/thread/transaction-safety" &&
-          new Headers((init as RequestInit | undefined)?.headers).get(
-            "X-Thread-Id",
-          ) === chat,
+          path === `/v1/account/transaction-safety/threads/${chat}` &&
+          (init as RequestInit | undefined)?.method !== "PUT",
       ).length;
     const view = render(<SafetySelect />, { wrapper: Cache });
     await waitFor(() => expect(reads("chat-a")).toBe(1));
@@ -409,9 +423,8 @@ describe("SafetySelect", () => {
     expect(screen.getByTestId("sent")).toHaveTextContent("sent");
     expect(puts()).toEqual([
       [
-        "/api/thread/transaction-safety",
+        "/v1/account/transaction-safety/threads/draft",
         expect.objectContaining({
-          headers: { "X-Thread-Id": "draft", "X-Session-Id": "draft" },
           body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
         }),
       ],
@@ -444,7 +457,7 @@ describe("SafetySelect", () => {
     const threadReads = () =>
       state.request.mock.calls.filter(
         ([path, init]) =>
-          path === "/api/thread/transaction-safety" &&
+          path.includes("/threads/") &&
           (init as RequestInit | undefined)?.method !== "PUT",
       ).length;
     const readsBefore = threadReads();

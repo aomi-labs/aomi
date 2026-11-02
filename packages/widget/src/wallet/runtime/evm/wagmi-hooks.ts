@@ -1,5 +1,6 @@
 "use client";
 
+import { type executeWalletCalls } from "@aomi-labs/client";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
@@ -11,7 +12,6 @@ import {
 } from "wagmi/actions";
 import { useConfig, useConnections, useWalletClient } from "wagmi";
 import type { Connector } from "wagmi";
-import type { executeWalletCalls } from "@aomi-labs/react";
 import { normalizeAtomicCapabilities } from "@/wallet/execution/wallet-execution";
 import {
   knownNoEip5792,

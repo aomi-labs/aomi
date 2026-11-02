@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
 import { AccountStatusLine } from "./account-status-line";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
@@ -13,7 +14,6 @@ import {
   WalletCardsIcon,
 } from "lucide-react";
 import { shortAddress } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { PendingMark } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
@@ -39,6 +39,8 @@ export type AccountMenuProps = {
   walletLabel?: string;
   allowanceLine?: string;
   planLabel?: string;
+  /** Fraction of the monthly allowance left (0–1), drawn as a ring. */
+  allowanceLeft?: number;
   allowanceLoading?: boolean;
   noticeLine?: string;
   themeLabel?: string;
@@ -90,6 +92,7 @@ export function AccountMenu({
   walletLabel,
   allowanceLine,
   planLabel,
+  allowanceLeft,
   allowanceLoading = false,
   noticeLine,
   themeLabel,
@@ -147,6 +150,11 @@ export function AccountMenu({
             <span className="truncate text-[13px] font-semibold">
               {accountLabel ?? walletLabel ?? "Account"}
             </span>
+            {planLabel ? (
+              <span className="border-aomi-border bg-aomi-raised text-aomi-muted ml-auto shrink-0 rounded-full border px-1.5 py-px text-[9.5px] font-semibold uppercase leading-[14px] tracking-[0.06em]">
+                {planLabel}
+              </span>
+            ) : null}
           </div>
           {allowanceLine || allowanceLoading ? (
             <div className="text-aomi-muted mt-1.5 px-1 text-[12px] font-medium">
@@ -154,8 +162,8 @@ export function AccountMenu({
                 <LoadingLine className="w-24" />
               ) : allowanceLine ? (
                 <AccountStatusLine
-                  creditsLine={allowanceLine}
-                  planLabel={planLabel}
+                  creditsLine={`${allowanceLine} available`}
+                  allowanceLeft={allowanceLeft}
                 />
               ) : null}
             </div>

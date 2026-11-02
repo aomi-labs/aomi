@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { PropsWithChildren, useEffect, useState, type FC } from "react";
 import { XIcon, PlusIcon, FileText } from "lucide-react";
 import {
@@ -22,7 +23,6 @@ import {
 } from "@/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/ui/avatar";
 import { TooltipIconButton } from "@/thread/tooltip-icon-button";
-import { cn } from "@aomi-labs/react";
 
 const useFileSrc = (file: File | undefined) => {
   const [src, setSrc] = useState<string | undefined>(undefined);

@@ -1,8 +1,5 @@
-"use client";
-
+import { cn } from "@aomi-labs/widget";
 import type { ReactNode } from "react";
-
-import { cn } from "@/lib/class-names";
 
 function renderInline(text: string): ReactNode[] {
   const parts: ReactNode[] = [];

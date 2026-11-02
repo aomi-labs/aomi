@@ -1,13 +1,11 @@
-"use client";
-
 // Shared thread-mode slide bar: the sliding pill toggle plus the `?` whose
 // tooltip carries the explanation. Used on each bot card (bots-view) and in
 // the "How Telegram bots work" explainer. Lives here rather than in
 // features/operate because bots-view already imports from
 // features/integrations — the other direction would be a cycle.
 
+import { cn } from "@aomi-labs/widget";
 import { HelpBadge } from "@/components/help-badge";
-import { cn } from "@/lib/class-names";
 
 export function ThreadModeToggle({
   value,

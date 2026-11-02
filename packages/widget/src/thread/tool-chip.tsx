@@ -1,8 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { FC } from "react";
-import { cn } from "@aomi-labs/react";
-import type { ToolChip } from "@/thread/tool-interpreter/types";
+import type { ToolChip } from "@aomi-labs/client/trace";
+import { traceIcon } from "./trace-icons";
 
 /** Base + per-chip stagger for the left-to-right chip cascade (ms). */
 const CHIP_BASE_DELAY_MS = 15;
@@ -16,8 +17,8 @@ export const ToolChipView: FC<{
   index?: number;
   animate?: boolean;
 }> = ({ chip, index = 0, animate = false }) => {
-  const Glyph = chip.icon;
-  if (!Glyph) return null;
+  if (!chip.icon) return null;
+  const Glyph = traceIcon(chip.icon);
   return (
     <span
       title={chip.title}

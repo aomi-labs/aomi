@@ -11,7 +11,7 @@ const aomi = new Aomi({
   baseUrl,
   guest: false,
   getAccountBearer: async () => bearer,
-  wallet: {
+  signer: {
     evm: {
       address: account.address,
       chainId: paymentChainId,

@@ -1,5 +1,4 @@
-import type { AgentTarget } from "@aomi-labs/client";
-import { extractCapabilityHints } from "./capability-hints";
+import { type AgentTarget, extractCapabilityHints } from "@aomi-labs/client";
 
 /** A credential belongs to the exact Direct target or explicitly mentioned app. */
 export function privateAppKey(

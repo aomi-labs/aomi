@@ -1,3 +1,4 @@
+import { AomiError } from "./api-error";
 import type { AomiClient } from "./client";
 
 export type AomiOAuthResource =
@@ -55,12 +56,12 @@ export type AomiOAuthGrantManager = {
   clear(): Promise<void>;
 };
 
-export class AomiOAuthError extends Error {
+export class AomiOAuthError extends AomiError {
   constructor(
     readonly code: string,
     message = code,
   ) {
-    super(message);
+    super(code, message);
     this.name = "AomiOAuthError";
   }
 }
@@ -106,22 +107,28 @@ export function createAomiOAuthGrantManager(input: {
   const issuer = normalizeIssuer(input.issuer);
   const store = input.store ?? createMemoryOAuthGrantStore(input.initial);
   const pendingRefresh = new Map<string, Promise<AomiOAuthGrant>>();
+  const pendingAcquire = new Map<string, Promise<void>>();
   const now = input.now ?? Date.now;
   let grants: AomiOAuthGrant[] = [];
+  const mine = (grant: AomiOAuthGrant) =>
+    normalizeIssuer(grant.issuer) === issuer &&
+    grant.clientId === input.clientId &&
+    grant.subject === input.subject;
   const ready = store.load().then((stored) => {
-    const combined = [...stored, ...(input.initial ?? [])];
-    grants = uniqueGrants(
-      combined.filter(
-        (grant) =>
-          normalizeIssuer(grant.issuer) === issuer &&
-          grant.clientId === input.clientId &&
-          grant.subject === input.subject,
-      ),
-    );
+    grants = uniqueGrants([...stored, ...(input.initial ?? [])].filter(mine));
   });
 
-  async function persist() {
-    await store.save(grants.map(copyGrant));
+  // A shared store also holds other issuers', clients' and subjects' grants,
+  // and other processes write it: re-read, replace only ours, one at a time.
+  let writing = Promise.resolve();
+  function persist() {
+    const write = async () => {
+      const others = (await store.load().catch(() => [])).filter(
+        (grant) => !mine(grant),
+      );
+      await store.save([...others, ...grants].map(copyGrant));
+    };
+    return (writing = writing.then(write, write));
   }
 
   async function put(grant: AomiOAuthGrant) {
@@ -140,25 +147,40 @@ export function createAomiOAuthGrantManager(input: {
     // The three REST APIs share one `/v1` sign-in; MCP keeps its own.
     const request = { ...asked, resource: apiResource(asked.resource) };
     let grant = bestGrant(grants, request);
+    // Calls that find the sign-in short at the same time share one approval.
+    const inFlight = grant ? undefined : pendingAcquire.get(request.resource);
+    if (inFlight) {
+      await inFlight.catch(() => undefined);
+      grant = bestGrant(grants, request);
+    }
     if (!grant) {
       // Widen the held sign-in instead of starting another: one approval.
       const held = grants
         .filter((candidate) => candidate.resource === request.resource)
         .flatMap((candidate) => candidate.scopes);
-      const acquired = await input.acquire?.({
-        ...request,
-        scopes: [
-          ...new Set([
-            ...(request.resource === asked.resource
-              ? []
-              : (input.scopes ?? [])),
-            ...held,
-            ...request.scopes,
-          ]),
-        ],
-      });
-      if (!acquired) return null;
-      await put(acquired);
+      const acquiring = (async () => {
+        const acquired = await input.acquire?.({
+          ...request,
+          scopes: [
+            ...new Set([
+              // The `/v1` sign-in asks for every configured REST scope.
+              ...(new URL(request.resource).pathname === "/v1"
+                ? (input.scopes ?? [])
+                : []),
+              ...held,
+              ...request.scopes,
+            ]),
+          ],
+        });
+        if (acquired) await put(acquired);
+      })();
+      pendingAcquire.set(request.resource, acquiring);
+      try {
+        await acquiring;
+      } finally {
+        if (pendingAcquire.get(request.resource) === acquiring)
+          pendingAcquire.delete(request.resource);
+      }
       grant = bestGrant(grants, request);
       if (!grant) return null;
     }
@@ -167,10 +189,13 @@ export function createAomiOAuthGrantManager(input: {
     }
     if (!grant.refreshToken) return null;
     const key = grantKey(grant);
+    const held = grant;
     let pending = pendingRefresh.get(key);
     if (!pending) {
+      // Refresh the whole grant: a token for just this call's scopes would
+      // replace the saved grant and cost a new sign-in for the others.
       pending = input
-        .refresh(copyGrant(grant), request)
+        .refresh(copyGrant(grant), { ...request, scopes: grant.scopes })
         .then(async (refreshed) => {
           assertGrantContext(refreshed, issuer, input.clientId, input.subject);
           if (
@@ -191,7 +216,18 @@ export function createAomiOAuthGrantManager(input: {
         })
         .catch(async (error) => {
           if (oauthErrorCode(error) === "invalid_grant") {
+            // Another process may have just rotated it: take its copy.
+            const rotated = (await store.load().catch(() => [])).find(
+              (candidate) =>
+                mine(candidate) &&
+                grantKey(candidate) === key &&
+                candidate.refreshToken !== held.refreshToken,
+            );
             grants = grants.filter((candidate) => grantKey(candidate) !== key);
+            if (rotated) {
+              grants.push(copyGrant(rotated));
+              return rotated;
+            }
             await persist();
           }
           throw error;

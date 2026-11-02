@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import {
   ChevronLeft,
@@ -10,14 +11,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import {
-  AomiCommits,
   shortAddress,
   type AomiAgentWallet,
   type AomiAgentWalletBalances,
   type AomiAgentWalletNetwork,
   type CommitHandle,
 } from "@aomi-labs/client";
-import { cn } from "@aomi-labs/react";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { AomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -31,7 +30,7 @@ import {
 } from "@/wallet/picker/sheet-parts";
 import type { WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { BrandMark } from "@/account/account-management/controls";
 import {
   appName,
@@ -100,7 +99,7 @@ export function AgentWalletWithdraw({
   rows: readonly WalletRow[];
   onClose: () => void;
 }) {
-  const { client } = useShellTransport();
+  const aomi = useShellAomi();
   const families = wallet.addresses.map((address) => address.family);
   const [family, setFamily] = useState<WalletFamily>(families[0] ?? "evm");
   const [balances, setBalances] = useState<
@@ -112,7 +111,7 @@ export function AgentWalletWithdraw({
   useEffect(() => {
     if (balances[family]) return;
     const controller = new AbortController();
-    client.account.wallets
+    aomi.account.wallets
       .agentWalletBalances(wallet.id, family, { signal: controller.signal })
       .then(
         (result) => setBalances((all) => ({ ...all, [family]: result })),
@@ -121,7 +120,7 @@ export function AgentWalletWithdraw({
           setBalances((all) => ({ ...all, [family]: "error" })),
       );
     return () => controller.abort();
-  }, [balances, client, family, wallet.id]);
+  }, [balances, aomi, family, wallet.id]);
 
   const back =
     state.step === "assets"
@@ -438,7 +437,7 @@ function Destination({
   rows: readonly WalletRow[];
   onSent: (handle: CommitHandle) => void;
 }) {
-  const { client } = useShellTransport();
+  const aomi = useShellAomi();
   const refresh = useRefreshWallets();
   const own = rows.filter(
     (row) => row.linked && row.kind !== "agent" && row.family === family,
@@ -458,7 +457,7 @@ function Destination({
 
   const create = async () => {
     try {
-      const created = await client.account.wallets.withdrawAgentWallet(
+      const created = await aomi.account.wallets.withdrawAgentWallet(
         wallet.id,
         {
           family,
@@ -484,7 +483,7 @@ function Destination({
   /** Approve `id` if it still waits; otherwise show where it is. */
   const settle = async (id: string) => {
     try {
-      handle.current ??= await new AomiCommits(client).get(id);
+      handle.current ??= await aomi.commits.get(id);
       const current = handle.current;
       if (current.view.state === "awaiting_approval") await current.approve();
       handle.current = null;
@@ -637,7 +636,7 @@ function Sent({
   const [, rerender] = useReducer((count: number) => count + 1, 0);
   useEffect(() => handle.subscribe(rerender), [handle]);
   useEffect(() => () => handle.close(), [handle]);
-  const { done, confirmed, failed } = handle.settled;
+  const { done, confirmed, failed } = handle.settlement;
   const transfers = handle.batch;
   const sent = transfers.filter((view) => view.state === "confirmed").length;
   return (

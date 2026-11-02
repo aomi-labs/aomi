@@ -1450,6 +1450,10 @@ export class CommitController {
         this.schedule();
       });
     }, 1000);
+    // A commit handle polls in the background without holding a Node process
+    // open; `settled()` is what waits. A chat session keeps its own polling.
+    if (this.routeFamily !== "agent")
+      (this.timer as { unref?: () => void }).unref?.();
   }
 }
 

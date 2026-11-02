@@ -13,6 +13,9 @@ import { authorize, type AuthOptions, type Caller } from "./auth";
 import type { BuildContext } from "./context";
 import { managerClient } from "./manager-client";
 
+/** Platform slug syntax; Manager resolves the platform record. */
+export const platformSlug = z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,127}$/);
+
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type Handler = (request: Request, ctx: BuildContext) => Response | Promise<Response>;

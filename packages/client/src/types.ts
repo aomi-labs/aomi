@@ -355,7 +355,7 @@ export interface AomiAccountProfile {
 export type AomiWalletFamily = "evm" | "svm";
 
 /**
- * POST /api/secrets
+ * POST /v1/account/keys
  * Ingests secrets for a client, returns opaque handles
  */
 export interface AomiIngestSecretsResponse {
@@ -363,7 +363,7 @@ export interface AomiIngestSecretsResponse {
 }
 
 /**
- * DELETE /api/secrets
+ * DELETE /v1/account/keys
  * Clears all secrets for a client
  */
 export interface AomiClearSecretsResponse {
@@ -371,7 +371,7 @@ export interface AomiClearSecretsResponse {
 }
 
 /**
- * DELETE /api/secrets/:name
+ * DELETE /v1/account/keys/:name
  * Removes a single secret for a client
  */
 export interface AomiDeleteSecretResponse {
@@ -379,7 +379,7 @@ export interface AomiDeleteSecretResponse {
 }
 
 /**
- * GET /api/secrets
+ * GET /v1/account/keys
  * Per-app slot names currently filled for the session's client. The
  * backend never returns raw values; only the names.
  */

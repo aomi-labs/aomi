@@ -14,13 +14,6 @@ import {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const update = process.argv.includes("--update");
 const widget = "packages/widget";
-// Deprecated widget subpaths are pinned by src/compat-entries.test.ts instead.
-const deprecatedEntries = new Set(
-  Object.keys(
-    JSON.parse(readFileSync(join(root, widget, "package-entries.json"), "utf8"))
-      .deprecated,
-  ).map((entry) => `./${entry}`),
-);
 const packages = ["packages/client", "packages/react", widget];
 const reports = join(root, "api-reports");
 const temporary = join(root, "output/package-api");
@@ -39,7 +32,7 @@ for (const directory of packages) {
   }
   for (const [entry, condition] of Object.entries(manifest.exports ?? {})) {
     const path = typePath(condition);
-    if (path && !(directory === widget && deprecatedEntries.has(entry)))
+    if (path)
       entries.set(entry, join(folder, path));
   }
   if (!entries.size && manifest.types)

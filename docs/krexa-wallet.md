@@ -65,11 +65,7 @@
     AomiWalletKit,
     AomiSessionIdentity,
   } from "@aomi-labs/widget";
-  import {
-    toViemSignTypedDataArgs,
-    type WalletTxPayload,
-    type WalletEip712Payload,
-  } from "@aomi-labs/react";
+  import { toViemSignTypedDataArgs, type WalletTxPayload, type WalletEip712Payload } from "@aomi-labs/client";
 
   // Krexa's own Privy hooks (already mounted above in their app)
   import { usePrivy, useWallets } from "@privy-io/react-auth";

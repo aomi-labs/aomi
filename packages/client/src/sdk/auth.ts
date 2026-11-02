@@ -7,7 +7,10 @@ import {
   type AomiOAuthResource,
   type AomiOAuthTokenProvider,
 } from "../authorization";
+import { AomiError } from "../api-error";
 import type { GuestSessionProvider } from "../guest-auth";
+import { buildSiweMessage } from "../siwe";
+import type { GetAccountBearer } from "../types";
 import {
   createAomiBrowserGrantManager,
   createAomiDeviceGrantManager,
@@ -15,7 +18,13 @@ import {
 } from "../oauth";
 
 export type AomiAuthTarget = "agent" | "pipeline";
-export type AomiAuthMode = "guest" | "oauth" | "session" | "custom" | "none";
+export type AomiAuthMode =
+  | "guest"
+  | "oauth"
+  | "wallet"
+  | "session"
+  | "custom"
+  | "none";
 
 export type AomiAuthStatus = {
   mode: AomiAuthMode;
@@ -43,14 +52,23 @@ export type AomiAuthController = {
 type CommonOAuthOptions = {
   /** Provisioned public-client ID. Never pass a client secret. */
   clientId: string;
+  /**
+   * More scopes to ask for at the first sign-in, besides Agent and Pipeline,
+   * e.g. `account:apps:write`, so one approval covers them too.
+   */
+  scopes?: readonly string[];
   subject?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
   now?: () => number;
 };
 
-export type AomiDeviceOAuthOptions = CommonOAuthOptions & {
+export type AomiDeviceOAuthOptions = Omit<CommonOAuthOptions, "clientId"> & {
   flow?: "device";
+  /** Omit to register a public device client on first sign-in. Its id is on every grant. */
+  clientId?: string;
+  /** The registered client's name, shown where the person manages connections. */
+  clientName?: string;
   /**
    * Device grants are Bearer grants and may be persisted by a host-provided
    * store. The default remains memory-only.
@@ -58,9 +76,16 @@ export type AomiDeviceOAuthOptions = CommonOAuthOptions & {
   store?: AomiOAuthGrantStore;
   initial?: readonly AomiOAuthGrant[];
   openBrowser?: (url: string) => void | Promise<void>;
-  onVerification: (
+  /** Show the person where to approve. One of this or `onCode` is required. */
+  onVerification?: (
     verification: AomiDeviceVerification,
   ) => void | Promise<void>;
+  /** Show the person the page and code to approve with. */
+  onCode?: (prompt: {
+    url: string;
+    code: string;
+    expiresAt: number;
+  }) => void | Promise<void>;
 };
 
 export type AomiBrowserOAuthOptions = CommonOAuthOptions & {
@@ -85,7 +110,41 @@ export function oauth(
   return { kind: "oauth", options };
 }
 
-export type AomiAuthStrategy = AomiOAuthStrategy;
+/** A token minted elsewhere, for server use: sent as-is, never refreshed. */
+export type AomiBearerStrategy = {
+  readonly kind: "bearer";
+  readonly token: string;
+};
+
+export function bearer(token: string): AomiBearerStrategy {
+  if (!token.trim()) throw new TypeError("bearer token is required");
+  return { kind: "bearer", token };
+}
+
+/** Signs SIWE messages: a viem account (`privateKeyToAccount(key)`) fits. */
+export type AomiWalletSigner = {
+  address: string;
+  signMessage(args: { message: string }): Promise<string>;
+};
+
+/** Sign in with an EVM key (SIWE), for bots and scripts. */
+export type AomiWalletStrategy = {
+  readonly kind: "wallet";
+  readonly signer: AomiWalletSigner;
+  readonly chainId: number;
+};
+
+export function wallet(
+  signer: AomiWalletSigner,
+  options: { chainId?: number } = {},
+): AomiWalletStrategy {
+  return { kind: "wallet", signer, chainId: options.chainId ?? 1 };
+}
+
+export type AomiAuthStrategy =
+  | AomiOAuthStrategy
+  | AomiBearerStrategy
+  | AomiWalletStrategy;
 
 type ManagedOAuth = AomiOAuthGrantManager;
 
@@ -110,7 +169,7 @@ export function createOAuthAuthRuntime(input: {
             redirectUri: configured.redirectUri,
             getWidgetBearer: configured.getWidgetBearer,
             subject: configured.subject,
-            scopes: SIGN_IN_SCOPES,
+            scopes: [...SIGN_IN_SCOPES, ...(configured.scopes ?? [])],
             fetch: input.fetch,
             popup: configured.popup,
             signal: configured.signal,
@@ -120,13 +179,26 @@ export function createOAuthAuthRuntime(input: {
         : createAomiDeviceGrantManager({
             portalBaseUrl,
             clientId: configured.clientId,
+            clientName: configured.clientName,
             subject: configured.subject,
-            scopes: SIGN_IN_SCOPES,
+            scopes: [...SIGN_IN_SCOPES, ...(configured.scopes ?? [])],
             store: configured.store,
             initial: configured.initial,
             fetch: input.fetch,
             openBrowser: configured.openBrowser,
-            onVerification: configured.onVerification,
+            onVerification: async (verification) => {
+              const { onVerification, onCode } = configured;
+              if (onVerification) return onVerification(verification);
+              if (!onCode)
+                throw new TypeError("oauth() needs onCode or onVerification");
+              return onCode({
+                url:
+                  verification.verificationUriComplete ??
+                  verification.verificationUri,
+                code: verification.userCode,
+                expiresAt: verification.expiresAt,
+              });
+            },
             signal: configured.signal,
             timeoutMs: configured.timeoutMs,
             now: configured.now,
@@ -184,6 +256,92 @@ export function createOAuthAuthRuntime(input: {
             result.status === "rejected",
         );
         if (failed) throw failed.reason;
+      },
+    },
+  };
+}
+
+/**
+ * A wallet sign-in: SIWE against the portal's Better Auth, once per process,
+ * again after a 401. The session token is the account bearer on every route.
+ */
+export function createWalletAuthRuntime(input: {
+  baseUrl: string;
+  fetch: typeof fetch;
+  strategy: AomiWalletStrategy;
+}): { bearer: GetAccountBearer; controller: AomiAuthController } {
+  const portal = new URL(absolutePortalBaseUrl(input.baseUrl));
+  const { signer, chainId } = input.strategy;
+  const post = async (path: string, body: unknown, token?: string) => {
+    const response = await input.fetch(new URL(path, portal), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: portal.origin,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok)
+      throw new AomiError(
+        "wallet_sign_in_failed",
+        `${path} failed: HTTP ${response.status}`,
+        response.status,
+      );
+    return response;
+  };
+  const signIn = async () => {
+    const { nonce } = (await (
+      await post("/api/auth/siwe/nonce", {})
+    ).json()) as { nonce?: string };
+    if (!nonce) throw new AomiError("wallet_sign_in_failed", "No SIWE nonce");
+    const message = buildSiweMessage({
+      address: signer.address,
+      chainId,
+      nonce,
+      domain: portal.host,
+      uri: portal.origin,
+    });
+    const signature = await signer.signMessage({ message });
+    const verified = await post("/api/auth/siwe/verify", {
+      message,
+      signature,
+    });
+    const token =
+      verified.headers.get("set-auth-token") ??
+      ((await verified.json()) as { token?: string }).token;
+    if (!token)
+      throw new AomiError("wallet_sign_in_failed", "No session from SIWE");
+    return token;
+  };
+  let session: Promise<string> | undefined;
+  const bearer: GetAccountBearer = Object.assign(
+    ({ forceRefresh = false } = {}) => {
+      if (forceRefresh || !session) {
+        session = signIn();
+        session.catch(() => (session = undefined));
+      }
+      return session;
+    },
+    { required: true },
+  );
+  const status = async (): Promise<AomiAuthStatus> => ({
+    mode: "wallet",
+    authorized: session ? ["agent", "pipeline"] : [],
+  });
+  return {
+    bearer,
+    controller: {
+      mode: "wallet",
+      status,
+      async login() {
+        await bearer();
+        return status();
+      },
+      async logout() {
+        const token = await session?.catch(() => undefined);
+        session = undefined;
+        if (token) await post("/api/auth/sign-out", {}, token);
       },
     },
   };

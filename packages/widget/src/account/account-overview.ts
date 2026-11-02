@@ -18,7 +18,7 @@ import {
   type AomiAccountProfile,
   type CreditBalance,
 } from "@aomi-labs/client";
-import { useShellTransport, type ShellRequest } from "./transport";
+import { useShellTransport, type ShellTransport } from "./transport";
 
 export type AccountProfile = {
   user_id: string;
@@ -65,13 +65,15 @@ export function creditAllowanceFromPosition(
 
 /** The account's profile. With `accountId`, a reply for anyone else is refused. */
 export function accountProfileQuery(
-  request: ShellRequest,
+  transport: Pick<ShellTransport, "aomi" | "settingsThread">,
   accountId?: string,
 ): DisplayQuery<AccountOverview> {
   return {
     resource: "profile",
-    fetcher: async (signal) => {
-      const data = await request<AccountOverview>("/api/account", { signal });
+    fetcher: async () => {
+      const data: AccountOverview = await transport.aomi.raw.getAccount(
+        transport.settingsThread(),
+      );
       if (accountId && data.user.user_id !== accountId)
         throw new Error("Account changed while its profile was loading");
       return data;
@@ -87,10 +89,10 @@ function useProfileQuery() {
   const userId = account?.kind === "user" ? account.id : undefined;
   const query = useMemo(
     () => ({
-      ...accountProfileQuery(transport.json, userId),
+      ...accountProfileQuery(transport, userId),
       enabled: !cache || Boolean(userId),
     }),
-    [cache, transport.json, userId],
+    [cache, transport, userId],
   );
   return { cache, query, userId };
 }

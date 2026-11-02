@@ -10,7 +10,7 @@ import { CreateConnectorFn } from 'wagmi';
 import { JSX } from 'react/jsx-runtime';
 import { PrivyClientConfig } from '@privy-io/react-auth';
 import { ReactNode } from 'react';
-import type { SponsorshipPaymasterServiceContext } from '@aomi-labs/react';
+import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import { Transaction } from '@solana/web3.js';
 import type { Transport } from 'viem';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -48,7 +48,6 @@ export type PrivyAuthOptions = {
     appName?: string;
     appLogoUrl?: string;
     methods?: readonly AuthMethodId[];
-    environment?: string;
 };
 
 // @public (undocumented)

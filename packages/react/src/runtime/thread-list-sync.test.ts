@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reconcileGeneratedThreadTitle } from "./thread-title";
 
-import {
-  initThreadControl,
-  type ThreadMetadata,
-} from "../state/thread-store";
+import { initThreadControl, type ThreadMetadata } from "../state/thread-store";
 import {
   initRemoteThreadControl,
   mergeThreadListMetadata,

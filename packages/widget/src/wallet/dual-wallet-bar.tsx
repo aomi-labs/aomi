@@ -1,9 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { Fragment, useEffect, useState, type FC } from "react";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { ChevronsUpDownIcon } from "lucide-react";
-import { cn, getChainInfo } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import { useAomiWalletKit } from "./context";
 import { formatWalletAddress } from "./identity";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
@@ -105,11 +106,17 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
   const cachedStatus = snapshot?.accountId === accountId ? snapshot : null;
   const creditsLine = accountMenu?.secondaryLine ?? cachedStatus?.creditsLine;
   const planLabel = accountMenu?.planLabel ?? cachedStatus?.planLabel;
+  const allowanceLeft =
+    accountMenu?.allowanceLeft ?? cachedStatus?.allowanceLeft;
   const secondaryLine = accountMenuEnabled ? (
     accountMenu?.secondaryLoading && !creditsLine ? (
       <LoadingLine className="h-[11px] w-20" />
     ) : creditsLine ? (
-      <AccountStatusLine creditsLine={creditsLine} planLabel={planLabel} />
+      <AccountStatusLine
+        creditsLine={creditsLine}
+        planLabel={planLabel}
+        allowanceLeft={allowanceLeft}
+      />
     ) : undefined
   ) : connectedWallets.some((wallet) => wallet.detail) ? (
     networkDetail
@@ -155,6 +162,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
         name: snapshotName,
         creditsLine,
         planLabel,
+        allowanceLeft,
         wallets: activeWallets
           ? activeWallets.split(",").map((entry) => {
               const [family, address, brand] = entry.split("|");
@@ -178,6 +186,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     snapshotName,
     creditsLine,
     planLabel,
+    allowanceLeft,
   ]);
 
   useEffect(() => {
@@ -291,6 +300,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                         <AccountStatusLine
                           creditsLine={snapshot.creditsLine}
                           planLabel={snapshot.planLabel}
+                          allowanceLeft={snapshot.allowanceLeft}
                         />
                       </span>
                     ) : (
@@ -415,6 +425,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
             planLabel={accountMenu?.planLabel}
+            allowanceLeft={accountMenu?.allowanceLeft}
             allowanceLoading={accountMenu?.secondaryLoading}
             noticeLine={accountMenu?.noticeLine}
             themeLabel={accountMenu?.themeLabel}

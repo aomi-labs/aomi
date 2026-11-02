@@ -1,6 +1,6 @@
 "use client";
+import { cn } from "@/lib/cn";
 import { Check, Loader2, MessageCircle, Plus } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import {
   ChainMarks,

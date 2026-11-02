@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   useEffect,
   useMemo,
@@ -10,7 +11,6 @@ import {
   type PointerEvent,
   type SVGProps,
 } from "react";
-import { cn } from "@aomi-labs/react";
 import type { Chain } from "viem";
 import { ChevronDown, Sparkles } from "lucide-react";
 import { Button } from "@/ui/button";

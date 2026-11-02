@@ -1,0 +1,170 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`help > prints ["chat"] --help 1`] = `
+"USAGE
+  aomi chat [--prompt message] [--thread id] [--new] [--app name] [--model name] [--json] [--private-key hex] [--chain id] [<message>]
+  aomi chat --help
+
+Ask once or continue a thread
+
+FLAGS
+  -p [--prompt]          Ask once, print the answer
+     [--thread]          Continue this thread
+     [--new/--no-new]    Start a new thread
+     [--app]             Route to this app (Direct)
+     [--model]           Model for this turn
+     [--json/--no-json]  Print JSON lines
+     [--private-key]     Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
+     [--chain]           Chain id
+  -h  --help             Print help information and exit
+
+ARGUMENTS
+  [message]  What to ask
+"
+`;
+
+exports[`help > prints ["pipeline","build"] --help 1`] = `
+"USAGE
+  aomi pipeline build [--json] [--private-key hex] [--chain id] [--app name] [--commit] <name> [<args>]
+  aomi pipeline build --help
+
+Stage and simulate an operation
+
+FLAGS
+     [--json/--no-json]      Print JSON lines
+     [--private-key]         Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
+     [--chain]               Chain id
+     [--app]                 App (default: default)
+     [--commit/--no-commit]  Also make the commit to sign
+  -h  --help                 Print help information and exit
+
+ARGUMENTS
+   name   Operation
+  [args]  JSON arguments, a file, @file or -
+"
+`;
+
+exports[`help > prints ["threads"] --help 1`] = `
+"USAGE
+  aomi threads list [--json] [--private-key hex] [--limit n]
+  aomi threads open <id>
+  aomi threads show [--json] [--private-key hex] [<id>]
+  aomi threads new
+  aomi threads rename [--json] [--private-key hex] <id> <title>
+  aomi threads archive [--json] [--private-key hex] <id>
+  aomi threads --help
+
+List, open, rename, archive
+
+FLAGS
+  -h --help  Print help information and exit
+
+COMMANDS
+  list     Your threads, newest first
+  open     Continue a thread
+  show     What you and the agent said (default: the current thread)
+  new      Start a new thread
+  rename   Rename a thread
+  archive  Archive a thread
+"
+`;
+
+exports[`help > prints ["tx","approve"] --help 1`] = `
+"USAGE
+  aomi tx approve [--json] [--private-key hex] [--yes] [--wait] <ref>
+  aomi tx approve --help
+
+Approve a commit waiting for you
+
+FLAGS
+     [--json/--no-json]  Print JSON lines
+     [--private-key]     Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY
+     [--yes/--no-yes]    Approve without asking
+     [--wait/--no-wait]  Follow it until it settles (--no-wait skips)                            [default = true]
+  -h  --help             Print help information and exit
+
+ARGUMENTS
+  ref  Commit ref
+"
+`;
+
+exports[`help > prints ["tx"] --help 1`] = `
+"USAGE
+  aomi tx list [--json] [--private-key hex] [--thread id]
+  aomi tx review [--json] [--private-key hex] <ref>
+  aomi tx approve [--json] [--private-key hex] [--yes] [--wait] <ref>
+  aomi tx reject [--json] [--private-key hex] <ref>
+  aomi tx sign [--json] [--private-key hex] [--chain id] <ref>
+  aomi tx export [--private-key hex] <ref>
+  aomi tx --help
+
+Review, approve, sign, export
+
+FLAGS
+  -h --help  Print help information and exit
+
+COMMANDS
+  list     What the thread left to sign or approve
+  review   One commit: state, chain, signer, review
+  approve  Approve a commit waiting for you
+  reject   Reject a commit
+  sign     Sign a commit with the local signer
+  export   The exact reviewed commit, for an external signer
+"
+`;
+
+exports[`help > prints ["wallets"] --help 1`] = `
+"USAGE
+  aomi wallets list [--json] [--private-key hex]
+  aomi wallets balance [--json] [--private-key hex] <id>
+  aomi wallets use [--json] [--private-key hex] <id>
+  aomi wallets signer show|set|clear ...
+  aomi wallets --help
+
+Agent wallets, local signer
+
+FLAGS
+  -h --help  Print help information and exit
+
+COMMANDS
+  list     The account's wallets, agent wallets first
+  balance  An agent wallet's balances
+  use      Trade with this wallet in the current thread
+  signer   This machine's signing keys
+"
+`;
+
+exports[`help > prints the root help from the route table 1`] = `
+"aomi 1.0.1  the Aomi agent in your terminal
+
+USAGE
+  aomi                    Open the chat
+  aomi -p "<message>"     Ask once, print the answer
+  aomi <command> [flags]
+
+CHAT
+  chat       Ask once or continue a thread
+  threads    List, open, rename, archive
+
+ACCOUNT
+  login      Sign in with one device code
+  logout     Sign out on this machine
+  whoami     Who you're signed in as
+  account    Profile, connections, credits
+
+WALLETS & TRADES
+  wallets    Agent wallets, local signer
+  tx         Review, approve, sign, export
+  guard      Spending limits for signing
+
+APPS
+  apps       Install apps, set credentials
+  pipeline   Call app operations directly
+  deploy     Ship your own app
+
+SETTINGS
+  model  chain  keys  secret  config  completion
+
+aomi <command> --help for flags
+"
+`;

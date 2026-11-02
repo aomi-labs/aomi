@@ -1,72 +1,124 @@
-import { AomiWallets, type AomiAccountWallet } from "@aomi-labs/client";
-import { CliSession } from "../cli-session";
-import { fatal } from "../errors";
-import { printJson } from "../output";
-import type { CliConfig } from "../types";
+import type { AomiAccountWallet } from "@aomi-labs/client";
+import { privateKeyToAccount } from "viem/accounts";
+import { connect, json, out, usage, type ConnectFlags } from "../context";
+import { loadState, updateState, type SvmCluster } from "../state";
 
-function formatWalletsTable(wallets: AomiAccountWallet[]): string {
-  const rows = [
-    ["ID", "KIND", "FAMILY", "ADDRESS", "LABEL"],
-    ...wallets.map((wallet) => [
-      wallet.id,
-      wallet.kind,
-      wallet.family,
-      wallet.address,
-      wallet.label,
-    ]),
-  ];
+type Flags = ConnectFlags & { json?: boolean };
+const solana = async () =>
+  (await import("@aomi-labs/client/solana")).solanaSigner;
+
+function table(rows: string[][]): string[] {
   const widths = rows[0]!.map((_, column) =>
     Math.max(...rows.map((row) => row[column]!.length)),
   );
-  return rows
-    .map((row) =>
-      row
-        .map((cell, column) =>
-          column === row.length - 1 ? cell : cell.padEnd(widths[column]!),
-        )
-        .join("  "),
-    )
-    .join("\n");
+  return rows.map((row) =>
+    row
+      .map((cell, column) => cell.padEnd(widths[column]!))
+      .join("  ")
+      .trimEnd(),
+  );
 }
 
-/** `aomi wallets`: every wallet the account owns. */
-export async function walletsListCommand(config: CliConfig): Promise<void> {
-  const cli = CliSession.loadOrCreate(config);
-  const session = cli.createClientSession(config);
-  try {
-    const wallets = await new AomiWallets(session.client).list();
-    if (config.json) printJson(wallets);
-    else if (wallets.length === 0) console.log("No wallets yet.");
-    else console.log(formatWalletsTable(wallets));
-  } finally {
-    session.close();
+/** How a wallet signs what the agent prepares, in a few words. */
+export function signsWith(wallet: AomiAccountWallet): string {
+  if (wallet.kind !== "agent") {
+    const app = wallet.browser_app ?? wallet.provider ?? wallet.label;
+    return `you sign in ${app.charAt(0).toUpperCase()}${app.slice(1)}`;
   }
+  if (wallet.lane === "instant") return "signs at once";
+  return wallet.lane === "here" ? "you approve here" : "you approve on Aomi";
 }
 
-/** `aomi wallets use <id>`: make a wallet the active one for this session's thread. */
-export async function walletsUseCommand(
-  config: CliConfig,
-  id: string,
-): Promise<void> {
-  if (!id) fatal("Usage: aomi wallets use <id>");
-  const cli = CliSession.loadOrCreate(config);
-  const session = cli.createClientSession(config);
-  try {
-    const threadId = cli.sessionId;
-    const result = await session.client.account.wallets.setThreadWallet(
-      threadId,
-      id,
-    );
-    if (config.json) printJson(result);
-    else {
-      const families = Object.entries(result.active_wallet)
-        .map(([family, wallet]) => `${family} ${wallet}`)
-        .join(", ");
-      console.log(
-        `Using ${id} in session ${threadId}${families ? ` (active: ${families})` : ""}`,
-      );
+/** `aomi wallets`: the account's wallets, agent wallets first. */
+export async function list(flags: Flags): Promise<void> {
+  const aomi = await connect(flags);
+  const wallets: AomiAccountWallet[] = await aomi.account.wallets.list();
+  if (flags.json) return wallets.forEach(json);
+  if (!wallets.length) return out("No wallets yet");
+  table([
+    ["ID", "NAME", "FAMILY", "ADDRESS", "SIGNS"],
+    ...wallets.map((wallet) => [
+      wallet.id,
+      wallet.label,
+      wallet.family,
+      wallet.address,
+      signsWith(wallet),
+    ]),
+  ]).forEach((line) => out(line));
+}
+
+export async function balance(flags: Flags, id: string): Promise<void> {
+  const aomi = await connect(flags);
+  const { networks } = await aomi.account.wallets.balance(id);
+  if (flags.json) return networks.forEach(json);
+  for (const network of networks) {
+    if (network.error) {
+      out(`${network.name}  unavailable`);
+      continue;
     }
-  } finally {
-    session.close();
+    for (const asset of network.assets)
+      out(
+        `${network.name}  ${asset.amount} ${asset.symbol}${asset.usd ? `  $${asset.usd}` : ""}`,
+      );
   }
+}
+
+/** Make `id` the wallet the current thread trades with. */
+export async function use(flags: Flags, id: string): Promise<void> {
+  const aomi = await connect(flags);
+  const thread = loadState().thread ?? crypto.randomUUID();
+  const result = await aomi.account.wallets.use(id, { thread });
+  updateState({ thread });
+  if (flags.json) return json(result);
+  out(`Using ${id} in thread ${thread}`);
+}
+
+/** This machine's own keys, which sign what the agent prepares. */
+export async function signer(flags: Flags): Promise<void> {
+  const state = loadState();
+  const evm = state.evmKey
+    ? privateKeyToAccount(state.evmKey as `0x${string}`).address
+    : undefined;
+  const svm = state.svmKey ? (await solana())(state.svmKey).address : undefined;
+  if (flags.json) return json({ evm, svm, cluster: state.cluster });
+  if (!evm && !svm)
+    return out("No local signer; aomi wallets signer set <key>");
+  if (evm) out(`EVM     ${evm}`);
+  if (svm) out(`Solana  ${svm} (${state.cluster ?? "solana:mainnet"})`);
+}
+
+const CLUSTERS: Record<string, SvmCluster> = {
+  mainnet: "solana:mainnet",
+  "mainnet-beta": "solana:mainnet",
+  devnet: "solana:devnet",
+  testnet: "solana:testnet",
+};
+
+export async function setSigner(
+  flags: Flags & { solana?: string; cluster?: string },
+  evm?: string,
+): Promise<void> {
+  if (!evm && !flags.solana) throw usage("Pass an EVM key, or --solana <key>");
+  const cluster = flags.cluster
+    ? (CLUSTERS[flags.cluster.replace(/^solana:/, "")] ??
+      (() => {
+        throw usage(
+          `Unknown cluster ${flags.cluster}; use mainnet, devnet or testnet`,
+        );
+      })())
+    : undefined;
+  if (evm && !/^0x[0-9a-fA-F]{64}$/.test(evm))
+    throw usage("The EVM key must be 0x-prefixed 32-byte hex");
+  if (flags.solana) (await solana())(flags.solana);
+  updateState({
+    ...(evm ? { evmKey: evm } : {}),
+    ...(flags.solana ? { svmKey: flags.solana } : {}),
+    ...(cluster ? { cluster } : {}),
+  });
+  await signer(flags);
+}
+
+export async function clearSigner(): Promise<void> {
+  updateState({ evmKey: undefined, svmKey: undefined, cluster: undefined });
+  out("Local signer removed");
 }

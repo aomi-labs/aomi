@@ -196,8 +196,8 @@ describe("aomi.commits — thread-less commit refs", () => {
       "failed",
     ]);
     // The first transfer confirmed; the operation did not.
-    expect(handle.settled).toMatchObject({ done: true, confirmed: false });
-    expect(handle.settled.failed?.commit_id).toBe(second);
+    expect(handle.settlement).toMatchObject({ done: true, confirmed: false });
+    expect(handle.settlement.failed?.commit_id).toBe(second);
   });
 
   it("signs at the reviewed version and digest, then broadcasts bound to the new version", async () => {

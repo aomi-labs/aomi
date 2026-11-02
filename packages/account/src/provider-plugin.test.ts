@@ -87,7 +87,7 @@ describe("provider auth plugin", () => {
       kind: "provider.link_conflict",
       attributes: { provider: "para", signal_type: "wallet" },
       context: {
-        routeFamily: "/api/auth/[...all]",
+        routeFamily: "/api/auth/aomi/provider/exchange",
         operation: "account.provider_link",
         method: "POST",
       },

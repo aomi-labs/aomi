@@ -105,7 +105,7 @@ flowchart LR
   subgraph liveApp ["aomi/apps/build LIVE"]
     Shell["ControlPlaneShell"]
     Scaffold["/build BuildView\ncomposer · stream · files\nlocal mock pipeline"]
-    BFF["/api/bff/*\ndeploy · operate · github"]
+    BFF["/api/build/*\ndeploy · operate · github"]
   end
 
   subgraph localGen ["Local generate today"]

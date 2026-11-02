@@ -36,7 +36,7 @@ export function MergeStep({
   flow: SheetFlow;
 }) {
   const { other } = sheet.offer;
-  const created = createdOn(other.createdAt);
+  const created = createdOn(other.created_at);
   const stats = [
     { value: other.chats, label: other.chats === 1 ? "chat" : "chats" },
     { value: other.wallets, label: other.wallets === 1 ? "wallet" : "wallets" },

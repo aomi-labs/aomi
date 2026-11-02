@@ -74,7 +74,7 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
                 ...providerCredentialDiagnostic(credential.providerToken),
               },
               context: {
-                routeFamily: "/api/auth/[...all]",
+                routeFamily: "/api/auth/aomi/provider/exchange",
                 operation: "account.provider_exchange",
                 method: "POST",
               },
@@ -117,7 +117,7 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
                 signal_type: bounded(resolution.signalType),
               },
               context: {
-                routeFamily: "/api/auth/[...all]",
+                routeFamily: "/api/auth/aomi/provider/exchange",
                 operation: "account.provider_link",
                 method: "POST",
               },

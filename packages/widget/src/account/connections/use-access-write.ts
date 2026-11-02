@@ -7,7 +7,7 @@ import type {
   AomiLane,
 } from "@aomi-labs/client";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
 
 /**
@@ -16,7 +16,7 @@ import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
  * moves at once and the server catches up behind it. Render `dialog`.
  */
 export function useAccessWrite() {
-  const { client } = useShellTransport();
+  const aomi = useShellAomi();
   const refresh = useRefreshWallets();
   const { confirm, dialog } = useConfirmDialog();
   const [saving, setSaving] = useState<
@@ -52,7 +52,7 @@ export function useAccessWrite() {
     setSaving((current) => ({ ...current, [key]: wallets }));
     setError(null);
     try {
-      await client.account.connections.setConnectionWallets(key, { wallets });
+      await aomi.account.connections.setConnectionWallets(key, { wallets });
       await refresh();
     } catch {
       setError("Couldn’t save that. Try again.");

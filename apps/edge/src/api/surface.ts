@@ -9,14 +9,11 @@ import { config } from "../kernel/config";
 import { preflight, withCors } from "../kernel/cors";
 import { EdgeError, errorResponse } from "../kernel/errors";
 import { routingKeyFor } from "../kernel/pool";
-import { proxy, target, type FetchLike } from "../kernel/proxy";
+import { proxy, target, type FetchLike, type WaitLike } from "../kernel/proxy";
 import { exchangeRcToken, RC_TOKEN_PATH, rcOidcConfig } from "./rc-oidc";
 import { CORS, resolveRoute, TASK_BUILD_PATH, type Route } from "./routes";
 import { adaptTaskBuild, taskDocument } from "./task";
 import { listOnBazaar } from "./task/bazaar";
-
-export type WaitLike = (delayMs: number) => Promise<unknown>;
-export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
 /**
  * Hosted-app placement: keep only the targets that hold the app's active
@@ -25,8 +22,8 @@ export const wait: WaitLike = (delayMs) => new Promise((resolve) => setTimeout(r
  */
 async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl: WaitLike): Promise<URL[]> {
   if (!route.appId) return route.targets;
-  const { attempts, retryMs } = config(env).warmup;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+  // Up to ten probes a second apart: long enough for a small artifact to land.
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     const available = await Promise.all(
       route.targets.map(async (url) => {
         // A dedicated probe, not /health: liveness stays a process-level signal.
@@ -47,7 +44,7 @@ async function placed(route: Route, env: EdgeEnv, fetchImpl: FetchLike, waitImpl
     );
     const targets = route.targets.filter((_, index) => available[index]);
     if (targets.length) return targets;
-    if (attempt + 1 < attempts && retryMs > 0) await waitImpl(retryMs);
+    if (attempt + 1 < 10) await waitImpl(1_000);
   }
   throw new EdgeError(503, "app_unavailable");
 }
@@ -107,7 +104,7 @@ export async function handleApiRequest(
 
 /** The RC token exchange; a deployment that is not RC answers like any unknown path. */
 async function handleRcToken(request: Request, env: EdgeEnv): Promise<Response> {
-  const cfg = rcOidcConfig(env, new URL(request.url).host);
+  const cfg = rcOidcConfig(env);
   if (!cfg) return new Response("Not found", { status: 404 });
   const edge = config(env);
   if (request.method === "OPTIONS") return preflight(CORS.agent, request, edge);

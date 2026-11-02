@@ -1,7 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ReactNode, FC } from "react";
-import { cn } from "@aomi-labs/react";
 import { NetworkSelect } from "./network-select";
 import { ModelSelect } from "./model-select";
 import { SafetySelect } from "./safety-select";

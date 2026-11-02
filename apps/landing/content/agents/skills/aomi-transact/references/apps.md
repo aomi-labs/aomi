@@ -56,7 +56,7 @@ To build a new app from an API spec or SDK, use the companion skill **aomi-build
 
 ## Usage Examples
 
-Each example shows the canonical first chat turn for that category. Follow the standard workflow afterwards: `aomi tx list` → (`aomi tx simulate` for multi-step) → `aomi tx sign`.
+Each example shows the canonical first chat turn for that category. Follow the current [Commit workflow](workflows.md#execution) afterwards; inspect full Commit IDs and durable review simulation.
 
 ### Solver Networks — `khalani`
 
@@ -69,7 +69,7 @@ aomi chat "quote bridging 50 USDC from Polygon to Base via Khalani. Prefer a TRA
   --app khalani --public-key 0xUserAddress --chain 137 --new-session
 ```
 
-Verified response shape (CLI v0.1.30, real backend):
+Verified response shape (historical real-backend capture; re-check against the current backend before treating exact app output as stable):
 
 ```
 Route Options:
@@ -90,17 +90,17 @@ Route Options:
      Gas:              0.108 POL (~$0.08)
 ```
 
-**Build and submit the order (write).** After the user picks a route, confirm in the same session:
+**Build and submit the order (write).** After the user picks a route, confirm in the same thread:
 
 ```bash
 aomi chat "proceed with Hyperstream using the TRANSFER method"
 aomi tx list                               # confirm the wallet request was queued
-aomi tx sign tx-1 --rpc-url <polygon-rpc>  # source-chain RPC must match
+aomi tx sign <reviewed-commit-id> --rpc-url <polygon-rpc>  # source-chain RPC must match
 ```
 
 Notes:
 
-- Khalani internally exposes Across, DeBridge, and other solvers as routes. There is **no standalone `across` app** in v0.1.30 — to use Across, go through Khalani and pick the Across route at quote time.
+- Khalani internally exposes Across, DeBridge, and other solvers as routes. If the standalone `across` app is unavailable on the active backend, go through Khalani and pick the Across route at quote time.
 - Single-chain intents work too: `--app khalani --chain 1` for an Ethereum-only request.
 - Inspect open orders: `aomi chat "list my open Khalani orders" --app khalani --public-key 0xUserAddress` (read-only, but still wallet-aware).
 - If the agent returns a quote without queueing a wallet request, that's expected — you have to explicitly say "proceed".
@@ -125,7 +125,7 @@ aomi chat "which chains does 0x support today?" --app zerox
 Notes:
 
 - `zerox` requires a provider token. If `aomi tx sign` fails because credentials are missing, ask the user to configure their 0x credentials (do not invent or paste them on the user's behalf).
-- For approve-and-swap on a single chain, simulate the batch with `aomi tx simulate tx-1 tx-2` before signing.
+- For approve-and-swap, review every leg and its simulation in the durable Commit before signing.
 
 ### Prediction Markets — `polymarket`
 
@@ -138,7 +138,7 @@ aomi chat "find 3 active Polymarket markets about US politics in 2026; list them
   --app polymarket --new-session
 ```
 
-Verified response shape (CLI v0.1.30, real backend):
+Verified response shape (historical real-backend capture; re-check against the current backend before treating exact app output as stable):
 
 ```
 1. Trump out as President before GTA VI?
@@ -177,7 +177,7 @@ Polymarket Order Preview
 ```bash
 aomi chat "place the order"
 aomi tx list                                # confirm a wallet request was queued
-aomi tx sign tx-1                           # AA-first signing on Polygon (default 4337)
+aomi tx sign <reviewed-commit-id>           # EOA signing on Polygon (needs native POL for gas)
 ```
 
 Notes:
@@ -207,7 +207,7 @@ aomi chat "1h klines for SOLUSDT for the last 24 hours from Binance" \
 Notes:
 
 - `binance` needs Exchange credentials. The skill never invents these. If `aomi chat` fails because credentials are missing, ask the user to configure them on their side.
-- This is a data app — no `tx-N` will be queued from these commands. `aomi tx list` is not part of this flow.
+- This is a data app — no payment Commit is expected from these commands. `aomi tx list` is not part of this flow.
 
 ### Social — `neynar`
 
@@ -250,10 +250,10 @@ Read-only data app — no wallet requests are queued. The X app needs a provider
 
 ### Bridging — Across (no standalone app)
 
-The user-facing `across` app does **not** exist in CLI v0.1.30 — `aomi --app across …` returns `HTTP 401: Unauthorized`. Across is, however, **reachable two ways**:
+If the user-facing `across` app is unavailable on the active backend, Across is still commonly reachable two ways:
 
 1. **As a route inside Khalani.** Khalani's solver network lists Across alongside Hyperstream and DeBridge in its quote response — pick the Across route at quote time.
-2. **As a tool the agent picks itself.** Asking any wallet-aware app for a bridge will frequently produce an Across-routed wallet request even without `--app khalani`. Verified in v0.1.30: a prompt like `"Bridge 1 USDC from Ethereum to Base via Across. Include approve as a separate tx."` (no `--app`) queues `Approve 1 USDC to Across SpokePool` + `Bridge 1 USDC from Ethereum to Base via Across` directly. The Across SpokePool address used was `0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5`.
+2. **As a tool the agent picks itself.** Asking any wallet-aware app for a bridge may produce an Across-routed wallet request even without `--app khalani`. Re-check the generated SpokePool address against the active chain before signing.
 
 ```bash
 # Option 1 — via Khalani (lets Khalani's solver pick Across)
@@ -265,13 +265,10 @@ aomi chat "quote bridging 50 USDC from Polygon to Base via Khalani" \
 aomi chat "Bridge 1 USDC from Ethereum mainnet to Base via Across. Include approve as a separate tx so we can simulate the batch." \
   --public-key 0xUserAddress --chain 1 --new-session
 aomi tx list
-aomi tx sign tx-1 tx-2
+aomi tx sign <reviewed-commit-id>
 ```
 
-Verified behavior (CLI v0.1.30):
+Observed behavior in earlier CLI/backend captures:
 
-- Across requests carry an expiring `fillDeadline`. If the agent's first build expires by the time simulation runs, the agent automatically rebuilds with a fresh deadline and the new tx-N will pass. **Old failed attempts remain visible in `aomi tx list`** with `batch_status: "Batch [N,M] failed at step 2: 0x..."` — sign only the txs whose status reads `Batch [...] passed`.
-- The mainnet→L2 leg uses AA 7702 (default for chain 1) and signs cleanly with the EOA's small ETH stash paying.
-- The L2→mainnet leg requires the EOA to have native gas on the L2 — see [account-abstraction.md → Sponsorship in practice](account-abstraction.md#sponsorship-in-practice-verified-against-v0130). The zero-config proxy does **not** reliably sponsor on Base in v0.1.30.
-
-> **TODO — direct integration.** If a standalone `across` app gets added later, replace this stub with read + write examples in the same shape as the other entries.
+- Across routes expire. Obtain a fresh quote and review its replacement Commit when stale; retain prior Commit IDs and reconcile any known submission first.
+- Inspect source gas, prepared execution type and destination spendable output separately. See [account-abstraction.md](account-abstraction.md).

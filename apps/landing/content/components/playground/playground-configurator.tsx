@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, type FC } from "react";
-import dynamic from "next/dynamic";
+import { useState, useMemo, useCallback, useEffect, lazy, Suspense, type FC } from "react";
+import {ClientOnly} from "@tanstack/react-router";
 import { CopyButton } from "./copy-button";
 import { Segmented, ToggleChip } from "./controls";
 import { ThemeCustomizer, useThemeCustomizer } from "./theme-customizer";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-const AomiFramePreview = dynamic(
-  () => import("./aomi-frame-preview").then((mod) => mod.AomiFramePreview),
-  { ssr: false },
-);
+const AomiFramePreview = lazy(() => import("./aomi-frame-preview").then(mod => ({default: mod.AomiFramePreview})));
 
 // =============================================================================
 // Types
@@ -292,7 +289,7 @@ export function PlaygroundConfigurator({
             }`}
             style={theme.output.styleObject}
           >
-            <AomiFramePreview
+            <ClientOnly fallback={null}><Suspense fallback={null}><AomiFramePreview
               backendUrl={backendUrl}
               controlBarProps={controlBarProps}
               controlPlacement={state.controlPlacement}
@@ -300,7 +297,7 @@ export function PlaygroundConfigurator({
               hasAnyControl={hasAnyControl}
               showSidebar={state.sidebarShown}
               walletPosition={walletPropValue}
-            />
+            /></Suspense></ClientOnly>
           </div>
         </div>
 

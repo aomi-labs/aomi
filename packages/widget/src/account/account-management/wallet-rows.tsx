@@ -1,3 +1,4 @@
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import {
   ChevronRight,
@@ -7,7 +8,6 @@ import {
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
 import { useRenameDialog } from "@/ui/aomi/rename-dialog";

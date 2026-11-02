@@ -9,9 +9,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransactionSafetyPolicy } from "@aomi-labs/client";
 
 const state = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("@/account/transport", () => ({
-  useShellTransport: () => ({ json: state.request }),
-}));
+vi.mock("@/account/transport", async () => {
+  // A real Aomi whose wire is the `state.request(path, init)` stub: a resolved
+  // value is a 200 body; a thrown Error is a failed response with its message.
+  const { Aomi } = await import("@aomi-labs/client");
+  const aomi = new Aomi({
+    baseUrl: "",
+    fetch: async (input, init) => {
+      try {
+        return Response.json(await state.request(String(input), init));
+      } catch (cause) {
+        return new Response((cause as Error).message, { status: 409 });
+      }
+    },
+  });
+  return {
+    useShellTransport: () => ({ aomi }),
+    useShellAomi: () => aomi,
+    useAomi: () => aomi,
+  };
+});
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
 
@@ -40,7 +57,7 @@ describe("default transaction safety", () => {
       await screen.findByRole("radio", { name: "Balanced" }),
     ).toHaveAttribute("aria-checked", "true");
     const paths = state.request.mock.calls.map(([path]) => String(path));
-    expect(paths).toEqual(["/api/account/transaction-safety"]);
+    expect(paths).toEqual(["/v1/account/transaction-safety"]);
     expect(screen.queryByText(/this chat/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull();
   });
@@ -57,13 +74,14 @@ describe("default transaction safety", () => {
     renderSettings();
     fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
 
-    expect(state.request).toHaveBeenCalledWith(
-      "/api/account/transaction-safety",
-      expect.objectContaining({
-        method: "PUT",
-        headers: undefined,
-        body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
-      }),
+    await waitFor(() =>
+      expect(state.request).toHaveBeenCalledWith(
+        "/v1/account/transaction-safety",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+        }),
+      ),
     );
     const strict = screen.getByRole("radio", { name: "Strict" });
     expect(strict).toHaveAccessibleDescription(
@@ -90,6 +108,7 @@ describe("default transaction safety", () => {
     );
     renderSettings();
     fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
+    await waitFor(() => expect(settle).toBeTypeOf("function"));
 
     // The row being saved swaps its check for a spinner; every row is locked.
     expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-busy", "true");
@@ -128,11 +147,13 @@ describe("default transaction safety", () => {
     fireEvent.keyDown(balanced, { key: "ArrowDown" });
 
     // Down from Balanced wraps to Strict: Yolo is never a default.
-    expect(state.request).toHaveBeenCalledWith(
-      "/api/account/transaction-safety",
-      expect.objectContaining({
-        body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
-      }),
+    await waitFor(() =>
+      expect(state.request).toHaveBeenCalledWith(
+        "/v1/account/transaction-safety",
+        expect.objectContaining({
+          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+        }),
+      ),
     );
   });
 

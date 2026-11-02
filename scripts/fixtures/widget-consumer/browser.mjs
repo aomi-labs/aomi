@@ -11,7 +11,7 @@ const { createFakeAgentServer } =
 export async function startUpstream() {
   const server = await createFakeAgentServer({
     routes: {
-      "/api/auth/widget/guest": {
+      "/api/auth/guest": {
         access_token: "fixture-guest",
         expires_at: Date.now() / 1000 + 3600,
       },

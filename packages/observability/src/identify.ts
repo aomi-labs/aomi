@@ -1,4 +1,3 @@
-import type { ProxyFailure } from "@aomi-labs/account";
 import { identifyLaunchError } from "@aomi-labs/internal";
 
 import type { FailureInput, IdentifiedFailure } from "./failure";
@@ -46,8 +45,6 @@ export function identifyFailure(input: FailureInput): IdentifiedFailure {
       };
     case "launch":
       return identifyLaunchFailure(input.error, input.context);
-    case "proxy":
-      return identifyProxyFailure(input.failure);
     case "artifact":
       return {
         origin: "local",
@@ -61,10 +58,6 @@ export function identifyFailure(input: FailureInput): IdentifiedFailure {
         error: input.error,
         context: input.context,
         handled: false,
-        requestError: {
-          request: input.request,
-          errorContext: input.errorContext,
-        },
       };
   }
 }
@@ -88,47 +81,3 @@ function identifyLaunchFailure(
   };
 }
 
-function identifyProxyFailure(failure: ProxyFailure): IdentifiedFailure {
-  const context = {
-    routeFamily: failure.pathname,
-    operation: `proxy.${failure.kind}`,
-    method: failure.method,
-  };
-  const responseHint =
-    failure.kind === "bearer_mint"
-      ? { status: failure.responseStatus, error: "bearer_mint_failed" }
-      : {
-          status: failure.responseStatus,
-          error: "upstream_unavailable",
-        };
-
-  if (failure.kind === "bearer_mint") {
-    return {
-      origin: "local",
-      error: failure.error,
-      context,
-      handled: true,
-      responseHint,
-    };
-  }
-  if (failure.kind === "upstream_request") {
-    return {
-      origin: "upstream_request",
-      error: failure.error,
-      context,
-      handled: true,
-      upstream: "rust",
-      responseHint,
-    };
-  }
-  return {
-    origin: "upstream_response",
-    error: failure,
-    context,
-    handled: true,
-    upstream: "rust",
-    upstreamStatus: failure.status,
-    credential: "user",
-    responseHint,
-  };
-}

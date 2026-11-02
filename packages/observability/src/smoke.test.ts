@@ -9,7 +9,7 @@ const sentry = vi.hoisted(() => ({
   withIsolationScope: vi.fn(),
 }));
 
-vi.mock("@sentry/nextjs", () => ({
+vi.mock("@sentry/node", () => ({
   captureException: sentry.captureException,
   flush: sentry.flush,
   logger: sentry.logger,
@@ -18,11 +18,11 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import {
-  isBffSentrySmokeRequestAllowed,
-  runBffSentrySmoke,
+  isAppSentrySmokeRequestAllowed,
+  runAppSentrySmoke,
 } from "./smoke";
 
-describe("BFF Sentry smoke helper", () => {
+describe("app server Sentry smoke helper", () => {
   beforeEach(() => {
     sentry.flush.mockResolvedValue(true);
     sentry.withIsolationScope.mockImplementation((callback) =>
@@ -43,28 +43,28 @@ describe("BFF Sentry smoke helper", () => {
   });
 
   it("rejects disabled, production, local, and incorrectly authenticated requests", () => {
-    expect(isBffSentrySmokeRequestAllowed("wrong-secret")).toBe(false);
+    expect(isAppSentrySmokeRequestAllowed("wrong-secret")).toBe(false);
 
     vi.stubEnv("SENTRY_ENVIRONMENT", "production");
-    expect(isBffSentrySmokeRequestAllowed("correct-secret")).toBe(false);
+    expect(isAppSentrySmokeRequestAllowed("correct-secret")).toBe(false);
 
     vi.stubEnv("SENTRY_ENVIRONMENT", "staging");
     vi.stubEnv("NODE_ENV", "test");
-    expect(isBffSentrySmokeRequestAllowed("correct-secret")).toBe(false);
+    expect(isAppSentrySmokeRequestAllowed("correct-secret")).toBe(false);
 
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("SENTRY_SMOKE_ENABLED", "0");
-    expect(isBffSentrySmokeRequestAllowed("correct-secret")).toBe(false);
+    expect(isAppSentrySmokeRequestAllowed("correct-secret")).toBe(false);
 
     vi.stubEnv("SENTRY_SMOKE_ENABLED", "1");
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "");
-    expect(isBffSentrySmokeRequestAllowed("correct-secret")).toBe(false);
+    expect(isAppSentrySmokeRequestAllowed("correct-secret")).toBe(false);
   });
 
   it("emits one fixed Issue and one fixed log, then performs a bounded flush", async () => {
     await expect(
-      runBffSentrySmoke({
-        service: "portal-bff",
+      runAppSentrySmoke({
+        service: "portal",
         providedSecret: "correct-secret",
         flushTimeoutMs: 1_500,
       }),
@@ -73,12 +73,12 @@ describe("BFF Sentry smoke helper", () => {
     expect(sentry.captureException).toHaveBeenCalledOnce();
     const captured = sentry.captureException.mock.calls[0]?.[0];
     expect(captured).toBeInstanceOf(Error);
-    expect(captured.message).toBe("Aomi BFF Sentry smoke test");
+    expect(captured.message).toBe("Aomi app server Sentry smoke test");
     expect(sentry.logger.error).toHaveBeenCalledOnce();
     expect(sentry.logger.error).toHaveBeenCalledWith(
-      "bff.smoke_test",
+      "app.smoke_test",
       expect.objectContaining({
-        service: "portal-bff",
+        service: "portal",
         smoke_test: true,
       }),
       { scope: sentry.scope },
@@ -88,8 +88,8 @@ describe("BFF Sentry smoke helper", () => {
 
   it("does not emit telemetry for a rejected request", async () => {
     await expect(
-      runBffSentrySmoke({
-        service: "portal-bff",
+      runAppSentrySmoke({
+        service: "portal",
         providedSecret: "wrong-secret",
       }),
     ).resolves.toBe(false);
@@ -99,7 +99,7 @@ describe("BFF Sentry smoke helper", () => {
     expect(sentry.flush).not.toHaveBeenCalled();
 
     await expect(
-      runBffSentrySmoke({
+      runAppSentrySmoke({
         service: "invalid",
         providedSecret: "correct-secret",
       } as never),
@@ -110,8 +110,8 @@ describe("BFF Sentry smoke helper", () => {
     sentry.flush.mockResolvedValueOnce(false);
 
     await expect(
-      runBffSentrySmoke({
-        service: "build-bff",
+      runAppSentrySmoke({
+        service: "build",
         providedSecret: "correct-secret",
       }),
     ).resolves.toBe(false);
@@ -129,8 +129,8 @@ describe("BFF Sentry smoke helper", () => {
     });
 
     await expect(
-      runBffSentrySmoke({
-        service: "portal-bff",
+      runAppSentrySmoke({
+        service: "portal",
         providedSecret: "correct-secret",
       }),
     ).resolves.toBe(false);

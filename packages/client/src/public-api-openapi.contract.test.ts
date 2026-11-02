@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(112);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(113);
     // The two-purchase Task API (product-mono #1356): prepare, then status
     // and result by quote.
     for (const route of [
@@ -79,6 +79,7 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       "POST /v1/agent/chat",
       "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
       "POST /v1/agent/chat/{sessionId}/interrupt",
+      "POST /v1/agent/chat/{sessionId}/steer",
       "POST /v1/agent/mcp",
     ]);
     for (const removed of ["chat", "state", "interrupt"].map(

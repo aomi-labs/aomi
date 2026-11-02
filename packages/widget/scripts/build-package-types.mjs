@@ -53,7 +53,7 @@ await rewrite(types);
 const manifest = JSON.parse(
   await readFile(path.join(root, "package-entries.json"), "utf8"),
 );
-const entries = { ...manifest.entries, ...manifest.deprecated };
+const entries = manifest.entries;
 for (const [entry, module] of Object.entries(entries)) {
   // Rollup tree-shaking strips module directives; Next needs them on public entries.
   const javascript = path.join(root, "dist", `${entry}.js`);

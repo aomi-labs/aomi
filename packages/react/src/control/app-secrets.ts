@@ -4,7 +4,7 @@
 //
 // Apps can ask each signed-in user for their own credentials. The backend keeps
 // those values in a per-user, per-application key set
-// (`/api/account/apps/:id/secrets`) and injects them only for that user's runs.
+// (`/v1/account/apps/:id/secrets`) and injects them only for that user's runs.
 //
 // This is deliberately NOT part of `useByok`: that hook is the ephemeral,
 // browser-scoped vault (`ingestSecrets`), while these keys are account-scoped
@@ -14,7 +14,7 @@
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import type {
-  AomiClient,
+  Aomi,
   AomiUserAppSecrets,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -36,57 +36,41 @@ export type AppSecretsActions = {
   clearAppSecrets: (applicationId: ApplicationId) => Promise<void>;
 };
 
-type UseAppSecretsOptions = {
-  aomiClientRef: MutableRefObject<AomiClient>;
-  /** Stable getter for the current control-session id (clientId + sessionId). */
-  getControlSessionId: () => string;
-};
-
 /** Provider-internal. Consumers use the `useAppSecrets` slice reader exported
  *  from contexts/control-context.tsx. */
 export function useAppSecretsImpl({
-  aomiClientRef,
-  getControlSessionId,
-}: UseAppSecretsOptions): { actions: AppSecretsActions } {
-  const listAppSecrets = useCallback(
+  aomiRef,
+}: {
+  aomiRef: MutableRefObject<Aomi>;
+}): { actions: AppSecretsActions } {
+  const credentials = useCallback(
     (applicationId: ApplicationId) =>
-      aomiClientRef.current.listAppSecrets(
-        getControlSessionId(),
-        applicationId,
-      ),
-    [aomiClientRef, getControlSessionId],
+      aomiRef.current.account.apps.credentials(Number(applicationId)),
+    [aomiRef],
+  );
+
+  const listAppSecrets = useCallback(
+    (applicationId: ApplicationId) => credentials(applicationId).list(),
+    [credentials],
   );
 
   const saveAppSecrets = useCallback(
     (applicationId: ApplicationId, secrets: Record<string, string>) =>
-      aomiClientRef.current.saveAppSecrets(
-        getControlSessionId(),
-        applicationId,
-        secrets,
-      ),
-    [aomiClientRef, getControlSessionId],
+      credentials(applicationId).save(secrets),
+    [credentials],
   );
 
   const deleteAppSecret = useCallback(
-    async (applicationId: ApplicationId, name: string) => {
-      const { deleted } = await aomiClientRef.current.deleteAppSecret(
-        getControlSessionId(),
-        applicationId,
-        name,
-      );
-      return deleted;
-    },
-    [aomiClientRef, getControlSessionId],
+    async (applicationId: ApplicationId, name: string) =>
+      (await credentials(applicationId).remove(name)).deleted,
+    [credentials],
   );
 
   const clearAppSecrets = useCallback(
     async (applicationId: ApplicationId) => {
-      await aomiClientRef.current.clearAppSecrets(
-        getControlSessionId(),
-        applicationId,
-      );
+      await credentials(applicationId).clear();
     },
-    [aomiClientRef, getControlSessionId],
+    [credentials],
   );
 
   return {

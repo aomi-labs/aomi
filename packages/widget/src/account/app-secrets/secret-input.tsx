@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState, type FC } from "react";
 import {
   ShieldIcon,
@@ -9,7 +10,7 @@ import {
   PlusIcon,
   XIcon,
 } from "lucide-react";
-import { useControl, cn } from "@aomi-labs/react";
+import { useControl } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";

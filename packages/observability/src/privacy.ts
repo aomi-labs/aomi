@@ -1,4 +1,4 @@
-import type { Event, Log } from "@sentry/nextjs";
+import type { Event, Log } from "@sentry/node";
 
 const SAFE_EVENT_TAGS = new Set([
   "duration_ms",
@@ -18,7 +18,7 @@ const SAFE_EVENT_TAGS = new Set([
   "upstream.status_code",
 ]);
 
-const SAFE_LOG_MESSAGES = new Set(["bff.smoke_test", "bff.upstream_failure"]);
+const SAFE_LOG_MESSAGES = new Set(["app.smoke_test", "app.upstream_failure"]);
 
 const STATIC_ROUTE_SEGMENTS = new Set([
   "account",
@@ -195,7 +195,7 @@ function scrubException(exception: Event["exception"]): Event["exception"] {
     values: exception.values.map((value) => ({
       type:
         value.type && SAFE_ERROR_TYPE.test(value.type) ? value.type : "Error",
-      value: "BFF exception",
+      value: "app server exception",
       mechanism: value.mechanism
         ? {
             type: safeScalar(value.mechanism.type) ?? "generic",
@@ -232,6 +232,8 @@ function scrubStackPath(value: string | undefined): string | undefined {
 function isKnownStackPath(value: string): boolean {
   if (value.startsWith("node:")) return true;
   if (value.startsWith("app:///_next/server/")) return true;
+  // Vercel functions run the Nitro bundle from /var/task (_ssr/, _chunks/, …).
+  if (value.startsWith("/var/task/")) return true;
   if (
     value.startsWith("webpack-internal:///") ||
     value.startsWith("webpack:///")
@@ -240,6 +242,7 @@ function isKnownStackPath(value: string): boolean {
   }
   return [
     "/.next/server/",
+    "/.output/server/",
     "/apps/portal/",
     "/apps/build/",
     "/packages/account/",

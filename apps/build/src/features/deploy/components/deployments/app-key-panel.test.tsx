@@ -38,7 +38,7 @@ describe("AppKeyPanel", () => {
     expect(value.textContent).toBe(maskAppKey(KEY, KEY.slice(0, 8)));
     expect(value.textContent).not.toContain("aaaaaaaaaa");
     expect(buildFetch).toHaveBeenCalledWith(
-      "/api/bff/deployments/app-key?applicationId=42",
+      "/api/build/deployments/app-key?applicationId=42",
       { cache: "no-store" },
     );
 
@@ -64,7 +64,7 @@ describe("AppKeyPanel", () => {
       expect(screen.getByTestId("app-key-value").textContent).toBe(NEXT_KEY),
     );
     expect(buildFetch).toHaveBeenLastCalledWith(
-      "/api/bff/deployments/app-key",
+      "/api/build/deployments/app-key",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ applicationId: 42 }),

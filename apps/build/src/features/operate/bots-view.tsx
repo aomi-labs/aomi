@@ -1,10 +1,9 @@
-"use client";
-
 // Telegram bot management for the Integrations page: provider rail, the
 // how-it-works explainer, an inline add flow, and one card per registered
 // bot with in-place app editing. UI ported from the /mock-integration design
 // session; data layer (react-query + BFF operate/bots routes) unchanged.
 
+import { cn } from "@aomi-labs/widget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
 import { useCallback, useId, useMemo, useState } from "react";
@@ -22,7 +21,6 @@ import {
 import { TelegramHowItWorks } from "@/features/integrations/how-it-works";
 import { ThreadModeControl } from "@/features/integrations/thread-mode-control";
 import { API_PATHS } from "@/lib/api-paths";
-import { cn } from "@/lib/class-names";
 import { operateFetch } from "./client";
 import { readJsonResponse } from "@/lib/request-retry";
 
@@ -186,8 +184,8 @@ function botsUrl(extra: Record<string, string> = {}): string {
   const params = new URLSearchParams(extra);
   const query = params.toString();
   return query
-    ? `${API_PATHS.bff.operate.bots}?${query}`
-    : API_PATHS.bff.operate.bots;
+    ? `${API_PATHS.build.operate.bots}?${query}`
+    : API_PATHS.build.operate.bots;
 }
 
 // ── shared glyphs (recipes shared with providers-view.tsx) ──────────────────
@@ -741,7 +739,7 @@ function BotCard({
                   onClick={() => {
                     setRevealing(true);
                     setError(null);
-                    fetch(API_PATHS.bff.operate.botCommandSecret(bot.id))
+                    fetch(API_PATHS.build.operate.botCommandSecret(bot.id))
                       .then(async (res) => {
                         const json = await readJsonResponse<{
                           commandSecret?: string;
@@ -876,7 +874,7 @@ function BotCard({
                 onClick={() => {
                   setChecking(true);
                   setCheckError(null);
-                  fetch(API_PATHS.bff.operate.botWebhook(bot.id), {
+                  fetch(API_PATHS.build.operate.botWebhook(bot.id), {
                     method: "POST",
                   })
                     .then(async (res) => {

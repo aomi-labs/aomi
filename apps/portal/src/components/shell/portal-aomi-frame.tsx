@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useCallback,
   useEffect,
@@ -171,8 +169,14 @@ export function ThreadUrlBootstrap({
     };
     // Assistant-ui's per-chat boundary remounts this subtree. Only initial
     // host restoration or browser navigation should reopen the current URL.
-    if (locationState.getSnapshot().requestedThread === undefined)
+    if (locationState.getSnapshot().requestedThread === undefined) {
       readLocation();
+      // A blank initial URL has no owned chat to restore. Finish it before
+      // the account read so a click on cached history is not replaced by New
+      // chat when that read completes. Linked URLs still wait for validation.
+      if (locationState.getSnapshot().requestedThread === null)
+        locationState.settle();
+    }
     window.addEventListener("popstate", readLocation);
     return () => window.removeEventListener("popstate", readLocation);
   }, [locationState]);

@@ -5,20 +5,24 @@
 ```ts
 
 import { AccountCreditsTransport } from '@aomi-labs/client';
+import { AccountGraphLinkedAccount } from '@aomi-labs/client';
+import { AccountGraphUser } from '@aomi-labs/client';
+import { AccountGraphWallet } from '@aomi-labs/client';
+import { AccountMergeOffer } from '@aomi-labs/client';
 import type { Chain } from 'viem';
 import { EvmWallet } from '@aomi-labs/client';
 import { GetAccountBearer } from '@aomi-labs/client';
 import { JSX } from 'react/jsx-runtime';
 import { ProviderCredential } from '@aomi-labs/client';
-import type { WalletEip712Payload } from '@aomi-labs/react';
-import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
-import type { WalletSolanaSignPayload } from '@aomi-labs/react';
-import type { WalletTxPayload } from '@aomi-labs/react';
+import { WalletEip712Payload } from '@aomi-labs/client';
+import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
+import { WalletSolanaSignPayload } from '@aomi-labs/client';
+import { WalletTxPayload } from '@aomi-labs/client';
 
-// @public (undocumented)
+// @public
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
-    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
+    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect"> & Partial<Pick<AomiWalletKit, "wallets" | "activateWallet">>;
     open: boolean;
     onClose: () => void;
     onSuccess: () => Promise<void>;

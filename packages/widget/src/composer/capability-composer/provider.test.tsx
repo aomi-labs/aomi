@@ -48,7 +48,7 @@ vi.mock("@assistant-ui/react", () => ({
 vi.mock("@aomi-labs/react", () => ({
   useChatView: () => null,
   useAomiDisplayCache: () => ({
-    apiClient: { prepareGuestSession: fixture.prepareGuestSession },
+    aomi: { raw: { prepareGuestSession: fixture.prepareGuestSession } },
   }),
   useControl: () => fixture,
   useAuthEndpoints: () => ({

@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 
 /**
@@ -41,7 +41,7 @@ export function SectionHeader({
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Heading id={id} className="type-section truncate">
+        <Heading id={id} className="type-section max-w-full shrink-0 truncate">
           {title}
         </Heading>
         {count !== undefined && count !== null ? (

@@ -23,7 +23,7 @@ describe("operate client Project identity", () => {
     await operateFetch("usage", { projectId: 1620 });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/bff/operate/usage?projectId=1620",
+      "/api/build/operate/usage?projectId=1620",
       { signal: expect.any(AbortSignal) },
     );
   });
@@ -32,7 +32,7 @@ describe("operate client Project identity", () => {
     await operateAppDetailFetch(2938032);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/bff/operate/observability/detail?applicationId=2938032",
+      "/api/build/operate/observability/detail?applicationId=2938032",
       { signal: expect.any(AbortSignal) },
     );
   });

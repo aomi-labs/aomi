@@ -7,28 +7,13 @@ import {
 import { rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
 import { transformerTwoslash } from "fumadocs-twoslash";
 import { transformerMetaHighlight } from "@shikijs/transformers";
-import { z } from "zod";
 import { remarkMermaid } from "@theguild/remark-mermaid";
 import { createFileSystemTypesCache } from "fumadocs-twoslash/cache-fs";
-
-export const guides = defineDocs({
-  dir: "content/guides",
-  docs: {
-    schema: frontmatterSchema,
-    postprocess: {
-      includeProcessedMarkdown: true,
-    },
-  },
-  meta: {
-    schema: metaSchema.extend({
-      description: z.string().optional(),
-    }),
-  },
-});
 
 export const examples = defineDocs({
   dir: "content/examples",
   docs: {
+    async: true,
     schema: frontmatterSchema,
   },
   meta: {
@@ -39,6 +24,7 @@ export const examples = defineDocs({
 export const playground = defineDocs({
   dir: "content/playground",
   docs: {
+    async: true,
     schema: frontmatterSchema,
   },
   meta: {

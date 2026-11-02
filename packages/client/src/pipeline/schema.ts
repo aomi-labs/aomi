@@ -11,6 +11,24 @@ export class PipelineSchemaError extends TypeError {
 }
 
 /**
+ * Fill `topic`, the one-line label the model writes for each tool call, when
+ * the operation declares it and the caller left it out.
+ */
+export function withTopic(
+  args: Record<string, unknown>,
+  operation: string,
+  schema: PipelineJsonSchema,
+): Record<string, unknown> {
+  const properties =
+    typeof schema === "object"
+      ? (schema.properties as object | undefined)
+      : undefined;
+  return properties && "topic" in properties && !("topic" in args)
+    ? { ...args, topic: operation }
+    : args;
+}
+
+/**
  * Small dependency-free validator for the JSON Schema vocabulary emitted by
  * the live Catalog. The backend remains authoritative; this catches ordinary
  * integration mistakes before an operation POST without pretending to be a

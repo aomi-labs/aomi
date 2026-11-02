@@ -1,5 +1,3 @@
-"use client";
-
 import { Activity, Gauge, Home, Rocket, WalletCards } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";

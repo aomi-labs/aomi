@@ -1,5 +1,3 @@
-"use client";
-
 // The global Providers page: builder-owned LLM model keys, provider-centric.
 // One flat card per provider (header + divide-y key rows). Each key row is an
 // accordion: click to expand an inline panel with key metadata, project
@@ -13,6 +11,7 @@
 // and the button ramp (accent commit + accent repair in flow, solid red pill
 // for the destructive commit).
 
+import { cn } from "@aomi-labs/widget";
 import { Check, ChevronDown, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,7 +27,6 @@ import {
 } from "@/features/deploy/query-keys";
 import { modelKeysFetch } from "@/features/operate/client";
 import { API_PATHS } from "@/lib/api-paths";
-import { cn } from "@/lib/class-names";
 import { readJsonResponse } from "@/lib/request-retry";
 
 export const PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
@@ -62,7 +60,7 @@ export type ModelKey = {
   updatedAt: number;
   applicationIds: number[];
   grants?: { applicationId: number; keyId: number; modelIds: "*" | string[] }[];
-  /** Wire form from the BFF: all-time funded-turn sums per application. */
+  /** Wire form from the Build server: all-time funded-turn sums per application. */
   usageByApplication?: ModelKeyAppUsage[];
   /** applicationId -> usage, derived from `usageByApplication` on load. */
   usage?: Record<number, ModelKeyUsage>;
@@ -799,7 +797,7 @@ export function ProvidersView() {
   const onCreate = useCallback(
     (provider: Provider, material: string, label: string) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -814,7 +812,7 @@ export function ProvidersView() {
   const onRotate = useCallback(
     (key: ModelKey, material: string) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -830,7 +828,7 @@ export function ProvidersView() {
   const onGrants = useCallback(
     (key: ModelKey, applicationIds: number[], modelIds: "*" | string[]) =>
       run(() =>
-        fetch(API_PATHS.bff.operate.modelKeys, {
+        fetch(API_PATHS.build.operate.modelKeys, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyId: key.id, applicationIds, modelIds }),
@@ -841,7 +839,7 @@ export function ProvidersView() {
   const onRemove = useCallback(
     (key: ModelKey) =>
       run(() =>
-        fetch(`${API_PATHS.bff.operate.modelKeys}?keyId=${key.id}`, {
+        fetch(`${API_PATHS.build.operate.modelKeys}?keyId=${key.id}`, {
           method: "DELETE",
         }),
       ),

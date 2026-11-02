@@ -1,5 +1,7 @@
 "use client";
 
+import { type AomiClientOptions } from "@aomi-labs/client";
+import { cn } from "@/lib/cn";
 import {
   useEffect,
   useMemo,
@@ -16,13 +18,9 @@ export {
   paraAuth,
   privyAuth,
   type AomiWidgetAuth,
-  type CrossOriginWidgetAuth,
   type ParaAuthOptions,
   type PrivyAuthOptions,
 } from "./widget-auth";
-import type {
-  AomiClientOptions,
-} from "@aomi-labs/react";
 import { createWidgetX402Client } from "@/wallet/payment-client";
 import { SvmWalletBindingGate } from "@/wallet/svm-wallet-binding-gate";
 import { AomiFrame, type AomiFrameControlBarProps } from "./aomi-frame";
@@ -30,7 +28,6 @@ import { ApprovalAuthorityContext } from "@/commit/approval-authority";
 import { AomiWalletKitProvider } from "@/wallet/config/aomi-wallet-kit-provider";
 import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletsConfig } from "@/wallet/config/types";
-import { cn } from "@aomi-labs/react";
 import {
   resolveWidgetAuth,
   type AomiWidgetAuth,
@@ -52,8 +49,6 @@ export type AomiWidgetProps = {
   applicationId: string | number;
   /** Aomi backend origin. Defaults to https://chat.aomi.dev. */
   baseUrl?: string;
-  /** @deprecated Use baseUrl. Removed in @aomi-labs/widget 4.0. */
-  apiUrl?: string;
   /** Color theme. "system" follows the visitor's OS setting. Defaults to "system". */
   theme?: AomiWidgetTheme;
   width?: CSSProperties["width"];
@@ -106,7 +101,7 @@ function resolveWidgetConfig(props: AomiWidgetProps): WidgetConfig {
       error:
         'applicationId is required: pass your hosted App\'s Application ID, e.g. <AomiWidget applicationId="123" />.',
     };
-  const baseUrl = (props.baseUrl ?? props.apiUrl ?? DEFAULT_BASE_URL).replace(
+  const baseUrl = (props.baseUrl ?? DEFAULT_BASE_URL).replace(
     /\/+$/,
     "",
   );
@@ -163,7 +158,7 @@ function useThemeClass(theme: AomiWidgetTheme): "light" | "dark" {
 }
 
 export function AomiWidget(props: AomiWidgetProps) {
-  const { applicationId, baseUrl, apiUrl, theme } = props;
+  const { applicationId, baseUrl, theme } = props;
   // Hosts usually build auth inline (auth={privyAuth(…)}); key it by value so
   // a re-render does not restart the wallet island.
   const authKey = JSON.stringify(props.auth ?? null);
@@ -172,11 +167,10 @@ export function AomiWidget(props: AomiWidgetProps) {
       resolveWidgetConfig({
         applicationId,
         baseUrl,
-        apiUrl,
         theme,
         auth: JSON.parse(authKey) ?? undefined,
       }),
-    [applicationId, baseUrl, apiUrl, theme, authKey],
+    [applicationId, baseUrl, theme, authKey],
   );
   if ("error" in config)
     return (

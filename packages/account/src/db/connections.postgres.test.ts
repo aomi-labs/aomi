@@ -49,8 +49,8 @@ describe.skipIf(!enabled)("account connections", () => {
         "utf8",
       ),
     );
-    const { auth } = await import("../better-auth/auth");
-    await (await getMigrations(auth.options)).runMigrations();
+    const { createAuth } = await import("../better-auth/auth");
+    await (await getMigrations(createAuth(process.env).options)).runMigrations();
     connections = await import("../service/connections");
     await seed();
   }, 30_000);

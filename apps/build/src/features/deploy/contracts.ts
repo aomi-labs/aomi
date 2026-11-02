@@ -3,7 +3,6 @@
 // choice (env-resolved once at module load, as before).
 import {
   resolveTemplateRepo,
-  templateGenerateUrl,
   templateRepoUrl,
 } from "@aomi-labs/deploy/launch";
 
@@ -35,4 +34,3 @@ export type {
 
 export const TEMPLATE_REPO = resolveTemplateRepo();
 export const TEMPLATE_REPO_URL = templateRepoUrl(TEMPLATE_REPO);
-export const TEMPLATE_GENERATE_URL = templateGenerateUrl(TEMPLATE_REPO);

@@ -11,8 +11,6 @@ export type PrivyAuthOptions = {
   appName?: string;
   appLogoUrl?: string;
   methods?: readonly AuthMethodId[];
-  /** @deprecated Ignored; Privy sessions are always exchanged as PROD. Removed in @aomi-labs/widget 4.0. */
-  environment?: string;
 };
 
 export type ParaAuthOptions = {
@@ -27,30 +25,10 @@ export type ParaAuthOptions = {
   disableWorkers?: boolean;
 };
 
-/** @deprecated Use AomiWidgetAuth with `type`. Removed in @aomi-labs/widget 4.0. */
-export type CrossOriginWidgetAuth =
-  | { kind: "browser_wallet" }
-  | {
-      kind: "embedded_wallet";
-      provider: "para";
-      environment: string;
-      /** Para public project key, passed explicitly by the host. */
-      apiKey?: string;
-    }
-  | {
-      kind: "embedded_wallet";
-      provider: "privy";
-      environment?: string;
-      /** Privy public app ID. Same contract as Para's `apiKey`. */
-      appId?: string;
-    };
-
-type WidgetAuthChoice =
+export type AomiWidgetAuth =
   | { type: "browser_wallet" }
   | ({ type: "privy" } & PrivyAuthOptions)
   | ({ type: "para" } & ParaAuthOptions);
-
-export type AomiWidgetAuth = WidgetAuthChoice | CrossOriginWidgetAuth;
 
 /** Sign in with Privy. The widget loads the Privy SDK only when this is used. */
 export function privyAuth(options: PrivyAuthOptions): AomiWidgetAuth {
@@ -70,10 +48,8 @@ export type ResolvedWidgetAuth = {
 
 /** Turn the public auth prop into wallet-kit config, or explain what is wrong. */
 export function resolveWidgetAuth(
-  input: AomiWidgetAuth | undefined,
+  auth: AomiWidgetAuth | undefined,
 ): ResolvedWidgetAuth | { error: string } {
-  const auth: WidgetAuthChoice | undefined =
-    input && "kind" in input ? fromLegacyAuth(input) : input;
   if (!auth || auth.type === "browser_wallet")
     return { auth: false, widgetAuth: { mode: "wallet" } };
   if (auth.type === "privy") {
@@ -122,13 +98,3 @@ export function resolveWidgetAuth(
   };
 }
 
-function fromLegacyAuth(auth: CrossOriginWidgetAuth): WidgetAuthChoice {
-  if (auth.kind === "browser_wallet") return { type: "browser_wallet" };
-  if (auth.provider === "privy")
-    return { type: "privy", appId: auth.appId ?? "" };
-  return {
-    type: "para",
-    apiKey: auth.apiKey ?? "",
-    environment: auth.environment.toUpperCase() === "PROD" ? "PROD" : "BETA",
-  };
-}

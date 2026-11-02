@@ -1,11 +1,5 @@
 import { createRoot } from "react-dom/client";
-import {
-  AomiWidget,
-  paraAuth,
-  privyAuth,
-  type AomiRoutingConfig,
-  type AomiWidgetAuth,
-} from "@aomi-labs/widget";
+import { AomiWidget, paraAuth, privyAuth, type AomiRoutingConfig, type AomiWidgetAuth } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
 import "./styles.css";
 

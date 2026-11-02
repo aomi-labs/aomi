@@ -691,3 +691,116 @@ describe("selectReviewQueue", () => {
     ).toEqual(["lone", "cmt-0", "cmt-1"]);
   });
 });
+
+describe("discarded staged transactions", () => {
+  const evm = (sequence: number, id: number, turn = "turn-1") =>
+    tool(
+      sequence,
+      "evm_stage_tx",
+      {
+        ...tx,
+        pending_tx_id: id,
+        current_lifecycle: "queued",
+      },
+      turn,
+    );
+  const svm = (sequence: number, id: number, lane: "ix" | "tx") =>
+    tool(sequence, `svm_stage_${lane}`, {
+      [lane]: {
+        [lane === "ix" ? "pending_ix_id" : "pending_tx_id"]: id,
+        current_lifecycle: "queued",
+        cluster: "devnet",
+        description: `Solana draft ${id}`,
+      },
+    });
+
+  it.each(["message", "tool_complete", "tool_update"] as const)(
+    "removes only returned EVM ids from %s events, including earlier turns and replay",
+    (type) => {
+      const events: Event[] = [evm(1, 1), evm(2, 2), svm(3, 1, "ix")];
+      expect(selectActivity(events).transactions).toHaveLength(3);
+      const result = { __aomi_tool_value: { discarded: [1] } };
+      const discard: Event =
+        type === "message"
+          ? tool(4, "evm_discard_tx", result, "turn-2")
+          : ({
+              ...meta(4, "turn-2"),
+              type,
+              tool_call_id: "discard-1",
+              tool_name: "evm_discard_tx",
+              result,
+            } as Event);
+      events.push(discard);
+      const selected = selectActivity(events);
+      expect(
+        [...selected.history, ...selected.transactions].map((item) => item.id),
+      ).toEqual(["turn-1:evm:2", "turn-1:svm:1"]);
+      expect(selectActivity(JSON.parse(JSON.stringify(events)))).toEqual(
+        selected,
+      );
+    },
+  );
+
+  it("removes both SVM lanes while preserving an EVM draft with the same id", () => {
+    const events = [evm(1, 1), svm(2, 1, "ix"), svm(3, 2, "tx")];
+    expect(selectActivity(events).transactions).toHaveLength(3);
+    events.push(tool(4, "svm_discard_tx", { discarded: [1, 2] }));
+    expect(selectActivity(events).transactions.map((item) => item.id)).toEqual([
+      "turn-1:evm:1",
+    ]);
+  });
+
+  it("removes legacy Jupiter drafts by their staged ids across turns and replay", () => {
+    const events = [
+      tool(1, "jupiter_prepare_swap", {
+        ix_ids: [1, 2],
+        cluster: "mainnet-beta",
+      }),
+      evm(2, 1),
+      tool(3, "svm_discard_tx", { discarded: [1] }, "turn-2"),
+    ];
+    const selected = selectActivity(events);
+    expect(
+      [...selected.history, ...selected.transactions].map((item) => item.id),
+    ).toEqual(["turn-1:svm:2", "turn-1:evm:1"]);
+    expect(selectActivity(JSON.parse(JSON.stringify(events)))).toEqual(
+      selected,
+    );
+  });
+
+  it("keeps drafts for failed or incomplete discards and ignores lookalike tools", () => {
+    for (const [name, result] of [
+      ["evm_discard_tx", { is_error: true, discarded: [1] }],
+      ["evm_discard_tx", { error: "unknown id", discarded: [1] }],
+      ["evm_discard_tx", {}],
+      ["skill_tools::evm_discard_tx", { discarded: [1] }],
+    ] as const) {
+      expect(
+        selectActivity([evm(1, 1), tool(2, name, result)]).transactions,
+      ).toHaveLength(1);
+    }
+  });
+
+  it("removes a draft left by a rejected commit when the backend confirms its discard", () => {
+    const events = [
+      evm(1, 1),
+      tool(2, "evm_commit_txs", { status: "pending_approval", tx_ids: [1] }),
+      tool(3, "evm_discard_tx", { discarded: [1] }),
+    ];
+    expect(selectActivity(events).transactions).toEqual([]);
+  });
+
+  it("keeps committed history and allows a new draft after a discard", () => {
+    const events = [
+      evm(1, 1),
+      tool(2, "evm_commit_txs", { status: "pending_approval", tx_ids: [1] }),
+      evm(3, 2),
+      tool(4, "evm_discard_tx", { discarded: [2] }),
+      evm(5, 3),
+    ];
+    expect(selectActivity(events).transactions.map((item) => item.id)).toEqual([
+      "turn-1:evm:1",
+      "turn-1:evm:3",
+    ]);
+  });
+});

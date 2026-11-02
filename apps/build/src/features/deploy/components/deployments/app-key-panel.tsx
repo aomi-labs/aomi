@@ -7,7 +7,7 @@ import { useToast } from "@/components/control-plane/toast";
 import { buildFetch } from "@/lib/session-expiry";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 
-const APP_KEY_PATH = "/api/bff/deployments/app-key";
+const APP_KEY_PATH = "/api/build/deployments/app-key";
 
 async function appKeyRequest(
   applicationId: number,

@@ -5,52 +5,43 @@ status: authoritative
 area: client-runtime
 review_after_days: 30
 sources_of_truth:
-  - packages/client/package.json
-  - packages/cli/src/main.ts
-  - packages/cli/src/root.ts
-  - packages/cli/src/repl.ts
-  - packages/cli/src/commands/chat.ts
+  - packages/cli/package.json
+  - packages/cli/src/app.ts
+  - packages/cli/src/context.ts
+  - packages/cli/src/tui/chat.ts
 ---
 
 # CLI
 
-The `aomi` terminal client is published from `@aomi-labs/cli` and shares its transport layer with the widget runtime.
+The `aomi` terminal client is published from `@aomi-labs/cli`. It is a thin
+client of `new Aomi()` from `@aomi-labs/client`: no transport, auth or signer
+code of its own.
 
 ## Entrypoint
 
-- `packages/cli/package.json` exposes the `aomi` bin as `./dist/bin.js`. The old client bin remains a compatibility bundle.
-- `packages/cli/src/main.ts` decides whether to run root help, one-shot commands, or the interactive REPL.
-- Root command handling is defined under `packages/cli/src/root.ts`.
+- `packages/cli/package.json` exposes the `aomi` bin as `./dist/bin.js`.
+- `packages/cli/src/app.ts` is the Stricli route table. Root `--help` prints
+  it in groups with aliases; flags are scoped to the commands that use them
+  and internal ones show only under `--help-all`. Old paths (`session`,
+  `wallet`, `app`, `byok`, `account login`, `tx show`) are aliases.
+- `aomi` with no command, or root flags such as `-p`, runs `chat`.
 
-## Command Surface
+## Sign-in
 
-- The CLI supports chat, transaction, session, model, app, chain, wallet, config, and secret commands.
-- Account app commands list, install, and remove catalog apps. Credential
-  commands report redacted status and set, replace, or remove one declared
-  per-user credential by application ID.
-- Credential values are accepted only through a silent terminal prompt or
-  stdin. They are not accepted in argv, printed, or written to CLI state.
-- Transaction commands include `tx list`, `tx simulate <id>...`, `tx export <id>...`, and `tx sign <id>...`.
-- `tx export` refreshes authoritative pending state and emits a wallet handoff artifact to stdout. The default `eip5792` format is the full EIP-5792 `wallet_sendCalls` version `2.0.0` parameter object; `moss` emits its ordered call array, and `metamask` emits a decimal chain ID plus exactly one raw transaction payload. It accepts EVM transaction calls on one sender and chain; it never signs, broadcasts, injects the execution-time service-fee call, or reports completion to the backend.
-- Interactive mode exposes slash-style helpers such as `/app`, `/model`, and `/key`.
-- The root help path is intentionally explicit about backend URL, API key, app, model, chain, and wallet options.
+- `aomi login`: one OAuth device grant for the `/v1` resource, stored in
+  `~/.aomi/grants.json` by `fileGrants()`. The SDK registers a public device
+  client on first sign-in. Wallet and provider choice is on the web page.
+- `--private-key` / `AOMI_PRIVATE_KEY`: the SDK's `wallet()` strategy (SIWE)
+  and the EVM signer (`viemSigner`).
+- Otherwise a guest, whose bearer is kept in `~/.aomi/cli.json`.
 
-## OAuth account session
+## Output
 
-- `aomi account login` dynamically registers a public PKCE client, obtains
-  Agent and Pipeline device grants, opens the shared portal approval page, and
-  polls the Better Auth device endpoint using the server-provided interval.
-- The state file keeps access/refresh expiry and exact resource/scope binding.
-  Refresh rotation is serialized and replaced atomically; logout calls the
-  official revocation endpoint before clearing local grants.
-- `--legacy` retains the old account-session ceremony during the measured
-  compatibility window. `AOMI_CLI_OAUTH_DEFAULT_ENABLED` reverses the default
-  without changing server issuance or REST/MCP routing.
-
-## Role In The Repo
-
-- The CLI is the terminal-facing consumer of the same backend contracts used by the runtime and widget.
-- The CLI depends on the public SDK; its browser-safe entry does not import terminal code.
+- One-shot: the reply on stdout, the trace on stderr (one line per step from
+  `@aomi-labs/client/trace` `decode`, status glyphs), `--json` NDJSON.
+- Exit codes: 0 ok, 1 error, 2 usage, 3 approval, signature or sign-in needed.
+- The chat screen is pi-tui (`src/tui/chat.ts`): turns, folded steps, an
+  approve box (a/r/o/d), slash commands and a status bar. Esc interrupts.
 
 ## Related Topics
 

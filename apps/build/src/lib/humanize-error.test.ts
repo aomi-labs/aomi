@@ -14,7 +14,7 @@ describe("humanizeUserError", () => {
     ).toBe("This isn't available yet.");
     expect(
       humanizeUserError(
-        "The backend rejected the Aomi Build service bearer. Set PORTAL_SERVICE_PRIVATE_KEY.",
+        "The backend rejected the Aomi Build service bearer. Set BUILD_SERVICE_PRIVATE_KEY.",
       ),
     ).toBe("Sign-in failed. Try again.");
   });

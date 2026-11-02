@@ -1,7 +1,7 @@
 "use client";
 
 import { usePrivateApps } from "@aomi-labs/react";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library } from "lucide-react";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
@@ -29,7 +29,6 @@ import {
   PINNED_APPS,
   type CatalogPackage,
 } from "./packages-catalog";
-import { installApp, uninstallApp } from "@/account/shell/packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
   NAV_ITEMS,
@@ -50,7 +49,7 @@ interface PackagesModalProps {
 }
 
 export function PackagesModal({ onClose }: PackagesModalProps) {
-  const transport = useShellTransport();
+  const aomi = useShellAomi();
   const privateApps = usePrivateApps();
   const { updateAccountApps } = useAccountOverviewStore();
   const walletKit = useAomiWalletKit();
@@ -73,7 +72,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     error: skillsError,
     retry: retrySkills,
     loading: skillsLoading,
-  } = useSkillCatalog(transport.json);
+  } = useSkillCatalog();
   const [privateAppOpen, setPrivateAppOpen] = useState(false);
   const [view, setView] = useState<LibraryView>("discover");
   const [query, setQuery] = useState("");
@@ -114,8 +113,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       setActionError(null);
       try {
         const result = install
-          ? await installApp(app.applicationId, transport.json)
-          : await uninstallApp(app.applicationId, transport.json);
+          ? await aomi.account.apps.install(Number(app.applicationId))
+          : await aomi.account.apps.uninstall(Number(app.applicationId));
         const previousIds = account?.user.application_ids ?? [];
         const applicationId = Number(result.application_id);
         const applicationIds = install
@@ -140,7 +139,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       accountUserId,
       installedReady,
       retryApps,
-      transport,
+      aomi,
       updateAccountApps,
       privateApps.remove,
     ],

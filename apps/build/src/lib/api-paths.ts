@@ -1,13 +1,10 @@
-// Single source of truth for Aomi Build BFF route paths.
+// Aomi Build API paths, shared by the app and its tests.
 //
 // Isomorphic — imported by client call sites, server route handlers, and tests.
-// Boundary rule: every path under `/api/bff/*` is served by an app-local route
-// handler; any other `/api/*` path is forwarded to the Rust backend by the
-// `[...slug]` proxy. Backend-contract paths
-// (e.g. `/api/integrations/github-app/oauth/start`) deliberately live outside
-// this registry — they are owned by the backend, not Aomi Build.
+// The Edge serves the control plane; the Build server owns sandbox runs and
+// integrations. Backend-contract paths remain owned by their Rust services.
 
-const BFF = "/api/bff";
+const BUILD_API = "/api/build";
 
 function withPlatform(path: string, platform?: string): string {
   if (!platform) return path;
@@ -21,29 +18,29 @@ function projectsPath(base: string, projectId?: number): string {
 }
 
 export const API_PATHS = {
-  bff: {
+  build: {
     auth: {
       github: {
-        login: `${BFF}/auth/github/login`,
-        callback: `${BFF}/auth/github/callback`,
-        status: `${BFF}/auth/github/status`,
-        signout: `${BFF}/auth/github/signout`,
-        devSession: `${BFF}/auth/github/dev-session`,
+        login: `${BUILD_API}/auth/github/login`,
+        callback: `${BUILD_API}/auth/github/callback`,
+        status: `${BUILD_API}/auth/github/status`,
+        signout: `${BUILD_API}/auth/github/signout`,
+        devSession: `${BUILD_API}/auth/github/dev-session`,
       },
     },
     cli: {
-      login: `${BFF}/cli/login`,
-      exchange: `${BFF}/cli/exchange`,
-      status: `${BFF}/cli/status`,
+      login: `${BUILD_API}/cli/login`,
+      exchange: `${BUILD_API}/cli/exchange`,
+      status: `${BUILD_API}/cli/status`,
     },
     deployments: {
-      preflight: `${BFF}/deployments/preflight`,
-      deploy: `${BFF}/deployments/deploy`,
-      redeploy: `${BFF}/deployments/redeploy`,
-      promote: `${BFF}/deployments/promote`,
+      preflight: `${BUILD_API}/deployments/preflight`,
+      deploy: `${BUILD_API}/deployments/deploy`,
+      redeploy: `${BUILD_API}/deployments/redeploy`,
+      promote: `${BUILD_API}/deployments/promote`,
       projects: (platform?: string, projectId?: number) =>
         withPlatform(
-          projectsPath(`${BFF}/deployments/projects`, projectId),
+          projectsPath(`${BUILD_API}/deployments/projects`, projectId),
           platform,
         ),
       feed: (
@@ -55,7 +52,7 @@ export const API_PATHS = {
           params.set("cursorCreatedAt", String(cursor.createdAt));
           params.set("cursorId", String(cursor.id));
         }
-        return `${BFF}/deployments/feed?${params}`;
+        return `${BUILD_API}/deployments/feed?${params}`;
       },
       history: (projectId: number, limit?: number, platform?: string) => {
         const params = new URLSearchParams({
@@ -63,59 +60,59 @@ export const API_PATHS = {
         });
         if (limit) params.set("limit", String(limit));
         if (platform) params.set("platform", platform);
-        return `${BFF}/deployments/history?${params}`;
+        return `${BUILD_API}/deployments/history?${params}`;
       },
-      sdkStatus: `${BFF}/deployments/sdk-status`,
+      sdkStatus: `${BUILD_API}/deployments/sdk-status`,
       status: (deploymentId: string, platform?: string) =>
         withPlatform(
-          `${BFF}/deployments/status?deploymentId=${encodeURIComponent(deploymentId)}`,
+          `${BUILD_API}/deployments/status?deploymentId=${encodeURIComponent(deploymentId)}`,
           platform,
         ),
       requiredSecrets: (projectId: number, platform?: string) =>
         withPlatform(
-          `${BFF}/deployments/required-secrets?projectId=${projectId}`,
+          `${BUILD_API}/deployments/required-secrets?projectId=${projectId}`,
           platform,
         ),
       records: (app: string, projectId?: number, platform?: string) =>
         withPlatform(
-          `${BFF}/deployments/records?app=${encodeURIComponent(app)}${
+          `${BUILD_API}/deployments/records?app=${encodeURIComponent(app)}${
             projectId != null ? `&projectId=${projectId}` : ""
           }`,
           platform,
         ),
-      deactivate: `${BFF}/deployments/deactivate`,
-      sdkUpgrade: `${BFF}/deployments/sdk-upgrade`,
+      deactivate: `${BUILD_API}/deployments/deactivate`,
+      sdkUpgrade: `${BUILD_API}/deployments/sdk-upgrade`,
       sdkUpgradeStatus: (projectId: number, platform?: string) =>
         withPlatform(
-          `${BFF}/deployments/sdk-upgrade-status?projectId=${projectId}`,
+          `${BUILD_API}/deployments/sdk-upgrade-status?projectId=${projectId}`,
           platform,
         ),
     },
     operate: {
-      bots: `${BFF}/operate/bots`,
+      bots: `${BUILD_API}/operate/bots`,
       botCommandSecret: (botId: string) =>
-        `${BFF}/operate/bots/${encodeURIComponent(botId)}/command-secret`,
+        `${BUILD_API}/operate/bots/${encodeURIComponent(botId)}/command-secret`,
       botWebhook: (botId: string) =>
-        `${BFF}/operate/bots/${encodeURIComponent(botId)}/webhook`,
-      modelKeys: `${BFF}/operate/model-keys`,
-      transactions: `${BFF}/operate/transactions`,
-      usage: `${BFF}/operate/usage`,
-      logs: `${BFF}/operate/logs`,
-      observability: `${BFF}/operate/observability`,
-      payments: `${BFF}/operate/payments`,
+        `${BUILD_API}/operate/bots/${encodeURIComponent(botId)}/webhook`,
+      modelKeys: `${BUILD_API}/operate/model-keys`,
+      transactions: `${BUILD_API}/operate/transactions`,
+      usage: `${BUILD_API}/operate/usage`,
+      logs: `${BUILD_API}/operate/logs`,
+      observability: `${BUILD_API}/operate/observability`,
+      payments: `${BUILD_API}/operate/payments`,
       observabilityDetail: (applicationId: number) => {
         const params = new URLSearchParams({
           applicationId: String(applicationId),
         });
-        return `${BFF}/operate/observability/detail?${params}`;
+        return `${BUILD_API}/operate/observability/detail?${params}`;
       },
     },
     integrations: {
-      base: `${BFF}/integrations`,
+      base: `${BUILD_API}/integrations`,
     },
     e2e: {
-      execute: `${BFF}/e2e/execute`,
-      wallet: `${BFF}/e2e/wallet`,
+      execute: "/api/dev/e2e/execute",
+      wallet: "/api/dev/e2e/wallet",
     },
   },
 } as const;

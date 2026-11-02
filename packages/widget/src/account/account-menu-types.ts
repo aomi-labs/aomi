@@ -6,8 +6,10 @@ export type WalletAccountMenuOptions = {
   primaryLine?: string;
   /** Second line on the chip (e.g. monthly allowance). Omit to show network detail. */
   secondaryLine?: string;
-  /** The signed-in account's plan, displayed beside credits. */
+  /** The signed-in account's plan, displayed beside the balance. */
   planLabel?: string;
+  /** Fraction of the monthly allowance left (0–1), drawn as a ring. */
+  allowanceLeft?: number;
   /** The second line is still loading: show a placeholder in its place. */
   secondaryLoading?: boolean;
   /**

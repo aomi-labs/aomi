@@ -17,7 +17,7 @@ import {
   type ReactNode,
 } from "react";
 import type {
-  AomiClient,
+  Aomi,
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -157,7 +157,7 @@ export function usePerThreadControl(): {
 
 export type ControlContextProviderProps = {
   children: ReactNode;
-  aomiClient: AomiClient;
+  aomi: Aomi;
   sessionId: string;
   getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
   updateThreadMetadata: (
@@ -175,7 +175,7 @@ export type ControlContextProviderProps = {
 
 export function ControlContextProvider({
   children,
-  aomiClient,
+  aomi,
   sessionId,
   getThreadMetadata,
   updateThreadMetadata,
@@ -187,11 +187,11 @@ export function ControlContextProvider({
   account,
 }: ControlContextProviderProps) {
   // ---------------------------------------------------------------------------
-  // Stable refs into the central plumbing (aomiClient, the props that change
+  // Stable refs into the central plumbing (aomi, the props that change
   // per render). Each focused hook reads from these via the args we pass it.
   // ---------------------------------------------------------------------------
-  const aomiClientRef = useRef(aomiClient);
-  aomiClientRef.current = aomiClient;
+  const aomiRef = useRef(aomi);
+  aomiRef.current = aomi;
 
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
@@ -231,15 +231,16 @@ export function ControlContextProvider({
     [],
   );
 
-  const secrets = useSecretsImpl({ aomiClientRef, clientIdRef, getControlSessionId: getCurrentControlSessionId });
-
-  const appSecrets = useAppSecretsImpl({
-    aomiClientRef,
+  const secrets = useSecretsImpl({
+    aomiRef,
+    clientIdRef,
     getControlSessionId: getCurrentControlSessionId,
   });
 
+  const appSecrets = useAppSecretsImpl({ aomiRef });
+
   const authEndpoints = useAuthEndpointsImpl({
-    aomiClientRef,
+    aomiRef,
     apiKeyRef,
     getControlSessionId: getCurrentControlSessionId,
     apiKey: apiKey.state.apiKey,

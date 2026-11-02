@@ -1,23 +1,11 @@
 /**
- * Default chat host for the current deploy environment: production uses the
- * canonical chat.aomi.dev, while previews (staging) and local dev target
- * chat-staging.aomi.dev.
- */
-export function defaultChatUrl(): string {
-  const vercelEnv =
-    process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV;
-  if (vercelEnv === "production") {
-    return "https://chat.aomi.dev";
-  }
-  return "https://chat-staging.aomi.dev";
-}
-
-/**
- * Resolves the base chat URL from the NEXT_PUBLIC_CHAT_URL env var.
- * Falls back to the environment-appropriate chat host when the env is not set.
+ * The chat host: NEXT_PUBLIC_CHAT_URL, which the build defaults to
+ * chat.aomi.dev in production and chat-staging.aomi.dev everywhere else.
  */
 export function resolveChatUrl(): string {
-  return process.env.NEXT_PUBLIC_CHAT_URL?.trim() || defaultChatUrl();
+  return (
+    process.env.NEXT_PUBLIC_CHAT_URL?.trim() || "https://chat-staging.aomi.dev"
+  );
 }
 
 /**

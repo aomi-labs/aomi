@@ -2,17 +2,13 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Eye, EyeOff, KeyRound, LoaderCircle } from "lucide-react";
-import {
-  normalizeAppDescriptor,
-  type AomiAppDescriptor,
-} from "@aomi-labs/client";
+import { isAomiError, type AomiAppDescriptor } from "@aomi-labs/client";
 import { useAomiDisplayCache, usePrivateApps } from "@aomi-labs/react";
 import { useShellTransport } from "@/account/transport";
 import {
   useAccountOverview,
   useAccountOverviewStore,
 } from "@/account/account-overview";
-import { installApp } from "@/account/shell/packages-api";
 import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { AomiButton } from "@/ui/aomi/button";
 
@@ -42,6 +38,23 @@ export function AddPrivateAppDialog({
       onAdded={onAdded}
     />
   ) : null;
+}
+
+/** What an App key lookup's HTTP status means for the person entering it. */
+function keyError(status?: number): Error {
+  if (status === 401 || status === 403)
+    return new PrivateAppError(
+      "This key is invalid or has been revoked. Ask the builder for a current key.",
+    );
+  if (status === 404 || status === 409)
+    return new PrivateAppError(
+      "This app is unavailable. Ask its builder to activate it, then try again.",
+    );
+  if (status === 422)
+    return new PrivateAppError(
+      "This key does not identify one private app. Ask the builder for its App key.",
+    );
+  return new PrivateAppError("Couldn’t check the key. Please try again.");
 }
 
 function PrivateAppForm({
@@ -85,33 +98,12 @@ function PrivateAppForm({
     setBusy(true);
     setError(null);
     try {
-      const response = await transport.fetch(
-        "/api/thread/apps?resolve_key=true",
-        {
-          headers: { "Aomi-App-Key": credential },
-          signal: pending.current.signal,
-        },
-      );
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403)
-          throw new PrivateAppError(
-            "This key is invalid or has been revoked. Ask the builder for a current key.",
-          );
-        if (response.status === 404 || response.status === 409)
-          throw new PrivateAppError(
-            "This app is unavailable. Ask its builder to activate it, then try again.",
-          );
-        if (response.status === 422)
-          throw new PrivateAppError(
-            "This key does not identify one private app. Ask the builder for its App key.",
-          );
-        throw new PrivateAppError("Couldn’t check the key. Please try again.");
-      }
-      const rows: unknown = await response.json();
-      const app =
-        Array.isArray(rows) && rows.length === 1
-          ? normalizeAppDescriptor(rows[0])
-          : null;
+      const rows = await transport.aomi.raw
+        .resolveAppKey(credential, { signal: pending.current.signal })
+        .catch((cause: unknown) => {
+          throw keyError(isAomiError(cause) ? cause.status : undefined);
+        });
+      const app = rows.length === 1 ? rows[0] : null;
       if (!app || app.applicationId == null || app.isPublic !== false)
         throw new PrivateAppError(
           "Couldn’t resolve this key to a private app. Please try again later.",
@@ -137,10 +129,10 @@ function PrivateAppForm({
           (id) => String(id) === String(app.applicationId),
         );
       if (account?.user.user_id) {
-        const result = await installApp(
+        const result = await transport.aomi.raw.addAccountApp(
+          transport.settingsThread(),
           app.applicationId,
-          transport.json,
-          credential,
+          { apiKey: credential },
         );
         updateAccountApps(account.user.user_id, result.apps, [
           ...new Set([

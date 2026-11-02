@@ -34,9 +34,9 @@ const SERVICES = {
 
 export type RcOidcConfig = { accountId: string; subject: string; workflows: readonly string[] };
 
-/** The configuration when this request's deployment serves the RC identity path, else null. */
-export function rcOidcConfig(env: EdgeEnv, host: string): RcOidcConfig | null {
-  if (edgeTopologyName(env, host) !== "rc") return null;
+/** The configuration when this deployment serves the RC identity path, else null. */
+export function rcOidcConfig(env: EdgeEnv): RcOidcConfig | null {
+  if (edgeTopologyName(env) !== "rc") return null;
   const accountId = env.RC_OIDC_ACCOUNT_ID?.trim();
   const subject = env.RC_OIDC_SUBJECT?.trim();
   const workflows = list(env.RC_OIDC_WORKFLOWS);
@@ -118,7 +118,7 @@ export async function exchangeRcToken(
 
   const origin = url.origin;
   const { accessToken } = await minted(() =>
-    edgeService(env, new URL(request.url).host).mint({
+    edgeService(env).mint({
       role: "user",
       subject: cfg.accountId,
       audience: service.audience,

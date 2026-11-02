@@ -23,6 +23,7 @@ const host = await startEdgeHost({
   portalUpstream: requiredFlag("portal"),
   agentUpstream: requiredFlag("upstream"),
   trustedOrigins: (flag("trusted") ?? "").split(",").filter(Boolean),
+  databaseUrl: process.env.AOMI_TEST_DATABASE_URL ?? "",
   log: (text) => process.stdout.write(text),
 });
 console.log(

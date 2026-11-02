@@ -93,3 +93,4 @@ export type {
   WalletAttester,
   WalletAttesterRegistry,
 } from "./providers/wallet-attestation";
+export { shortAddress } from "./service/wallet-normalization";

@@ -2,7 +2,7 @@
   "name": "@aomi-labs/observability",
   "version": "0.1.0",
   "private": true,
-  "description": "Server-only privacy boundary for Aomi BFF Sentry errors and failure logs.",
+  "description": "Server-only privacy boundary for Aomi app server Sentry errors and failure logs.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -19,15 +19,11 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@aomi-labs/account": "workspace:*",
     "@aomi-labs/deploy": "workspace:*",
-    "@aomi-labs/internal": "workspace:*"
-  },
-  "peerDependencies": {
-    "@sentry/nextjs": "^10.69.0"
+    "@aomi-labs/internal": "workspace:*",
+    "@sentry/node": "10.69.0"
   },
   "devDependencies": {
-    "@sentry/nextjs": "10.69.0",
     "@types/node": "^25.6.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

@@ -1,9 +1,7 @@
-"use client";
-
 // Launch/deployments BFF client — one @aomi-labs/deploy/launch client instance
 // bound to Aomi Build's route mounts, re-exported as the named functions the
 // call sites (and their test mocks) already use. Only `githubAppInstallUrl`
-// leaves the BFF: it reaches the backend through the session-scoped fetch.
+// leaves the Build server: the Edge forwards its install start to the backend.
 
 import type {
   GitHubAppInstallationsResult,
@@ -16,10 +14,8 @@ import {
   LaunchRequestError,
   type GithubAppOAuthStartResponse,
   type GitHubSessionInfo,
-  type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
 import { buildFetch } from "@/lib/session-expiry";
-import { sessionScopedFetch } from "@/lib/settings-api";
 import {
   type LaunchActivateResult,
   type LaunchAppStatusesResult,
@@ -33,7 +29,6 @@ import {
   type LaunchDeployInput,
   type LaunchDeployResult,
   type LaunchPreflightInput,
-  type LaunchRedeployResult,
   type LaunchSdkStatus,
   type LaunchStatus,
   type RequiredSecretsResult,
@@ -42,10 +37,7 @@ import {
 export { LaunchRequestError };
 export type { GithubAppOAuthStartResponse };
 
-const client = createLaunchClient({
-  fetch: buildFetch,
-  backendFetch: sessionScopedFetch,
-});
+const client = createLaunchClient({ fetch: buildFetch });
 
 export const githubSigninUrl = client.githubSigninUrl;
 
@@ -60,10 +52,6 @@ export async function launchSignOutGitHub(): Promise<void> {
     // Clear the previous account's wizard state even when sign-out fails.
     resetLaunch();
   }
-}
-
-export function launchProjects(): Promise<UserProjectsResult> {
-  return client.projects();
 }
 
 export function githubAppInstallUrl(args: {
@@ -93,12 +81,6 @@ export function launchDeploy(
   return client.deploy(input);
 }
 
-export function launchRedeploy(input: {
-  projectId: number;
-}): Promise<LaunchRedeployResult> {
-  return client.redeploy(input);
-}
-
 export function launchCreateRepo(input: {
   platform?: string;
   installationId: string;
@@ -112,10 +94,6 @@ export function launchStatus(
   platform?: string,
 ): Promise<LaunchStatus> {
   return client.status({ deploymentId, platform });
-}
-
-export function launchSdkStatus(): Promise<LaunchSdkStatus> {
-  return client.sdkStatus();
 }
 
 export function deploymentProjects(

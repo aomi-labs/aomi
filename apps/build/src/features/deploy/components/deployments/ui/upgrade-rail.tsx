@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { HelpBadge } from "@/components/help-badge";
 import type { DeployFlowState } from "@/features/deploy/hooks/use-project-detail";

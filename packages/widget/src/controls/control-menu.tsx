@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useCallback, useRef, useState, type FC, type ReactNode } from "react";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 
 export const controlSelectTriggerClass =
   "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg h-8 min-w-0 gap-1.5 rounded-full px-2.5 text-xs";

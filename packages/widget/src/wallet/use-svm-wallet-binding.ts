@@ -1,10 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  ensureSvmWalletBoundVia,
-  type AuthorizationPoster,
-} from "@aomi-labs/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ensureSvmWalletBoundVia, posterFromClient } from "@aomi-labs/client";
 import { useAomiWalletKit } from "./context";
 import { useShellTransport } from "@/account/transport";
 
@@ -25,8 +22,8 @@ const DESCRIPTION =
 
 export function useSvmWalletBinding() {
   const adapter = useAomiWalletKit();
-  const { json: request } = useShellTransport();
-  const post: AuthorizationPoster = useCallback((path, body) => request(path, { method: "POST", body: JSON.stringify(body) }), [request]);
+  const transport = useShellTransport();
+  const post = useMemo(() => posterFromClient(transport.aomi.raw), [transport]);
   const svmAddress = adapter.identity.svmAddress;
   const cluster = adapter.identity.svmCluster;
   const capabilities = adapter.identity.svmCapabilities;
@@ -42,9 +39,8 @@ export function useSvmWalletBinding() {
     }
     setState({ status: "loading" });
     try {
-      const data = await request<{
-        signing_policies: SigningPolicy[];
-      }>("/api/account");
+      const data: { signing_policies: SigningPolicy[] } =
+        await transport.aomi.raw.getAccount(transport.settingsThread());
       const row = data.signing_policies.find(
         (policy) =>
           policy.address.chain === "svm" &&
@@ -61,7 +57,7 @@ export function useSvmWalletBinding() {
         message: error instanceof Error ? error.message : "Failed to load",
       });
     }
-  }, [svmAddress, request]);
+  }, [svmAddress, transport]);
 
   useEffect(() => {
     void refresh();

@@ -1,4 +1,4 @@
-import { cn } from "@aomi-labs/react";
+import { cn } from "@/lib/cn";
 import { ExternalLink } from "lucide-react";
 import type { ComponentPropsWithoutRef } from "react";
 

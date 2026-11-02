@@ -43,7 +43,7 @@ function setup() {
   >["adapter"];
   function Capture() {
     const currentApi = useAomiRuntime();
-    const currentClient = useAomiDisplayCache()!.apiClient!;
+    const currentClient = useAomiDisplayCache()!.aomi.raw;
     const currentThreads = useThreadContext();
     const chat = useContext(ChatBoundaryContext)!;
     useEffect(() => {

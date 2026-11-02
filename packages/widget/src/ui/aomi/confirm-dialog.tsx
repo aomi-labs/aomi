@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useWidgetOverlay } from "@/ui/widget-scope";
 
 import {
@@ -11,7 +12,6 @@ import {
   type ReactNode,
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { cn } from "@aomi-labs/react";
 
 import { AomiButton } from "./button";
 import { InSheetContext } from "./aomi-sheet";

@@ -1,3 +1,4 @@
+import { cn } from "@/lib/cn";
 import {
   Check,
   Copy,
@@ -7,7 +8,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { WalletMark, resolveWalletBrandKey } from "@/wallet/wallet-brands";

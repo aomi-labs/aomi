@@ -15,7 +15,7 @@ a call asks for one.
 | None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
 | OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
 | App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
-| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi account login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
+| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
 
 If a call fails because of the App rather than your credentials, the error
 `code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
@@ -589,7 +589,7 @@ The package includes an `aomi` CLI for scripting. When installed globally or
 in a project, the executable name is `aomi`. For one-off usage, run commands
 via `npx @aomi-labs/client ...`.
 
-`aomi account login` now uses Better Auth device authorization for both Agent
+`aomi login` now uses Better Auth device authorization for both Agent
 and Pipeline resources, stores resource-bound rotating grants, and opens the
 shared portal login/consent page. `aomi account logout` revokes the saved
 refresh/access grants before clearing local state. Native SIWE/SIWS login

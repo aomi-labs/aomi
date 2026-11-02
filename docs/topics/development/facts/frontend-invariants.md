@@ -176,3 +176,15 @@ Publish the tag with the release (`git push origin refs/tags/consumer-baseline/p
 before running remote CI against the new pin. CI fetches full history and tags;
 it cannot use an unpublished local Git object. Keep the tag immutable. A future
 breaking cutover creates a new reviewed consumer commit and advances the pin.
+
+## TypeScript reform clean cutover
+
+Cecilia explicitly requested removal of compatibility layers in the #806 stack.
+The proposed `ts-reform-clean-cutover-v2` baseline freezes the updated headless and
+Vite consumers at commit `09cb7adaf36946f80e0cc7849e5965712e8ba8da`, tagged
+`consumer-baseline/ts-reform-clean-cutover-v2`. This replaces the payments-v2 pin
+for this intentional breaking release. Candidate checks still copy immutable
+consumer sources unchanged; no fixture rewriting or compiler-error exceptions
+are introduced. Retired widget paths/props, the SDK wallet option, CLI aliases
+and old session files are outside this release's contract. Boundary, auth,
+account isolation and package-install checks remain required.

@@ -1,5 +1,5 @@
 import type { WalletFamily } from "@/wallet/types";
-import type { MergeOffer } from "@/wallet/account/aomi-backend-client";
+import type { MergeOffer } from "@/wallet/account/types";
 
 /** Signed out, the sheet signs in; signed in, it adds to the account. */
 export type SheetMode = "sign-in" | "add";

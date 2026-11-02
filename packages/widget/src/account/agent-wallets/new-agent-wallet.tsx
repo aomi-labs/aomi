@@ -10,7 +10,7 @@ import {
   SheetHeader,
   WaitingButton,
 } from "@/wallet/picker/sheet-parts";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { FamilyLabel } from "./family-label";
 import { useRefreshWallets } from "./use-refresh-wallets";
 
@@ -47,7 +47,7 @@ export function NewAgentWalletStep({
   onDone: () => void;
   onClose: () => void;
 }) {
-  const { client } = useShellTransport();
+  const aomi = useShellAomi();
   const refresh = useRefreshWallets();
   const [name, setName] = useState("Agent wallet");
   const [chains, setChains] = useState<Chains>("both");
@@ -59,7 +59,7 @@ export function NewAgentWalletStep({
     setBusy(true);
     setError(null);
     try {
-      await client.account.wallets.createAgentWallet({
+      await aomi.account.wallets.createAgentWallet({
         name: trimmed,
         families: FAMILIES[chains],
       });

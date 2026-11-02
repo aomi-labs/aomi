@@ -1,243 +1,109 @@
-import type { AomiAppDescriptor, AomiUserAppSecrets } from "@aomi-labs/client";
-import type { AomiClient } from "@aomi-labs/client";
-import { CliSession } from "../cli-session";
-import { createControlClient } from "../context";
-import { fatal } from "../errors";
-import { printJson } from "../output";
-import { readSecretInput } from "../secret-input";
-import type { CliConfig } from "../types";
+import { readFileSync } from "node:fs";
+import { resolveAppIdentity } from "@aomi-labs/client";
+import { connect, json, out, usage, type ConnectFlags } from "../context";
+import { loadState } from "../state";
 
-type AppCommandContext = {
-  client: AomiClient;
-  sessionId: string;
-  agentMode: "auto" | "direct";
-  app?: string;
-  applicationId?: string;
-};
+type Flags = ConnectFlags & { json?: boolean };
 
-type CredentialWriteOptions = {
-  readSecret?: (prompt: string) => Promise<string>;
-  replace?: boolean;
-};
+/** An app by name, or by its numeric id (`aomi apps list --json` shows it). */
+const appRef = (app: string) => (/^\d+$/.test(app) ? Number(app) : app);
 
-function commandContext(config: CliConfig): AppCommandContext {
-  const cli = CliSession.loadOrCreate(config);
-  return {
-    client: createControlClient({
-      ...config,
-      baseUrl: config.baseUrl ?? cli.baseUrl,
-      apiKey: config.apiKey ?? cli.apiKey,
-    }),
-    sessionId: cli.sessionId,
-    agentMode: cli.agentMode,
-    app: cli.app,
-    applicationId: cli.applicationId,
-  };
-}
-
-function appId(app: AomiAppDescriptor): number | string | null {
-  return app.applicationId ?? null;
-}
-
-async function resolveAccountApp(
-  context: AppCommandContext,
-  selector: string,
-): Promise<AomiAppDescriptor> {
-  const apps = await context.client.listAccountApps(context.sessionId);
-  const matches = apps.filter(
-    (app) => app.name === selector || String(appId(app) ?? "") === selector,
-  );
-  if (matches.length === 0) fatal(`App "${selector}" was not found.`);
-  if (matches.length > 1) {
-    fatal(
-      `App name "${selector}" is ambiguous. Use an application ID: ${matches
-        .map((app) => String(appId(app) ?? "unknown"))
-        .join(", ")}`,
+/** `aomi apps`: every app the account can use. */
+export async function list(flags: Flags): Promise<void> {
+  const aomi = await connect(flags);
+  const apps = await aomi.account.apps.list();
+  if (flags.json) return apps.forEach(json);
+  // Shown as in the app; the name is what the other commands take.
+  for (const app of apps)
+    out(
+      `${resolveAppIdentity(app).displayName.padEnd(22)} ${app.name}${app.isInstalled ? "  installed" : ""}`,
     );
-  }
-  return matches[0];
 }
 
-function requireApplicationId(app: AomiAppDescriptor): number | string {
-  const id = appId(app);
-  if (id == null) {
-    fatal(`App "${app.name}" does not expose an application ID.`);
-  }
-  return id;
+export async function install(flags: Flags, name: string): Promise<void> {
+  const aomi = await connect(flags);
+  const result = await aomi.account.apps.install(appRef(name));
+  if (flags.json) return json(result);
+  out(`Installed ${result.app}`);
 }
 
-export async function accountAppsCommand(config: CliConfig): Promise<void> {
-  const context = commandContext(config);
-  const catalog = await context.client.listAccountApps(context.sessionId);
-  const rows = catalog.map((app) => ({
-    name: app.name,
-    applicationId: appId(app),
-    installed: app.isInstalled === true,
-    current:
-      context.agentMode === "direct" &&
-      (context.applicationId != null && appId(app) != null
-        ? String(context.applicationId) === String(appId(app))
-        : context.applicationId == null && context.app === app.name),
-  }));
-
-  if (config.json) {
-    printJson(rows);
-    return;
-  }
-  if (rows.length === 0) {
-    console.log("No account apps available.");
-    return;
-  }
-  for (const row of rows) {
-    const id = row.applicationId == null ? "" : `  id=${row.applicationId}`;
-    const status = row.installed ? "  installed" : "";
-    const current = row.current ? "  current" : "";
-    console.log(`${row.name}${id}${status}${current}`);
-  }
+export async function uninstall(flags: Flags, name: string): Promise<void> {
+  const aomi = await connect(flags);
+  const result = await aomi.account.apps.uninstall(appRef(name));
+  if (flags.json) return json(result);
+  out(`Uninstalled ${result.app}`);
 }
 
-async function updateInstalledApp(
-  config: CliConfig,
-  selector: string,
-  install: boolean,
-): Promise<void> {
-  const context = commandContext(config);
-  // Retiring an app must work even after it disappears from discovery.
-  const app =
-    !install && /^[1-9]\d*$/.test(selector)
-      ? null
-      : await resolveAccountApp(context, selector);
-  const applicationId = app ? requireApplicationId(app) : selector;
-  const result = install
-    ? await context.client.addAccountApp(context.sessionId, applicationId)
-    : await context.client.removeAccountApp(context.sessionId, applicationId);
-  if (config.json) {
-    printJson(result);
-    return;
-  }
-  console.log(`${result.app} ${install ? "added" : "removed"}.`);
-}
-
-export function addAccountAppCommand(
-  config: CliConfig,
-  selector: string,
-): Promise<void> {
-  return updateInstalledApp(config, selector, true);
-}
-
-export function removeAccountAppCommand(
-  config: CliConfig,
-  selector: string,
-): Promise<void> {
-  return updateInstalledApp(config, selector, false);
-}
-
-function credentialRows(status: AomiUserAppSecrets) {
-  return status.slots.map((slot) => ({
-    name: slot.name,
-    description: slot.description,
-    required: slot.required,
-    configured: slot.configured,
-  }));
-}
-
-export async function appCredentialStatusCommand(
-  config: CliConfig,
-  selector: string,
-): Promise<void> {
-  const context = commandContext(config);
-  const app = await resolveAccountApp(context, selector);
-  const status = await context.client.getAppCredentialsStatus(
-    context.sessionId,
-    requireApplicationId(app),
-  );
-  if (config.json) {
-    printJson({
-      app: status.app,
-      applicationId: status.application_id,
-      ready: status.ready,
-      missingRequired: status.missing_required,
-      slots: credentialRows(status),
-    });
-    return;
-  }
-  console.log(
-    `${status.app} credentials: ${status.ready ? "ready" : "setup required"}`,
-  );
-  for (const slot of credentialRows(status)) {
-    console.log(
-      `${slot.name}  ${slot.required ? "required" : "optional"}  ${
-        slot.configured ? "saved" : "missing"
-      }${slot.description ? `  ${slot.description}` : ""}`,
+/** The credential slots an app declares (never their values). */
+export async function credentials(flags: Flags, name: string): Promise<void> {
+  const aomi = await connect(flags);
+  const status = await aomi.account.apps.credentials(appRef(name)).list();
+  if (flags.json) return json(status);
+  for (const slot of status.slots)
+    out(
+      `${slot.name}  ${slot.configured ? "set" : slot.required ? "missing" : "optional"}  ${slot.description}`,
     );
-  }
 }
 
-export async function setAppCredentialCommand(
-  config: CliConfig,
-  selector: string,
+/** The value comes from stdin or a hidden prompt, never the command line. */
+export async function setCredential(
+  flags: Flags,
   name: string,
-  options: CredentialWriteOptions = {},
+  key: string,
 ): Promise<void> {
-  const context = commandContext(config);
-  const app = await resolveAccountApp(context, selector);
-  const id = requireApplicationId(app);
-  const before = await context.client.getAppCredentialsStatus(
-    context.sessionId,
-    id,
-  );
-  const slot = before.slots.find((candidate) => candidate.name === name);
-  if (!slot) fatal(`Credential "${name}" is not declared by ${app.name}.`);
-  if (options.replace && !slot.configured) {
-    fatal(`Credential "${name}" is not saved yet. Use "set" first.`);
-  }
-  const readSecret = options.readSecret ?? readSecretInput;
-  const value = await readSecret(`${app.name} ${name}: `);
-  const after = options.replace
-    ? await context.client.replaceAppCredential(
-        context.sessionId,
-        id,
-        name,
-        value,
-      )
-    : await context.client.setAppCredential(context.sessionId, id, name, value);
-  if (config.json) {
-    printJson({
-      app: after.app,
-      applicationId: after.application_id,
-      name,
-      configured: true,
-      ready: after.ready,
-    });
-    return;
-  }
-  console.log(
-    `${name} ${options.replace ? "replaced" : "saved"} for ${app.name}.`,
+  const value = await readSecret(`${key}: `);
+  const aomi = await connect(flags);
+  const status = await aomi.account.apps
+    .credentials(appRef(name))
+    .set(key, value);
+  if (flags.json) return json(status);
+  out(
+    `${key} set${status.ready ? "" : `; still missing ${status.missing_required.join(", ")}`}`,
   );
 }
 
-export async function removeAppCredentialCommand(
-  config: CliConfig,
-  selector: string,
+export async function removeCredential(
+  flags: Flags,
   name: string,
+  key: string,
 ): Promise<void> {
-  const context = commandContext(config);
-  const app = /^[1-9]\d*$/.test(selector)
-    ? null
-    : await resolveAccountApp(context, selector);
-  const label = app?.name ?? selector;
-  const deleted = await context.client.removeAppCredential(
-    context.sessionId,
-    app ? requireApplicationId(app) : selector,
-    name,
-  );
-  if (config.json) {
-    printJson({ app: label, name, deleted: deleted.deleted });
-    return;
+  const aomi = await connect(flags);
+  await aomi.account.apps.credentials(appRef(name)).remove(key);
+  out(`${key} removed`);
+}
+
+export async function readSecret(prompt: string): Promise<string> {
+  if (!process.stdin.isTTY) {
+    const value = readFileSync(0, "utf8").replace(/\r?\n$/, "");
+    if (!value) throw usage("Pipe the value on stdin");
+    return value;
   }
-  console.log(
-    deleted.deleted
-      ? `${name} removed from ${label}.`
-      : `${name} was not saved for ${label}.`,
-  );
+  process.stderr.write(prompt);
+  const stdin = process.stdin;
+  stdin.setRawMode(true);
+  stdin.resume();
+  stdin.setEncoding("utf8");
+  return new Promise((resolve, reject) => {
+    let value = "";
+    const done = (error?: Error) => {
+      stdin.off("data", onData);
+      stdin.setRawMode(false);
+      stdin.pause();
+      process.stderr.write("\n");
+      if (error) reject(error);
+      else if (!value) reject(usage("The value cannot be empty"));
+      else resolve(value);
+    };
+    const onData = (chunk: string) => {
+      for (const character of chunk) {
+        if (character === "\u0003") return done(usage("Cancelled"));
+        if (character === "\r" || character === "\n") return done();
+        value =
+          character === "\u007f" || character === "\b"
+            ? value.slice(0, -1)
+            : value + character;
+      }
+    };
+    stdin.on("data", onData);
+  });
 }

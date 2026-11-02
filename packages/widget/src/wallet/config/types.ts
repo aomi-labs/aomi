@@ -1,9 +1,9 @@
 "use client";
 
+import { type SponsorshipPaymasterServiceContext } from "@aomi-labs/client";
 import type { ReactNode } from "react";
 import type { Chain, Transport } from "viem";
 import type { CreateConnectorFn } from "wagmi";
-import type { SponsorshipPaymasterServiceContext } from "@aomi-labs/react";
 import type {
   AuthProviderId,
   AomiAccountCredential,

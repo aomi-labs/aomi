@@ -232,7 +232,7 @@ export async function sendPrompt(
   return response;
 }
 
-export function expectVerifiedBffRecord(
+export function expectVerifiedAppRecord(
   record: UpstreamRecord | undefined,
   userId: string,
   authSource: string,

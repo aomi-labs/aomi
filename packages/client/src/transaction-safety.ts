@@ -12,6 +12,22 @@ export type TransactionSafetyDecision = Schemas["TransactionSafetyDecision"];
 export type TransactionSafetyProjection =
   Schemas["TransactionSafetyProjection"];
 
+/** What people call each mode, strictest first, as every Aomi surface shows it. */
+export const TRANSACTION_SAFETY_NAMES: Record<
+  TransactionSafetyMode,
+  { label: string; description: string }
+> = {
+  guarded_only: {
+    label: "Strict",
+    description: "Only actions a protocol guard covers",
+  },
+  balanced: {
+    label: "Balanced",
+    description: "Blocks critical guard findings",
+  },
+  unrestricted: { label: "Yolo", description: "Runs even when guards flag it" },
+};
+
 type RequestResponse = (
   method: AomiHttpMethod,
   path: string,

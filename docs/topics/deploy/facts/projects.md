@@ -7,8 +7,8 @@ review_after_days: 30
 sources_of_truth:
   - packages/deploy/src/types.ts
   - packages/deploy/src/client.ts
-  - apps/build/src/server/bff/launch/routes.ts
-  - apps/build/src/server/bff/operate/routes.ts
+  - apps/build/src/server/launch/routes.ts
+  - apps/build/src/server/operate/routes.ts
 ---
 
 # Build Project Frontend Contract

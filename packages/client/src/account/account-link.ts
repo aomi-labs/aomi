@@ -4,7 +4,7 @@
  * the portal page `/link/<provider>?code=…` previews what moves and confirms.
  *
  * Hand-written wire types for `/v1/account/link/<provider>/*`. The routes
- * are portal-session only (the BFF refuses every other credential), so they
+ * are portal-session only (the Edge refuses every other credential), so they
  * are not part of the generated agent API and not exposed on `Aomi`:
  *   - `POST /v1/account/link/<provider>/preview` -> `LinkPreview`
  *   - `POST /v1/account/link/<provider>/confirm` -> `LinkResult`

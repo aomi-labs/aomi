@@ -10,7 +10,7 @@ const offer = {
   ticket: "t1",
   other: {
     name: "0xdA65…3CF0",
-    createdAt: "2026-09-12T00:00:00Z",
+    created_at: "2026-09-12T00:00:00Z",
     chats: 12,
     wallets: 2,
     credits: "420",

@@ -366,7 +366,7 @@ describe("multi-origin load balancing", () => {
         method: "POST",
         body: "{}",
       }),
-      { ...multiEnv, HOSTED_APP_WARMUP_ATTEMPTS: "3", HOSTED_APP_WARMUP_RETRY_MS: "250" },
+      multiEnv,
       async (request) => {
         const target = new URL(request.url);
         if (target.pathname === "/availability") {
@@ -382,11 +382,12 @@ describe("multi-origin load balancing", () => {
     );
     expect(response.status).toBe(200);
     expect(probes).toBe(ORIGINS.length * 2);
-    expect(waits).toEqual([250]);
+    expect(waits).toEqual([1_000]);
     expect(origins.length).toBe(1);
   });
 
   it("returns 503 instead of sending a hosted app to an unavailable origin", async () => {
+    const waits: number[] = [];
     let appRequests = 0;
     const response = await handleRequest(
       new Request("https://api.aomi.dev/api/thread/chat?application_id=42", {
@@ -401,9 +402,14 @@ describe("multi-origin load balancing", () => {
         appRequests += 1;
         return new Response("unexpected");
       },
+      async (delayMs) => {
+        waits.push(delayMs);
+      },
     );
     expect(response.status).toBe(503);
     expect(appRequests).toBe(0);
+    // Ten probes a second apart, then the edge gives up.
+    expect(waits).toEqual(Array(9).fill(1_000));
   });
 
   it("keeps the availability probe origin-direct and unrouted at the edge", async () => {

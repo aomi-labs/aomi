@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   createElement,
   useEffect,
@@ -10,7 +11,7 @@ import {
 } from "react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Circle, FileSignature, Layers3, PenLine } from "lucide-react";
-import { cn, getChainInfo } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "@/icons/chain-map";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { StatusPill } from "@/ui/aomi/status-pill";

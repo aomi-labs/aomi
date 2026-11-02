@@ -277,7 +277,6 @@ describe("missingSecretsForActivation", () => {
   it("blocks activation when the GitHub token is absent", async () => {
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);
-    vi.stubEnv("GITHUB_TOKEN", "");
 
     const client = {
       listAppSecrets: vi.fn(),

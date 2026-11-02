@@ -21,7 +21,7 @@ import {
   sepolia,
 } from "viem/chains";
 import { observeAccountDiagnostic } from "../observability";
-import { shortAddress } from "@aomi-labs/client";
+import { shortAddress } from "../service/wallet-normalization";
 
 export async function verifySiweMessage(input: {
   message: string;
@@ -130,10 +130,10 @@ const publicClients = new Map<number, PublicClient>();
 // default `eth.merkle.io` — frequently time out on this call, which makes
 // Coinbase Smart Wallet / Base Account SIWE logins hang (the EOA path
 // short-circuits, so MetaMask/Rabby are unaffected). Resolution order per chain:
-// an explicit `*_RPC_URL` override, then the shared `ALCHEMY_API_KEY` the
-// wallet/AA stack already uses (no new env var), then the public default.
+// an explicit `*_RPC_URL` override, then the deployment's `ALCHEMY_API_KEY`,
+// then the chain's keyless public RPC. No key is committed here.
 const RPC_ENV_BY_CHAIN: Record<number, readonly string[]> = {
-  [mainnet.id]: ["MAINNET_RPC_URL", "ETH_RPC_URL"],
+  [mainnet.id]: ["MAINNET_RPC_URL"],
   [base.id]: ["BASE_RPC_URL"],
   [baseSepolia.id]: ["BASE_SEPOLIA_RPC_URL"],
   [arbitrum.id]: ["ARBITRUM_RPC_URL"],
@@ -160,25 +160,15 @@ const ALCHEMY_SLUG_BY_CHAIN: Record<number, string> = {
   [megaeth.id]: "megaeth-mainnet",
 };
 
-// Shared public default, mirrors DEFAULT_ALCHEMY_API_KEY in `@aomi-labs/client`
-// so the on-chain check still resolves when neither Alchemy env var is set.
-const DEFAULT_ALCHEMY_API_KEY = "72eIUle_3rfixX00QJVwk";
-
-function alchemyApiKey(): string {
-  return (
-    process.env.ALCHEMY_API_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_ALCHEMY_API_KEY?.trim() ||
-    DEFAULT_ALCHEMY_API_KEY
-  );
-}
-
 function rpcUrlForChain(chain: Chain): string | undefined {
   for (const name of RPC_ENV_BY_CHAIN[chain.id] ?? []) {
     const value = process.env[name]?.trim();
     if (value) return value;
   }
   const slug = ALCHEMY_SLUG_BY_CHAIN[chain.id];
-  if (slug) return `https://${slug}.g.alchemy.com/v2/${alchemyApiKey()}`;
+  const alchemyKey = process.env.ALCHEMY_API_KEY?.trim();
+  if (slug && alchemyKey)
+    return `https://${slug}.g.alchemy.com/v2/${alchemyKey}`;
   // Last resort: the chain's default public RPC.
   return chain.rpcUrls.default.http[0];
 }

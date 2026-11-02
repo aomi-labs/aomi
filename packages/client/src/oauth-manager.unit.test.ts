@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AomiOAuthError,
   createAomiOAuthGrantManager,
+  createMemoryOAuthGrantStore,
   type AomiOAuthGrant,
   type AomiOAuthTokenRequest,
 } from "./authorization";
@@ -31,6 +32,54 @@ function grant(
 }
 
 describe("Aomi OAuth grant manager", () => {
+  it("leaves other clients' grants in a shared store alone", async () => {
+    const other = {
+      ...grant(apiResource, "other", ["agent:read"]),
+      clientId: "cli",
+    };
+    const store = createMemoryOAuthGrantStore([other]);
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      store,
+      refresh: vi.fn(),
+    });
+    await manager.put({
+      ...grant(apiResource, "mine", ["agent:read"]),
+      expiresAt: 9,
+    });
+    await manager.clear();
+    expect((await store.load()).map((saved) => saved.accessToken)).toEqual([
+      "other",
+    ]);
+  });
+
+  it("takes a grant another process rotated instead of dropping it on invalid_grant", async () => {
+    const held = grant(apiResource, "old", ["agent:read"]);
+    const store = createMemoryOAuthGrantStore([held]);
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      store,
+      refresh: async () => {
+        // Meanwhile another process rotated the refresh token.
+        await store.save([
+          { ...held, accessToken: "new", refreshToken: "r2", expiresAt: 9e9 },
+        ]);
+        throw new AomiOAuthError("invalid_grant");
+      },
+      now: () => 1,
+    });
+    const token = await manager.tokenProvider({
+      resource: agentResource,
+      scopes: ["agent:read"],
+    });
+    expect(token?.accessToken).toBe("new");
+    expect((await manager.grants()).map((saved) => saved.refreshToken)).toEqual(
+      ["r2"],
+    );
+  });
+
   it("serves agent and pipeline from one /v1 grant and deduplicates refresh", async () => {
     const refresh = vi.fn(async (current: AomiOAuthGrant) => ({
       ...current,
@@ -63,6 +112,82 @@ describe("Aomi OAuth grant manager", () => {
     expect((await manager.grants()).map((item) => item.resource)).toEqual([
       apiResource,
     ]);
+  });
+
+  it("refreshes the whole grant, so one call can't narrow the saved sign-in", async () => {
+    // A token endpoint that issues exactly the scopes it is asked for.
+    const refresh = vi.fn(
+      async (current: AomiOAuthGrant, request: AomiOAuthTokenRequest) => ({
+        ...current,
+        accessToken: `${current.accessToken}-fresh`,
+        expiresAt: 100_000,
+        scopes: [...request.scopes],
+      }),
+    );
+    const acquire = vi.fn();
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      initial: [
+        grant(apiResource, "api", ["agent:read", "account:credits:read"]),
+      ],
+      acquire,
+      refresh,
+      now: () => 1,
+    });
+    await manager.tokenProvider({
+      resource: agentResource,
+      scopes: ["agent:read"],
+    });
+    const credits = await manager.tokenProvider({
+      resource: apiResource,
+      scopes: ["account:credits:read"],
+    });
+    expect(credits?.accessToken).toBe("api-fresh");
+    expect(acquire).not.toHaveBeenCalled();
+    expect((await manager.grants())[0]?.scopes).toEqual([
+      "agent:read",
+      "account:credits:read",
+    ]);
+  });
+
+  it("starts one sign-in for calls that find the grant short at once", async () => {
+    let approve!: () => void;
+    const approved = new Promise<void>((resolve) => (approve = resolve));
+    const acquire = vi.fn(async (request: AomiOAuthTokenRequest) => {
+      await approved;
+      return { ...grant(apiResource, "api", request.scopes), expiresAt: 9e9 };
+    });
+    const manager = createAomiOAuthGrantManager({
+      issuer,
+      clientId,
+      scopes: ["agent:read", "account:credits:read", "account:wallets:read"],
+      acquire,
+      refresh: vi.fn(),
+      now: () => 1,
+    });
+    const calls = Promise.all([
+      manager.tokenProvider({
+        resource: apiResource,
+        scopes: ["account:credits:read"],
+      }),
+      manager.tokenProvider({
+        resource: apiResource,
+        scopes: ["account:wallets:read"],
+      }),
+      manager.tokenProvider({
+        resource: agentResource,
+        scopes: ["agent:read"],
+      }),
+    ]);
+    await vi.waitFor(() => expect(acquire).toHaveBeenCalled());
+    approve();
+    expect((await calls).map((token) => token?.accessToken)).toEqual([
+      "api",
+      "api",
+      "api",
+    ]);
+    expect(acquire).toHaveBeenCalledTimes(1);
   });
 
   it("acquires one /v1 sign-in for agent and pipeline, MCP separately", async () => {
@@ -158,18 +283,28 @@ describe("Aomi OAuth grant manager", () => {
 
 describe("createAomiDeviceGrantManager", () => {
   it.each([undefined, "", "  "])(
-    "explains how to register when the client ID is %j",
+    "needs a client ID (%j) when the server registers none",
     async (missing) => {
-      const fetch = vi.fn();
+      const portal = "https://portal.example";
+      const fetch = vi.fn(async () =>
+        Response.json({
+          issuer: `${portal}/api/auth`,
+          authorization_endpoint: `${portal}/api/auth/oauth2/authorize`,
+          token_endpoint: `${portal}/api/auth/oauth2/token`,
+          revocation_endpoint: `${portal}/api/auth/oauth2/revoke`,
+          device_authorization_endpoint: `${portal}/api/auth/device/code`,
+          jwks_uri: `${portal}/api/auth/jwks`,
+        }),
+      );
       await expect(
         createAomiDeviceGrantManager({
-          portalBaseUrl: "https://portal.example",
-          clientId: missing as unknown as string,
+          portalBaseUrl: portal,
+          clientId: missing,
           fetch,
           onVerification: () => {},
         }),
-      ).rejects.toThrow(/POST \/api\/auth\/oauth2\/register/);
-      expect(fetch).not.toHaveBeenCalled();
+      ).rejects.toThrow(/no client registration/);
+      expect(fetch).toHaveBeenCalledTimes(1);
     },
   );
 });

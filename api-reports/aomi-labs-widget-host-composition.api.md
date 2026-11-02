@@ -5,9 +5,13 @@
 ```ts
 
 import { AccountCreditsTransport } from '@aomi-labs/client';
+import { AccountGraphLinkedAccount } from '@aomi-labs/client';
+import { AccountGraphUser } from '@aomi-labs/client';
+import { AccountGraphWallet } from '@aomi-labs/client';
+import { AccountMergeOffer } from '@aomi-labs/client';
+import { AccountTransport } from '@aomi-labs/client';
 import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
-import { AomiClient } from '@aomi-labs/client';
 import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
@@ -31,15 +35,14 @@ import * as React_2 from 'react';
 import { ReactNode } from 'react';
 import { ReactPortal } from 'react';
 import type { RuntimeAccount } from '@aomi-labs/react';
-import type { SponsorshipPaymasterServiceContext } from '@aomi-labs/react';
-import { SVGProps } from 'react';
+import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Transport } from 'viem';
 import { VariantProps } from 'class-variance-authority';
-import type { WalletEip712Payload } from '@aomi-labs/react';
-import type { WalletSolanaSignMessagePayload } from '@aomi-labs/react';
-import type { WalletSolanaSignPayload } from '@aomi-labs/react';
-import type { WalletTxPayload } from '@aomi-labs/react';
+import { WalletEip712Payload } from '@aomi-labs/client';
+import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
+import { WalletSolanaSignPayload } from '@aomi-labs/client';
+import { WalletTxPayload } from '@aomi-labs/client';
 
 // @public
 export function AccountAvatar(input: AccountAvatarProps): JSX.Element;
@@ -60,6 +63,7 @@ export type AccountMenuProps = {
     walletLabel?: string;
     allowanceLine?: string;
     planLabel?: string;
+    allowanceLeft?: number;
     allowanceLoading?: boolean;
     noticeLine?: string;
     themeLabel?: string;
@@ -82,22 +86,7 @@ export type AccountMenuProps = {
 export function accountScopedFetch<T>(path: string, options?: RequestInit): Promise<T>;
 
 // @public (undocumented)
-export type AccountWallet = {
-    id: string;
-    family: WalletFamily;
-    address: string;
-    kind?: "external" | "embedded" | "smart_account" | "agent";
-    provider?: string;
-    providerWalletId?: string;
-    chainScope?: string;
-    chainId?: number;
-    linkedVia: "siwe" | "siws" | "para" | "privy" | "challenge" | "import" | "observed" | "migration" | (string & {});
-    label?: string | null;
-    walletApp?: string;
-    verifiedAt?: number;
-    lastSeenAt?: number;
-    capability?: "read" | "write";
-};
+export type AccountWallet = AccountGraphWallet;
 
 // @public (undocumented)
 export const AOMI_SESSION_BOOTING_IDENTITY: AomiSessionIdentity;
@@ -176,12 +165,7 @@ export function AomiSheet(input: {
 }): JSX.Element;
 
 // @public (undocumented)
-export type AomiUserRef = {
-    id: string;
-    displayName?: string;
-    email?: string;
-    avatarUrl?: string;
-};
+export type AomiUserRef = AccountGraphUser;
 
 // @public (undocumented)
 export type AomiWalletKit = {
@@ -385,7 +369,9 @@ export function ConsentWallets(props: ConsentWalletsProps): JSX.Element;
 
 // @public (undocumented)
 export type ConsentWalletsProps = {
-    client: AomiClient;
+    client: {
+        account: AccountTransport;
+    };
     connectionKey?: string;
     name: string;
     startLane?: AomiLane;
@@ -403,17 +389,14 @@ export type ConsentWalletsState = {
 // @public (undocumented)
 export function createWidgetX402Client(wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">, terms?: Parameters<typeof createEvmPaymentClient>[1]): ReturnType<typeof createEvmPaymentClient> | undefined;
 
-// @public (undocumented)
+// @public
 export function CreditCheckoutDialog(input: {
     credits?: AccountCreditsTransport;
-    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect">;
+    wallet?: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain" | "connect"> & Partial<Pick<AomiWalletKit, "wallets" | "activateWallet">>;
     open: boolean;
     onClose: () => void;
     onSuccess: () => Promise<void>;
 }): JSX.Element;
-
-// @public @deprecated (undocumented)
-export const CURATED_APP_IDS: typeof CURATED_APP_IDS_2;
 
 // @public (undocumented)
 export const DEFAULT_SIDEBAR_PRODUCTS: SidebarProduct[];
@@ -443,13 +426,7 @@ export function formatAuthMethod(method?: AomiLoginMethod): string | undefined;
 export function formatWalletProvider(provider?: SessionProvider | AuthProviderId): string | undefined;
 
 // @public @deprecated (undocumented)
-export const getAppIcon: typeof getAppIcon_2;
-
-// @public @deprecated (undocumented)
 export function getBackendUrl(): string;
-
-// @public @deprecated (undocumented)
-export const getSkillIcon: typeof getSkillIcon_2;
 
 // @public
 export function HeaderControls(input: {
@@ -472,15 +449,7 @@ export function Input(input: React_2.ComponentProps<"input">): JSX.Element;
 export function isFullTestnet(config?: FullTestnetConfig): boolean;
 
 // @public (undocumented)
-export type LinkedAuthAccount = {
-    id: string;
-    provider: string;
-    subject: string;
-    email?: string;
-    displayLabel?: string;
-    linkedAt?: number;
-    lastSeenAt?: number;
-};
+export type LinkedAuthAccount = AccountGraphLinkedAccount;
 
 // @public
 export function LoadingPane(input: {
@@ -538,9 +507,6 @@ export function requestSettingsOpen(tab: SettingsTab): void;
 
 // @public
 export function requestWalletPickerOpen(): void;
-
-// @public @deprecated (undocumented)
-export const resolveAppIdentity: typeof resolveAppIdentity_2;
 
 // @public @deprecated (undocumented)
 export function sessionScopedFetch<T>(path: string, options?: RequestInit & {
@@ -615,12 +581,6 @@ export type SidebarProduct = {
 // @public
 export function signOutAndDisconnect(adapter: AomiWalletKit): Promise<void>;
 
-// @public @deprecated (undocumented)
-export const skillIconGenericAliases: typeof skillIconGenericAliases_2;
-
-// @public @deprecated (undocumented)
-export const skillIconSources: typeof skillIconSources_2;
-
 // @public (undocumented)
 export function StatementSection(input: {
     title: string;
@@ -640,7 +600,9 @@ export function TelegramLinkPanel(props: TelegramLinkPanelProps): JSX.Element;
 
 // @public (undocumented)
 export type TelegramLinkPanelProps = {
-    client: AomiClient;
+    client: {
+        account: AccountTransport;
+    };
     code: string | null;
     onClose: () => void;
 };
@@ -694,9 +656,6 @@ export const testIds: {
 // @public
 export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage;
 
-// @public @deprecated (undocumented)
-export type UsageFixtureData = UsageFixtureData_2;
-
 // @public (undocumented)
 export function usd(n: number): string;
 
@@ -723,7 +682,9 @@ export const useActivityPanel: () => ActivityPanelContextValue;
 export function useAomiWalletKit(): AomiWalletKit;
 
 // @public
-export function useConsentLanes(client: AomiClient): {
+export function useConsentLanes(client: {
+    account: AccountTransport;
+}): {
     onChange: (next: ConsentWalletsState) => void;
     ready: boolean;
     save: (key: string) => Promise<boolean>;
@@ -779,6 +740,7 @@ export type WalletAccountMenuOptions = {
     primaryLine?: string;
     secondaryLine?: string;
     planLabel?: string;
+    allowanceLeft?: number;
     secondaryLoading?: boolean;
     noticeLine?: string;
     walletLabel?: string;

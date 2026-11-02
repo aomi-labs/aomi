@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 // projection, session and browser journeys have no skip exceptions in CI.
 const noncriticalSkips = [
   {
-    file: "/apps/build/src/server/bff/operate/routes.test.ts",
+    file: "/apps/build/src/server/operate/routes.test.ts",
     title: "deduplicates a recipient-bucket settlement shared by two projects",
   },
 ];

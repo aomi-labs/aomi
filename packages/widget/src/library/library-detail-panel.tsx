@@ -1,5 +1,6 @@
 "use client";
-import { useShellTransport } from "@/account/transport";
+import { cn } from "@/lib/cn";
+import { useAomi, useShellAomi } from "@/account/transport";
 
 import {
   createElement,
@@ -20,7 +21,6 @@ import {
   Wrench,
 } from "lucide-react";
 import { LoadingLine, LoadingPane } from "@/ui/aomi/loading-pane";
-import { cn } from "@aomi-labs/react";
 import { getChainIcon } from "@/icons/chain-map";
 import { getSkillIcon } from "@/icons/skills/skill-icons";
 import { AomiButton } from "@/ui/aomi/button";
@@ -30,9 +30,8 @@ import {
   useAppSecretsState,
 } from "@/account/app-secrets/use-app-secrets-state";
 import {
-  fetchSkillDetail,
+  fetchSkillOperations,
   skillLabel,
-  type SkillDetail,
   type SkillSummary,
 } from "@/composer/capabilities/skill-catalog";
 import { PackageIcon } from "./package-row";
@@ -40,11 +39,6 @@ import {
   isPackageAvailableOnHost,
   type CatalogPackage,
 } from "./packages-catalog";
-import {
-  fetchAppSecrets,
-  removeAppSecret,
-  saveAppSecrets,
-} from "@/account/shell/packages-api";
 
 export type LibrarySelection =
   | { kind: "app"; item: CatalogPackage }
@@ -205,19 +199,20 @@ function AppSecretSetup({
   available: boolean;
   onInstall: () => Promise<boolean>;
 }) {
-  const { json: request } = useShellTransport();
+  const aomi = useShellAomi();
   const applicationId = app.applicationId;
   const scope = `${accountUserId ?? "signed-out"}:${String(applicationId ?? "")}`;
-  const operations = useMemo(
-    () => ({
-      list: (id: number | string) => fetchAppSecrets(id, request),
+  const operations = useMemo(() => {
+    const credentials = (id: number | string) =>
+      aomi.account.apps.credentials(Number(id));
+    return {
+      list: (id: number | string) => credentials(id).list(),
       save: (id: number | string, secrets: Record<string, string>) =>
-        saveAppSecrets(id, secrets, request),
+        credentials(id).save(secrets),
       remove: (id: number | string, name: string) =>
-        removeAppSecret(id, name, request),
-    }),
-    [request],
-  );
+        credentials(id).remove(name),
+    };
+  }, [aomi]);
   const secretState = useAppSecretsState({
     scopeKey: scope,
     applicationId,
@@ -531,17 +526,17 @@ function SkillDetails({
   skill: SkillSummary;
   onTry: () => void;
 }) {
-  const { json: request } = useShellTransport();
-  const [detail, setDetail] = useState<SkillDetail | null>(null);
+  const aomi = useAomi();
+  const [operations, setOperations] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    setDetail(null);
+    setOperations(null);
     setError(null);
-    fetchSkillDetail(skill.id, request)
+    fetchSkillOperations(aomi, skill.id)
       .then((value) => {
-        if (active) setDetail(value);
+        if (active) setOperations(value);
       })
       .catch(() => {
         if (active) setError("Couldn’t load skill details.");
@@ -549,7 +544,7 @@ function SkillDetails({
     return () => {
       active = false;
     };
-  }, [skill.id, request]);
+  }, [skill.id, aomi]);
 
   return (
     <>
@@ -564,13 +559,13 @@ function SkillDetails({
 
       {error ? (
         <p className="type-control text-aomi-danger px-5">{error}</p>
-      ) : !detail ? (
+      ) : !operations ? (
         <LoadingPane label="Loading details" />
       ) : (
         <div className="space-y-5 px-5">
           <DetailSection title="Works on">
-            {detail.chainIds.length > 0 ? (
-              <ChainPills chainIds={detail.chainIds} />
+            {skill.chainIds.length > 0 ? (
+              <ChainPills chainIds={skill.chainIds} />
             ) : (
               <span className="type-control text-aomi-muted">
                 Any supported network
@@ -578,10 +573,10 @@ function SkillDetails({
             )}
           </DetailSection>
 
-          {detail.tags.length > 0 ? (
+          {skill.tags.length > 0 ? (
             <DetailSection title="Good for">
               <div className="flex flex-wrap gap-1.5">
-                {detail.tags.slice(0, 8).map((tag) => (
+                {skill.tags.slice(0, 8).map((tag) => (
                   <DetailPill key={tag} className="capitalize">
                     {tag.replaceAll("_", " ")}
                   </DetailPill>
@@ -595,8 +590,8 @@ function SkillDetails({
               <div className="flex items-center gap-2">
                 <Sparkles className="text-aomi-accent size-3.5" />
                 <span>
-                  {detail.injectedTools.length + detail.toolNames.length} action
-                  {detail.injectedTools.length + detail.toolNames.length === 1
+                  {skill.injectedTools.length + operations.length} action
+                  {skill.injectedTools.length + operations.length === 1
                     ? ""
                     : "s"}{" "}
                   available

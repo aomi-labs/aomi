@@ -1,7 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useState, type FC } from "react";
-import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
+import { useAomiRuntime, useControl } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import {

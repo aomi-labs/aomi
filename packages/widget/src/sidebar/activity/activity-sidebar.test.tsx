@@ -12,7 +12,7 @@ import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
 import { TraceAttributionContext } from "@/thread/trace-attribution";
 import { ToolStepRow } from "@/thread/working-trace-rows";
-import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { interpretToolStep } from "@/thread/attribution";
 
 describe("activity signing strip", () => {
   it("keeps Signed neutral until signing and puts rejection in the strip", () => {

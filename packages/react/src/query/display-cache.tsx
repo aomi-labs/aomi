@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { QueryClient, useQuery, type QueryKey } from "@tanstack/react-query";
-import type { AomiClient } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 import {
   persistDisplayCache,
   type DisplayPersistence,
@@ -82,7 +82,8 @@ export type DisplayQuery<T> = {
 export type DisplayCache = {
   client: QueryClient;
   scope: DisplayScope;
-  apiClient?: AomiClient;
+  /** The runtime's `Aomi`, for display reads. */
+  aomi?: Aomi;
   /** Display-only owner recovered while the host confirms its session. */
   restoredAccount?: RuntimeAccount;
   key: (resource: DisplayResource, parameters?: readonly unknown[]) => QueryKey;
@@ -146,14 +147,14 @@ export function DisplayCacheProvider({
   applicationId,
   account,
   persistence = "public",
-  apiClient,
+  aomi,
   children,
 }: {
   backendUrl: string;
   applicationId?: number | string | null;
   account?: RuntimeAccount | null;
   persistence?: DisplayPersistence;
-  apiClient?: AomiClient;
+  aomi?: Aomi;
   children: ReactNode;
 }) {
   const [client] = useState(createDisplayQueryClient);
@@ -186,11 +187,11 @@ export function DisplayCacheProvider({
     () => ({
       client,
       scope,
-      apiClient,
+      aomi,
       restoredAccount,
       key: (resource, parameters) => displayKey(scope, resource, parameters),
     }),
-    [client, scope, apiClient, restoredAccount],
+    [client, scope, aomi, restoredAccount],
   );
   useEffect(() => {
     client.mount();

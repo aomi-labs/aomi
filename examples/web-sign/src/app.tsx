@@ -24,7 +24,7 @@ const allowedTargets = (env.VITE_ALLOWED_TARGETS ?? "")
   .filter(Boolean);
 
 // With no `auth` option the SDK signs in as a guest. From a third-party origin
-// it requests an origin-bound widget session (POST /api/auth/widget/guest) and
+// it requests an origin-bound widget session (POST /api/auth/guest) and
 // sends it as a Bearer token, so no cookies or OAuth client are needed.
 const aomi = new Aomi({ baseUrl });
 

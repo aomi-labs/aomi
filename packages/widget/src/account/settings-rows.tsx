@@ -1,6 +1,6 @@
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
-import { cn } from "@aomi-labs/react";
 import { ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { HelpHint, SectionHeader } from "@/ui/aomi/section-header";
 

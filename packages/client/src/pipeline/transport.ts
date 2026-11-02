@@ -1,6 +1,6 @@
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { AomiApiError, apiErrorFields, isRetryableStatus } from "../api-error";
-import { validatePipelineArguments } from "./schema";
+import { validatePipelineArguments, withTopic } from "./schema";
 import type {
   EvmCommitResult,
   EvmSimulatedBuild,
@@ -281,6 +281,7 @@ async function invokeOperation<T>(
       "GET",
       path,
     );
+    args = withTopic(args, descriptor.name, descriptor.inputSchema);
     validatePipelineArguments(args, descriptor.inputSchema);
   }
   return json(requestResponse, "POST", path, {

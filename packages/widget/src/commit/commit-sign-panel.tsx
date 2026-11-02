@@ -26,7 +26,7 @@ import { BrandMark, SheetHeader } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { walletKey } from "@/wallet/wallet-utils";
 import { useCommitCapabilities } from "@/wallet/use-action-capabilities";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { connectionsQuery } from "@/account/account-queries";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { StatusPill } from "@/ui/aomi/status-pill";
@@ -110,8 +110,8 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   useEffect(() => handle.subscribe(rerender), [handle]);
   const wallet = useAomiWalletKit();
   const capabilities = useCommitCapabilities();
-  const { client } = useShellTransport();
-  const connections = useDisplayQuery(connectionsQuery(client));
+  const aomi = useShellAomi();
+  const connections = useDisplayQuery(connectionsQuery(aomi));
   // A sequential batch moves on to its next member, signed against that
   // member's own review and version.
   const leg = handle.next;
@@ -140,7 +140,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   // A batch (a two-asset withdraw, an ordered cohort) is done only when every
   // member is; until then a finished first member still reads as in flight.
   // The result is the batch's: its first failed member, else its last.
-  const settled = handle.settled;
+  const settled = handle.settlement;
   const terminal = settled.done;
   const outcome = projectCommitLifecycle(settled.failed ?? settled.last);
   const inFlight =

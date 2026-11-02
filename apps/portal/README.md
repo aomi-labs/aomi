@@ -11,7 +11,8 @@ sources_of_truth:
 
 # Aomi Labs - Frontend
 
-A Next.js client for Aomi Agent sessions, Actions, and settings/account flows.
+The Aomi chat portal: TanStack Start pages for Agent sessions, Actions, and
+settings/account flows. It has no server routes.
 
 ## Current Shape
 
@@ -19,10 +20,10 @@ A Next.js client for Aomi Agent sessions, Actions, and settings/account flows.
 - `@aomi-labs/react` projects one `ClientSession` snapshot per selected thread.
 - The core `ActionHandler` owns Action execution and response state; wallet-kit
   adapters expose only primitive send, sign, and switch capabilities.
-- The authenticated `/api/*` and `/v1/agent`, `/v1/pipeline` and account
-  proxies are served by the edge Worker (`apps/edge`) on the portal host; the
-  portal keeps sign-in, widget auth, device auth and the account graph under
-  `src/app/api/auth/*` and `src/app/v1/account/*`.
+- Pages live in `src/routes` (thin) and `src/features`. Every `/api/*`,
+  `/v1/*` and `/.well-known/*` path, including sign-in, widget auth, device
+  auth and the account graph, is served by the edge Worker (`apps/edge`) on the
+  portal host. Pages call it on the same origin.
 
 The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e.md](../docs/topics/frontend-e2e.md).
 
@@ -40,7 +41,9 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
    pnpm dev
    ```
 
-   Local development defaults to `http://127.0.0.1:8080`. Vercel production defaults to `https://api.aomi.dev`; previews default to `https://api-staging.aomi.dev`. For local full-stack startup use [../scripts/dev.sh](../scripts/dev.sh).
+   `vite dev` serves pages only: run it behind a local Edge (aomi-dev does
+   this) so `/api` and `/v1` resolve. Build for Cloudflare with
+   `AOMI_DEPLOY_TARGET=cloudflare pnpm build:app` (default: Vercel).
 
 3. **Open in browser**:
    ```
@@ -54,15 +57,8 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
 - Assistant UI reads canonical messages, lifecycle, tools, tasks, and Actions
   from that session snapshot; it does not maintain a parallel reducer.
 - Settings and account surfaces use the canonical `/v1/account/*` BFF.
-- Agent and Pipeline REST/MCP routes use the same-origin BFF. Set the server-only
-  `AOMI_AGENT_API_URL` to the Rust api-server origin (`http://127.0.0.1:8082`
-  locally, `https://agent-staging-tunnel.aomi.dev` for staging, and
-  `https://agent-tunnel.aomi.dev` for production). Hosted builds fail closed
-  when this value is absent. Portal authenticates and delegates these routes;
-  the Rust api-server is their only protocol presenter.
-
-- Set the server-only `AOMI_BUILD_URL` to the Build origin before building
-  Portal so legacy `/deployments*` routes redirect to the same environment.
+- Set `AOMI_BUILD_URL` to the Build origin so legacy `/deployments*` routes
+  redirect to the same environment.
   Use `https://build-staging.aomi.dev` for the staging Vercel environment and
   your local Build origin (for example, `http://localhost:3001`) for local work.
   It defaults to `https://build.aomi.dev` in production when unset.
@@ -78,11 +74,11 @@ local stack.
 ## Commands
 
 - `pnpm dev` - start the development server
-- `pnpm dev:localhost` - force localhost-style local runtime URLs
-- `pnpm build` - Build for production
+- `pnpm build` - build packages, then the portal (`pnpm build:app` for the portal alone)
+- `pnpm start` - preview the production build
 - `pnpm test` - run frontend tests
 - `pnpm lint` - run ESLint
-- `pnpm type-check` - run Next type generation and TypeScript checking
+- `pnpm type-check` - generate the route tree and run TypeScript
 
 ## Related Docs
 

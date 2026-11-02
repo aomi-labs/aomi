@@ -28,7 +28,7 @@ import {
   type ThreadMetadata,
   type ModelSelectionMode,
 } from "../state/thread-store";
-import { resolveAutoModel } from "./model-selection";
+import { resolveAutoModel, resolveCatalogModel } from "./model-selection";
 
 const defaultStorage = createScopedStorage({ backendUrl: "" });
 
@@ -97,12 +97,9 @@ function resolvePreferredModelSelection(
   models: string[],
   defaultModel: string | null,
 ): StoredModelPreference {
-  if (
-    preference.mode === "manual" &&
-    preference.model &&
-    models.includes(preference.model)
-  ) {
-    return preference;
+  if (preference.mode === "manual") {
+    const model = resolveCatalogModel(preference.model, models);
+    if (model) return { mode: "manual", model };
   }
   if (preference.mode === "auto") {
     return {
@@ -358,11 +355,13 @@ export function usePerThreadControlImpl({
       const currentControl =
         getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
       const modelMode = options?.mode ?? "manual";
+      const selectedModel =
+        resolveCatalogModel(model, availableModelsRef.current) ?? model;
 
       updateThreadMetadataRef.current(threadId, {
         control: {
           ...currentControl,
-          model,
+          model: selectedModel,
           modelMode,
           controlDirty: true,
         },
@@ -373,7 +372,7 @@ export function usePerThreadControlImpl({
       // clears controlDirty only after that start succeeds.
       writeStoredModelPreference(storage, {
         mode: modelMode,
-        model: modelMode === "manual" ? model : null,
+        model: modelMode === "manual" ? selectedModel : null,
       });
     },
     [storage],
@@ -453,6 +452,21 @@ export function usePerThreadControlImpl({
     if (!metadata) return;
 
     const currentControl = metadata.control;
+    const preference = readStoredModelPreference(storage);
+    const preferredModel = resolveCatalogModel(
+      preference.model,
+      availableModels,
+    );
+    if (
+      preference.mode === "manual" &&
+      preferredModel &&
+      preferredModel !== preference.model
+    ) {
+      writeStoredModelPreference(storage, {
+        mode: "manual",
+        model: preferredModel,
+      });
+    }
     const storedAgentMode = readStoredAgentMode(storage);
     let nextControl: ThreadControlState | null =
       !currentControl.agentMode && storedAgentMode === "direct"
@@ -487,13 +501,18 @@ export function usePerThreadControlImpl({
             controlDirty: true,
           };
         }
-      } else if (!availableModels.includes(currentControl.model)) {
-        const fallbackModel = getFallbackModel(availableModels, defaultModel);
-        if (fallbackModel) {
+      } else {
+        const catalogModel = resolveCatalogModel(
+          currentControl.model,
+          availableModels,
+        );
+        const model =
+          catalogModel ?? getFallbackModel(availableModels, defaultModel);
+        if (model && model !== currentControl.model) {
           nextControl = {
             ...baseControl,
-            model: fallbackModel,
-            modelMode: "auto",
+            model,
+            modelMode: catalogModel ? "manual" : "auto",
             controlDirty: true,
           };
         }

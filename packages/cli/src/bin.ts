@@ -1,3 +1,3 @@
-import { runCli } from "./main";
+import { main } from "./app";
 
-void runCli();
+process.exitCode = await main(process.argv.slice(2));

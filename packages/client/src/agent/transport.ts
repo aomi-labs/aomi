@@ -180,6 +180,25 @@ export class AgentTransport {
     );
   }
 
+  /** Add a follow-up to the running turn; `no_active_turn` when none runs. */
+  steer(
+    sessionId: string,
+    message: string,
+    idempotencyKey = randomIdempotencyKey(),
+  ): Promise<EventPage> {
+    return this.json(
+      "POST",
+      `/v1/agent/chat/${encodeURIComponent(sessionId)}/steer`,
+      {
+        headers: {
+          "idempotency-key": idempotencyKey,
+          ...threadHeaders(sessionId),
+        },
+        body: { message },
+      },
+    );
+  }
+
   async respondToAction(
     sessionId: string,
     actionId: string,

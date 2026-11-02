@@ -8,7 +8,7 @@ import type {
   AomiOnchainAddress,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import { useAccountProfileQuery } from "@/account/account-overview";
 import {
   MINT_DECIMALS,
@@ -16,13 +16,10 @@ import {
   confirmPolicy,
   confirmPolicyRevoke,
   explainPolicyError,
-  fetchPolicyContext,
   fromAtomic,
   isPolicyProviderUnavailable,
   policyErrorCode,
   policyFromForm,
-  preparePolicy,
-  preparePolicyRevoke,
   toAtomic,
   type TokenCapInput,
 } from "./policy-api";
@@ -61,7 +58,7 @@ const INPUT =
  */
 export function OnchainPolicySettings() {
   const wallet = useAomiWalletKit();
-  const { json: request } = useShellTransport();
+  const policies = useShellAomi().account.policies;
   const network = chainRef(wallet.identity.svmCluster);
   // The account profile is the shared settings read; only the chain's Swig
   // context is fetched here, cached per chain in the display cache.
@@ -83,7 +80,7 @@ export function OnchainPolicySettings() {
   const ctxQuery = useDisplayQuery({
     resource: "transaction-safety",
     parameters: ["swig", network],
-    fetcher: (signal) => fetchPolicyContext(network, request, signal),
+    fetcher: (signal) => policies.get(network, { signal }),
   });
   const ctx = ctxQuery.data ?? null;
   const unavailable = Boolean(
@@ -262,7 +259,7 @@ export function OnchainPolicySettings() {
         ),
         transaction_signature: null,
       };
-      const prepared = await preparePolicy(body, request);
+      const prepared = await policies.prepare(body);
       let signature: string | null = null;
       if (prepared.unsigned_transaction_base64) {
         signature = (
@@ -274,10 +271,10 @@ export function OnchainPolicySettings() {
           )
         ).signature;
       }
-      await confirmPolicy(
-        { ...body, transaction_signature: signature },
-        request,
-      );
+      await confirmPolicy(policies, {
+        ...body,
+        transaction_signature: signature,
+      });
       await load();
     } catch (cause) {
       await fail(cause);
@@ -291,14 +288,14 @@ export function OnchainPolicySettings() {
     setBusy(true);
     setActionError(null);
     try {
-      const prepared = await preparePolicyRevoke(ctx.binding.id, request);
+      const prepared = await policies.prepareRevoke(ctx.binding.id);
       if (!prepared.unsigned_transaction_base64)
         throw new Error("No revoke transaction was returned.");
       const { signature } = await send(
         prepared.unsigned_transaction_base64,
         "Revoke Swig policy",
       );
-      await confirmPolicyRevoke(ctx.binding.id, signature, request);
+      await confirmPolicyRevoke(policies, ctx.binding.id, signature);
       await load();
     } catch (cause) {
       await fail(cause);

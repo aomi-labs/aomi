@@ -1,6 +1,5 @@
+import { cn } from "@/lib/cn";
 import * as React from "react";
-
-import { cn } from "@aomi-labs/react";
 
 import { AomiMark } from "./aomi-mark";
 

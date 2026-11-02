@@ -1,0 +1,35 @@
+{
+  "name": "@aomi-labs/app-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared plumbing for the Aomi TanStack Start apps: Vite config, HTTP entry helpers, router search, shims and fonts. Source-only.",
+  "type": "module",
+  "exports": {
+    "./vite": "./src/vite.ts",
+    "./vitest": "./src/vitest.ts",
+    "./platform": "./src/platform.ts",
+    "./http": "./src/http.ts",
+    "./url-search": "./src/url-search.ts",
+    "./fonts.css": "./fonts/fonts.css",
+    "./fonts/*": "./fonts/*"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@tanstack/react-start": "1.168.61",
+    "@vitejs/plugin-react": "5.2.0",
+    "nitro": "3.0.260903-beta",
+    "vite": "8.3.4"
+  },
+  "devDependencies": {
+    "@tanstack/react-start": "1.168.61",
+    "@types/node": "^25.6.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "nitro": "3.0.260903-beta",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^5.9.3",
+    "vite": "8.3.4"
+  }
+}

@@ -137,7 +137,8 @@ function installFetchRecorder() {
       const method =
         input instanceof Request ? input.method : (init?.method ?? "GET");
 
-      if (url.pathname === "/v1/account/credits/ledger") return Response.json({ entries: [], next_before_id: null });
+      if (url.pathname === "/v1/account/credits/ledger")
+        return Response.json({ entries: [], next_before_id: null });
       if (url.pathname === "/v1/account/credits") {
         const position = await runtimeMock.creditsGet();
         return Response.json(position);
@@ -169,7 +170,10 @@ describe("settings route callers", () => {
         used_microusd: 12 * 10_000,
         remaining_microusd: 88 * 10_000,
       },
-      balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
+      balance_microusd: 0,
+      reserved_microusd: 0,
+      available_microusd: 0,
+      debt_microusd: 0,
       entries: [],
       next_before_id: null,
     });
@@ -199,27 +203,31 @@ describe("settings route callers", () => {
     expect(requestPaths(calls)).not.toContain("/api/settings/account");
   });
 
-  it("renders the summary card with plan and allowance from the account route", async () => {
+  it("renders the summary card with plan and allowance in dollars", async () => {
     installFetchRecorder();
 
     render(<GeneralSettings />);
 
     await waitFor(() => expect(screen.getByText("Aron")).toBeTruthy());
     expect(
-      screen.getByText("2 linked wallets · 1 not connected on this device"),
+      screen.getByText(/^2 linked wallets · 1 not connected on this device/),
     ).toBeTruthy();
-    expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.getByText("88")).toBeTruthy();
-    expect(screen.getByText(/of 100 left/)).toBeTruthy();
-    expect(screen.getByText("12 used")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
+    expect(screen.getByText("Pro plan")).toBeTruthy();
+    expect(screen.getByText(/of \$1\.00/)).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "88% of monthly allowance left" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Billing" })).toBeTruthy();
     expect(screen.queryByText(/Usage shows spend/)).toBeNull();
   });
 
   it("keeps General settings usable when credits omit the allowance", async () => {
     runtimeMock.creditsGet.mockResolvedValue({
       period_utc_month: "2026-07",
-      balance_microusd: 0, reserved_microusd: 0, available_microusd: 0, debt_microusd: 0,
+      balance_microusd: 0,
+      reserved_microusd: 0,
+      available_microusd: 0,
+      debt_microusd: 0,
       entries: [],
       next_before_id: null,
     });
@@ -228,8 +236,9 @@ describe("settings route callers", () => {
     render(<GeneralSettings />);
 
     expect(await screen.findByText("Aron")).toBeTruthy();
-    expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.queryByText(/left/)).toBeNull();
-    expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
+    expect(screen.getByText("Pro plan")).toBeTruthy();
+    expect(screen.getByText("Not on this plan")).toBeTruthy();
+    expect(screen.queryByRole("img", { name: /allowance left/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Billing" })).toBeTruthy();
   });
 });

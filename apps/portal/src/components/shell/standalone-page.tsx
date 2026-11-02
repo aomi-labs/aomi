@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useEffectEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import {
   AomiButton,
   AomiLogo,
@@ -27,8 +25,6 @@ export function StandalonePage(props: {
   purpose: SheetPurpose;
   /** A guest session is enough for this page. */
   guest?: boolean;
-  /** The page signs with a wallet, so it waits for the providers to boot. */
-  needsWallet?: boolean;
   /** Under "Sign in" when the picker was closed signed out. */
   footnote?: ReactNode;
   children: ReactNode;
@@ -38,7 +34,7 @@ export function StandalonePage(props: {
       <WalletPickerProvider>
         <main className="bg-aomi-bg text-aomi-fg relative h-full w-full">
           <Link
-            href="/"
+            to="/"
             aria-label="Aomi"
             className="absolute left-5 top-4 text-[17px]"
           >
@@ -55,19 +51,17 @@ export function StandalonePage(props: {
 function Gate({
   purpose,
   guest = false,
-  needsWallet = false,
   footnote,
   children,
 }: Parameters<typeof StandalonePage>[0]) {
   const { accountUser, accountGuest, accountStatus, isReady } =
     useAomiWalletKit();
   const { open, openPicker } = useWalletPicker();
-  // A signed-in account is enough to show a page that doesn't sign; a
-  // signed-out visit waits for the wallet providers, so the picker opens on
-  // the real state.
+  // A signed-in account is enough to show the page (signing waits for its
+  // wallet on its own); a signed-out visit waits for the wallet providers, so
+  // the picker opens on the real state.
   const restoring =
-    accountStatus === "loading" ||
-    (isReady === false && (needsWallet || !accountUser));
+    accountStatus === "loading" || (isReady === false && !accountUser);
   const signedIn = Boolean(accountUser && (guest || !accountGuest));
   // Opens once per sign-out; closing it leaves the Sign in sheet below. A new
   // opener or purpose alone never re-opens it.

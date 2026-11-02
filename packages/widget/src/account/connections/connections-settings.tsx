@@ -1,8 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { Bot, Pencil, Plus, SlidersHorizontal, Unlink } from "lucide-react";
-import { cn, useDisplayQuery } from "@aomi-labs/react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import type {
   AomiAccountConnection,
   AomiConnectionKind,
@@ -16,7 +17,7 @@ import { useRenameDialog } from "@/ui/aomi/rename-dialog";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { ActionRow } from "@/ui/aomi/action-row";
 import { ChoiceRow, SheetHeader } from "@/wallet/picker/sheet-parts";
-import { useShellTransport } from "@/account/transport";
+import { useShellAomi } from "@/account/transport";
 import {
   ActionsMenu,
   Divider,
@@ -168,8 +169,8 @@ function sheetDescription(row: AomiAccountConnection): string {
  * Telegram row.
  */
 export function ConnectionsSettings() {
-  const { client } = useShellTransport();
-  const query = useDisplayQuery(connectionsQuery(client));
+  const aomi = useShellAomi();
+  const query = useDisplayQuery(connectionsQuery(aomi));
   const { confirm, dialog } = useConfirmDialog();
   const { rename, dialog: renameDialog } = useRenameDialog();
   const [adding, setAdding] = useState(false);
@@ -201,7 +202,7 @@ export function ConnectionsSettings() {
       setPending(null);
     }
   };
-  const settings = client.account.connections;
+  const settings = aomi.account.connections;
   const startRename = (row: AomiAccountConnection) => {
     setManaging(null);
     rename({

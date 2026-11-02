@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronRightIcon, Loader2Icon, WalletIcon } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { ModalCloseButton } from "@/ui/aomi/modal-shell";
 import { AomiButton } from "@/ui/aomi/button";
 import { ListRow } from "@/ui/aomi/list-group";

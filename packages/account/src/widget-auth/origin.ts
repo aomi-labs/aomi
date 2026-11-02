@@ -16,10 +16,7 @@ export function requireWidgetOrigin(request: Request): string {
   return origin;
 }
 
-export function observedWidgetOrigin(
-  request: Request,
-  _nodeEnv = process.env.NODE_ENV,
-): string | null {
+export function observedWidgetOrigin(request: Request): string | null {
   const rawOrigin = request.headers.get("origin");
   if (!rawOrigin || rawOrigin === "null") return null;
   let origin: URL;

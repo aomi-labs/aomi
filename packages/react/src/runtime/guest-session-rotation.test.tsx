@@ -38,7 +38,7 @@ describe("expired guest sessions", () => {
                 }
               : null,
           );
-        if (url.pathname === "/api/auth/sign-in/anonymous") {
+        if (url.pathname === "/api/auth/guest") {
           expect(init?.credentials).toBe("include");
           cookie = `guest-${++subject}`;
           return Response.json({
@@ -144,7 +144,7 @@ describe("expired guest sessions", () => {
         init?: RequestInit,
       ) => {
         const url = new URL(String(input));
-        if (url.pathname === "/api/auth/widget/guest")
+        if (url.pathname === "/api/auth/guest")
           return Response.json({
             access_token: `aomi_wst_${++subject}`,
             user: { id: `guest-${subject}` },

@@ -98,4 +98,39 @@ describe("high-level OAuth strategy", () => {
 
     expect(requests[0]?.scopes).toEqual(["pipeline:catalog", "offline_access"]);
   });
+
+  it("shows the device code through onCode and asks for extra scopes only when told", async () => {
+    const onCode = vi.fn();
+    const runtime = createOAuthAuthRuntime({
+      baseUrl,
+      fetch,
+      strategy: oauth({
+        clientId: "managed-client",
+        onCode,
+        scopes: ["account:apps:read"],
+      }),
+    });
+    await runtime.controller.login();
+
+    const input = vi.mocked(createAomiDeviceGrantManager).mock.calls[0]![0];
+    expect(input.scopes).toEqual(
+      expect.arrayContaining([
+        "agent:write",
+        "pipeline:execute",
+        "account:apps:read",
+      ]),
+    );
+    expect(input.scopes).not.toContain("account:apps:write");
+    await input.onVerification({
+      verificationUri: `${baseUrl}/oauth/device`,
+      verificationUriComplete: `${baseUrl}/oauth/device?user_code=ABCD`,
+      userCode: "ABCD",
+      expiresAt: 1,
+    });
+    expect(onCode).toHaveBeenCalledWith({
+      url: `${baseUrl}/oauth/device?user_code=ABCD`,
+      code: "ABCD",
+      expiresAt: 1,
+    });
+  });
 });

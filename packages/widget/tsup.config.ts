@@ -1,8 +1,8 @@
 import { defineConfig } from "tsup";
-import { entries, deprecated } from "./package-entries.json";
+import { entries } from "./package-entries.json";
 
 export default defineConfig({
-  entry: { ...entries, ...deprecated },
+  entry: entries,
   outDir: "dist",
   format: ["esm"],
   target: "es2022",

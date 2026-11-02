@@ -53,14 +53,13 @@ import {
   type WalletFamily,
   type WalletKind,
 } from "../types";
-import { normalizeWalletAddress } from "./wallet-normalization";
+import { normalizeWalletAddress, shortAddress } from "./wallet-normalization";
 import {
   lockSignalRefs,
   resolveVerifiedProviderIdentity,
 } from "./identity-resolution";
 import { deleteWidgetSessionsForProviderIdentity } from "../widget-auth/store";
 import { mergeGuestAccount } from "./account-merge";
-import { shortAddress } from "@aomi-labs/client";
 
 // Historically this applied the portal-owned `aomi_*` schema. AUTH-001 moves
 // durable account state to the shared backend canonical tables, so the hook now

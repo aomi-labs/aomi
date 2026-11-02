@@ -1,7 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useEffect, type FC } from "react";
-import { cn, getChainInfo } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import { useAomiWalletKit } from "./context";
 import { DualWalletBar } from "./dual-wallet-bar";
 import { formatWalletProvider } from "./identity";

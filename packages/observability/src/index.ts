@@ -1,7 +1,7 @@
 export { classifyFailure } from "./classify";
 export type {
-  BffService,
-  BffUpstream,
+  AppService,
+  AppUpstream,
   FailureAction,
   FailureContext,
   FailureDecision,
@@ -13,7 +13,6 @@ export type {
   LocalDiagnostic,
   LocalDiagnosticValue,
   PublicFailure,
-  RequestErrorDetails,
 } from "./failure";
 export { identifyFailure } from "./identify";
 export { createFailurePipeline } from "./pipeline";
@@ -23,9 +22,9 @@ export {
   scrubSentryLog,
 } from "./privacy";
 export {
-  getBffSentryRelease,
-  initBffSentry,
-  isBffSentryEnabled,
+  getAppSentryRelease,
+  initAppSentry,
+  isAppSentryEnabled,
   routeFailure,
-  type BffSentryOptions,
+  type AppSentryOptions,
 } from "./route";

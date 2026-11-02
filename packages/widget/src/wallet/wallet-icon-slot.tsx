@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import type { CSSProperties } from "react";
 import { WalletIcon } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { getWalletIcon, getWalletIconBrand } from "@/icons/wallet-map";
 
 /**

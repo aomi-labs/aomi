@@ -96,7 +96,11 @@ vi.mock("./registry-source", () => ({
     }, [store]);
   },
 }));
-vi.mock("@/account/transport", () => ({ useShellTransport: () => ({}) }));
+vi.mock("@/account/transport", () => ({
+  useShellTransport: () => ({}),
+  useShellAomi: () => ({}),
+  useAomi: () => ({}),
+}));
 vi.mock("@/ui/aomi/confirm-dialog", () => ({ useConfirmDialog: () => ({}) }));
 vi.mock("@/account/account-management/account-management", () => ({
   AccountManagement: ({

@@ -1,7 +1,0 @@
-[traceFileSystem]
-ignorePaths = [
-  "**/node_modules/.pnpm",
-  "**/node_modules",
-  "**/.next",
-  "**/*.md"
-]

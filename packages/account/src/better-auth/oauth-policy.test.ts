@@ -12,6 +12,7 @@ import {
   guestScopesForAomiResource,
   validateAomiResourceScopes,
 } from "./oauth-policy";
+import { MCP_DPOP_REQUIRED, resourcePolicies } from "../policy";
 
 const env = {
   NODE_ENV: "test",
@@ -101,13 +102,15 @@ describe("Aomi OAuth resource policy", () => {
   });
 
   it("centralizes the MCP DPoP rollout switch", () => {
+    const mcp = (dpop: boolean) =>
+      resourcePolicies(aomiOAuthResources(env), dpop).filter((policy) =>
+        policy.kind.endsWith("Mcp"),
+      );
+    expect(mcp(true).every((p) => p.dpopBoundAccessTokensRequired)).toBe(true);
     expect(
-      aomiOAuthResourcePolicies({
-        ...env,
-        AOMI_MCP_DPOP_REQUIRED: "true",
-      })
+      aomiOAuthResourcePolicies(env)
         .filter((policy) => policy.kind.endsWith("Mcp"))
-        .every((policy) => policy.dpopBoundAccessTokensRequired),
+        .every((p) => p.dpopBoundAccessTokensRequired === MCP_DPOP_REQUIRED),
     ).toBe(true);
   });
 

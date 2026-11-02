@@ -12,7 +12,7 @@ import {
 import { CircleX, Clock, Send, Wallet } from "lucide-react";
 import {
   LinkError,
-  type AomiClient,
+  type AccountTransport,
   type TelegramLinkPreview,
   type TelegramLinkResult,
 } from "@aomi-labs/client";
@@ -28,7 +28,7 @@ import { plural } from "@/account/account-management/wallet-model";
 
 export type TelegramLinkPanelProps = {
   /** A portal-session client; the link routes refuse every other credential. */
-  client: AomiClient;
+  client: { account: AccountTransport };
   /** The `/link` code from the page URL; null when it is malformed. */
   code: string | null;
   /** The header's close button once nothing is pending (pending, it cancels). */

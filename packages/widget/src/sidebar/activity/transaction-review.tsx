@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@/lib/cn";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Action, ActionRequest, MessageReview } from "@aomi-labs/client";
 import {
@@ -13,7 +14,6 @@ import {
   ShieldCheck,
   ShieldQuestion,
 } from "lucide-react";
-import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { testIds } from "@/test-ids";
 import { ImpactPanel } from "./wallet-impact";

@@ -3,7 +3,10 @@
 // with the committed development key. Agent threads are kept per account so
 // one account can never read another's chat.
 import { createPrivateKey, createPublicKey, verify } from "node:crypto";
-import type { CreditBalance } from "../../../packages/client/src/account/credits";
+import type {
+  CreditBalance,
+  CreditLedger,
+} from "../../../packages/client/src/account/credits";
 import {
   createServer,
   type IncomingMessage,
@@ -282,11 +285,12 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     if (
       method === "GET" &&
       (url.pathname === "/v1/account/credits" ||
+        url.pathname === "/v1/account/credits/ledger" ||
         url.pathname === "/v1/account/statement")
     ) {
       const principal = verifyBearer(request, "aomi-payment");
       record(principal);
-      const scope = url.pathname.endsWith("/credits")
+      const scope = url.pathname.startsWith("/v1/account/credits")
         ? "account:credits:read"
         : "account:usage:read";
       if (!principal || !principal.scope?.split(" ").includes(scope))
@@ -294,7 +298,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       return json(
         response,
         200,
-        url.pathname.endsWith("/credits") ? credits : statement,
+        url.pathname.endsWith("/ledger")
+          ? creditLedger
+          : url.pathname.endsWith("/credits")
+            ? credits
+            : statement,
       );
     }
 
@@ -481,6 +489,20 @@ const statement = {
     },
   ],
   next_cursor: null,
+};
+
+const creditLedger: CreditLedger = {
+  next_before_id: null,
+  entries: [
+    {
+      id: 1,
+      amount_microusd: 25_000_000,
+      entry_kind: "purchase",
+      created_at: Date.parse("2026-09-15T12:00:00.000Z") / 1000,
+      payment_method: "card",
+      payment_provider: "stripe",
+    },
+  ],
 };
 
 const credits: CreditBalance = {

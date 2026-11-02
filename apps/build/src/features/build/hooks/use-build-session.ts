@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useCallback,
   useEffect,
@@ -42,7 +40,7 @@ import {
   streamEventsFromSnapshot,
 } from "@/features/build/smither-run-mapper";
 
-/** When set, Create runs a real aomi-smither build through the BFF instead of
+/** When set, Create runs a real aomi-smither build through the Build server instead of
  *  the local mock pipeline. */
 const ENGINE_MODE = process.env.NEXT_PUBLIC_BUILD_ENGINE === "smither";
 
@@ -205,7 +203,7 @@ export function useBuildSession() {
         let settled = false;
         try {
           const res = await fetch(
-            `/api/bff/build/runs?id=${encodeURIComponent(runId)}`,
+            `/api/build/runs?id=${encodeURIComponent(runId)}`,
           );
           if (res.ok && pollEpochRef.current === pollEpoch) {
             settled = applyRunSnapshot(
@@ -320,7 +318,7 @@ export function useBuildSession() {
     // Real runs: ask the engine to wind the run down (durable store write);
     // polling has already stopped via clearTimers.
     if (ENGINE_MODE && engineRunId) {
-      void fetch("/api/bff/build/runs/cancel", {
+      void fetch("/api/build/runs/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ runId: engineRunId }),
@@ -358,7 +356,7 @@ export function useBuildSession() {
   }, [clearTimers, engineRunId, fileTree.length]);
 
   /**
-   * Real-engine driver: create a run through the BFF and poll its snapshot
+   * Real-engine driver: create a run through the Build server and poll its snapshot
    * into the same view state the mock pipeline writes. Compile/smoke run
    * inside the workflow, so the manual verify gates stay closed here.
    */
@@ -417,7 +415,7 @@ export function useBuildSession() {
 
       void (async () => {
         try {
-          const res = await fetch("/api/bff/build/runs", {
+          const res = await fetch("/api/build/runs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt: userText }),

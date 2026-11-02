@@ -1,5 +1,3 @@
-"use client";
-
 // Transactions table with etherscan-style row expansion. Submit-time fields
 // render from today's payload; receipt fields (status detail, fee story,
 // transfers, revert reason) light up when the confirmation watcher ships.
