@@ -25,7 +25,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Aomi } from "@aomi-labs/client";
 
 import { AomiLogo } from "@/components/brand/aomi-logo";
 import { ColorThemeToggle } from "@/components/control-plane/color-theme-toggle";
@@ -565,6 +566,17 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { account, setAccount } = useGitHubSession();
   const queryClient = useQueryClient();
+  // A negative builder balance blocks deploys and activations, and pauses
+  // paid chats on every live app, so it is surfaced on every page.
+  const builderDebt = useQuery({
+    queryKey: ["builder-credits"],
+    enabled: account.signedIn,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: () =>
+      new Aomi({ baseUrl: "", guest: false }).builder.credits.get(),
+    select: (balance) => balance.debt_microusd,
+  }).data;
 
   useEffect(() => {
     setMobileOpen(false);
@@ -705,6 +717,30 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
             </a>
           </div>
         )}
+        {builderDebt ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-4 py-3 text-sm"
+          >
+            <p>
+              Your builder balance is{" "}
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "USD",
+              }).format(-builderDebt / 1_000_000)}
+              . Deploys are blocked and your live apps can’t answer chats until
+              you add credits.
+            </p>
+            {pathname !== "/settings/billing" ? (
+              <Link
+                href="/settings/billing"
+                className="shrink-0 font-medium text-red-500 underline underline-offset-4"
+              >
+                Add credits
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         <CommandPalette />
       </div>
