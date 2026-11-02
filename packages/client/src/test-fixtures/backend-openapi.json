@@ -2376,6 +2376,21 @@
         "x-aomi-auth": ["delegated"]
       }
     },
+    "/api/_internal/agent/sessions/{thread_id}/steer": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": ["delegated"]
+      }
+    },
     "/api/_internal/agent/sessions/{thread_id}/actions/{action_id}/result": {
       "post": {
         "responses": {
