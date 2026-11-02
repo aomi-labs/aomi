@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.0.2
+
+### Patch Changes
+
+- Replace Usage settings with Billing and show dollar balances throughout the account UI. Add a stepped card and USDC checkout with optional wallet selection while preserving existing host wallet integrations.
+
 ## 5.0.1
 
 ### Patch Changes

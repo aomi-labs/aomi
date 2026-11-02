@@ -79,13 +79,9 @@ export function CreditCheckoutDialog({
   credits?: AccountCreditsTransport;
   wallet?: Pick<
     AomiWalletKit,
-    | "identity"
-    | "signTypedData"
-    | "switchChain"
-    | "connect"
-    | "wallets"
-    | "activateWallet"
-  >;
+    "identity" | "signTypedData" | "switchChain" | "connect"
+  > &
+    Partial<Pick<AomiWalletKit, "wallets" | "activateWallet">>;
   open: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void>;
