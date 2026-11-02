@@ -1,9 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   dismissNotification: vi.fn(),
   baseUrl: "",
+  notifications: [{ id: "payment", kind: "payment_required" }],
+  credits: vi.fn(() => ({ data: undefined })),
+}));
+vi.mock("@/account/use-account-credits", () => ({
+  useAccountCredits: mocks.credits,
 }));
 vi.mock("@/account/transport", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/account/transport")>();
@@ -18,7 +23,7 @@ vi.mock("@/account/transport", async (importOriginal) => {
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useNotification: () => ({
-    notifications: [{ id: "payment", kind: "payment_required" }],
+    notifications: mocks.notifications,
     dismissNotification: mocks.dismissNotification,
     showNotification: vi.fn(),
   }),
@@ -27,6 +32,22 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
 import { PaymentRequiredGate } from "./payment-required-gate";
 
 describe("out-of-credit recovery", () => {
+  beforeEach(() => {
+    mocks.notifications = [{ id: "payment", kind: "payment_required" }];
+    mocks.credits.mockClear();
+  });
+
+  it("only subscribes to the balance while the payment gate is visible", () => {
+    mocks.notifications = [];
+    const view = render(<PaymentRequiredGate />);
+    expect(mocks.credits).not.toHaveBeenCalled();
+
+    mocks.notifications = [{ id: "payment", kind: "payment_required" }];
+    view.rerender(<PaymentRequiredGate />);
+    expect(mocks.credits).toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeVisible();
+  });
+
   it("links to the credit dialog without changing funding or saving a key", () => {
     render(<PaymentRequiredGate />);
     const link = screen.getByRole("link", { name: "Add funds" });

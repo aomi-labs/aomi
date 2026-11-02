@@ -16,12 +16,28 @@ export function PaymentRequiredGate() {
   const { notifications, dismissNotification } = useNotification();
   // An empty transport origin means this host, including staging and local Chat.
   const topUpOrigin = useShellTransport().baseUrl;
-  const billing = billingFromPosition(useAccountCredits().data);
   const paymentNotification = notifications.find(
     (notification) => notification.kind === "payment_required",
   );
 
   if (!paymentNotification) return null;
+
+  return (
+    <PaymentRequiredDialog
+      topUpOrigin={topUpOrigin}
+      onDismiss={() => dismissNotification(paymentNotification.id)}
+    />
+  );
+}
+
+function PaymentRequiredDialog({
+  topUpOrigin,
+  onDismiss,
+}: {
+  topUpOrigin: string;
+  onDismiss: () => void;
+}) {
+  const billing = billingFromPosition(useAccountCredits().data);
 
   return (
     <div
@@ -83,7 +99,7 @@ export function PaymentRequiredGate() {
           <AomiButton
             variant="ghost"
             className="h-9"
-            onClick={() => dismissNotification(paymentNotification.id)}
+            onClick={onDismiss}
           >
             Not now
           </AomiButton>
