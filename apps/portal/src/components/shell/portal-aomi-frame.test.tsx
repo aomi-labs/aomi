@@ -1011,6 +1011,43 @@ describe("ThreadUrlBootstrap", () => {
     expect(window.location.search).toBe("?thread=account-a-chat");
   });
 
+  it("preserves a saved chat selected while the account is restoring on a blank URL", () => {
+    window.history.replaceState({}, "", "/");
+    const view = render(<ThreadUrlBootstrap ready={false} />);
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved-chat",
+      threadMetadata: new Map([
+        ["saved-chat", { title: "Saved chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    view.rerender(<ThreadUrlBootstrap ready={false} />);
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=saved-chat");
+  });
+
+  it("honors browser navigation to New chat while the account is restoring", () => {
+    window.history.replaceState({}, "", "/?thread=saved-chat");
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved-chat",
+      threadMetadata: new Map([
+        ["saved-chat", { title: "Saved chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    const view = render(<ThreadUrlBootstrap ready={false} />);
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+    expect(window.location.search).toBe("");
+  });
+
   it("does not replace browser navigation when a router render precedes popstate", async () => {
     window.history.replaceState({}, "", "/?app=hoodit&thread=saved");
     runtimeState.current = {

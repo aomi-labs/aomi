@@ -555,6 +555,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/_internal/agent/sessions/:thread_id/steer",
+    auth: ["delegated"],
+  },
+  {
+    method: "POST",
     path: "/api/_internal/agent/turns",
     auth: ["delegated", "app_gate"],
   },
