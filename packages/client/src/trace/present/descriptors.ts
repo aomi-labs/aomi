@@ -231,7 +231,7 @@ const descriptorById: Record<string, Descriptor> = {
     "chain",
     "txId",
   ),
-  "tx.discard": {
+  "general.tx.discard": {
     title: "fixed",
     fixedTitle: "Discard transactions",
     icon: "receipt",

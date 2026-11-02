@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Remove discarded EVM and Solana drafts from the activity sidebar, including earlier turns and persisted event replay. Show discard count bubbles in the Working trace.
+- Remove discarded EVM and Solana drafts from the activity sidebar, including earlier turns, legacy Jupiter drafts and persisted event replay. Show discard count bubbles in the Working trace.
 
 ## 5.0.2
 

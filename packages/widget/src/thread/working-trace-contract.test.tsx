@@ -15,6 +15,24 @@ describe("working trace contract", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it.each([undefined, {}])(
+    "keeps an unconfirmed discard neutral for %j",
+    (result) => {
+      const step = interpretToolStep({ toolName: "evm_discard_tx", result });
+      const { container } = render(
+        <ToolStepRow
+          interpretation={step}
+          done
+          active={false}
+          animate={false}
+        />,
+      );
+      expect(step.outcome).toBe("unknown");
+      expect(container.querySelector("svg.text-aomi-success")).toBeNull();
+      expect(container.querySelector("svg.lucide-receipt-text")).not.toBeNull();
+    },
+  );
+
   it.each(["evm_discard_tx", "svm_discard_tx"])(
     "renders %s with a transaction count bubble",
     (toolName) => {

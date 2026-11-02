@@ -11,7 +11,7 @@ export const matchDiscardTx: ToolMatcher = ({ rawLabel, resultRecord }) => {
     ? new Set(discarded.filter((id) => Number.isSafeInteger(id) && id >= 0))
         .size
     : undefined;
-  return operation("tx.discard", rawLabel, [
+  return operation("general.tx.discard", rawLabel, [
     !failed && count != null
       ? {
           kind: "count",

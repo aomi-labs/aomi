@@ -27,6 +27,9 @@ describe("tool interpreter", () => {
       }
       const pending = decode({ toolName, argsText: '{"tx_ids":[1,2]}' });
       expect(pending.chips).toEqual([]);
+      expect(pending.outcome).toBe("unknown");
+      expect(decode({ toolName, result: {} }).outcome).toBe("unknown");
+      expect(decode({ toolName }).outcome).toBe("unknown");
       const failed = decode({
         toolName,
         argsText: '{"tx_ids":[1,2]}',

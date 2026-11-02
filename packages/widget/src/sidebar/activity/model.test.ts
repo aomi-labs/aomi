@@ -750,6 +750,24 @@ describe("discarded staged transactions", () => {
     ]);
   });
 
+  it("removes legacy Jupiter drafts by their staged ids across turns and replay", () => {
+    const events = [
+      tool(1, "jupiter_prepare_swap", {
+        ix_ids: [1, 2],
+        cluster: "mainnet-beta",
+      }),
+      evm(2, 1),
+      tool(3, "svm_discard_tx", { discarded: [1] }, "turn-2"),
+    ];
+    const selected = selectActivity(events);
+    expect(
+      [...selected.history, ...selected.transactions].map((item) => item.id),
+    ).toEqual(["turn-1:svm:2", "turn-1:evm:1"]);
+    expect(selectActivity(JSON.parse(JSON.stringify(events)))).toEqual(
+      selected,
+    );
+  });
+
   it("keeps drafts for failed or incomplete discards and ignores lookalike tools", () => {
     for (const [name, result] of [
       ["evm_discard_tx", { is_error: true, discarded: [1] }],
