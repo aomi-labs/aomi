@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Aomi, type CreditLedger, type CreditBalance } from "@aomi-labs/client";
 import type { OperateStatementResult } from "@aomi-labs/deploy";
+import { useQueryClient } from "@tanstack/react-query";
 import { operateFetch } from "@/features/operate/client";
 import { CreditCheckoutDialog } from "@aomi-labs/widget/checkout";
 import {
@@ -43,12 +44,15 @@ export function SettingsBillingPanel() {
       );
     return value;
   };
+  const queryClient = useQueryClient();
   const refresh = useCallback(async () => {
     const [next, ledger] = await Promise.all([credits.get(), credits.ledger()]);
     setLedger(ledger);
     setPosition(next);
     setError(null);
-  }, [credits]);
+    // Clears the shell's debt banner once funding lands.
+    queryClient.setQueryData(["builder-credits"], next);
+  }, [credits, queryClient]);
   useEffect(() => {
     void operateFetch<{
       example?: boolean;

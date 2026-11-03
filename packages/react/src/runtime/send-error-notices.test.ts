@@ -64,4 +64,17 @@ describe("send failure notices", () => {
       title: "You're out of funds",
     });
   });
+
+  it("does not ask the user to pay when the App's builder is in debt", () => {
+    const { notice } = describeSendFailure(
+      apiError(402, "builder_debt"),
+      false,
+    );
+    expect(notice.kind).toBeUndefined();
+    expect(notice).toMatchObject({
+      type: "error",
+      title: "App paused",
+      message: expect.stringMatching(/builder needs to add funds/),
+    });
+  });
 });

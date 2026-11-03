@@ -43,6 +43,18 @@ export function describeSendFailure(
   error: unknown,
   startUncertain: boolean,
 ): SendFailure {
+  const apiError = error instanceof AgentApiError ? error : undefined;
+  // The builder owes, not the user: topping up the user's own balance
+  // wouldn't help, so this must not open the payment modal.
+  if (apiError?.code === "builder_debt")
+    return {
+      notice: {
+        type: "error",
+        title: "App paused",
+        message:
+          "This App's builder needs to add funds before it can answer messages. Your own balance isn't affected.",
+      },
+    };
   // The payment modal has its own copy; only `kind` routes it.
   if (getHttpStatus(error) === 402)
     return {
@@ -52,7 +64,6 @@ export function describeSendFailure(
         title: "You're out of funds",
       },
     };
-  const apiError = error instanceof AgentApiError ? error : undefined;
   if (apiError?.appAccessCode)
     return {
       notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },
