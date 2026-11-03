@@ -230,11 +230,13 @@ export const CapabilityMentionInput: FC<{
     if (hintsEnabled) return;
     const editor = editorRef.current;
     if (!editor) return;
-    editor
-      .querySelectorAll<HTMLElement>("[data-capability-key]")
-      .forEach((node) => node.remove());
     setMentionIconPortals([]);
     closePicker();
+    // Resync only after removing tags. A freshly mounted editor is still empty
+    // while the composer may hold a restored draft, and syncing would erase it.
+    const tags = editor.querySelectorAll<HTMLElement>("[data-capability-key]");
+    if (tags.length === 0) return;
+    tags.forEach((node) => node.remove());
     syncEditor();
   }, [closePicker, hintsEnabled, syncEditor]);
 

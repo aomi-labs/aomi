@@ -281,6 +281,26 @@ describe("ClientSession Stop terminal races", () => {
     session.close();
   });
 
+  it("ends the send when a loading App refuses the start", async () => {
+    const { session, start, interrupt } = setup();
+    const failure = new AgentApiError(
+      503,
+      "app_loading",
+      "Application 7 is loading on this server. Retry shortly.",
+      true,
+    );
+    start.mockRejectedValueOnce(failure);
+    await expect(session.sendAsync("Explain")).rejects.toBe(failure);
+    expect(session.getSnapshot()).toMatchObject({
+      isSubmitting: false,
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().messages).toEqual([]);
+    await expect(session.interrupt()).resolves.toBeUndefined();
+    expect(interrupt).not.toHaveBeenCalled();
+    session.close();
+  });
+
   it.each([
     new TypeError("Network response unavailable"),
     new AgentApiError(

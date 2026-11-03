@@ -110,4 +110,15 @@ describe("send failure notices", () => {
       /again in a little while\.$/,
     );
   });
+
+  it("names the App ID when a Direct chat is refused", () => {
+    const refused = apiError(403, "forbidden");
+    expect(describeSendFailure(refused, false, true).notice).toMatchObject({
+      title: "App not available",
+      message: expect.stringMatching(/App ID isn't available/),
+    });
+    expect(describeSendFailure(refused, false).notice.title).toBe(
+      "Message not sent",
+    );
+  });
 });

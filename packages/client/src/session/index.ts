@@ -15,6 +15,7 @@ import {
   type CommitView,
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
+import { isAomiError } from "../api-error";
 import { GuestSignInError } from "../guest-auth";
 import { AomiClient } from "../client";
 import { conversationMessages } from "./conversation";
@@ -1593,8 +1594,10 @@ function startTargetFields(options: {
 }
 
 function isDefinitiveStartRejection(error: unknown): boolean {
-  // A failed guest sign-in stops the start before it is sent.
-  if (error instanceof GuestSignInError) return true;
+  // Guest sign-in failed before the start was sent, and the App gate refuses
+  // a loading App before it accepts a turn. Neither left work to stop.
+  if (error instanceof GuestSignInError || isAomiError(error, "app_loading"))
+    return true;
   return (
     error instanceof AgentApiError &&
     !error.retryable &&

@@ -133,7 +133,8 @@ export function createGuestSessionProvider(input: {
             },
           );
           if (!response.ok)
-            throw new Error(
+            throw new GuestSignInError(
+              response,
               `Aomi session check failed with HTTP ${response.status}`,
             );
           const session: unknown = await response.json();
