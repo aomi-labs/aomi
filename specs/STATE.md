@@ -2,6 +2,17 @@
 
 ## Last Updated
 
+2026-11-03 — SIGN PAGE MATCHES THE SIDEBAR FOR BATCHES (`fix/sign-page-multi-tx`).
+  `/sign/:ref` for a multi-tx EVM request (a batch: one commit per tx, each
+  carrying the whole batch's review) drew every card from the current leg's
+  view, so cards moved together and reset when the next leg started, and the
+  sheet went blank between legs. Each card now follows its own member
+  (`CommitHandle.members` / `groupView`, new in client), the list and review
+  stay up until the batch settles, one Send sends every leg in order (like the
+  sidebar's Submit), and the confirmed screen drops "View on explorer".
+  The account menu's open wallet group now shows ~3 wallets and scrolls
+  (active one scrolled into view), with one "Add a wallet" row.
+
 2026-11-03 — WIDGET SEND ERROR STATES (`fix/widget-error-states`).
   From a template run of widget 4.0.2 against staging. 503 `app_loading` and a
   failed guest session check (now a `GuestSignInError`, as main's guest 429 is)

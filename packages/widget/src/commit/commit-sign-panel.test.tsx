@@ -241,7 +241,7 @@ describe("CommitSignPanel", () => {
     expect(kit.connect).not.toHaveBeenCalled();
   });
 
-  it("shows a settled commit's result with its explorer link", async () => {
+  it("shows a settled commit's result without an explorer link", async () => {
     const { handle } = await open(
       view({
         state: "confirmed",
@@ -255,9 +255,7 @@ describe("CommitSignPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Transaction confirmed" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: /View on explorer/ }),
-    ).toHaveProperty("href", "https://etherscan.io/tx/0xhash");
+    expect(screen.queryByRole("link", { name: /explorer/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
   });
 });
@@ -273,11 +271,28 @@ describe("CommitSignPanel · sequential batch", () => {
     predecessor_commit_id: index ? ref : null,
     review_digest: "batch-digest",
   });
+  // Every member carries the batch's review: both legs' transactions.
+  const review = view().review!;
+  const request = review.request as Extract<
+    typeof review.request,
+    { type: "execute_evm" }
+  >;
+  const batchReview = {
+    ...review,
+    request: {
+      ...request,
+      transactions: [
+        { ...request.transactions[0]!, label: "Approve" },
+        { ...request.transactions[0]!, label: "Swap" },
+      ],
+    },
+  };
   const leg = (index: number, overrides: Partial<CommitRefView> = {}) =>
     view({
       commit_id: index ? second : ref,
       stage_id: `evm:${index + 1}`,
       batch: batch(index),
+      review: batchReview,
       ...overrides,
     });
   const done = (index: number, state: CommitRefView["state"]) =>
@@ -314,25 +329,60 @@ describe("CommitSignPanel · sequential batch", () => {
     return { handle, writes };
   }
 
-  it("signs the second leg after the first confirms, then reports the batch", async () => {
+  it("sends every leg from one click, then reports the batch", async () => {
     const { handle, writes } = await openBatch("confirmed");
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: SEND }));
-    const next = await screen.findByRole(
-      "button",
-      { name: SEND },
-      { timeout: 3000 },
-    );
     expect(
-      screen.getByRole("region", { name: "Transaction request" }),
-    ).toHaveProperty("dataset.commitRef", second);
-    fireEvent.click(next);
-    expect(
-      await screen.findByRole("heading", { name: "Transaction confirmed" }),
+      await screen.findByRole(
+        "heading",
+        { name: "Transaction confirmed" },
+        { timeout: 3000 },
+      ),
     ).toBeTruthy();
     expect(writes).toEqual([ref, second]);
     expect(signTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives each leg's card its own progress", async () => {
+    const views = new Map([
+      [ref, done(0, "confirmed")],
+      [second, leg(1)],
+    ]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) =>
+      Response.json(views.get(new URL(String(input)).pathname.split("/")[3]!)),
+    );
+    handle = await new AomiCommits(
+      new AomiClient({ baseUrl: "https://api.example", guest: false, fetch }),
+    ).get(ref);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+
+    // Both members review the whole batch: one card per leg, each its own.
+    const progress = screen
+      .getAllByLabelText(/^Transaction preparation/)
+      .map((row) => row.getAttribute("aria-label"));
+    expect(progress).toEqual([
+      expect.stringContaining("signing: signed"),
+      expect.stringContaining("signing: not signed"),
+    ]);
+  });
+
+  it("keeps the review up while a leg is in flight", async () => {
+    const views = new Map([
+      [ref, leg(0, { version: 3, state: "awaiting_broadcast", action: null })],
+      [second, leg(1, { action: null })],
+    ]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) =>
+      Response.json(views.get(new URL(String(input)).pathname.split("/")[3]!)),
+    );
+    handle = await new AomiCommits(
+      new AomiClient({ baseUrl: "https://api.example", guest: false, fetch }),
+    ).get(ref);
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "Wallet impact" })).toBeTruthy();
   });
 
   it("reports a failed second leg, not the first leg's confirmation", async () => {
@@ -340,10 +390,9 @@ describe("CommitSignPanel · sequential batch", () => {
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: SEND }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: SEND }, { timeout: 3000 }),
-    );
-    expect(await screen.findByRole("heading", { name: /fail/i })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: /fail/i }, { timeout: 3000 }),
+    ).toBeTruthy();
     expect(screen.queryByText(/confirmed/i)).toBeNull();
   });
 });
