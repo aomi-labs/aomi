@@ -11,7 +11,11 @@ const formatInteger = (value: string): string => {
 };
 
 const shortenAddress = (address: string): string =>
-  /^0x[a-fA-F0-9]{40}$/.test(address) ? shortAddress(address) : address;
+  /^0x[a-fA-F0-9]{40}$/.test(address)
+    ? shortAddress(address)
+    : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
+      ? `${address.slice(0, 4)}…${address.slice(-4)}`
+      : address;
 
 const formatNativeAmount = (value: string): string => {
   const numeric = Number(value);

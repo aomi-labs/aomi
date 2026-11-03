@@ -19,7 +19,13 @@ import { matchSkillActivation } from "./general/skills";
 import { matchSleep } from "./general/sleep";
 import { matchWebFetch, matchWebSearch } from "./general/search";
 import { matchTaskDelegation } from "./general/task";
-import { matchSvmContext, matchSvmTokenHoldings } from "./svm/context";
+import {
+  matchSvmAccountInfo,
+  matchSvmContext,
+  matchSvmDeriveAddress,
+  matchSvmProgram,
+  matchSvmTokenHoldings,
+} from "./svm/context";
 import {
   matchSvmPendingApproval,
   matchSvmSimulation,
@@ -65,6 +71,9 @@ const svmMatchers: Record<string, ToolMatcher> = {
   svm_sign_data: matchSignMessage,
   svm_get_context: matchSvmContext,
   svm_get_token_holdings: matchSvmTokenHoldings,
+  svm_get_program: matchSvmProgram,
+  svm_get_account_info: matchSvmAccountInfo,
+  svm_derive_address: matchSvmDeriveAddress,
 };
 
 export function coreMatchersFor(name: string): ToolMatcher[] | undefined {

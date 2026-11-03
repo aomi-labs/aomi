@@ -1101,6 +1101,69 @@ describe("tool interpreter", () => {
     expect(step.confidence).toBe("high");
   });
 
+  it("shows the Solana program and instruction a lookup returned", () => {
+    const step = decode({
+      toolName: "svm_get_program",
+      argsText: '{"program_id":null,"name":"kamino","instruction":"deposit"}',
+      result: {
+        found: true,
+        count: 1,
+        programs: [
+          {
+            program_id: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+            cluster: "mainnet-beta",
+            name: "Kamino Lend",
+          },
+        ],
+      },
+    });
+
+    expect(step.title).toBe("Get program details");
+    expect(labelsFor(step.chips)).toEqual(["Solana", "Kamino Lend", "deposit"]);
+  });
+
+  it("shows a Solana account's address, kind and SOL balance", () => {
+    const step = decode({
+      toolName: "svm_get_account_info",
+      result: {
+        pubkey: "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW",
+        cluster: "mainnet-beta",
+        found: true,
+        lamports: 16750126,
+        owner_program_id: "11111111111111111111111111111111",
+        executable: false,
+      },
+    });
+
+    expect(step.title).toBe("Get account details");
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "HZpj…vRpW",
+      "Wallet",
+      "0.01675 SOL",
+    ]);
+  });
+
+  it("shows a derived token account and its token", () => {
+    const step = decode({
+      toolName: "svm_derive_address",
+      result: {
+        address: "6cSHGy5AjHEeqwema69qBVz1mMmk5MKUyztLJqqPQmPd",
+        kind: "associated_token_account",
+        owner: "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW",
+        mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        token_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      },
+    });
+
+    expect(step.title).toBe("Derive address");
+    expect(labelsFor(step.chips)).toEqual([
+      "Token account",
+      "6cSH…QmPd",
+      "USDC",
+    ]);
+  });
+
   it("shows the visible SPL amount without inventing an unknown symbol", () => {
     const step = decode({
       toolName: "svm_get_token_holdings",

@@ -282,6 +282,39 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.chainContext,
     chipPlan: [{ kind: "cluster" }, { kind: "slot" }],
   },
+  "svm.program.lookup": {
+    title: "fixed",
+    fixedTitle: "Get program details",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "cluster" },
+      { kind: "contract" },
+      { kind: "function" },
+      { kind: "status" },
+    ],
+  },
+  "svm.account.info": {
+    title: "fixed",
+    fixedTitle: "Get account details",
+    icon: SHAPE_ICONS.nativeBalance,
+    chipPlan: [
+      { kind: "cluster" },
+      { kind: "address", role: "owner" },
+      { kind: "category" },
+      { kind: "amount", role: "native" },
+      { kind: "status" },
+    ],
+  },
+  "svm.address.derive": {
+    title: "fixed",
+    fixedTitle: "Derive address",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "category" },
+      { kind: "address", role: "to" },
+      { kind: "token" },
+    ],
+  },
   "svm.account.token_holdings": {
     title: "label",
     icon: SHAPE_ICONS.nativeBalance,
