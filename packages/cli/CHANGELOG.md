@@ -8,7 +8,10 @@
 
 ### Patch Changes
 
+- Updated dependencies
+- Updated dependencies
 - Updated dependencies [0e96552]
+- Updated dependencies
   - @aomi-labs/client@1.1.0
 
 ## 1.0.1

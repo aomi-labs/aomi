@@ -31,6 +31,7 @@ import {
   AomiCreditApiError,
   shortAddress,
   type AccountCreditsTransport,
+  type AomiCardFundingMethod,
   type AomiFundingResult,
   type AomiCreditMethods,
   type AomiFundingEvent,
@@ -95,6 +96,9 @@ export function CreditCheckoutDialog({
   const balanceUsd = billingFromPosition(position.data)?.balanceUsd;
   const [methods, setMethods] = useState<AomiCreditMethods | null>(null);
   const [step, setStep] = useState<Step>("amount");
+  const [cardEnvironment, setCardEnvironment] = useState<"test" | "production">(
+    "production",
+  );
   const [dollars, setDollars] = useState("10");
   const [network, setNetwork] = useState("");
   const [fundingEvent, setFundingEvent] = useState<AomiFundingEvent | null>(
@@ -108,14 +112,26 @@ export function CreditCheckoutDialog({
   const key = useRef<string>(crypto.randomUUID());
   const notified = useRef<string | null>(null);
   const amount = Math.round(Number(dollars) * 100) * 10_000;
-  const cardMin = methods?.card?.min_microusd ?? 5_000_000;
+  const cardOptions = [methods?.card, methods?.test_card].filter(
+    (method): method is AomiCardFundingMethod => Boolean(method),
+  );
+  const selectedCard =
+    cardOptions.find((method) => method.environment === cardEnvironment) ??
+    cardOptions[0];
+  const cardMin = cardOptions.length
+    ? Math.min(...cardOptions.map((method) => method.min_microusd))
+    : 5_000_000;
   const walletMin = methods?.wallet.min_microusd ?? 1_000_000;
   const networks = methods?.wallet.networks ?? [];
-  const cardOk = Boolean(methods?.card) && amount >= cardMin;
+  const cardOk = cardOptions.length > 0 && amount >= cardMin;
   const walletOk = networks.length > 0 && amount >= walletMin;
   const valid =
     Number.isFinite(amount) && amount <= MAX_MICROUSD && (cardOk || walletOk);
-  const unavailable = methods !== null && !methods.card && !networks.length;
+  const unavailable =
+    methods !== null && !cardOptions.length && !networks.length;
+  const testFundingAvailable =
+    cardOptions.some((method) => method.environment === "test") ||
+    networks.some((option) => option.network === "eip155:84532");
   const selected = networks.find((n) => n.network === network);
   const chain = chains.find((c) => `eip155:${c.id}` === network);
   const address = wallet.identity.address;
@@ -135,6 +151,8 @@ export function CreditCheckoutDialog({
 
   const accept = useCallback((next: AomiFundingResult) => {
     setFundingEvent(next.funding_event);
+    if (next.funding_event.method === "card")
+      setCardEnvironment(next.funding_event.environment);
     setStep(next.funding_event.method === "card" ? "card" : "wallet");
     setDollars(String(next.funding_event.amount_microusd / 1_000_000));
     setNetwork(next.funding_event.terms.network ?? "");
@@ -257,6 +275,7 @@ export function CreditCheckoutDialog({
     const next = await creditsApi.beginFunding({
       amountMicrousd: amount,
       method,
+      environment: method === "card" ? cardEnvironment : undefined,
       chain: method === "wallet" ? network : undefined,
       idempotencyKey: key.current,
       x402:
@@ -305,6 +324,7 @@ export function CreditCheckoutDialog({
     setWaiting(false);
     setError(null);
     setStep("amount");
+    setCardEnvironment("production");
     setNetwork(networks[0]?.network ?? "");
     key.current = crypto.randomUUID();
   }
@@ -355,10 +375,14 @@ export function CreditCheckoutDialog({
   }
   // With one rail set up, skip the choice. With both, always offer it, even
   // when the amount is under one rail's minimum: that rail shows why.
-  const bothRails = Boolean(methods?.card) && networks.length > 0;
+  const paymentChoices = cardOptions.length + Number(networks.length > 0);
+  const bothRails = paymentChoices > 1;
   function next() {
     if (bothRails) setStep("method");
-    else setStep(cardOk ? "card" : "wallet");
+    else if (cardOk) {
+      setCardEnvironment(cardOptions[0].environment);
+      setStep("card");
+    } else setStep("wallet");
   }
 
   const locked = busy || fundingEvent !== null;
@@ -530,35 +554,40 @@ export function CreditCheckoutDialog({
     body = (
       <>
         <ListGroup>
-          <ChoiceRow
-            leading={<StripeMark />}
-            title="Card or wallet pay"
-            description={
-              <>
-                Processed by Stripe ·{" "}
-                {cardOk
-                  ? `${formatDollars(cardMin / 1_000_000)} minimum`
-                  : methods?.card
-                    ? `Needs ${formatDollars(cardMin / 1_000_000)} or more`
-                    : "Not available"}
-              </>
-            }
-            disabled={!cardOk}
-            onClick={() => setStep("card")}
-          />
-          <ChoiceRow
-            leading={<UsdcMark />}
-            title="Crypto"
-            description={
-              networks.length === 0
-                ? "Not available"
-                : networks.length <= 2
+          {cardOptions.map((option) => (
+            <ChoiceRow
+              key={option.environment}
+              leading={<StripeMark />}
+              title={
+                option.environment === "test"
+                  ? "Stripe sandbox"
+                  : "Card or wallet pay"
+              }
+              description={
+                option.environment === "test"
+                  ? "Test cards · no real card charge · adds account credits"
+                  : `Processed by Stripe · ${formatDollars(option.min_microusd / 1_000_000)} minimum`
+              }
+              disabled={amount < option.min_microusd}
+              onClick={() => {
+                setCardEnvironment(option.environment);
+                setStep("card");
+              }}
+            />
+          ))}
+          {networks.length ? (
+            <ChoiceRow
+              leading={<UsdcMark />}
+              title="Crypto"
+              description={
+                networks.length <= 2
                   ? `USDC on ${networks.map((n) => n.name).join(" or ")}`
                   : `USDC on ${networks.length} networks`
-            }
-            disabled={!walletOk}
-            onClick={() => setStep("wallet")}
-          />
+              }
+              disabled={!walletOk}
+              onClick={() => setStep("wallet")}
+            />
+          ) : null}
         </ListGroup>
         <SheetFootnote>
           Adding {usd} ·{" "}
@@ -578,7 +607,7 @@ export function CreditCheckoutDialog({
       description: "Card or wallet pay, through Stripe",
     };
     body =
-      methods?.card && cardOk ? (
+      selectedCard && cardOk ? (
         <>
           <Suspense
             fallback={
@@ -591,7 +620,7 @@ export function CreditCheckoutDialog({
             <CardForm
               key={amount}
               onBusy={setBusy}
-              publicKey={methods.card.public_key}
+              publicKey={selectedCard.public_key}
               amount={amount}
               disabled={busy}
               begin={begin}
@@ -600,8 +629,10 @@ export function CreditCheckoutDialog({
             />
           </Suspense>
           <SheetFootnote className="flex items-center justify-center gap-1.5">
-            <Lock className="size-3" /> Secured by Stripe. Aomi never sees your
-            card.
+            <Lock className="size-3" />
+            {selectedCard.environment === "test"
+              ? "Stripe sandbox. Test payments add account credits."
+              : "Secured by Stripe. Aomi never sees your card."}
           </SheetFootnote>
         </>
       ) : null;
@@ -790,6 +821,17 @@ export function CreditCheckoutDialog({
           />
           <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
             {error ? <SheetAlert>{error}</SheetAlert> : null}
+            {testFundingAvailable && !unavailable ? (
+              <div
+                role="note"
+                className="text-aomi-fg rounded-control border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-[13px] leading-5"
+              >
+                Test payments add credits to this account balance. On
+                Production, those credits can be spent on live Aomi services.
+                Stripe sandbox cards are not charged; Base Sepolia USDC has no
+                mainnet value.
+              </div>
+            ) : null}
             {body}
             {fundingEvent?.status === "awaiting_action" ? (
               // Payment decides: card funding cancels its PaymentIntent; a

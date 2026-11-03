@@ -2,12 +2,23 @@ import { mainnet } from "viem/chains";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const init = vi.hoisted(() => vi.fn());
+const sdkParameters = vi.hoisted(() => new Map<string, unknown>());
 
 // Stand in for WalletConnect's provider import; the real connector logic stays.
 vi.mock("wagmi/connectors", async (importOriginal) => {
   const actual = await importOriginal<typeof import("wagmi/connectors")>();
   return {
     ...actual,
+    coinbaseWallet: (
+      parameters: Parameters<typeof actual.coinbaseWallet>[0],
+    ) => {
+      sdkParameters.set("coinbaseWallet", parameters);
+      return actual.coinbaseWallet(parameters);
+    },
+    baseAccount: (parameters: Parameters<typeof actual.baseAccount>[0]) => {
+      sdkParameters.set("baseAccount", parameters);
+      return actual.baseAccount(parameters);
+    },
     walletConnect: () =>
       actual.injected({
         target: () => ({
@@ -75,5 +86,21 @@ describe("deferred WalletConnect", () => {
     });
     await expect(connector.getProvider()).resolves.toBeDefined();
     expect(init).toHaveBeenCalled();
+  });
+});
+
+describe("Coinbase SDK telemetry", () => {
+  it("turns off the analytics script for Coinbase Wallet and Base Account", () => {
+    sdkParameters.clear();
+    createAomiEvmConfig({
+      chains: [mainnet],
+      wallets: ["coinbase"],
+      includeBaseAccount: true,
+      appName: "telemetry",
+    });
+    for (const connector of ["coinbaseWallet", "baseAccount"])
+      expect(sdkParameters.get(connector)).toMatchObject({
+        preference: { telemetry: false },
+      });
   });
 });

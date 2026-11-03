@@ -209,9 +209,20 @@ export function AomiRuntimeCore({
     },
     isSavedThread: (threadId) => remoteThreadIdsRef.current.has(threadId),
     onSendError: (threadId, error) => {
+      // Only a Direct target names the app. Auto threads keep the last
+      // Direct app in control, so scoping to it could reject the right key.
+      const control =
+        threadContextRef.current.getThreadMetadata(threadId)?.control;
+      const target =
+        agentTarget?.mode === "direct"
+          ? agentTarget
+          : !agentTarget && control?.agentMode === "direct"
+            ? control
+            : undefined;
       const failure = describeSendFailure(
         error,
         Boolean(sessionManager.get(threadId)?.getSnapshot().isStartUncertain),
+        Boolean(target?.app || target?.applicationId != null),
       );
       if (failure.forgetThread) forgetPersistedThread();
       if (
@@ -219,16 +230,6 @@ export function AomiRuntimeCore({
         (error.appAccessCode === "app_key_required" ||
           error.appAccessCode === "app_key_not_scoped")
       ) {
-        // Only a Direct target names the app. Auto threads keep the last
-        // Direct app in control, so scoping to it could reject the right key.
-        const control =
-          threadContextRef.current.getThreadMetadata(threadId)?.control;
-        const target =
-          agentTarget?.mode === "direct"
-            ? agentTarget
-            : !agentTarget && control?.agentMode === "direct"
-              ? control
-              : undefined;
         failure.notice.appKeyTarget =
           target?.app || target?.applicationId != null
             ? {

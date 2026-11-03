@@ -2,6 +2,18 @@
 
 ## Last Updated
 
+2026-11-03 — WIDGET SEND ERROR STATES (`fix/widget-error-states`).
+  From a template run of widget 4.0.2 against staging. 503 `app_loading` and a
+  failed guest session check (now a `GuestSignInError`, as main's guest 429 is)
+  count as a definite start rejection: the session drops the pending echo and
+  the uncertain start, so the spinner and Stop end and the composer gets the
+  text back. `describeSendFailure` adds "App starting" and, for a Direct
+  target, "App not available" on 403/404. With hints off (Direct-only routing)
+  the composer editor used to
+  sync its empty DOM on mount and erase the restored draft; it now resyncs
+  only after it strips mention tags. A completed working trace with a failed step shows a warning
+  glyph and "N failed". Pending: nothing checks a Direct applicationId on load.
+
 2026-11-01 — GUEST ALIASES BACK FOR PUBLISHED SDKs (`fix/edge-widget-guest-alias`).
   `/api/auth/widget/guest` and `/api/auth/sign-in/anonymous` route to the one
   guest handler again. Every published widget (widget-lib 3.x, widget 4.0.2,
