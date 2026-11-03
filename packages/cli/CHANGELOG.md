@@ -1,5 +1,16 @@
 # @aomi-labs/cli
 
+## 1.1.0
+
+### Minor Changes
+
+- 0e96552: A message sent while a turn is working joins that turn. `Session.steer` posts it to `/v1/agent/chat/{sessionId}/steer` and resolves `false` when no turn is running. Portal and the embedded chat keep Send available during a run and split the working trace at the follow-up. The CLI REPL accepts input while a reply streams, and `aomi chat` adds to a running request.
+
+### Patch Changes
+
+- Updated dependencies [0e96552]
+  - @aomi-labs/client@1.1.0
+
 ## 1.0.1
 
 ### Patch Changes
