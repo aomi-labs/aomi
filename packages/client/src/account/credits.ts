@@ -56,11 +56,8 @@ export type AomiFundingResult = {
     | { kind: "wait" | "done" };
 };
 export type AomiCreditMethods = {
-  card: {
-    public_key: string;
-    min_microusd: number;
-    max_microusd: number;
-  } | null;
+  card: AomiCardFundingMethod | null;
+  test_card?: AomiCardFundingMethod | null;
   wallet: {
     min_microusd: number;
     max_microusd: number;
@@ -72,6 +69,12 @@ export type AomiCreditMethods = {
       confirmations: number;
     }>;
   };
+};
+export type AomiCardFundingMethod = {
+  public_key: string;
+  environment: "test" | "production";
+  min_microusd: number;
+  max_microusd: number;
 };
 
 export class AccountCreditsTransport {
@@ -101,6 +104,7 @@ export class AccountCreditsTransport {
   async beginFunding(input: {
     amountMicrousd: number;
     method: "card" | "wallet";
+    environment?: "test" | "production";
     chain?: string;
     idempotencyKey: string;
     x402?: AomiRequestOptions["x402"];
@@ -119,6 +123,7 @@ export class AccountCreditsTransport {
         body: {
           amount_microusd: input.amountMicrousd,
           method: input.method,
+          ...(input.environment ? { environment: input.environment } : {}),
           ...(input.chain ? { chain: input.chain } : {}),
         },
       },
