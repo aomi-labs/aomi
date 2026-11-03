@@ -5677,6 +5677,22 @@
           {
             "type": "object",
             "additionalProperties": false,
+            "required": ["kind", "calls_id"],
+            "description": "Only EIP-5792 status 400 for the matched bundle: not included on chain and wallet will not retry. Never an unknown error.",
+            "properties": {
+              "kind": {
+                "const": "calls_not_submitted"
+              },
+              "calls_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8194
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
             "required": ["kind", "transaction_id"],
             "properties": {
               "kind": {
@@ -9937,8 +9953,8 @@
         "description": "Better Auth OAuth 2.1 authorization-code/device grants. Access tokens are exact-resource bound; the Portal BFF verifies them and delegates a downscoped internal bearer.",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
-            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token",
+            "authorizationUrl": "https://chat.aomi.dev/api/auth/oauth2/authorize",
+            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token",
             "scopes": {
               "agent:read": "Read owned Agent turns and sessions",
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
@@ -9957,20 +9973,20 @@
             }
           }
         },
-        "x-device-authorization-url": "http://localhost:3000/api/auth/device/code",
+        "x-device-authorization-url": "https://chat.aomi.dev/api/auth/device/code",
         "x-aomi-resources": {
-          "agent": "http://localhost:3000/v1/agent",
-          "pipeline": "http://localhost:3000/v1/pipeline",
-          "agentMcp": "http://localhost:3000/v1/agent/mcp",
-          "appMcp": "http://localhost:3000/v1/apps/{app}/mcp",
-          "pipelineMcp": "http://localhost:3000/v1/pipeline/mcp",
-          "account": "http://localhost:3000/v1/account"
+          "agent": "https://chat.aomi.dev/v1/agent",
+          "pipeline": "https://chat.aomi.dev/v1/pipeline",
+          "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
+          "appMcp": "https://chat.aomi.dev/v1/apps/{app}/mcp",
+          "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
+          "account": "https://chat.aomi.dev/v1/account"
         }
       },
       "paymentOAuth": {
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "http://localhost:3000/api/auth/oauth2/authorize",
+            "authorizationUrl": "https://chat.aomi.dev/api/auth/oauth2/authorize",
             "scopes": {
               "account:credits:fund": "Fund personal credits",
               "account:credits:read": "Read personal credits",
@@ -9978,7 +9994,7 @@
               "builder:credits:fund": "Fund builder credits",
               "builder:credits:read": "Read builder credits"
             },
-            "tokenUrl": "http://localhost:3000/api/auth/oauth2/token"
+            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token"
           }
         },
         "type": "oauth2"

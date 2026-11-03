@@ -427,6 +427,7 @@ export function useActions(session: Session | undefined): {
                     tokenId?: string | null;
                     counterparty?: string | null;
                     step?: number | null;
+                    uiMultiplier?: string;
                 }[];
                 approvals: {
                     account: string;
@@ -580,6 +581,7 @@ export function useActions(session: Session | undefined): {
                     tokenId?: string | null;
                     counterparty?: string | null;
                     step?: number | null;
+                    uiMultiplier?: string;
                 }[];
                 approvals: {
                     account: string;
