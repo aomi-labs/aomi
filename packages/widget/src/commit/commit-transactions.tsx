@@ -43,10 +43,12 @@ function commitTransactions(
             {
               ...base,
               id: `commit:${view.commit_id}`,
-              family: "evm" as const,
+              family: view.chain_family,
               label: review.description || "Sign message",
               kind: "message",
-              chainId: Number(view.chain_ref),
+              ...(view.chain_family === "svm"
+                ? { cluster: view.chain_ref }
+                : { chainId: Number(view.chain_ref) }),
             },
           ]
         : [];

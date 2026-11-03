@@ -94,12 +94,13 @@ export type CommitReview =
   | Exclude<ActionRequest, { type: "sign" }>
   | SignCommitReview;
 type SignCommitReview = Extract<ActionRequest, { type: "sign" }> & {
-  /** Set on a message commit's review (`executionKind: "evm_message"`). */
+  /** Set on a message commit's review (`executionKind: "evm_message"`,
+   * `"svm_message"`). */
   messageReview?: MessageReview;
 };
 /** A message commit's review: a pipeline `sign` request plus its rows. */
 export type MessageCommitReview = SignCommitReview & {
-  executionKind: "evm_message";
+  executionKind: "evm_message" | "svm_message";
 };
 export type CommitManual =
   /** `version` / `review_digest` bind a message signature to its review. */
@@ -356,7 +357,8 @@ function payloadMatchesCommit(
  * writes always do. */
 function signedWrite(view: CommitView, payloads: string[]): CommitManual {
   return view.action?.kind === "sign" &&
-    view.action.payload.kind === "evm_message"
+    (view.action.payload.kind === "evm_message" ||
+      view.action.payload.kind === "svm_message")
     ? {
         kind: "signed",
         payloads,

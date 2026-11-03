@@ -540,6 +540,58 @@ describe("SVM preparation", () => {
   });
 });
 
+describe("message commits", () => {
+  it("lists each family's message commit as its own row", () => {
+    const review = (family: "evm" | "svm") => ({
+      version: 1,
+      revision: 1,
+      digest: "review",
+      legs: [],
+      request: {
+        type: "sign" as const,
+        requestId: `${family}-message:1`,
+        chainFamily: family,
+        executionKind: `${family}_message`,
+        signer: "wallet",
+        description: `Sign on ${family}`,
+        payloads: [],
+      },
+    });
+    const commits = [
+      durableCommit(1, 0, { batch: null, review: review("evm") }),
+      durableCommit(2, 0, {
+        batch: null,
+        chain_family: "svm",
+        chain_ref: "mainnet-beta",
+        review: review("svm"),
+      }),
+    ];
+    expect(
+      selectActivity([], [], commits).transactions.map(
+        ({ family, label, kind, cluster }) => ({
+          family,
+          label,
+          kind,
+          cluster,
+        }),
+      ),
+    ).toEqual([
+      {
+        family: "evm",
+        label: "Sign on evm",
+        kind: "message",
+        cluster: undefined,
+      },
+      {
+        family: "svm",
+        label: "Sign on svm",
+        kind: "message",
+        cluster: "mainnet-beta",
+      },
+    ]);
+  });
+});
+
 describe("thread-wide activity", () => {
   it("retains skills and subagents after a new user turn", () => {
     const events: Event[] = [

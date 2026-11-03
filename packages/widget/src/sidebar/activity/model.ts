@@ -4,7 +4,11 @@ import type {
   CommitView,
   Event,
 } from "@aomi-labs/client";
-import { isMessageReview, summarizeSimulation } from "@aomi-labs/client";
+import {
+  isMessageReview,
+  normalizeSolanaCluster,
+  summarizeSimulation,
+} from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
 import { messageChainId, unwrapToolStep } from "@aomi-labs/client/trace";
 
@@ -89,6 +93,9 @@ const ids = (value: unknown): number[] =>
     : [];
 /** The pending ids a staged record stands for: a Solana bundle lists its
  * instructions' ids, every other record names one. */
+/** Staged rows and commits may spell a cluster differently. */
+const clusterRef = (value?: string) => normalizeSolanaCluster(value) ?? value;
+
 const stagedIds = (tx: RecordValue): number[] => {
   if (Array.isArray(tx.pending_ix_ids)) return ids(tx.pending_ix_ids);
   const id = number(tx.pending_tx_id) ?? number(tx.pending_ix_id);
@@ -470,16 +477,14 @@ export function selectActivity(
           .filter(Number.isInteger);
     for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
-        const chainRef =
+        const sameChain =
           tx.family === "evm"
-            ? tx.chainId == null
-              ? undefined
-              : String(tx.chainId)
-            : tx.cluster;
+            ? tx.chainId != null && String(tx.chainId) === commit.chain_ref
+            : clusterRef(tx.cluster) === clusterRef(commit.chain_ref);
         return (
           tx.family === commit.chain_family &&
           stagedIds(tx.raw).includes(sourceId) &&
-          chainRef === commit.chain_ref
+          sameChain
         );
       });
       if (match) {
@@ -497,11 +502,13 @@ export function selectActivity(
       id: `commit:${commit.commit_id}`,
       sequence: origin?.sequence,
       turnId: origin?.turnId ?? null,
-      family: "evm",
+      family: commit.chain_family,
       label: review.description || "Sign message",
       kind: "message",
       // Only a chain the message names; the commit's own is the wallet's.
-      chainId: messageChainId([commit as unknown as RecordValue]),
+      ...(commit.chain_family === "svm"
+        ? { cluster: commit.chain_ref }
+        : { chainId: messageChainId([commit as unknown as RecordValue]) }),
       raw: {},
       stage: "committed",
       commit,

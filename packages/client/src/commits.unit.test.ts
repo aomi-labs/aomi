@@ -2769,4 +2769,72 @@ describe("message commits", () => {
       label: "Signed",
     });
   });
+
+  it("keeps a Solana message's review and binds its signature to it", async () => {
+    const payload = {
+      kind: "svm_message" as const,
+      cluster: "mainnet-beta",
+      signer: "payer",
+      message_base64: "aGVsbG8=",
+    };
+    const view: CommitView = {
+      ...unsigned,
+      commit_id: "cmt-svm-message",
+      chain_ref: "mainnet-beta",
+      version: 3,
+      review: {
+        version: 2,
+        revision: 1,
+        digest: "message-digest",
+        request: {
+          type: "sign",
+          requestId: "svm-message:abc",
+          chainFamily: "svm",
+          executionKind: "svm_message",
+          signer: "payer",
+          cluster: "mainnet-beta",
+          description: "Sign in to Hoodit",
+          payloads: [{ kind: "svm_message", message_base64: "aGVsbG8=" }],
+          messageReview: { kind: "generic", rows: [] },
+        },
+        legs: [],
+      },
+      action: { kind: "sign", payload },
+    };
+    const posts: unknown[] = [];
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return view;
+        posts.push(options?.body);
+        return { ...view, state: "confirmed", action: null, signature: "c2ln" };
+      },
+    );
+    const signMessage = vi.fn(async () => ({ signature: "c2ln" }));
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      view.thread_id,
+      commitCapabilities({ svm: { address: "payer", signMessage } }),
+    );
+    controller.ingest(view);
+    expect(controller.review(view.commit_id)).toMatchObject({
+      executionKind: "svm_message",
+      description: "Sign in to Hoodit",
+    });
+    await controller.execute(view.commit_id, {
+      expectedVersion: 3,
+      expectedReviewDigest: "message-digest",
+    });
+    expect(posts).toEqual([
+      {
+        kind: "signed",
+        payloads: ["c2ln"],
+        version: 3,
+        review_digest: "message-digest",
+      },
+    ]);
+    expect(
+      projectCommitLifecycle({ ...view, state: "confirmed", signature: "c2ln" }),
+    ).toMatchObject({ phase: "confirmed", label: "Signed" });
+    controller.close();
+  });
 });
