@@ -83,6 +83,9 @@ function signTransaction(base64: string, keypair: Keypair): string {
   } catch {
     const legacy = Transaction.from(bytes);
     legacy.partialSign(keypair);
-    return Buffer.from(legacy.serialize()).toString("base64");
+    // A new account the transaction creates signs after the wallet.
+    return Buffer.from(
+      legacy.serialize({ requireAllSignatures: false }),
+    ).toString("base64");
   }
 }

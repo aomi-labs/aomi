@@ -92,7 +92,14 @@ export function buildSvmTransactionMethods(
             decodeBase64(payload.unsignedTx),
           );
           const signed = await signTransaction(tx);
-          return { signedTx: encodeBase64(signed.serialize()) };
+          // A new account the transaction creates signs after the wallet.
+          return {
+            signedTx: encodeBase64(
+              signed instanceof VersionedTransaction
+                ? signed.serialize()
+                : signed.serialize({ requireAllSignatures: false }),
+            ),
+          };
         }
       : undefined,
     signSolanaMessage: signMessage
