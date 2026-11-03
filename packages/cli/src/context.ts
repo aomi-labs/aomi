@@ -273,7 +273,7 @@ export const signerAddresses = (aomi: Aomi) =>
 /** Who a thread belongs to: another sign-in can't continue it. */
 export const ownerOf = (aomi: Aomi) =>
   aomi.auth.mode === "wallet"
-    ? `wallet:${signerAddresses(aomi).join(",")}`
+    ? `wallet:${signerAddresses(aomi)[0]}`
     : aomi.auth.mode;
 
 /** The secrets vault id, made once. */
