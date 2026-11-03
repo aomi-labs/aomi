@@ -1,4 +1,9 @@
-import { AgentApiError, type AgentAppAccessErrorCode } from "@aomi-labs/client";
+import {
+  AgentApiError,
+  isAomiError,
+  type AgentAppAccessErrorCode,
+  type AomiApiError,
+} from "@aomi-labs/client";
 import type { NotificationData } from "../contexts/notification-context";
 import { getHttpStatus } from "./http-status";
 
@@ -38,12 +43,17 @@ export type SendFailure = {
   forgetThread?: boolean;
 };
 
-/** What to tell the user when a message could not be sent. */
+/**
+ * What to tell the user when a message could not be sent. `directApp` says
+ * the chat names one App, so a refusal there is about that App.
+ */
 export function describeSendFailure(
   error: unknown,
   startUncertain: boolean,
+  directApp = false,
 ): SendFailure {
   const apiError = error instanceof AgentApiError ? error : undefined;
+  const status = getHttpStatus(error);
   // The builder owes, not the user: topping up the user's own balance
   // wouldn't help, so this must not open the payment modal.
   if (apiError?.code === "builder_debt")
@@ -56,7 +66,7 @@ export function describeSendFailure(
       },
     };
   // The payment modal has its own copy; only `kind` routes it.
-  if (getHttpStatus(error) === 402)
+  if (status === 402)
     return {
       notice: {
         type: "error",
@@ -67,6 +77,30 @@ export function describeSendFailure(
   if (apiError?.appAccessCode)
     return {
       notice: { type: "error", ...APP_ACCESS_NOTICES[apiError.appAccessCode] },
+    };
+  if (apiError?.code === "app_loading")
+    return {
+      notice: {
+        type: "error",
+        title: "App starting",
+        message:
+          "This App is still loading on the server. Send your message again in a few seconds.",
+      },
+    };
+  // A wrong App ID reaches the backend as a generic refusal.
+  if (
+    directApp &&
+    apiError &&
+    (status === 403 ||
+      (status === 404 && apiError.code !== "session_not_found"))
+  )
+    return {
+      notice: {
+        type: "error",
+        title: "App not available",
+        message:
+          "This App ID isn't available. Check the applicationId configured for this chat.",
+      },
     };
   if (apiError?.code === "session_not_found")
     return {
@@ -95,6 +129,20 @@ export function describeSendFailure(
         message: `${error instanceof Error ? error.message : "The start response was unavailable"}. The request may have been accepted. Use Stop to check and stop it.`,
       },
     };
+  if (status === 429) {
+    // Guest sign-in carries the server's Retry-After in its details.
+    const details = isAomiError(error)
+      ? ((error as AomiApiError).details as { retryAfter?: unknown } | null)
+      : undefined;
+    const seconds = Number(details?.retryAfter);
+    return {
+      notice: {
+        type: "error",
+        title: "Too many requests",
+        message: `${seconds > 0 ? `Wait ${seconds} ${seconds === 1 ? "second" : "seconds"}` : "Wait a moment"}, then send your message again.`,
+      },
+    };
+  }
   return {
     notice: {
       type: "error",

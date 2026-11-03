@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AgentApiError } from "@aomi-labs/client";
+import { AgentApiError, AomiApiError } from "@aomi-labs/client";
 import { describeSendFailure } from "./send-error-notices";
 
 const apiError = (status: number, code: string) =>
@@ -76,5 +76,54 @@ describe("send failure notices", () => {
       title: "App paused",
       message: expect.stringMatching(/builder needs to add funds/),
     });
+  });
+
+  it("asks the user to resend while the App loads", () => {
+    const { notice } = describeSendFailure(
+      new AgentApiError(503, "app_loading", "Application 7 is loading", true),
+      false,
+    );
+    expect(notice).toMatchObject({
+      title: "App starting",
+      message: expect.stringMatching(/Send your message again/),
+    });
+  });
+
+  it.each([
+    [
+      new AomiApiError(
+        429,
+        "guest_sign_in_failed",
+        "HTTP 429",
+        true,
+        undefined,
+        { retryAfter: 30 },
+      ),
+      /^Wait 30 seconds, then send/,
+    ],
+    [
+      new AomiApiError(429, "guest_sign_in_failed", "HTTP 429", true),
+      /^Wait a moment, then send/,
+    ],
+  ])("names a rate limit and its wait: %s", (error, message) => {
+    expect(describeSendFailure(error, false).notice).toMatchObject({
+      title: "Too many requests",
+      message: expect.stringMatching(message),
+    });
+  });
+
+  it.each([
+    [403, "forbidden"],
+    [404, "not_found"],
+  ])("names the App ID when a Direct chat gets %s %s", (status, code) => {
+    expect(
+      describeSendFailure(apiError(status, code), false, true).notice,
+    ).toMatchObject({
+      title: "App not available",
+      message: expect.stringMatching(/App ID isn't available/),
+    });
+    expect(
+      describeSendFailure(apiError(status, code), false).notice.title,
+    ).toBe("Message not sent");
   });
 });

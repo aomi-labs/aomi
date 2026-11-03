@@ -63,6 +63,25 @@ describe("guest connection diagnostics", () => {
     );
   });
 
+  it("reports a rate limit as a typed error with its Retry-After", async () => {
+    vi.stubGlobal("location", { origin: "https://vendor.example" });
+    const guest = createGuestSessionProvider({
+      baseUrl: origin,
+      fetch: async () =>
+        new Response(null, { status: 429, headers: { "retry-after": "30" } }),
+    });
+
+    await expect(guest()).rejects.toMatchObject({
+      name: "AomiApiError",
+      code: "guest_sign_in_failed",
+      status: 429,
+      retryable: true,
+      details: { retryAfter: 30 },
+      message:
+        "Aomi guest sign-in failed with HTTP 429 at https://chat.aomi.dev (/api/auth/guest).",
+    });
+  });
+
   it("reports the widget route for a cross-origin browser failure", async () => {
     vi.stubGlobal("location", { origin: "https://vendor.example" });
     const guest = createGuestSessionProvider({

@@ -22,6 +22,7 @@ import {
   CogIcon,
   LightbulbIcon,
   MoreHorizontalIcon,
+  TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
 
@@ -514,6 +515,33 @@ export const WorkingTrace: FC<{
     (total, item) => total + 1 + childStepCount(item),
     0,
   );
+  // A turn can finish after one of its tools failed. The header then warns
+  // and counts the failures so it agrees with the rows below it.
+  const attribution = useTraceAttribution();
+  const failedSteps =
+    outcome === "complete"
+      ? visibleItems.filter((item, i) => {
+          if (item.kind !== "tool" || item.tool.result === undefined)
+            return false;
+          const step = interpretToolStep({
+            attribution,
+            toolName: item.tool.toolName,
+            argsText:
+              item.tool.argsText && item.tool.argsText !== "undefined"
+                ? item.tool.argsText
+                : undefined,
+            result: item.tool.result,
+            relatedResults: visibleItems
+              .slice(0, i)
+              .flatMap((previous) =>
+                previous.kind === "tool" ? [previous.tool.result] : [],
+              ),
+          });
+          return (
+            (step.outcome ?? (step.failed ? "failed" : "success")) === "failed"
+          );
+        }).length
+      : 0;
 
   return (
     // Keep one stable column in both states so the body has a real 0fr ⇄ 1fr
@@ -552,6 +580,10 @@ export const WorkingTrace: FC<{
           <span className="text-aomi-muted flex size-4 shrink-0 items-center justify-center">
             <MoreHorizontalIcon className="size-3.5" />
           </span>
+        ) : failedSteps > 0 ? (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <TriangleAlertIcon className="text-aomi-warning size-3.5" />
+          </span>
         ) : (
           <span className="flex size-4 shrink-0 items-center justify-center">
             <CheckIcon className="text-aomi-success size-3.5" />
@@ -573,6 +605,11 @@ export const WorkingTrace: FC<{
             {stepCount} {stepCount === 1 ? "step" : "steps"}
           </span>
         ) : null}
+        {failedSteps > 0 && (
+          <span className="text-aomi-warning inline-flex items-center text-[11px] font-normal tabular-nums leading-none">
+            {failedSteps} failed
+          </span>
+        )}
         {open && <span className="flex-1" />}
         <ChevronDownIcon
           className={cn(

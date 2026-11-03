@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AgentApiError,
+  AomiApiError,
   AomiClient,
   Session,
   type Event,
@@ -277,6 +278,35 @@ describe("ClientSession Stop terminal races", () => {
       isSubmitting: false,
       error: expect.any(AgentApiError),
     });
+    session.close();
+  });
+
+  it.each([
+    new AgentApiError(
+      503,
+      "app_loading",
+      "Application 7 is loading on this server. Retry shortly.",
+      true,
+    ),
+    new AomiApiError(
+      429,
+      "guest_sign_in_failed",
+      "Aomi guest sign-in failed with HTTP 429",
+      true,
+      undefined,
+      { retryAfter: 30 },
+    ),
+  ])("ends the send when the start was never accepted: %s", async (failure) => {
+    const { session, start, interrupt } = setup();
+    start.mockRejectedValueOnce(failure);
+    await expect(session.sendAsync("Explain")).rejects.toBe(failure);
+    expect(session.getSnapshot()).toMatchObject({
+      isSubmitting: false,
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().messages).toEqual([]);
+    await expect(session.interrupt()).resolves.toBeUndefined();
+    expect(interrupt).not.toHaveBeenCalled();
     session.close();
   });
 
