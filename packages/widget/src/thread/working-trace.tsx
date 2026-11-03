@@ -37,6 +37,7 @@ import {
 import type { Event, TurnState } from "@aomi-labs/client";
 import {
   buildTraceItems,
+  decode,
   type TraceItem as TraceRow,
 } from "@aomi-labs/client/trace";
 import { MarkdownText } from "./markdown-text";
@@ -516,15 +517,14 @@ export const WorkingTrace: FC<{
     0,
   );
   // A turn can finish after one of its tools failed. The header then warns
-  // and counts the failures so it agrees with the rows below it.
-  const attribution = useTraceAttribution();
+  // and counts the failures so it agrees with the rows below it. Attribution
+  // only adds chips, so the header decodes without subscribing to the catalog.
   const failedSteps =
     outcome === "complete"
       ? visibleItems.filter((item, i) => {
           if (item.kind !== "tool" || item.tool.result === undefined)
             return false;
-          const step = interpretToolStep({
-            attribution,
+          const step = decode({
             toolName: item.tool.toolName,
             argsText:
               item.tool.argsText && item.tool.argsText !== "undefined"
