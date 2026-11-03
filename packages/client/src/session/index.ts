@@ -15,6 +15,7 @@ import {
   type CommitView,
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
+import { GuestSignInError } from "../guest-auth";
 import { AomiClient } from "../client";
 import { conversationMessages } from "./conversation";
 import { activeWalletOf, type AomiActiveWallet } from "../account/wallets";
@@ -1592,6 +1593,8 @@ function startTargetFields(options: {
 }
 
 function isDefinitiveStartRejection(error: unknown): boolean {
+  // A failed guest sign-in stops the start before it is sent.
+  if (error instanceof GuestSignInError) return true;
   return (
     error instanceof AgentApiError &&
     !error.retryable &&

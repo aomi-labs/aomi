@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AgentApiError } from "@aomi-labs/client";
+import { AgentApiError, GuestSignInError } from "@aomi-labs/client";
 import { describeSendFailure } from "./send-error-notices";
 
 const apiError = (status: number, code: string) =>
@@ -74,7 +74,40 @@ describe("send failure notices", () => {
     expect(notice).toMatchObject({
       type: "error",
       title: "App paused",
-      message: expect.stringMatching(/builder needs to add funds/),
+      message: expect.stringMatching(
+        /temporarily unavailable because its builder needs to add funds/,
+      ),
     });
+  });
+
+  it.each(["model_not_sponsored", "sponsorship_unavailable"])(
+    "keeps the payment modal for the user's own credits, not a 402 %s",
+    (code) => {
+      const { notice } = describeSendFailure(apiError(402, code), false);
+      expect(notice.kind).toBeUndefined();
+      expect(notice.title).toBe("App unavailable");
+    },
+  );
+
+  it("names a guest sign-in rate limit with the server's wait", () => {
+    const limited = (retryAfter?: string) =>
+      new GuestSignInError(
+        new Response(null, {
+          status: 429,
+          headers: retryAfter ? { "retry-after": retryAfter } : {},
+        }),
+        "Aomi guest sign-in failed with HTTP 429",
+      );
+    expect(describeSendFailure(limited("30"), false).notice).toEqual({
+      type: "error",
+      title: "Too many requests",
+      message: expect.stringMatching(/again in 30 seconds\.$/),
+    });
+    expect(describeSendFailure(limited("3600"), false).notice.message).toMatch(
+      /again in about 60 minutes\.$/,
+    );
+    expect(describeSendFailure(limited(), false).notice.message).toMatch(
+      /again in a little while\.$/,
+    );
   });
 });

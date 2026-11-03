@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AgentApiError,
   AomiClient,
+  GuestSignInError,
   Session,
   type Event,
   type EventPage,
@@ -378,6 +379,23 @@ describe("ClientSession Stop terminal races", () => {
       session.close();
     },
   );
+
+  it("drops the pending echo when guest sign-in is rate limited before the start", async () => {
+    const { session, start } = setup();
+    start.mockRejectedValueOnce(
+      new GuestSignInError(
+        new Response(null, { status: 429, headers: { "retry-after": "5" } }),
+        "Aomi guest sign-in failed with HTTP 429",
+      ),
+    );
+    await expect(session.sendAsync("Explain")).rejects.toThrow("HTTP 429");
+    expect(session.getSnapshot()).toMatchObject({
+      isSubmitting: false,
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
+    session.close();
+  });
 
   it("clears the optimistic echo when resending the same uncertain request confirms admission", async () => {
     const { session, start } = setup();
