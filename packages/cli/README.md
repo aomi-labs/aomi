@@ -11,7 +11,7 @@ aomi --help                           # every command
 ```
 
 `aomi <command> --help` lists a command's flags; `--help-all` adds the hidden
-ones (`--backend-url`, `--api-key`, `--rpc-url`, `--solana-private-key`).
+ones (`--backend-url`, `--api-key`, `--rpc-url`).
 
 ## Sign in
 
@@ -23,6 +23,10 @@ Two ways, nothing else:
   `aomi logout` revokes it.
 - `--private-key <hex>` (or `AOMI_PRIVATE_KEY`) signs in with SIWE using that
   key, without a browser, and signs what the agent prepares. For bots.
+  `--solana-private-key <key>` (or `AOMI_SOLANA_PRIVATE_KEY`, base58 or a
+  `solana-keygen` JSON array) does the same with SIWS, on `--cluster`
+  (`mainnet`, `devnet` or `testnet`; default the signer's saved cluster, else
+  mainnet). `--rpc-url` serves that cluster when it signs.
 
 Without either you are a guest: chat and public reads work, and the guest's
 threads stay yours on this machine.

@@ -117,6 +117,14 @@ non-exportable DPoP keys and intentionally remains memory-only.
   unfunded, in-memory Solana keypair, completes the public SIWS challenge, and
   reads the Agent session list. Run `pnpm example:auth:siws:disposable`; it
   creates no Solana transaction and never prints the secret or session token.
+- [`src/solana-build.ts`](./src/solana-build.ts) is Solana end to end with one
+  local key: `wallet(solanaSigner(key))` signs in over SIWS, one chat turn, a
+  Pipeline Build, and its Commit signed and sent after you confirm. Run
+  `pnpm example:solana-build` with `AOMI_SOLANA_PRIVATE_KEY` and the Build's
+  `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION` and `AOMI_PIPELINE_ARGS`. It
+  uses devnet unless `AOMI_SOLANA_CLUSTER` says otherwise; outside this
+  workspace, install `@solana/web3.js`, `bs58` and `tweetnacl` next to the
+  client.
 - [`src/account/credits.ts`](./src/account/credits.ts) reads the monthly
   allowance, credit balance, debt, and recent activity.
   Set `AOMI_FUNDING_CREDITS` to purchase credits through the SDK's normal x402
@@ -200,11 +208,10 @@ then reopens the durable session before wallet execution. The private key never
 leaves the host process. A browser integration should use its injected or
 embedded wallet client instead of a private key.
 
-The package CLI also implements native SIWE/SIWS challenge and verification.
-Use `aomi account login --wallet` with an EVM signer or
-`aomi account login --solana` with a Solana signer; then `aomi account whoami`
-verifies the account. The terminal example uses its own SDK session and never
-borrows the CLI's stored login.
+The `aomi` CLI signs in the same way with `--private-key` (SIWE) or
+`--solana-private-key` (SIWS); `aomi whoami` shows who it signed in as. The
+terminal example uses its own SDK session and never borrows the CLI's stored
+login.
 
 ## Custom contract calls
 
@@ -258,6 +265,7 @@ was submitted.
 | `corepack pnpm example:wallet-terminal`             | `AOMI_BASE_URL`; for EVM wallet work also `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`; optionally `AOMI_WALLET_AUTH=siwe` | Guest or signed-in SIWE Agent session, with terminal approval for every pending Commit step or historical Action. `/exit` quits.                        |
 | `corepack pnpm example:custom-contract:anchor-root` | `AOMI_BASE_URL`, `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`, `ANCHOR_REGISTRY_ADDRESS`; optionally `ANCHOR_ROOT`         | A Commit whose review decodes to `registerRoot(root)` on the registry with passed simulation, signed locally; mismatches are rejected with exit code 1. |
 | `corepack pnpm example:auth:siws:disposable`        | `AOMI_BASE_URL`; optionally `AOMI_SIWS_CHAIN_ID`                                                                                | Disposable-key SIWS challenge/verify and authenticated Agent read; no funded key or Solana transaction.                                                 |
+| `corepack pnpm example:solana-build`                | `AOMI_BASE_URL`, `AOMI_SOLANA_PRIVATE_KEY`, `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION`, `AOMI_PIPELINE_ARGS`; optionally `AOMI_SOLANA_CLUSTER`, `SOLANA_RPC_URL` | SIWS sign-in, a chat reply, a simulated Solana Build, and its Commit signed with the local key after a `y`; anything else rejects it.         |
 
 `corepack pnpm --filter @aomi-labs/example-headless-client build` typechecks
 every example. `corepack pnpm --filter @aomi-labs/example-headless-client test`

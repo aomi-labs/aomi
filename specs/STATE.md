@@ -2,6 +2,17 @@
 
 ## Last Updated
 
+2026-11-04 — SOLANA PARITY F1 (`feat/solana-parity-2`).
+  One client cluster spelling (`SvmCluster`, `solana:mainnet|devnet|testnet`;
+  `normalizeSolanaCluster` accepts `mainnet-beta`/`solana`/bare names for one
+  release) replaces `SiwsChainId`; `solanaSigner` broadcasts on the commit's
+  normalised cluster. `svm_message` reviews survive in the client and widget.
+  `wallet(signer)` signs in with SIWE or SIWS by the signer; the CLI takes
+  `--solana-private-key` (SIWS), `--cluster` and a Solana `--rpc-url`.
+  Refused-send toasts key on the error `code`. New example
+  `examples/headless/src/solana-build.ts`. Pending: API reports and the
+  generated contract need a refresh after the package build (F2).
+
 2026-11-01 — GUEST ALIASES BACK FOR PUBLISHED SDKs (`fix/edge-widget-guest-alias`).
   `/api/auth/widget/guest` and `/api/auth/sign-in/anonymous` route to the one
   guest handler again. Every published widget (widget-lib 3.x, widget 4.0.2,
