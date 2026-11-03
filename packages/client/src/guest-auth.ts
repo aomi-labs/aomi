@@ -1,4 +1,4 @@
-import { AomiApiError, isRetryableStatus } from "./api-error";
+import { AomiApiError } from "./api-error";
 
 export type GuestSessionProvider = ((options?: {
   forceRefresh?: boolean;
@@ -11,6 +11,32 @@ export type GuestSessionProvider = ((options?: {
 };
 
 const FAILED_ATTEMPT_HOLD_MS = 2_000;
+
+/**
+ * Guest sign-in failed, so the request it was authorizing was never sent.
+ * A 429 has `code: "guest_rate_limited"` and the server's Retry-After.
+ */
+export class GuestSignInError extends AomiApiError {
+  override name = "GuestSignInError";
+  /** Seconds the server asked to wait before signing in again. */
+  readonly retryAfterSeconds?: number;
+
+  constructor(response: Response, message: string) {
+    super(
+      response.status,
+      response.status === 429 ? "guest_rate_limited" : "guest_sign_in_failed",
+      message,
+    );
+    // Retry-After is delta seconds or an HTTP date.
+    const header = response.headers.get("retry-after")?.trim();
+    const seconds = !header
+      ? NaN
+      : /^\d+$/.test(header)
+        ? Number(header)
+        : Math.ceil((Date.parse(header) - Date.now()) / 1000);
+    if (Number.isFinite(seconds)) this.retryAfterSeconds = Math.max(0, seconds);
+  }
+}
 
 let browserSessionTransition = Promise.resolve();
 
@@ -107,9 +133,8 @@ export function createGuestSessionProvider(input: {
             },
           );
           if (!response.ok)
-            throw new AomiApiError(
-              response.status,
-              "guest_sign_in_failed",
+            throw new GuestSignInError(
+              response,
               `Aomi session check failed with HTTP ${response.status}`,
             );
           const session: unknown = await response.json();
@@ -220,29 +245,12 @@ async function requestAnonymousSession(
   return token;
 }
 
-/**
- * Guest sign-in runs before the request it authorizes, so this error means
- * that request was never sent. A rate limit carries its `Retry-After` seconds
- * in `details.retryAfter`.
- */
 function guestConnectionError(
   response: Response,
   baseUrl: string,
   authPath: string,
 ) {
   const status = response.status;
-  const retryAfter = Number(response.headers.get("retry-after"));
-  const fail = (message: string) =>
-    new AomiApiError(
-      status,
-      "guest_sign_in_failed",
-      message,
-      isRetryableStatus(status),
-      undefined,
-      Number.isFinite(retryAfter) && retryAfter > 0
-        ? { retryAfter }
-        : undefined,
-    );
   // Report only the origin and our fixed route, never URL credentials, custom
   // path segments, query strings, response bodies or authentication headers.
   let origin = "the configured origin";
@@ -255,14 +263,15 @@ function guestConnectionError(
     // A custom fetch can accept a base URL the URL parser does not recognize.
   }
   const message = `Aomi guest sign-in failed with HTTP ${status} at ${origin} (${authPath}).`;
-  if (status !== 404) return fail(message);
+  if (status !== 404) return new GuestSignInError(response, message);
   const portal =
     origin === "https://api.aomi.dev"
       ? "https://chat.aomi.dev"
       : origin === "https://api-staging.aomi.dev"
         ? "https://chat-staging.aomi.dev"
         : null;
-  return fail(
+  return new GuestSignInError(
+    response,
     portal
       ? `${message} This is a backend origin; guest sign-in requires the Portal origin at ${portal}. Check baseUrl.`
       : `${message} Check that baseUrl points to the Portal origin.`,

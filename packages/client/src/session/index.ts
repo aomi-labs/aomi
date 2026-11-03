@@ -16,6 +16,7 @@ import {
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
 import { isAomiError } from "../api-error";
+import { GuestSignInError } from "../guest-auth";
 import { AomiClient } from "../client";
 import { conversationMessages } from "./conversation";
 import { activeWalletOf, type AomiActiveWallet } from "../account/wallets";
@@ -1595,10 +1596,7 @@ function startTargetFields(options: {
 function isDefinitiveStartRejection(error: unknown): boolean {
   // Guest sign-in failed before the start was sent, and the App gate refuses
   // a loading App before it accepts a turn. Neither left work to stop.
-  if (
-    isAomiError(error, "guest_sign_in_failed") ||
-    isAomiError(error, "app_loading")
-  )
+  if (error instanceof GuestSignInError || isAomiError(error, "app_loading"))
     return true;
   return (
     error instanceof AgentApiError &&

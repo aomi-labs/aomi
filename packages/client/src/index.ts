@@ -175,6 +175,7 @@ export type {
 } from "./oauth";
 export {
   createGuestSessionProvider,
+  GuestSignInError,
   withBrowserSessionTransition,
 } from "./guest-auth";
 export type { GuestSessionProvider } from "./guest-auth";

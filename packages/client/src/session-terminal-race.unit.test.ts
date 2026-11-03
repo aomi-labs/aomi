@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AgentApiError,
-  AomiApiError,
   AomiClient,
+  GuestSignInError,
   Session,
   type Event,
   type EventPage,
@@ -281,23 +281,14 @@ describe("ClientSession Stop terminal races", () => {
     session.close();
   });
 
-  it.each([
-    new AgentApiError(
+  it("ends the send when a loading App refuses the start", async () => {
+    const { session, start, interrupt } = setup();
+    const failure = new AgentApiError(
       503,
       "app_loading",
       "Application 7 is loading on this server. Retry shortly.",
       true,
-    ),
-    new AomiApiError(
-      429,
-      "guest_sign_in_failed",
-      "Aomi guest sign-in failed with HTTP 429",
-      true,
-      undefined,
-      { retryAfter: 30 },
-    ),
-  ])("ends the send when the start was never accepted: %s", async (failure) => {
-    const { session, start, interrupt } = setup();
+    );
     start.mockRejectedValueOnce(failure);
     await expect(session.sendAsync("Explain")).rejects.toBe(failure);
     expect(session.getSnapshot()).toMatchObject({
@@ -408,6 +399,23 @@ describe("ClientSession Stop terminal races", () => {
       session.close();
     },
   );
+
+  it("drops the pending echo when guest sign-in is rate limited before the start", async () => {
+    const { session, start } = setup();
+    start.mockRejectedValueOnce(
+      new GuestSignInError(
+        new Response(null, { status: 429, headers: { "retry-after": "5" } }),
+        "Aomi guest sign-in failed with HTTP 429",
+      ),
+    );
+    await expect(session.sendAsync("Explain")).rejects.toThrow("HTTP 429");
+    expect(session.getSnapshot()).toMatchObject({
+      isSubmitting: false,
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
+    session.close();
+  });
 
   it("clears the optimistic echo when resending the same uncertain request confirms admission", async () => {
     const { session, start } = setup();

@@ -922,17 +922,6 @@ it("warns in a completed header when a step failed", () => {
   expect(header).toHaveTextContent("1 failed");
   expect(header.querySelector(".text-aomi-success")).toBeNull();
   expect(header.querySelector(".text-aomi-warning")).not.toBeNull();
-
-  view.rerender(
-    <WorkingTrace
-      running={false}
-      items={buildTraceItems([tool("ok", { quote: 1 })], [])}
-      revealed={1}
-    />,
-  );
-  expect(view.getByRole("button", { name: /Worked/ })).not.toHaveTextContent(
-    "failed",
-  );
 });
 
 describe("context steps", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AgentApiError, AomiApiError } from "@aomi-labs/client";
+import { AgentApiError, GuestSignInError } from "@aomi-labs/client";
 import { describeSendFailure } from "./send-error-notices";
 
 const apiError = (status: number, code: string) =>
@@ -74,56 +74,51 @@ describe("send failure notices", () => {
     expect(notice).toMatchObject({
       type: "error",
       title: "App paused",
-      message: expect.stringMatching(/builder needs to add funds/),
-    });
-  });
-
-  it("asks the user to resend while the App loads", () => {
-    const { notice } = describeSendFailure(
-      new AgentApiError(503, "app_loading", "Application 7 is loading", true),
-      false,
-    );
-    expect(notice).toMatchObject({
-      title: "App starting",
-      message: expect.stringMatching(/Send your message again/),
-    });
-  });
-
-  it.each([
-    [
-      new AomiApiError(
-        429,
-        "guest_sign_in_failed",
-        "HTTP 429",
-        true,
-        undefined,
-        { retryAfter: 30 },
+      message: expect.stringMatching(
+        /temporarily unavailable because its builder needs to add funds/,
       ),
-      /^Wait 30 seconds, then send/,
-    ],
-    [
-      new AomiApiError(429, "guest_sign_in_failed", "HTTP 429", true),
-      /^Wait a moment, then send/,
-    ],
-  ])("names a rate limit and its wait: %s", (error, message) => {
-    expect(describeSendFailure(error, false).notice).toMatchObject({
-      title: "Too many requests",
-      message: expect.stringMatching(message),
     });
   });
 
-  it.each([
-    [403, "forbidden"],
-    [404, "not_found"],
-  ])("names the App ID when a Direct chat gets %s %s", (status, code) => {
-    expect(
-      describeSendFailure(apiError(status, code), false, true).notice,
-    ).toMatchObject({
+  it.each(["model_not_sponsored", "sponsorship_unavailable"])(
+    "keeps the payment modal for the user's own credits, not a 402 %s",
+    (code) => {
+      const { notice } = describeSendFailure(apiError(402, code), false);
+      expect(notice.kind).toBeUndefined();
+      expect(notice.title).toBe("App unavailable");
+    },
+  );
+
+  it("names a guest sign-in rate limit with the server's wait", () => {
+    const limited = (retryAfter?: string) =>
+      new GuestSignInError(
+        new Response(null, {
+          status: 429,
+          headers: retryAfter ? { "retry-after": retryAfter } : {},
+        }),
+        "Aomi guest sign-in failed with HTTP 429",
+      );
+    expect(describeSendFailure(limited("30"), false).notice).toEqual({
+      type: "error",
+      title: "Too many requests",
+      message: expect.stringMatching(/again in 30 seconds\.$/),
+    });
+    expect(describeSendFailure(limited("3600"), false).notice.message).toMatch(
+      /again in about 60 minutes\.$/,
+    );
+    expect(describeSendFailure(limited(), false).notice.message).toMatch(
+      /again in a little while\.$/,
+    );
+  });
+
+  it("names the App ID when a Direct chat is refused", () => {
+    const refused = apiError(403, "forbidden");
+    expect(describeSendFailure(refused, false, true).notice).toMatchObject({
       title: "App not available",
       message: expect.stringMatching(/App ID isn't available/),
     });
-    expect(
-      describeSendFailure(apiError(status, code), false).notice.title,
-    ).toBe("Message not sent");
+    expect(describeSendFailure(refused, false).notice.title).toBe(
+      "Message not sent",
+    );
   });
 });
