@@ -31,7 +31,7 @@ export const ROUTE_SCOPES: readonly {
   { path: /^\/v1\/account\/agent-wallets$/, resource: "/v1/agent", paid: false, methods: { GET: "agent:read" } },
   { path: /^\/v1\/account\/agent-wallets\/[^/]+\/balances$/, resource: "/v1/agent", paid: false, methods: { GET: "agent:read" } },
   { path: /^\/v1\/commits\/[A-Za-z0-9_-]+$/, resource: "/v1/agent", paid: false, methods: { GET: "agent:read" } },
-  { path: /^\/v1\/commits\/[A-Za-z0-9_-]+\/(?:sign|broadcast|attempts|reject|attempts\/[A-Za-z0-9_-]+\/report)$/, resource: "/v1/agent", paid: false, methods: { POST: "agent:write" } },
+  { path: /^\/v1\/commits\/[A-Za-z0-9_-]+\/(?:sign|broadcast|attempts|reject|renew|attempts\/[A-Za-z0-9_-]+\/report)$/, resource: "/v1/agent", paid: false, methods: { POST: "agent:write" } },
   { path: /^\/v1\/commits\/[A-Za-z0-9_-]+\/approve$/, resource: "/v1/agent", paid: false, methods: { POST: "agent:write" } },
   { path: /^\/api\/commits$/, resource: "/v1/agent", paid: false, methods: { POST: "agent:actions:resolve" } },
   { path: /^\/api\/commits\/[0-9a-f-]+$/i, resource: "/v1/agent", paid: false, methods: { GET: "agent:read" } },

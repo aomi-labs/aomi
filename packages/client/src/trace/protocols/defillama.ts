@@ -210,8 +210,8 @@ export const defillama: ProtocolAdapter = {
       title: "fixed",
       fixedTitle: "Check prices",
       icon: "dollar",
+      // A price is the token's wherever it trades: no network chip.
       chipPlan: [
-        { kind: "chain" },
         { kind: "token", repeat: true },
         { kind: "count", role: "results" },
         { kind: "status" },

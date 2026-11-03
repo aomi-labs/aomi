@@ -234,11 +234,7 @@ describe("sidebar wallet disclosures", () => {
 });
 
 describe("Solana review detail", () => {
-  const ix = (program_id: string) =>
-    ({ program_id, accounts: [], data_base64: "AA==" }) as never;
-  const usdc = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-
-  it("names the programs it runs, its instruction count and compute units", () => {
+  it("shortens a mint without a known symbol, never shows it whole", () => {
     review({
       type: "execute_svm",
       transactions: [
@@ -247,21 +243,15 @@ describe("Solana review detail", () => {
           cluster: "mainnet-beta",
           version: "v0",
           description: "Swap on Jupiter",
-          kind: "swap",
-          instructions: [
-            ix("ComputeBudget111111111111111111111111111111"),
-            ix("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"),
-            ix("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-          ],
+          instructions: [],
         } as never,
       ],
       simulation: {
         ...simulation(),
-        gas: { units: "187342" } as never,
         balanceChanges: [
           {
             account: "So1",
-            asset: usdc,
+            asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
             amount: "18410000",
             direction: "in",
             cluster: "mainnet-beta",
@@ -269,13 +259,39 @@ describe("Solana review detail", () => {
         ],
       },
     });
-    const runs = screen.getByTestId("solana-programs");
-    // The venue first, setup programs after.
-    expect(runs.textContent).toContain("Runs Jupiter, Compute budget, Token");
-    expect(runs.textContent).toContain(
-      "3 instructions · 187,342 compute units",
-    );
-    // A mint without a known symbol is shortened, never shown whole.
     expect(screen.getByText("EPjF…Dt1v")).toBeTruthy();
+  });
+
+  it("shows a scaled-UI token as the wallet does, with what moved underneath", () => {
+    review({
+      type: "execute_svm",
+      transactions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          version: "v0",
+          description: "Swap SOL to NVDAx",
+          instructions: [],
+        } as never,
+      ],
+      simulation: {
+        ...simulation(),
+        balanceChanges: [
+          {
+            account: "So1",
+            asset: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+            amount: "100000000",
+            decimals: 8,
+            symbol: "NVDAx",
+            direction: "in",
+            cluster: "mainnet-beta",
+            standard: "spl_token",
+            uiMultiplier: "1.0017",
+          } as never,
+        ],
+      },
+    });
+    const amount = screen.getByText("+1.0017");
+    expect(amount.getAttribute("title")).toBe("1 raw × 1.0017 display multiplier");
   });
 });

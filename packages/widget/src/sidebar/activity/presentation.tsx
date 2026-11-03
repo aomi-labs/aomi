@@ -256,6 +256,37 @@ export function formatFeeSummary(fees: Simulation["fees"]): string {
   return `${formatAssetAmount(first.amount, decimals)} ${symbol}${suffix}`;
 }
 
+/** A failed send or signature as one readable line: a transaction the
+ * network refused in its preflight check keeps its reason, not its logs. */
+export function reviewErrorTitle(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Action response failed";
+  const refused = /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
+    message,
+  );
+  if (refused) return `The network refused the transaction: ${refused[1].trim()}.`;
+  return message.length > 160 ? `${message.slice(0, 157)}…` : message;
+}
+
+/** A balance change's amount as the wallet shows it: a Solana scaled-UI
+ * token (a tokenized stock) multiplies its raw amount for display. `raw`
+ * says what moved underneath when that differs. */
+export function shownAssetAmount(
+  change: Pick<BalanceChange, "amount" | "uiMultiplier">,
+  decimals?: number,
+): { shown: string; raw?: string } {
+  const amount = formatAssetAmount(change.amount, decimals);
+  const multiplier = Number(change.uiMultiplier);
+  if (!Number.isFinite(multiplier) || multiplier <= 0 || multiplier === 1 || decimals == null)
+    return { shown: amount };
+  const shown = (Number(amount) * multiplier)
+    .toFixed(decimals)
+    .replace(/\.?0+$/, "");
+  return {
+    shown,
+    raw: `${amount} raw × ${Number(multiplier.toPrecision(6))} display multiplier`,
+  };
+}
+
 export function formatAssetAmount(amount: string, decimals?: number): string {
   const normalized = amount.trim();
   if (!normalized) return "0";
@@ -293,47 +324,6 @@ export function assetFallback(asset: string): string {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(asset)
     ? shortAddress(asset, { head: 4, tail: 4 })
     : asset;
-}
-
-const SOLANA_PROGRAMS: Record<string, string> = {
-  "11111111111111111111111111111111": "System",
-  ComputeBudget111111111111111111111111111111: "Compute budget",
-  TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: "Token",
-  TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb: "Token-2022",
-  ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL: "Token account",
-  AddressLookupTab1e1111111111111111111111111: "Lookup table",
-  JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4: "Jupiter",
-  routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS: "Raydium",
-  "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "Raydium AMM",
-  KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD: "Kamino",
-  "3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br": "LI.FI",
-  "99vQwtBwYtrqqD9YSXbdum3KBdxPAVxYTaQ3cfnJSrN2": "Relay",
-};
-
-/** What a Solana review runs: the programs it calls, by name where known
- * (setup programs after the venue's), and how many instructions. */
-export function solanaProgramsSummary(
-  request: Extract<ActionRequest, { type: "execute_svm" }>,
-): { programs: string[]; instructions: number } {
-  const ids = request.transactions.flatMap((tx) =>
-    tx.instructions.map((ix) => ix.program_id),
-  );
-  const setup = new Set([
-    "11111111111111111111111111111111",
-    "ComputeBudget111111111111111111111111111111",
-    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-  ]);
-  const unique = [...new Set(ids)].sort(
-    (a, b) => Number(setup.has(a)) - Number(setup.has(b)),
-  );
-  return {
-    programs: unique.map(
-      (id) => SOLANA_PROGRAMS[id] ?? shortAddress(id, { head: 4, tail: 4 }),
-    ),
-    instructions: ids.length,
-  };
 }
 
 export function firstEvmChainId(request: ActionRequest): number | undefined {

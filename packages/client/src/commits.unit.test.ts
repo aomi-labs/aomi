@@ -1880,7 +1880,8 @@ describe("Commit view surfaces", () => {
           _path: string,
           options?: { body?: { kind: string } },
         ) => {
-          if (method === "POST")
+          // A Solana commit renews its blockhash before it is signed.
+          if (method === "POST" && options?.body?.kind !== "renew")
             current = {
               ...(options?.body?.kind === "signed" ? signed : submitted),
               broadcaster,
@@ -1913,11 +1914,15 @@ describe("Commit view surfaces", () => {
   );
   it("retries the signed payload after a lost POST without signing again", async () => {
     let attempts = 0;
-    const request = vi.fn(async (method: string) => {
-      if (method === "GET") return unsigned;
-      if (++attempts === 1) throw new Error("lost response");
-      return submitted;
-    });
+    const renew = (options?: { body?: { kind: string } }) =>
+      options?.body?.kind === "renew";
+    const request = vi.fn(
+      async (method: string, _path?: string, options?: { body?: { kind: string } }) => {
+        if (method === "GET" || renew(options)) return unsigned;
+        if (++attempts === 1) throw new Error("lost response");
+        return submitted;
+      },
+    );
     const sign = vi.fn(async () => ["exact-signature"]);
     const controller = new CommitController(
       { request } as unknown as AomiClient,
@@ -1929,7 +1934,118 @@ describe("Commit view surfaces", () => {
     );
     await controller.execute(unsigned.commit_id);
     expect(sign).toHaveBeenCalledTimes(1);
-    expect(request.mock.calls.filter((c) => c[0] === "POST")).toHaveLength(2);
+    expect(
+      request.mock.calls.filter((c) => c[0] === "POST" && !renew(c[2])),
+    ).toHaveLength(2);
+    controller.close();
+  });
+  it("reviews a Solana swap whose wallet receives an SPL token", () => {
+    // Commit Service names a token change `spl_token`; a schema without it
+    // drops the review, and the wallet gets no Send button.
+    const review = {
+      type: "execute_svm",
+      simulation: {
+        gas: { units: "85905", priceWei: null, nativeCost: null },
+        fees: [],
+        logs: [],
+        guards: [{ name: "simulation", status: "passed", message: null }],
+        status: "passed",
+        warnings: [],
+        approvals: [],
+        balanceChanges: [
+          {
+            account: "payer",
+            asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            amount: "200040",
+            direction: "in",
+            decimals: 6,
+            cluster: "mainnet-beta",
+            standard: "spl_token",
+            step: 1,
+          },
+        ],
+      },
+      transactions: [
+        {
+          kind: "svm_assembled",
+          payer: "payer",
+          cluster: "mainnet-beta",
+          version: "v0",
+          description: "Swap SOL to USDC",
+          instructions: [
+            {
+              kind: "jupiter_swap",
+              payer: "payer",
+              cluster: "mainnet-beta",
+              accounts: [],
+              program_id: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+              data_base64: "AA==",
+              description: "Swap SOL to USDC",
+            },
+          ],
+          address_lookup_tables: [],
+        },
+      ],
+    };
+    const controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      "thread",
+      {},
+    );
+    controller.ingest({
+      ...unsigned,
+      review: { version: 1, revision: 1, digest: "d", request: review },
+    } as unknown as CommitView);
+    expect(controller.review(unsigned.commit_id)).toMatchObject({
+      type: "execute_svm",
+    });
+    controller.close();
+  });
+  it("renews a Solana blockhash right before the wallet signs it", async () => {
+    const order: string[] = [];
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: { kind: string } }) => {
+        if (method === "GET") return unsigned;
+        order.push(options?.body?.kind ?? "");
+        return options?.body?.kind === "renew" ? unsigned : submitted;
+      },
+    );
+    const sign = vi.fn(async () => {
+      order.push("wallet");
+      return ["exact-signature"];
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      { sign },
+    );
+    await controller.execute(unsigned.commit_id);
+    expect(order).toEqual(["renew", "wallet", "signed"]);
+    controller.close();
+  });
+  it("asks for a renew again after a lost response, at the current version", async () => {
+    let renews = 0;
+    const bodies: Array<{ kind: string; version?: number }> = [];
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: { kind: string; version?: number } }) => {
+        if (method === "GET") return { ...unsigned, version: 1 + renews };
+        bodies.push(options!.body!);
+        if (options?.body?.kind === "renew" && ++renews === 1) throw new Error("lost response");
+        return options?.body?.kind === "renew" ? { ...unsigned, version: 1 + renews } : submitted;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      { sign: vi.fn(async () => ["exact-signature"]) },
+    );
+    await expect(controller.execute(unsigned.commit_id)).rejects.toThrow("lost response");
+    await controller.execute(unsigned.commit_id);
+    expect(bodies.map((body) => `${body.kind}@${body.version ?? ""}`)).toEqual([
+      "renew@1",
+      "renew@2",
+      "signed@",
+    ]);
     controller.close();
   });
   it("Auto Venue hands off exact signed bytes with no wallet signature", async () => {

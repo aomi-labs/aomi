@@ -35,10 +35,10 @@ import {
   balanceChangeNetwork,
   assetChangePresentation,
   formatAssetAmount,
+  shownAssetAmount,
   approvalTitle,
   approvalScope,
   focusRing,
-  solanaProgramsSummary,
 } from "./presentation";
 import { shortAddress } from "@aomi-labs/client";
 const REVIEW_PAGE_SIZE = 2;
@@ -213,41 +213,7 @@ export function ImpactPanel({
           </div>
         ) : null}
       </div>
-      {request.type === "execute_svm" && !message ? (
-        <SolanaRuns request={request} />
-      ) : null}
     </section>
-  );
-}
-
-/** The programs a Solana transaction runs, its instruction count and the
- * compute it measured: what an EVM review shows as the contract and gas. */
-function SolanaRuns({
-  request,
-}: {
-  request: Extract<ActionRequest, { type: "execute_svm" }>;
-}) {
-  const { programs, instructions } = solanaProgramsSummary(request);
-  if (!instructions) return null;
-  const units = Number(request.simulation.gas?.units);
-  const detail = [
-    `${instructions} instruction${instructions === 1 ? "" : "s"}`,
-    Number.isFinite(units) && units > 0
-      ? `${units.toLocaleString("en-US")} compute units`
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <div
-      data-testid="solana-programs"
-      className="border-aomi-border mt-2 border-t px-1 pt-2"
-    >
-      <p className="type-meta truncate" title={programs.join(", ")}>
-        Runs {programs.join(", ")}
-      </p>
-      <p className="type-meta text-aomi-muted">{detail}</p>
-    </div>
   );
 }
 
@@ -352,11 +318,11 @@ function AssetChange({
                 </span>
               )
             ) : (
-              <>
+              <span title={shownAssetAmount(change, decimals).raw}>
                 {incoming ? "+" : outgoing ? "−" : ""}
-                {formatAssetAmount(change.amount, decimals)}
+                {shownAssetAmount(change, decimals).shown}
                 <span className="sr-only"> {symbol}</span>
-              </>
+              </span>
             )}
           </p>
         </>

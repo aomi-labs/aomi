@@ -157,6 +157,41 @@ describe("activity projection", () => {
     ]);
   });
 
+  it("shows a Solana bundle as one transaction through simulate and commit", () => {
+    const stage = tool(1, "stage_jupiter_swap", {
+      staged: [
+        {
+          pending_ix_ids: [1, 2, 3],
+          instruction_count: 3,
+          cluster: "mainnet-beta",
+          description: "Swap SOL to USDC",
+          current_lifecycle: "queued",
+          chain_kind: "svm",
+        },
+      ],
+      pending_tx_ids: [1, 2, 3],
+    });
+    const sim = tool(2, "svm_simulate_ix", {
+      ix_ids: [1, 2, 3],
+      simulation: { err: null },
+    });
+    const simulated = selectActivity([stage, sim]);
+    expect(
+      simulated.transactions.map((card) => [card.label, card.stage]),
+    ).toEqual([["Swap SOL to USDC", "simulated"]]);
+    const commit = durableCommit(1, 0, {
+      commit_id: "swap",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      stage_id: "svm:1,2,3",
+      state: "confirmed",
+      batch: null,
+    });
+    const committed = selectActivity([stage, sim], [], [commit]);
+    expect(committed.transactions).toHaveLength(1);
+    expect(committed.transactions[0].commit?.state).toBe("confirmed");
+  });
+
   it("binds an unbatched commit by its own stage id, also a later turn's", () => {
     // As svm_stage_ix reports it; the commit tool's model-facing result names
     // no sources, so the commit's own stage id is the link.

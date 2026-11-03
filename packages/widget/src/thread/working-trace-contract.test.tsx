@@ -243,13 +243,13 @@ describe("working trace contract", () => {
     expect(failedStage.outcome).toBe("failed");
   });
 
-  it("counts requested Solana transactions when a commit view is absent", () => {
+  it("counts a Solana commit's instruction ids as one transaction without a commit view", () => {
     const step = interpretToolStep({
       toolName: "svm_commit_txs",
       argsText: JSON.stringify({ tx_ids: [11, 12] }),
       result: { cluster: "mainnet-beta", status: "pending_approval" },
     });
-    expect(labels(step)).toEqual(["Solana", "2 txs", "Awaiting approval"]);
+    expect(labels(step)).toEqual(["Solana", "1 tx", "Awaiting approval"]);
   });
 
   it("shows Commit Service progress and keeps a pending row pending", () => {

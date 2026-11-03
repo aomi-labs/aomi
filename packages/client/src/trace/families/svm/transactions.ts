@@ -110,20 +110,15 @@ export const matchSvmPendingApproval: ToolMatcher = ({
   if (!named && !legacy) return null;
   const args = asRecord(parsedArgs);
   const cluster = commitChainRef(views, "svm") ?? resultRecord?.cluster;
-  const requested = Array.isArray(args?.tx_ids) ? args.tx_ids : [];
+  // Commit ids are usually instruction ids assembled into one transaction,
+  // so they never count transactions: the commits do, else it is one.
+  const requested = Array.isArray(args?.tx_ids) && args.tx_ids.length > 0;
   return operation("svm.tx.pending_approval", rawLabel, [
     clusterFact(cluster),
     commitCountFact(views) ??
-      (requested.length > 1 && !Array.isArray(resultRecord?.svm_ix_ids)
-        ? {
-            kind: "count",
-            role: "tx",
-            value: String(requested.length),
-            source: "args",
-          }
-        : resultRecord || requested.length > 0
-          ? { kind: "count", role: "tx", value: "1", source: "result" }
-          : null),
+      (resultRecord || requested
+        ? { kind: "count", role: "tx", value: "1", source: "result" }
+        : null),
     failedFact(resultRecord) ??
       commitStateFact(views) ??
       statusFact(

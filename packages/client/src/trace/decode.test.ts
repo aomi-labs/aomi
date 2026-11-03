@@ -282,14 +282,9 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Check prices");
-    expect(labelsFor(step.chips)).toEqual([
-      "Base",
-      "ETH",
-      "0x8335…2913",
-      "ethereum",
-    ]);
-    expect(step.chips[0].icon).toBe("chain:8453");
-    expect(step.chips[1].icon).toBe("coins");
+    // A price is the token's wherever it trades: no network chip.
+    expect(labelsFor(step.chips)).toEqual(["ETH", "0x8335…2913", "ethereum"]);
+    expect(step.chips[0].icon).toBe("coins");
   });
 
   it("shows up to three compact DefiLlama prices", () => {
@@ -312,13 +307,10 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Check historical prices");
     expect(labelsFor(step.chips)).toEqual([
-      "BSC",
       "ETH $2,689",
       "USDC $0.9999",
       "PEPE $0.00001235",
     ]);
-    // Renderers draw a generic network icon for chains without a mark.
-    expect(step.chips[0].icon).toBe("chain:56");
   });
 
   it("keeps unresolved DefiLlama prices neutral", () => {

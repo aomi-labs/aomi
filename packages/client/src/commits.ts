@@ -110,7 +110,9 @@ export type CommitManual =
       review_digest?: string;
     }
   | { kind: "broadcast"; transaction_id: string }
-  | { kind: "rejected" };
+  | { kind: "rejected" }
+  /** A Solana transaction on a fresh blockhash, right before it is signed. */
+  | { kind: "renew"; version?: number };
 type WalletRejection = Extract<
   CommitWalletAttemptOutcome,
   { kind: "rejected" }
@@ -1104,7 +1106,9 @@ export class CommitController {
     basis?: CommitView,
   ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
-    this.pending.set(id, body);
+    // A renew is asked again at its current version on the next attempt,
+    // never replayed: a lost response must not pin a stale version.
+    if (body.kind !== "renew") this.pending.set(id, body);
     const view = this.threadBound
       ? await this.send<CommitView>(
           "POST",
@@ -1145,6 +1149,8 @@ export class CommitController {
         });
       case "rejected":
         return this.send("POST", commitRefPaths.reject(id), { version });
+      case "renew":
+        return this.send("POST", commitRefPaths.renew(id), { version });
     }
   }
   private async perform(
@@ -1177,6 +1183,16 @@ export class CommitController {
       const sign = this.available.sign;
       if (!sign)
         throw new Error("This wallet does not support sign-only commits");
+      // A Solana blockhash lives about a minute: renew it now, so the wallet
+      // gets all of it however long the review took.
+      if (view.action.payload.kind === "svm_transaction")
+        view = await this.manual(
+          id,
+          { kind: "renew", version: view.version },
+          view,
+        );
+      if (view.action?.kind !== "sign")
+        throw new Error("Commit is no longer awaiting a signature");
       const payloads = await sign(view, view.action.payload);
       if (this.closed) throw new Error("Commit session closed");
       view = await this.manual(id, signedWrite(view, payloads), view);

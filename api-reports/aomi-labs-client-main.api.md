@@ -2385,6 +2385,11 @@ export type CommitManual =
     transaction_id: string;
 } | {
     kind: "rejected";
+}
+/** A Solana transaction on a fresh blockhash, right before it is signed. */
+| {
+    kind: "renew";
+    version?: number;
 };
 
 // @public
