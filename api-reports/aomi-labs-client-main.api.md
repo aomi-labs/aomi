@@ -3014,6 +3014,14 @@ export type GuestSessionProvider = ((options?: {
 };
 
 // @public
+export class GuestSignInError extends AomiApiError {
+    constructor(response: Response, message: string);
+    // (undocumented)
+    name: string;
+    readonly retryAfterSeconds?: number;
+}
+
+// @public
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;
 
 // @public (undocumented)
