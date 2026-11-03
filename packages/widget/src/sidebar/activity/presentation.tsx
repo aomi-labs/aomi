@@ -1,6 +1,10 @@
 import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
-import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
+import {
+  isAomiError,
+  normalizeSolanaCluster,
+  shortAddress,
+} from "@aomi-labs/client";
 import { FileSignature, Layers3 } from "lucide-react";
 import { STAGED_ACTION_ICON_REGISTRY } from "@aomi-labs/client/trace";
 import { traceIcon } from "@/thread/trace-icons";
@@ -255,18 +259,27 @@ export function formatFeeSummary(fees: Simulation["fees"]): string {
   return `${formatAssetAmount(first.amount, decimals)} ${symbol}${suffix}`;
 }
 
+/** Commit Service ran the signed bytes and refused them before sending. */
+const REFUSED_SIGNED: Record<string, string> = {
+  commit_signed_out_of_compute:
+    "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.",
+  commit_signed_would_fail:
+    "This transaction would fail now, so nothing was sent. Ask for a fresh quote.",
+  commit_envelope_mismatch:
+    "The wallet changed the transaction beyond what it may, so nothing was sent.",
+};
+
 /** A failed send or signature as one readable line: a transaction the
  * network refused in its preflight check keeps its reason, not its logs. */
 export function reviewErrorTitle(error: unknown): string {
   const message =
     error instanceof Error ? error.message : "Action response failed";
-  // Commit Service ran the signed bytes and refused them before sending.
-  if (message.includes("commit_signed_out_of_compute"))
-    return "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.";
-  if (message.includes("commit_signed_would_fail"))
-    return "This transaction would fail now, so nothing was sent. Ask for a fresh quote.";
-  if (message.includes("commit_envelope_mismatch"))
-    return "The wallet changed the transaction beyond what it may, so nothing was sent.";
+  // Ref routes type the code; thread routes leave it in the response body.
+  const code =
+    isAomiError(error) && Object.hasOwn(REFUSED_SIGNED, error.code)
+      ? error.code
+      : Object.keys(REFUSED_SIGNED).find((key) => message.includes(key));
+  if (code) return REFUSED_SIGNED[code]!;
   const refused =
     /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
       message,
