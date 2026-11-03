@@ -2350,7 +2350,9 @@ export class CommitHandle {
     canSign(signer?: CommitSigner): boolean;
     // (undocumented)
     close(): void;
+    get groupView(): CommitRefView;
     get kind(): CommitKind;
+    get members(): CommitHandle[];
     get next(): CommitHandle;
     get onChain(): OnChainOutcome | undefined;
     // (undocumented)
