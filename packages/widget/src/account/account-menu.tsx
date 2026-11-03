@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccountStatusLine } from "./account-status-line";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import {
@@ -312,6 +312,11 @@ function SignsWithRows({
   const [openFamily, setOpenFamily] = useState<WalletFamily | null>(null);
   const [switching, setSwitching] = useState<string>();
   const slots = familySlots(rows);
+  const showActive = useCallback((el: HTMLElement | null) => {
+    el?.querySelector('[aria-checked="true"]')?.scrollIntoView?.({
+      block: "nearest",
+    });
+  }, []);
   if (!rows.length && !unlinked && !onAddWallet) return null;
 
   const activate = async (row: WalletRow) => {
@@ -381,43 +386,35 @@ function SignsWithRows({
                 {slot.family === "evm" ? "EVM" : "SVM"} wallets
                 <ChevronUpIcon className="text-aomi-muted" size={14} />
               </button>
-              {slot.rows.map((row) => (
-                <button
-                  key={row.key}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={row.active}
-                  aria-label={`Use ${rowTitle(row).title} ${shortAddress(row.address)}`}
-                  disabled={Boolean(switching)}
-                  onClick={() => void activate(row)}
-                  className={cn(
-                    "flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors",
-                    row.active
-                      ? "bg-aomi-surface-2/70"
-                      : "hover:bg-aomi-hover/60",
-                  )}
-                >
-                  <WalletLine row={row} />
-                  {switching === row.key || row.activating ? (
-                    <PendingMark />
-                  ) : row.active ? (
-                    <CheckIcon className="text-aomi-fg" size={14} />
-                  ) : null}
-                </button>
-              ))}
-              {onAddWallet ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={onAddWallet}
-                  className="text-aomi-muted hover:bg-aomi-hover/60 hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
-                >
-                  <span className="flex size-[26px] shrink-0 items-center justify-center">
-                    <PlusIcon size={14} />
-                  </span>
-                  Add a wallet
-                </button>
-              ) : null}
+              <div
+                ref={showActive}
+                className="max-h-[140px] overflow-y-auto overscroll-contain"
+              >
+                {slot.rows.map((row) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={row.active}
+                    aria-label={`Use ${rowTitle(row).title} ${shortAddress(row.address)}`}
+                    disabled={Boolean(switching)}
+                    onClick={() => void activate(row)}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors",
+                      row.active
+                        ? "bg-aomi-surface-2/70"
+                        : "hover:bg-aomi-hover/60",
+                    )}
+                  >
+                    <WalletLine row={row} />
+                    {switching === row.key || row.activating ? (
+                      <PendingMark />
+                    ) : row.active ? (
+                      <CheckIcon className="text-aomi-fg" size={14} />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <button
