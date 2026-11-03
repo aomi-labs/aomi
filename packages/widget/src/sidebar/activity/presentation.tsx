@@ -263,8 +263,9 @@ export function reviewErrorTitle(error: unknown): string {
   const refused = /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
     message,
   );
-  if (refused) return `The network refused the transaction: ${refused[1].trim()}.`;
-  return message.length > 160 ? `${message.slice(0, 157)}…` : message;
+  return refused
+    ? `The network refused the transaction: ${refused[1].trim()}.`
+    : message;
 }
 
 /** A balance change's amount as the wallet shows it: a Solana scaled-UI
