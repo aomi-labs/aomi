@@ -525,10 +525,21 @@ const sdkUpgradeStatus = endpoint("deployment.sdk_upgrade_status", "GET", deploy
   run: ({ input, client, session }) => client.sdkUpgradeStatus({ ...input, githubUserId: session.githubUserId }),
 });
 
+const deleteProject = endpoint("project.delete", "DELETE", "/api/build/projects", {
+  auth: { write: true },
+  input: byProject,
+  status: 204,
+  run: async ({ input, client, session }) => {
+    await client.deleteUserProject({ projectId: input.projectId, githubUserId: session.githubUserId });
+    return new Response(null, { status: 204 });
+  },
+});
+
 export const DEPLOY_ROUTES: readonly BuildRoute[] = [
   deploy(false),
   deploy(true),
   userProjects,
+  deleteProject,
   redeploy,
   status,
   { operation: "deployment.sdk_status", method: "GET", path: deployments("sdk-status"), handle: sdkStatus },

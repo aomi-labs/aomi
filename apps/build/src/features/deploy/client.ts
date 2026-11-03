@@ -202,3 +202,19 @@ export function launchAppsStatus(input: {
 }): Promise<LaunchAppStatusesResult> {
   return client.appStatuses(input);
 }
+
+/** Hard-delete a project in this Build environment. GitHub is untouched. */
+export async function deleteProject(projectId: number): Promise<void> {
+  const response = await buildFetch(
+    `/api/build/projects?projectId=${projectId}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof body.error === "string"
+        ? body.error
+        : "Could not delete project. Try again.",
+    );
+  }
+}
