@@ -259,10 +259,17 @@ export function formatFeeSummary(fees: Simulation["fees"]): string {
 /** A failed send or signature as one readable line: a transaction the
  * network refused in its preflight check keeps its reason, not its logs. */
 export function reviewErrorTitle(error: unknown): string {
-  const message = error instanceof Error ? error.message : "Action response failed";
-  const refused = /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
-    message,
-  );
+  const message =
+    error instanceof Error ? error.message : "Action response failed";
+  // Commit Service ran the signed bytes and refused them before sending.
+  if (message.includes("commit_signed_out_of_compute"))
+    return "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.";
+  if (message.includes("commit_signed_would_fail"))
+    return "This transaction would fail now, so nothing was sent. Ask for a fresh quote.";
+  const refused =
+    /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
+      message,
+    );
   return refused
     ? `The network refused the transaction: ${refused[1].trim()}.`
     : message;
@@ -277,7 +284,12 @@ export function shownAssetAmount(
 ): { shown: string; raw?: string } {
   const amount = formatAssetAmount(change.amount, decimals);
   const multiplier = Number(change.uiMultiplier);
-  if (!Number.isFinite(multiplier) || multiplier <= 0 || multiplier === 1 || decimals == null)
+  if (
+    !Number.isFinite(multiplier) ||
+    multiplier <= 0 ||
+    multiplier === 1 ||
+    decimals == null
+  )
     return { shown: amount };
   const shown = (Number(amount) * multiplier)
     .toFixed(decimals)

@@ -10,6 +10,12 @@ describe("reviewErrorTitle", () => {
       "The network refused the transaction: Computational budget exceeded.",
     );
     expect(reviewErrorTitle(new Error("User rejected"))).toBe("User rejected");
+    expect(reviewErrorTitle(new Error("commit_signed_out_of_compute"))).toMatch(
+      /ran out of compute, so nothing was sent/,
+    );
+    expect(reviewErrorTitle(new Error("commit_signed_would_fail"))).toMatch(
+      /would fail now, so nothing was sent/,
+    );
     expect(reviewErrorTitle("nope")).toBe("Action response failed");
   });
 });
