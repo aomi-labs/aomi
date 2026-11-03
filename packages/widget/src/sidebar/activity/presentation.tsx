@@ -266,6 +266,8 @@ export function reviewErrorTitle(error: unknown): string {
     return "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.";
   if (message.includes("commit_signed_would_fail"))
     return "This transaction would fail now, so nothing was sent. Ask for a fresh quote.";
+  if (message.includes("commit_envelope_mismatch"))
+    return "The wallet changed the transaction beyond what it may, so nothing was sent.";
   const refused =
     /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
       message,
