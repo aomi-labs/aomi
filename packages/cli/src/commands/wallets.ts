@@ -1,7 +1,7 @@
 import type { AomiAccountWallet } from "@aomi-labs/client";
 import { privateKeyToAccount } from "viem/accounts";
 import { connect, json, out, usage, type ConnectFlags } from "../context";
-import { loadState, updateState, type SvmCluster } from "../state";
+import { loadState, updateState } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 const solana = async () =>
@@ -87,33 +87,18 @@ export async function signer(flags: Flags): Promise<void> {
   if (svm) out(`Solana  ${svm} (${state.cluster ?? "solana:mainnet"})`);
 }
 
-const CLUSTERS: Record<string, SvmCluster> = {
-  mainnet: "solana:mainnet",
-  "mainnet-beta": "solana:mainnet",
-  devnet: "solana:devnet",
-  testnet: "solana:testnet",
-};
-
 export async function setSigner(
-  flags: Flags & { solana?: string; cluster?: string },
+  flags: Flags & { solana?: string },
   evm?: string,
 ): Promise<void> {
   if (!evm && !flags.solana) throw usage("Pass an EVM key, or --solana <key>");
-  const cluster = flags.cluster
-    ? (CLUSTERS[flags.cluster.replace(/^solana:/, "")] ??
-      (() => {
-        throw usage(
-          `Unknown cluster ${flags.cluster}; use mainnet, devnet or testnet`,
-        );
-      })())
-    : undefined;
   if (evm && !/^0x[0-9a-fA-F]{64}$/.test(evm))
     throw usage("The EVM key must be 0x-prefixed 32-byte hex");
   if (flags.solana) (await solana())(flags.solana);
   updateState({
     ...(evm ? { evmKey: evm } : {}),
     ...(flags.solana ? { svmKey: flags.solana } : {}),
-    ...(cluster ? { cluster } : {}),
+    ...(flags.cluster ? { cluster: flags.cluster } : {}),
   });
   await signer(flags);
 }

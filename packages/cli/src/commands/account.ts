@@ -12,6 +12,7 @@ import {
   json,
   out,
   privateKeyOf,
+  signerAddresses,
   usage,
   type ConnectFlags,
   type ShowCode,
@@ -47,13 +48,15 @@ export async function logout(flags: Flags): Promise<void> {
 
 const SIGN_IN = {
   oauth: "aomi login",
-  wallet: "--private-key",
   guest: "guest (aomi login to sign in)",
 } as Record<string, string>;
 
 export async function whoami(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
-  const via = SIGN_IN[aomi.auth.mode] ?? aomi.auth.mode;
+  const via =
+    aomi.auth.mode === "wallet"
+      ? `${privateKeyOf(flags) ? "--private-key" : "--solana-private-key"} ${signerAddresses(aomi).join(" · ")}`
+      : (SIGN_IN[aomi.auth.mode] ?? aomi.auth.mode);
   // Device grants are capability tokens: the profile route answers 401.
   const me = await aomi.account.me().catch((error: unknown) => {
     if (
@@ -65,9 +68,7 @@ export async function whoami(flags: Flags): Promise<void> {
     throw error;
   });
   if (flags.json) return json({ signIn: aomi.auth.mode, account: me });
-  out(
-    `Signed in  ${via}${aomi.auth.mode === "wallet" ? ` ${aomi.wallet?.evm?.address}` : ""}`,
-  );
+  out(`Signed in  ${via}`);
   if (me?.user)
     out(
       `Account    ${me.user.displayName ?? me.user.email ?? ""} (${me.user.id})`,

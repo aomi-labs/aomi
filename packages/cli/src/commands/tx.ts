@@ -209,7 +209,7 @@ export async function sign(flags: Flags, ref: string): Promise<void> {
       throw new CliError(`It waits for approval: aomi tx approve ${ref}`, 3);
     if (!handle.next.canSign())
       throw new CliError(
-        "No local signer for it: pass --private-key or aomi wallets signer set",
+        "No local signer for it: pass --private-key or --solana-private-key, or aomi wallets signer set",
         3,
       );
     reviewLines(handle.view, handle.review).forEach((line) => err(line));

@@ -6,11 +6,13 @@ import {
   AomiError,
   CLIENT_TYPE_TS_CLI,
   createGuestSessionProvider,
+  normalizeSolanaCluster,
   oauth,
   UserState,
   wallet,
   type AomiAuthStrategy,
   type AgentTarget,
+  type SvmCluster,
 } from "@aomi-labs/client";
 import { viemSigner } from "@aomi-labs/client/viem";
 import { createWalletClient, http, type Chain } from "viem";
@@ -38,6 +40,7 @@ export type ConnectFlags = {
   apiKey?: string;
   privateKey?: string;
   solanaPrivateKey?: string;
+  cluster?: SvmCluster;
   rpcUrl?: string;
   chain?: number;
 };
@@ -104,6 +107,17 @@ async function signedIn(baseUrl: string): Promise<boolean> {
   return (await heldGrant(baseUrl)) !== undefined;
 }
 
+/** `--cluster`: any spelling of a Solana cluster. */
+export function parseCluster(value: string): SvmCluster {
+  const cluster = normalizeSolanaCluster(value);
+  if (!cluster)
+    throw usage(`Unknown cluster ${value}; use mainnet, devnet or testnet`);
+  return cluster;
+}
+
+const clusterOf = (flags: { cluster?: SvmCluster }, state: CliState) =>
+  flags.cluster ?? state.cluster ?? "solana:mainnet";
+
 /** `--private-key` (or AOMI_PRIVATE_KEY): signs in headlessly and signs. */
 export function privateKeyOf(flags: ConnectFlags): `0x${string}` | undefined {
   const key = (flags.privateKey ?? process.env.AOMI_PRIVATE_KEY)?.trim();
@@ -113,10 +127,16 @@ export function privateKeyOf(flags: ConnectFlags): `0x${string}` | undefined {
   return key as `0x${string}`;
 }
 
+/** `--solana-private-key` (or AOMI_SOLANA_PRIVATE_KEY): the same, by SIWS. */
+const solanaKeyOf = (flags: ConnectFlags) =>
+  (flags.solanaPrivateKey ?? process.env.AOMI_SOLANA_PRIVATE_KEY)?.trim() ||
+  undefined;
+
 /**
- * One `Aomi` for the command: signed in with `--private-key`, else with
- * the device grant from `aomi login`, else as a guest. The signer is the
- * key from the flags or `aomi wallets signer set`.
+ * One `Aomi` for the command: signed in with `--private-key` (SIWE) or
+ * `--solana-private-key` (SIWS), else with the device grant from
+ * `aomi login`, else as a guest. The signer is the keys from the flags or
+ * `aomi wallets signer set`.
  */
 export async function connect(
   flags: ConnectFlags = {},
@@ -125,11 +145,10 @@ export async function connect(
   const state = loadState();
   const baseUrl = baseUrlOf(flags, state);
   const key = privateKeyOf(flags);
+  const solanaKey = solanaKeyOf(flags);
   const evmKey = key ?? (state.evmKey as `0x${string}` | undefined);
-  const svmKey =
-    flags.solanaPrivateKey ??
-    process.env.AOMI_SOLANA_PRIVATE_KEY ??
-    state.svmKey;
+  const svmKey = solanaKey ?? state.svmKey;
+  const cluster = clusterOf(flags, state);
   const signer = {
     evm: evmKey
       ? viemSigner(
@@ -141,8 +160,11 @@ export async function connect(
         )
       : undefined,
     // Loaded only when used: @solana/web3.js is heavy and warns on import.
+    // `--rpc-url` serves the chosen cluster; other clusters use public RPCs.
     svm: svmKey
-      ? (await import("@aomi-labs/client/solana")).solanaSigner(svmKey)
+      ? (await import("@aomi-labs/client/solana")).solanaSigner(svmKey, {
+          rpcUrls: flags.rpcUrl ? { [cluster]: flags.rpcUrl } : undefined,
+        })
       : undefined,
   };
   const common = {
@@ -157,6 +179,8 @@ export async function connect(
         chainId: flags.chain ?? state.chain,
       }),
     });
+  if (solanaKey && signer.svm)
+    return new Aomi({ ...common, auth: wallet(signer.svm, { cluster }) });
   if (await signedIn(baseUrl))
     return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });
@@ -202,6 +226,7 @@ export function turnOptions(
     app?: string;
     model?: string;
     chain?: number;
+    cluster?: SvmCluster;
     /** A new thread's wallet per family (`/wallet` before the first turn). */
     walletPick?: { evm?: string; svm?: string };
   } = {},
@@ -217,7 +242,7 @@ export function turnOptions(
         ? { evm: { address: evm, ...(chainId ? { chain_id: chainId } : {}) } }
         : {}),
       ...(svm
-        ? { svm: { address: svm, cluster: state.cluster ?? "solana:mainnet" } }
+        ? { svm: { address: svm, cluster: clusterOf(overrides, state) } }
         : {}),
       ...(evm || svm ? { connection: { is_connected: true } } : {}),
       ...(overrides.walletPick ? { wallet_pick: overrides.walletPick } : {}),
@@ -239,10 +264,16 @@ export function turnOptions(
   };
 }
 
+/** This process's signer addresses, EVM first. */
+export const signerAddresses = (aomi: Aomi) =>
+  [aomi.wallet?.evm?.address, aomi.wallet?.svm?.address].filter(
+    (address): address is string => Boolean(address),
+  );
+
 /** Who a thread belongs to: another sign-in can't continue it. */
 export const ownerOf = (aomi: Aomi) =>
   aomi.auth.mode === "wallet"
-    ? `wallet:${aomi.wallet?.evm?.address}`
+    ? `wallet:${signerAddresses(aomi).join(",")}`
     : aomi.auth.mode;
 
 /** The secrets vault id, made once. */

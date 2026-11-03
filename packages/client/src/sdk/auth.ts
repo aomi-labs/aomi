@@ -10,7 +10,11 @@ import {
 import { AomiError } from "../api-error";
 import type { GuestSessionProvider } from "../guest-auth";
 import { buildSiweMessage } from "../siwe";
+import { buildSiwsMessage } from "../siws";
+import type { SiwsNonceResponse } from "../siws-client";
 import type { GetAccountBearer } from "../types";
+import type { SvmWallet } from "../wallet/types";
+import type { SvmCluster } from "../wallet-utils";
 import {
   createAomiBrowserGrantManager,
   createAomiDeviceGrantManager,
@@ -127,18 +131,42 @@ export type AomiWalletSigner = {
   signMessage(args: { message: string }): Promise<string>;
 };
 
-/** Sign in with an EVM key (SIWE), for bots and scripts. */
-export type AomiWalletStrategy = {
-  readonly kind: "wallet";
-  readonly signer: AomiWalletSigner;
-  readonly chainId: number;
-};
+/** Sign in with a key, for bots and scripts: SIWE for an EVM signer, SIWS
+ * for a Solana one. */
+export type AomiWalletStrategy = { readonly kind: "wallet" } & (
+  | {
+      readonly family: "evm";
+      readonly signer: AomiWalletSigner;
+      readonly chainId: number;
+    }
+  | {
+      readonly family: "svm";
+      readonly signer: SvmWallet;
+      readonly cluster: SvmCluster;
+    }
+);
 
+/** `wallet(privateKeyToAccount(key))` or `wallet(solanaSigner(key))`; the
+ * signer's address says which. */
 export function wallet(
-  signer: AomiWalletSigner,
-  options: { chainId?: number } = {},
+  signer: AomiWalletSigner | SvmWallet,
+  options: { chainId?: number; cluster?: SvmCluster } = {},
 ): AomiWalletStrategy {
-  return { kind: "wallet", signer, chainId: options.chainId ?? 1 };
+  if (/^0x[0-9a-fA-F]{40}$/.test(signer.address))
+    return {
+      kind: "wallet",
+      family: "evm",
+      signer: signer as AomiWalletSigner,
+      chainId: options.chainId ?? 1,
+    };
+  if (!signer.signMessage)
+    throw new TypeError("wallet() needs a signer that signs messages");
+  return {
+    kind: "wallet",
+    family: "svm",
+    signer: signer as SvmWallet,
+    cluster: options.cluster ?? "solana:mainnet",
+  };
 }
 
 export type AomiAuthStrategy =
@@ -262,8 +290,9 @@ export function createOAuthAuthRuntime(input: {
 }
 
 /**
- * A wallet sign-in: SIWE against the portal's Better Auth, once per process,
- * again after a 401. The session token is the account bearer on every route.
+ * A wallet sign-in: SIWE or SIWS against the portal's Better Auth, once per
+ * process, again after a 401. The session token is the account bearer on
+ * every route.
  */
 export function createWalletAuthRuntime(input: {
   baseUrl: string;
@@ -271,7 +300,7 @@ export function createWalletAuthRuntime(input: {
   strategy: AomiWalletStrategy;
 }): { bearer: GetAccountBearer; controller: AomiAuthController } {
   const portal = new URL(absolutePortalBaseUrl(input.baseUrl));
-  const { signer, chainId } = input.strategy;
+  const { strategy } = input;
   const post = async (path: string, body: unknown, token?: string) => {
     const response = await input.fetch(new URL(path, portal), {
       method: "POST",
@@ -290,28 +319,57 @@ export function createWalletAuthRuntime(input: {
       );
     return response;
   };
-  const signIn = async () => {
-    const { nonce } = (await (
-      await post("/api/auth/siwe/nonce", {})
-    ).json()) as { nonce?: string };
-    if (!nonce) throw new AomiError("wallet_sign_in_failed", "No SIWE nonce");
-    const message = buildSiweMessage({
+  /** The verify route and its body: a signed challenge from the server. */
+  const signedChallenge = async (): Promise<[string, object]> => {
+    if (strategy.family === "evm") {
+      const { nonce } = (await (
+        await post("/api/auth/siwe/nonce", {})
+      ).json()) as { nonce?: string };
+      if (!nonce) throw new AomiError("wallet_sign_in_failed", "No SIWE nonce");
+      const message = buildSiweMessage({
+        address: strategy.signer.address,
+        chainId: strategy.chainId,
+        nonce,
+        domain: portal.host,
+        uri: portal.origin,
+      });
+      const signature = await strategy.signer.signMessage({ message });
+      return ["/api/auth/siwe/verify", { message, signature }];
+    }
+    const { signer, cluster } = strategy;
+    const identity = { walletAddress: signer.address, chainId: cluster };
+    const { nonce, domain, uri } = (await (
+      await post("/api/auth/siws/nonce", identity)
+    ).json()) as Partial<SiwsNonceResponse>;
+    if (!nonce || !domain || !uri)
+      throw new AomiError("wallet_sign_in_failed", "No SIWS nonce");
+    const message = buildSiwsMessage({
       address: signer.address,
-      chainId,
+      chainId: cluster,
       nonce,
-      domain: portal.host,
-      uri: portal.origin,
+      intent: "sign-in",
+      domain,
+      uri,
     });
-    const signature = await signer.signMessage({ message });
-    const verified = await post("/api/auth/siwe/verify", {
-      message,
-      signature,
+    const signed = await signer.signMessage!({
+      messageBase64: btoa(
+        String.fromCharCode(...new TextEncoder().encode(message)),
+      ),
+      cluster,
     });
+    const signature = typeof signed === "string" ? signed : signed.signature;
+    return ["/api/auth/siws/verify", { ...identity, message, signature }];
+  };
+  const signIn = async () => {
+    const verified = await post(...(await signedChallenge()));
     const token =
       verified.headers.get("set-auth-token") ??
       ((await verified.json()) as { token?: string }).token;
     if (!token)
-      throw new AomiError("wallet_sign_in_failed", "No session from SIWE");
+      throw new AomiError(
+        "wallet_sign_in_failed",
+        `No session from ${strategy.family === "evm" ? "SIWE" : "SIWS"}`,
+      );
     return token;
   };
   let session: Promise<string> | undefined;
