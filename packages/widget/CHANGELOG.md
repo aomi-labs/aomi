@@ -1,5 +1,25 @@
 # @aomi-labs/widget
 
+## 5.1.0
+
+### Minor Changes
+
+- 0e96552: A message sent while a turn is working joins that turn. `Session.steer` posts it to `/v1/agent/chat/{sessionId}/steer` and resolves `false` when no turn is running. Portal and the embedded chat keep Send available during a run and split the working trace at the follow-up. The CLI REPL accepts input while a reply streams, and `aomi chat` adds to a running request.
+
+### Patch Changes
+
+- Only a `payment_required` 402 opens the out-of-funds modal. A `builder_debt` 402 says the App is temporarily unavailable until its builder adds funds, and other 402 codes show "App unavailable". A rate-limited guest sign-in (429) throws `GuestSignInError` with `retryAfterSeconds`, ends the pending send instead of leaving the thinking indicator running, and shows "Too many requests" with the wait. The Coinbase Wallet and Base Account connectors pass `preference.telemetry: false`, so the SDKs no longer load Coinbase's analytics script from cca-lite.coinbase.com.
+- b08e7a9: Out of funds, the widget opens Add funds checkout in place instead of linking to Chat on another origin, so embedded hosts' visitors top up without leaving the page. A `builder_debt` refusal shows "App paused" instead of asking the user to pay, since their own balance can't fix it.
+- Expose explicit live and Stripe sandbox credit funding, show the Base Sepolia payment option, and warn that test payments add spendable credits to the current account balance.
+- A send that never started now ends at once. A 503 `app_loading` and a failed guest session check no longer leave the thinking indicator and Stop running. The composer gets the message back and a notice says what happened. A failed guest session check is a `GuestSignInError`. The new notices read "App starting" and "App not available" for a 403 or 404 on a Direct App. In a Direct-only widget the composer keeps a failed message's text: its editor no longer clears the restored draft when it remounts. A finished working trace with a failed step shows a warning and the failed count in its header.
+- Updated dependencies
+- Updated dependencies [b08e7a9]
+- Updated dependencies
+- Updated dependencies [0e96552]
+- Updated dependencies
+  - @aomi-labs/client@1.1.0
+  - @aomi-labs/react@1.1.0
+
 ## 5.0.3
 
 ### Patch Changes
