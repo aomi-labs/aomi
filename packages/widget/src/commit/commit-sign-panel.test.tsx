@@ -306,7 +306,10 @@ describe("CommitSignPanel · sequential batch", () => {
   /** Each leg needs its own signature; the second asks once the first lands. */
   // The idle send button, not its in-flight "Sending…".
   const SEND = /^Send( \d+)? transactions?$/;
-  async function openBatch(secondOutcome: CommitRefView["state"]) {
+  async function openBatch(
+    secondOutcome: CommitRefView["state"],
+    secondOnceSignable: Partial<CommitRefView> = {},
+  ) {
     const views = new Map([
       [ref, leg(0)],
       [second, leg(1, { action: null })],
@@ -318,7 +321,7 @@ describe("CommitSignPanel · sequential batch", () => {
         writes.push(id);
         if (id === ref) {
           views.set(ref, done(0, "confirmed"));
-          views.set(second, leg(1));
+          views.set(second, leg(1, secondOnceSignable));
         } else views.set(second, done(1, secondOutcome));
       }
       return Response.json(views.get(id));
@@ -343,6 +346,20 @@ describe("CommitSignPanel · sequential batch", () => {
     ).toBeTruthy();
     expect(writes).toEqual([ref, second]);
     expect(signTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops for another Send when a later leg's review changed", async () => {
+    const { handle, writes } = await openBatch("confirmed", {
+      review: { ...batchReview, digest: "digest-changed" },
+    });
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: SEND }));
+    expect(
+      await screen.findByRole("button", { name: SEND }, { timeout: 3000 }),
+    ).toBeTruthy();
+    expect(writes).toEqual([ref]);
+    expect(signTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("gives each leg's card its own progress", async () => {

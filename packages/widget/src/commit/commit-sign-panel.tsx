@@ -181,10 +181,19 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   };
 
   // One Send covers the whole batch, as in the sidebar: each later member
-  // goes out once the one before it lands, against its own version.
+  // goes out once the one before it lands, against its own version and the
+  // review digest it had when Send was clicked. A member whose review is
+  // missing or changed stops the batch for another Send.
   const [sending, setSending] = useState(false);
   const sent = useRef(new Set<string>());
+  const approved = useRef(new Map<string, string | undefined>());
   const step = `${leg.ref}@${view.version}`;
+  const approve = () => {
+    approved.current = new Map(
+      handle.members.map((member) => [member.ref, member.view.review?.digest]),
+    );
+    send(leg);
+  };
   const send = (next: CommitHandle) => {
     sent.current.add(`${next.ref}@${next.view.version}`);
     setSending(true);
@@ -198,14 +207,11 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
     });
   };
   useEffect(() => {
-    if (
-      sending &&
-      !busy &&
-      awaitingWallet &&
-      canSign &&
-      !sent.current.has(step)
-    )
-      send(leg);
+    if (!sending || busy || !awaitingWallet || !canSign) return;
+    if (sent.current.has(step)) return;
+    const digest = view.review?.digest;
+    if (digest && digest === approved.current.get(leg.ref)) send(leg);
+    else setSending(false);
   });
   // A wallet that can't take the next step (switched away) gets its button back.
   const sendingBatch = sending && !terminal && (!awaitingWallet || canSign);
@@ -352,7 +358,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
             recoveringExistingAttempt={Boolean(
               view.wallet_attempt || leg.recoveryRecord?.attemptId,
             )}
-            onApprove={() => send(leg)}
+            onApprove={approve}
             onReject={() => void run(() => leg.reject())}
           />
         ) : null}
