@@ -5,7 +5,6 @@ import { FileSignature, Layers3 } from "lucide-react";
 import { STAGED_ACTION_ICON_REGISTRY } from "@aomi-labs/client/trace";
 import { traceIcon } from "@/thread/trace-icons";
 import { getDefaultSvmNetworkLabel } from "@/wallet/catalog/svm-networks";
-import type { SvmCluster } from "@/wallet/types";
 
 export type Simulation = Extract<
   ActionRequest,
@@ -214,8 +213,8 @@ export function isZeroAddress(value: string | null | undefined): boolean {
  * its spellings (`mainnet-beta`, `solana:mainnet`); a custom one as given. */
 export function solanaNetworkName(cluster: string | undefined): string {
   const normalized = normalizeSolanaCluster(cluster);
-  return normalized?.startsWith("solana:")
-    ? getDefaultSvmNetworkLabel(normalized as SvmCluster)
+  return normalized
+    ? getDefaultSvmNetworkLabel(normalized)
     : (cluster ?? "Solana");
 }
 

@@ -1,5 +1,6 @@
 import {
   clusterApiUrl,
+  type Cluster,
   Connection,
   Keypair,
   Transaction,
@@ -9,6 +10,7 @@ import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { AomiError } from "./api-error";
 import type { SvmWallet } from "./wallet/types";
+import { normalizeSolanaCluster, type SvmCluster } from "./wallet-utils";
 
 /**
  * `signer.svm` from a local keypair: a `Keypair`, a `solana-keygen` JSON
@@ -17,29 +19,34 @@ import type { SvmWallet } from "./wallet/types";
 export function solanaSigner(
   key: Keypair | string,
   options: {
-    /** RPC per cluster (`solana:mainnet`, `solana:devnet`, `solana:testnet`);
-     * public endpoints otherwise. */
-    rpcUrls?: Partial<Record<string, string>>;
+    /** RPC per cluster; public endpoints otherwise. */
+    rpcUrls?: Partial<Record<SvmCluster, string>>;
   } = {},
 ): SvmWallet {
   const keypair = typeof key === "string" ? parseKeypair(key) : key;
-  const connection = (cluster: string) =>
-    new Connection(
+  // A commit names its cluster as the server does (`mainnet-beta`, `devnet`).
+  const connection = (name: string) => {
+    const cluster = normalizeSolanaCluster(name);
+    if (!cluster)
+      throw new AomiError(
+        "unsupported_cluster",
+        `Unknown Solana cluster ${name}`,
+      );
+    return new Connection(
       options.rpcUrls?.[cluster] ??
         clusterApiUrl(
-          cluster === "solana:devnet"
-            ? "devnet"
-            : cluster === "solana:testnet"
-              ? "testnet"
-              : "mainnet-beta",
+          cluster === "solana:mainnet"
+            ? "mainnet-beta"
+            : (cluster.slice(7) as Cluster),
         ),
     );
+  };
   return {
     address: keypair.publicKey.toBase58(),
     signTransaction: async ({ transactionBase64 }) => ({
       signedTransaction: signTransaction(transactionBase64, keypair),
     }),
-    broadcastTransaction: (signed, cluster) =>
+    broadcastTransaction: async (signed, cluster) =>
       connection(cluster).sendRawTransaction(Buffer.from(signed, "base64")),
     signMessage: async ({ messageBase64 }) => ({
       signature: Buffer.from(

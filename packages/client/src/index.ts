@@ -254,7 +254,7 @@ export {
 } from "./sdk/pipeline";
 export type { AomiOperationBuildOptions } from "./sdk/pipeline";
 export { buildSiwsMessage } from "./siws";
-export type { SiwsChainId, SiwsIntent } from "./siws";
+export type { SiwsIntent } from "./siws";
 export {
   createEvmPaymentClient,
   handlePaymentChallenges,
@@ -402,6 +402,7 @@ export type {
   WalletEip712Payload,
   WalletSolanaSignPayload,
   WalletSolanaSignMessagePayload,
+  SvmCluster,
   ViemSignMessageArgs,
   ViemSignTypedDataArgs,
 } from "./wallet-utils";

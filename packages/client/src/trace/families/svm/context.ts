@@ -8,26 +8,24 @@ import {
 } from "../../normalize";
 import { isErrorResult, operation } from "../operation";
 import type { ToolFact, ToolMatcher } from "../../types";
+import { normalizeSolanaCluster } from "../../../wallet-utils";
 
 const KNOWN_MAINNET_TOKEN_SYMBOLS: Record<string, string> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
 };
 
-export const svmClusterFact = (
-  value: unknown,
-  fallback = "mainnet-beta",
-): ToolFact => {
-  const cluster = asString(value) ?? fallback;
-  const normalized = cluster.toLowerCase().replace(/^solana:/, "");
-  const label = normalized.includes("devnet")
-    ? "Solana Devnet"
-    : normalized.includes("testnet")
-      ? "Solana Testnet"
-      : "Solana";
+/** A cluster chip; a custom cluster keeps its own name. */
+export const svmClusterFact = (value: unknown): ToolFact => {
+  const cluster = normalizeSolanaCluster(value ?? "solana:mainnet");
   return {
     kind: "cluster",
-    value: cluster,
-    label,
+    value: cluster ?? asString(value) ?? "solana:mainnet",
+    label:
+      cluster === "solana:devnet"
+        ? "Solana Devnet"
+        : cluster === "solana:testnet"
+          ? "Solana Testnet"
+          : "Solana",
     source: "result",
   };
 };
@@ -73,11 +71,7 @@ const tokenAmountFact = (
       : undefined);
   if (!amount) return null;
 
-  const clusterName = asString(cluster)?.toLowerCase();
-  const isMainnet =
-    clusterName === "mainnet-beta" ||
-    clusterName === "mainnet" ||
-    clusterName === "solana:mainnet";
+  const isMainnet = normalizeSolanaCluster(cluster) === "solana:mainnet";
   const symbol =
     asString(holding.symbol) ??
     (mint && isMainnet ? KNOWN_MAINNET_TOKEN_SYMBOLS[mint] : undefined);

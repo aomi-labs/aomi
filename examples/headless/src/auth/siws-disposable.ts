@@ -4,13 +4,15 @@ import {
   Aomi,
   createAccountSessionProvider,
   createSiwsAccountAuthAdapter,
-  type SiwsChainId,
+  normalizeSolanaCluster,
 } from "@aomi-labs/client";
 import { createPortalOriginFetch } from "../shared/portal-origin-fetch";
 
 const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
-const chainId = process.env.AOMI_SIWS_CHAIN_ID?.trim() || "solana:mainnet";
-if (!["solana:mainnet", "solana:devnet", "solana:testnet"].includes(chainId)) {
+const chainId = normalizeSolanaCluster(
+  process.env.AOMI_SIWS_CHAIN_ID || "solana:mainnet",
+);
+if (!chainId) {
   throw new Error("AOMI_SIWS_CHAIN_ID must name a supported Solana cluster");
 }
 
@@ -28,7 +30,7 @@ const accountSession = createAccountSessionProvider({
   adapter: createSiwsAccountAuthAdapter({
     getSigner: async () => ({
       address,
-      chainId: chainId as SiwsChainId,
+      chainId,
       signMessage: async (message) =>
         sign(null, Buffer.from(message, "utf8"), privateKey).toString("base64"),
     }),

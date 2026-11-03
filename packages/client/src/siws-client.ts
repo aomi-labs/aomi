@@ -3,11 +3,11 @@ import type {
   BetterFetchOption,
   BetterFetchResponse,
 } from "better-auth/client";
+import type { SvmCluster } from "./wallet-utils";
 
-export type SiwsChainId = "solana:mainnet" | "solana:devnet" | "solana:testnet";
 export interface SiwsNonceRequest {
   walletAddress: string;
-  chainId?: SiwsChainId;
+  chainId?: SvmCluster;
   intent?: "sign-in" | "link";
 }
 export interface SiwsNonceResponse {
@@ -22,7 +22,7 @@ export interface SiwsVerifyRequest extends SiwsNonceRequest {
 }
 export type SiwsVerifyResponse = {
   success: true;
-  user: { id: string; walletAddress: string; chainId: SiwsChainId };
+  user: { id: string; walletAddress: string; chainId: SvmCluster };
 } & ({ token: string; user_id: string } | { status: "noop" | "linked" });
 
 type AuthFetch = Parameters<

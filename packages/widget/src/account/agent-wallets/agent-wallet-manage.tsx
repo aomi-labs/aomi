@@ -244,7 +244,7 @@ export function ReceiveStep({
   const address = wallet.addresses.find((entry) => entry.family === family);
   const explorer = address
     ? explorerUrl(
-        family === "evm" ? 1 : "mainnet-beta",
+        family === "evm" ? 1 : "solana:mainnet",
         "address",
         address.address,
       )

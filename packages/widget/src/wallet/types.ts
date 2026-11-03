@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type SvmCluster,
   type WalletEip712Payload,
   type WalletSolanaSignMessagePayload,
   type WalletSolanaSignPayload,
@@ -23,7 +24,7 @@ import type { WalletRow } from "@/wallet/composer/wallet-state";
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 export type WalletFamily = "evm" | "svm";
 export type PublicWalletFamily = WalletFamily;
-export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+export type { SvmCluster };
 
 export type SvmNetworkOption = {
   id: string;
