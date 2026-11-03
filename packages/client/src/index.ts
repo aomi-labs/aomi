@@ -12,6 +12,7 @@ export type {
   AomiFundingEvent,
   AomiFundingResult,
   AomiCreditMethods,
+  AomiCardFundingMethod,
   AomiCreditListOptions,
   CreditBalance,
 } from "./account/credits";
