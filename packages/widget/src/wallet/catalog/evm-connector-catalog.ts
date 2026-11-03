@@ -185,6 +185,9 @@ export function createAomiEvmConfig(input: ResolvedEvmWalletsConfig): Config {
           coinbaseWallet({
             appName: input.appName ?? "Aomi",
             appLogoUrl: input.appLogoUrl ?? undefined,
+            // The SDK otherwise loads Coinbase's analytics script
+            // (cca-lite.coinbase.com) into every host page.
+            preference: { options: "all", telemetry: false },
           }),
         ]
       : []),
@@ -194,6 +197,7 @@ export function createAomiEvmConfig(input: ResolvedEvmWalletsConfig): Config {
             appName: input.appName ?? "Aomi",
             appLogoUrl: input.appLogoUrl ?? null,
             paymasterUrls: {},
+            preference: { telemetry: false },
           }),
         ]
       : []),
