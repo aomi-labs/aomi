@@ -62,6 +62,7 @@
     "GET /v1/pipeline/svm/account",
     "GET /v1/pipeline/svm/build",
     "GET /v1/pipeline/svm/commit",
+    "GET /v1/pipeline/svm/commits/{commitId}",
     "GET /v1/pipeline/svm/context",
     "GET /v1/pipeline/svm/program",
     "GET /v1/pipeline/svm/simulate",
@@ -106,6 +107,9 @@
     "POST /v1/pipeline/svm/account",
     "POST /v1/pipeline/svm/build",
     "POST /v1/pipeline/svm/commit",
+    "POST /v1/pipeline/svm/commits/{commitId}/manual",
+    "POST /v1/pipeline/svm/commits/{commitId}/wallet-attempts",
+    "POST /v1/pipeline/svm/commits/{commitId}/wallet-attempts/{attemptId}/report",
     "POST /v1/pipeline/svm/context",
     "POST /v1/pipeline/svm/program",
     "POST /v1/pipeline/svm/simulate",
@@ -1232,7 +1236,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}": {
       "get": {
-        "operationId": "getPipelineCommit",
+        "operationId": "evmGetPipelineCommit",
         "parameters": [
           {
             "name": "commitId",
@@ -1254,7 +1258,60 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}": {
+      "get": {
+        "operationId": "svmGetPipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1285,7 +1342,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/manual": {
       "post": {
-        "operationId": "resolvePipelineCommit",
+        "operationId": "evmResolvePipelineCommit",
         "parameters": [
           {
             "name": "commitId",
@@ -1307,7 +1364,70 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitManual"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/manual": {
+      "post": {
+        "operationId": "svmResolvePipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1348,7 +1468,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/wallet-attempts": {
       "post": {
-        "operationId": "claimPipelineWalletAttempt",
+        "operationId": "evmClaimPipelineWalletAttempt",
         "parameters": [
           {
             "name": "commitId",
@@ -1370,7 +1490,70 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitWalletAttemptView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/wallet-attempts": {
+      "post": {
+        "operationId": "svmClaimPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1411,7 +1594,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report": {
       "post": {
-        "operationId": "reportPipelineWalletAttempt",
+        "operationId": "evmReportPipelineWalletAttempt",
         "parameters": [
           {
             "name": "commitId",
@@ -1442,7 +1625,79 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptOutcome"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/wallet-attempts/{attemptId}/report": {
+      "post": {
+        "operationId": "svmReportPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "attemptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1506,7 +1761,7 @@
       },
       "post": {
         "operationId": "buildevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1571,7 +1826,7 @@
       },
       "post": {
         "operationId": "stageevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1636,7 +1891,7 @@
       },
       "post": {
         "operationId": "simulateevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1701,7 +1956,7 @@
       },
       "post": {
         "operationId": "commitevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1770,7 +2025,7 @@
       },
       "post": {
         "operationId": "buildsvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1835,7 +2090,7 @@
       },
       "post": {
         "operationId": "stagesvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1900,7 +2155,7 @@
       },
       "post": {
         "operationId": "simulatesvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1965,7 +2220,7 @@
       },
       "post": {
         "operationId": "commitsvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, then Commit Service commits.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -2729,7 +2984,7 @@
                   },
                   "transactionSafetyMode": {
                     "$ref": "#/components/schemas/TransactionSafetyMode",
-                    "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                    "description": "Transaction safety selection, EVM and Solana. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
                   },
                   "intent": {
                     "type": "string",
@@ -8289,7 +8544,7 @@
         "properties": {
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
-            "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+            "description": "Transaction safety selection, EVM and Solana. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
           }
         }
       },
@@ -8351,7 +8606,7 @@
           },
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
-            "description": "Transaction safety selection sealed into this EVM Build digest and attestation."
+            "description": "Transaction safety selection sealed into this Build digest and attestation."
           },
           "guardEvidence": {
             "type": "object",
@@ -8364,8 +8619,12 @@
       "PipelineEvmCommitResult": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "digest", "result", "requests"],
+        "required": ["family", "status", "digest", "result", "requests"],
         "properties": {
+          "family": {
+            "const": "evm",
+            "description": "The result's chain family; the commit results of both families are one union tagged by it."
+          },
           "status": {
             "const": "committed",
             "description": "Legacy preparation response label; returned CommitViews describe the durable cohort, which may already be invoked on replay."
@@ -8487,8 +8746,19 @@
       "PipelineSvmCommitResult": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "digest", "result", "thread_id", "commits"],
+        "required": [
+          "family",
+          "status",
+          "digest",
+          "result",
+          "thread_id",
+          "commits"
+        ],
         "properties": {
+          "family": {
+            "const": "svm",
+            "description": "The result's chain family; the commit results of both families are one union tagged by it."
+          },
           "status": {
             "const": "committed",
             "description": "Legacy preparation response label; returned CommitViews describe the durable commits."
@@ -8697,6 +8967,9 @@
           },
           "chainId": {
             "type": ["integer", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
           },
           "step": {
             "type": ["integer", "null"],
