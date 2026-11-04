@@ -171,7 +171,7 @@ describe("activity projection", () => {
       ],
       pending_tx_ids: [1, 2, 3],
     });
-    const sim = tool(2, "svm_simulate_ix", {
+    const sim = tool(2, "svm_simulate", {
       ix_ids: [1, 2, 3],
       simulation: { err: null },
     });
@@ -290,7 +290,7 @@ describe("activity projection", () => {
     expect(result.transactions.every((item) => item.stage === "staged")).toBe(
       true,
     );
-    const sim = tool(2, "simulate_batch", {
+    const sim = tool(2, "evm_simulate", {
       resolved_ids: [1, 2],
       simulation: { batch_success: true },
     });
@@ -429,7 +429,7 @@ describe("SVM preparation", () => {
       current_lifecycle: "queued",
     };
     const staged = tool(1, "svm_stage_tx", { tx: blob, pending_tx_id: 1 });
-    const sim = tool(2, "svm_simulate_tx", {
+    const sim = tool(2, "svm_simulate", {
       tx_id: 1,
       simulation: { err: null, units_consumed: 1200 },
     });

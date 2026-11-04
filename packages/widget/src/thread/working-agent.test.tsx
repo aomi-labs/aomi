@@ -110,7 +110,7 @@ describe("WorkingAgent", () => {
             },
             {
               kind: "tool_call",
-              toolName: "simulate_batch",
+              toolName: "evm_simulate",
               args: { transactions: [{ id: 1 }] },
               resultPreview: '{"status":"passed"}',
               childSeq: 2,
@@ -173,7 +173,7 @@ describe("WorkingAgent", () => {
       steps: [
         {
           kind: "tool_call",
-          toolName: "get_account_info",
+          toolName: "evm_get_account_info",
           args: null,
           resultPreview: "",
           childSeq: 1,

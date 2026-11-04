@@ -5,7 +5,7 @@ import { commitStateFact, commitViews, messageChainId } from "./commit-view";
 import { svmClusterFact } from "../svm/context";
 import { failedFact, operation } from "../operation";
 
-/** evm_commit_message and svm_sign_data: one message signature per call. */
+/** evm_commit_message and svm_commit_message: one message signature per call. */
 export const matchSignMessage: ToolMatcher = ({
   rawLabel,
   parsedArgs,
@@ -24,7 +24,7 @@ export const matchSignMessage: ToolMatcher = ({
     commitStateFact(views) ??
     statusFact(resultRecord?.signature ? "signed" : resultRecord?.status);
   return operation("sign.message", rawLabel, [
-    toolIdentity(rawLabel) === "svm_sign_data"
+    toolIdentity(rawLabel) === "svm_commit_message"
       ? cluster
         ? svmClusterFact(cluster)
         : null

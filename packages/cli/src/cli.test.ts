@@ -70,7 +70,7 @@ const turn = {
       { chain_id: 8453, kind: "native_transfer" },
       { pending_tx_id: 1, chain_id: 8453, current_lifecycle: "queued" },
     ),
-    tool(2, "simulate_batch", { tx_ids: [1] }, { success: true }),
+    tool(2, "evm_simulate", { tx_ids: [1] }, { success: true }),
     tool(3, "evm_commit_txs", { tx_ids: [1] }, { status: "pending_approval" }),
     event(4, {
       type: "message",

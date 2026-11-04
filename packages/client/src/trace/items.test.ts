@@ -289,7 +289,7 @@ describe("traceFromEvents", () => {
         event_id: "e2",
         sequence: 2,
         call_id: "call-a",
-        tool_name: "get_account_info",
+        tool_name: "evm_get_account_info",
       },
       {
         ...base,
@@ -298,7 +298,7 @@ describe("traceFromEvents", () => {
         event_id: "e3",
         sequence: 3,
         call_id: "call-a",
-        tool_name: "get_account_info",
+        tool_name: "evm_get_account_info",
         result: { balance: "1" },
       },
       {
@@ -307,7 +307,7 @@ describe("traceFromEvents", () => {
         event_id: "e4",
         sequence: 4,
         id: "t_1",
-        tool: "get_account_info",
+        tool: "evm_get_account_info",
         bytes: 9_000,
         tokens: 40,
       },

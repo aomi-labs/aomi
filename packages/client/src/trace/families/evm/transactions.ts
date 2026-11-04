@@ -104,7 +104,7 @@ export const matchEvmSimulation: ToolMatcher = ({
   resultRecord,
   relatedResultRecords,
 }) => {
-  const namedSimulation = isTool(rawLabel, "simulate_batch");
+  const namedSimulation = isTool(rawLabel, "evm_simulate");
   if (resultRecord?.chain_kind === "svm" || Array.isArray(resultRecord?.ix_ids))
     return null;
   if (!resultRecord && !namedSimulation) return null;

@@ -56,12 +56,12 @@ export const callbackEvents: Event[] = [
       "Complete the transfer, then prepare a pair without committing it.",
   }),
   note(3, callbackRoot, "I will check the wallet first."),
-  tool(4, callbackRoot, "get_account_info", "call_context", { ready: true }),
+  tool(4, callbackRoot, "evm_get_account_info", "call_context", { ready: true }),
   note(7, callbackRoot, "I will stage and simulate the transfer."),
   tool(8, callbackRoot, "evm_stage_tx", "call_initial-stage", {
     pending_tx_id: 1,
   }),
-  tool(9, callbackRoot, "simulate_batch", "call_initial-simulate", {
+  tool(9, callbackRoot, "evm_simulate", "call_initial-simulate", {
     batch_success: true,
   }),
   tool(11, callbackRoot, "evm_commit_txs", callbackCall, {
@@ -88,7 +88,7 @@ export const callbackEvents: Event[] = [
     },
   }),
   note(16, callbackTurn, "I will now check the pool and prepare the pair."),
-  tool(17, callbackTurn, "get_account_info", "call_callback-context", {
+  tool(17, callbackTurn, "evm_get_account_info", "call_callback-context", {
     ready: true,
   }),
   note(26, callbackTurn, "I will stage the approval and supply in order."),
@@ -99,7 +99,7 @@ export const callbackEvents: Event[] = [
     callbackTurn,
     "I am simulating the pair and leaving it uncommitted.",
   ),
-  tool(30, callbackTurn, "simulate_batch", "call_callback-simulate", {
+  tool(30, callbackTurn, "evm_simulate", "call_callback-simulate", {
     batch_success: true,
   }),
   note(31, callbackTurn, callbackFinalText, `${callbackTurn}:response`),

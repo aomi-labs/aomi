@@ -71,8 +71,8 @@ describe("working trace contract", () => {
     ["Evm stage", "Stage transaction"],
     ["evm_stage_tx", "Stage transaction"],
     ["svm_stage_ix", "Stage transaction"],
-    ["simulate_batch", "Simulate transaction"],
-    ["svm_simulate_ix", "Simulate transaction"],
+    ["evm_simulate", "Simulate transaction"],
+    ["svm_simulate", "Simulate transaction"],
     ["evm_commit_txs", "Commit transactions"],
     ["evm_discard_tx", "Discard transactions"],
     ["svm_discard_tx", "Discard transactions"],
@@ -81,8 +81,8 @@ describe("working trace contract", () => {
     ["web_search", "Search web"],
     ["web_fetch", "Read page"],
     ["activate_skills", "Activate skill"],
-    ["get_contract", "Get contract details"],
-    ["encode_and_call", "Call contract"],
+    ["evm_get_contract", "Get contract details"],
+    ["evm_call", "Call contract"],
     ["list_transactions", "List transactions"],
     ["get_transaction", "Get transaction"],
   ])(
@@ -175,7 +175,7 @@ describe("working trace contract", () => {
 
   it("uses resolved EVM transaction ids, not internal simulation steps", () => {
     const step = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [7],
         simulation: {
@@ -187,7 +187,7 @@ describe("working trace contract", () => {
     });
     expect(labels(step)).toEqual(["Base", "1 tx", "Passed"]);
     const incomplete = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [7],
         simulation_incomplete: true,
@@ -197,7 +197,7 @@ describe("working trace contract", () => {
     expect(labels(incomplete)).toContain("Incomplete");
     expect(incomplete.outcome).toBe("incomplete");
     const withoutEvidence = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: { simulation: { network: "base" } },
     });
     expect(withoutEvidence.outcome).toBe("unknown");
@@ -222,7 +222,7 @@ describe("working trace contract", () => {
     });
     expect(labels(stage)).toEqual(["Solana", "3 instructions", "Staged"]);
     const simulation = interpretToolStep({
-      toolName: "svm_simulate_ix",
+      toolName: "svm_simulate",
       result: {
         ix_ids: [1, 2, 3],
         cluster: "mainnet-beta",

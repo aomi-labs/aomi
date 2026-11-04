@@ -68,7 +68,7 @@ export const matchSvmSimulation: ToolMatcher = ({
   resultRecord,
 }) => {
   const name = toolIdentity(rawLabel);
-  const named = name === "svm_simulate_ix" || name === "svm_simulate_tx";
+  const named = name === "svm_simulate";
   const simulation = asRecord(resultRecord?.simulation);
   if (!named && (!resultRecord || !isSvmSimulation(resultRecord, simulation)))
     return null;
@@ -85,7 +85,7 @@ export const matchSvmSimulation: ToolMatcher = ({
     clusterFact(resultRecord?.cluster),
     simulation
       ? { kind: "count", role: "tx", value: "1", source: "result" }
-      : name === "svm_simulate_ix"
+      : name === "svm_simulate"
         ? countFact(args?.ix_ids, "instruction")
         : null,
     compute != null

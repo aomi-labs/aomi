@@ -6,10 +6,10 @@ is known. Names and routing IDs remain separate. Main and delegated traces and
 the activity sidebar share the attribution context and badge component.
 On tool rows, network and transaction or quote facts appear first; ownership
 badges follow them and never consume the data-chip limit.
-The core `get_erc20_balance` result shows its network, verified token identity,
+The core `evm_get_token_balance` result shows its network, verified token identity,
 holder, and exact reported balance. Unknown token contracts show a shortened
 address without an inferred symbol or unit.
-The merged `common_erc20` skill also uses `get_erc20_holdings`; its row shows
+The merged `common_erc20` skill also uses `evm_get_token_holdings`; its row shows
 network, returned versus matching holdings, holder, and a warning or incomplete
 state when reported. Token metadata from the indexer stays in the raw details.
 These are core EVM tools, so listing them in a skill does not imply skill ownership.

@@ -156,7 +156,7 @@ A single Auto mother can work across chains. “Switch” has two distinct meani
 2. The client wallet switches its actual network immediately before executing
    the corresponding Action.
 
-`sync_chain` only refreshes the local EVM simulation fork. It is not a wallet
+`evm_sync_chain` only refreshes the local EVM simulation fork. It is not a wallet
 network switch.
 
 Cross-chain invariants:

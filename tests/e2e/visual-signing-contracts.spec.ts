@@ -488,11 +488,11 @@ test("unfinished callback transactions animate beside a completed sibling throug
         ],
       };
     }
-    if (event.tool_name === "simulate_batch")
+    if (event.tool_name === "evm_simulate")
       return {
         ...event,
         tool_result: [
-          "simulate_batch",
+          "evm_simulate",
           JSON.stringify({
             resolved_ids: event.sequence === 9 ? [1] : [2, 3],
             simulation: { batch_success: true },

@@ -489,7 +489,7 @@ describe("tool interpreter", () => {
 
   it("unwraps routed tool envelopes before matching", () => {
     const step = decode({
-      toolName: "get_time_and_onchain_context",
+      toolName: "evm_get_context",
       result: {
         __aomi_tool_routes: [{ id: "route-1" }],
         value: {
@@ -507,7 +507,7 @@ describe("tool interpreter", () => {
 
   it("shows the synced network before its block number", () => {
     const step = decode({
-      toolName: "sync_chain",
+      toolName: "evm_sync_chain",
       argsText: JSON.stringify({ chain_id: 42161 }),
       result: { chain_id: 42161, synced: true, block_number: 509848804 },
     });
@@ -517,7 +517,7 @@ describe("tool interpreter", () => {
     expect(step.chips.every((chip) => chip.icon != null)).toBe(true);
 
     const pending = decode({
-      toolName: "sync_chain",
+      toolName: "evm_sync_chain",
       argsText: JSON.stringify({ chain_id: 42161 }),
     });
     expect(labelsFor(pending.chips)).toEqual(["Arbitrum"]);
@@ -525,10 +525,10 @@ describe("tool interpreter", () => {
 
   it("keeps EVM argument chips from hiding tool failures", () => {
     for (const [toolName, args] of [
-      ["sync_chain", { chain_id: 42161 }],
-      ["get_contract", { chain_id: 42161, contract_type: "Aave Pool" }],
+      ["evm_sync_chain", { chain_id: 42161 }],
+      ["evm_get_contract", { chain_id: 42161, contract_type: "Aave Pool" }],
       [
-        "encode_and_call",
+        "evm_call",
         { chain_id: 42161, function_signature: "withdraw()" },
       ],
     ] as const) {
@@ -574,7 +574,7 @@ describe("tool interpreter", () => {
       argsText: JSON.stringify({ chain_id: 8453, kind: "native_transfer" }),
     });
     const failedSimulation = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       argsText: JSON.stringify({ tx_ids: [1] }),
       result: { is_error: true, error: "fork unavailable" },
       relatedResults: [
@@ -772,7 +772,7 @@ describe("tool interpreter", () => {
 
     it("shows a Solana message with a cluster only when it names one", () => {
       const open = decode({
-        toolName: "svm_sign_data",
+        toolName: "svm_commit_message",
         result: { status: "pending_approval", chain_kind: "svm" },
       });
       expect(labelsFor(open.chips)).toEqual([
@@ -780,7 +780,7 @@ describe("tool interpreter", () => {
         "Awaiting approval",
       ]);
       const named = decode({
-        toolName: "svm_sign_data",
+        toolName: "svm_commit_message",
         result: { status: "success", domain: { cluster: "devnet" } },
       });
       expect(labelsFor(named.chips)).toEqual([
@@ -1027,7 +1027,7 @@ describe("tool interpreter", () => {
 
   it("recognizes Base chain context", () => {
     const step = decode({
-      toolName: "get_time_and_onchain_context",
+      toolName: "evm_get_context",
       result: {
         chain_name: "base",
         chain_id: 8453,
@@ -1388,7 +1388,7 @@ describe("tool interpreter", () => {
 
   it("does not attribute a prior tool's chain to a native balance", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
         balance_wei: "865899754337366",
@@ -1405,7 +1405,7 @@ describe("tool interpreter", () => {
 
   it("shows the native balance chain when its own arguments expose it", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       argsText: JSON.stringify({ chain_id: 8453 }),
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -1423,7 +1423,7 @@ describe("tool interpreter", () => {
 
   it("shows Arc native USDC balance from the account details result", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       argsText: JSON.stringify({ chain_id: 5042 }),
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -1446,7 +1446,7 @@ describe("tool interpreter", () => {
 
   it("shows the verified ERC-20 balance without rounding it", () => {
     const step = decode({
-      toolName: "get_erc20_balance",
+      toolName: "evm_get_token_balance",
       result: {
         chain_id: 5042,
         token: "0x3600000000000000000000000000000000000000",
@@ -1468,7 +1468,7 @@ describe("tool interpreter", () => {
 
   it("shows an unknown token's address without guessing its symbol or unit", () => {
     const step = decode({
-      toolName: "get_erc20_balance",
+      toolName: "evm_get_token_balance",
       argsText: JSON.stringify({ token_address: "USDC" }),
       result: {
         chain_id: 8453,
@@ -1488,7 +1488,7 @@ describe("tool interpreter", () => {
 
   it("shows the holdings limit and query", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       argsText: JSON.stringify({ chain_id: null, query: "USDC", limit: 10 }),
       result: {
         scope: "configured_indexed_mainnets",
@@ -1507,7 +1507,7 @@ describe("tool interpreter", () => {
 
   it("shows a chosen chain first, then the default limit", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       argsText: JSON.stringify({ chain_id: 8453, query: null, limit: null }),
       result: {
         chain_id: 8453,
@@ -1525,7 +1525,7 @@ describe("tool interpreter", () => {
 
   it("keeps the holdings title on errors without calling an error zero assets", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       result: { is_error: true, error: "holdings_indexer_unsupported" },
     });
     expect(step.title).toBe("Get holdings");
@@ -1534,7 +1534,7 @@ describe("tool interpreter", () => {
 
   it("standardizes token resolution chips", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: true,
         count: 1,
@@ -1558,7 +1558,7 @@ describe("tool interpreter", () => {
 
   it("shows one useful contract identity for ABI lookups", () => {
     const pool = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       argsText: JSON.stringify({
         mode: "abi",
         chain_id: 42161,
@@ -1571,7 +1571,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(pool.chips)).toEqual(["Arbitrum", "Aave Pool"]);
 
     const token = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       argsText: JSON.stringify({
         mode: "abi",
         chain_id: 42161,
@@ -1585,7 +1585,7 @@ describe("tool interpreter", () => {
 
   it("omits not-found badges for token misses", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: false,
         count: 0,
@@ -1599,7 +1599,7 @@ describe("tool interpreter", () => {
 
   it("shows chain for token misses when the payload carries one", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: false,
         count: 0,
@@ -1614,7 +1614,7 @@ describe("tool interpreter", () => {
 
   it("recognizes ERC-20 balance calls without token-specific formatting", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1642,7 +1642,7 @@ describe("tool interpreter", () => {
 
   it("uses a generic token icon for decoded approval amounts", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1871,7 +1871,7 @@ describe("tool interpreter", () => {
 
   it("shows Arc ERC-20 USDC approvals in six-decimal units", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1911,7 +1911,7 @@ describe("tool interpreter", () => {
 
   it("normalizes approval units only for a verified chain and token contract", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1932,10 +1932,10 @@ describe("tool interpreter", () => {
   });
 
   it("uses the exact Get balance title before and after tool errors", () => {
-    expect(decode({ toolName: "get_erc20_balance" }).title).toBe("Get balance");
+    expect(decode({ toolName: "evm_get_token_balance" }).title).toBe("Get balance");
     expect(
       decode({
-        toolName: "get_erc20_balance",
+        toolName: "evm_get_token_balance",
         result: { is_error: true, error: "upstream unavailable" },
       }).title,
     ).toBe("Get balance");
@@ -1943,7 +1943,7 @@ describe("tool interpreter", () => {
 
   it("recognizes ERC-20 decimal reads", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1967,7 +1967,7 @@ describe("tool interpreter", () => {
 
   it("recognizes allowance checks without value chips", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1998,7 +1998,7 @@ describe("tool interpreter", () => {
 
   it("falls back to the model label for protocol-specific calls", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -2029,7 +2029,7 @@ describe("tool interpreter", () => {
 
   it("shows the called function without its signature arguments", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       argsText: JSON.stringify({
         chain_id: 42161,
         from: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -2121,7 +2121,7 @@ describe("tool interpreter", () => {
 
   it("does not infer routes from hardcoded protocol or token addresses", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -2144,7 +2144,7 @@ describe("tool interpreter", () => {
 
   it("recognizes simulations", () => {
     const step = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [1, 2],
         simulation: {
@@ -2171,7 +2171,7 @@ describe("tool interpreter", () => {
 
   it("derives current simulation status from execution evidence", () => {
     const result = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         simulation: {
           contexts: [{ chain_id: 8453 }],
@@ -2188,7 +2188,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(result.chips)).toContain("Passed");
     expect(labelsFor(result.chips)).toContain("21,000 gas");
     const skipped = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         simulation: {
           contexts: [{ chain_id: 8453 }],
@@ -2201,7 +2201,7 @@ describe("tool interpreter", () => {
 
   it("recognizes successful Solana simulations", () => {
     const step = decode({
-      toolName: "svm_simulate_ix",
+      toolName: "svm_simulate",
       result: {
         simulation: {
           err: null,
