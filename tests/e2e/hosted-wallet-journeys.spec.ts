@@ -233,6 +233,51 @@ for (const family of ["evm", "svm"] as const) {
   });
 }
 
+test("EVM session and chat history survive a reload, and sign-out ends both", async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  await signIn(page, "evm");
+  const before = await browserJson<Account>(page, "/v1/account");
+  const probe = `Session persistence probe ${Date.now().toString(36)}. Reply with one word.`;
+  const response = await sendPrompt(page, probe);
+  const sessionId = ((await response.json()) as { session_id?: string }).session_id;
+  expect(sessionId).toBeTruthy();
+  await expectSettledReply(page, response);
+  const thread = `/v1/agent/chat/${encodeURIComponent(sessionId!)}`;
+
+  // Reload: same Better Auth user and account, and the thread reads back with the probe.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("portal-shell")).toBeVisible({ timeout: 60_000 });
+  const after = await browserJson<Account>(page, "/v1/account");
+  expect(after.user?.id).toBe(before.user?.id);
+  expect(after.session?.betterAuthUserId).toBe(before.session?.betterAuthUserId);
+  const history = await browserJson<{ events?: Array<{ content?: string }> }>(page, thread);
+  expect(history.events?.some((event) => event.content?.includes(probe))).toBe(true);
+  await expect
+    .poll(async () => (await browserJson<{ sessions?: Array<{ id?: string; sessionId?: string }> }>(page, "/v1/agent/sessions")).sessions?.some(
+      (entry) => (entry.id ?? entry.sessionId) === sessionId,
+    ), { timeout: 30_000 })
+    .toBe(true);
+
+  // Another browser with no cookie never reads the thread.
+  const stranger = await browser.newContext();
+  const strangerStatus = (await stranger.request.get(new URL(thread, hostedPortalUrl()).href)).status();
+  await stranger.close();
+  expect([401, 403, 404]).toContain(strangerStatus);
+
+  // Sign out: the session ends and the thread is no longer readable from this browser.
+  const signOut = await page.evaluate(async () =>
+    (await fetch("/api/auth/sign-out", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: "{}" })).status,
+  );
+  expect(signOut).toBe(200);
+  const session = await browserJson<Session>(page, "/api/auth/get-session");
+  expect(session?.user?.id).toBeFalsy();
+  const afterSignOut = await page.evaluate(async (path) => (await fetch(path, { credentials: "include" })).status, thread);
+  expect(afterSignOut).not.toBe(200);
+});
+
 test("EVM wallet receives a signable 1-wei burn transfer with a visible simulated decrease", async ({
   page,
 }) => {
