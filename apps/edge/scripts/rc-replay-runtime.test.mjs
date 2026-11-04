@@ -5,6 +5,8 @@ import { unstable_dev } from "wrangler";
 
 let worker;
 beforeAll(async () => {
+  // wrangler.rc.jsonc binds the account database; this replay test never connects to it.
+  process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ??= "postgres://unused:unused@127.0.0.1:9/unused";
   worker = await unstable_dev(fileURLToPath(new URL("./fixtures/rc-replay-worker.ts", import.meta.url)), {
     config: fileURLToPath(new URL("../wrangler.rc.jsonc", import.meta.url)),
     local: true,

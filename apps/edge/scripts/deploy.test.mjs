@@ -108,9 +108,10 @@ describe("edge deploy script", () => {
     expect(parse(deployConfig(source, id)).hyperdrive).toEqual([{ binding: "HYPERDRIVE", id }]);
     expect(parse(deployConfig(source, "")).hyperdrive).toBeUndefined();
     expect(() => deployConfig(source, "local; rm -rf")).toThrow(/not a Hyperdrive config id/);
+    // rc binds its own Hyperdrive config once it serves the ChatRC portal, and none before.
     const rc = readFileSync(new URL("../wrangler.rc.jsonc", import.meta.url), "utf8");
-    expect(deployConfig(rc, "")).toBe(rc);
-    expect(() => deployConfig(rc, id)).toThrow(/no Hyperdrive binding/);
+    expect(parse(deployConfig(rc, id)).hyperdrive).toEqual([{ binding: "HYPERDRIVE", id }]);
+    expect(parse(deployConfig(rc, "")).hyperdrive).toBeUndefined();
   });
 
   it("passes the RC test identity to the rc topology only, and only as a complete set", () => {
@@ -135,9 +136,7 @@ it("keeps the RC overlay equal to the shared config and migrations RC-only", () 
   const read = (name) => ts.parseConfigFileTextToJson(name, readFileSync(new URL(`../${name}`, import.meta.url), "utf8")).config;
   const shared = read("wrangler.jsonc");
   const { durable_objects, migrations, ...rc } = read("wrangler.rc.jsonc");
-  // rc runs no portal, so it leaves out the account database and the placement next to it.
-  const { hyperdrive, placement, ...base } = shared;
-  expect(rc).toEqual(base);
+  expect(rc).toEqual(shared);
   expect(shared.durable_objects).toBeUndefined();
   expect(shared.migrations).toBeUndefined();
   expect(durable_objects.bindings).toEqual([{ name: "RC_OIDC_REPLAY", class_name: "RcReplayStore" }]);
