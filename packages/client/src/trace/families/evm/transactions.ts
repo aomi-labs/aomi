@@ -18,6 +18,7 @@ import {
   commitChainRef,
   commitCountFact,
   commitStateFact,
+  commitTxIdFact,
   commitViews,
 } from "../general/commit-view";
 import { failedFact, operation } from "../operation";
@@ -104,7 +105,7 @@ export const matchEvmSimulation: ToolMatcher = ({
   resultRecord,
   relatedResultRecords,
 }) => {
-  const namedSimulation = isTool(rawLabel, "simulate_batch");
+  const namedSimulation = isTool(rawLabel, "evm_simulate");
   if (resultRecord?.chain_kind === "svm" || Array.isArray(resultRecord?.ix_ids))
     return null;
   if (!resultRecord && !namedSimulation) return null;
@@ -238,7 +239,7 @@ export const matchEvmPendingApproval: ToolMatcher = ({
           value: txHash,
           source: "result",
         }
-      : null,
+      : commitTxIdFact(views),
     // The canonical model rewrites the tool result on resolution, so a record
     // still shaped as pending_approval is pending; an inline tx_outcome only
     // appears on pre-cutover persisted results and still wins when present.

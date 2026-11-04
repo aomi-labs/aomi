@@ -238,6 +238,11 @@ describe("solanaSigner", () => {
       "base64",
     );
     expect(Transaction.from(bytes).verifySignatures()).toBe(true);
+    const all = await signer.signAllTransactions!([
+      { transactionBase64: unsigned },
+      { transactionBase64: unsigned },
+    ]);
+    expect(all).toEqual([signed, signed]);
 
     const message = Buffer.from("hi").toString("base64");
     const { signature } = (await signer.signMessage!({
@@ -264,12 +269,18 @@ describe("solanaSigner", () => {
     const signer = solanaSigner(Keypair.generate(), {
       rpcUrls: { "solana:devnet": "https://devnet.example" },
     });
+    // Commits name the server's cluster spelling.
+    await signer.broadcastTransaction!("AA==", "devnet");
     await signer.broadcastTransaction!("AA==", "solana:devnet");
-    await signer.broadcastTransaction!("AA==", "solana:mainnet");
+    await signer.broadcastTransaction!("AA==", "mainnet-beta");
     expect(endpoints).toEqual([
+      "https://devnet.example",
       "https://devnet.example",
       "https://api.mainnet-beta.solana.com/",
     ]);
+    await expect(
+      signer.broadcastTransaction!("AA==", "localnet"),
+    ).rejects.toThrow(/Unknown Solana cluster/);
     vi.restoreAllMocks();
   });
 });

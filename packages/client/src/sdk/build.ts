@@ -1,4 +1,3 @@
-import { AomiError } from "../api-error";
 import type { CommitHandle } from "./commits";
 import type {
   EvmPipelineTransport,
@@ -213,6 +212,16 @@ export class SvmBuild {
     return this.raw.simulation;
   }
 
+  /** Wallet asset movements decoded from successful simulation steps. */
+  get balanceChanges(): PipelineBalanceChange[] {
+    return this.raw.simulation.balanceChanges;
+  }
+
+  /** Token delegations and authority changes made by the build. */
+  get approvals(): PipelineApprovalChange[] {
+    return this.raw.simulation.approvals;
+  }
+
   get digest(): string {
     return this.raw.digest;
   }
@@ -239,14 +248,15 @@ export class SvmBuild {
 }
 
 /**
- * A simulated build of one operation, EVM or Solana. Review it, then, for
- * EVM, `commit()` to get the Commit to sign. Solana builds review and
- * simulate only: the backend does not make commits of them yet.
+ * A simulated build of one operation, EVM or Solana. Review it, then
+ * `commit()` to get the Commit to sign.
  */
 export class Build {
   constructor(
     readonly raw: EvmBuild | SvmBuild,
-    private readonly open: (result: EvmCommitResult) => CommitHandle,
+    private readonly open: (
+      result: EvmCommitResult | SvmCommitResult,
+    ) => CommitHandle,
   ) {}
 
   get chainFamily(): "evm" | "svm" {
@@ -280,16 +290,8 @@ export class Build {
     return this.raw.expiresAt;
   }
 
-  /**
-   * EVM only: the Commit to sign. A Solana build throws
-   * `svm_commit_unavailable`; `raw.commit()` answers its wallet requests.
-   */
+  /** The Commit to sign; a multi-transaction build returns its first. */
   async commit(options?: PipelineCommitOptions): Promise<CommitHandle> {
-    if (this.raw instanceof SvmBuild)
-      throw new AomiError(
-        "svm_commit_unavailable",
-        "Solana builds do not create commits yet; sign raw.commit()'s requests with your wallet",
-      );
     return this.open(await this.raw.commit(options));
   }
 }

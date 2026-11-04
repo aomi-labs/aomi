@@ -35,6 +35,7 @@ import {
   balanceChangeNetwork,
   assetChangePresentation,
   formatAssetAmount,
+  shownAssetAmount,
   approvalTitle,
   approvalScope,
   focusRing,
@@ -317,11 +318,11 @@ function AssetChange({
                 </span>
               )
             ) : (
-              <>
+              <span title={shownAssetAmount(change, decimals).raw}>
                 {incoming ? "+" : outgoing ? "−" : ""}
-                {formatAssetAmount(change.amount, decimals)}
+                {shownAssetAmount(change, decimals).shown}
                 <span className="sr-only"> {symbol}</span>
-              </>
+              </span>
             )}
           </p>
         </>
@@ -531,7 +532,9 @@ const untilFormat = new Intl.DateTimeFormat("en", {
 /** Permit2's "never" (2^48 - 1) is past what a JS date can hold. */
 function until(seconds: number): string {
   const at = new Date(seconds * 1000);
-  return Number.isNaN(at.getTime()) ? "no expiry" : `until ${untilFormat.format(at)}`;
+  return Number.isNaN(at.getTime())
+    ? "no expiry"
+    : `until ${untilFormat.format(at)}`;
 }
 
 /** One row of what a message signature allows, in the trade rows' layout. */
@@ -587,9 +590,7 @@ function MessageEffect({
             : `≤ ${messageAmount(tokens, row.token, row.amount)}`,
           // A symbol is whatever the token contract says; the address isn't.
           `${shortAddress(row.spender, { head: 8, tail: 6 })} may spend token ${shortAddress(row.token)}${
-            row.expires_at
-              ? ` · ${until(row.expires_at)}`
-              : ""
+            row.expires_at ? ` · ${until(row.expires_at)}` : ""
           }`,
           row.unlimited ? "warning" : "accent",
         ]

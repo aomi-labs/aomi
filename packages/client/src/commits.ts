@@ -34,6 +34,7 @@ type SignableOf<K extends SignableCommit["kind"]> = Extract<
 export type WalletCallsCommit = SignableOf<"wallet_calls">;
 /** One member's call inside a `send_calls` bundle, in batch order. */
 export type WalletCallsCommitCall = WalletCallsCommit["calls"][number];
+type SvmTransactionCommit = SignableOf<"svm_transaction">;
 /** The message a wallet signs; `digest` is what the signature covers. */
 export type EvmMessageCommit = SignableOf<"evm_message">;
 /** What a message signature covers: EIP-712 typed data, or ERC-191 bytes
@@ -94,12 +95,13 @@ export type CommitReview =
   | Exclude<ActionRequest, { type: "sign" }>
   | SignCommitReview;
 type SignCommitReview = Extract<ActionRequest, { type: "sign" }> & {
-  /** Set on a message commit's review (`executionKind: "evm_message"`). */
+  /** Set on a message commit's review (`executionKind: "evm_message"`,
+   * `"svm_message"`). */
   messageReview?: MessageReview;
 };
 /** A message commit's review: a pipeline `sign` request plus its rows. */
 export type MessageCommitReview = SignCommitReview & {
-  executionKind: "evm_message";
+  executionKind: "evm_message" | "svm_message";
 };
 export type CommitManual =
   /** `version` / `review_digest` bind a message signature to its review. */
@@ -110,7 +112,9 @@ export type CommitManual =
       review_digest?: string;
     }
   | { kind: "broadcast"; transaction_id: string }
-  | { kind: "rejected" };
+  | { kind: "rejected" }
+  /** A Solana transaction on a fresh blockhash, right before it is signed. */
+  | { kind: "renew"; version?: number };
 type WalletRejection = Extract<
   CommitWalletAttemptOutcome,
   { kind: "rejected" }
@@ -148,6 +152,11 @@ export type CommitRecoveryStore = {
 /** Wallet operations available to the durable Commit lifecycle. */
 export type CommitCapabilities = {
   sign?: (commit: CommitView, payload: SignableCommit) => Promise<string[]>;
+  /** Sign several Solana transactions in one wallet prompt; answers each
+   * member's signed bytes, in order. */
+  signAll?: (
+    members: readonly { commit: CommitView; payload: SvmTransactionCommit }[],
+  ) => Promise<string[]>;
   canSign?: (commit: CommitView, payload: SignableCommit) => boolean;
   walletBroadcast?: (
     commit: CommitView,
@@ -187,6 +196,7 @@ export type CommitCapabilities = {
 };
 const COMMIT_CAPABILITY_KEYS = [
   "sign",
+  "signAll",
   "canSign",
   "walletBroadcast",
   "canWalletBroadcast",
@@ -243,9 +253,14 @@ function groupPlan(
             leader.action?.kind === "start_wallet_send")
         ? "browser_send"
         : "sign_and_broadcast");
-  return transport === "send_calls" && bundles
-    ? { transport, prompts: 1, atomic: true }
-    : { transport, prompts: size, atomic: size === 1 };
+  if (transport === "send_calls" && bundles)
+    return { transport, prompts: 1, atomic: true };
+  // A Solana batch is signed in one prompt, then sent leg by leg.
+  return {
+    transport,
+    prompts: leader.chain_family === "svm" && capabilities.signAll ? 1 : size,
+    atomic: size === 1,
+  };
 }
 
 const continuationRevision = (view: CommitView): number =>
@@ -293,41 +308,6 @@ function commitReview(value: unknown): CommitReview | undefined {
 
 function assertActionRequest(value: unknown): asserts value is ActionRequest {
   validatePipelineArguments(value, actionRequestSchema, agentSchemas);
-}
-
-/** Compatibility presentation for commits admitted before typed SVM reviews
- * were persisted. Remove after every readable SVM commit carries review data. */
-function legacySvmReview(
-  view: CommitView | undefined,
-): CommitReview | undefined {
-  if (view?.chain_family !== "svm" || view.review) return undefined;
-  const action = view.action;
-  const broadcasting = action?.kind === "broadcast";
-  const payloads =
-    action?.kind === "sign" && action.payload.kind === "svm_transaction"
-      ? [
-          {
-            kind: "svm_transaction" as const,
-            transaction_base64: action.payload.transaction_base64,
-          },
-        ]
-      : broadcasting
-        ? []
-        : undefined;
-  if (!payloads) return undefined;
-  return {
-    type: "sign",
-    requestId: view.commit_id,
-    chainFamily: "svm",
-    executionKind: "transaction",
-    signer: view.signer,
-    cluster: view.chain_ref,
-    description: broadcasting
-      ? "Submit signed Solana transaction"
-      : "Review Solana transaction",
-    payloads,
-    broadcaster: view.broadcaster,
-  };
 }
 
 /** Commit Service accepts rejection diagnostics as a complete set or none. */
@@ -389,7 +369,8 @@ function payloadMatchesCommit(
  * writes always do. */
 function signedWrite(view: CommitView, payloads: string[]): CommitManual {
   return view.action?.kind === "sign" &&
-    view.action.payload.kind === "evm_message"
+    (view.action.payload.kind === "evm_message" ||
+      view.action.payload.kind === "svm_message")
     ? {
         kind: "signed",
         payloads,
@@ -426,6 +407,14 @@ function messageSigner(
   );
 }
 
+function signedSvmTransaction(
+  signed: string | { signedTransaction?: string },
+): string {
+  const bytes = typeof signed === "string" ? signed : signed.signedTransaction;
+  if (!bytes) throw new Error("Wallet did not return signed transaction bytes");
+  return bytes;
+}
+
 export function commitCapabilities(
   wallets: Wallets,
   recovery?: CommitRecoveryStore,
@@ -437,11 +426,13 @@ export function commitCapabilities(
   const supportsAtomicBatch = evm?.supportsAtomicBatch;
   const canSign = (commit: CommitView, payload: SignableCommit): boolean => {
     if (!payloadMatchesCommit(commit, payload)) return false;
-    if (payload.kind === "svm_transaction")
+    if (payload.kind === "svm_transaction" || payload.kind === "svm_message")
       return Boolean(
-        wallets.svm?.signTransaction &&
+        (payload.kind === "svm_transaction"
+          ? wallets.svm?.signTransaction
+          : wallets.svm?.signMessage) &&
         commit.chain_family === "svm" &&
-        wallets.svm.address === commit.signer,
+        wallets.svm?.address === commit.signer,
       );
     return Boolean(
       commit.chain_family === "evm" &&
@@ -453,6 +444,8 @@ export function commitCapabilities(
           : evm?.signMessage),
     );
   };
+  const svm = wallets.svm;
+  const signAllSvm = svm?.signAllTransactions;
   const canWalletBroadcast = (commit: CommitView): boolean =>
     commit.chain_family === "evm"
       ? Boolean(evm?.broadcastTransaction)
@@ -461,6 +454,30 @@ export function commitCapabilities(
     recovery,
     canSign,
     canWalletBroadcast,
+    ...(svm && signAllSvm
+      ? {
+          async signAll(members) {
+            const cluster = members[0]?.commit.chain_ref;
+            if (
+              members.some(
+                ({ commit, payload }) =>
+                  !payloadMatchesCommit(commit, payload) ||
+                  commit.chain_ref !== cluster ||
+                  commit.signer !== svm.address,
+              )
+            )
+              throw new Error("Connect the expected signing wallet");
+            if (cluster) await svm.switchCluster?.(cluster);
+            const results = await signAllSvm(
+              members.map(({ payload }) => ({
+                transactionBase64: payload.transaction_base64,
+                cluster,
+              })),
+            );
+            return results.map(signedSvmTransaction);
+          },
+        }
+      : {}),
     ...(evm && sendPrepared && preparePrepared
       ? {
           canWalletSend(commit, payload) {
@@ -584,20 +601,29 @@ export function commitCapabilities(
               "Wallet does not support sign-only SVM transactions",
             );
           await wallets.svm.switchCluster?.(commit.chain_ref);
-          const signed = await wallets.svm.signTransaction({
-            transactionBase64: payload.transaction_base64,
-            cluster: commit.chain_ref,
-          });
-          const bytes =
-            typeof signed === "string" ? signed : signed.signedTransaction;
-          if (!bytes)
-            throw new Error("Wallet did not return signed transaction bytes");
-          return [bytes];
+          return [
+            signedSvmTransaction(
+              await wallets.svm.signTransaction({
+                transactionBase64: payload.transaction_base64,
+                cluster: commit.chain_ref,
+              }),
+            ),
+          ];
         }
         case "wallet_calls":
           throw new Error("Wallet call batches are sent, not signed");
-        case "svm_message":
-          throw new Error("Agent wallets sign Solana messages on the server");
+        case "svm_message": {
+          if (!wallets.svm?.signMessage)
+            throw new Error("Wallet does not support Solana message signing");
+          if (wallets.svm.address !== payload.signer)
+            throw new Error("Connect the expected signing wallet");
+          // The service verifies a base64 ed25519 signature over these bytes.
+          const signed = await wallets.svm.signMessage({
+            messageBase64: payload.message_base64,
+            cluster: commit.chain_ref,
+          });
+          return [typeof signed === "string" ? signed : signed.signature];
+        }
       }
     },
     async walletBroadcast(commit, bytes) {
@@ -628,7 +654,6 @@ export class CommitController {
   /** Compatibility reviews cover tool-result races and historical SVM rows.
    * Remove this map once every readable CommitView has a durable review. */
   private reviews = new Map<string, CommitReview>();
-  private synthesizedReviews = new Set<string>();
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<
@@ -777,13 +802,8 @@ export class CommitController {
   /** The tool result carrying a review can replay after its view already
    * arrived on an event page, so a new review republishes the snapshot. */
   ingestReview(id: string, review: CommitReview): void {
-    if (
-      this.closed ||
-      (this.reviews.has(id) && !this.synthesizedReviews.has(id))
-    )
-      return;
+    if (this.closed || this.reviews.has(id)) return;
     this.reviews.set(id, review);
-    this.synthesizedReviews.delete(id);
     this.changed();
   }
   canExecute(view: CommitView): boolean {
@@ -1007,9 +1027,10 @@ export class CommitController {
         attempts: commitRefPaths.attempts(id),
         report: (attemptId: string) => commitRefPaths.report(id, attemptId),
       };
+    // A Pipeline commit is served only under its own chain family.
     const root =
       this.routeFamily === "pipeline"
-        ? "/v1/pipeline/evm/commits"
+        ? `/v1/pipeline/${this.pipelineFamily(id)}/commits`
         : "/api/commits";
     const view = `${root}/${encodeURIComponent(id)}`;
     return {
@@ -1018,6 +1039,11 @@ export class CommitController {
       report: (attemptId: string) =>
         `${view}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
     };
+  }
+  private pipelineFamily(id: string): "evm" | "svm" {
+    const family = this.views.get(id)?.chain_family;
+    if (!family) throw new Error(`Pipeline commit ${id} is not loaded`);
+    return family;
   }
   /** Thread families keep the legacy transport and its `HTTP <status>` errors;
    * refs answer typed errors (CommitNotFoundError, CommitStaleError). */
@@ -1121,11 +1147,6 @@ export class CommitController {
     this.views.set(view.commit_id, view);
     if (isTerminalCommit(view) || view.wallet_attempt?.state === "mismatched")
       this.dropReceipt(view.commit_id);
-    const compatibilityReview = legacySvmReview(view);
-    if (compatibilityReview && !this.reviews.has(view.commit_id)) {
-      this.reviews.set(view.commit_id, compatibilityReview);
-      this.synthesizedReviews.add(view.commit_id);
-    }
     this.snapshot = [...this.views.values()];
     this.notifyListeners();
     return view;
@@ -1138,7 +1159,9 @@ export class CommitController {
     basis?: CommitView,
   ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
-    this.pending.set(id, body);
+    // A renew is asked again at its current version on the next attempt,
+    // never replayed: a lost response must not pin a stale version.
+    if (body.kind !== "renew") this.pending.set(id, body);
     const view = this.threadBound
       ? await this.send<CommitView>(
           "POST",
@@ -1179,6 +1202,8 @@ export class CommitController {
         });
       case "rejected":
         return this.send("POST", commitRefPaths.reject(id), { version });
+      case "renew":
+        return this.send("POST", commitRefPaths.renew(id), { version });
     }
   }
   private async perform(
@@ -1211,9 +1236,13 @@ export class CommitController {
       const sign = this.available.sign;
       if (!sign)
         throw new Error("This wallet does not support sign-only commits");
-      const payloads = await sign(view, view.action.payload);
-      if (this.closed) throw new Error("Commit session closed");
-      view = await this.manual(id, signedWrite(view, payloads), view);
+      if (view.action.payload.kind === "svm_transaction")
+        view = await this.signSvm(view, sign);
+      else {
+        const payloads = await sign(view, view.action.payload);
+        if (this.closed) throw new Error("Commit session closed");
+        view = await this.manual(id, signedWrite(view, payloads), view);
+      }
     }
     if (view.action?.kind === "broadcast") {
       const send =
@@ -1239,6 +1268,66 @@ export class CommitController {
       );
     }
     return view;
+  }
+  /** Sign a Solana commit together with the later members of its batch that
+   * await a signature: one `signAll` prompt when the wallet has it, else one
+   * prompt per member in this same submit. Each signed member goes to its own
+   * route in batch order; Commit Service sends a member only after the one
+   * before it confirms. Answers `view` signed. */
+  private async signSvm(
+    view: CommitView,
+    sign: NonNullable<CommitCapabilities["sign"]>,
+  ): Promise<CommitView> {
+    const members = [view];
+    const ids = view.batch?.ordered_commit_ids ?? [];
+    for (const id of ids.slice(ids.indexOf(view.commit_id) + 1)) {
+      if (!this.views.has(id) || this.attempts.has(id)) break;
+      const member = await this.refresh(id);
+      const action = member.action;
+      if (
+        member.state !== "needs_signature" ||
+        action?.kind !== "sign" ||
+        action.payload.kind !== "svm_transaction" ||
+        !(this.available.canSign?.(member, action.payload) ?? true)
+      )
+        break;
+      members.push(member);
+    }
+    // A Solana blockhash lives about a minute: renew it now, so the wallet
+    // gets all of it however long the review took.
+    const renewed: { commit: CommitView; payload: SvmTransactionCommit }[] = [];
+    for (const member of members) {
+      const commit = await this.manual(
+        member.commit_id,
+        { kind: "renew", version: member.version },
+        member,
+      );
+      if (
+        commit.action?.kind !== "sign" ||
+        commit.action.payload.kind !== "svm_transaction"
+      )
+        throw new Error("Commit is no longer awaiting a signature");
+      renewed.push({ commit, payload: commit.action.payload });
+    }
+    const signAll = this.available.signAll;
+    const signed: string[] = [];
+    if (signAll && renewed.length > 1) signed.push(...(await signAll(renewed)));
+    else
+      for (const { commit, payload } of renewed)
+        signed.push(...(await sign(commit, payload)));
+    if (signed.length !== renewed.length)
+      throw new Error("Wallet did not sign every transaction");
+    if (this.closed) throw new Error("Commit session closed");
+    let first: CommitView | undefined;
+    for (const [index, { commit }] of renewed.entries()) {
+      const posted = await this.manual(
+        commit.commit_id,
+        signedWrite(commit, [signed[index]!]),
+        commit,
+      );
+      first ??= posted;
+    }
+    return first!;
   }
   private assertReviewed(
     view: CommitView,

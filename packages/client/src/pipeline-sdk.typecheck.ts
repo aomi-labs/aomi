@@ -1,6 +1,7 @@
 import type {
   ActionRequest,
   AomiClient,
+  CommitView,
   EvmCommitResult,
   EvmStagedBuild,
   SvmBuild,
@@ -76,9 +77,10 @@ void instructions;
 void transaction;
 void mixedSvmInput;
 
-const walletIntents = (
-  result: EvmCommitResult | SvmCommitResult,
-): ActionRequest[] => result.requests;
+const walletIntents = (result: EvmCommitResult): ActionRequest[] =>
+  result.requests;
+const svmCommits = (result: SvmCommitResult): CommitView[] => result.commits;
+void svmCommits;
 const invalidInstructions: SvmStageInput = {
   kind: "instructions",
   instructions: [

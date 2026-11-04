@@ -18,7 +18,7 @@ import * as settings from "./commands/settings";
 import * as threads from "./commands/threads";
 import * as tx from "./commands/tx";
 import * as wallets from "./commands/wallets";
-import { exitCodeOf, messageOf, parseChain } from "./context";
+import { exitCodeOf, messageOf, parseChain, parseCluster } from "./context";
 
 type Run = (flags: never, ...args: never[]) => Promise<void>;
 type Flag = Record<string, unknown> & { brief: string };
@@ -42,12 +42,21 @@ const int = (brief: string): Flag =>
   text(brief, { parse: Number, placeholder: "n" });
 
 const json = { json: yes("Print JSON lines") };
+const cluster = text("Solana cluster: mainnet, devnet or testnet", {
+  parse: parseCluster,
+  placeholder: "name",
+});
 /** How a command reaches Aomi, and who it is. */
 const conn = {
   privateKey: text(
     "Sign in with this EVM key (SIWE) and sign with it; env AOMI_PRIVATE_KEY",
     { placeholder: "hex" },
   ),
+  solanaPrivateKey: text(
+    "Sign in with this Solana key (SIWS) and sign with it; env AOMI_SOLANA_PRIVATE_KEY",
+    { placeholder: "key" },
+  ),
+  cluster,
   backendUrl: text("Aomi URL; env AOMI_BACKEND_URL", {
     hidden: true,
     placeholder: "url",
@@ -60,11 +69,7 @@ const conn = {
 /** What signs locally. */
 const signing = {
   ...conn,
-  solanaPrivateKey: text("Solana key that signs (base58 or JSON bytes)", {
-    hidden: true,
-    placeholder: "key",
-  }),
-  rpcUrl: text("RPC URL for local signing", {
+  rpcUrl: text("RPC URL for local signing (the chain, or the cluster)", {
     hidden: true,
     placeholder: "url",
   }),
@@ -201,7 +206,7 @@ const signerSet = command(
   {
     ...json,
     solana: text("Solana key (base58 or JSON bytes)", { placeholder: "key" }),
-    cluster: text("mainnet, devnet or testnet", { placeholder: "name" }),
+    cluster,
   },
   [arg("EVM private key", "hex", true)],
   wallets.setSigner,

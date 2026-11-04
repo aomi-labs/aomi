@@ -20,6 +20,7 @@ import {
 import { useAomiWalletKit } from "@/wallet/context";
 import { selectLegacyReviewAction, selectReviewQueue } from "./model";
 import { TransactionReview } from "./transaction-review";
+import { reviewErrorTitle } from "./presentation";
 import { useSignerSwitch } from "./signer-switch";
 
 const ParkedReview = lazy(() =>
@@ -213,8 +214,7 @@ export function WalletReview() {
       } catch (error) {
         showNotification({
           type: "error",
-          title:
-            error instanceof Error ? error.message : "Action response failed",
+          title: reviewErrorTitle(error),
           duration: 6000,
         });
         return false;

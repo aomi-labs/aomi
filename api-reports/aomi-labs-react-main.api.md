@@ -422,11 +422,12 @@ export function useActions(session: Session | undefined): {
                     decimals?: number | null;
                     chainId?: number | null;
                     cluster?: string | null;
-                    standard?: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | null;
+                    standard?: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | "spl_token" | null;
                     name?: string | null;
                     tokenId?: string | null;
                     counterparty?: string | null;
                     step?: number | null;
+                    uiMultiplier?: string;
                 }[];
                 approvals: {
                     account: string;
@@ -437,11 +438,12 @@ export function useActions(session: Session | undefined): {
                     approved?: boolean | null;
                     unlimited?: boolean | null;
                     tokenId?: string | null;
-                    standard: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155";
+                    standard: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | "spl_token";
                     symbol?: string | null;
                     name?: string | null;
                     decimals?: number | null;
                     chainId?: number | null;
+                    cluster?: string | null;
                     step?: number | null;
                 }[];
                 fees: {
@@ -575,11 +577,12 @@ export function useActions(session: Session | undefined): {
                     decimals?: number | null;
                     chainId?: number | null;
                     cluster?: string | null;
-                    standard?: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | null;
+                    standard?: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | "spl_token" | null;
                     name?: string | null;
                     tokenId?: string | null;
                     counterparty?: string | null;
                     step?: number | null;
+                    uiMultiplier?: string;
                 }[];
                 approvals: {
                     account: string;
@@ -590,11 +593,12 @@ export function useActions(session: Session | undefined): {
                     approved?: boolean | null;
                     unlimited?: boolean | null;
                     tokenId?: string | null;
-                    standard: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155";
+                    standard: "native" | "erc20" | "erc721" | "erc1155" | "erc721_or_erc1155" | "spl_token";
                     symbol?: string | null;
                     name?: string | null;
                     decimals?: number | null;
                     chainId?: number | null;
+                    cluster?: string | null;
                     step?: number | null;
                 }[];
                 fees: {

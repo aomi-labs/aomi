@@ -32,4 +32,10 @@ describe("account proof messages", () => {
     expect(link).toContain(`Nonce: ${proof.nonce}`);
     expect(link).not.toEqual(buildSiweMessage(proof));
   });
+  it("writes the address checksummed, as wallets check it against the signer", () => {
+    const checksummed = "0xda65bb3a2F1E9a0B8cd7e6F5A4B3C2D1E0F93cf0";
+    const lower = { ...proof, address: checksummed.toLowerCase() };
+    expect(parseSiweMessage(buildSiweMessage(lower)).address).toBe(checksummed);
+    expect(buildWalletLinkMessage(lower)).toContain(`\n${checksummed}\n`);
+  });
 });

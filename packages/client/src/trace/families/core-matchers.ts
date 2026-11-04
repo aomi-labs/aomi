@@ -19,7 +19,13 @@ import { matchSkillActivation } from "./general/skills";
 import { matchSleep } from "./general/sleep";
 import { matchWebFetch, matchWebSearch } from "./general/search";
 import { matchTaskDelegation } from "./general/task";
-import { matchSvmContext, matchSvmTokenHoldings } from "./svm/context";
+import {
+  matchSvmAccountInfo,
+  matchSvmContext,
+  matchSvmDeriveAddress,
+  matchSvmProgram,
+  matchSvmTokenHoldings,
+} from "./svm/context";
 import {
   matchSvmPendingApproval,
   matchSvmSimulation,
@@ -30,17 +36,17 @@ const evmMatchers: Record<string, ToolMatcher[]> = {
   evm_stage_tx: [matchStagedTx],
   evm_discard_tx: [matchDiscardTx],
   "evm stage": [matchStagedTx],
-  simulate_batch: [matchEvmSimulation],
+  evm_simulate: [matchEvmSimulation],
   evm_commit_txs: [matchEvmPendingApproval],
   evm_commit_message: [matchSignMessage],
-  get_time_and_onchain_context: [matchChainContext, matchEvmCall],
-  sync_chain: [matchSyncChain],
-  get_account_info: [matchNativeBalance],
-  get_erc20_balance: [matchErc20Balance],
-  get_erc20_holdings: [matchErc20Holdings],
-  get_contract: [matchTokenLookup],
-  encode_and_call: [matchEvmCall],
-  sim_call: [matchEvmCall],
+  evm_get_context: [matchChainContext, matchEvmCall],
+  evm_sync_chain: [matchSyncChain],
+  evm_get_account_info: [matchNativeBalance],
+  evm_get_token_balance: [matchErc20Balance],
+  evm_get_token_holdings: [matchErc20Holdings],
+  evm_get_contract: [matchTokenLookup],
+  evm_call: [matchEvmCall],
+  evm_sim_call: [matchEvmCall],
 };
 
 const generalMatchers: Record<string, ToolMatcher> = {
@@ -59,12 +65,14 @@ const svmMatchers: Record<string, ToolMatcher> = {
   svm_stage_ix: matchSvmStage,
   svm_stage_tx: matchSvmStage,
   svm_discard_tx: matchDiscardTx,
-  svm_simulate_ix: matchSvmSimulation,
-  svm_simulate_tx: matchSvmSimulation,
+  svm_simulate: matchSvmSimulation,
   svm_commit_txs: matchSvmPendingApproval,
-  svm_sign_data: matchSignMessage,
+  svm_commit_message: matchSignMessage,
   svm_get_context: matchSvmContext,
   svm_get_token_holdings: matchSvmTokenHoldings,
+  svm_get_program: matchSvmProgram,
+  svm_get_account_info: matchSvmAccountInfo,
+  svm_derive_address: matchSvmDeriveAddress,
 };
 
 export function coreMatchersFor(name: string): ToolMatcher[] | undefined {

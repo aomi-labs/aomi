@@ -1,12 +1,13 @@
-import { CHAINS_BY_ID } from "@aomi-labs/client";
+import {
+  CHAINS_BY_ID,
+  normalizeSolanaCluster,
+  type SvmCluster,
+} from "@aomi-labs/client";
 import bs58 from "bs58";
 
 export type IdentifierKind = "address" | "token" | "tx" | "block";
-type SolanaCluster = "mainnet-beta" | "devnet" | "testnet";
-type Chain = number | SolanaCluster;
+type Chain = number | SvmCluster;
 type Explorer = { name: string; base: string };
-
-const CLUSTERS: readonly string[] = ["mainnet-beta", "devnet", "testnet"];
 
 // Display fields only; keep Viem's RPC types out of the Markdown renderer.
 export const CONFIGURED_EVM_EXPLORERS: Record<number, Explorer> =
@@ -73,11 +74,11 @@ export function explorerUrl(
     const explorer = EVM_EXPLORERS[chain];
     return explorer ? `${explorer.base}/${kind}/${identifier}` : null;
   }
-  if (chain === "mainnet-beta") {
+  if (chain === "solana:mainnet") {
     return `https://solscan.io/${kind === "address" ? "account" : kind}/${identifier}`;
   }
   const path = kind === "token" ? "address" : kind;
-  return `https://explorer.solana.com/${path}/${identifier}?cluster=${chain}`;
+  return `https://explorer.solana.com/${path}/${identifier}?cluster=${chain.slice(7)}`;
 }
 
 // The field name types the identifier; a 32-byte hex value alone could be a
@@ -116,9 +117,7 @@ function statedChain(item: Item): Chain | null | undefined {
   if (evm !== undefined && svm !== undefined) return null;
   if (typeof evm === "number" || (typeof evm === "string" && /^\d+$/.test(evm)))
     return Number(evm);
-  return typeof svm === "string" && CLUSTERS.includes(svm)
-    ? (svm as SolanaCluster)
-    : null;
+  return normalizeSolanaCluster(svm) ?? null;
 }
 
 /**

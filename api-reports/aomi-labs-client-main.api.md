@@ -1716,11 +1716,12 @@ export interface AomiSimulateResponse {
 
 // @public (undocumented)
 export class AomiSvmPipeline {
-    constructor(raw: SvmPipelineTransport);
+    constructor(raw: SvmPipelineTransport, client?: AomiClient | undefined, capabilities?: CommitCapabilities);
     // (undocumented)
     build(input: PipelineOperationBuildInput | SvmDirectInput, options?: PipelineMutationOptions): Promise<SvmBuild>;
     // (undocumented)
     commit(build: SvmBuild | SvmSimulatedBuild, options?: PipelineCommitOptions): Promise<SvmCommitResult>;
+    commits(preparation: SvmCommitResult, capabilities?: CommitCapabilities): CommitController;
     // (undocumented)
     readonly raw: SvmPipelineTransport;
     // (undocumented)
@@ -1827,9 +1828,15 @@ export type AomiWalletSigner = {
 // @public
 export type AomiWalletStrategy = {
     readonly kind: "wallet";
+} & ({
+    readonly family: "evm";
     readonly signer: AomiWalletSigner;
     readonly chainId: number;
-};
+} | {
+    readonly family: "svm";
+    readonly signer: SvmWallet;
+    readonly cluster: SvmCluster;
+});
 
 // @public (undocumented)
 export type ApiErrorFields = {
@@ -2116,7 +2123,7 @@ export type BetterAuthTokenResponse = {
 
 // @public
 export class Build {
-    constructor(raw: EvmBuild | SvmBuild, open: (result: EvmCommitResult) => CommitHandle);
+    constructor(raw: EvmBuild | SvmBuild, open: (result: EvmCommitResult | SvmCommitResult) => CommitHandle);
     // (undocumented)
     get actions(): (EvmPresentedAction | SvmPresentedAction)[];
     get approvals(): PipelineApprovalChange[];
@@ -2142,7 +2149,7 @@ export function buildSiweMessage(input: SiweMessageInput): string;
 // @public (undocumented)
 export function buildSiwsMessage(input: {
     address: string;
-    chainId: SiwsChainId;
+    chainId: SvmCluster;
     nonce: string;
     intent: SiwsIntent;
     domain: string;
@@ -2269,6 +2276,10 @@ export class CommitApprovalForbiddenError extends AomiApiError {
 // @public
 export type CommitCapabilities = {
     sign?: (commit: CommitView, payload: SignableCommit) => Promise<string[]>;
+    signAll?: (members: readonly {
+        commit: CommitView;
+        payload: SvmTransactionCommit;
+    }[]) => Promise<string[]>;
     canSign?: (commit: CommitView, payload: SignableCommit) => boolean;
     walletBroadcast?: (commit: CommitView, signedBytes: string) => Promise<string>;
     canWalletBroadcast?: (commit: CommitView) => boolean;
@@ -2392,6 +2403,11 @@ export type CommitManual =
     transaction_id: string;
 } | {
     kind: "rejected";
+}
+/** A Solana transaction on a fresh blockhash, right before it is signed. */
+| {
+    kind: "renew";
+    version?: number;
 };
 
 // @public
@@ -2695,6 +2711,8 @@ export interface EvmCommitResult {
     // (undocumented)
     digest: string;
     // (undocumented)
+    family: "evm";
+    // (undocumented)
     next_required_action?: "submit_wallet_request" | "continue_commit_cohort";
     preparation_status?: "prepared";
     provider_invoked?: false;
@@ -2725,16 +2743,8 @@ export interface EvmDirectInput extends PipelineExecutionScope {
 export type EvmMessageCommit = SignableOf<"evm_message">;
 
 // @public (undocumented)
-export class EvmPipelineTransport {
+export class EvmPipelineTransport extends ChainPipelineTransport<EvmStageInput, EvmStagedBuild, EvmSimulatedBuild, EvmCommitResult> {
     constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<EvmSimulatedBuild>;
-    // (undocumented)
-    commit(build: EvmSimulatedBuild, options?: PipelineCommitOptions): Promise<EvmCommitResult>;
-    // (undocumented)
-    simulate(build: EvmStagedBuild, options?: PipelineMutationOptions): Promise<EvmSimulatedBuild>;
-    // (undocumented)
-    stage(input: EvmStageInput, options?: PipelineMutationOptions): Promise<EvmStagedBuild>;
 }
 
 // @public (undocumented)
@@ -3197,7 +3207,7 @@ export type MentionItem = {
 
 // @public
 export type MessageCommitReview = SignCommitReview & {
-    executionKind: "evm_message";
+    executionKind: "evm_message" | "svm_message";
 };
 
 // @public
@@ -3389,7 +3399,7 @@ export function normalizeEvmWalletTarget(target: string): `0x${string}`;
 export function normalizeSimulatedFee(fee: AomiSimulateFee): NormalizedSimulatedFee | null;
 
 // @public
-export function normalizeSolanaCluster(value: unknown): string | undefined;
+export function normalizeSolanaCluster(value: unknown): SvmCluster | undefined;
 
 // @public
 export function oauth(options: AomiDeviceOAuthOptions | AomiBrowserOAuthOptions): AomiOAuthStrategy;
@@ -4029,12 +4039,12 @@ export type SiweMessageInput = {
 // @public (undocumented)
 export type SiwsAccountSessionSigner = {
     address: string;
-    chainId: SiwsChainId;
+    chainId: SvmCluster;
     signMessage(message: string): Promise<string>;
 };
 
-// @public (undocumented)
-export type SiwsChainId = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+// @public @deprecated (undocumented)
+export type SiwsChainId = SvmCluster;
 
 // @public (undocumented)
 export type SiwsIntent = "sign-in" | "link";
@@ -4170,8 +4180,10 @@ export class SvmBuild {
     constructor(raw: SvmSimulatedBuild, transport: SvmPipelineTransport);
     // (undocumented)
     get actions(): SvmPresentedAction[];
+    get approvals(): PipelineApprovalChange[];
     // (undocumented)
     get attestation(): string;
+    get balanceChanges(): PipelineBalanceChange[];
     // (undocumented)
     commit(options?: PipelineCommitOptions): Promise<SvmCommitResult>;
     // (undocumented)
@@ -4197,19 +4209,25 @@ export class SvmBuild {
 // @public (undocumented)
 export type SvmBuildAction = SvmStagedAction;
 
+// @public
+export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+
 // @public (undocumented)
 export interface SvmCommitResult {
+    commits: CommitView[];
     // (undocumented)
     digest: string;
+    // (undocumented)
+    family: "svm";
     // (undocumented)
     next_required_action?: "submit_wallet_request";
     preparation_status?: "prepared";
     // (undocumented)
     provider_invoked?: false;
-    requests: ActionRequest[];
-    results: unknown[];
+    result: unknown;
     // (undocumented)
     status: "committed";
+    thread_id: string;
 }
 
 // @public (undocumented)
@@ -4256,16 +4274,8 @@ export interface SvmInstructionBatch {
 }
 
 // @public (undocumented)
-export class SvmPipelineTransport {
+export class SvmPipelineTransport extends ChainPipelineTransport<SvmStageInput, SvmStagedBuild, SvmSimulatedBuild, SvmCommitResult> {
     constructor(requestResponse: RequestResponse$4);
-    // (undocumented)
-    build(input: PipelineOperationBuildInput, options?: PipelineMutationOptions): Promise<SvmSimulatedBuild>;
-    // (undocumented)
-    commit(build: SvmSimulatedBuild, options?: PipelineCommitOptions): Promise<SvmCommitResult>;
-    // (undocumented)
-    simulate(build: SvmStagedBuild, options?: PipelineMutationOptions): Promise<SvmSimulatedBuild>;
-    // (undocumented)
-    stage(input: SvmStageInput, options?: PipelineMutationOptions): Promise<SvmStagedBuild>;
 }
 
 // @public (undocumented)
@@ -4291,6 +4301,8 @@ export interface SvmSimulatedBuild {
     status: "simulated";
     // (undocumented)
     summary?: PipelineActionSummary;
+    // (undocumented)
+    transactionSafetyMode?: TransactionSafetyMode;
     // (undocumented)
     version: 2;
 }
@@ -4346,6 +4358,8 @@ export interface SvmStagedBuild {
     // (undocumented)
     status: "staged";
     // (undocumented)
+    transactionSafetyMode?: TransactionSafetyMode;
+    // (undocumented)
     version: 2;
 }
 
@@ -4385,6 +4399,13 @@ export interface SvmWallet {
         transactionBase64: string;
         cluster?: string;
     }) => Promise<WalletTransactionResult>;
+    signAllTransactions?: (inputs: {
+        transactionBase64: string;
+        cluster?: string;
+    }[]) => Promise<(string | {
+        signedTransaction?: string;
+        signature?: string;
+    })[]>;
     // (undocumented)
     signAndSendTransaction?: (input: {
         transactionBase64: string;
@@ -4662,9 +4683,10 @@ export type ViemSignTypedDataArgs = {
     message?: Record<string, unknown>;
 };
 
-// @public (undocumented)
-export function wallet(signer: AomiWalletSigner, options?: {
+// @public
+export function wallet(signer: AomiWalletSigner | SvmWallet, options?: {
     chainId?: number;
+    cluster?: SvmCluster;
 }): AomiWalletStrategy;
 
 // @public (undocumented)

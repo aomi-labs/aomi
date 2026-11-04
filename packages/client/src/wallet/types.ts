@@ -95,6 +95,10 @@ export interface SvmWallet {
     transactionBase64: string;
     cluster?: string;
   }) => Promise<string | { signedTransaction?: string; signature?: string }>;
+  /** Sign several transactions in one wallet prompt; answers them in order. */
+  signAllTransactions?: (
+    inputs: { transactionBase64: string; cluster?: string }[],
+  ) => Promise<(string | { signedTransaction?: string; signature?: string })[]>;
   sendTransaction?: (input: {
     transactionBase64: string;
     cluster?: string;

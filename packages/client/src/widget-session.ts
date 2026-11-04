@@ -3,7 +3,8 @@ import { buildSiweMessage } from "./siwe";
 import type { GetAccountBearer } from "./types";
 import { joinUrl } from "./internal/url";
 import { decodeJwtSubject } from "./internal/encoding";
-import { buildSiwsMessage, type SiwsChainId } from "./siws";
+import { buildSiwsMessage } from "./siws";
+import type { SvmCluster } from "./wallet-utils";
 
 /**
  * A widget `expires_at` above this bound is a millisecond timestamp, not the
@@ -43,7 +44,7 @@ export type AccountSessionSigner = {
 
 export type SiwsAccountSessionSigner = {
   address: string;
-  chainId: SiwsChainId;
+  chainId: SvmCluster;
   signMessage(message: string): Promise<string>;
 };
 

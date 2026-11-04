@@ -900,11 +900,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/widget/v1/signing-requests/:request_id",
-    auth: ["account", "thread"],
-  },
-  {
-    method: "POST",
     path: "/v1/account/agent-wallets",
     auth: ["account"],
   },
@@ -951,6 +946,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/v1/commits/:commit_ref/reject",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/v1/commits/:commit_ref/renew",
     auth: ["account"],
   },
   {

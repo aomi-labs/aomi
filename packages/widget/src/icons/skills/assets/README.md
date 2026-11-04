@@ -26,6 +26,8 @@ Specific extractions:
   without its containing token tile. The previous icon included the letter a.
 - Ether.fi, Convex, Kelp, and EigenLayer/EigenCloud: complete symbol paths only.
 - OpenBook: official logomark, without the black background.
+- Orca: the whale from the site header logo, without its yellow disc or the
+  wordmark; the white belly is left open so it reads in both themes.
 - Sanctum: cloud symbol, without the blue containing tile or wordmark.
 - Curve: original faceted torus from the CRV asset, with faces grouped by
   monochrome opacity. Geometry is retained, with coordinates rounded to 3dp.

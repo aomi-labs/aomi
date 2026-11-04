@@ -34,7 +34,6 @@ export const authClient: AomiBrowserAuthClient = createAuthClient<{
 
 export { aomiSiwsClient } from "./siws-client";
 export type {
-  SiwsChainId,
   SiwsNonceRequest,
   SiwsNonceResponse,
   SiwsVerifyRequest,

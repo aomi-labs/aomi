@@ -51,6 +51,7 @@ const view: CommitView = {
   wallet_attempt: null,
 };
 const preparation: EvmCommitResult = {
+  family: "evm",
   status: "committed",
   digest: "digest",
   result: {},

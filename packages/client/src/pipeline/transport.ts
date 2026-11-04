@@ -30,112 +30,100 @@ export class PipelineApiError extends AomiApiError {
   override name = "PipelineApiError";
 }
 
-export class EvmPipelineTransport {
-  constructor(private readonly requestResponse: RequestResponse) {}
+/** One chain family's Build routes. Each mutation sends the request's
+ * transactionSafetyMode override when given; otherwise the sealed Build mode
+ * (or, before a Build exists, the account default) applies. */
+class ChainPipelineTransport<
+  StageInput extends object,
+  Staged,
+  Simulated extends { digest: string },
+  Committed,
+> {
+  constructor(
+    private readonly requestResponse: RequestResponse,
+    private readonly family: "evm" | "svm",
+  ) {}
 
   build(
     input: PipelineOperationBuildInput,
     options: PipelineMutationOptions = {},
-  ): Promise<EvmSimulatedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/evm/build", {
-      headers: mutationHeaders(options),
-      body: jsonBody({
-        ...input,
-        ...(options.transactionSafetyMode === undefined
-          ? {}
-          : { transactionSafetyMode: options.transactionSafetyMode }),
-      }),
+  ): Promise<Simulated> {
+    return this.post("build", mutationHeaders(options), {
+      ...jsonBody(input),
+      ...safetyMode(options),
     });
   }
 
   stage(
-    input: EvmStageInput,
+    input: StageInput,
     options: PipelineMutationOptions = {},
-  ): Promise<EvmStagedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/evm/stage", {
-      headers: mutationHeaders(options),
-      body: jsonBody({
-        ...input,
-        ...(options.transactionSafetyMode === undefined
-          ? {}
-          : { transactionSafetyMode: options.transactionSafetyMode }),
-      }),
+  ): Promise<Staged> {
+    return this.post("stage", mutationHeaders(options), {
+      ...jsonBody(input),
+      ...safetyMode(options),
     });
   }
 
   simulate(
-    build: EvmStagedBuild,
+    build: Staged,
     options: PipelineMutationOptions = {},
-  ): Promise<EvmSimulatedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/evm/simulate", {
-      headers: mutationHeaders(options),
-      body: {
-        build: jsonBody(build),
-        ...(options.transactionSafetyMode === undefined
-          ? {}
-          : { transactionSafetyMode: options.transactionSafetyMode }),
-      },
+  ): Promise<Simulated> {
+    return this.post("simulate", mutationHeaders(options), {
+      build: jsonBody(build),
+      ...safetyMode(options),
     });
   }
 
   commit(
-    build: EvmSimulatedBuild,
+    build: Simulated,
     options: PipelineCommitOptions = {},
-  ): Promise<EvmCommitResult> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/evm/commit", {
-      headers: commitHeaders(build.digest, options),
-      body: {
-        build: jsonBody(build),
-        ...(options.transactionSafetyMode === undefined
-          ? {}
-          : { transactionSafetyMode: options.transactionSafetyMode }),
-      },
+  ): Promise<Committed> {
+    return this.post("commit", commitHeaders(build.digest, options), {
+      build: jsonBody(build),
+      ...safetyMode(options),
     });
+  }
+
+  private post<T>(
+    step: "build" | "stage" | "simulate" | "commit",
+    headers: HeadersInit,
+    body: Record<string, unknown>,
+  ): Promise<T> {
+    return json(
+      this.requestResponse,
+      "POST",
+      `/v1/pipeline/${this.family}/${step}`,
+      { headers, body },
+    );
   }
 }
 
-export class SvmPipelineTransport {
-  constructor(private readonly requestResponse: RequestResponse) {}
-
-  build(
-    input: PipelineOperationBuildInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmSimulatedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/svm/build", {
-      headers: mutationHeaders(options),
-      body: jsonBody(input),
-    });
+export class EvmPipelineTransport extends ChainPipelineTransport<
+  EvmStageInput,
+  EvmStagedBuild,
+  EvmSimulatedBuild,
+  EvmCommitResult
+> {
+  constructor(requestResponse: RequestResponse) {
+    super(requestResponse, "evm");
   }
+}
 
-  stage(
-    input: SvmStageInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmStagedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/svm/stage", {
-      headers: mutationHeaders(options),
-      body: jsonBody(input),
-    });
+export class SvmPipelineTransport extends ChainPipelineTransport<
+  SvmStageInput,
+  SvmStagedBuild,
+  SvmSimulatedBuild,
+  SvmCommitResult
+> {
+  constructor(requestResponse: RequestResponse) {
+    super(requestResponse, "svm");
   }
+}
 
-  simulate(
-    build: SvmStagedBuild,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmSimulatedBuild> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/svm/simulate", {
-      headers: mutationHeaders(options),
-      body: { build: jsonBody(build) },
-    });
-  }
-
-  commit(
-    build: SvmSimulatedBuild,
-    options: PipelineCommitOptions = {},
-  ): Promise<SvmCommitResult> {
-    return json(this.requestResponse, "POST", "/v1/pipeline/svm/commit", {
-      headers: commitHeaders(build.digest, options),
-      body: { build: jsonBody(build) },
-    });
-  }
+function safetyMode(options: PipelineMutationOptions) {
+  return options.transactionSafetyMode === undefined
+    ? {}
+    : { transactionSafetyMode: options.transactionSafetyMode };
 }
 
 export class PipelineOperationTransport {

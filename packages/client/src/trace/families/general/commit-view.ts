@@ -48,6 +48,15 @@ export const commitStateFact = (
   return null;
 };
 
+/** The landed transaction (EVM hash, Solana signature) of a one-transaction
+ * commit; a batch shows its count instead. */
+export const commitTxIdFact = (
+  views: Record<string, unknown>[],
+): ToolFact | null => {
+  const id = views.length === 1 ? asString(views[0]?.transaction_id) : null;
+  return id ? { kind: "txId", value: id, source: "result" } : null;
+};
+
 export const commitCountFact = (
   views: Record<string, unknown>[],
 ): ToolFact | null => {

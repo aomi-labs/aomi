@@ -233,6 +233,19 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
           };
         }
       : undefined,
+    signAllTransactions: wallet.signAllSolanaTransactions
+      ? async (inputs) => {
+          const results = await wallet.signAllSolanaTransactions!(
+            inputs.map(({ transactionBase64, cluster }) =>
+              payload(transactionBase64, cluster),
+            ),
+          );
+          return results.map(({ signedTx }) => ({
+            signedTransaction: signedTx,
+            signature: extractPayerSignature(signedTx),
+          }));
+        }
+      : undefined,
     signAndSendTransaction: canSendSvm(wallet)
       ? async ({ transactionBase64, cluster }) => {
           const result = await sendSvm(
@@ -274,12 +287,12 @@ async function switchSvm(
   wallet: ReturnType<typeof useAomiWalletKit>,
   cluster?: string,
 ): Promise<void> {
+  if (!cluster) return;
   const normalized = normalizeSolanaCluster(cluster);
-  if (!normalized) return;
   const target = wallet.supportedNetworks?.solana?.find(
     (network) => network.cluster === normalized,
   );
-  if (!target) throw new Error(`Unsupported Solana cluster: ${normalized}`);
+  if (!target) throw new Error(`Unsupported Solana cluster: ${cluster}`);
   if (wallet.selectedSolanaNetwork?.id === target.id) return;
   if (!wallet.selectNetwork || wallet.solanaNetworkSwitchRequiresReconnect) {
     throw new Error(

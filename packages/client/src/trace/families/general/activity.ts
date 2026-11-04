@@ -13,12 +13,13 @@ const SOLANA = new Set([
   "sol",
   "svm",
   "mainnet-beta",
+  "solana:mainnet",
   "solana:mainnet-beta",
 ]);
 
 const solanaFact = (source: ToolFact["source"]): ToolFact => ({
   kind: "cluster",
-  value: "mainnet-beta",
+  value: "solana:mainnet",
   label: "Solana",
   source,
 });

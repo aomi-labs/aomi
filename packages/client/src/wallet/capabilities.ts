@@ -14,9 +14,6 @@ export function walletCapabilities(wallets: Wallets): ActionCapabilities {
     ...(wallets.evm?.sendCalls || wallets.evm?.sendTransaction
       ? { execute_evm: executeEvm(wallets.evm) }
       : {}),
-    ...(wallets.svm?.signAndSendTransaction || wallets.svm?.sendTransaction
-      ? { execute_svm: executeSvm(wallets.svm) }
-      : {}),
     ...(canSign(wallets) ? { sign: sign(wallets) } : {}),
   };
 }
@@ -82,58 +79,6 @@ function executeEvm(wallet: EvmWallet) {
         transactionId: hashes[index] ?? hashes[hashes.length - 1],
       })),
     };
-  };
-}
-
-function executeSvm(wallet: SvmWallet) {
-  return async (
-    request: Extract<ActionRequest, { type: "execute_svm" }>,
-    signal: AbortSignal,
-  ): Promise<Extract<ActionResult, { status: "submitted" }>> => {
-    const { transactions } = request;
-    const first = transactions[0];
-    if (!first) throw new Error("SVM Action contains no transactions");
-    if (
-      transactions.some(
-        (transaction) =>
-          transaction.cluster !== first.cluster ||
-          transaction.payer !== wallet.address,
-      )
-    ) {
-      throw new Error("The active SVM wallet does not match the Action");
-    }
-    await switchCluster(wallet, first.cluster);
-
-    const legs: Extract<ActionResult, { status: "submitted" }>["legs"] = [];
-    for (const [index, transaction] of transactions.entries()) {
-      assertActive(signal);
-      const transactionBase64 = transaction.unsigned_transaction_base64;
-      if (!transactionBase64) {
-        throw new Error("SVM Action has no unsigned transaction bytes");
-      }
-      const result = wallet.signAndSendTransaction
-        ? await wallet.signAndSendTransaction({
-            transactionBase64,
-            cluster: transaction.cluster,
-          })
-        : wallet.sendTransaction
-          ? await wallet.sendTransaction({
-              transactionBase64,
-              cluster: transaction.cluster,
-            })
-          : undefined;
-      if (result === undefined)
-        throw new Error("SVM wallet cannot send transactions");
-      legs.push({
-        id: `leg_${index + 1}`,
-        status: "submitted",
-        transactionId: transactionHashes(result)[0] ?? signature(result),
-        ...(typeof result === "object" && "signedTransaction" in result
-          ? { signedTransactionBase64: result.signedTransaction }
-          : {}),
-      });
-    }
-    return { status: "submitted", legs };
   };
 }
 

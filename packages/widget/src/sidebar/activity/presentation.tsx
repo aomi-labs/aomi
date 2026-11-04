@@ -1,11 +1,14 @@
 import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
-import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
+import {
+  isAomiError,
+  normalizeSolanaCluster,
+  shortAddress,
+} from "@aomi-labs/client";
 import { FileSignature, Layers3 } from "lucide-react";
 import { STAGED_ACTION_ICON_REGISTRY } from "@aomi-labs/client/trace";
 import { traceIcon } from "@/thread/trace-icons";
 import { getDefaultSvmNetworkLabel } from "@/wallet/catalog/svm-networks";
-import type { SvmCluster } from "@/wallet/types";
 
 export type Simulation = Extract<
   ActionRequest,
@@ -214,8 +217,8 @@ export function isZeroAddress(value: string | null | undefined): boolean {
  * its spellings (`mainnet-beta`, `solana:mainnet`); a custom one as given. */
 export function solanaNetworkName(cluster: string | undefined): string {
   const normalized = normalizeSolanaCluster(cluster);
-  return normalized?.startsWith("solana:")
-    ? getDefaultSvmNetworkLabel(normalized as SvmCluster)
+  return normalized
+    ? getDefaultSvmNetworkLabel(normalized)
     : (cluster ?? "Solana");
 }
 
@@ -256,6 +259,61 @@ export function formatFeeSummary(fees: Simulation["fees"]): string {
   return `${formatAssetAmount(first.amount, decimals)} ${symbol}${suffix}`;
 }
 
+/** Commit Service ran the signed bytes and refused them before sending. */
+const REFUSED_SIGNED: Record<string, string> = {
+  commit_signed_out_of_compute:
+    "The wallet's added safety checks ran out of compute, so nothing was sent. Try again.",
+  commit_signed_would_fail:
+    "This transaction would fail now, so nothing was sent. Ask for a fresh quote.",
+  commit_envelope_mismatch:
+    "The wallet changed the transaction beyond what it may, so nothing was sent.",
+};
+
+/** A failed send or signature as one readable line: a transaction the
+ * network refused in its preflight check keeps its reason, not its logs. */
+export function reviewErrorTitle(error: unknown): string {
+  const message =
+    error instanceof Error ? error.message : "Action response failed";
+  // Ref routes type the code; thread routes leave it in the response body.
+  const code =
+    isAomiError(error) && Object.hasOwn(REFUSED_SIGNED, error.code)
+      ? error.code
+      : Object.keys(REFUSED_SIGNED).find((key) => message.includes(key));
+  if (code) return REFUSED_SIGNED[code]!;
+  const refused =
+    /Transaction simulation failed: (?:Error processing Instruction \d+: )?([^.\n]+)/.exec(
+      message,
+    );
+  return refused
+    ? `The network refused the transaction: ${refused[1].trim()}.`
+    : message;
+}
+
+/** A balance change's amount as the wallet shows it: a Solana scaled-UI
+ * token (a tokenized stock) multiplies its raw amount for display. `raw`
+ * says what moved underneath when that differs. */
+export function shownAssetAmount(
+  change: Pick<BalanceChange, "amount" | "uiMultiplier">,
+  decimals?: number,
+): { shown: string; raw?: string } {
+  const amount = formatAssetAmount(change.amount, decimals);
+  const multiplier = Number(change.uiMultiplier);
+  if (
+    !Number.isFinite(multiplier) ||
+    multiplier <= 0 ||
+    multiplier === 1 ||
+    decimals == null
+  )
+    return { shown: amount };
+  const shown = (Number(amount) * multiplier)
+    .toFixed(decimals)
+    .replace(/\.?0+$/, "");
+  return {
+    shown,
+    raw: `${amount} raw × ${Number(multiplier.toPrecision(6))} display multiplier`,
+  };
+}
+
 export function formatAssetAmount(amount: string, decimals?: number): string {
   const normalized = amount.trim();
   if (!normalized) return "0";
@@ -288,8 +346,10 @@ export function formatInteger(value: string): string {
 
 export function assetFallback(asset: string): string {
   if (!asset || asset === "native") return "Asset";
-  return asset.startsWith("0x")
-    ? shortAddress(asset, { head: 8, tail: 6 })
+  if (asset.startsWith("0x")) return shortAddress(asset, { head: 8, tail: 6 });
+  // A Solana mint: base58, 32–44 characters.
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(asset)
+    ? shortAddress(asset, { head: 4, tail: 4 })
     : asset;
 }
 

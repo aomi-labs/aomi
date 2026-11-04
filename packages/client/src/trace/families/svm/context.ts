@@ -3,29 +3,30 @@ import {
   asInteger,
   asRecord,
   asString,
+  statusFact,
   uniqueFacts,
+  usdTotalFact,
 } from "../../normalize";
+import { isErrorResult, operation } from "../operation";
 import type { ToolFact, ToolMatcher } from "../../types";
+import { normalizeSolanaCluster } from "../../../wallet-utils";
 
 const KNOWN_MAINNET_TOKEN_SYMBOLS: Record<string, string> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
 };
 
-export const svmClusterFact = (
-  value: unknown,
-  fallback = "mainnet-beta",
-): ToolFact => {
-  const cluster = asString(value) ?? fallback;
-  const normalized = cluster.toLowerCase().replace(/^solana:/, "");
-  const label = normalized.includes("devnet")
-    ? "Solana Devnet"
-    : normalized.includes("testnet")
-      ? "Solana Testnet"
-      : "Solana";
+/** A cluster chip; a custom cluster keeps its own name. */
+export const svmClusterFact = (value: unknown): ToolFact => {
+  const cluster = normalizeSolanaCluster(value ?? "solana:mainnet");
   return {
     kind: "cluster",
-    value: cluster,
-    label,
+    value: cluster ?? asString(value) ?? "solana:mainnet",
+    label:
+      cluster === "solana:devnet"
+        ? "Solana Devnet"
+        : cluster === "solana:testnet"
+          ? "Solana Testnet"
+          : "Solana",
     source: "result",
   };
 };
@@ -71,11 +72,7 @@ const tokenAmountFact = (
       : undefined);
   if (!amount) return null;
 
-  const clusterName = asString(cluster)?.toLowerCase();
-  const isMainnet =
-    clusterName === "mainnet-beta" ||
-    clusterName === "mainnet" ||
-    clusterName === "solana:mainnet";
+  const isMainnet = normalizeSolanaCluster(cluster) === "solana:mainnet";
   const symbol =
     asString(holding.symbol) ??
     (mint && isMainnet ? KNOWN_MAINNET_TOKEN_SYMBOLS[mint] : undefined);
@@ -137,8 +134,99 @@ export const matchSvmTokenHoldings: ToolMatcher = ({
 
   return {
     id: "svm.account.token_holdings",
-    facts: uniqueFacts([svmClusterFact(resultRecord.cluster), ...amounts]),
+    facts: uniqueFacts([
+      svmClusterFact(resultRecord.cluster),
+      ...[usdTotalFact(compactHoldings)].filter(
+        (fact): fact is ToolFact => fact != null,
+      ),
+      ...amounts,
+    ]),
     confidence: "high",
     rawLabel,
   };
+};
+
+/** Owner programs whose accounts a reader recognizes by kind. */
+const ACCOUNT_KINDS: Record<string, string> = {
+  "11111111111111111111111111111111": "Wallet",
+  TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: "Token account",
+  TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb: "Token account",
+  BPFLoaderUpgradeab1e11111111111111111111111: "Program",
+};
+
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+export const matchSvmProgram: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (!resultRecord || isErrorResult(resultRecord)) return null;
+  const args = asRecord(parsedArgs);
+  const program = Array.isArray(resultRecord.programs)
+    ? asRecord(resultRecord.programs[0])
+    : undefined;
+  const identity =
+    asString(program?.name) ??
+    asString(program?.program_id) ??
+    asString(args?.name) ??
+    asString(args?.program_id);
+  const instruction = asString(args?.instruction);
+  return operation("svm.program.lookup", rawLabel, [
+    program?.cluster ? svmClusterFact(program.cluster) : null,
+    identity ? { kind: "contract", value: identity, source: "result" } : null,
+    instruction
+      ? { kind: "function", value: instruction, source: "args" }
+      : null,
+    resultRecord.found === false ? statusFact("not found") : null,
+  ]);
+};
+
+export const matchSvmAccountInfo: ToolMatcher = ({
+  rawLabel,
+  resultRecord,
+}) => {
+  const pubkey = asString(resultRecord?.pubkey);
+  if (!resultRecord || !pubkey) return null;
+  const owner = asString(resultRecord.owner_program_id);
+  const kind =
+    resultRecord.executable === true
+      ? "Program"
+      : owner
+        ? ACCOUNT_KINDS[owner]
+        : undefined;
+  const lamports = asInteger(resultRecord.lamports);
+  const sol = lamports == null ? null : amountFact(lamports / LAMPORTS_PER_SOL);
+  return operation("svm.account.info", rawLabel, [
+    svmClusterFact(resultRecord.cluster),
+    { kind: "address", role: "owner", value: pubkey, source: "result" },
+    kind
+      ? { kind: "category", value: kind, label: kind, source: "result" }
+      : null,
+    sol ? { ...sol, role: "native", label: "SOL" } : null,
+    resultRecord.found === false ? statusFact("not found") : null,
+  ]);
+};
+
+export const matchSvmDeriveAddress: ToolMatcher = ({
+  rawLabel,
+  resultRecord,
+}) => {
+  const address = asString(resultRecord?.address);
+  if (!resultRecord || !address) return null;
+  const tokenAccount = resultRecord.kind === "associated_token_account";
+  const mint = asString(resultRecord.mint);
+  const symbol = mint ? KNOWN_MAINNET_TOKEN_SYMBOLS[mint] : undefined;
+  return operation("svm.address.derive", rawLabel, [
+    {
+      kind: "category",
+      value: tokenAccount ? "Token account" : "Program address",
+      label: tokenAccount ? "Token account" : "Program address",
+      source: "result",
+    },
+    { kind: "address", role: "to", value: address, source: "result" },
+    tokenAccount && mint
+      ? { kind: "token", value: mint, label: symbol, source: "result" }
+      : null,
+  ]);
 };

@@ -2,6 +2,7 @@ import { shortAddress } from "../../short-address";
 
 import { SHAPE_ICONS, STAGED_ACTION_ICON_REGISTRY } from "../registry";
 
+import { skillBrandLabel } from "../../mentions";
 import { humanize } from "../normalize";
 import type { ToolChip, ToolFact } from "../types";
 
@@ -11,7 +12,11 @@ const formatInteger = (value: string): string => {
 };
 
 const shortenAddress = (address: string): string =>
-  /^0x[a-fA-F0-9]{40}$/.test(address) ? shortAddress(address) : address;
+  /^0x[a-fA-F0-9]{40}$/.test(address)
+    ? shortAddress(address)
+    : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
+      ? `${address.slice(0, 4)}…${address.slice(-4)}`
+      : address;
 
 const formatNativeAmount = (value: string): string => {
   const numeric = Number(value);
@@ -47,6 +52,8 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Passed", icon: "success" };
     case "confirmed":
       return { label: "Confirmed", icon: "success" };
+    case "complete":
+      return { label: "Complete", icon: "success" };
     case "prepared":
       return { label: "Prepared", icon: "success" };
     case "incomplete":
@@ -183,14 +190,16 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value, icon: "swap" };
     case "selector":
       return { label: fact.label ?? fact.value };
-    case "skill":
+    case "skill": {
       // Renderers with a skill catalog replace this by `skillId`.
+      const name = fact.value.split("/").at(-1) ?? fact.value;
       return {
         id: `skill:${fact.value}`,
         skillId: fact.value,
-        label: humanize(fact.value.split("/").at(-1) ?? fact.value),
+        label: skillBrandLabel(name.toLowerCase()) ?? humanize(name),
         icon: `skill:${fact.value}`,
       };
+    }
     case "query":
       return {
         label:

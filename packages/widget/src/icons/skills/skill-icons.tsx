@@ -217,6 +217,10 @@ export function PendleSkillIcon(props: SkillIconProps) {
 }
 
 /** Source and presentation notes: assets/README.md. */
+export function OrcaSkillIcon(props: SkillIconProps) {
+  return <SourcedSkillIcon mark="orca" {...props} />;
+}
+
 export function RaydiumSkillIcon(props: SkillIconProps) {
   return <SourcedSkillIcon mark="raydium" {...props} />;
 }
@@ -414,9 +418,10 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   curve: CurveSkillIcon,
   cctp: CctpSkillIcon,
   circle_gateway: CctpSkillIcon,
-  // Common ERC-20 exposes standard token operations, so reuse the same coin
-  // mark shown for unknown ERC-20 assets in transaction and trace UI.
+  // Common ERC-20 and SPL Token expose standard token operations, so reuse the
+  // same coin mark shown for unknown assets in transaction and trace UI.
   common_erc20: CoinsIcon,
+  spl_token: CoinsIcon,
   etherfi: EtherfiSkillIcon,
   jupiter: JupiterSkillIcon,
   kamino: KaminoSkillIcon,
@@ -425,6 +430,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   oneinch: OneInchSkillIcon,
   openbook: OpenbookSkillIcon,
   optimism_native: OptimismNativeSkillIcon,
+  orca: OrcaSkillIcon,
   pendle: PendleSkillIcon,
   raydium: RaydiumSkillIcon,
   renzo: RenzoSkillIcon,

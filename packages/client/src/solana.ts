@@ -1,5 +1,6 @@
 import {
   clusterApiUrl,
+  type Cluster,
   Connection,
   Keypair,
   Transaction,
@@ -9,37 +10,53 @@ import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { AomiError } from "./api-error";
 import type { SvmWallet } from "./wallet/types";
+import { normalizeSolanaCluster, type SvmCluster } from "./wallet-utils";
 
 /**
  * `signer.svm` from a local keypair: a `Keypair`, a `solana-keygen` JSON
- * byte array, or a base58 secret (the Phantom / Solflare export).
+ * byte array, or a base58 secret (the Phantom / Solflare export). `cluster`
+ * is the one the wallet reports (default `solana:mainnet`); each commit still
+ * broadcasts on its own cluster.
  */
 export function solanaSigner(
   key: Keypair | string,
   options: {
-    /** RPC per cluster (`solana:mainnet`, `solana:devnet`, `solana:testnet`);
-     * public endpoints otherwise. */
-    rpcUrls?: Partial<Record<string, string>>;
+    cluster?: SvmCluster;
+    /** RPC per cluster; public endpoints otherwise. */
+    rpcUrls?: Partial<Record<SvmCluster, string>>;
   } = {},
 ): SvmWallet {
   const keypair = typeof key === "string" ? parseKeypair(key) : key;
-  const connection = (cluster: string) =>
-    new Connection(
+  // A commit names its cluster as the server does (`mainnet-beta`, `devnet`).
+  const connection = (name: string) => {
+    const cluster = normalizeSolanaCluster(name);
+    if (!cluster)
+      throw new AomiError(
+        "unsupported_cluster",
+        `Unknown Solana cluster ${name}`,
+      );
+    return new Connection(
       options.rpcUrls?.[cluster] ??
         clusterApiUrl(
-          cluster === "solana:devnet"
-            ? "devnet"
-            : cluster === "solana:testnet"
-              ? "testnet"
-              : "mainnet-beta",
+          cluster === "solana:mainnet"
+            ? "mainnet-beta"
+            : (cluster.slice(7) as Cluster),
         ),
     );
+  };
   return {
     address: keypair.publicKey.toBase58(),
+    cluster: options.cluster ?? "solana:mainnet",
+    // A local key signs for any cluster, so it has nothing to switch.
+    switchCluster: async () => undefined,
     signTransaction: async ({ transactionBase64 }) => ({
       signedTransaction: signTransaction(transactionBase64, keypair),
     }),
-    broadcastTransaction: (signed, cluster) =>
+    signAllTransactions: async (inputs) =>
+      inputs.map(({ transactionBase64 }) => ({
+        signedTransaction: signTransaction(transactionBase64, keypair),
+      })),
+    broadcastTransaction: async (signed, cluster) =>
       connection(cluster).sendRawTransaction(Buffer.from(signed, "base64")),
     signMessage: async ({ messageBase64 }) => ({
       signature: Buffer.from(
@@ -83,6 +100,9 @@ function signTransaction(base64: string, keypair: Keypair): string {
   } catch {
     const legacy = Transaction.from(bytes);
     legacy.partialSign(keypair);
-    return Buffer.from(legacy.serialize()).toString("base64");
+    // A new account the transaction creates signs after the wallet.
+    return Buffer.from(
+      legacy.serialize({ requireAllSignatures: false }),
+    ).toString("base64");
   }
 }

@@ -36,6 +36,7 @@ export const skillIconSources = {
   lifi_swap: "https://li.fi/brand-guidelines",
   morpho: "https://morpho.org/",
   oneinch: "https://1inch.com/press-room",
+  orca: "https://www.orca.so/",
   openbook:
     "https://raw.githubusercontent.com/openbook-dex/resources/main/brand/OpenBook-Logomark.svg",
   optimism_native: "https://www.optimism.io/brand",
@@ -66,6 +67,7 @@ export const skillIconSources = {
 export const skillIconGenericAliases = {
   dummy: "FlaskConicalIcon",
   common_erc20: "CoinsIcon",
+  spl_token: "CoinsIcon",
 } as const;
 
 /** Built-in skills with no confidently attributable mark in this package. */
