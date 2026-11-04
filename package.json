@@ -81,7 +81,8 @@
     "version:packages": "changeset version",
     "check:package-changesets": "node scripts/check-package-changesets.mjs",
     "build:widget": "pnpm --filter @aomi-labs/widget build",
-    "smoke:local-runtime": "tsx scripts/smoke-local-runtime.ts"
+    "smoke:local-runtime": "tsx scripts/smoke-local-runtime.ts",
+    "ai-qa": "tsx tests/e2e/ai-qa/run.ts"
   },
   "prettier": {
     "plugins": [
@@ -91,6 +92,7 @@
   },
   "devDependencies": {
     "@ai-sdk/openai": "^2.0.46",
+    "@anthropic-ai/sdk": "1.4.0",
     "@arethetypeswrong/cli": "0.18.5",
     "@assistant-ui/react": "0.14.26",
     "@assistant-ui/react-ai-sdk": "^1.3.0",
