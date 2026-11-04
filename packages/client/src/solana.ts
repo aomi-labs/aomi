@@ -46,6 +46,10 @@ export function solanaSigner(
     signTransaction: async ({ transactionBase64 }) => ({
       signedTransaction: signTransaction(transactionBase64, keypair),
     }),
+    signAllTransactions: async (inputs) =>
+      inputs.map(({ transactionBase64 }) => ({
+        signedTransaction: signTransaction(transactionBase64, keypair),
+      })),
     broadcastTransaction: async (signed, cluster) =>
       connection(cluster).sendRawTransaction(Buffer.from(signed, "base64")),
     signMessage: async ({ messageBase64 }) => ({

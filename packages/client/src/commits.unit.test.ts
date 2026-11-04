@@ -9,6 +9,7 @@ import {
   type CommitRecoveryStore,
   type CommitView,
   type EvmCommitMessage,
+  type SignableCommit,
 } from "./commits";
 import type { AomiClient } from "./client";
 import { PartialWalletExecutionError } from "./aa/execute";
@@ -2836,5 +2837,171 @@ describe("message commits", () => {
       projectCommitLifecycle({ ...view, state: "confirmed", signature: "c2ln" }),
     ).toMatchObject({ phase: "confirmed", label: "Signed" });
     controller.close();
+  });
+});
+
+describe("Solana batches", () => {
+  const member = (index: number): CommitView => ({
+    ...unsigned,
+    commit_id: `cmt-${index}`,
+    stage_id: `svm:${index}`,
+    batch: {
+      batch_id: "batch-1",
+      index,
+      ordered_stage_ids: ["svm:0", "svm:1"],
+      ordered_commit_ids: ["cmt-0", "cmt-1"],
+      sources: [],
+      predecessor_commit_id: index ? "cmt-0" : null,
+      review_digest: "batch-digest",
+    },
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "svm_transaction",
+        signer: "payer",
+        transaction_base64: `unsigned-${index}`,
+      },
+    },
+  });
+  function setup(capabilities: CommitCapabilities) {
+    const current = new Map(
+      [member(0), member(1)].map((view) => [view.commit_id, view]),
+    );
+    const order: string[] = [];
+    const request = vi.fn(
+      async (
+        method: string,
+        path: string,
+        options?: { body?: { kind: string; payloads?: string[] } },
+      ) => {
+        const id = decodeURIComponent(path.split("/")[3] ?? "");
+        const view = current.get(id)!;
+        if (method === "GET") return view;
+        const kind = options!.body!.kind;
+        order.push(`${kind}:${id}`);
+        if (kind === "renew") {
+          // A fresh blockhash is a new transaction at a new version.
+          const renewed: CommitView = {
+            ...view,
+            version: view.version + 1,
+            action: {
+              kind: "sign",
+              payload: {
+                kind: "svm_transaction",
+                signer: "payer",
+                transaction_base64: `renewed-${id}`,
+              },
+            },
+          };
+          current.set(id, renewed);
+          return renewed;
+        }
+        const next: CommitView = {
+          ...view,
+          version: view.version + 1,
+          state: "submitted",
+          action: null,
+          transaction_id: options!.body!.payloads![0]!,
+        };
+        current.set(id, next);
+        return next;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      capabilities,
+    );
+    for (const view of current.values()) controller.ingest(view);
+    return { controller, order, current };
+  }
+
+  it("signs every member in one signAll prompt, then reports them in order", async () => {
+    const sign = vi.fn(async () => ["one"]);
+    const signAll = vi.fn<NonNullable<CommitCapabilities["signAll"]>>(
+      async (members) =>
+        members.map(({ payload }) => `signed-${payload.transaction_base64}`),
+    );
+    const { controller, order, current } = setup({ sign, signAll });
+    await controller.execute("cmt-0");
+    expect(sign).not.toHaveBeenCalled();
+    expect(signAll).toHaveBeenCalledTimes(1);
+    expect(
+      signAll.mock.calls[0]![0].map(
+        ({ payload }) => payload.transaction_base64,
+      ),
+    ).toEqual(["renewed-cmt-0", "renewed-cmt-1"]);
+    expect(order).toEqual([
+      "renew:cmt-0",
+      "renew:cmt-1",
+      "signed:cmt-0",
+      "signed:cmt-1",
+    ]);
+    expect(current.get("cmt-1")!.transaction_id).toBe("signed-renewed-cmt-1");
+    expect(controller.plan(member(0)).prompts).toBe(1);
+    controller.close();
+  });
+
+  it("signs member by member in the same submit without signAll", async () => {
+    const sign = vi.fn(async (_commit: CommitView, payload: SignableCommit) => [
+      `signed-${(payload as { transaction_base64: string }).transaction_base64}`,
+    ]);
+    const { controller, order } = setup({ sign });
+    await controller.execute("cmt-0");
+    expect(sign.mock.calls.map(([commit]) => commit.commit_id)).toEqual([
+      "cmt-0",
+      "cmt-1",
+    ]);
+    expect(order).toEqual([
+      "renew:cmt-0",
+      "renew:cmt-1",
+      "signed:cmt-0",
+      "signed:cmt-1",
+    ]);
+    expect(controller.plan(member(0)).prompts).toBe(2);
+    controller.close();
+  });
+
+  it("signs a lone commit with one sign, never signAll", async () => {
+    const sign = vi.fn(async () => ["one"]);
+    const signAll = vi.fn();
+    const { controller, order } = setup({ sign, signAll });
+    // The later member no longer awaits a signature.
+    await controller.execute("cmt-1");
+    expect(signAll).not.toHaveBeenCalled();
+    expect(sign).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["renew:cmt-1", "signed:cmt-1"]);
+    controller.close();
+  });
+
+  it("asks a wallet with signAllTransactions once for the batch", async () => {
+    const signAllTransactions = vi.fn(
+      async (inputs: { transactionBase64: string }[]) =>
+        inputs.map(({ transactionBase64 }) => `signed-${transactionBase64}`),
+    );
+    const { signAll } = commitCapabilities({
+      svm: { address: "payer", signAllTransactions },
+    });
+    const members = [member(0), member(1)].map((commit) => ({
+      commit,
+      payload: commit.action!.payload as Extract<
+        SignableCommit,
+        { kind: "svm_transaction" }
+      >,
+    }));
+    await expect(signAll!(members)).resolves.toEqual([
+      "signed-unsigned-0",
+      "signed-unsigned-1",
+    ]);
+    expect(signAllTransactions).toHaveBeenCalledWith([
+      { transactionBase64: "unsigned-0", cluster: "localnet" },
+      { transactionBase64: "unsigned-1", cluster: "localnet" },
+    ]);
+    await expect(
+      signAll!([{ ...members[0]!, commit: { ...member(0), signer: "other" } }]),
+    ).rejects.toThrow("Connect the expected signing wallet");
+    expect(commitCapabilities({ svm: { address: "payer" } }).signAll).toBe(
+      undefined,
+    );
   });
 });

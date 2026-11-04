@@ -233,6 +233,19 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
           };
         }
       : undefined,
+    signAllTransactions: wallet.signAllSolanaTransactions
+      ? async (inputs) => {
+          const results = await wallet.signAllSolanaTransactions!(
+            inputs.map(({ transactionBase64, cluster }) =>
+              payload(transactionBase64, cluster),
+            ),
+          );
+          return results.map(({ signedTx }) => ({
+            signedTransaction: signedTx,
+            signature: extractPayerSignature(signedTx),
+          }));
+        }
+      : undefined,
     signAndSendTransaction: canSendSvm(wallet)
       ? async ({ transactionBase64, cluster }) => {
           const result = await sendSvm(

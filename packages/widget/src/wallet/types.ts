@@ -410,6 +410,10 @@ export type AomiWalletKit = {
   signSolanaTransaction?: (
     payload: WalletSolanaSignPayload,
   ) => Promise<{ signedTx: string }>;
+  /** Several transactions in one wallet prompt, answered in order. */
+  signAllSolanaTransactions?: (
+    payloads: WalletSolanaSignPayload[],
+  ) => Promise<{ signedTx: string }[]>;
   signSolanaMessage?: (
     payload: WalletSolanaSignMessagePayload,
   ) => Promise<{ signature: string }>;
