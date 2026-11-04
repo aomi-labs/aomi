@@ -113,3 +113,55 @@ describe("thread title persistence", () => {
     ]);
   });
 });
+
+describe("archive", () => {
+  const setup = (current: string) => {
+    const fetch = vi.fn(async () =>
+      Response.json({
+        id: current,
+        title: "t",
+        archived: true,
+        createdAt: 1,
+        updatedAt: 2,
+      }),
+    );
+    const client = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch,
+      guest: async () => "test-session-bearer",
+    });
+    const store = new ThreadStore({ initialThreadId: "open-thread" });
+    store.setCurrentThreadId("other-thread"); // creates its metadata
+    store.updateThreadMetadata("open-thread", { title: "Open" });
+    store.updateThreadMetadata("other-thread", { title: "Other" });
+    store.setCurrentThreadId(current);
+    const adapter = buildThreadListAdapter({
+      aomiClientRef: { current: client },
+      threadContext: store.getSnapshot(),
+    });
+    return { store, adapter, fetch };
+  };
+
+  it("leaves the open chat for a new empty one when it is archived", async () => {
+    const { store, adapter, fetch } = setup("open-thread");
+    await adapter.onArchive("open-thread");
+    const now = store.getSnapshot();
+    expect(now.currentThreadId).not.toBe("open-thread");
+    expect(now.getThreadMetadata(now.currentThreadId)).toMatchObject({
+      title: "",
+      status: "regular",
+    });
+    expect(store.getThreadMetadata("open-thread")?.status).toBe("archived");
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/agent/sessions/open-thread"),
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("keeps the open chat when another chat is archived", async () => {
+    const { store, adapter } = setup("open-thread");
+    await adapter.onArchive("other-thread");
+    expect(store.getSnapshot().currentThreadId).toBe("open-thread");
+    expect(store.getThreadMetadata("other-thread")?.status).toBe("archived");
+  });
+});

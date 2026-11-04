@@ -102,6 +102,8 @@ describe("send failure notices", () => {
       type: "error",
       title: "Too many requests",
       message: expect.stringMatching(/again in 30 seconds\.$/),
+      // Stays up: the composer keeps the draft and shows nothing else.
+      duration: Infinity,
     });
     expect(describeSendFailure(limited("3600"), false).notice.message).toMatch(
       /again in about 60 minutes\.$/,
