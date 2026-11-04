@@ -33,3 +33,23 @@ the edge (`aomi-edge-dev-1`) and the portal BFF (`aomi-bff-dev-1`,
 
 Both need `CONSUMER_BASE_SHA` and the two database variables above. Set
 `AOMI_PERF_PROFILE=1` to attach a CPU profile to the performance gate.
+
+## AI QA (advisory, real ChatRC)
+
+`pnpm ai-qa` has Claude drive a real Chromium page through the journey titles
+above (minus the ones that need fake-backend controls, an embedding page, a
+payment or a transaction) plus one signed-in session flow, on a hosted test
+Portal. It signs in with the injected test wallet and aborts any execution or
+transaction request. Each run writes `output/ai-qa/<run>/report.md`,
+`report.json`, screenshots and a transcript per flow. It never fails on what
+Claude finds; only a broken harness exits non-zero.
+
+```sh
+AOMI_HOSTED_E2E_PORTAL_URL=https://chat-rc.aomi.dev \
+AOMI_HOSTED_E2E_EVM_PRIVATE_KEY=0x<disposable unfunded key> \
+ANTHROPIC_API_KEY=... pnpm ai-qa --flows sidebar   # --list shows the flows
+```
+
+`AOMI_AI_QA_MAX_STEPS` (30 turns per flow) and `AOMI_AI_QA_MAX_INPUT_TOKENS`
+(6M for the run) bound the spend. product-mono's `ChatRC AI QA` workflow runs
+it with the rc environment's key.
