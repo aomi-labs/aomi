@@ -57,7 +57,7 @@ Each task gives one goal, taken from the title of a scripted journey test. That 
 
 How to work:
 - Start with snapshot. It returns the URL and the page's accessibility tree; target elements by role and accessible name from it. Take a screenshot when how something looks matters, or as evidence.
-- Sign in only when the goal needs an account: open "Sign in", choose "Connect MetaMask", then "Link wallet and sign in". The page carries an injected test wallet that signs only this site's sign-in challenge. Never type a password, email code, key or card number.
+- Sign in only when the goal needs an account: decline the cookie banner if it covers the page, open "Sign in" and choose "MetaMask EVM" under Wallets (confirm "Link wallet and sign in" if asked). The page carries an injected test wallet that signs only this site's sign-in challenge. Never type a password, email code, key or card number.
 - Real agent replies take up to a minute. Use wait, then snapshot, rather than concluding early.
 - Never try to send a transaction, approve a payment or leave the site; such requests are blocked and are not defects.
 - Report each defect you actually observe with report_finding, with steps someone else can follow from a fresh page. Do not report the test wallet, blocked transactions, or behaviour the goal does not cover.
