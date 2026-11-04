@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { CheckCircle2, ShieldCheck, TriangleAlert } from "lucide-react";
-import type {
-  AomiBindOnchainPolicy,
-  AomiOnchainAddress,
+import {
+  normalizeSolanaCluster,
+  type AomiBindOnchainPolicy,
+  type AomiOnchainAddress,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useShellAomi } from "@/account/transport";
@@ -23,12 +24,6 @@ import {
   toAtomic,
   type TokenCapInput,
 } from "./policy-api";
-
-function chainRef(cluster?: string): string {
-  if (cluster === "solana:devnet") return "devnet";
-  if (cluster === "solana:testnet") return "testnet";
-  return "mainnet-beta";
-}
 
 const CHAIN_WARNINGS = {
   drifted:
@@ -59,7 +54,8 @@ const INPUT =
 export function OnchainPolicySettings() {
   const wallet = useAomiWalletKit();
   const policies = useShellAomi().account.policies;
-  const network = chainRef(wallet.identity.svmCluster);
+  const network =
+    normalizeSolanaCluster(wallet.identity.svmCluster) ?? "solana:mainnet";
   // The account profile is the shared settings read; only the chain's Swig
   // context is fetched here, cached per chain in the display cache.
   const profileQuery = useAccountProfileQuery();
