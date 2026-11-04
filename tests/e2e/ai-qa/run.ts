@@ -299,6 +299,9 @@ async function runFlow(
     }
     return route.continue();
   });
+  // tsx compiles with esbuild's keepNames, which wraps functions in __name();
+  // the wallet's init script runs in the page, where that helper is missing.
+  await context.addInitScript("globalThis.__name ??= (target) => target;");
   await installHostedWallet(page, "evm");
   await page.goto(origin, { waitUntil: "domcontentloaded" });
 
