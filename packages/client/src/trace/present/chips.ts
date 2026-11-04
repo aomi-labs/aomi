@@ -52,6 +52,8 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Passed", icon: "success" };
     case "confirmed":
       return { label: "Confirmed", icon: "success" };
+    case "complete":
+      return { label: "Complete", icon: "success" };
     case "prepared":
       return { label: "Prepared", icon: "success" };
     case "incomplete":

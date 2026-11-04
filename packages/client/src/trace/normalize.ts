@@ -53,6 +53,9 @@ const chainInfoFromName = (name: string | undefined) => {
   );
 };
 
+// LI.FI names Solana by its own numeric id.
+const LIFI_SOLANA_CHAIN_ID = 1151111081099710;
+
 export const chainFact = (
   chainId: unknown,
   chainName?: unknown,
@@ -70,7 +73,13 @@ export const chainFact = (
   return {
     kind: "chain",
     value: resolvedId != null ? String(resolvedId) : (name ?? ""),
-    label: chain?.name ?? (name ? humanize(name) : `chain ${id}`),
+    label:
+      chain?.name ??
+      (name
+        ? humanize(name)
+        : id === LIFI_SOLANA_CHAIN_ID
+          ? "Solana"
+          : `chain ${id}`),
     source,
   };
 };

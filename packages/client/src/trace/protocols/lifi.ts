@@ -225,8 +225,28 @@ export const matchLifiStatus: ToolMatcher = ({
   return operation("lifi.bridge.status", rawLabel, [
     locationFact(result, asRecord(parsedArgs)),
     statusFact(result?.state),
+    result?.state === "completed" ? deliveredFact(result) : null,
     failedFact(resultRecord),
   ]);
+};
+
+// The amount the status service reports on the receiving leg.
+const deliveredFact = (result: Record<string, unknown>): ToolFact | null => {
+  const receipt = asRecord(result.observed_receipt);
+  const token = asRecord(receipt?.token);
+  const raw = asString(receipt?.amount_raw);
+  const decimals = Number(token?.decimals);
+  const symbol = asString(token?.symbol);
+  if (!raw || !/^\d+$/.test(raw) || !Number.isInteger(decimals) || !symbol) {
+    return null;
+  }
+  const padded = raw.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, padded.length - decimals);
+  const fraction = padded.slice(padded.length - decimals).replace(/0+$/, "");
+  return amountTextFact(
+    `${whole}${fraction ? `.${fraction}` : ""} ${symbol}`,
+    "primary",
+  );
 };
 
 export const lifi: ProtocolAdapter = {
@@ -273,7 +293,12 @@ export const lifi: ProtocolAdapter = {
       title: "fixed",
       fixedTitle: "Check LI.FI transfer",
       icon: SHAPE_ICONS.swap,
-      chipPlan: [{ kind: "route" }, { kind: "chain" }, { kind: "status" }],
+      chipPlan: [
+        { kind: "route" },
+        { kind: "chain" },
+        { kind: "status" },
+        { kind: "amount", role: "primary" },
+      ],
     },
   },
   tools: [

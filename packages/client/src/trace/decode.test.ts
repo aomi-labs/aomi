@@ -265,6 +265,28 @@ describe("tool interpreter", () => {
     expect(status.outcome).toBe("incomplete");
   });
 
+  it("names Solana and shows the delivered amount on a finished LI.FI bridge", () => {
+    const status = decode({
+      toolName: "lifi_get_status",
+      result: {
+        commit_id: "commit-1",
+        source_chain_id: 8453,
+        destination_chain_id: 1151111081099710,
+        state: "completed",
+        observed_receipt: {
+          chain_id: 1151111081099710,
+          token: { symbol: "USDC", decimals: 6 },
+          amount_raw: "1974046",
+        },
+      },
+    });
+    expect(labelsFor(status.chips)).toEqual([
+      "Base → Solana",
+      "Complete",
+      "1.97405 USDC",
+    ]);
+  });
+
   it("shows requested DefiLlama price tokens while the lookup is pending", () => {
     const step = decode({
       toolName: "defillama_prices",
