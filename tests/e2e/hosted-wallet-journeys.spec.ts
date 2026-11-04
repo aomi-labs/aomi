@@ -59,8 +59,12 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   await expect(page.getByTestId("portal-shell")).toBeVisible({
     timeout: 60_000,
   });
-  const cookies = page.getByRole("button", { name: "Decline", exact: true });
-  if (await cookies.isVisible()) await cookies.click();
+  // The cookie banner renders late and covers the header; decline it whenever
+  // it shows up.
+  await page.addLocatorHandler(
+    page.getByRole("button", { name: "Decline", exact: true }),
+    (decline) => decline.click(),
+  );
   await page.getByRole("button", { name: "Sign in", exact: true }).click({
     timeout: 15_000,
   });
@@ -70,7 +74,11 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   await expect(picker).toBeVisible();
   await picker
     .getByRole("button", {
-      name: family === "evm" ? "Connect MetaMask" : "Connect Phantom",
+      // "MetaMask EVM" in the current picker, "Connect MetaMask" before it.
+      name:
+        family === "evm"
+          ? /^(?:Connect MetaMask|MetaMask EVM)$/
+          : /^(?:Connect Phantom|Phantom SVM)$/,
     })
     .click();
   const finish = page
@@ -78,12 +86,21 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
     .getByRole("button", {
       name: "Link wallet and sign in",
     });
-  await expect(finish).toBeEnabled({ timeout: 30_000 });
-  await finish.click();
   const segment = family === "evm" ? "siwe" : "siws";
+  // The current picker signs in on the wallet click; the earlier one asked
+  // for a second confirmation. Confirm only when that dialog shows.
   await expect
-    .poll(() => authStatuses, { timeout: 30_000 })
-    .toContain(`200 /api/auth/${segment}/verify`);
+    .poll(
+      async () => {
+        if (authStatuses.includes(`200 /api/auth/${segment}/verify`))
+          return true;
+        if ((await finish.isVisible()) && (await finish.isEnabled()))
+          await finish.click().catch(() => undefined);
+        return false;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
   expect(authStatuses).toContain(`200 /api/auth/${segment}/nonce`);
   expect(authStatuses).toContain(`200 /api/auth/${segment}/verify`);
   expect(wallet.signatureCount).toBe(1);
@@ -242,39 +259,70 @@ test("EVM session and chat history survive a reload, and sign-out ends both", as
   const before = await browserJson<Account>(page, "/v1/account");
   const probe = `Session persistence probe ${Date.now().toString(36)}. Reply with one word.`;
   const response = await sendPrompt(page, probe);
-  const sessionId = ((await response.json()) as { session_id?: string }).session_id;
+  const sessionId = ((await response.json()) as { session_id?: string })
+    .session_id;
   expect(sessionId).toBeTruthy();
   await expectSettledReply(page, response);
   const thread = `/v1/agent/chat/${encodeURIComponent(sessionId!)}`;
 
   // Reload: same Better Auth user and account, and the thread reads back with the probe.
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("portal-shell")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("portal-shell")).toBeVisible({
+    timeout: 60_000,
+  });
   const after = await browserJson<Account>(page, "/v1/account");
   expect(after.user?.id).toBe(before.user?.id);
-  expect(after.session?.betterAuthUserId).toBe(before.session?.betterAuthUserId);
-  const history = await browserJson<{ events?: Array<{ content?: string }> }>(page, thread);
-  expect(history.events?.some((event) => event.content?.includes(probe))).toBe(true);
+  expect(after.session?.betterAuthUserId).toBe(
+    before.session?.betterAuthUserId,
+  );
+  const history = await browserJson<{ events?: Array<{ content?: string }> }>(
+    page,
+    thread,
+  );
+  expect(history.events?.some((event) => event.content?.includes(probe))).toBe(
+    true,
+  );
   await expect
-    .poll(async () => (await browserJson<{ sessions?: Array<{ id?: string; sessionId?: string }> }>(page, "/v1/agent/sessions")).sessions?.some(
-      (entry) => (entry.id ?? entry.sessionId) === sessionId,
-    ), { timeout: 30_000 })
+    .poll(
+      async () =>
+        (
+          await browserJson<{
+            sessions?: Array<{ id?: string; sessionId?: string }>;
+          }>(page, "/v1/agent/sessions")
+        ).sessions?.some(
+          (entry) => (entry.id ?? entry.sessionId) === sessionId,
+        ),
+      { timeout: 30_000 },
+    )
     .toBe(true);
 
   // Another browser with no cookie never reads the thread.
   const stranger = await browser.newContext();
-  const strangerStatus = (await stranger.request.get(new URL(thread, hostedPortalUrl()).href)).status();
+  const strangerStatus = (
+    await stranger.request.get(new URL(thread, hostedPortalUrl()).href)
+  ).status();
   await stranger.close();
   expect([401, 403, 404]).toContain(strangerStatus);
 
   // Sign out: the session ends and the thread is no longer readable from this browser.
-  const signOut = await page.evaluate(async () =>
-    (await fetch("/api/auth/sign-out", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: "{}" })).status,
+  const signOut = await page.evaluate(
+    async () =>
+      (
+        await fetch("/api/auth/sign-out", {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        })
+      ).status,
   );
   expect(signOut).toBe(200);
   const session = await browserJson<Session>(page, "/api/auth/get-session");
   expect(session?.user?.id).toBeFalsy();
-  const afterSignOut = await page.evaluate(async (path) => (await fetch(path, { credentials: "include" })).status, thread);
+  const afterSignOut = await page.evaluate(
+    async (path) => (await fetch(path, { credentials: "include" })).status,
+    thread,
+  );
   expect(afterSignOut).not.toBe(200);
 });
 
