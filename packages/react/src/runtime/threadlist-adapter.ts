@@ -92,6 +92,21 @@ export function buildThreadListAdapter({
     });
   };
 
+  /** Open a fresh, empty local chat and make it current. */
+  const openNewThread = () => {
+    const threadId = generateUUID();
+    threadContext.setThreadMetadata((prev) =>
+      new Map(prev).set(threadId, {
+        title: "",
+        status: "regular",
+        lastActiveAt: new Date().toISOString(),
+        control: getInitialControl(),
+      }),
+    );
+    threadContext.setCurrentThreadId(threadId);
+    threadContext.bumpThreadViewKey();
+  };
+
   return {
     threadId: threadContext.currentThreadId,
     isLoading,
@@ -103,17 +118,7 @@ export function buildThreadListAdapter({
       if (!isRemoteThread(currentThreadId)) return;
 
       cleanupEmptyLocalThread();
-      const threadId = generateUUID();
-      threadContext.setThreadMetadata((prev) =>
-        new Map(prev).set(threadId, {
-          title: "",
-          status: "regular",
-          lastActiveAt: new Date().toISOString(),
-          control: getInitialControl(),
-        }),
-      );
-      threadContext.setCurrentThreadId(threadId);
-      threadContext.bumpThreadViewKey();
+      openNewThread();
     },
 
     onSwitchToThread: (threadId: string) => {
@@ -145,6 +150,8 @@ export function buildThreadListAdapter({
 
     onArchive: async (threadId: string) => {
       threadContext.updateThreadMetadata(threadId, { status: "archived" });
+      // An archived chat leaves the open view at once, like New chat.
+      if (threadContext.currentThreadId === threadId) openNewThread();
 
       try {
         await aomiClientRef.current.agent.sessions.update(threadId, {

@@ -36,7 +36,16 @@ import type { ThreadOrigin } from "@aomi-labs/client";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
+import { useOptionalSidebar } from "@/ui/sidebar";
 import { testIds } from "@/test-ids";
+
+/** Closes the mobile sidebar sheet; the desktop sidebar stays as it is. */
+function useCloseMobileSidebar() {
+  const sidebar = useOptionalSidebar();
+  return () => {
+    if (sidebar?.isMobile) sidebar.setOpenMobile(false);
+  };
+}
 
 export const ThreadList: FC = () => {
   return (
@@ -51,10 +60,12 @@ export const ThreadList: FC = () => {
 };
 
 const ThreadListNew: FC = () => {
+  const closeMobileSidebar = useCloseMobileSidebar();
   return (
     <ThreadListPrimitive.New asChild>
       <Button
         data-testid={testIds.newChat}
+        onClick={closeMobileSidebar}
         className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors"
         variant="ghost"
       >
@@ -133,6 +144,7 @@ const ThreadListRow: FC<{ id: string }> = ({ id }) => {
 
 const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
+  const closeMobileSidebar = useCloseMobileSidebar();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
   const metadata = runtime?.getThreadMetadata(thread.id);
@@ -261,7 +273,10 @@ const ThreadListItem: FC = () => {
         </form>
       ) : (
         <>
-          <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
+          <ThreadListItemPrimitive.Trigger
+            onClick={closeMobileSidebar}
+            className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start"
+          >
             {/* Sky dot marks the active session; it blinks while Aomi works
                 and turns amber while a wallet request waits on the user. Any
                 chat with a trade waiting for approval keeps an amber dot. */}
