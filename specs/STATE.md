@@ -2,6 +2,20 @@
 
 ## Last Updated
 
+2026-11-04 — SOLANA PARITY F2b (`feat/solana-parity-2`).
+  Agent contract and backend fixtures regenerated (family-scoped
+  `/v1/pipeline/{evm,svm}/commits`, `family` on commit results, Solana safety
+  fields, no signing-requests route); `update-backend-openapi.mjs` now exports
+  both documents from the `manager` crate and can read them from files. SDK:
+  one generic family transport sends `transactionSafetyMode` on every Solana
+  step, `Build.commit` picks the controller by `result.family`, and a Solana
+  commit follows `/v1/pipeline/svm/commits`; the portal route policy covers it.
+  Trace: every Solana tool has a chip like its EVM pair (holdings USD total,
+  stage action, simulate legs + summed compute, commit signature); EVM holdings
+  and commits gained the same USD total and hash chip; `spl_token` reads
+  `SPL Token`. Pending: API reports need a package build (blocked while :3453
+  runs).
+
 2026-11-04 — SOLANA PARITY F2a (`feat/solana-parity-2`).
   A Solana commit batch is signed once: `CommitController` renews every later
   member still awaiting a signature, asks `signAll` (from
