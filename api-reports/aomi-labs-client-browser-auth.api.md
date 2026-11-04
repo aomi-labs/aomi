@@ -5,7 +5,7 @@
 ```ts
 
 import { anonymousClient } from 'better-auth/client/plugins';
-import * as better_auth_react from 'better-auth/react';
+import * as better_auth_client from 'better-auth/client';
 import { BetterAuthClientPlugin } from 'better-auth/client';
 import { BetterFetchResponse } from 'better-auth/client';
 import { createAuthClient } from 'better-auth/react';
@@ -37,29 +37,29 @@ export function aomiSiwsClient(): {
     readonly getActions: ($fetch: AuthFetch) => {
         siws: {
             nonce: <Options extends {
-                cache?: RequestCache | undefined;
+                method?: string | undefined;
                 credentials?: RequestCredentials | undefined;
+                cache?: RequestCache | undefined;
+                signal?: (AbortSignal | null) | undefined;
+                mode?: RequestMode | undefined;
                 integrity?: string | undefined;
                 keepalive?: boolean | undefined;
-                method?: string | undefined;
-                mode?: RequestMode | undefined;
                 priority?: RequestPriority | undefined;
                 redirect?: RequestRedirect | undefined;
                 referrer?: string | undefined;
                 referrerPolicy?: ReferrerPolicy | undefined;
-                signal?: (AbortSignal | null) | undefined;
                 window?: null | undefined;
-                onRequest?: (<T extends Record<string, any>>(context: better_auth_react.RequestContext<T>) => Promise<better_auth_react.RequestContext | void> | better_auth_react.RequestContext | void) | undefined;
-                onResponse?: ((context: better_auth_react.ResponseContext) => Promise<Response | void | better_auth_react.ResponseContext> | Response | better_auth_react.ResponseContext | void) | undefined;
-                onSuccess?: ((context: better_auth_react.SuccessContext<SiwsNonceResponse>) => Promise<void> | void) | undefined;
-                onError?: ((context: better_auth_react.ErrorContext) => Promise<void> | void) | undefined;
-                onRetry?: ((response: better_auth_react.ResponseContext) => Promise<void> | void) | undefined;
+                onRequest?: (<T extends Record<string, any>>(context: better_auth_client.RequestContext<T>) => Promise<better_auth_client.RequestContext | void> | better_auth_client.RequestContext | void) | undefined;
+                onResponse?: ((context: better_auth_client.ResponseContext) => Promise<Response | void | better_auth_client.ResponseContext> | Response | better_auth_client.ResponseContext | void) | undefined;
+                onSuccess?: ((context: better_auth_client.SuccessContext<SiwsNonceResponse>) => Promise<void> | void) | undefined;
+                onError?: ((context: better_auth_client.ErrorContext) => Promise<void> | void) | undefined;
+                onRetry?: ((response: better_auth_client.ResponseContext) => Promise<void> | void) | undefined;
                 hookOptions?: {
                     cloneResponse?: boolean;
                 } | undefined;
                 timeout?: number | undefined;
-                customFetchImpl?: better_auth_react.FetchEsque | undefined;
-                plugins?: better_auth_react.BetterFetchPlugin[] | undefined;
+                customFetchImpl?: better_auth_client.FetchEsque | undefined;
+                plugins?: better_auth_client.BetterFetchPlugin[] | undefined;
                 baseURL?: string | undefined;
                 throw?: boolean | undefined;
                 auth?: ({
@@ -76,8 +76,8 @@ export function aomiSiwsClient(): {
                 }) | undefined;
                 headers?: {} | {
                     [x: string]: string | undefined;
-                    accept?: ((string & {}) | "application/json" | "text/plain" | "application/octet-stream") | undefined;
-                    "content-type"?: ((string & {}) | "application/json" | "text/plain" | "application/octet-stream" | "application/x-www-form-urlencoded" | "multipart/form-data") | undefined;
+                    accept?: ("application/json" | (string & {}) | "text/plain" | "application/octet-stream") | undefined;
+                    "content-type"?: ("application/json" | (string & {}) | "application/x-www-form-urlencoded" | "text/plain" | "application/octet-stream" | "multipart/form-data") | undefined;
                     authorization?: ((string & {}) | `Bearer ${string}` | `Basic ${string}`) | undefined;
                 } | undefined;
                 body?: Partial<SiwsNonceRequest> | undefined;
@@ -85,38 +85,38 @@ export function aomiSiwsClient(): {
                 params?: undefined;
                 duplex?: "full" | "half" | undefined;
                 jsonParser?: ((text: string) => Promise<any> | any) | undefined;
-                retry?: better_auth_react.RetryOptions | undefined;
+                retry?: better_auth_client.RetryOptions | undefined;
                 retryAttempt?: number | undefined;
-                output?: (better_auth_react.StandardSchemaV1 | typeof Blob | typeof File) | undefined;
-                errorSchema?: better_auth_react.StandardSchemaV1 | undefined;
+                output?: (better_auth_client.StandardSchemaV1 | typeof Blob | typeof File) | undefined;
+                errorSchema?: better_auth_client.StandardSchemaV1 | undefined;
                 disableValidation?: boolean | undefined;
             } = {}>(request: SiwsNonceRequest & {
                 fetchOptions?: Options | undefined;
             }, fetchOptions?: Options | undefined) => Promise<BetterFetchResponse<SiwsNonceResponse, SiwsError, Options["throw"] extends true ? true : false>>;
             verify: <Options extends {
-                cache?: RequestCache | undefined;
+                method?: string | undefined;
                 credentials?: RequestCredentials | undefined;
+                cache?: RequestCache | undefined;
+                signal?: (AbortSignal | null) | undefined;
+                mode?: RequestMode | undefined;
                 integrity?: string | undefined;
                 keepalive?: boolean | undefined;
-                method?: string | undefined;
-                mode?: RequestMode | undefined;
                 priority?: RequestPriority | undefined;
                 redirect?: RequestRedirect | undefined;
                 referrer?: string | undefined;
                 referrerPolicy?: ReferrerPolicy | undefined;
-                signal?: (AbortSignal | null) | undefined;
                 window?: null | undefined;
-                onRequest?: (<T extends Record<string, any>>(context: better_auth_react.RequestContext<T>) => Promise<better_auth_react.RequestContext | void> | better_auth_react.RequestContext | void) | undefined;
-                onResponse?: ((context: better_auth_react.ResponseContext) => Promise<Response | void | better_auth_react.ResponseContext> | Response | better_auth_react.ResponseContext | void) | undefined;
-                onSuccess?: ((context: better_auth_react.SuccessContext<SiwsVerifyResponse>) => Promise<void> | void) | undefined;
-                onError?: ((context: better_auth_react.ErrorContext) => Promise<void> | void) | undefined;
-                onRetry?: ((response: better_auth_react.ResponseContext) => Promise<void> | void) | undefined;
+                onRequest?: (<T extends Record<string, any>>(context: better_auth_client.RequestContext<T>) => Promise<better_auth_client.RequestContext | void> | better_auth_client.RequestContext | void) | undefined;
+                onResponse?: ((context: better_auth_client.ResponseContext) => Promise<Response | void | better_auth_client.ResponseContext> | Response | better_auth_client.ResponseContext | void) | undefined;
+                onSuccess?: ((context: better_auth_client.SuccessContext<SiwsVerifyResponse>) => Promise<void> | void) | undefined;
+                onError?: ((context: better_auth_client.ErrorContext) => Promise<void> | void) | undefined;
+                onRetry?: ((response: better_auth_client.ResponseContext) => Promise<void> | void) | undefined;
                 hookOptions?: {
                     cloneResponse?: boolean;
                 } | undefined;
                 timeout?: number | undefined;
-                customFetchImpl?: better_auth_react.FetchEsque | undefined;
-                plugins?: better_auth_react.BetterFetchPlugin[] | undefined;
+                customFetchImpl?: better_auth_client.FetchEsque | undefined;
+                plugins?: better_auth_client.BetterFetchPlugin[] | undefined;
                 baseURL?: string | undefined;
                 throw?: boolean | undefined;
                 auth?: ({
@@ -133,8 +133,8 @@ export function aomiSiwsClient(): {
                 }) | undefined;
                 headers?: {} | {
                     [x: string]: string | undefined;
-                    accept?: ((string & {}) | "application/json" | "text/plain" | "application/octet-stream") | undefined;
-                    "content-type"?: ((string & {}) | "application/json" | "text/plain" | "application/octet-stream" | "application/x-www-form-urlencoded" | "multipart/form-data") | undefined;
+                    accept?: ("application/json" | (string & {}) | "text/plain" | "application/octet-stream") | undefined;
+                    "content-type"?: ("application/json" | (string & {}) | "application/x-www-form-urlencoded" | "text/plain" | "application/octet-stream" | "multipart/form-data") | undefined;
                     authorization?: ((string & {}) | `Bearer ${string}` | `Basic ${string}`) | undefined;
                 } | undefined;
                 body?: Partial<SiwsVerifyRequest> | undefined;
@@ -142,10 +142,10 @@ export function aomiSiwsClient(): {
                 params?: undefined;
                 duplex?: "full" | "half" | undefined;
                 jsonParser?: ((text: string) => Promise<any> | any) | undefined;
-                retry?: better_auth_react.RetryOptions | undefined;
+                retry?: better_auth_client.RetryOptions | undefined;
                 retryAttempt?: number | undefined;
-                output?: (better_auth_react.StandardSchemaV1 | typeof Blob | typeof File) | undefined;
-                errorSchema?: better_auth_react.StandardSchemaV1 | undefined;
+                output?: (better_auth_client.StandardSchemaV1 | typeof Blob | typeof File) | undefined;
+                errorSchema?: better_auth_client.StandardSchemaV1 | undefined;
                 disableValidation?: boolean | undefined;
             } = {}>(request: SiwsVerifyRequest & {
                 fetchOptions?: Options | undefined;
@@ -158,12 +158,9 @@ export function aomiSiwsClient(): {
 export const authClient: AomiBrowserAuthClient;
 
 // @public (undocumented)
-export type SiwsChainId = "solana:mainnet" | "solana:devnet" | "solana:testnet";
-
-// @public (undocumented)
 export interface SiwsNonceRequest {
     // (undocumented)
-    chainId?: SiwsChainId;
+    chainId?: SvmCluster;
     // (undocumented)
     intent?: "sign-in" | "link";
     // (undocumented)
@@ -196,7 +193,7 @@ export type SiwsVerifyResponse = {
     user: {
         id: string;
         walletAddress: string;
-        chainId: SiwsChainId;
+        chainId: SvmCluster;
     };
 } & ({
     token: string;

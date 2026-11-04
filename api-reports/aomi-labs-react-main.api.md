@@ -443,6 +443,7 @@ export function useActions(session: Session | undefined): {
                     name?: string | null;
                     decimals?: number | null;
                     chainId?: number | null;
+                    cluster?: string | null;
                     step?: number | null;
                 }[];
                 fees: {
@@ -597,6 +598,7 @@ export function useActions(session: Session | undefined): {
                     name?: string | null;
                     decimals?: number | null;
                     chainId?: number | null;
+                    cluster?: string | null;
                     step?: number | null;
                 }[];
                 fees: {

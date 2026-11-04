@@ -14,6 +14,7 @@ import { EvmWallet } from '@aomi-labs/client';
 import { GetAccountBearer } from '@aomi-labs/client';
 import { JSX } from 'react/jsx-runtime';
 import { ProviderCredential } from '@aomi-labs/client';
+import { SvmCluster } from '@aomi-labs/client';
 import { WalletEip712Payload } from '@aomi-labs/client';
 import { WalletSolanaSignMessagePayload } from '@aomi-labs/client';
 import { WalletSolanaSignPayload } from '@aomi-labs/client';

@@ -123,6 +123,8 @@ export type ViemSignMessageArgs = {
 
 /** A Solana cluster, in the one spelling clients use. */
 export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+/** @deprecated Use `SvmCluster`; kept one release for existing consumers. */
+export type SiwsChainId = SvmCluster;
 
 /**
  * A Solana cluster label as `SvmCluster`. The old spellings (`mainnet-beta`,

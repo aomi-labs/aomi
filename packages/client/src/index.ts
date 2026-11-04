@@ -403,6 +403,7 @@ export type {
   WalletSolanaSignPayload,
   WalletSolanaSignMessagePayload,
   SvmCluster,
+  SiwsChainId,
   ViemSignMessageArgs,
   ViemSignTypedDataArgs,
 } from "./wallet-utils";
