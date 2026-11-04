@@ -21,7 +21,17 @@ test("rename and archive update the sidebar", async ({ widget, agent }) => {
   await expect(widget.rows.filter({ hasText: "Renamed journey" })).toHaveCount(
     0,
   );
-  expect(
-    agent.sessions().some((s) => s.title === "Renamed journey" && s.archived),
-  ).toBe(true);
+  const archived = agent
+    .sessions()
+    .find((s) => s.title === "Renamed journey" && s.archived);
+  expect(archived).toBeTruthy();
+  // The archived chat was the open one: the view moves to an empty chat at
+  // once, without a reload, and the URL stops naming the archived thread.
+  await expect(
+    widget.replies.filter({ hasText: "Fake reply: sidebar journey" }),
+  ).toHaveCount(0);
+  await expect(widget.userMessages).toHaveCount(0);
+  await expect(widget.input).toBeVisible();
+  await expect(widget.input).toHaveText("");
+  expect(widget.page.url()).not.toContain(archived!.id);
 });

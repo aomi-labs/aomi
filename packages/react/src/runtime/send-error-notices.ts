@@ -78,6 +78,9 @@ export function describeSendFailure(
         type: "error",
         title: "Too many requests",
         message: `Too many guest sessions were started from your network. Send your message again ${wait}.`,
+        // Nothing else on the page shows the message was not sent, so the
+        // notice stays until the user dismisses it.
+        duration: Infinity,
       },
     };
   }
