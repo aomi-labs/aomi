@@ -1,7 +1,12 @@
 import { asRecord, asString, chainFact, statusFact } from "../../normalize";
 import { toolIdentity } from "../../identity";
 import type { ToolMatcher } from "../../types";
-import { commitStateFact, commitViews, messageChainId } from "./commit-view";
+import {
+  commitChainRef,
+  commitStateFact,
+  commitViews,
+  messageChainId,
+} from "./commit-view";
 import { svmClusterFact } from "../svm/context";
 import { failedFact, operation } from "../operation";
 
@@ -16,6 +21,7 @@ export const matchSignMessage: ToolMatcher = ({
   const count = views.length || 1;
   const chainId = messageChainId(views, args);
   const cluster =
+    commitChainRef(views, "svm") ??
     asString(resultRecord?.cluster) ??
     asString(asRecord(resultRecord?.domain)?.cluster) ??
     asString(asRecord(args?.domain)?.cluster);

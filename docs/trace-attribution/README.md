@@ -13,6 +13,12 @@ The merged `common_erc20` skill also uses `evm_get_token_holdings`; its row show
 network, returned versus matching holdings, holder, and a warning or incomplete
 state when reported. Token metadata from the indexer stays in the raw details.
 These are core EVM tools, so listing them in a skill does not imply skill ownership.
+Both families' holdings rows end with the priced holdings' USD total. Every
+Solana tool row mirrors its EVM pair: `svm_get_token_holdings` shows the USD
+total then each amount, `svm_stage_ix` its action (the instruction's kind),
+`svm_simulate` its legs, summed compute units and verdict, and a one-transaction
+`svm_commit_txs` the landed signature, as `evm_commit_txs` shows the hash. The
+`spl_token` skill reads `SPL Token` with the coin mark, like `common_erc20`.
 
 Tool ownership is metadata-driven for every app:
 

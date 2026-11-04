@@ -66,6 +66,7 @@ export const skillIconSources = {
 export const skillIconGenericAliases = {
   dummy: "FlaskConicalIcon",
   common_erc20: "CoinsIcon",
+  spl_token: "CoinsIcon",
 } as const;
 
 /** Built-in skills with no confidently attributable mark in this package. */

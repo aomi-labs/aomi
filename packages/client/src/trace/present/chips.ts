@@ -2,6 +2,7 @@ import { shortAddress } from "../../short-address";
 
 import { SHAPE_ICONS, STAGED_ACTION_ICON_REGISTRY } from "../registry";
 
+import { skillBrandLabel } from "../../mentions";
 import { humanize } from "../normalize";
 import type { ToolChip, ToolFact } from "../types";
 
@@ -187,14 +188,16 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value, icon: "swap" };
     case "selector":
       return { label: fact.label ?? fact.value };
-    case "skill":
+    case "skill": {
       // Renderers with a skill catalog replace this by `skillId`.
+      const name = fact.value.split("/").at(-1) ?? fact.value;
       return {
         id: `skill:${fact.value}`,
         skillId: fact.value,
-        label: humanize(fact.value.split("/").at(-1) ?? fact.value),
+        label: skillBrandLabel(name.toLowerCase()) ?? humanize(name),
         icon: `skill:${fact.value}`,
       };
+    }
     case "query":
       return {
         label:

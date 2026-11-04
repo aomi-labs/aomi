@@ -48,6 +48,7 @@ const BUILT_IN_SKILL_IDS = [
   "robinhood_stocks",
   "rocket_pool",
   "sanctum",
+  "spl_token",
   "squads",
   "stargate",
   "sushiswap",
@@ -156,6 +157,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(45);
+    expect(manifestIds).toHaveLength(46);
   });
 });

@@ -5,6 +5,7 @@ import {
   asString,
   statusFact,
   uniqueFacts,
+  usdTotalFact,
 } from "../../normalize";
 import { isErrorResult, operation } from "../operation";
 import type { ToolFact, ToolMatcher } from "../../types";
@@ -133,7 +134,13 @@ export const matchSvmTokenHoldings: ToolMatcher = ({
 
   return {
     id: "svm.account.token_holdings",
-    facts: uniqueFacts([svmClusterFact(resultRecord.cluster), ...amounts]),
+    facts: uniqueFacts([
+      svmClusterFact(resultRecord.cluster),
+      ...[usdTotalFact(compactHoldings)].filter(
+        (fact): fact is ToolFact => fact != null,
+      ),
+      ...amounts,
+    ]),
     confidence: "high",
     rawLabel,
   };

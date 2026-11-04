@@ -138,6 +138,23 @@ export const amountFact = (
   };
 };
 
+/** The summed `value_usd` of priced holdings, both families' shape; nothing
+ * when none is priced. */
+export const usdTotalFact = (holdings: unknown[]): ToolFact | null => {
+  const values = holdings
+    .map((holding) => Number(asString(asRecord(holding)?.value_usd)))
+    .filter(Number.isFinite);
+  if (values.length === 0) return null;
+  const total = values.reduce((sum, value) => sum + value, 0).toFixed(2);
+  return {
+    kind: "amount",
+    role: "secondary",
+    value: total,
+    label: `$${Number(total).toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    source: "result",
+  };
+};
+
 export const statusFact = (
   value: unknown,
   source: FactSource = "result",

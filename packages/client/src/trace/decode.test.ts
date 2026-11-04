@@ -527,10 +527,7 @@ describe("tool interpreter", () => {
     for (const [toolName, args] of [
       ["evm_sync_chain", { chain_id: 42161 }],
       ["evm_get_contract", { chain_id: 42161, contract_type: "Aave Pool" }],
-      [
-        "evm_call",
-        { chain_id: 42161, function_signature: "withdraw()" },
-      ],
+      ["evm_call", { chain_id: 42161, function_signature: "withdraw()" }],
     ] as const) {
       const step = decode({
         toolName,
@@ -658,7 +655,12 @@ describe("tool interpreter", () => {
           ],
         },
       });
-      expect(labelsFor(step.chips)).toEqual(["Base", "1 tx", "Confirmed"]);
+      expect(labelsFor(step.chips)).toEqual([
+        "Base",
+        "1 tx",
+        "0xbbbbb…bbbbb",
+        "Confirmed",
+      ]);
       expect(step.outcome).toBe("success");
     });
 
@@ -1932,7 +1934,9 @@ describe("tool interpreter", () => {
   });
 
   it("uses the exact Get balance title before and after tool errors", () => {
-    expect(decode({ toolName: "evm_get_token_balance" }).title).toBe("Get balance");
+    expect(decode({ toolName: "evm_get_token_balance" }).title).toBe(
+      "Get balance",
+    );
     expect(
       decode({
         toolName: "evm_get_token_balance",
@@ -2208,8 +2212,8 @@ describe("tool interpreter", () => {
           logs: ["Program 11111111111111111111111111111111 success"],
           units_consumed: 450,
         },
-        last_batch_status: "SVM ixs [1] passed",
-        ix_ids: [1],
+        last_batch_status: "SVM [1] passed",
+        tx_ids: [1],
       },
     });
 
@@ -2309,5 +2313,202 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Delegated: approvals-auditor");
     expect(labelsFor(step.chips)).toEqual([]);
     expect(step.failed).toBe(true);
+  });
+});
+
+describe("Solana tool chips", () => {
+  const wallet = "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW";
+  const usdc = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  const signature =
+    "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
+  const commit = (over: Record<string, unknown>) => ({
+    chain_family: "svm",
+    chain_ref: "solana:mainnet",
+    broadcaster: "wallet",
+    ...over,
+  });
+
+  // Every Solana tool the model is offered, in the shapes the backend returns.
+  const cases: [string, string | undefined, Record<string, unknown>][] = [
+    [
+      "svm_get_context",
+      undefined,
+      { cluster: "solana:mainnet", current_slot: 433493809 },
+    ],
+    [
+      "svm_get_account_info",
+      undefined,
+      {
+        pubkey: wallet,
+        cluster: "solana:mainnet",
+        found: true,
+        lamports: 16750126,
+        owner_program_id: "11111111111111111111111111111111",
+        executable: false,
+      },
+    ],
+    [
+      "svm_get_program",
+      '{"program_id":null,"name":"orca","instruction":"swap"}',
+      {
+        found: true,
+        programs: [
+          {
+            program_id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            cluster: "solana:mainnet",
+            name: "Orca Whirlpools",
+          },
+        ],
+      },
+    ],
+    [
+      "svm_get_token_holdings",
+      "{}",
+      {
+        cluster: "solana:mainnet",
+        owner: wallet,
+        holdings: [
+          {
+            mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+            symbol: "JitoSOL",
+            ui_amount_string: "0.2",
+            value_usd: "41.23",
+          },
+          {
+            mint: usdc,
+            symbol: "USDC",
+            ui_amount_string: "12.5",
+            value_usd: "12.50",
+          },
+          {
+            mint: "UnknownMint111111111111111111111111111111111",
+            ui_amount_string: "7",
+            value_usd: null,
+          },
+        ],
+        accounts: [],
+      },
+    ],
+    [
+      "svm_derive_address",
+      undefined,
+      {
+        address: "6cSHGy5AjHEeqwema69qBVz1mMmk5MKUyztLJqqPQmPd",
+        kind: "associated_token_account",
+        owner: wallet,
+        mint: usdc,
+      },
+    ],
+    [
+      "svm_stage_ix",
+      JSON.stringify({
+        description: "Send 0.01 SOL",
+        instructions: [
+          {
+            program_id: "11111111111111111111111111111111",
+            encode: { instruction: "transfer", args: '{"lamports":10000000}' },
+          },
+        ],
+      }),
+      {
+        ix_ids: [4],
+        instructions: [{ kind: "system_transfer", cluster: "solana:mainnet" }],
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":4}]}',
+      {
+        simulation: { err: null, units_consumed: 450 },
+        tx_ids: [4],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":1},{"id":2},{"id":3}]}',
+      {
+        simulation: { err: null },
+        transactions: [
+          { ids: [1, 2], simulation: { err: null, units_consumed: 120000 } },
+          { ids: [3], simulation: { err: null, units_consumed: 30000 } },
+        ],
+        tx_ids: [1, 2, 3],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":4}]}',
+      {
+        simulation: {
+          err: { InstructionError: [0, { Custom: 6001 }] },
+          units_consumed: 9000,
+        },
+        tx_ids: [4],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_commit_txs",
+      '{"tx_ids":[4]}',
+      {
+        commits: [commit({ state: "confirmed", transaction_id: signature })],
+      },
+    ],
+    [
+      "svm_commit_message",
+      '{"message":"Sign in"}',
+      { commits: [commit({ state: "needs_signature" })] },
+    ],
+    ["svm_discard_tx", '{"tx_ids":[4]}', { discarded: [4] }],
+    [
+      "activate_skills",
+      '{"skill_ids":["spl_token"]}',
+      { activated: ["spl_token"] },
+    ],
+  ];
+
+  it("gives every Solana tool a titled step with chips like its EVM pair", () => {
+    const rows = cases.map(([toolName, argsText, result]) => {
+      const step = decode({ toolName, argsText, result });
+      return `${toolName}: ${step.title} | ${step.chips
+        .map((chip) => `${chip.label} (${chip.icon})`)
+        .join(" | ")}`;
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      [
+        "svm_get_context: Check network | Solana (solana) | 433,493,809 (block)",
+        "svm_get_account_info: Get account details | Solana (solana) | HZpj…vRpW (user) | Wallet (tag) | 0.01675 SOL (coins)",
+        "svm_get_program: Get program details | Solana (solana) | Orca Whirlpools (contract) | swap (code)",
+        "svm_get_token_holdings: Get holdings | $53.73 (coins) | 0.2 JitoSOL (coins) | 12.5 USDC (coins) | 7 (coins)",
+        "svm_derive_address: Derive address | Token account (tag) | 6cSH…QmPd (incoming) | USDC (coins)",
+        "svm_stage_ix: Stage transaction | Solana (solana) | 1 instruction (receipt) | System transfer (send) | Staged (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 1 tx (receipt) | 450 compute units (gas) | Passed (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 2 txs (receipt) | 150,000 compute units (gas) | Passed (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 1 tx (receipt) | 9,000 compute units (gas) | Failed (failed)",
+        "svm_commit_txs: Commit transactions | Solana (solana) | 1 tx (receipt) | 5VERv8N…ZkQUW (receipt) | Confirmed (success)",
+        "svm_commit_message: Sign message | Solana (solana) | 1 signature (receipt) | Awaiting signature (pending)",
+        "svm_discard_tx: Discard transactions | 1 tx discarded (receipt) | Success (success)",
+        "activate_skills: Activate skill | SPL Token (skill:spl_token)",
+      ]
+    `);
+  });
+
+  it("totals the priced EVM holdings in USD as Solana does", () => {
+    const step = decode({
+      toolName: "evm_get_token_holdings",
+      argsText: '{"chain_id":null}',
+      result: {
+        chains: [
+          { chain_id: 8453, holdings: { items: [{ value_usd: "10.25" }] } },
+          {
+            chain_id: 1,
+            holdings: { items: [{ value_usd: "1000" }, { value_usd: null }] },
+          },
+        ],
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual(["Top 20", "$1,010.25"]);
   });
 });

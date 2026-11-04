@@ -100,7 +100,12 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Get holdings",
     icon: SHAPE_ICONS.nativeBalance,
-    chipPlan: [{ kind: "chain" }, { kind: "threshold" }, { kind: "token" }],
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "threshold" },
+      { kind: "token" },
+      { kind: "amount", role: "secondary" },
+    ],
   },
   "activity.transactions": {
     title: "fixed",
@@ -316,9 +321,13 @@ const descriptorById: Record<string, Descriptor> = {
     ],
   },
   "svm.account.token_holdings": {
-    title: "label",
+    title: "fixed",
+    fixedTitle: "Get holdings",
     icon: SHAPE_ICONS.nativeBalance,
-    chipPlan: [{ kind: "amount", role: "primary", repeat: true }],
+    chipPlan: [
+      { kind: "amount", role: "secondary" },
+      { kind: "amount", role: "primary", repeat: true },
+    ],
   },
   "svm.tx.pending_approval": lifecycleDescriptor(
     "Commit transactions",
@@ -334,7 +343,7 @@ const descriptorById: Record<string, Descriptor> = {
   ),
   "svm.tx.stage": lifecycleDescriptor(
     "Stage transaction",
-    SHAPE_ICONS.staged,
+    "stagedAction",
     "cluster",
     "action",
   ),
