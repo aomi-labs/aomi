@@ -42,6 +42,7 @@ const BUILT_IN_SKILL_IDS = [
   "oneinch",
   "openbook",
   "optimism_native",
+  "orca",
   "pendle",
   "raydium",
   "renzo",
@@ -157,6 +158,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(46);
+    expect(manifestIds).toHaveLength(47);
   });
 });

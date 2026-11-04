@@ -217,6 +217,10 @@ export function PendleSkillIcon(props: SkillIconProps) {
 }
 
 /** Source and presentation notes: assets/README.md. */
+export function OrcaSkillIcon(props: SkillIconProps) {
+  return <SourcedSkillIcon mark="orca" {...props} />;
+}
+
 export function RaydiumSkillIcon(props: SkillIconProps) {
   return <SourcedSkillIcon mark="raydium" {...props} />;
 }
@@ -426,6 +430,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   oneinch: OneInchSkillIcon,
   openbook: OpenbookSkillIcon,
   optimism_native: OptimismNativeSkillIcon,
+  orca: OrcaSkillIcon,
   pendle: PendleSkillIcon,
   raydium: RaydiumSkillIcon,
   renzo: RenzoSkillIcon,
