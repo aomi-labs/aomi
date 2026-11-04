@@ -82,7 +82,8 @@
     "check:package-changesets": "node scripts/check-package-changesets.mjs",
     "build:widget": "pnpm --filter @aomi-labs/widget build",
     "smoke:local-runtime": "tsx scripts/smoke-local-runtime.ts",
-    "ai-qa": "tsx tests/e2e/ai-qa/run.ts"
+    "ai-qa": "tsx tests/e2e/ai-qa/run.ts",
+    "test:ai-qa": "tsx --test tests/e2e/ai-qa/report.test.ts"
   },
   "prettier": {
     "plugins": [
