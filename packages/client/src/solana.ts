@@ -14,11 +14,14 @@ import { normalizeSolanaCluster, type SvmCluster } from "./wallet-utils";
 
 /**
  * `signer.svm` from a local keypair: a `Keypair`, a `solana-keygen` JSON
- * byte array, or a base58 secret (the Phantom / Solflare export).
+ * byte array, or a base58 secret (the Phantom / Solflare export). `cluster`
+ * is the one the wallet reports (default `solana:mainnet`); each commit still
+ * broadcasts on its own cluster.
  */
 export function solanaSigner(
   key: Keypair | string,
   options: {
+    cluster?: SvmCluster;
     /** RPC per cluster; public endpoints otherwise. */
     rpcUrls?: Partial<Record<SvmCluster, string>>;
   } = {},
@@ -43,6 +46,9 @@ export function solanaSigner(
   };
   return {
     address: keypair.publicKey.toBase58(),
+    cluster: options.cluster ?? "solana:mainnet",
+    // A local key signs for any cluster, so it has nothing to switch.
+    switchCluster: async () => undefined,
     signTransaction: async ({ transactionBase64 }) => ({
       signedTransaction: signTransaction(transactionBase64, keypair),
     }),

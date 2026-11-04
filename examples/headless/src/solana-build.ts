@@ -32,15 +32,13 @@ if (!app || !operation || !args)
 // The same key signs in (SIWS) and signs the Commit. `cluster` tells the
 // agent which cluster the wallet is on; a custom RPC serves that cluster.
 const rpcUrl = process.env.SOLANA_RPC_URL?.trim();
-const svm = {
-  ...solanaSigner(secret, {
-    rpcUrls: rpcUrl ? { [cluster]: rpcUrl } : undefined,
-  }),
+const svm = solanaSigner(secret, {
   cluster,
-};
+  rpcUrls: rpcUrl ? { [cluster]: rpcUrl } : undefined,
+});
 const aomi = new Aomi({
   baseUrl,
-  auth: wallet(svm, { cluster }),
+  auth: wallet(svm),
   signer: { svm },
 });
 

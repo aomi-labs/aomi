@@ -163,6 +163,7 @@ export async function connect(
     // `--rpc-url` serves the chosen cluster; other clusters use public RPCs.
     svm: svmKey
       ? (await import("@aomi-labs/client/solana")).solanaSigner(svmKey, {
+          cluster,
           rpcUrls: flags.rpcUrl ? { [cluster]: flags.rpcUrl } : undefined,
         })
       : undefined,
@@ -180,7 +181,7 @@ export async function connect(
       }),
     });
   if (solanaKey && signer.svm)
-    return new Aomi({ ...common, auth: wallet(signer.svm, { cluster }) });
+    return new Aomi({ ...common, auth: wallet(signer.svm) });
   if (await signedIn(baseUrl))
     return new Aomi({ ...common, auth: await deviceAuth(baseUrl, onCode) });
   return new Aomi({ ...common, guest: persistedGuest(baseUrl, state) });

@@ -63,6 +63,15 @@ describe("wallet sign-in", () => {
     expect(
       wallet(solanaSigner(Keypair.generate()), { cluster: "solana:devnet" }),
     ).toMatchObject({ family: "svm", cluster: "solana:devnet" });
+    // Without one, the sign-in takes the signer's cluster.
+    const devnet = solanaSigner(Keypair.generate(), {
+      cluster: "solana:devnet",
+    });
+    expect(devnet.cluster).toBe("solana:devnet");
+    expect(wallet(devnet)).toMatchObject({ cluster: "solana:devnet" });
+    expect(wallet(solanaSigner(Keypair.generate()))).toMatchObject({
+      cluster: "solana:mainnet",
+    });
   });
 
   it("signs in with SIWS for a Solana signer", async () => {

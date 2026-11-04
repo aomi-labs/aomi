@@ -282,10 +282,12 @@ proves account ownership only; `signer` is what signs the reviewed Commits.
 import { Aomi, wallet } from "@aomi-labs/client";
 import { solanaSigner } from "@aomi-labs/client/solana";
 
-const svm = solanaSigner(process.env.SOLANA_SECRET_KEY!);
+const svm = solanaSigner(process.env.SOLANA_SECRET_KEY!, {
+  cluster: "solana:devnet",
+});
 const aomi = new Aomi({
   baseUrl: "https://chat.aomi.dev",
-  auth: wallet(svm, { cluster: "solana:mainnet" }),
+  auth: wallet(svm), // SIWS on the signer's cluster
   signer: { svm },
 });
 ```

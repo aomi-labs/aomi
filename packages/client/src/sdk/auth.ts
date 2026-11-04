@@ -14,7 +14,7 @@ import { buildSiwsMessage } from "../siws";
 import type { SiwsNonceResponse } from "../siws-client";
 import type { GetAccountBearer } from "../types";
 import type { SvmWallet } from "../wallet/types";
-import type { SvmCluster } from "../wallet-utils";
+import { normalizeSolanaCluster, type SvmCluster } from "../wallet-utils";
 import {
   createAomiBrowserGrantManager,
   createAomiDeviceGrantManager,
@@ -147,7 +147,8 @@ export type AomiWalletStrategy = { readonly kind: "wallet" } & (
 );
 
 /** `wallet(privateKeyToAccount(key))` or `wallet(solanaSigner(key))`; the
- * signer's address says which. */
+ * signer's address says which. A Solana sign-in names `cluster`, else the
+ * signer's own. */
 export function wallet(
   signer: AomiWalletSigner | SvmWallet,
   options: { chainId?: number; cluster?: SvmCluster } = {},
@@ -159,13 +160,19 @@ export function wallet(
       signer: signer as AomiWalletSigner,
       chainId: options.chainId ?? 1,
     };
-  if (!signer.signMessage)
+  const svm = signer as SvmWallet;
+  if (!svm.signMessage)
     throw new TypeError("wallet() needs a signer that signs messages");
   return {
     kind: "wallet",
     family: "svm",
-    signer: signer as SvmWallet,
-    cluster: options.cluster ?? "solana:mainnet",
+    signer: svm,
+    cluster:
+      options.cluster ??
+      normalizeSolanaCluster(
+        typeof svm.cluster === "function" ? svm.cluster() : svm.cluster,
+      ) ??
+      "solana:mainnet",
   };
 }
 
