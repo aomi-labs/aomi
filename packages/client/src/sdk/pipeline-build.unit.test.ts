@@ -112,6 +112,7 @@ function backend(views: CommitView[] = [view]) {
       } as unknown as SvmSimulatedBuild);
     if (url.pathname === "/v1/pipeline/svm/commit")
       return Response.json({
+        family: "svm",
         status: "committed",
         digest: evmBuild.digest,
         result: {},
@@ -120,6 +121,7 @@ function backend(views: CommitView[] = [view]) {
       });
     if (url.pathname === "/v1/pipeline/evm/commit")
       return Response.json({
+        family: "evm",
         status: "committed",
         digest: evmBuild.digest,
         result: {},
@@ -144,6 +146,8 @@ function backend(views: CommitView[] = [view]) {
       });
     if (url.pathname === `/v1/pipeline/evm/commits/${view.commit_id}`)
       return Response.json(views.shift() ?? view);
+    if (url.pathname === `/v1/pipeline/svm/commits/${svmView.commit_id}`)
+      return Response.json(svmView);
     return Response.json({ error: "unexpected" }, { status: 500 });
   });
   return {
@@ -201,20 +205,33 @@ describe("aomi.pipeline without an app", () => {
     });
   });
 
-  it("names the app when forced, and opens a Solana commit", async () => {
+  it("names the app when forced, and opens a Solana commit under its own family", async () => {
     const { aomi, calls } = backend();
     const build = await aomi.pipeline.build(
       "svm_stage_tx",
       { amount: "1" },
-      { app: "jupiter" },
+      { app: "jupiter", transactionSafetyMode: "guarded_only" },
     );
     expect(calls[0]?.path).toBe(
       "/v1/pipeline/apps/jupiter/operations/svm_stage_tx",
     );
     expect(build.chainFamily).toBe("svm");
-    const commit = await build.commit();
+    expect(
+      calls.find((call) => call.path === "/v1/pipeline/svm/build")?.body,
+    ).toMatchObject({ transactionSafetyMode: "guarded_only" });
+    const commit = await build.commit({
+      transactionSafetyMode: "unrestricted",
+    });
     expect(commit.ref).toBe(svmView.commit_id);
-    expect(calls.at(-1)?.path).toBe("/v1/pipeline/svm/commit");
+    expect(calls.at(-1)).toMatchObject({
+      path: "/v1/pipeline/svm/commit",
+      body: { transactionSafetyMode: "unrestricted" },
+    });
+    await commit.refresh();
+    expect(calls.at(-1)?.path).toBe(
+      `/v1/pipeline/svm/commits/${svmView.commit_id}`,
+    );
+    commit.close();
   });
 });
 

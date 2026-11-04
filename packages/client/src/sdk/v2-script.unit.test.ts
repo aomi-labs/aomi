@@ -205,6 +205,7 @@ const routes: Record<string, unknown> = {
     attestation: "a",
   },
   "POST /v1/pipeline/evm/commit": {
+    family: "evm",
     status: "committed",
     digest: "d",
     result: {},

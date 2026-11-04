@@ -94,12 +94,19 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
 
   it("binds public durable Pipeline continuations to execution scope and canonical reviews", () => {
     const paths = publicApi.paths;
+    // A commit continues only under its own chain family.
     const operations = [
       paths["/v1/pipeline/evm/commits/{commitId}"].get,
       paths["/v1/pipeline/evm/commits/{commitId}/manual"].post,
       paths["/v1/pipeline/evm/commits/{commitId}/wallet-attempts"].post,
       paths[
         "/v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report"
+      ].post,
+      paths["/v1/pipeline/svm/commits/{commitId}"].get,
+      paths["/v1/pipeline/svm/commits/{commitId}/manual"].post,
+      paths["/v1/pipeline/svm/commits/{commitId}/wallet-attempts"].post,
+      paths[
+        "/v1/pipeline/svm/commits/{commitId}/wallet-attempts/{attemptId}/report"
       ].post,
     ];
     for (const operation of operations) {
@@ -120,6 +127,14 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       thread_id: { type: "string" },
       requests: { items: { $ref: "#/components/schemas/ActionRequest" } },
     });
+    for (const family of ["evm", "svm"] as const)
+      expect(
+        publicApi.components.schemas[
+          family === "evm"
+            ? "PipelineEvmCommitResult"
+            : "PipelineSvmCommitResult"
+        ].properties.family,
+      ).toMatchObject({ const: family });
     expect(publicApi.components.schemas.TaskSummary.required).toContain(
       "transactionSafety",
     );

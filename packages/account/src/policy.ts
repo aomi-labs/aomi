@@ -628,7 +628,7 @@ export const ROUTES: readonly Route[] = [
     },
   },
   {
-    path: /^\/v1\/pipeline\/evm\/commits\/.*$/,
+    path: /^\/v1\/pipeline\/(evm|svm)\/commits\/.*$/,
     operation: "pipeline.request",
     to: "agent",
     on: "pipelineRest",

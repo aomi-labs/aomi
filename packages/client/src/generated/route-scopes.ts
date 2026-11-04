@@ -12,7 +12,7 @@ export const ROUTE_SCOPES: readonly {
   { path: /^\/v1\/agent(?!\/mcp$)(\/.*)?$/, resource: "/v1/agent", paid: false, methods: { GET: "agent:read" } },
   { path: /^\/v1\/agent\/.*\/actions\/[^/]+\/result$/, resource: "/v1/agent", paid: false, methods: { POST: "agent:actions:resolve", PATCH: "agent:actions:resolve", DELETE: "agent:actions:resolve" } },
   { path: /^\/v1\/agent(?!\/mcp$)(\/.*)?$/, resource: "/v1/agent", paid: true, methods: { POST: "agent:write", PATCH: "agent:write", DELETE: "agent:write" } },
-  { path: /^\/v1\/pipeline\/evm\/commits\/.*$/, resource: "/v1/pipeline", paid: true, methods: { GET: "pipeline:execute", POST: "pipeline:execute" } },
+  { path: /^\/v1\/pipeline\/(evm|svm)\/commits\/.*$/, resource: "/v1/pipeline", paid: true, methods: { GET: "pipeline:execute", POST: "pipeline:execute" } },
   { path: /^\/v1\/pipeline(?!\/mcp$)(\/.*)?$/, resource: "/v1/pipeline", paid: true, methods: { GET: "pipeline:catalog", POST: "pipeline:execute" } },
   { path: /^\/v1\/account\/credits(?:\/(?:methods|ledger))?$/, resource: "/v1/account", paid: false, methods: { GET: "account:credits:read" } },
   { path: /^\/v1\/account\/credits\/funding-events(?:\/(?:current|[0-9a-f-]{36}))?$/, resource: "/v1/account", paid: false, methods: { GET: "account:credits:read" } },

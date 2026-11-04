@@ -212,6 +212,16 @@ export class SvmBuild {
     return this.raw.simulation;
   }
 
+  /** Wallet asset movements decoded from successful simulation steps. */
+  get balanceChanges(): PipelineBalanceChange[] {
+    return this.raw.simulation.balanceChanges;
+  }
+
+  /** Token delegations and authority changes made by the build. */
+  get approvals(): PipelineApprovalChange[] {
+    return this.raw.simulation.approvals;
+  }
+
   get digest(): string {
     return this.raw.digest;
   }

@@ -164,6 +164,7 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/simulate")) return Response.json(evmSimulated);
       if (url.endsWith("/commit")) {
         return Response.json({
+          family: "evm",
           status: "committed",
           preparation_status: "prepared",
           provider_invoked: false,
@@ -319,6 +320,7 @@ describe("Pipeline SDK lifecycle", () => {
 
   it("preserves staged transaction bytes and returns Solana commits", async () => {
     const prepared = {
+      family: "svm",
       status: "committed",
       digest: svmSimulated.digest,
       result: {},
@@ -379,6 +381,42 @@ describe("Pipeline SDK lifecycle", () => {
         options.paymentSignature,
       );
     }
+  });
+
+  it("sends the safety-mode override on every step of both families", async () => {
+    const fetch = vi
+      .fn()
+      .mockImplementation(async () => Response.json(evmSimulated));
+    const pipeline = new AomiClient({
+      baseUrl: "https://api.example",
+      fetch,
+      guest: false,
+    }).pipeline;
+    const options = { transactionSafetyMode: "guarded_only" as const };
+    const input = {
+      operation: "/v1/pipeline/apps/default/operations/tool",
+      arguments: {},
+    };
+    await pipeline.svm.build(input, options);
+    await pipeline.svm.stage(
+      { kind: "transaction", transaction: { tx: "AQ==" } },
+      options,
+    );
+    await pipeline.svm.simulate(svmStaged, options);
+    await pipeline.svm.commit(svmSimulated, options);
+    await pipeline.evm.simulate(evmStaged, options);
+    expect(
+      fetch.mock.calls.map(([url, init]) => [
+        new URL(url).pathname,
+        JSON.parse(init.body).transactionSafetyMode,
+      ]),
+    ).toEqual([
+      ["/v1/pipeline/svm/build", "guarded_only"],
+      ["/v1/pipeline/svm/stage", "guarded_only"],
+      ["/v1/pipeline/svm/simulate", "guarded_only"],
+      ["/v1/pipeline/svm/commit", "guarded_only"],
+      ["/v1/pipeline/evm/simulate", "guarded_only"],
+    ]);
   });
 
   it("validates live operation arguments and keeps invocation runtime-typed", async () => {
@@ -488,6 +526,7 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/evm/build")) return Response.json(evmSimulated);
       if (url.endsWith("/evm/commit")) {
         return Response.json({
+          family: "evm",
           status: "committed",
           digest: evmSimulated.digest,
           result: {
@@ -550,6 +589,7 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/simulate")) return Response.json(evmSimulated);
       if (url.endsWith("/commit")) {
         return Response.json({
+          family: "evm",
           status: "committed",
           digest: evmSimulated.digest,
           result: {

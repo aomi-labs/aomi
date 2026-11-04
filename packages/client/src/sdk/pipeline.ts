@@ -364,9 +364,9 @@ export class AomiPipeline {
       await this.app(app ?? DEFAULT_APP).build(name, args, buildOptions),
       (result) => {
         const controller =
-          "requests" in result
-            ? this.evm.commits(result)
-            : this.svm.commits(result);
+          result.family === "svm"
+            ? this.svm.commits(result)
+            : this.evm.commits(result);
         const leader = controller.all().find((view) => !view.batch?.index);
         if (!leader) throw new Error("Pipeline commit has no commits");
         return new CommitHandle(leader.commit_id, controller);

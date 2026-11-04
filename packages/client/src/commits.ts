@@ -1027,9 +1027,10 @@ export class CommitController {
         attempts: commitRefPaths.attempts(id),
         report: (attemptId: string) => commitRefPaths.report(id, attemptId),
       };
+    // A Pipeline commit is served only under its own chain family.
     const root =
       this.routeFamily === "pipeline"
-        ? "/v1/pipeline/evm/commits"
+        ? `/v1/pipeline/${this.pipelineFamily(id)}/commits`
         : "/api/commits";
     const view = `${root}/${encodeURIComponent(id)}`;
     return {
@@ -1038,6 +1039,11 @@ export class CommitController {
       report: (attemptId: string) =>
         `${view}/wallet-attempts/${encodeURIComponent(attemptId)}/report`,
     };
+  }
+  private pipelineFamily(id: string): "evm" | "svm" {
+    const family = this.views.get(id)?.chain_family;
+    if (!family) throw new Error(`Pipeline commit ${id} is not loaded`);
+    return family;
   }
   /** Thread families keep the legacy transport and its `HTTP <status>` errors;
    * refs answer typed errors (CommitNotFoundError, CommitStaleError). */
