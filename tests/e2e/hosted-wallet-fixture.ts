@@ -29,6 +29,8 @@ export const BURN_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const ONE_WEI_DISPLAY = "0.000000000000000001";
 export type WalletFamily = "evm" | "svm";
 
+const HOSTED_TEST_PORTALS = new Set(["chat-staging.aomi.dev", "chat-rc.aomi.dev"]);
+
 export function hostedPortalUrl(): string {
   const raw = process.env.AOMI_HOSTED_E2E_PORTAL_URL;
   if (!raw) throw new Error("AOMI_HOSTED_E2E_PORTAL_URL is required");
@@ -44,9 +46,10 @@ export function hostedPortalUrl(): string {
   ) {
     throw new Error("Hosted Portal URL must be an HTTPS origin");
   }
-  if (url.hostname !== "chat-staging.aomi.dev")
+  // Test Portals only: staging and ChatRC. Never production.
+  if (!HOSTED_TEST_PORTALS.has(url.hostname))
     throw new Error(
-      "Hosted wallet E2E only permits the trusted staging Portal",
+      "Hosted wallet E2E only permits the trusted staging and ChatRC Portals",
     );
   return url.origin;
 }
