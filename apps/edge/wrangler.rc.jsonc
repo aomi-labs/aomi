@@ -18,8 +18,12 @@
   "minify": true,
   "upload_source_maps": true,
   "observability": { "enabled": true },
+  // Run next to the us-east-1 database, as wrangler.jsonc does.
+  "placement": { "region": "aws:us-east-1" },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // No placement or Hyperdrive: rc runs no portal, so it never reaches the account database.
+  // The account database behind the ChatRC portal (chat-rc.aomi.dev). A deploy
+  // swaps in the rc EDGE_HYPERDRIVE_ID, or drops the binding when none is set.
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],
   // rc only: the shared wrangler.jsonc stays free of Durable Object migrations so
   // staging and production can still deploy and roll back older edge revisions.
   // Once-only OIDC `jti` claims for the RC test identity (src/api/rc-replay.ts).
