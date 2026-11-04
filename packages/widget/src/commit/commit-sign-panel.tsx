@@ -5,6 +5,7 @@ import {
   Suspense,
   useEffect,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -158,11 +159,12 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
   const from = source?.name ?? ORIGIN_LABELS[view.origin] ?? view.origin;
 
   const run = async (step: () => Promise<unknown>) => {
-    if (busy) return;
+    if (busy) return false;
     setBusy(true);
     setError(undefined);
     try {
       await step();
+      return true;
     } catch (caught) {
       if (caught instanceof CommitStaleError) {
         setError("This request changed. Review it again before signing.");
@@ -172,10 +174,47 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
           caught instanceof Error ? caught.message : "The request failed",
         );
       }
+      return false;
     } finally {
       setBusy(false);
     }
   };
+
+  // One Send covers the whole batch, as in the sidebar: each later member
+  // goes out once the one before it lands, against its own version and the
+  // review digest it had when Send was clicked. A member whose review is
+  // missing or changed stops the batch for another Send.
+  const [sending, setSending] = useState(false);
+  const sent = useRef(new Set<string>());
+  const approved = useRef(new Map<string, string | undefined>());
+  const step = `${leg.ref}@${view.version}`;
+  const approve = () => {
+    approved.current = new Map(
+      handle.members.map((member) => [member.ref, member.view.review?.digest]),
+    );
+    send(leg);
+  };
+  const send = (next: CommitHandle) => {
+    sent.current.add(`${next.ref}@${next.view.version}`);
+    setSending(true);
+    void run(() =>
+      next.sign(capabilities, {
+        expectedVersion: next.view.version,
+        expectedReviewDigest: next.view.review?.digest,
+      }),
+    ).then((ok) => {
+      if (!ok) setSending(false);
+    });
+  };
+  useEffect(() => {
+    if (!sending || busy || !awaitingWallet || !canSign) return;
+    if (sent.current.has(step)) return;
+    const digest = view.review?.digest;
+    if (digest && digest === approved.current.get(leg.ref)) send(leg);
+    else setSending(false);
+  });
+  // A wallet that can't take the next step (switched away) gets its button back.
+  const sendingBatch = sending && !terminal && (!awaitingWallet || canSign);
 
   // Where "back" goes once the trade is done or gone.
   const telegramBack =
@@ -225,32 +264,19 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
     </AomiSheet>
   );
 
-  if (settled.confirmed) {
-    const last = settled.last;
-    const explorer =
-      !message && last.transaction_url ? (
-        <a
-          href={last.transaction_url}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:text-aomi-fg underline underline-offset-2"
-        >
-          View on explorer
-        </a>
-      ) : undefined;
+  if (settled.confirmed)
     return done(
       message ? "Message signed" : "Transaction confirmed",
-      goBack ?? explorer,
+      goBack,
       review ? (
-        <CommitTransactions view={view} review={review} />
+        <CommitTransactions handle={handle} review={review} />
       ) : (
         <StatusPill tone="success" dot>
           {outcome.label}
         </StatusPill>
       ),
-      goBack ? explorer : backButton(true),
+      backButton(true),
     );
-  }
   if (settled.failed?.state === "expired")
     return done(
       "This request expired",
@@ -277,28 +303,24 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
         data-commit-state={view.state}
         className="flex min-h-0 flex-col overflow-y-auto px-5 pb-5"
       >
-        {review && (parkedOrSigning || awaitingWallet || inFlight) ? (
-          <CommitTransactions
-            view={view}
-            review={review}
-            executing={inFlight}
-          />
-        ) : null}
+        {review ? <CommitTransactions handle={handle} review={review} /> : null}
         {parkedOrSigning ? (
           <Suspense fallback={null}>
             <CommitApprovePanel handle={handle} signing={inFlight} />
           </Suspense>
         ) : null}
-        {!parkedOrSigning && (awaitingWallet || inFlight) && review ? (
+        {!parkedOrSigning && review ? (
           <TransactionReview
+            // The batch's review: it stays put while its members go out.
             review={{
-              id: view.commit_id,
-              revision: view.review?.revision ?? view.version,
+              id: handle.ref,
+              revision: handle.view.review?.revision ?? handle.view.version,
               request: review,
             }}
             supportedChains={wallet.supportedChains}
             approving={
               busy ||
+              sendingBatch ||
               inFlight ||
               ["preparing", "switching_chain", "awaiting_wallet"].includes(
                 lifecycle.phase,
@@ -336,14 +358,7 @@ export function CommitSignPanel({ handle, onClose }: CommitSignPanelProps) {
             recoveringExistingAttempt={Boolean(
               view.wallet_attempt || leg.recoveryRecord?.attemptId,
             )}
-            onApprove={() =>
-              void run(() =>
-                leg.sign(capabilities, {
-                  expectedVersion: view.version,
-                  expectedReviewDigest: view.review?.digest,
-                }),
-              )
-            }
+            onApprove={approve}
             onReject={() => void run(() => leg.reject())}
           />
         ) : null}

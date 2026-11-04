@@ -3,6 +3,7 @@ import { AomiClient, wrapFetchWithPublicApiAuthorization } from "./client";
 import { AgentApiError } from "./agent/transport";
 import {
   createGuestSessionProvider,
+  GuestSignInError,
   withBrowserSessionTransition,
 } from "./guest-auth";
 
@@ -38,6 +39,27 @@ describe("guest connection diagnostics", () => {
       );
     },
   );
+
+  it("reports a rate-limited guest sign-in with its Retry-After", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(
+        Response.json(
+          { error: "rate_limited" },
+          { status: 429, headers: { "retry-after": "42" } },
+        ),
+      );
+    const guest = createGuestSessionProvider({ baseUrl: origin, fetch });
+
+    const error = await guest().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(GuestSignInError);
+    expect(error).toMatchObject({
+      status: 429,
+      code: "guest_rate_limited",
+      retryAfterSeconds: 42,
+    });
+  });
 
   it("redacts credentials, query strings and response bodies from connection errors", async () => {
     vi.stubGlobal("location", undefined);
@@ -211,9 +233,7 @@ describe("interactive guest preparation", () => {
     expect(String(fetch.mock.calls[0][0])).toBe(
       `${origin}/api/auth/get-session`,
     );
-    expect(String(fetch.mock.calls[1][0])).toBe(
-      `${origin}/api/auth/guest`,
-    );
+    expect(String(fetch.mock.calls[1][0])).toBe(`${origin}/api/auth/guest`);
     expect(upstream).toHaveBeenCalledOnce();
   });
 
@@ -297,9 +317,7 @@ describe("interactive guest preparation", () => {
     ).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(2);
     expect(fetch).toHaveBeenCalledOnce();
-    expect(String(fetch.mock.calls[0][0])).toBe(
-      `${origin}/api/auth/guest`,
-    );
+    expect(String(fetch.mock.calls[0][0])).toBe(`${origin}/api/auth/guest`);
   });
 
   it("does not replace a session when the existing-session check fails", async () => {
@@ -367,9 +385,7 @@ describe("interactive guest preparation", () => {
       body: { message: "embed" },
     });
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(String(fetch.mock.calls[0][0])).toBe(
-      `${origin}/api/auth/guest`,
-    );
+    expect(String(fetch.mock.calls[0][0])).toBe(`${origin}/api/auth/guest`);
   });
 
   it("checks the resulting signed-in cookie after an in-flight wallet session transition", async () => {

@@ -83,6 +83,7 @@ export class AccountCreditsTransport {
     beginFunding(input: {
         amountMicrousd: number;
         method: "card" | "wallet";
+        environment?: "test" | "production";
         chain?: string;
         idempotencyKey: string;
         x402?: AomiRequestOptions["x402"];
@@ -1024,6 +1025,14 @@ export type AomiBrowserOAuthOptions = CommonOAuthOptions & {
 };
 
 // @public (undocumented)
+export type AomiCardFundingMethod = {
+    public_key: string;
+    environment: "test" | "production";
+    min_microusd: number;
+    max_microusd: number;
+};
+
+// @public (undocumented)
 export type AomiChainKind = "evm" | "svm";
 
 // @public
@@ -1203,11 +1212,8 @@ export type AomiCreditListOptions = {
 
 // @public (undocumented)
 export type AomiCreditMethods = {
-    card: {
-        public_key: string;
-        min_microusd: number;
-        max_microusd: number;
-    } | null;
+    card: AomiCardFundingMethod | null;
+    test_card?: AomiCardFundingMethod | null;
     wallet: {
         min_microusd: number;
         max_microusd: number;
@@ -2355,7 +2361,9 @@ export class CommitHandle {
     canSign(signer?: CommitSigner): boolean;
     // (undocumented)
     close(): void;
+    get groupView(): CommitRefView;
     get kind(): CommitKind;
+    get members(): CommitHandle[];
     get next(): CommitHandle;
     get onChain(): OnChainOutcome | undefined;
     // (undocumented)
@@ -3022,6 +3030,14 @@ export type GuestSessionProvider = ((options?: {
     prepare?: () => Promise<void>;
     getIdentity?: () => string | null;
 };
+
+// @public
+export class GuestSignInError extends AomiApiError {
+    constructor(response: Response, message: string);
+    // (undocumented)
+    name: string;
+    readonly retryAfterSeconds?: number;
+}
 
 // @public
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;

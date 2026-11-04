@@ -12,6 +12,7 @@ export type {
   AomiFundingEvent,
   AomiFundingResult,
   AomiCreditMethods,
+  AomiCardFundingMethod,
   AomiCreditListOptions,
   CreditBalance,
 } from "./account/credits";
@@ -174,6 +175,7 @@ export type {
 } from "./oauth";
 export {
   createGuestSessionProvider,
+  GuestSignInError,
   withBrowserSessionTransition,
 } from "./guest-auth";
 export type { GuestSessionProvider } from "./guest-auth";

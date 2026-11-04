@@ -269,7 +269,7 @@ describe("DualWalletBar account menu", () => {
     expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
   });
 
-  it("ends the expanded family with Add a wallet", () => {
+  it("offers Add a wallet under the families", () => {
     adapterState.current.wallets = [
       walletRow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "Rabby", {
         operating: true,
@@ -287,7 +287,7 @@ describe("DualWalletBar account menu", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "EVM signs with Rabby" }),
     );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
     expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
   });
 

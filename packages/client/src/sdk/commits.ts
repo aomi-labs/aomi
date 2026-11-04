@@ -73,6 +73,21 @@ export class CommitHandle {
     );
   }
 
+  /** Every member of the batch as its own handle, in order. */
+  get members(): CommitHandle[] {
+    return this.batch.map((view) =>
+      view.commit_id === this.ref
+        ? this
+        : new CommitHandle(view.commit_id, this.controller),
+    );
+  }
+
+  /** `view` as its card shows it: an unsettled member of an atomic group
+   * reads Submitted while its leader is. */
+  get groupView(): CommitRefView {
+    return this.controller.groupView(this.view) as CommitRefView;
+  }
+
   /**
    * Where the whole batch stands: `done` once every member is terminal,
    * `confirmed` only when every one confirmed, and the first member that

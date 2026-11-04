@@ -39,6 +39,29 @@
   `examples/headless/src/solana-build.ts`. Pending: API reports and the
   generated contract need a refresh after the package build (F2).
 
+2026-11-03 — SIGN PAGE MATCHES THE SIDEBAR FOR BATCHES (`fix/sign-page-multi-tx`).
+  `/sign/:ref` for a multi-tx EVM request (a batch: one commit per tx, each
+  carrying the whole batch's review) drew every card from the current leg's
+  view, so cards moved together and reset when the next leg started, and the
+  sheet went blank between legs. Each card now follows its own member
+  (`CommitHandle.members` / `groupView`, new in client), the list and review
+  stay up until the batch settles, one Send sends every leg in order (like the
+  sidebar's Submit), and the confirmed screen drops "View on explorer".
+  The account menu's open wallet group now shows ~3 wallets and scrolls
+  (active one scrolled into view), with one "Add a wallet" row.
+
+2026-11-03 — WIDGET SEND ERROR STATES (`fix/widget-error-states`).
+  From a template run of widget 4.0.2 against staging. 503 `app_loading` and a
+  failed guest session check (now a `GuestSignInError`, as main's guest 429 is)
+  count as a definite start rejection: the session drops the pending echo and
+  the uncertain start, so the spinner and Stop end and the composer gets the
+  text back. `describeSendFailure` adds "App starting" and, for a Direct
+  target, "App not available" on 403/404. With hints off (Direct-only routing)
+  the composer editor used to
+  sync its empty DOM on mount and erase the restored draft; it now resyncs
+  only after it strips mention tags. A completed working trace with a failed step shows a warning
+  glyph and "N failed". Pending: nothing checks a Direct applicationId on load.
+
 2026-11-01 — GUEST ALIASES BACK FOR PUBLISHED SDKs (`fix/edge-widget-guest-alias`).
   `/api/auth/widget/guest` and `/api/auth/sign-in/anonymous` route to the one
   guest handler again. Every published widget (widget-lib 3.x, widget 4.0.2,

@@ -442,6 +442,9 @@ export const ENDPOINTS = {
       read: read(list(UserProject), "projects"),
     }),
 
+  deleteUserProject: (input: GetUserProjectInput) =>
+    project(input, "", { op: "delete_user_project", method: "DELETE", read: () => undefined }),
+
   getUserProject: (input: GetUserProjectInput) =>
     project(input, "", {
       op: "get_user_project",
