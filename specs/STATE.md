@@ -2,6 +2,18 @@
 
 ## Last Updated
 
+2026-11-04 — SOLANA PARITY F2a (`feat/solana-parity-2`).
+  A Solana commit batch is signed once: `CommitController` renews every later
+  member still awaiting a signature, asks `signAll` (from
+  `SvmWallet.signAllTransactions`; widget wires the adapter's
+  `signAllTransactions`, `solanaSigner` signs each) for all of them, then posts
+  each member's signed bytes in batch order. Without `signAllTransactions`
+  (Privy embedded) it signs member by member in the same submit. `groupPlan`
+  counts one prompt for such a batch. `solanaSigner(key, { cluster, rpcUrls })`
+  reports its cluster and `wallet(svm)` signs in on it. Pending: example deps
+  (`@solana/web3.js`, `bs58`, `tweetnacl`) in `examples/headless` — `pnpm add
+  --lockfile-only` rewrote ~3.3k lockfile lines, reverted.
+
 2026-11-04 — SOLANA PARITY F1 (`feat/solana-parity-2`).
   One client cluster spelling (`SvmCluster`, `solana:mainnet|devnet|testnet`;
   `normalizeSolanaCluster` accepts `mainnet-beta`/`solana`/bare names for one
