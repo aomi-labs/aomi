@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 type Review = { url: string } | null;
 
@@ -34,6 +34,12 @@ export function ParaTransactionReviewPrompt({
   store: ParaReviewStore;
 }) {
   const review = useSyncExternalStore(store.subscribe, store.get, () => null);
+  const button = useRef<HTMLButtonElement>(null);
+  // An alertdialog takes focus when it appears, so keyboard and screen
+  // reader users land on the one action that continues the signature.
+  useEffect(() => {
+    if (review) button.current?.focus();
+  }, [review]);
   if (!review) return null;
   return (
     <div
@@ -59,6 +65,7 @@ export function ParaTransactionReviewPrompt({
     >
       <span>Para needs you to review this transaction.</span>
       <button
+        ref={button}
         type="button"
         onClick={() => {
           window.open(

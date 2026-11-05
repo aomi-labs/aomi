@@ -3162,6 +3162,69 @@ describe("embedded wallets that sign before broadcast", () => {
     expect(broadcastTransaction).toHaveBeenCalledTimes(1);
     controller.close();
   });
+
+  it("a stored signature whose response was lost is broadcast from Commit Service, never re-signed", async () => {
+    const { request, writes, current } = server();
+    // Commit Service stores the signed bytes, but the response never arrives.
+    const lose = request.getMockImplementation()!;
+    request
+      .mockImplementationOnce(lose)
+      .mockImplementationOnce(
+        async (method: string, path: string, options?: { body?: unknown }) => {
+          await lose(method, path, options);
+          throw new Error("network: response lost");
+        },
+      );
+    const signTransaction = vi.fn().mockResolvedValue("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const review = {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    };
+    await expect(
+      controller.execute(prepared.commit_id, review),
+    ).rejects.toThrow("response lost");
+    expect(current().state).toBe("awaiting_broadcast");
+    expect(broadcastTransaction).not.toHaveBeenCalled();
+
+    // The retry reads the stored bytes back and broadcasts exactly those.
+    const view = await controller.execute(prepared.commit_id, {
+      ...review,
+      expectedVersion: awaitingBroadcast.version,
+    });
+    expect(view.state).toBe("submitted");
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTransaction).toHaveBeenCalledWith("0xsigned", 5042);
+    // Any replay of the signed write carries the identical bytes, which
+    // Commit Service answers idempotently; one broadcast follows.
+    const signedWrites = writes.filter(
+      (write) => (write.body as { kind: string }).kind === "signed",
+    );
+    expect(new Set(signedWrites.map((w) => JSON.stringify(w.body))).size).toBe(
+      1,
+    );
+    expect(
+      writes.filter(
+        (write) => (write.body as { kind: string }).kind === "broadcast",
+      ),
+    ).toHaveLength(1);
+    controller.close();
+  });
 });
 
 describe("an expired commit with an unresolved wallet attempt", () => {
