@@ -1,5 +1,11 @@
 # @aomi-labs/client
 
+## 1.1.1
+
+### Patch Changes
+
+- Show the Solana logo on chain chips, including DeFiLlama yield and protocol searches.
+
 ## 1.1.0
 
 ### Minor Changes

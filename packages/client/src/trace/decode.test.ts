@@ -481,7 +481,7 @@ describe("tool interpreter", () => {
     });
     expect(overview.title).toBe("Scan chain");
     expect(labelsFor(overview.chips)).toEqual(["Solana", "Jito", "Kamino"]);
-    expect(overview.chips[0].icon).toBe("network");
+    expect(overview.chips[0].icon).toBe("solana");
     expect(overview.chips[1].icon).toBe("protocol");
 
     const list = decode({
