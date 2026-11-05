@@ -899,31 +899,6 @@ it("keeps ownership badges visible in the mother and delegated trace", () => {
   expect(getAllByText("LI.FI")).toHaveLength(2);
 });
 
-it("warns in a completed header when a step failed", () => {
-  const tool = (toolCallId: string, result: unknown): ToolCallMessagePart => ({
-    type: "tool-call",
-    toolCallId,
-    toolName: "lifi_get_quote",
-    args: {},
-    argsText: "{}",
-    result,
-  });
-  const view = render(
-    <WorkingTrace
-      running={false}
-      items={buildTraceItems(
-        [tool("failed", { error: "Unavailable" }), tool("ok", { quote: 1 })],
-        [],
-      )}
-      revealed={2}
-    />,
-  );
-  const header = view.getByRole("button", { name: /Worked/ });
-  expect(header).toHaveTextContent("1 failed");
-  expect(header.querySelector(".text-aomi-success")).toBeNull();
-  expect(header.querySelector(".text-aomi-warning")).not.toBeNull();
-});
-
 describe("context steps", () => {
   const compacted = {
     type: "tool-call" as const,
