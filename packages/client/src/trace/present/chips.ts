@@ -128,11 +128,14 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
     case "category":
       return { label: fact.label ?? humanize(fact.value), icon: "tag" };
     case "chain": {
+      if ((fact.label ?? fact.value).toLowerCase() === "solana") {
+        return { label: fact.label ?? fact.value, icon: "solana" };
+      }
       const chainId = Number(fact.value);
       return {
         label: fact.label ?? fact.value,
         // Renderers fall back to a generic network icon for chains without a
-        // mark (BSC, Solana, ...).
+        // mark (BSC, ...).
         icon: Number.isFinite(chainId) ? `chain:${chainId}` : "network",
       };
     }
