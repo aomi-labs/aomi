@@ -26,6 +26,15 @@ import { walletDebug } from "@/wallet/wallet-debug";
 import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
 import type { AomiAccount, SvmNetworkOption } from "@/wallet/types";
 import { PARA_BRAND_KEY, PARA_SESSION_UID } from "./para-brand";
+import {
+  isParaTransactionSigner,
+  signParaTransaction,
+  type ParaTransactionSigningClient,
+} from "./para-transaction-signing";
+import {
+  createParaReviewStore,
+  ParaTransactionReviewPrompt,
+} from "./para-transaction-review";
 import { shouldConnectParaEvmSession } from "@/wallet/providers/para/para-account";
 import {
   DEFAULT_SVM_ENDPOINT,
@@ -383,8 +392,37 @@ export function AomiParaPluginProvider({
       Boolean(paraModal) && exposeParaSession && isParaEmbeddedAccount(account),
     [exposeParaSession, paraModal],
   );
+  const paraReviewStore = useMemo(() => createParaReviewStore(), []);
   const executionRuntime = useMemo<ExecutionRuntime>(() => {
-    const evm = buildEvmExecutionRuntime(evmRuntime);
+    const built = buildEvmExecutionRuntime(evmRuntime);
+    const paraSigner = paraSession as ParaTransactionSigningClient | null;
+    // A Para embedded wallet signs the exact prepared transaction (its
+    // nonce pinned) and Commit Service stores the signed bytes before any
+    // broadcast. Wallet-send transports are withheld for it: they hand the
+    // transaction to Para's connector, whose review popup opens after async
+    // work, gets blocked, and leaves an attempt with no recoverable outcome.
+    const evm =
+      exposeParaSession &&
+      isParaTransactionSigner(
+        paraSigner,
+        evmRuntime.activeEvmConnection?.address,
+      )
+        ? {
+            ...built,
+            preparePreparedEvmTransaction: undefined,
+            sendPreparedEvmTransaction: undefined,
+            sendPreparedEvmCalls: undefined,
+            supportsAtomicEvmBatch: undefined,
+            signEvmTransaction: (
+              payload: Parameters<
+                NonNullable<typeof built.signEvmTransaction>
+              >[0],
+            ) =>
+              signParaTransaction(paraSigner!, payload, {
+                onReviewUrl: paraReviewStore.set,
+              }),
+          }
+        : built;
     return {
       canSignFor: (family, address) => {
         if (
@@ -425,7 +463,7 @@ export function AomiParaPluginProvider({
         },
       },
     };
-  }, [evmRuntime, exposeParaSession, paraSession, svmWallet]);
+  }, [evmRuntime, exposeParaSession, paraReviewStore, paraSession, svmWallet]);
   const signingSvmRuntime = useMemo<SvmWalletRuntime>(
     () => ({
       ...svmRuntime,
@@ -472,6 +510,7 @@ export function AomiParaPluginProvider({
       supportedChains={evmRuntime.supportedChains}
     >
       {children}
+      <ParaTransactionReviewPrompt store={paraReviewStore} />
     </AomiWalletKitComposer>
   );
 }

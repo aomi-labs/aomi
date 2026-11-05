@@ -1217,6 +1217,11 @@ export class CommitController {
       if (view.review && review.expectedReviewDigest === undefined)
         throw new Error("Commit review digest is required for execution");
     }
+    // A wallet hash saved here may outlive the commit's deadline: report it
+    // so Commit Service verifies it on chain and reconciles the expired
+    // commit. Only a hash; nothing else reopens a terminal commit.
+    if (this.hasLateWalletHash(view))
+      view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
@@ -1346,6 +1351,20 @@ export class CommitController {
         COMMIT_REF_ERROR_CODES.digestMismatch,
         "Commit review changed; refresh and review it again",
       );
+  }
+  private hasLateWalletHash(view: CommitView): boolean {
+    if (
+      view.state !== "expired" ||
+      !view.wallet_attempt ||
+      view.wallet_attempt.transaction_id ||
+      view.transaction_id
+    )
+      return false;
+    const record = this.capabilities.recovery?.load(
+      this.scope(view.commit_id),
+      view.commit_id,
+    );
+    return Boolean(record?.transactionId || record?.transactionIds?.length);
   }
   private async recoverWalletOutcome(view: CommitView): Promise<CommitView> {
     const recovery = this.capabilities.recovery;

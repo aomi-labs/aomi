@@ -1918,7 +1918,11 @@ describe("Commit view surfaces", () => {
     const renew = (options?: { body?: { kind: string } }) =>
       options?.body?.kind === "renew";
     const request = vi.fn(
-      async (method: string, _path?: string, options?: { body?: { kind: string } }) => {
+      async (
+        method: string,
+        _path?: string,
+        options?: { body?: { kind: string } },
+      ) => {
         if (method === "GET" || renew(options)) return unsigned;
         if (++attempts === 1) throw new Error("lost response");
         return submitted;
@@ -2005,7 +2009,11 @@ describe("Commit view surfaces", () => {
   it("renews a Solana blockhash right before the wallet signs it", async () => {
     const order: string[] = [];
     const request = vi.fn(
-      async (method: string, _path: string, options?: { body?: { kind: string } }) => {
+      async (
+        method: string,
+        _path: string,
+        options?: { body?: { kind: string } },
+      ) => {
         if (method === "GET") return unsigned;
         order.push(options?.body?.kind ?? "");
         return options?.body?.kind === "renew" ? unsigned : submitted;
@@ -2028,11 +2036,18 @@ describe("Commit view surfaces", () => {
     let renews = 0;
     const bodies: Array<{ kind: string; version?: number }> = [];
     const request = vi.fn(
-      async (method: string, _path: string, options?: { body?: { kind: string; version?: number } }) => {
+      async (
+        method: string,
+        _path: string,
+        options?: { body?: { kind: string; version?: number } },
+      ) => {
         if (method === "GET") return { ...unsigned, version: 1 + renews };
         bodies.push(options!.body!);
-        if (options?.body?.kind === "renew" && ++renews === 1) throw new Error("lost response");
-        return options?.body?.kind === "renew" ? { ...unsigned, version: 1 + renews } : submitted;
+        if (options?.body?.kind === "renew" && ++renews === 1)
+          throw new Error("lost response");
+        return options?.body?.kind === "renew"
+          ? { ...unsigned, version: 1 + renews }
+          : submitted;
       },
     );
     const controller = new CommitController(
@@ -2040,7 +2055,9 @@ describe("Commit view surfaces", () => {
       "thread",
       { sign: vi.fn(async () => ["exact-signature"]) },
     );
-    await expect(controller.execute(unsigned.commit_id)).rejects.toThrow("lost response");
+    await expect(controller.execute(unsigned.commit_id)).rejects.toThrow(
+      "lost response",
+    );
     await controller.execute(unsigned.commit_id);
     expect(bodies.map((body) => `${body.kind}@${body.version ?? ""}`)).toEqual([
       "renew@1",
@@ -2834,7 +2851,11 @@ describe("message commits", () => {
       },
     ]);
     expect(
-      projectCommitLifecycle({ ...view, state: "confirmed", signature: "c2ln" }),
+      projectCommitLifecycle({
+        ...view,
+        state: "confirmed",
+        signature: "c2ln",
+      }),
     ).toMatchObject({ phase: "confirmed", label: "Signed" });
     controller.close();
   });
@@ -3003,5 +3024,236 @@ describe("Solana batches", () => {
     expect(commitCapabilities({ svm: { address: "payer" } }).signAll).toBe(
       undefined,
     );
+  });
+});
+
+/** An embedded wallet (Para) whose provider sends cannot be made durable: it
+ * exposes sign-only and broadcast, so Commit Service stores the signed bytes,
+ * nonce pinned, before anything is broadcast. */
+describe("embedded wallets that sign before broadcast", () => {
+  const arc = {
+    ...externalPayload,
+    chain_id: 5042,
+    nonce: 0,
+  };
+  const prepared: CommitView = {
+    ...external,
+    chain_ref: "5042",
+    supported_transports: ["sign_and_broadcast", "browser_send", "send_calls"],
+    action: { kind: "sign", payload: arc },
+  };
+  const awaitingBroadcast: CommitView = {
+    ...prepared,
+    version: 2,
+    state: "awaiting_broadcast",
+    action: {
+      kind: "broadcast",
+      signed_transaction: "0xsigned",
+      transaction_id: "0xhash",
+    },
+  };
+  const sent: CommitView = {
+    ...awaitingBroadcast,
+    version: 3,
+    state: "submitted",
+    action: null,
+    transaction_id: "0xhash",
+  };
+
+  function server() {
+    let current = prepared;
+    const writes: Array<{ path: string; body: unknown }> = [];
+    const request = vi.fn(
+      async (method: string, path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return current;
+        writes.push({ path, body: options?.body });
+        if (path.endsWith("/wallet-attempts"))
+          throw new Error("no wallet attempt may be created");
+        const body = options?.body as { kind?: string };
+        current = body.kind === "signed" ? awaitingBroadcast : sent;
+        return current;
+      },
+    );
+    return { request, writes, current: () => current };
+  }
+
+  it("signs the pinned nonce, stores it, then broadcasts once; no wallet attempt", async () => {
+    const { request, writes } = server();
+    const signTransaction = vi.fn().mockResolvedValue("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const view = await controller.execute(prepared.commit_id, {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    });
+    expect(view.state).toBe("submitted");
+    expect(signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ chain_id: 5042, nonce: 0 }),
+    );
+    // The signed bytes reach Commit Service before the broadcast.
+    expect(
+      writes.map((write) => (write.body as { kind: string }).kind),
+    ).toEqual(["signed", "broadcast"]);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      writes.some((write) => write.path.endsWith("/wallet-attempts")),
+    ).toBe(false);
+    controller.close();
+  });
+
+  it("an unfinished signature leaves nothing to reconcile, and a retry re-signs the same nonce", async () => {
+    const { request, writes } = server();
+    const signTransaction = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Para signing did not finish in time"), {
+          name: "ParaSigningIncompleteError",
+        }),
+      )
+      .mockResolvedValueOnce("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const review = {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    };
+    await expect(
+      controller.execute(prepared.commit_id, review),
+    ).rejects.toThrow("did not finish");
+    // Not reported as a rejection, nothing written, nothing broadcast.
+    expect(writes).toEqual([]);
+    expect(broadcastTransaction).not.toHaveBeenCalled();
+    expect(
+      projectCommitLifecycle(
+        prepared,
+        controller.submissionPhase(prepared.commit_id),
+      ).phase,
+    ).not.toBe("rejected");
+
+    await controller.execute(prepared.commit_id, review);
+    const nonces = signTransaction.mock.calls.map(([payload]) => payload.nonce);
+    expect(nonces).toEqual([0, 0]);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+});
+
+describe("an expired commit with an unresolved wallet attempt", () => {
+  const attempt = {
+    attempt_id: "c04aa830",
+    transport: "send_calls" as const,
+    state: "awaiting_wallet" as const,
+    transaction_id: null,
+    failure_code: null,
+  };
+  const expired: CommitView = {
+    ...external,
+    state: "expired",
+    failure_code: "commit_expired",
+    action: null,
+    wallet_attempt: attempt,
+  };
+  const reconciled: CommitView = {
+    ...expired,
+    version: 2,
+    state: "submitted",
+    failure_code: null,
+    transaction_id: "0xlate",
+    wallet_attempt: {
+      ...attempt,
+      state: "observing",
+      transaction_id: "0xlate",
+    },
+  };
+
+  function setup(record?: CommitRecoveryRecord) {
+    const recovery = recoveryStore();
+    if (record)
+      recovery.store.save(expired.thread_id, expired.commit_id, record);
+    const writes: Array<{ path: string; body: unknown }> = [];
+    const request = vi.fn(
+      async (method: string, path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return expired;
+        writes.push({ path, body: options?.body });
+        return reconciled;
+      },
+    );
+    const sendPreparedCalls = vi.fn();
+    const signTransaction = vi.fn();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      expired.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            sendPreparedCalls,
+            preparePreparedTransaction: vi.fn(),
+            sendPreparedTransaction: vi.fn(),
+          },
+        },
+        recovery.store,
+      ),
+    );
+    return { controller, writes, sendPreparedCalls, signTransaction };
+  }
+
+  it("reports a hash the wallet returned after the deadline, never a new send", async () => {
+    const { controller, writes, sendPreparedCalls, signTransaction } = setup({
+      clientRequestId: "req",
+      attemptId: "c04aa830",
+      transactionIds: ["0xlate"],
+    });
+    const view = await controller.execute(expired.commit_id);
+    expect(view.state).toBe("submitted");
+    expect(writes).toEqual([
+      {
+        path: expect.stringContaining("/wallet-attempts/c04aa830/report"),
+        body: { kind: "calls", transaction_ids: ["0xlate"] },
+      },
+    ]);
+    expect(sendPreparedCalls).not.toHaveBeenCalled();
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
+  });
+
+  it("stays blocked without evidence: no report, no wallet, no restage", async () => {
+    const { controller, writes, sendPreparedCalls, signTransaction } = setup({
+      clientRequestId: "req",
+      attemptId: "c04aa830",
+    });
+    const view = await controller.execute(expired.commit_id);
+    expect(view.state).toBe("expired");
+    expect(writes).toEqual([]);
+    expect(sendPreparedCalls).not.toHaveBeenCalled();
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
   });
 });
