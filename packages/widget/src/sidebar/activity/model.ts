@@ -4,7 +4,11 @@ import type {
   CommitView,
   Event,
 } from "@aomi-labs/client";
-import { isMessageReview, summarizeSimulation } from "@aomi-labs/client";
+import {
+  isMessageReview,
+  normalizeSolanaCluster,
+  summarizeSimulation,
+} from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
 import { messageChainId, unwrapToolStep } from "@aomi-labs/client/trace";
 
@@ -87,6 +91,27 @@ const ids = (value: unknown): number[] =>
   Array.isArray(value)
     ? value.filter((id): id is number => typeof id === "number")
     : [];
+/** The pending ids a staged record stands for: a Solana bundle lists its
+ * instructions' ids, every other record names one. */
+/** Staged rows and commits may spell a cluster differently. */
+const clusterRef = (value?: string) => normalizeSolanaCluster(value) ?? value;
+
+const stagedIds = (tx: RecordValue): number[] => {
+  if (Array.isArray(tx.pending_ix_ids)) return ids(tx.pending_ix_ids);
+  const id = number(tx.pending_tx_id) ?? number(tx.pending_ix_id);
+  return id == null ? [] : [id];
+};
+/** A direct svm_stage_ix call's instructions: one transaction to the user. */
+function instructionBundle(items: unknown[]): RecordValue | undefined {
+  const records = items
+    .map(record)
+    .filter((item): item is RecordValue => item != null);
+  if (!records.length) return undefined;
+  return {
+    ...records[0],
+    pending_ix_ids: records.flatMap(stagedIds),
+  };
+}
 
 /** Only complete tool records are projected; streamed child previews are not authoritative. */
 function toolRecord(
@@ -178,6 +203,8 @@ export function selectActivity(
     null;
   const skills = new Set<string>();
   const staged = new Map<string, ActivityTransaction>();
+  /** Each pending id's card: a bundle's instruction ids share one. */
+  const byId = new Map<string, ActivityTransaction>();
   /** The tool event that created each commit, for commits with no staged tx. */
   const commitOrigins = new Map<
     string,
@@ -209,10 +236,21 @@ export function selectActivity(
       for (const id of result.activated)
         if (typeof id === "string") skills.add(id);
     }
-    const family =
-      /svm|solana|jupiter/.test(name) || result.chain_kind === "svm"
-        ? "svm"
-        : "evm";
+    // The family comes from the payload: prepared records name it, Solana
+    // records carry a cluster, EVM ones a chain id. A tool's name says
+    // nothing (a "jupiter" app may stage on EVM).
+    const familyOf = (
+      value: Record<string, unknown>,
+      fallback: "svm" | "evm",
+    ) =>
+      value.chain_kind === "svm" || value.chain_kind === "evm"
+        ? value.chain_kind
+        : typeof value.cluster === "string"
+          ? "svm"
+          : value.chain_id != null
+            ? "evm"
+            : fallback;
+    const family = familyOf(result, name.startsWith("svm_") ? "svm" : "evm");
     if (name === "evm_discard_tx" || name === "svm_discard_tx") {
       const discarded = new Set(ids(result.discarded));
       // Pending ids are unique per family and thread across networks, not
@@ -234,20 +272,18 @@ export function selectActivity(
     const stagedRecords = Array.isArray(result.staged)
       ? result.staged
       : Array.isArray(result.instructions)
-        ? result.instructions
+        ? [instructionBundle(result.instructions)]
         : [record(result.tx) ?? record(result.ix) ?? result];
     for (const raw of stagedRecords) {
       const tx = record(raw);
       if (!tx) continue;
-      const pendingId = number(tx.pending_tx_id) ?? number(tx.pending_ix_id);
-      const txFamily =
-        tx.chain_kind === "svm" || tx.chain_kind === "evm"
-          ? tx.chain_kind
-          : family;
+      const members = stagedIds(tx);
+      const pendingId = members[0];
+      const txFamily = familyOf(tx, family);
       if (pendingId != null && tx.current_lifecycle === "queued") {
         const id = `${event.turn_id}:${txFamily}:${pendingId}`;
         const previous = staged.get(id);
-        staged.set(id, {
+        const item: ActivityTransaction = {
           id,
           sequence: previous?.sequence ?? event.sequence,
           turnId: event.turn_id,
@@ -261,15 +297,18 @@ export function selectActivity(
           cluster: string(tx.cluster),
           raw: tx,
           stage: previous?.stage ?? "staged",
-        });
+        };
+        staged.set(id, item);
+        for (const member of members)
+          byId.set(`${event.turn_id}:${txFamily}:${member}`, item);
       }
     }
     // Retired Jupiter tool: its staged ids came back as `ix_ids`.
     if (name === "jupiter_prepare_swap")
       for (const id of ids(result.ix_ids)) {
         const key = `${event.turn_id}:svm:${id}`;
-        if (!staged.has(key))
-          staged.set(key, {
+        if (!staged.has(key)) {
+          const item: ActivityTransaction = {
             id: key,
             sequence: event.sequence,
             turnId: event.turn_id,
@@ -279,7 +318,10 @@ export function selectActivity(
             cluster: string(result.cluster),
             raw: { ...result, pending_ix_id: id },
             stage: "staged",
-          });
+          };
+          staged.set(key, item);
+          byId.set(key, item);
+        }
       }
     const sim = record(result.simulation);
     if (sim) {
@@ -298,7 +340,7 @@ export function selectActivity(
             : undefined);
       if (success !== undefined)
         for (const id of affected) {
-          const item = staged.get(`${event.turn_id}:${family}:${id}`);
+          const item = byId.get(`${event.turn_id}:${family}:${id}`);
           if (item && !item.action)
             item.stage = success ? "simulated" : "simulation-failed";
         }
@@ -311,7 +353,7 @@ export function selectActivity(
       for (const id of ids(
         result.tx_ids ?? result.svm_ix_ids ?? result.ix_ids,
       )) {
-        const item = staged.get(`${event.turn_id}:${family}:${id}`);
+        const item = byId.get(`${event.turn_id}:${family}:${id}`);
         if (item) {
           item.stage = "committed";
           item.committedWire = string(result.unsigned_tx);
@@ -435,17 +477,14 @@ export function selectActivity(
           .filter(Number.isInteger);
     for (const sourceId of sourceIds) {
       const match = transactions.find((tx) => {
-        const chainRef =
+        const sameChain =
           tx.family === "evm"
-            ? tx.chainId == null
-              ? undefined
-              : String(tx.chainId)
-            : tx.cluster;
+            ? tx.chainId != null && String(tx.chainId) === commit.chain_ref
+            : clusterRef(tx.cluster) === clusterRef(commit.chain_ref);
         return (
           tx.family === commit.chain_family &&
-          (number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id)) ===
-            sourceId &&
-          chainRef === commit.chain_ref
+          stagedIds(tx.raw).includes(sourceId) &&
+          sameChain
         );
       });
       if (match) {
@@ -463,11 +502,13 @@ export function selectActivity(
       id: `commit:${commit.commit_id}`,
       sequence: origin?.sequence,
       turnId: origin?.turnId ?? null,
-      family: "evm",
+      family: commit.chain_family,
       label: review.description || "Sign message",
       kind: "message",
       // Only a chain the message names; the commit's own is the wallet's.
-      chainId: messageChainId([commit as unknown as RecordValue]),
+      ...(commit.chain_family === "svm"
+        ? { cluster: commit.chain_ref }
+        : { chainId: messageChainId([commit as unknown as RecordValue]) }),
       raw: {},
       stage: "committed",
       commit,

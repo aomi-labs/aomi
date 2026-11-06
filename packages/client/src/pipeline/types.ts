@@ -54,8 +54,9 @@ export interface PipelineOperationInvocation<
 }
 
 export interface PipelineExecutionScope {
-  /** EVM preparation policy. An explicit value overrides; when omitted, the
-   * backend uses the thread's saved policy, else the account default. */
+  /** Preparation policy, EVM and Solana. An explicit value overrides; when
+   * omitted, the backend uses the thread's saved policy, else the account
+   * default. */
   transactionSafetyMode?: TransactionSafetyMode;
   app?: string;
   skills?: string[];
@@ -79,7 +80,7 @@ export interface PipelineBuildOrigin {
 export type PipelineBuildProvenance = PipelineBuildOrigin;
 
 export interface PipelineMutationOptions {
-  /** EVM request-boundary override; later omission inherits the sealed Build mode. */
+  /** Request-boundary override; later omission inherits the sealed Build mode. */
   transactionSafetyMode?: TransactionSafetyMode;
   idempotencyKey?: string;
   paymentSignature?: string;
@@ -195,6 +196,7 @@ export interface EvmSimulatedBuild {
 }
 
 export interface EvmCommitResult {
+  family: "evm";
   status: "committed";
   /** Explicit preparation outcome; status retains its legacy value for compatibility. */
   preparation_status?: "prepared";
@@ -282,6 +284,7 @@ export type SvmBuildAction = SvmStagedAction;
 export type SvmPresentedAction = SvmStagedAction & { chainFamily: "svm" };
 
 export interface SvmStagedBuild {
+  transactionSafetyMode?: TransactionSafetyMode;
   version: 2;
   status: "staged";
   actions: SvmStagedAction[];
@@ -292,6 +295,7 @@ export interface SvmStagedBuild {
 }
 
 export interface SvmSimulatedBuild {
+  transactionSafetyMode?: TransactionSafetyMode;
   version: 2;
   status: "simulated";
   actions: SvmStagedAction[];
@@ -304,15 +308,18 @@ export interface SvmSimulatedBuild {
 }
 
 export interface SvmCommitResult {
+  family: "svm";
   status: "committed";
   /** Explicit preparation outcome; status retains its legacy value for compatibility. */
   preparation_status?: "prepared";
   provider_invoked?: false;
   next_required_action?: "submit_wallet_request";
   digest: string;
-  /** Legacy output slots; use the preparation fields to decide the next action. */
-  results: unknown[];
-  /** Server-owned durable requests. Continue through Commit Service. */
-  requests: ActionRequest[];
+  /** The commit operation's result: what was committed and where it is signed. */
+  result: unknown;
+  /** The thread that owns the commits. */
+  thread_id: string;
+  /** Commit Service commits, in order. Sign and follow them like any commit. */
+  commits: CommitView[];
 }
 export type PipelineErrorBody = Schemas["ErrorEnvelope"];

@@ -121,30 +121,34 @@ export type ViemSignMessageArgs = {
 // Helpers
 // =============================================================================
 
-/**
- * Normalize Solana's legacy cluster labels to the CAIP-style identifiers used
- * by the wallet runtime. Preserve unknown labels so callers can surface a
- * useful unsupported-cluster error instead of silently changing networks.
- */
-export function normalizeSolanaCluster(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
+/** A Solana cluster, in the one spelling clients use. */
+export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+/** @deprecated Use `SvmCluster`; kept one release for existing consumers. */
+export type SiwsChainId = SvmCluster;
 
-  switch (trimmed.toLowerCase()) {
+/**
+ * A Solana cluster label as `SvmCluster`. The old spellings (`mainnet-beta`,
+ * `solana`, bare names) are accepted for one release. An unknown label is
+ * undefined, so callers refuse it instead of silently changing networks.
+ */
+export function normalizeSolanaCluster(value: unknown): SvmCluster | undefined {
+  if (typeof value !== "string") return undefined;
+  switch (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/^solana:/, "")
+  ) {
     case "mainnet":
     case "mainnet-beta":
-    case "solana:mainnet":
-    case "solana:mainnet-beta":
+    case "solana":
       return "solana:mainnet";
     case "devnet":
-    case "solana:devnet":
       return "solana:devnet";
     case "testnet":
-    case "solana:testnet":
       return "solana:testnet";
     default:
-      return trimmed;
+      return undefined;
   }
 }
 

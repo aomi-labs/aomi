@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dir = vi.hoisted(() => {
@@ -15,6 +17,8 @@ const BASE = "https://chat.example";
 const at = Date.parse("2026-10-28T00:00:00Z");
 const KEY =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const SOLANA = Keypair.fromSeed(new Uint8Array(32).fill(7));
+const SOLANA_KEY = bs58.encode(SOLANA.secretKey);
 
 const view = (id: string, state: string) => ({
   version: 1,
@@ -66,7 +70,7 @@ const turn = {
       { chain_id: 8453, kind: "native_transfer" },
       { pending_tx_id: 1, chain_id: 8453, current_lifecycle: "queued" },
     ),
-    tool(2, "simulate_batch", { tx_ids: [1] }, { success: true }),
+    tool(2, "evm_simulate", { tx_ids: [1] }, { success: true }),
     tool(3, "evm_commit_txs", { tx_ids: [1] }, { status: "pending_approval" }),
     event(4, {
       type: "message",
@@ -78,7 +82,7 @@ const turn = {
   commits: [view("7f3c", "awaiting_approval")],
 };
 
-let requests: { key: string; auth: string | null }[] = [];
+let requests: { key: string; auth: string | null; body: string }[] = [];
 const routes: Record<string, unknown> = {
   "POST /v1/agent/chat": turn,
   "GET /v1/commits/7f3c": {
@@ -87,6 +91,12 @@ const routes: Record<string, unknown> = {
   },
   "POST /api/auth/siwe/nonce": { nonce: "abcdefgh12345678" },
   "POST /api/auth/siwe/verify": { token: "session-token" },
+  "POST /api/auth/siws/nonce": {
+    nonce: "abcdefgh12345678",
+    domain: "chat.example",
+    uri: BASE,
+  },
+  "POST /api/auth/siws/verify": { token: "siws-token" },
   "GET /v1/account": {
     user: { id: "u1", displayName: "0x9965…A4dc" },
     linkedAccounts: [],
@@ -136,12 +146,17 @@ beforeEach(() => {
   requests = [];
   process.env.AOMI_BACKEND_URL = BASE;
   delete process.env.AOMI_PRIVATE_KEY;
+  delete process.env.AOMI_SOLANA_PRIVATE_KEY;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       const key = `${request.method} ${new URL(request.url).pathname}`;
-      requests.push({ key, auth: request.headers.get("authorization") });
+      requests.push({
+        key,
+        auth: request.headers.get("authorization"),
+        body: await request.text(),
+      });
       const answer = routes[key];
       if (key === "POST /api/auth/siwe/verify")
         return Response.json(answer, {
@@ -189,6 +204,7 @@ describe("command validation", () => {
     expect((await cli("thraeds")).code).toBe(2);
     expect((await cli("chat", "--chain", "base", "hi")).code).toBe(2);
     expect((await cli("chat", "--chain", "8453abc", "hi")).code).toBe(2);
+    expect((await cli("whoami", "--cluster", "localnet")).code).toBe(2);
   });
 });
 
@@ -292,6 +308,37 @@ describe("sign-in", () => {
       "GET /v1/account",
     ]);
     expect(requests.at(-1)?.auth).toBe("Bearer session-token");
+  });
+
+  it("signs in with SIWS for --solana-private-key on --cluster", async () => {
+    const address = SOLANA.publicKey.toBase58();
+    const { code, stdout } = await cli(
+      "whoami",
+      "--solana-private-key",
+      SOLANA_KEY,
+      "--cluster",
+      "devnet",
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain(`Signed in  --solana-private-key ${address}`);
+    expect(requests.map((r) => r.key)).toEqual([
+      "POST /api/auth/siws/nonce",
+      "POST /api/auth/siws/verify",
+      "GET /v1/account",
+    ]);
+    expect(JSON.parse(requests[0]!.body)).toEqual({
+      walletAddress: address,
+      chainId: "solana:devnet",
+    });
+    expect(requests.at(-1)?.auth).toBe("Bearer siws-token");
+  });
+
+  it("names both signers when the EVM key signs in", async () => {
+    state({ svmKey: SOLANA_KEY });
+    const { stdout } = await cli("whoami", "--private-key", KEY);
+    expect(stdout).toContain(
+      `Signed in  --private-key 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 · ${SOLANA.publicKey.toBase58()}`,
+    );
   });
 
   it("uses the device grant from aomi login", async () => {

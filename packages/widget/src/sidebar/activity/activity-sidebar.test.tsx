@@ -184,7 +184,7 @@ describe("active transaction presentation", () => {
     ).not.toBeNull();
     runtime.events = [
       ...events,
-      tool(8, callback, "simulate_batch", {
+      tool(8, callback, "evm_simulate", {
         resolved_ids: [2, 3],
         simulation: { batch_success: true },
       }),

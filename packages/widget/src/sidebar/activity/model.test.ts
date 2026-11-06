@@ -134,6 +134,64 @@ describe("activity projection", () => {
     ).toEqual(["commit-2", "commit-1"]);
   });
 
+  it("takes the family from the staged record, not the tool name", () => {
+    const evmApp = tool(1, "stage_jupiter_perps_order", {
+      staged: [{ ...tx, pending_tx_id: 1, current_lifecycle: "queued" }],
+    });
+    const solApp = tool(2, "stage_kamino_lend", {
+      staged: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          description: "Kamino deposit SOL",
+          pending_ix_id: 1,
+          current_lifecycle: "queued",
+          chain_kind: "svm",
+        },
+      ],
+    });
+    const result = selectActivity([evmApp, solApp], [], []);
+    expect(result.transactions.map((item) => item.family)).toEqual([
+      "evm",
+      "svm",
+    ]);
+  });
+
+  it("shows a Solana bundle as one transaction through simulate and commit", () => {
+    const stage = tool(1, "stage_jupiter_swap", {
+      staged: [
+        {
+          pending_ix_ids: [1, 2, 3],
+          instruction_count: 3,
+          cluster: "mainnet-beta",
+          description: "Swap SOL to USDC",
+          current_lifecycle: "queued",
+          chain_kind: "svm",
+        },
+      ],
+      pending_tx_ids: [1, 2, 3],
+    });
+    const sim = tool(2, "svm_simulate", {
+      ix_ids: [1, 2, 3],
+      simulation: { err: null },
+    });
+    const simulated = selectActivity([stage, sim]);
+    expect(
+      simulated.transactions.map((card) => [card.label, card.stage]),
+    ).toEqual([["Swap SOL to USDC", "simulated"]]);
+    const commit = durableCommit(1, 0, {
+      commit_id: "swap",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      stage_id: "svm:1,2,3",
+      state: "confirmed",
+      batch: null,
+    });
+    const committed = selectActivity([stage, sim], [], [commit]);
+    expect(committed.transactions).toHaveLength(1);
+    expect(committed.transactions[0].commit?.state).toBe("confirmed");
+  });
+
   it("binds an unbatched commit by its own stage id, also a later turn's", () => {
     // As svm_stage_ix reports it; the commit tool's model-facing result names
     // no sources, so the commit's own stage id is the link.
@@ -232,7 +290,7 @@ describe("activity projection", () => {
     expect(result.transactions.every((item) => item.stage === "staged")).toBe(
       true,
     );
-    const sim = tool(2, "simulate_batch", {
+    const sim = tool(2, "evm_simulate", {
       resolved_ids: [1, 2],
       simulation: { batch_success: true },
     });
@@ -371,7 +429,7 @@ describe("SVM preparation", () => {
       current_lifecycle: "queued",
     };
     const staged = tool(1, "svm_stage_tx", { tx: blob, pending_tx_id: 1 });
-    const sim = tool(2, "svm_simulate_tx", {
+    const sim = tool(2, "svm_simulate", {
       tx_id: 1,
       simulation: { err: null, units_consumed: 1200 },
     });
@@ -479,6 +537,58 @@ describe("SVM preparation", () => {
     expect(
       selectLegacyReviewAction([staged, committed], [committed], [durable]),
     ).toBeUndefined();
+  });
+});
+
+describe("message commits", () => {
+  it("lists each family's message commit as its own row", () => {
+    const review = (family: "evm" | "svm") => ({
+      version: 1,
+      revision: 1,
+      digest: "review",
+      legs: [],
+      request: {
+        type: "sign" as const,
+        requestId: `${family}-message:1`,
+        chainFamily: family,
+        executionKind: `${family}_message`,
+        signer: "wallet",
+        description: `Sign on ${family}`,
+        payloads: [],
+      },
+    });
+    const commits = [
+      durableCommit(1, 0, { batch: null, review: review("evm") }),
+      durableCommit(2, 0, {
+        batch: null,
+        chain_family: "svm",
+        chain_ref: "mainnet-beta",
+        review: review("svm"),
+      }),
+    ];
+    expect(
+      selectActivity([], [], commits).transactions.map(
+        ({ family, label, kind, cluster }) => ({
+          family,
+          label,
+          kind,
+          cluster,
+        }),
+      ),
+    ).toEqual([
+      {
+        family: "evm",
+        label: "Sign on evm",
+        kind: "message",
+        cluster: undefined,
+      },
+      {
+        family: "svm",
+        label: "Sign on svm",
+        kind: "message",
+        cluster: "mainnet-beta",
+      },
+    ]);
   });
 });
 

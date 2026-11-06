@@ -151,57 +151,6 @@ describe("walletCapabilities", () => {
     expect(sendTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it("executes complete SVM transactions without consulting runtime state", async () => {
-    const switchCluster = vi.fn().mockResolvedValue(undefined);
-    const signAndSendTransaction = vi.fn().mockResolvedValue({
-      signature: "svm-signature",
-      signedTransaction: "signed",
-    });
-    const capability = walletCapabilities({
-      svm: {
-        address: "payer",
-        cluster: "devnet",
-        switchCluster,
-        signAndSendTransaction,
-      },
-    }).execute_svm;
-
-    await expect(
-      capability!(
-        {
-          type: "execute_svm",
-          transactions: [
-            {
-              payer: "payer",
-              cluster: "mainnet-beta",
-              version: "legacy",
-              instructions: [],
-              unsigned_transaction_base64: "unsigned",
-              description: "Transfer",
-              kind: "transfer",
-            },
-          ],
-        },
-        signal,
-      ),
-    ).resolves.toEqual({
-      status: "submitted",
-      legs: [
-        {
-          id: "leg_1",
-          status: "submitted",
-          transactionId: "svm-signature",
-          signedTransactionBase64: "signed",
-        },
-      ],
-    });
-    expect(switchCluster).toHaveBeenCalledWith("mainnet-beta");
-    expect(signAndSendTransaction).toHaveBeenCalledWith({
-      transactionBase64: "unsigned",
-      cluster: "mainnet-beta",
-    });
-  });
-
   it("returns an SVM signature for an operation and signed bytes otherwise", async () => {
     const signTransaction = vi.fn().mockResolvedValue({
       signature: "payer-signature",

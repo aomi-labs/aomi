@@ -12,6 +12,7 @@ import type { CreateConnectorFn } from 'wagmi';
 import { CSSProperties } from 'react';
 import { JSX } from 'react/jsx-runtime';
 import { ReactNode } from 'react';
+import { SvmCluster } from '@aomi-labs/client';
 import type { Transport } from 'viem';
 
 // @public

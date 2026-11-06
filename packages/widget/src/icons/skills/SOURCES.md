@@ -17,6 +17,7 @@ Official sources consulted:
 - [Kamino logo SVG](https://kamino.com/assets/logo.1788494054.svg)
 - [OpenBook](https://github.com/openbook-dex)
 - [Optimism](https://www.optimism.io/brand)
+- [Orca](https://www.orca.so/)
 - [Pendle brand guide](https://www.pendle.finance/brand-guide/)
 - [Raydium brand kit](https://docs.raydium.io/resources/brand-kit)
 - [Renzo brand kit](https://docs.renzoprotocol.com/docs/resources/brand-kit)

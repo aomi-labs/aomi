@@ -8,7 +8,8 @@ import { Keypair } from '@solana/web3.js';
 
 // @public
 export function solanaSigner(key: Keypair | string, options?: {
-    rpcUrls?: Partial<Record<string, string>>;
+    cluster?: SvmCluster;
+    rpcUrls?: Partial<Record<SvmCluster, string>>;
 }): SvmWallet;
 
 // (No @packageDocumentation comment for this package)

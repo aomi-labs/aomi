@@ -8,6 +8,7 @@ import {
   normalizeAddress,
   statusFact,
   tokenFact,
+  usdTotalFact,
 } from "../../normalize";
 import type { ToolMatcher } from "../../types";
 import { knownToken } from "../../token-registry";
@@ -66,7 +67,8 @@ export const matchErc20Balance: ToolMatcher = ({ rawLabel, resultRecord }) => {
 const DEFAULT_LIMIT = 20;
 
 /** Chips mirror the request: the chain when one is chosen, how many holdings
- * it fetches and, when set, what it searched for. The reply itself reports the amounts. */
+ * it fetches and, when set, what it searched for; then the priced holdings'
+ * USD total. The reply itself reports the amounts. */
 export const matchErc20Holdings: ToolMatcher = ({
   rawLabel,
   parsedArgs,
@@ -81,6 +83,15 @@ export const matchErc20Holdings: ToolMatcher = ({
   const args = asRecord(parsedArgs) ?? {};
   const limit = asInteger(args.limit) ?? DEFAULT_LIMIT;
   const query = asString(args.query)?.trim();
+  // One chain answers `items`; every chain answers `chains[].holdings.items`.
+  const items = Array.isArray(resultRecord?.items)
+    ? resultRecord.items
+    : Array.isArray(resultRecord?.chains)
+      ? resultRecord.chains.flatMap((chain) => {
+          const page = asRecord(asRecord(chain)?.holdings);
+          return Array.isArray(page?.items) ? page.items : [];
+        })
+      : [];
   return operation("evm.account.erc20_holdings", rawLabel, [
     args.chain_id != null ? chainFactFromRecord(args, "args") : null,
     {
@@ -92,5 +103,6 @@ export const matchErc20Holdings: ToolMatcher = ({
     query
       ? { kind: "token", value: query, label: query, source: "args" }
       : null,
+    usdTotalFact(items),
   ]);
 };

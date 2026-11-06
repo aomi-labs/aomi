@@ -30,11 +30,16 @@ export type CommitPresentation = {
   onChain?: OnChainOutcome;
 };
 
-/** A message commit's review: a `sign` request for an `evm_message`. */
+/** A message commit's review: a `sign` request for an `evm_message` or an
+ * `svm_message`. */
 export function isMessageReview(
   review: ActionRequest | undefined,
 ): review is MessageCommitReview {
-  return review?.type === "sign" && review.executionKind === "evm_message";
+  return (
+    review?.type === "sign" &&
+    (review.executionKind === "evm_message" ||
+      review.executionKind === "svm_message")
+  );
 }
 
 /** An off-chain message signature: nothing is sent, so a confirmed one has a
@@ -43,7 +48,8 @@ export function isMessageCommit(view: CommitView): boolean {
   return (
     isMessageReview(view.review?.request) ||
     (view.action?.kind === "sign" &&
-      view.action.payload.kind === "evm_message") ||
+      (view.action.payload.kind === "evm_message" ||
+        view.action.payload.kind === "svm_message")) ||
     typeof view.signature === "string"
   );
 }

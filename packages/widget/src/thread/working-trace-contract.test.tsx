@@ -71,8 +71,8 @@ describe("working trace contract", () => {
     ["Evm stage", "Stage transaction"],
     ["evm_stage_tx", "Stage transaction"],
     ["svm_stage_ix", "Stage transaction"],
-    ["simulate_batch", "Simulate transaction"],
-    ["svm_simulate_ix", "Simulate transaction"],
+    ["evm_simulate", "Simulate transaction"],
+    ["svm_simulate", "Simulate transaction"],
     ["evm_commit_txs", "Commit transactions"],
     ["evm_discard_tx", "Discard transactions"],
     ["svm_discard_tx", "Discard transactions"],
@@ -81,8 +81,8 @@ describe("working trace contract", () => {
     ["web_search", "Search web"],
     ["web_fetch", "Read page"],
     ["activate_skills", "Activate skill"],
-    ["get_contract", "Get contract details"],
-    ["encode_and_call", "Call contract"],
+    ["evm_get_contract", "Get contract details"],
+    ["evm_call", "Call contract"],
     ["list_transactions", "List transactions"],
     ["get_transaction", "Get transaction"],
   ])(
@@ -175,7 +175,7 @@ describe("working trace contract", () => {
 
   it("uses resolved EVM transaction ids, not internal simulation steps", () => {
     const step = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [7],
         simulation: {
@@ -187,7 +187,7 @@ describe("working trace contract", () => {
     });
     expect(labels(step)).toEqual(["Base", "1 tx", "Passed"]);
     const incomplete = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [7],
         simulation_incomplete: true,
@@ -197,7 +197,7 @@ describe("working trace contract", () => {
     expect(labels(incomplete)).toContain("Incomplete");
     expect(incomplete.outcome).toBe("incomplete");
     const withoutEvidence = interpretToolStep({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: { simulation: { network: "base" } },
     });
     expect(withoutEvidence.outcome).toBe("unknown");
@@ -222,7 +222,7 @@ describe("working trace contract", () => {
     });
     expect(labels(stage)).toEqual(["Solana", "3 instructions", "Staged"]);
     const simulation = interpretToolStep({
-      toolName: "svm_simulate_ix",
+      toolName: "svm_simulate",
       result: {
         ix_ids: [1, 2, 3],
         cluster: "mainnet-beta",
@@ -243,13 +243,13 @@ describe("working trace contract", () => {
     expect(failedStage.outcome).toBe("failed");
   });
 
-  it("counts requested Solana transactions when a commit view is absent", () => {
+  it("counts a Solana commit's instruction ids as one transaction without a commit view", () => {
     const step = interpretToolStep({
       toolName: "svm_commit_txs",
       argsText: JSON.stringify({ tx_ids: [11, 12] }),
       result: { cluster: "mainnet-beta", status: "pending_approval" },
     });
-    expect(labels(step)).toEqual(["Solana", "2 txs", "Awaiting approval"]);
+    expect(labels(step)).toEqual(["Solana", "1 tx", "Awaiting approval"]);
   });
 
   it("shows Commit Service progress and keeps a pending row pending", () => {

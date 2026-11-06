@@ -628,7 +628,7 @@ export const ROUTES: readonly Route[] = [
     },
   },
   {
-    path: /^\/v1\/pipeline\/evm\/commits\/.*$/,
+    path: /^\/v1\/pipeline\/(evm|svm)\/commits\/.*$/,
     operation: "pipeline.request",
     to: "agent",
     on: "pipelineRest",
@@ -729,7 +729,7 @@ export const ROUTES: readonly Route[] = [
   {
     ...commit,
     path: new RegExp(
-      `^\\/v1\\/commits\\/${REF}\\/(?:sign|broadcast|attempts|reject|attempts\\/${REF}\\/report)$`,
+      `^\\/v1\\/commits\\/${REF}\\/(?:sign|broadcast|attempts|reject|renew|attempts\\/${REF}\\/report)$`,
     ),
     methods: { POST: "agent:write" },
   },

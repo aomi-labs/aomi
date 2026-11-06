@@ -10,10 +10,8 @@
     "DELETE /v1/account/apps/{applicationId}/secrets",
     "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
     "DELETE /v1/agent/sessions/{sessionId}",
-    "GET /.well-known/agent.json",
     "GET /.well-known/api-catalog",
     "GET /.well-known/jwks.json",
-    "GET /.well-known/x402",
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
@@ -64,13 +62,12 @@
     "GET /v1/pipeline/svm/account",
     "GET /v1/pipeline/svm/build",
     "GET /v1/pipeline/svm/commit",
+    "GET /v1/pipeline/svm/commits/{commitId}",
     "GET /v1/pipeline/svm/context",
     "GET /v1/pipeline/svm/program",
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
-    "GET /v1/task/build",
-    "GET /v1/task/openapi.json",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/apps/{applicationId}",
     "POST /v1/account/apps/{applicationId}/secrets",
@@ -89,6 +86,7 @@
     "POST /v1/commits/{ref}/attempts/{attemptId}/report",
     "POST /v1/commits/{ref}/broadcast",
     "POST /v1/commits/{ref}/reject",
+    "POST /v1/commits/{ref}/renew",
     "POST /v1/commits/{ref}/sign",
     "POST /v1/payment/webhooks/stripe",
     "POST /v1/pipeline/apps/{app}/operations/{operation}",
@@ -109,6 +107,9 @@
     "POST /v1/pipeline/svm/account",
     "POST /v1/pipeline/svm/build",
     "POST /v1/pipeline/svm/commit",
+    "POST /v1/pipeline/svm/commits/{commitId}/manual",
+    "POST /v1/pipeline/svm/commits/{commitId}/wallet-attempts",
+    "POST /v1/pipeline/svm/commits/{commitId}/wallet-attempts/{attemptId}/report",
     "POST /v1/pipeline/svm/context",
     "POST /v1/pipeline/svm/program",
     "POST /v1/pipeline/svm/simulate",
@@ -121,51 +122,6 @@
     "PUT /v1/account/transaction-safety/threads/{threadId}"
   ],
   "paths": {
-    "/.well-known/x402": {
-      "get": {
-        "operationId": "taskPaymentDiscovery",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Public Task payment endpoint discovery"
-          }
-        }
-      }
-    },
-    "/.well-known/agent.json": {
-      "get": {
-        "operationId": "taskManifest",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Public Task manifest using deployed payment terms"
-          },
-          "502": {
-            "description": "Invalid Task discovery configuration"
-          },
-          "503": {
-            "description": "Payment service unavailable"
-          }
-        }
-      }
-    },
-    "/v1/task/openapi.json": {
-      "get": {
-        "operationId": "taskOpenapi",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Task-only OpenAPI contract with deployed networks"
-          },
-          "502": {
-            "description": "Invalid Task discovery configuration"
-          },
-          "503": {
-            "description": "Payment service unavailable"
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
         "operationId": "health",
@@ -507,6 +463,60 @@
       "post": {
         "operationId": "agentMcp",
         "description": "Dual-era stateless MCP endpoint supporting modern 2026-07-28 requests and legacy initialize clients.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP JSON-RPC response",
+            "headers": {
+              "mcp-protocol-version": {
+                "schema": {
+                  "enum": ["2026-07-28", "2025-06-18"]
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Notification accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["mcp:agent"]
+          }
+        ]
+      }
+    },
+    "/v1/apps/{app}/mcp": {
+      "post": {
+        "operationId": "appMcp",
+        "description": "Agent MCP locked to one app: every aomi_chat turn runs in that app, without Auto execution, and a different application argument is a 400. An unknown app is 404 app_not_found. The OAuth resource is this exact URL on the portal origin.",
+        "parameters": [
+          {
+            "name": "app",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-_]{0,62}$"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1226,7 +1236,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}": {
       "get": {
-        "operationId": "getPipelineCommit",
+        "operationId": "evmGetPipelineCommit",
         "parameters": [
           {
             "name": "commitId",
@@ -1248,7 +1258,60 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}": {
+      "get": {
+        "operationId": "svmGetPipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1279,7 +1342,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/manual": {
       "post": {
-        "operationId": "resolvePipelineCommit",
+        "operationId": "evmResolvePipelineCommit",
         "parameters": [
           {
             "name": "commitId",
@@ -1301,7 +1364,70 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitManual"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/manual": {
+      "post": {
+        "operationId": "svmResolvePipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1342,7 +1468,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/wallet-attempts": {
       "post": {
-        "operationId": "claimPipelineWalletAttempt",
+        "operationId": "evmClaimPipelineWalletAttempt",
         "parameters": [
           {
             "name": "commitId",
@@ -1364,7 +1490,70 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitWalletAttemptView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/wallet-attempts": {
+      "post": {
+        "operationId": "svmClaimPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1405,7 +1594,7 @@
     },
     "/v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report": {
       "post": {
-        "operationId": "reportPipelineWalletAttempt",
+        "operationId": "evmReportPipelineWalletAttempt",
         "parameters": [
           {
             "name": "commitId",
@@ -1436,7 +1625,79 @@
             }
           }
         ],
-        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptOutcome"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commits/{commitId}/wallet-attempts/{attemptId}/report": {
+      "post": {
+        "operationId": "svmReportPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "attemptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service, under the commit's own chain family: an EVM commit under /evm/, a Solana commit under /svm/. Pipeline-only credentials cannot access chat commits.",
         "responses": {
           "200": {
             "description": "Canonical durable lifecycle state",
@@ -1500,7 +1761,7 @@
       },
       "post": {
         "operationId": "buildevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1565,7 +1826,7 @@
       },
       "post": {
         "operationId": "stageevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1630,7 +1891,7 @@
       },
       "post": {
         "operationId": "simulateevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1695,7 +1956,7 @@
       },
       "post": {
         "operationId": "commitevmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1764,7 +2025,7 @@
       },
       "post": {
         "operationId": "buildsvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1829,7 +2090,7 @@
       },
       "post": {
         "operationId": "stagesvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1894,7 +2155,7 @@
       },
       "post": {
         "operationId": "simulatesvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1959,7 +2220,7 @@
       },
       "post": {
         "operationId": "commitsvmPipeline",
-        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM commit does the same through the agent's Solana commit: exact-byte simulation, sized compute budget, a safety assessment of those bytes under the Build's transactionSafetyMode, then Commit Service commits.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -2636,6 +2897,7 @@
     "/.well-known/jwks.json": {
       "get": {
         "operationId": "signingJwks",
+        "security": [],
         "summary": "Public signing keys for verifying Aomi API attestations",
         "responses": {
           "200": {
@@ -2679,81 +2941,6 @@
       }
     },
     "/v1/task/build": {
-      "get": {
-        "operationId": "discoverTaskPayment",
-        "security": [],
-        "summary": "Read-only Task payment metadata",
-        "description": "Returns public instructions for the payable POST. A valid POST returns a body-bound x402 v2 Payment-Required challenge; a GET cannot buy preparation and does not advertise a payable challenge. No signature or authorization is required for this metadata.",
-        "responses": {
-          "200": {
-            "description": "Task payment metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "endpoint",
-                    "method",
-                    "paymentProtocol",
-                    "paymentScheme",
-                    "networks",
-                    "asset",
-                    "preparationPriceMicroUsdc",
-                    "retrievalPrice",
-                    "openapi",
-                    "exampleRequest",
-                    "paymentInstructions"
-                  ],
-                  "properties": {
-                    "endpoint": {
-                      "type": "string",
-                      "format": "uri"
-                    },
-                    "method": {
-                      "const": "POST"
-                    },
-                    "paymentProtocol": {
-                      "type": "string"
-                    },
-                    "paymentScheme": {
-                      "type": "string"
-                    },
-                    "networks": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "asset": {
-                      "type": "string"
-                    },
-                    "preparationPriceMicroUsdc": {
-                      "type": "string"
-                    },
-                    "retrievalPrice": {
-                      "type": "string"
-                    },
-                    "openapi": {
-                      "type": "string",
-                      "format": "uri"
-                    },
-                    "exampleRequest": {
-                      "type": "object",
-                      "description": "Unsigned JSON body that reaches the body-bound preparation challenge on an enabled network."
-                    },
-                    "paymentInstructions": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      },
       "post": {
         "operationId": "prepareTask",
         "security": [],
@@ -2797,7 +2984,7 @@
                   },
                   "transactionSafetyMode": {
                     "$ref": "#/components/schemas/TransactionSafetyMode",
-                    "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                    "description": "Transaction safety selection, EVM and Solana. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
                   },
                   "intent": {
                     "type": "string",
@@ -2809,7 +2996,8 @@
                     "enum": [5042, 5042002]
                   },
                   "sender": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "payer": {
                     "type": "string"
@@ -3598,1076 +3786,6 @@
         ]
       }
     },
-    "/v1/account/statement": {
-      "get": {
-        "operationId": "getAccountStatement",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "from",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Priced usage statement"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["account:usage:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits": {
-      "get": {
-        "operationId": "accountBalance",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreditBalance"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/methods": {
-      "get": {
-        "operationId": "accountMethods",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["card", "wallet"],
-                  "properties": {
-                    "card": {
-                      "type": ["object", "null"],
-                      "additionalProperties": true
-                    },
-                    "wallet": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/ledger": {
-      "get": {
-        "operationId": "accountLedger",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreditLedger"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "before_id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/funding-events": {
-      "post": {
-        "operationId": "accountBeginFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["amount_microusd", "method"],
-                "properties": {
-                  "amount_microusd": {
-                    "type": "integer",
-                    "minimum": 1000000,
-                    "maximum": 1000000000,
-                    "multipleOf": 10000
-                  },
-                  "method": {
-                    "enum": ["card", "wallet"]
-                  },
-                  "chain": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:fund"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/funding-events/current": {
-      "get": {
-        "operationId": "accountCurrentFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/funding-events/{id}": {
-      "get": {
-        "operationId": "accountFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/account/credits/funding-events/{id}/cancel": {
-      "post": {
-        "operationId": "accountCancelFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["account:credits:fund"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits": {
-      "get": {
-        "operationId": "builderBalance",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreditBalance"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/methods": {
-      "get": {
-        "operationId": "builderMethods",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["card", "wallet"],
-                  "properties": {
-                    "card": {
-                      "type": ["object", "null"],
-                      "additionalProperties": true
-                    },
-                    "wallet": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
-                  }
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/ledger": {
-      "get": {
-        "operationId": "builderLedger",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreditLedger"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "before_id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/funding-events": {
-      "post": {
-        "operationId": "builderBeginFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["amount_microusd", "method"],
-                "properties": {
-                  "amount_microusd": {
-                    "type": "integer",
-                    "minimum": 1000000,
-                    "maximum": 1000000000,
-                    "multipleOf": 10000
-                  },
-                  "method": {
-                    "enum": ["card", "wallet"]
-                  },
-                  "chain": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:fund"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/funding-events/current": {
-      "get": {
-        "operationId": "builderCurrentFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/funding-events/{id}": {
-      "get": {
-        "operationId": "builderFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:read"]
-          }
-        ]
-      }
-    },
-    "/v1/builder/credits/funding-events/{id}/cancel": {
-      "post": {
-        "operationId": "builderCancelFunding",
-        "responses": {
-          "200": {
-            "description": "Owned credit state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FundingResult"
-                }
-              }
-            },
-            "headers": {
-              "Payment-Response": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Base64 x402 settlement receipt for confirmed wallet funding"
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "description": "Wallet authorization required",
-            "headers": {
-              "Payment-Required": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "paymentOAuth": ["builder:credits:fund"]
-          }
-        ]
-      }
-    },
-    "/v1/payment/webhooks/stripe": {
-      "post": {
-        "operationId": "stripeWebhook",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Verified notification persisted"
-          },
-          "400": {
-            "description": "Invalid signed notification"
-          }
-        }
-      }
-    },
-    "/v1/apps/{app}/mcp": {
-      "post": {
-        "operationId": "appMcp",
-        "description": "Agent MCP locked to one app: every aomi_chat turn runs in that app, without Auto execution, and a different application argument is a 400. An unknown app is 404 app_not_found. The OAuth resource is this exact URL on the portal origin.",
-        "parameters": [
-          {
-            "name": "app",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9-_]{0,62}$"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {}
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "MCP JSON-RPC response",
-            "headers": {
-              "mcp-protocol-version": {
-                "schema": {
-                  "enum": ["2026-07-28", "2025-06-18"]
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "Notification accepted"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["mcp:agent"]
-          }
-        ]
-      }
-    },
     "/v1/commits/{ref}": {
       "get": {
         "operationId": "getCommitRef",
@@ -5039,6 +4157,68 @@
         ]
       }
     },
+    "/v1/commits/{ref}/renew": {
+      "post": {
+        "operationId": "renewCommitRef",
+        "description": "Owner-scoped commit by ref, without a thread. A ref that is not the caller's own commit is 404 commit_not_found. A write whose version or review_digest is no longer current is 409 commit_version_conflict or commit_review_digest_mismatch.",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitRefView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitRefReject"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          },
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
     "/v1/commits/{ref}/approve": {
       "post": {
         "operationId": "approveCommitRef",
@@ -5144,6 +4324,1022 @@
             "aomiOAuth": ["agent:read"]
           }
         ]
+      }
+    },
+    "/v1/account/credits": {
+      "get": {
+        "operationId": "accountBalance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events": {
+      "post": {
+        "operationId": "accountBeginFunding",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount_microusd": {
+                    "maximum": 1000000000,
+                    "minimum": 1000000,
+                    "multipleOf": 10000,
+                    "type": "integer"
+                  },
+                  "chain": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "enum": ["card", "wallet"]
+                  }
+                },
+                "required": ["amount_microusd", "method"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/current": {
+      "get": {
+        "operationId": "accountCurrentFunding",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/{id}": {
+      "get": {
+        "operationId": "accountFunding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/funding-events/{id}/cancel": {
+      "post": {
+        "operationId": "accountCancelFunding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/ledger": {
+      "get": {
+        "operationId": "accountLedger",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditLedger"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/methods": {
+      "get": {
+        "operationId": "accountMethods",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "card": {
+                      "additionalProperties": true,
+                      "type": ["object", "null"]
+                    },
+                    "wallet": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": ["card", "wallet"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/statement": {
+      "get": {
+        "operationId": "getAccountStatement",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Priced usage statement"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["account:usage:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits": {
+      "get": {
+        "operationId": "builderBalance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events": {
+      "post": {
+        "operationId": "builderBeginFunding",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount_microusd": {
+                    "maximum": 1000000000,
+                    "minimum": 1000000,
+                    "multipleOf": 10000,
+                    "type": "integer"
+                  },
+                  "chain": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "enum": ["card", "wallet"]
+                  }
+                },
+                "required": ["amount_microusd", "method"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/current": {
+      "get": {
+        "operationId": "builderCurrentFunding",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/{id}": {
+      "get": {
+        "operationId": "builderFunding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/funding-events/{id}/cancel": {
+      "post": {
+        "operationId": "builderCancelFunding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundingResult"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:fund"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/ledger": {
+      "get": {
+        "operationId": "builderLedger",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditLedger"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/builder/credits/methods": {
+      "get": {
+        "operationId": "builderMethods",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "card": {
+                      "additionalProperties": true,
+                      "type": ["object", "null"]
+                    },
+                    "wallet": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": ["card", "wallet"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Owned credit state",
+            "headers": {
+              "Payment-Response": {
+                "description": "Base64 x402 settlement receipt for confirmed wallet funding",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Wallet authorization required",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "paymentOAuth": ["builder:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/payment/webhooks/stripe": {
+      "post": {
+        "operationId": "stripeWebhook",
+        "responses": {
+          "200": {
+            "description": "Verified notification persisted"
+          },
+          "400": {
+            "description": "Invalid signed notification"
+          }
+        },
+        "security": []
       }
     }
   },
@@ -5433,6 +5629,22 @@
         },
         "additionalProperties": false
       },
+      "ActiveWallet": {
+        "type": "object",
+        "readOnly": true,
+        "additionalProperties": false,
+        "description": "The session's active wallet id per family. Sent by the server; ignored as input.",
+        "properties": {
+          "evm": {
+            "type": "string",
+            "pattern": "^w_[1-9][0-9]*$"
+          },
+          "svm": {
+            "type": "string",
+            "pattern": "^w_[1-9][0-9]*$"
+          }
+        }
+      },
       "UserStateConnection": {
         "type": "object",
         "additionalProperties": false,
@@ -5720,6 +5932,22 @@
           {
             "type": "object",
             "additionalProperties": false,
+            "required": ["kind", "calls_id"],
+            "description": "Only EIP-5792 status 400 for the matched bundle: not included on chain and wallet will not retry. Never an unknown error.",
+            "properties": {
+              "kind": {
+                "const": "calls_not_submitted"
+              },
+              "calls_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8194
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
             "required": ["kind", "transaction_id"],
             "properties": {
               "kind": {
@@ -5994,6 +6222,39 @@
           }
         }
       },
+      "CommitApprovalView": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Present only for an agent-wallet commit that had to wait for approval.",
+        "required": [
+          "state",
+          "client",
+          "expires_at",
+          "approved_at",
+          "approved_by"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["pending", "approved", "cancelled", "expired"]
+          },
+          "client": {
+            "type": ["string", "null"],
+            "description": "Connection that asked: portal, cli, oauth:<client id>, telegram:<bot id>."
+          },
+          "expires_at": {
+            "type": "integer",
+            "description": "End of the approval window, unix seconds."
+          },
+          "approved_at": {
+            "type": ["integer", "null"]
+          },
+          "approved_by": {
+            "type": ["string", "null"],
+            "description": "portal, cli or telegram:<bot id>:<telegram user id>."
+          }
+        }
+      },
       "SignableCommit": {
         "oneOf": [
           {
@@ -6057,6 +6318,10 @@
               },
               "transaction_base64": {
                 "type": "string"
+              },
+              "last_valid_block_height": {
+                "type": ["integer", "null"],
+                "description": "The last block height its blockhash can land at."
               }
             }
           },
@@ -8279,7 +8544,7 @@
         "properties": {
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
-            "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+            "description": "Transaction safety selection, EVM and Solana. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
           }
         }
       },
@@ -8341,7 +8606,7 @@
           },
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
-            "description": "Transaction safety selection sealed into this EVM Build digest and attestation."
+            "description": "Transaction safety selection sealed into this Build digest and attestation."
           },
           "guardEvidence": {
             "type": "object",
@@ -8354,8 +8619,12 @@
       "PipelineEvmCommitResult": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "digest", "result", "requests"],
+        "required": ["family", "status", "digest", "result", "requests"],
         "properties": {
+          "family": {
+            "const": "evm",
+            "description": "The result's chain family; the commit results of both families are one union tagged by it."
+          },
           "status": {
             "const": "committed",
             "description": "Legacy preparation response label; returned CommitViews describe the durable cohort, which may already be invoked on replay."
@@ -8477,17 +8746,29 @@
       "PipelineSvmCommitResult": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "digest", "results", "requests"],
+        "required": [
+          "family",
+          "status",
+          "digest",
+          "result",
+          "thread_id",
+          "commits"
+        ],
         "properties": {
+          "family": {
+            "const": "svm",
+            "description": "The result's chain family; the commit results of both families are one union tagged by it."
+          },
           "status": {
             "const": "committed",
-            "description": "Legacy response label; wallet submission has not occurred."
+            "description": "Legacy preparation response label; returned CommitViews describe the durable commits."
           },
           "preparation_status": {
             "const": "prepared"
           },
           "provider_invoked": {
-            "const": false
+            "const": false,
+            "description": "This preparation endpoint did not invoke a provider. Returned CommitViews own the lifecycle."
           },
           "next_required_action": {
             "const": "submit_wallet_request"
@@ -8496,23 +8777,19 @@
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
-          "results": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "provider_invoked": {
-                  "const": false
-                },
-                "next_required_action": {
-                  "const": "submit_wallet_request"
-                }
-              }
-            }
+          "result": {
+            "type": "object",
+            "description": "The commit operation's result: what was committed and where it is signed."
           },
-          "requests": {
+          "thread_id": {
+            "type": "string"
+          },
+          "commits": {
             "type": "array",
-            "description": "Validated wallet intents; no durable Agent Action IDs. The wallet provider has not been invoked. SVM transactions are exact-byte simulated independently; ordered cross-transaction state dependencies are unsupported."
+            "description": "Commit Service commits, in order. Sign, approve and follow them through the commit routes; Commit Service resends until the blockhash expires.",
+            "items": {
+              "$ref": "#/components/schemas/CommitView"
+            }
           }
         }
       },
@@ -8617,6 +8894,7 @@
               "erc721",
               "erc1155",
               "erc721_or_erc1155",
+              "spl_token",
               null
             ]
           },
@@ -8632,6 +8910,10 @@
           "step": {
             "type": ["integer", "null"],
             "minimum": 1
+          },
+          "uiMultiplier": {
+            "type": "string",
+            "description": "What wallets multiply amount by for display (a Solana scaled-UI token, such as a tokenized stock); amount stays raw."
           }
         }
       },
@@ -8670,7 +8952,8 @@
               "erc20",
               "erc721",
               "erc1155",
-              "erc721_or_erc1155"
+              "erc721_or_erc1155",
+              "spl_token"
             ]
           },
           "symbol": {
@@ -8684,6 +8967,9 @@
           },
           "chainId": {
             "type": ["integer", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
           },
           "step": {
             "type": ["integer", "null"],
@@ -9358,253 +9644,6 @@
           }
         }
       },
-      "FundingEvent": {
-        "type": "object",
-        "required": [
-          "id",
-          "idempotency_key",
-          "amount_microusd",
-          "method",
-          "environment",
-          "status",
-          "terms",
-          "provider_reference",
-          "error_code",
-          "created_at"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "idempotency_key": {
-            "type": "string"
-          },
-          "amount_microusd": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "method": {
-            "type": "string",
-            "enum": ["card", "wallet"]
-          },
-          "environment": {
-            "type": "string",
-            "enum": ["test", "production"]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "awaiting_action",
-              "processing",
-              "credited",
-              "failed",
-              "canceled"
-            ]
-          },
-          "terms": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "provider_reference": {
-            "type": ["string", "null"]
-          },
-          "error_code": {
-            "type": ["string", "null"]
-          },
-          "created_at": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "FundingResult": {
-        "type": "object",
-        "required": ["funding_event", "action"],
-        "properties": {
-          "funding_event": {
-            "$ref": "#/components/schemas/FundingEvent"
-          },
-          "action": {
-            "oneOf": [
-              {
-                "type": "object",
-                "required": ["kind", "client_secret"],
-                "properties": {
-                  "kind": {
-                    "const": "confirm_card"
-                  },
-                  "client_secret": {
-                    "type": "string",
-                    "description": "Ephemeral confirmation secret; never log"
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "required": ["kind"],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": ["wait", "done"]
-                  }
-                }
-              }
-            ]
-          }
-        }
-      },
-      "CreditBalance": {
-        "type": "object",
-        "required": [
-          "balance_microusd",
-          "reserved_microusd",
-          "available_microusd",
-          "debt_microusd",
-          "period_utc_month",
-          "included"
-        ],
-        "properties": {
-          "balance_microusd": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "reserved_microusd": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "available_microusd": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "debt_microusd": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "period_utc_month": {
-            "type": "string"
-          },
-          "included": {
-            "type": "object",
-            "required": [
-              "limit_microusd",
-              "used_microusd",
-              "remaining_microusd"
-            ],
-            "properties": {
-              "limit_microusd": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "used_microusd": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "remaining_microusd": {
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          }
-        }
-      },
-      "CreditLedger": {
-        "type": "object",
-        "required": ["entries", "next_before_id"],
-        "properties": {
-          "next_before_id": {
-            "type": ["integer", "null"]
-          },
-          "entries": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["id", "amount_microusd", "entry_kind", "created_at"],
-              "properties": {
-                "id": {
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "amount_microusd": {
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "entry_kind": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "integer",
-                  "format": "int64"
-                },
-                "application_id": {
-                  "type": ["integer", "null"]
-                },
-                "payment_method": {
-                  "type": ["string", "null"]
-                },
-                "payment_provider": {
-                  "type": ["string", "null"]
-                },
-                "external_payment_reference": {
-                  "type": ["string", "null"]
-                },
-                "metadata": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          }
-        }
-      },
-      "ActiveWallet": {
-        "type": "object",
-        "readOnly": true,
-        "additionalProperties": false,
-        "description": "The session's active wallet id per family. Sent by the server; ignored as input.",
-        "properties": {
-          "evm": {
-            "type": "string",
-            "pattern": "^w_[1-9][0-9]*$"
-          },
-          "svm": {
-            "type": "string",
-            "pattern": "^w_[1-9][0-9]*$"
-          }
-        }
-      },
-      "CommitApprovalView": {
-        "type": "object",
-        "additionalProperties": false,
-        "description": "Present only for an agent-wallet commit that had to wait for approval.",
-        "required": [
-          "state",
-          "client",
-          "expires_at",
-          "approved_at",
-          "approved_by"
-        ],
-        "properties": {
-          "state": {
-            "type": "string",
-            "enum": ["pending", "approved", "cancelled", "expired"]
-          },
-          "client": {
-            "type": ["string", "null"],
-            "description": "Connection that asked: portal, cli, oauth:<client id>, telegram:<bot id>."
-          },
-          "expires_at": {
-            "type": "integer",
-            "description": "End of the approval window, unix seconds."
-          },
-          "approved_at": {
-            "type": ["integer", "null"]
-          },
-          "approved_by": {
-            "type": ["string", "null"],
-            "description": "portal, cli or telegram:<bot id>:<telegram user id>."
-          }
-        }
-      },
       "ThreadOrigin": {
         "type": "string",
         "enum": [
@@ -9981,6 +10020,204 @@
             "description": "An agent wallet's lane for the caller's connection: portal (the user approves its trades on the portal), here (the caller approves its own trades), instant (they sign at once)."
           }
         }
+      },
+      "CreditBalance": {
+        "properties": {
+          "available_microusd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "balance_microusd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "debt_microusd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "included": {
+            "properties": {
+              "limit_microusd": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "remaining_microusd": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "used_microusd": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit_microusd",
+              "used_microusd",
+              "remaining_microusd"
+            ],
+            "type": "object"
+          },
+          "period_utc_month": {
+            "type": "string"
+          },
+          "reserved_microusd": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "balance_microusd",
+          "reserved_microusd",
+          "available_microusd",
+          "debt_microusd",
+          "period_utc_month",
+          "included"
+        ],
+        "type": "object"
+      },
+      "CreditLedger": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {
+                "amount_microusd": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "application_id": {
+                  "type": ["integer", "null"]
+                },
+                "created_at": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "entry_kind": {
+                  "type": "string"
+                },
+                "external_payment_reference": {
+                  "type": ["string", "null"]
+                },
+                "id": {
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "metadata": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "payment_method": {
+                  "type": ["string", "null"]
+                },
+                "payment_provider": {
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["id", "amount_microusd", "entry_kind", "created_at"],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "next_before_id": {
+            "type": ["integer", "null"]
+          }
+        },
+        "required": ["entries", "next_before_id"],
+        "type": "object"
+      },
+      "FundingEvent": {
+        "properties": {
+          "amount_microusd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "environment": {
+            "enum": ["test", "production"],
+            "type": "string"
+          },
+          "error_code": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "method": {
+            "enum": ["card", "wallet"],
+            "type": "string"
+          },
+          "provider_reference": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "enum": [
+              "awaiting_action",
+              "processing",
+              "credited",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "terms": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "idempotency_key",
+          "amount_microusd",
+          "method",
+          "environment",
+          "status",
+          "terms",
+          "provider_reference",
+          "error_code",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "FundingResult": {
+        "properties": {
+          "action": {
+            "oneOf": [
+              {
+                "properties": {
+                  "client_secret": {
+                    "description": "Ephemeral confirmation secret; never log",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "confirm_card"
+                  }
+                },
+                "required": ["kind", "client_secret"],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "enum": ["wait", "done"],
+                    "type": "string"
+                  }
+                },
+                "required": ["kind"],
+                "type": "object"
+              }
+            ]
+          },
+          "funding_event": {
+            "$ref": "#/components/schemas/FundingEvent"
+          }
+        },
+        "required": ["funding_event", "action"],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -10020,20 +10257,20 @@
         }
       },
       "paymentOAuth": {
-        "type": "oauth2",
         "flows": {
           "authorizationCode": {
             "authorizationUrl": "https://chat.aomi.dev/api/auth/oauth2/authorize",
-            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token",
             "scopes": {
-              "account:credits:read": "Read personal credits",
               "account:credits:fund": "Fund personal credits",
-              "builder:credits:read": "Read builder credits",
+              "account:credits:read": "Read personal credits",
+              "account:usage:read": "Read priced account usage",
               "builder:credits:fund": "Fund builder credits",
-              "account:usage:read": "Read priced account usage"
-            }
+              "builder:credits:read": "Read builder credits"
+            },
+            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token"
           }
-        }
+        },
+        "type": "oauth2"
       }
     }
   }

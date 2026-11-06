@@ -103,13 +103,13 @@ describe("explorerUrl", () => {
       );
       expect(explorerUrl(chain, "tx", HASH)).toBe(`${base}/tx/${HASH}`);
     }
-    expect(explorerUrl("mainnet-beta", "address", MINT)).toBe(
+    expect(explorerUrl("solana:mainnet", "address", MINT)).toBe(
       `https://solscan.io/account/${MINT}`,
     );
-    expect(explorerUrl("mainnet-beta", "tx", SIGNATURE)).toBe(
+    expect(explorerUrl("solana:mainnet", "tx", SIGNATURE)).toBe(
       `https://solscan.io/tx/${SIGNATURE}`,
     );
-    expect(explorerUrl("devnet", "token", MINT)).toBe(
+    expect(explorerUrl("solana:devnet", "token", MINT)).toBe(
       `https://explorer.solana.com/address/${MINT}?cluster=devnet`,
     );
   });
@@ -119,7 +119,7 @@ describe("explorerUrl", () => {
     expect(explorerUrl(5, "address", ADDRESS)).toBeNull();
     expect(explorerUrl(1, "tx", ADDRESS)).toBeNull();
     expect(explorerUrl(1, "address", `${ADDRESS}a`)).toBeNull();
-    expect(explorerUrl("mainnet-beta", "tx", MINT)).toBeNull();
+    expect(explorerUrl("solana:mainnet", "tx", MINT)).toBeNull();
   });
 });
 
@@ -153,7 +153,7 @@ describe("toolExplorerLinks", () => {
           },
           {
             chain: "solana",
-            cluster: "mainnet-beta",
+            cluster: "solana:mainnet",
             signature: SIGNATURE,
             transaction_url: `https://solscan.io/tx/${SIGNATURE}`,
             moves: [{ direction: "in", amount: "1", counterparty: MINT }],

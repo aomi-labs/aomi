@@ -31,10 +31,11 @@ mkdirSync(dirname(backendTmpPath), { recursive: true });
 mkdirSync(dirname(routesPath), { recursive: true });
 
 const openApiUrl = resolveOpenApiUrl();
+const exported = exportOpenApi();
 const backendOpenApi = openApiUrl
   ? await fetchOpenApi(openApiUrl)
-  : exportBackendOpenApi(resolveProductMonoRoot());
-const managerOpenApi = exportManagerOpenApi(resolveProductMonoRoot());
+  : exported.backend;
+const managerOpenApi = exported.manager;
 const openApi = mergeOpenApi(backendOpenApi, managerOpenApi);
 
 writeFileSync(fixturePath, `${JSON.stringify(openApi, null, 2)}\n`);
@@ -68,53 +69,36 @@ async function fetchOpenApi(openApiUrl) {
   return response.json();
 }
 
-function exportBackendOpenApi(productMonoRoot) {
-  const result = spawnSync(
-    "cargo",
-    [
-      "test",
-      "-p",
-      "backend",
-      "endpoint::tests::routes::export_openapi_fixture",
-      "--",
-      "--ignored",
-      "--exact",
-      "--nocapture",
-    ],
-    {
-      cwd: join(productMonoRoot, "aomi"),
-      env: {
-        ...process.env,
-        AOMI_OPENAPI_OUT: backendTmpPath,
-      },
-      stdio: "inherit",
-    },
-  );
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+// The manager crate serves both documents: the hosted backend's and its own.
+// AOMI_BACKEND_OPENAPI_FILE + AOMI_MANAGER_OPENAPI_FILE read existing exports instead.
+function exportOpenApi() {
+  const files = [
+    process.env.AOMI_BACKEND_OPENAPI_FILE,
+    process.env.AOMI_MANAGER_OPENAPI_FILE,
+  ];
+  if (files.every(Boolean)) {
+    const [backend, manager] = files.map((file) =>
+      JSON.parse(readFileSync(resolve(file), "utf8")),
+    );
+    return { backend, manager };
   }
 
-  return JSON.parse(readFileSync(backendTmpPath, "utf8"));
-}
-
-function exportManagerOpenApi(productMonoRoot) {
   const result = spawnSync(
     "cargo",
     [
       "test",
       "-p",
       "manager",
-      "routes::tests::export_openapi_fixture",
+      "export_openapi_fixture",
       "--",
       "--ignored",
-      "--exact",
       "--nocapture",
     ],
     {
-      cwd: join(productMonoRoot, "aomi"),
+      cwd: join(resolveProductMonoRoot(), "aomi"),
       env: {
         ...process.env,
+        AOMI_OPENAPI_OUT: backendTmpPath,
         AOMI_MANAGER_OPENAPI_OUT: managerTmpPath,
       },
       stdio: "inherit",
@@ -125,7 +109,10 @@ function exportManagerOpenApi(productMonoRoot) {
     process.exit(result.status ?? 1);
   }
 
-  return JSON.parse(readFileSync(managerTmpPath, "utf8"));
+  return {
+    backend: JSON.parse(readFileSync(backendTmpPath, "utf8")),
+    manager: JSON.parse(readFileSync(managerTmpPath, "utf8")),
+  };
 }
 
 function mergeOpenApi(backend, manager) {

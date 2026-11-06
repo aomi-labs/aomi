@@ -9,6 +9,7 @@ import {
   type CommitRecoveryStore,
   type CommitView,
   type EvmCommitMessage,
+  type SignableCommit,
 } from "./commits";
 import type { AomiClient } from "./client";
 import { PartialWalletExecutionError } from "./aa/execute";
@@ -533,6 +534,45 @@ describe("Commit view surfaces", () => {
     });
     expect(controller.canExecute(blocked)).toBe(true);
     controller.close();
+  });
+
+  it("signs a Solana message commit with the browser wallet", async () => {
+    const payload = {
+      kind: "svm_message" as const,
+      cluster: "localnet",
+      signer: "payer",
+      message_base64: "aGVsbG8=",
+    };
+    const message: CommitView = {
+      ...unsigned,
+      action: { kind: "sign", payload },
+    };
+    const signMessage = vi.fn().mockResolvedValue({ signature: "c2ln" });
+    const capabilities = commitCapabilities({
+      svm: { address: "payer", signMessage },
+    });
+    const controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      message.thread_id,
+      capabilities,
+    );
+    expect(controller.canExecute(message)).toBe(true);
+    controller.close();
+    await expect(capabilities.sign?.(message, payload)).resolves.toEqual([
+      "c2ln",
+    ]);
+    expect(signMessage).toHaveBeenCalledWith({
+      messageBase64: "aGVsbG8=",
+      cluster: "localnet",
+    });
+    // Another key cannot sign it.
+    expect(
+      new CommitController(
+        { request: vi.fn() } as unknown as AomiClient,
+        message.thread_id,
+        commitCapabilities({ svm: { address: "other", signMessage } }),
+      ).canExecute(message),
+    ).toBe(false);
   });
 
   it("advertises only wallet operations available for the commit chain", () => {
@@ -1841,7 +1881,8 @@ describe("Commit view surfaces", () => {
           _path: string,
           options?: { body?: { kind: string } },
         ) => {
-          if (method === "POST")
+          // A Solana commit renews its blockhash before it is signed.
+          if (method === "POST" && options?.body?.kind !== "renew")
             current = {
               ...(options?.body?.kind === "signed" ? signed : submitted),
               broadcaster,
@@ -1874,11 +1915,19 @@ describe("Commit view surfaces", () => {
   );
   it("retries the signed payload after a lost POST without signing again", async () => {
     let attempts = 0;
-    const request = vi.fn(async (method: string) => {
-      if (method === "GET") return unsigned;
-      if (++attempts === 1) throw new Error("lost response");
-      return submitted;
-    });
+    const renew = (options?: { body?: { kind: string } }) =>
+      options?.body?.kind === "renew";
+    const request = vi.fn(
+      async (
+        method: string,
+        _path?: string,
+        options?: { body?: { kind: string } },
+      ) => {
+        if (method === "GET" || renew(options)) return unsigned;
+        if (++attempts === 1) throw new Error("lost response");
+        return submitted;
+      },
+    );
     const sign = vi.fn(async () => ["exact-signature"]);
     const controller = new CommitController(
       { request } as unknown as AomiClient,
@@ -1890,7 +1939,131 @@ describe("Commit view surfaces", () => {
     );
     await controller.execute(unsigned.commit_id);
     expect(sign).toHaveBeenCalledTimes(1);
-    expect(request.mock.calls.filter((c) => c[0] === "POST")).toHaveLength(2);
+    expect(
+      request.mock.calls.filter((c) => c[0] === "POST" && !renew(c[2])),
+    ).toHaveLength(2);
+    controller.close();
+  });
+  it("reviews a Solana swap whose wallet receives an SPL token", () => {
+    // Commit Service names a token change `spl_token`; a schema without it
+    // drops the review, and the wallet gets no Send button.
+    const review = {
+      type: "execute_svm",
+      simulation: {
+        gas: { units: "85905", priceWei: null, nativeCost: null },
+        fees: [],
+        logs: [],
+        guards: [{ name: "simulation", status: "passed", message: null }],
+        status: "passed",
+        warnings: [],
+        approvals: [],
+        balanceChanges: [
+          {
+            account: "payer",
+            asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            amount: "200040",
+            direction: "in",
+            decimals: 6,
+            cluster: "mainnet-beta",
+            standard: "spl_token",
+            step: 1,
+          },
+        ],
+      },
+      transactions: [
+        {
+          kind: "svm_assembled",
+          payer: "payer",
+          cluster: "mainnet-beta",
+          version: "v0",
+          description: "Swap SOL to USDC",
+          instructions: [
+            {
+              kind: "jupiter_swap",
+              payer: "payer",
+              cluster: "mainnet-beta",
+              accounts: [],
+              program_id: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+              data_base64: "AA==",
+              description: "Swap SOL to USDC",
+            },
+          ],
+          address_lookup_tables: [],
+        },
+      ],
+    };
+    const controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      "thread",
+      {},
+    );
+    controller.ingest({
+      ...unsigned,
+      review: { version: 1, revision: 1, digest: "d", request: review },
+    } as unknown as CommitView);
+    expect(controller.review(unsigned.commit_id)).toMatchObject({
+      type: "execute_svm",
+    });
+    controller.close();
+  });
+  it("renews a Solana blockhash right before the wallet signs it", async () => {
+    const order: string[] = [];
+    const request = vi.fn(
+      async (
+        method: string,
+        _path: string,
+        options?: { body?: { kind: string } },
+      ) => {
+        if (method === "GET") return unsigned;
+        order.push(options?.body?.kind ?? "");
+        return options?.body?.kind === "renew" ? unsigned : submitted;
+      },
+    );
+    const sign = vi.fn(async () => {
+      order.push("wallet");
+      return ["exact-signature"];
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      { sign },
+    );
+    await controller.execute(unsigned.commit_id);
+    expect(order).toEqual(["renew", "wallet", "signed"]);
+    controller.close();
+  });
+  it("asks for a renew again after a lost response, at the current version", async () => {
+    let renews = 0;
+    const bodies: Array<{ kind: string; version?: number }> = [];
+    const request = vi.fn(
+      async (
+        method: string,
+        _path: string,
+        options?: { body?: { kind: string; version?: number } },
+      ) => {
+        if (method === "GET") return { ...unsigned, version: 1 + renews };
+        bodies.push(options!.body!);
+        if (options?.body?.kind === "renew" && ++renews === 1)
+          throw new Error("lost response");
+        return options?.body?.kind === "renew"
+          ? { ...unsigned, version: 1 + renews }
+          : submitted;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      { sign: vi.fn(async () => ["exact-signature"]) },
+    );
+    await expect(controller.execute(unsigned.commit_id)).rejects.toThrow(
+      "lost response",
+    );
+    await controller.execute(unsigned.commit_id);
+    expect(bodies.map((body) => `${body.kind}@${body.version ?? ""}`)).toEqual([
+      "renew@1",
+      "renew@2",
+      "signed@",
+    ]);
     controller.close();
   });
   it("Auto Venue hands off exact signed bytes with no wallet signature", async () => {
@@ -2613,5 +2786,537 @@ describe("message commits", () => {
       phase: "confirmed",
       label: "Signed",
     });
+  });
+
+  it("keeps a Solana message's review and binds its signature to it", async () => {
+    const payload = {
+      kind: "svm_message" as const,
+      cluster: "mainnet-beta",
+      signer: "payer",
+      message_base64: "aGVsbG8=",
+    };
+    const view: CommitView = {
+      ...unsigned,
+      commit_id: "cmt-svm-message",
+      chain_ref: "mainnet-beta",
+      version: 3,
+      review: {
+        version: 2,
+        revision: 1,
+        digest: "message-digest",
+        request: {
+          type: "sign",
+          requestId: "svm-message:abc",
+          chainFamily: "svm",
+          executionKind: "svm_message",
+          signer: "payer",
+          cluster: "mainnet-beta",
+          description: "Sign in to Hoodit",
+          payloads: [{ kind: "svm_message", message_base64: "aGVsbG8=" }],
+          messageReview: { kind: "generic", rows: [] },
+        },
+        legs: [],
+      },
+      action: { kind: "sign", payload },
+    };
+    const posts: unknown[] = [];
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return view;
+        posts.push(options?.body);
+        return { ...view, state: "confirmed", action: null, signature: "c2ln" };
+      },
+    );
+    const signMessage = vi.fn(async () => ({ signature: "c2ln" }));
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      view.thread_id,
+      commitCapabilities({ svm: { address: "payer", signMessage } }),
+    );
+    controller.ingest(view);
+    expect(controller.review(view.commit_id)).toMatchObject({
+      executionKind: "svm_message",
+      description: "Sign in to Hoodit",
+    });
+    await controller.execute(view.commit_id, {
+      expectedVersion: 3,
+      expectedReviewDigest: "message-digest",
+    });
+    expect(posts).toEqual([
+      {
+        kind: "signed",
+        payloads: ["c2ln"],
+        version: 3,
+        review_digest: "message-digest",
+      },
+    ]);
+    expect(
+      projectCommitLifecycle({
+        ...view,
+        state: "confirmed",
+        signature: "c2ln",
+      }),
+    ).toMatchObject({ phase: "confirmed", label: "Signed" });
+    controller.close();
+  });
+});
+
+describe("Solana batches", () => {
+  const member = (index: number): CommitView => ({
+    ...unsigned,
+    commit_id: `cmt-${index}`,
+    stage_id: `svm:${index}`,
+    batch: {
+      batch_id: "batch-1",
+      index,
+      ordered_stage_ids: ["svm:0", "svm:1"],
+      ordered_commit_ids: ["cmt-0", "cmt-1"],
+      sources: [],
+      predecessor_commit_id: index ? "cmt-0" : null,
+      review_digest: "batch-digest",
+    },
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "svm_transaction",
+        signer: "payer",
+        transaction_base64: `unsigned-${index}`,
+      },
+    },
+  });
+  function setup(capabilities: CommitCapabilities) {
+    const current = new Map(
+      [member(0), member(1)].map((view) => [view.commit_id, view]),
+    );
+    const order: string[] = [];
+    const request = vi.fn(
+      async (
+        method: string,
+        path: string,
+        options?: { body?: { kind: string; payloads?: string[] } },
+      ) => {
+        const id = decodeURIComponent(path.split("/")[3] ?? "");
+        const view = current.get(id)!;
+        if (method === "GET") return view;
+        const kind = options!.body!.kind;
+        order.push(`${kind}:${id}`);
+        if (kind === "renew") {
+          // A fresh blockhash is a new transaction at a new version.
+          const renewed: CommitView = {
+            ...view,
+            version: view.version + 1,
+            action: {
+              kind: "sign",
+              payload: {
+                kind: "svm_transaction",
+                signer: "payer",
+                transaction_base64: `renewed-${id}`,
+              },
+            },
+          };
+          current.set(id, renewed);
+          return renewed;
+        }
+        const next: CommitView = {
+          ...view,
+          version: view.version + 1,
+          state: "submitted",
+          action: null,
+          transaction_id: options!.body!.payloads![0]!,
+        };
+        current.set(id, next);
+        return next;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+      capabilities,
+    );
+    for (const view of current.values()) controller.ingest(view);
+    return { controller, order, current };
+  }
+
+  it("signs every member in one signAll prompt, then reports them in order", async () => {
+    const sign = vi.fn(async () => ["one"]);
+    const signAll = vi.fn<NonNullable<CommitCapabilities["signAll"]>>(
+      async (members) =>
+        members.map(({ payload }) => `signed-${payload.transaction_base64}`),
+    );
+    const { controller, order, current } = setup({ sign, signAll });
+    await controller.execute("cmt-0");
+    expect(sign).not.toHaveBeenCalled();
+    expect(signAll).toHaveBeenCalledTimes(1);
+    expect(
+      signAll.mock.calls[0]![0].map(
+        ({ payload }) => payload.transaction_base64,
+      ),
+    ).toEqual(["renewed-cmt-0", "renewed-cmt-1"]);
+    expect(order).toEqual([
+      "renew:cmt-0",
+      "renew:cmt-1",
+      "signed:cmt-0",
+      "signed:cmt-1",
+    ]);
+    expect(current.get("cmt-1")!.transaction_id).toBe("signed-renewed-cmt-1");
+    expect(controller.plan(member(0)).prompts).toBe(1);
+    controller.close();
+  });
+
+  it("signs member by member in the same submit without signAll", async () => {
+    const sign = vi.fn(async (_commit: CommitView, payload: SignableCommit) => [
+      `signed-${(payload as { transaction_base64: string }).transaction_base64}`,
+    ]);
+    const { controller, order } = setup({ sign });
+    await controller.execute("cmt-0");
+    expect(sign.mock.calls.map(([commit]) => commit.commit_id)).toEqual([
+      "cmt-0",
+      "cmt-1",
+    ]);
+    expect(order).toEqual([
+      "renew:cmt-0",
+      "renew:cmt-1",
+      "signed:cmt-0",
+      "signed:cmt-1",
+    ]);
+    expect(controller.plan(member(0)).prompts).toBe(2);
+    controller.close();
+  });
+
+  it("signs a lone commit with one sign, never signAll", async () => {
+    const sign = vi.fn(async () => ["one"]);
+    const signAll = vi.fn();
+    const { controller, order } = setup({ sign, signAll });
+    // The later member no longer awaits a signature.
+    await controller.execute("cmt-1");
+    expect(signAll).not.toHaveBeenCalled();
+    expect(sign).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["renew:cmt-1", "signed:cmt-1"]);
+    controller.close();
+  });
+
+  it("asks a wallet with signAllTransactions once for the batch", async () => {
+    const signAllTransactions = vi.fn(
+      async (inputs: { transactionBase64: string }[]) =>
+        inputs.map(({ transactionBase64 }) => `signed-${transactionBase64}`),
+    );
+    const { signAll } = commitCapabilities({
+      svm: { address: "payer", signAllTransactions },
+    });
+    const members = [member(0), member(1)].map((commit) => ({
+      commit,
+      payload: commit.action!.payload as Extract<
+        SignableCommit,
+        { kind: "svm_transaction" }
+      >,
+    }));
+    await expect(signAll!(members)).resolves.toEqual([
+      "signed-unsigned-0",
+      "signed-unsigned-1",
+    ]);
+    expect(signAllTransactions).toHaveBeenCalledWith([
+      { transactionBase64: "unsigned-0", cluster: "localnet" },
+      { transactionBase64: "unsigned-1", cluster: "localnet" },
+    ]);
+    await expect(
+      signAll!([{ ...members[0]!, commit: { ...member(0), signer: "other" } }]),
+    ).rejects.toThrow("Connect the expected signing wallet");
+    expect(commitCapabilities({ svm: { address: "payer" } }).signAll).toBe(
+      undefined,
+    );
+  });
+});
+
+/** An embedded wallet (Para) whose provider sends cannot be made durable: it
+ * exposes sign-only and broadcast, so Commit Service stores the signed bytes,
+ * nonce pinned, before anything is broadcast. */
+describe("embedded wallets that sign before broadcast", () => {
+  const arc = {
+    ...externalPayload,
+    chain_id: 5042,
+    nonce: 0,
+  };
+  const prepared: CommitView = {
+    ...external,
+    chain_ref: "5042",
+    supported_transports: ["sign_and_broadcast", "browser_send", "send_calls"],
+    action: { kind: "sign", payload: arc },
+  };
+  const awaitingBroadcast: CommitView = {
+    ...prepared,
+    version: 2,
+    state: "awaiting_broadcast",
+    action: {
+      kind: "broadcast",
+      signed_transaction: "0xsigned",
+      transaction_id: "0xhash",
+    },
+  };
+  const sent: CommitView = {
+    ...awaitingBroadcast,
+    version: 3,
+    state: "submitted",
+    action: null,
+    transaction_id: "0xhash",
+  };
+
+  function server() {
+    let current = prepared;
+    const writes: Array<{ path: string; body: unknown }> = [];
+    const request = vi.fn(
+      async (method: string, path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return current;
+        writes.push({ path, body: options?.body });
+        if (path.endsWith("/wallet-attempts"))
+          throw new Error("no wallet attempt may be created");
+        const body = options?.body as { kind?: string };
+        current = body.kind === "signed" ? awaitingBroadcast : sent;
+        return current;
+      },
+    );
+    return { request, writes, current: () => current };
+  }
+
+  it("signs the pinned nonce, stores it, then broadcasts once; no wallet attempt", async () => {
+    const { request, writes } = server();
+    const signTransaction = vi.fn().mockResolvedValue("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const view = await controller.execute(prepared.commit_id, {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    });
+    expect(view.state).toBe("submitted");
+    expect(signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ chain_id: 5042, nonce: 0 }),
+    );
+    // The signed bytes reach Commit Service before the broadcast.
+    expect(
+      writes.map((write) => (write.body as { kind: string }).kind),
+    ).toEqual(["signed", "broadcast"]);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      writes.some((write) => write.path.endsWith("/wallet-attempts")),
+    ).toBe(false);
+    controller.close();
+  });
+
+  it("an unfinished signature leaves nothing to reconcile, and a retry re-signs the same nonce", async () => {
+    const { request, writes } = server();
+    const signTransaction = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Para signing did not finish in time"), {
+          name: "ParaSigningIncompleteError",
+        }),
+      )
+      .mockResolvedValueOnce("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const review = {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    };
+    await expect(
+      controller.execute(prepared.commit_id, review),
+    ).rejects.toThrow("did not finish");
+    // Not reported as a rejection, nothing written, nothing broadcast.
+    expect(writes).toEqual([]);
+    expect(broadcastTransaction).not.toHaveBeenCalled();
+    expect(
+      projectCommitLifecycle(
+        prepared,
+        controller.submissionPhase(prepared.commit_id),
+      ).phase,
+    ).not.toBe("rejected");
+
+    await controller.execute(prepared.commit_id, review);
+    const nonces = signTransaction.mock.calls.map(([payload]) => payload.nonce);
+    expect(nonces).toEqual([0, 0]);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("a stored signature whose response was lost is broadcast from Commit Service, never re-signed", async () => {
+    const { request, writes, current } = server();
+    // Commit Service stores the signed bytes, but the response never arrives.
+    const lose = request.getMockImplementation()!;
+    request
+      .mockImplementationOnce(lose)
+      .mockImplementationOnce(
+        async (method: string, path: string, options?: { body?: unknown }) => {
+          await lose(method, path, options);
+          throw new Error("network: response lost");
+        },
+      );
+    const signTransaction = vi.fn().mockResolvedValue("0xsigned");
+    const broadcastTransaction = vi.fn().mockResolvedValue("0xhash");
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      prepared.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            broadcastTransaction,
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    const review = {
+      expectedVersion: prepared.version,
+      expectedReviewDigest: prepared.review!.digest,
+    };
+    await expect(
+      controller.execute(prepared.commit_id, review),
+    ).rejects.toThrow("response lost");
+    expect(current().state).toBe("awaiting_broadcast");
+    expect(broadcastTransaction).not.toHaveBeenCalled();
+
+    // The retry reads the stored bytes back and broadcasts exactly those.
+    const view = await controller.execute(prepared.commit_id, {
+      ...review,
+      expectedVersion: awaitingBroadcast.version,
+    });
+    expect(view.state).toBe("submitted");
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(broadcastTransaction).toHaveBeenCalledWith("0xsigned", 5042);
+    // Any replay of the signed write carries the identical bytes, which
+    // Commit Service answers idempotently; one broadcast follows.
+    const signedWrites = writes.filter(
+      (write) => (write.body as { kind: string }).kind === "signed",
+    );
+    expect(new Set(signedWrites.map((w) => JSON.stringify(w.body))).size).toBe(
+      1,
+    );
+    expect(
+      writes.filter(
+        (write) => (write.body as { kind: string }).kind === "broadcast",
+      ),
+    ).toHaveLength(1);
+    controller.close();
+  });
+});
+
+describe("an expired commit with an unresolved wallet attempt", () => {
+  const attempt = {
+    attempt_id: "c04aa830",
+    transport: "send_calls" as const,
+    state: "awaiting_wallet" as const,
+    transaction_id: null,
+    failure_code: null,
+  };
+  const expired: CommitView = {
+    ...external,
+    state: "expired",
+    failure_code: "commit_expired",
+    action: null,
+    wallet_attempt: attempt,
+  };
+  const reconciled: CommitView = {
+    ...expired,
+    version: 2,
+    state: "submitted",
+    failure_code: null,
+    transaction_id: "0xlate",
+    wallet_attempt: {
+      ...attempt,
+      state: "observing",
+      transaction_id: "0xlate",
+    },
+  };
+
+  function setup(record?: CommitRecoveryRecord) {
+    const recovery = recoveryStore();
+    if (record)
+      recovery.store.save(expired.thread_id, expired.commit_id, record);
+    const writes: Array<{ path: string; body: unknown }> = [];
+    const request = vi.fn(
+      async (method: string, path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return expired;
+        writes.push({ path, body: options?.body });
+        return reconciled;
+      },
+    );
+    const sendPreparedCalls = vi.fn();
+    const signTransaction = vi.fn();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      expired.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: external.signer,
+            signTransaction,
+            sendPreparedCalls,
+            preparePreparedTransaction: vi.fn(),
+            sendPreparedTransaction: vi.fn(),
+          },
+        },
+        recovery.store,
+      ),
+    );
+    return { controller, writes, sendPreparedCalls, signTransaction };
+  }
+
+  it("reports a hash the wallet returned after the deadline, never a new send", async () => {
+    const { controller, writes, sendPreparedCalls, signTransaction } = setup({
+      clientRequestId: "req",
+      attemptId: "c04aa830",
+      transactionIds: ["0xlate"],
+    });
+    const view = await controller.execute(expired.commit_id);
+    expect(view.state).toBe("submitted");
+    expect(writes).toEqual([
+      {
+        path: expect.stringContaining("/wallet-attempts/c04aa830/report"),
+        body: { kind: "calls", transaction_ids: ["0xlate"] },
+      },
+    ]);
+    expect(sendPreparedCalls).not.toHaveBeenCalled();
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
+  });
+
+  it("stays blocked without evidence: no report, no wallet, no restage", async () => {
+    const { controller, writes, sendPreparedCalls, signTransaction } = setup({
+      clientRequestId: "req",
+      attemptId: "c04aa830",
+    });
+    const view = await controller.execute(expired.commit_id);
+    expect(view.state).toBe("expired");
+    expect(writes).toEqual([]);
+    expect(sendPreparedCalls).not.toHaveBeenCalled();
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
   });
 });

@@ -11,6 +11,7 @@ import { JSX } from 'react/jsx-runtime';
 import { PrivyClientConfig } from '@privy-io/react-auth';
 import { ReactNode } from 'react';
 import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
+import { SvmCluster } from '@aomi-labs/client';
 import { Transaction } from '@solana/web3.js';
 import type { Transport } from 'viem';
 import { useWallet } from '@solana/wallet-adapter-react';

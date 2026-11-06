@@ -8,6 +8,10 @@ const guardPolicy = {
   source: "default",
 };
 const request = vi.hoisted(() => vi.fn());
+const identity = vi.hoisted(() => ({
+  svmAddress: "RootWa11et",
+  svmCluster: "solana:mainnet" as string | undefined,
+}));
 vi.mock("@/account/transport", async () => {
   // A real Aomi whose wire is the `request(path, init)` stub: a resolved value
   // is a 200 body; a thrown Error is a failed response carrying its message.
@@ -34,7 +38,7 @@ vi.mock("@/account/transport", async () => {
 });
 vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
-    identity: { svmAddress: "RootWa11et", svmCluster: "solana:mainnet" },
+    identity,
   }),
 }));
 import { PolicyPage } from "./policy-page";
@@ -61,9 +65,37 @@ function disabled() {
 
 beforeEach(() => {
   request.mockReset();
+  identity.svmCluster = "solana:mainnet";
 });
 
 describe("Safety page", () => {
+  it.each([
+    ["solana:mainnet", "solana:mainnet"],
+    ["solana:devnet", "solana:devnet"],
+    ["solana:testnet", "solana:testnet"],
+    ["mainnet-beta", "solana:mainnet"],
+    ["devnet", "solana:devnet"],
+    ["testnet", "solana:testnet"],
+    [undefined, "solana:mainnet"],
+  ] as const)(
+    "requests canonical policy context for %s",
+    async (cluster, expected) => {
+      identity.svmCluster = cluster;
+      request.mockImplementation(async (path: string) => {
+        if (path.includes("/policies/swig")) throw disabled();
+        if (path.startsWith("/api/account")) return profile;
+        return guardPolicy;
+      });
+      render(<PolicyPage />);
+      await waitFor(() =>
+        expect(request).toHaveBeenCalledWith(
+          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: expected })}`,
+          expect.objectContaining({ method: "GET" }),
+        ),
+      );
+    },
+  );
+
   it("hides Swig limits when the deployment has the lane off", async () => {
     request.mockImplementation(async (path: string) => {
       if (path.includes("/policies/swig")) throw disabled();
@@ -89,7 +121,7 @@ describe("Safety page", () => {
       if (path.includes("/policies/swig"))
         return {
           provider: "swig",
-          chain_ref: "mainnet-beta",
+          chain_ref: "solana:mainnet",
           targets: { Jupiter: { chain: "svm", address: "JUP6" } },
           mints: {
             wSOL: { chain: "svm", address: "So111" },

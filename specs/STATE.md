@@ -2,6 +2,43 @@
 
 ## Last Updated
 
+2026-11-04 — SOLANA PARITY F2b (`feat/solana-parity-2`).
+  Agent contract and backend fixtures regenerated (family-scoped
+  `/v1/pipeline/{evm,svm}/commits`, `family` on commit results, Solana safety
+  fields, no signing-requests route); `update-backend-openapi.mjs` now exports
+  both documents from the `manager` crate and can read them from files. SDK:
+  one generic family transport sends `transactionSafetyMode` on every Solana
+  step, `Build.commit` picks the controller by `result.family`, and a Solana
+  commit follows `/v1/pipeline/svm/commits`; the portal route policy covers it.
+  Trace: every Solana tool has a chip like its EVM pair (holdings USD total,
+  stage action, simulate legs + summed compute, commit signature); EVM holdings
+  and commits gained the same USD total and hash chip; `spl_token` reads
+  `SPL Token`. Pending: API reports need a package build (blocked while :3453
+  runs).
+
+2026-11-04 — SOLANA PARITY F2a (`feat/solana-parity-2`).
+  A Solana commit batch is signed once: `CommitController` renews every later
+  member still awaiting a signature, asks `signAll` (from
+  `SvmWallet.signAllTransactions`; widget wires the adapter's
+  `signAllTransactions`, `solanaSigner` signs each) for all of them, then posts
+  each member's signed bytes in batch order. Without `signAllTransactions`
+  (Privy embedded) it signs member by member in the same submit. `groupPlan`
+  counts one prompt for such a batch. `solanaSigner(key, { cluster, rpcUrls })`
+  reports its cluster and `wallet(svm)` signs in on it. Pending: example deps
+  (`@solana/web3.js`, `bs58`, `tweetnacl`) in `examples/headless` — `pnpm add
+  --lockfile-only` rewrote ~3.3k lockfile lines, reverted.
+
+2026-11-04 — SOLANA PARITY F1 (`feat/solana-parity-2`).
+  One client cluster spelling (`SvmCluster`, `solana:mainnet|devnet|testnet`;
+  `normalizeSolanaCluster` accepts `mainnet-beta`/`solana`/bare names for one
+  release) replaces `SiwsChainId`; `solanaSigner` broadcasts on the commit's
+  normalised cluster. `svm_message` reviews survive in the client and widget.
+  `wallet(signer)` signs in with SIWE or SIWS by the signer; the CLI takes
+  `--solana-private-key` (SIWS), `--cluster` and a Solana `--rpc-url`.
+  Refused-send toasts key on the error `code`. New example
+  `examples/headless/src/solana-build.ts`. Pending: API reports and the
+  generated contract need a refresh after the package build (F2).
+
 2026-11-03 — SIGN PAGE MATCHES THE SIDEBAR FOR BATCHES (`fix/sign-page-multi-tx`).
   `/sign/:ref` for a multi-tx EVM request (a batch: one commit per tx, each
   carrying the whole batch's review) drew every card from the current leg's

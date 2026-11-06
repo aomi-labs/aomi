@@ -6,7 +6,8 @@
     "moduleResolution": "Bundler",
     "baseUrl": "../../..",
     "paths": {
-      "@aomi-labs/client": ["packages/client/src/index.ts"]
+      "@aomi-labs/client": ["packages/client/src/index.ts"],
+      "@aomi-labs/client/solana": ["packages/client/src/solana.ts"]
     },
     "noEmit": true,
     "strict": true,

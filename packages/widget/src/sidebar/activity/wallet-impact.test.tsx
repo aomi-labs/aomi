@@ -232,3 +232,66 @@ describe("sidebar wallet disclosures", () => {
     expect(screen.getByText("Second warning")).toBeInTheDocument();
   });
 });
+
+describe("Solana review detail", () => {
+  it("shortens a mint without a known symbol, never shows it whole", () => {
+    review({
+      type: "execute_svm",
+      transactions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          version: "v0",
+          description: "Swap on Jupiter",
+          instructions: [],
+        } as never,
+      ],
+      simulation: {
+        ...simulation(),
+        balanceChanges: [
+          {
+            account: "So1",
+            asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            amount: "18410000",
+            direction: "in",
+            cluster: "mainnet-beta",
+          } as never,
+        ],
+      },
+    });
+    expect(screen.getByText("EPjF…Dt1v")).toBeTruthy();
+  });
+
+  it("shows a scaled-UI token as the wallet does, with what moved underneath", () => {
+    review({
+      type: "execute_svm",
+      transactions: [
+        {
+          payer: "So1",
+          cluster: "mainnet-beta",
+          version: "v0",
+          description: "Swap SOL to NVDAx",
+          instructions: [],
+        } as never,
+      ],
+      simulation: {
+        ...simulation(),
+        balanceChanges: [
+          {
+            account: "So1",
+            asset: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+            amount: "100000000",
+            decimals: 8,
+            symbol: "NVDAx",
+            direction: "in",
+            cluster: "mainnet-beta",
+            standard: "spl_token",
+            uiMultiplier: "1.0017",
+          } as never,
+        ],
+      },
+    });
+    const amount = screen.getByText("+1.0017");
+    expect(amount.getAttribute("title")).toBe("1 raw × 1.0017 display multiplier");
+  });
+});

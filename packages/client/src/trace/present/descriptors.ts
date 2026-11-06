@@ -100,7 +100,12 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Get holdings",
     icon: SHAPE_ICONS.nativeBalance,
-    chipPlan: [{ kind: "chain" }, { kind: "threshold" }, { kind: "token" }],
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "threshold" },
+      { kind: "token" },
+      { kind: "amount", role: "secondary" },
+    ],
   },
   "activity.transactions": {
     title: "fixed",
@@ -282,10 +287,47 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.chainContext,
     chipPlan: [{ kind: "cluster" }, { kind: "slot" }],
   },
-  "svm.account.token_holdings": {
-    title: "label",
+  "svm.program.lookup": {
+    title: "fixed",
+    fixedTitle: "Get program details",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "cluster" },
+      { kind: "contract" },
+      { kind: "function" },
+      { kind: "status" },
+    ],
+  },
+  "svm.account.info": {
+    title: "fixed",
+    fixedTitle: "Get account details",
     icon: SHAPE_ICONS.nativeBalance,
-    chipPlan: [{ kind: "amount", role: "primary", repeat: true }],
+    chipPlan: [
+      { kind: "cluster" },
+      { kind: "address", role: "owner" },
+      { kind: "category" },
+      { kind: "amount", role: "native" },
+      { kind: "status" },
+    ],
+  },
+  "svm.address.derive": {
+    title: "fixed",
+    fixedTitle: "Derive address",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "category" },
+      { kind: "address", role: "to" },
+      { kind: "token" },
+    ],
+  },
+  "svm.account.token_holdings": {
+    title: "fixed",
+    fixedTitle: "Get holdings",
+    icon: SHAPE_ICONS.nativeBalance,
+    chipPlan: [
+      { kind: "amount", role: "secondary" },
+      { kind: "amount", role: "primary", repeat: true },
+    ],
   },
   "svm.tx.pending_approval": lifecycleDescriptor(
     "Commit transactions",
@@ -301,7 +343,7 @@ const descriptorById: Record<string, Descriptor> = {
   ),
   "svm.tx.stage": lifecycleDescriptor(
     "Stage transaction",
-    SHAPE_ICONS.staged,
+    "stagedAction",
     "cluster",
     "action",
   ),

@@ -1,9 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { SvmCluster } from "@aomi-labs/client";
 import { fileGrants } from "@aomi-labs/client/node";
-
-export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
 
 /** Everything the CLI remembers between runs, in one private file. */
 export type CliState = {

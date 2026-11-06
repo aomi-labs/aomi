@@ -35,11 +35,11 @@ const fallbackOperation = (ctx: ToolContext) => {
     brave_search: "web.search",
     web_fetch: "web.fetch",
     activate_skills: "skill.activate",
-    get_contract: "evm.contract.lookup.found",
+    evm_get_contract: "evm.contract.lookup.found",
     list_transactions: "activity.transactions",
     get_transaction: "activity.transaction",
-    encode_and_call: "evm.call.generic",
-    sim_call: "evm.call.generic",
+    evm_call: "evm.call.generic",
+    evm_sim_call: "evm.call.generic",
   };
   const coreId = Object.hasOwn(coreIds, name) ? coreIds[name] : undefined;
   const confidence: ToolConfidence = coreId ? "high" : "fallback";

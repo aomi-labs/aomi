@@ -48,6 +48,41 @@ describe("buildSvmTransactionMethods", () => {
     expect(signMessage).not.toHaveBeenCalled();
   });
 
+  it("signs a batch in one signAllTransactions prompt, in order", async () => {
+    const payer = Keypair.generate();
+    const unsigned = [1, 2].map(() =>
+      Buffer.from(
+        new VersionedTransaction(
+          new TransactionMessage({
+            payerKey: payer.publicKey,
+            recentBlockhash: Keypair.generate().publicKey.toBase58(),
+            instructions: [],
+          }).compileToV0Message(),
+        ).serialize(),
+      ).toString("base64"),
+    );
+    const signAllTransactions = vi.fn(
+      async (txs: Array<VersionedTransaction | Transaction>) => txs,
+    );
+    const execution = buildSvmTransactionMethods(
+      wallet({ signAllTransactions }),
+      { preferDirectSend: false, rpcHttpUrl: "https://solana.example" },
+    );
+
+    const signed = await execution.signAllSolanaTransactions!(
+      unsigned.map((unsignedTx) => ({ unsignedTx })),
+    );
+
+    expect(signAllTransactions).toHaveBeenCalledTimes(1);
+    expect(signed.map(({ signedTx }) => signedTx)).toEqual(unsigned);
+    expect(
+      buildSvmTransactionMethods(wallet(), {
+        preferDirectSend: false,
+        rpcHttpUrl: "https://solana.example",
+      }).signAllSolanaTransactions,
+    ).toBeUndefined();
+  });
+
   it("omits direct sign-and-send when preferDirectSend is disabled", () => {
     const execution = buildSvmTransactionMethods(wallet(), {
       preferDirectSend: false,

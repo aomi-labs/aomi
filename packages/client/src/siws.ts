@@ -1,10 +1,10 @@
-export type SiwsChainId = "solana:mainnet" | "solana:devnet" | "solana:testnet";
+import type { SvmCluster } from "./wallet-utils";
 
 export type SiwsIntent = "sign-in" | "link";
 
 export function buildSiwsMessage(input: {
   address: string;
-  chainId: SiwsChainId;
+  chainId: SvmCluster;
   nonce: string;
   intent: SiwsIntent;
   domain: string;

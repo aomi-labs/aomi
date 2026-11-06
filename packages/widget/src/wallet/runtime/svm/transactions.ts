@@ -40,6 +40,15 @@ function deserializeSolanaTransaction(
   }
 }
 
+// A new account the transaction creates signs after the wallet.
+function serializeSigned(signed: VersionedTransaction | SolanaTransaction) {
+  return encodeBase64(
+    signed instanceof VersionedTransaction
+      ? signed.serialize()
+      : signed.serialize({ requireAllSignatures: false }),
+  );
+}
+
 async function confirmSubmittedTransaction(
   connection: SolanaConnection,
   signature: string,
@@ -66,6 +75,9 @@ export function buildSvmTransactionMethods(
   signSolanaTransaction?: (
     payload: WalletSolanaSignPayload,
   ) => Promise<{ signedTx: string }>;
+  signAllSolanaTransactions?: (
+    payloads: WalletSolanaSignPayload[],
+  ) => Promise<{ signedTx: string }[]>;
   signSolanaMessage?: (
     payload: WalletSolanaSignMessagePayload,
   ) => Promise<{ signature: string }>;
@@ -79,6 +91,7 @@ export function buildSvmTransactionMethods(
   solanaRpcWsUrl?: string;
 } {
   const signTransaction = wallet.signTransaction;
+  const signAllTransactions = wallet.signAllTransactions;
   const signMessage = wallet.signMessage;
   const sendTransaction = wallet.sendTransaction;
 
@@ -91,8 +104,21 @@ export function buildSvmTransactionMethods(
           const tx = deserializeSolanaTransaction(
             decodeBase64(payload.unsignedTx),
           );
-          const signed = await signTransaction(tx);
-          return { signedTx: encodeBase64(signed.serialize()) };
+          return { signedTx: serializeSigned(await signTransaction(tx)) };
+        }
+      : undefined,
+    signAllSolanaTransactions: signAllTransactions
+      ? async (payloads: WalletSolanaSignPayload[]) => {
+          const txs = payloads.map((payload) => {
+            if (!payload.unsignedTx) {
+              throw new Error("Missing unsigned_tx payload");
+            }
+            return deserializeSolanaTransaction(
+              decodeBase64(payload.unsignedTx),
+            );
+          });
+          const signed = await signAllTransactions(txs);
+          return signed.map((tx) => ({ signedTx: serializeSigned(tx) }));
         }
       : undefined,
     signSolanaMessage: signMessage

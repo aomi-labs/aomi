@@ -1,7 +1,11 @@
+// @vitest-environment node
+import { Keypair } from "@solana/web3.js";
+import nacl from "tweetnacl";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAomiDeviceGrantManager } from "../oauth";
+import { solanaSigner } from "../solana";
 import { Aomi } from "./aomi";
 import { wallet } from "./auth";
 
@@ -52,6 +56,74 @@ describe("wallet sign-in", () => {
     expect(message).toContain("Nonce: abcdefgh12345678");
     expect(await account.signMessage({ message })).toBe(signature);
     expect(calls[2]!.auth).toBe("Bearer session-token");
+  });
+
+  it("picks SIWE or SIWS by the signer", () => {
+    expect(wallet(account)).toMatchObject({ family: "evm", chainId: 1 });
+    expect(
+      wallet(solanaSigner(Keypair.generate()), { cluster: "solana:devnet" }),
+    ).toMatchObject({ family: "svm", cluster: "solana:devnet" });
+    // Without one, the sign-in takes the signer's cluster.
+    const devnet = solanaSigner(Keypair.generate(), {
+      cluster: "solana:devnet",
+    });
+    expect(devnet.cluster).toBe("solana:devnet");
+    expect(wallet(devnet)).toMatchObject({ cluster: "solana:devnet" });
+    expect(wallet(solanaSigner(Keypair.generate()))).toMatchObject({
+      cluster: "solana:mainnet",
+    });
+  });
+
+  it("signs in with SIWS for a Solana signer", async () => {
+    const keypair = Keypair.generate();
+    const address = keypair.publicKey.toBase58();
+    const calls: { path: string; body: Record<string, string> }[] = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        calls.push({
+          path: url.pathname,
+          body: JSON.parse(String(init?.body ?? "{}")),
+        });
+        if (url.pathname === "/api/auth/siws/nonce")
+          return Response.json({
+            nonce: "abcdefgh12345678",
+            domain: "chat.aomi.dev",
+            uri: baseUrl,
+          });
+        if (url.pathname === "/api/auth/siws/verify")
+          return Response.json({ token: "siws-token" });
+        return Response.json({ user: { id: "u1" }, linkedAccounts: [] });
+      },
+    );
+    const aomi = new Aomi({
+      baseUrl,
+      fetch,
+      auth: wallet(solanaSigner(keypair)),
+    });
+
+    await aomi.account.me();
+
+    expect(calls.map((call) => call.path)).toEqual([
+      "/api/auth/siws/nonce",
+      "/api/auth/siws/verify",
+      "/v1/account",
+    ]);
+    expect(calls[0]!.body).toEqual({
+      walletAddress: address,
+      chainId: "solana:mainnet",
+    });
+    const { message, signature, walletAddress } = calls[1]!.body;
+    expect(walletAddress).toBe(address);
+    expect(message).toContain(`${address}\n\nSign in to Aomi.`);
+    expect(message).toContain("Chain ID: solana:mainnet");
+    expect(
+      nacl.sign.detached.verify(
+        new TextEncoder().encode(message),
+        Buffer.from(signature!, "base64"),
+        keypair.publicKey.toBytes(),
+      ),
+    ).toBe(true);
   });
 
   it("registers a device client when none is given", async () => {

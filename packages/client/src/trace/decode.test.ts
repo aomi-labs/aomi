@@ -265,6 +265,28 @@ describe("tool interpreter", () => {
     expect(status.outcome).toBe("incomplete");
   });
 
+  it("names Solana and shows the delivered amount on a finished LI.FI bridge", () => {
+    const status = decode({
+      toolName: "lifi_get_status",
+      result: {
+        commit_id: "commit-1",
+        source_chain_id: 8453,
+        destination_chain_id: 1151111081099710,
+        state: "completed",
+        observed_receipt: {
+          chain_id: 1151111081099710,
+          token: { symbol: "USDC", decimals: 6 },
+          amount_raw: "1974046",
+        },
+      },
+    });
+    expect(labelsFor(status.chips)).toEqual([
+      "Base → Solana",
+      "Complete",
+      "1.97405 USDC",
+    ]);
+  });
+
   it("shows requested DefiLlama price tokens while the lookup is pending", () => {
     const step = decode({
       toolName: "defillama_prices",
@@ -282,14 +304,9 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Check prices");
-    expect(labelsFor(step.chips)).toEqual([
-      "Base",
-      "ETH",
-      "0x8335…2913",
-      "ethereum",
-    ]);
-    expect(step.chips[0].icon).toBe("chain:8453");
-    expect(step.chips[1].icon).toBe("coins");
+    // A price is the token's wherever it trades: no network chip.
+    expect(labelsFor(step.chips)).toEqual(["ETH", "0x8335…2913", "ethereum"]);
+    expect(step.chips[0].icon).toBe("coins");
   });
 
   it("shows up to three compact DefiLlama prices", () => {
@@ -312,13 +329,10 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Check historical prices");
     expect(labelsFor(step.chips)).toEqual([
-      "BSC",
       "ETH $2,689",
       "USDC $0.9999",
       "PEPE $0.00001235",
     ]);
-    // Renderers draw a generic network icon for chains without a mark.
-    expect(step.chips[0].icon).toBe("chain:56");
   });
 
   it("keeps unresolved DefiLlama prices neutral", () => {
@@ -467,7 +481,7 @@ describe("tool interpreter", () => {
     });
     expect(overview.title).toBe("Scan chain");
     expect(labelsFor(overview.chips)).toEqual(["Solana", "Jito", "Kamino"]);
-    expect(overview.chips[0].icon).toBe("network");
+    expect(overview.chips[0].icon).toBe("solana");
     expect(overview.chips[1].icon).toBe("protocol");
 
     const list = decode({
@@ -497,7 +511,7 @@ describe("tool interpreter", () => {
 
   it("unwraps routed tool envelopes before matching", () => {
     const step = decode({
-      toolName: "get_time_and_onchain_context",
+      toolName: "evm_get_context",
       result: {
         __aomi_tool_routes: [{ id: "route-1" }],
         value: {
@@ -515,7 +529,7 @@ describe("tool interpreter", () => {
 
   it("shows the synced network before its block number", () => {
     const step = decode({
-      toolName: "sync_chain",
+      toolName: "evm_sync_chain",
       argsText: JSON.stringify({ chain_id: 42161 }),
       result: { chain_id: 42161, synced: true, block_number: 509848804 },
     });
@@ -525,7 +539,7 @@ describe("tool interpreter", () => {
     expect(step.chips.every((chip) => chip.icon != null)).toBe(true);
 
     const pending = decode({
-      toolName: "sync_chain",
+      toolName: "evm_sync_chain",
       argsText: JSON.stringify({ chain_id: 42161 }),
     });
     expect(labelsFor(pending.chips)).toEqual(["Arbitrum"]);
@@ -533,12 +547,9 @@ describe("tool interpreter", () => {
 
   it("keeps EVM argument chips from hiding tool failures", () => {
     for (const [toolName, args] of [
-      ["sync_chain", { chain_id: 42161 }],
-      ["get_contract", { chain_id: 42161, contract_type: "Aave Pool" }],
-      [
-        "encode_and_call",
-        { chain_id: 42161, function_signature: "withdraw()" },
-      ],
+      ["evm_sync_chain", { chain_id: 42161 }],
+      ["evm_get_contract", { chain_id: 42161, contract_type: "Aave Pool" }],
+      ["evm_call", { chain_id: 42161, function_signature: "withdraw()" }],
     ] as const) {
       const step = decode({
         toolName,
@@ -582,7 +593,7 @@ describe("tool interpreter", () => {
       argsText: JSON.stringify({ chain_id: 8453, kind: "native_transfer" }),
     });
     const failedSimulation = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       argsText: JSON.stringify({ tx_ids: [1] }),
       result: { is_error: true, error: "fork unavailable" },
       relatedResults: [
@@ -666,7 +677,12 @@ describe("tool interpreter", () => {
           ],
         },
       });
-      expect(labelsFor(step.chips)).toEqual(["Base", "1 tx", "Confirmed"]);
+      expect(labelsFor(step.chips)).toEqual([
+        "Base",
+        "1 tx",
+        "0xbbbbb…bbbbb",
+        "Confirmed",
+      ]);
       expect(step.outcome).toBe("success");
     });
 
@@ -780,7 +796,7 @@ describe("tool interpreter", () => {
 
     it("shows a Solana message with a cluster only when it names one", () => {
       const open = decode({
-        toolName: "svm_sign_data",
+        toolName: "svm_commit_message",
         result: { status: "pending_approval", chain_kind: "svm" },
       });
       expect(labelsFor(open.chips)).toEqual([
@@ -788,7 +804,7 @@ describe("tool interpreter", () => {
         "Awaiting approval",
       ]);
       const named = decode({
-        toolName: "svm_sign_data",
+        toolName: "svm_commit_message",
         result: { status: "success", domain: { cluster: "devnet" } },
       });
       expect(labelsFor(named.chips)).toEqual([
@@ -1035,7 +1051,7 @@ describe("tool interpreter", () => {
 
   it("recognizes Base chain context", () => {
     const step = decode({
-      toolName: "get_time_and_onchain_context",
+      toolName: "evm_get_context",
       result: {
         chain_name: "base",
         chain_id: 8453,
@@ -1107,6 +1123,69 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual(["0.148008 USDC"]);
     expect(step.chips[0].icon).toBe("coins");
     expect(step.confidence).toBe("high");
+  });
+
+  it("shows the Solana program and instruction a lookup returned", () => {
+    const step = decode({
+      toolName: "svm_get_program",
+      argsText: '{"program_id":null,"name":"kamino","instruction":"deposit"}',
+      result: {
+        found: true,
+        count: 1,
+        programs: [
+          {
+            program_id: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+            cluster: "mainnet-beta",
+            name: "Kamino Lend",
+          },
+        ],
+      },
+    });
+
+    expect(step.title).toBe("Get program details");
+    expect(labelsFor(step.chips)).toEqual(["Solana", "Kamino Lend", "deposit"]);
+  });
+
+  it("shows a Solana account's address, kind and SOL balance", () => {
+    const step = decode({
+      toolName: "svm_get_account_info",
+      result: {
+        pubkey: "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW",
+        cluster: "mainnet-beta",
+        found: true,
+        lamports: 16750126,
+        owner_program_id: "11111111111111111111111111111111",
+        executable: false,
+      },
+    });
+
+    expect(step.title).toBe("Get account details");
+    expect(labelsFor(step.chips)).toEqual([
+      "Solana",
+      "HZpj…vRpW",
+      "Wallet",
+      "0.01675 SOL",
+    ]);
+  });
+
+  it("shows a derived token account and its token", () => {
+    const step = decode({
+      toolName: "svm_derive_address",
+      result: {
+        address: "6cSHGy5AjHEeqwema69qBVz1mMmk5MKUyztLJqqPQmPd",
+        kind: "associated_token_account",
+        owner: "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW",
+        mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        token_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      },
+    });
+
+    expect(step.title).toBe("Derive address");
+    expect(labelsFor(step.chips)).toEqual([
+      "Token account",
+      "6cSH…QmPd",
+      "USDC",
+    ]);
   });
 
   it("shows the visible SPL amount without inventing an unknown symbol", () => {
@@ -1333,7 +1412,7 @@ describe("tool interpreter", () => {
 
   it("does not attribute a prior tool's chain to a native balance", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
         balance_wei: "865899754337366",
@@ -1350,7 +1429,7 @@ describe("tool interpreter", () => {
 
   it("shows the native balance chain when its own arguments expose it", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       argsText: JSON.stringify({ chain_id: 8453 }),
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -1368,7 +1447,7 @@ describe("tool interpreter", () => {
 
   it("shows Arc native USDC balance from the account details result", () => {
     const step = decode({
-      toolName: "get_account_info",
+      toolName: "evm_get_account_info",
       argsText: JSON.stringify({ chain_id: 5042 }),
       result: {
         address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -1391,7 +1470,7 @@ describe("tool interpreter", () => {
 
   it("shows the verified ERC-20 balance without rounding it", () => {
     const step = decode({
-      toolName: "get_erc20_balance",
+      toolName: "evm_get_token_balance",
       result: {
         chain_id: 5042,
         token: "0x3600000000000000000000000000000000000000",
@@ -1413,7 +1492,7 @@ describe("tool interpreter", () => {
 
   it("shows an unknown token's address without guessing its symbol or unit", () => {
     const step = decode({
-      toolName: "get_erc20_balance",
+      toolName: "evm_get_token_balance",
       argsText: JSON.stringify({ token_address: "USDC" }),
       result: {
         chain_id: 8453,
@@ -1433,7 +1512,7 @@ describe("tool interpreter", () => {
 
   it("shows the holdings limit and query", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       argsText: JSON.stringify({ chain_id: null, query: "USDC", limit: 10 }),
       result: {
         scope: "configured_indexed_mainnets",
@@ -1452,7 +1531,7 @@ describe("tool interpreter", () => {
 
   it("shows a chosen chain first, then the default limit", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       argsText: JSON.stringify({ chain_id: 8453, query: null, limit: null }),
       result: {
         chain_id: 8453,
@@ -1470,7 +1549,7 @@ describe("tool interpreter", () => {
 
   it("keeps the holdings title on errors without calling an error zero assets", () => {
     const step = decode({
-      toolName: "get_erc20_holdings",
+      toolName: "evm_get_token_holdings",
       result: { is_error: true, error: "holdings_indexer_unsupported" },
     });
     expect(step.title).toBe("Get holdings");
@@ -1479,7 +1558,7 @@ describe("tool interpreter", () => {
 
   it("standardizes token resolution chips", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: true,
         count: 1,
@@ -1503,7 +1582,7 @@ describe("tool interpreter", () => {
 
   it("shows one useful contract identity for ABI lookups", () => {
     const pool = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       argsText: JSON.stringify({
         mode: "abi",
         chain_id: 42161,
@@ -1516,7 +1595,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(pool.chips)).toEqual(["Arbitrum", "Aave Pool"]);
 
     const token = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       argsText: JSON.stringify({
         mode: "abi",
         chain_id: 42161,
@@ -1530,7 +1609,7 @@ describe("tool interpreter", () => {
 
   it("omits not-found badges for token misses", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: false,
         count: 0,
@@ -1544,7 +1623,7 @@ describe("tool interpreter", () => {
 
   it("shows chain for token misses when the payload carries one", () => {
     const step = decode({
-      toolName: "get_contract",
+      toolName: "evm_get_contract",
       result: {
         found: false,
         count: 0,
@@ -1559,7 +1638,7 @@ describe("tool interpreter", () => {
 
   it("recognizes ERC-20 balance calls without token-specific formatting", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1587,7 +1666,7 @@ describe("tool interpreter", () => {
 
   it("uses a generic token icon for decoded approval amounts", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1816,7 +1895,7 @@ describe("tool interpreter", () => {
 
   it("shows Arc ERC-20 USDC approvals in six-decimal units", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1856,7 +1935,7 @@ describe("tool interpreter", () => {
 
   it("normalizes approval units only for a verified chain and token contract", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1877,10 +1956,12 @@ describe("tool interpreter", () => {
   });
 
   it("uses the exact Get balance title before and after tool errors", () => {
-    expect(decode({ toolName: "get_erc20_balance" }).title).toBe("Get balance");
+    expect(decode({ toolName: "evm_get_token_balance" }).title).toBe(
+      "Get balance",
+    );
     expect(
       decode({
-        toolName: "get_erc20_balance",
+        toolName: "evm_get_token_balance",
         result: { is_error: true, error: "upstream unavailable" },
       }).title,
     ).toBe("Get balance");
@@ -1888,7 +1969,7 @@ describe("tool interpreter", () => {
 
   it("recognizes ERC-20 decimal reads", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1912,7 +1993,7 @@ describe("tool interpreter", () => {
 
   it("recognizes allowance checks without value chips", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1943,7 +2024,7 @@ describe("tool interpreter", () => {
 
   it("falls back to the model label for protocol-specific calls", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -1974,7 +2055,7 @@ describe("tool interpreter", () => {
 
   it("shows the called function without its signature arguments", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       argsText: JSON.stringify({
         chain_id: 42161,
         from: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
@@ -2066,7 +2147,7 @@ describe("tool interpreter", () => {
 
   it("does not infer routes from hardcoded protocol or token addresses", () => {
     const step = decode({
-      toolName: "encode_and_call",
+      toolName: "evm_call",
       result: {
         success: true,
         tx: {
@@ -2089,7 +2170,7 @@ describe("tool interpreter", () => {
 
   it("recognizes simulations", () => {
     const step = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         resolved_ids: [1, 2],
         simulation: {
@@ -2116,7 +2197,7 @@ describe("tool interpreter", () => {
 
   it("derives current simulation status from execution evidence", () => {
     const result = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         simulation: {
           contexts: [{ chain_id: 8453 }],
@@ -2133,7 +2214,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(result.chips)).toContain("Passed");
     expect(labelsFor(result.chips)).toContain("21,000 gas");
     const skipped = decode({
-      toolName: "simulate_batch",
+      toolName: "evm_simulate",
       result: {
         simulation: {
           contexts: [{ chain_id: 8453 }],
@@ -2146,15 +2227,15 @@ describe("tool interpreter", () => {
 
   it("recognizes successful Solana simulations", () => {
     const step = decode({
-      toolName: "svm_simulate_ix",
+      toolName: "svm_simulate",
       result: {
         simulation: {
           err: null,
           logs: ["Program 11111111111111111111111111111111 success"],
           units_consumed: 450,
         },
-        last_batch_status: "SVM ixs [1] passed",
-        ix_ids: [1],
+        last_batch_status: "SVM [1] passed",
+        tx_ids: [1],
       },
     });
 
@@ -2254,5 +2335,202 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Delegated: approvals-auditor");
     expect(labelsFor(step.chips)).toEqual([]);
     expect(step.failed).toBe(true);
+  });
+});
+
+describe("Solana tool chips", () => {
+  const wallet = "HZpj6CD9R4asaSM98mkWzfgowfQnCGA5Hu6zcwoPvRpW";
+  const usdc = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  const signature =
+    "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
+  const commit = (over: Record<string, unknown>) => ({
+    chain_family: "svm",
+    chain_ref: "solana:mainnet",
+    broadcaster: "wallet",
+    ...over,
+  });
+
+  // Every Solana tool the model is offered, in the shapes the backend returns.
+  const cases: [string, string | undefined, Record<string, unknown>][] = [
+    [
+      "svm_get_context",
+      undefined,
+      { cluster: "solana:mainnet", current_slot: 433493809 },
+    ],
+    [
+      "svm_get_account_info",
+      undefined,
+      {
+        pubkey: wallet,
+        cluster: "solana:mainnet",
+        found: true,
+        lamports: 16750126,
+        owner_program_id: "11111111111111111111111111111111",
+        executable: false,
+      },
+    ],
+    [
+      "svm_get_program",
+      '{"program_id":null,"name":"orca","instruction":"swap"}',
+      {
+        found: true,
+        programs: [
+          {
+            program_id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+            cluster: "solana:mainnet",
+            name: "Orca Whirlpools",
+          },
+        ],
+      },
+    ],
+    [
+      "svm_get_token_holdings",
+      "{}",
+      {
+        cluster: "solana:mainnet",
+        owner: wallet,
+        holdings: [
+          {
+            mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+            symbol: "JitoSOL",
+            ui_amount_string: "0.2",
+            value_usd: "41.23",
+          },
+          {
+            mint: usdc,
+            symbol: "USDC",
+            ui_amount_string: "12.5",
+            value_usd: "12.50",
+          },
+          {
+            mint: "UnknownMint111111111111111111111111111111111",
+            ui_amount_string: "7",
+            value_usd: null,
+          },
+        ],
+        accounts: [],
+      },
+    ],
+    [
+      "svm_derive_address",
+      undefined,
+      {
+        address: "6cSHGy5AjHEeqwema69qBVz1mMmk5MKUyztLJqqPQmPd",
+        kind: "associated_token_account",
+        owner: wallet,
+        mint: usdc,
+      },
+    ],
+    [
+      "svm_stage_ix",
+      JSON.stringify({
+        description: "Send 0.01 SOL",
+        instructions: [
+          {
+            program_id: "11111111111111111111111111111111",
+            encode: { instruction: "transfer", args: '{"lamports":10000000}' },
+          },
+        ],
+      }),
+      {
+        ix_ids: [4],
+        instructions: [{ kind: "system_transfer", cluster: "solana:mainnet" }],
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":4}]}',
+      {
+        simulation: { err: null, units_consumed: 450 },
+        tx_ids: [4],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":1},{"id":2},{"id":3}]}',
+      {
+        simulation: { err: null },
+        transactions: [
+          { ids: [1, 2], simulation: { err: null, units_consumed: 120000 } },
+          { ids: [3], simulation: { err: null, units_consumed: 30000 } },
+        ],
+        tx_ids: [1, 2, 3],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_simulate",
+      '{"transactions":[{"id":4}]}',
+      {
+        simulation: {
+          err: { InstructionError: [0, { Custom: 6001 }] },
+          units_consumed: 9000,
+        },
+        tx_ids: [4],
+        cluster: "solana:mainnet",
+      },
+    ],
+    [
+      "svm_commit_txs",
+      '{"tx_ids":[4]}',
+      {
+        commits: [commit({ state: "confirmed", transaction_id: signature })],
+      },
+    ],
+    [
+      "svm_commit_message",
+      '{"message":"Sign in"}',
+      { commits: [commit({ state: "needs_signature" })] },
+    ],
+    ["svm_discard_tx", '{"tx_ids":[4]}', { discarded: [4] }],
+    [
+      "activate_skills",
+      '{"skill_ids":["spl_token"]}',
+      { activated: ["spl_token"] },
+    ],
+  ];
+
+  it("gives every Solana tool a titled step with chips like its EVM pair", () => {
+    const rows = cases.map(([toolName, argsText, result]) => {
+      const step = decode({ toolName, argsText, result });
+      return `${toolName}: ${step.title} | ${step.chips
+        .map((chip) => `${chip.label} (${chip.icon})`)
+        .join(" | ")}`;
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      [
+        "svm_get_context: Check network | Solana (solana) | 433,493,809 (block)",
+        "svm_get_account_info: Get account details | Solana (solana) | HZpj…vRpW (user) | Wallet (tag) | 0.01675 SOL (coins)",
+        "svm_get_program: Get program details | Solana (solana) | Orca Whirlpools (contract) | swap (code)",
+        "svm_get_token_holdings: Get holdings | $53.73 (coins) | 0.2 JitoSOL (coins) | 12.5 USDC (coins) | 7 (coins)",
+        "svm_derive_address: Derive address | Token account (tag) | 6cSH…QmPd (incoming) | USDC (coins)",
+        "svm_stage_ix: Stage transaction | Solana (solana) | 1 instruction (receipt) | System transfer (send) | Staged (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 1 tx (receipt) | 450 compute units (gas) | Passed (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 2 txs (receipt) | 150,000 compute units (gas) | Passed (success)",
+        "svm_simulate: Simulate transaction | Solana (solana) | 1 tx (receipt) | 9,000 compute units (gas) | Failed (failed)",
+        "svm_commit_txs: Commit transactions | Solana (solana) | 1 tx (receipt) | 5VERv8N…ZkQUW (receipt) | Confirmed (success)",
+        "svm_commit_message: Sign message | Solana (solana) | 1 signature (receipt) | Awaiting signature (pending)",
+        "svm_discard_tx: Discard transactions | 1 tx discarded (receipt) | Success (success)",
+        "activate_skills: Activate skill | SPL Token (skill:spl_token)",
+      ]
+    `);
+  });
+
+  it("totals the priced EVM holdings in USD as Solana does", () => {
+    const step = decode({
+      toolName: "evm_get_token_holdings",
+      argsText: '{"chain_id":null}',
+      result: {
+        chains: [
+          { chain_id: 8453, holdings: { items: [{ value_usd: "10.25" }] } },
+          {
+            chain_id: 1,
+            holdings: { items: [{ value_usd: "1000" }, { value_usd: null }] },
+          },
+        ],
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual(["Top 20", "$1,010.25"]);
   });
 });

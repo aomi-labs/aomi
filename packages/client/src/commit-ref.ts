@@ -28,6 +28,7 @@ export const commitRefPaths = {
   sign: (value: string) => `${ref(value)}/sign`,
   broadcast: (value: string) => `${ref(value)}/broadcast`,
   reject: (value: string) => `${ref(value)}/reject`,
+  renew: (value: string) => `${ref(value)}/renew`,
   approve: (value: string) => `${ref(value)}/approve`,
   attempts: (value: string) => `${ref(value)}/attempts`,
   report: (value: string, attempt: string) =>

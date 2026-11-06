@@ -12,6 +12,8 @@ describe("wallet adapter utilities", () => {
     expect(normalizeSolanaCluster("mainnet-beta")).toBe("solana:mainnet");
     expect(normalizeSolanaCluster("devnet")).toBe("solana:devnet");
     expect(normalizeSolanaCluster("solana:testnet")).toBe("solana:testnet");
+    expect(normalizeSolanaCluster("solana")).toBe("solana:mainnet");
+    expect(normalizeSolanaCluster("localnet")).toBeUndefined();
   });
 
   it("parses canonical decimal and hexadecimal chain ids", () => {

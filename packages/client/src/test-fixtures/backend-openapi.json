@@ -460,6 +460,21 @@
         "x-aomi-auth": ["account"]
       }
     },
+    "/v1/commits/{commit_ref}/renew": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": ["account"]
+      }
+    },
     "/v1/commits/{commit_ref}/approve": {
       "post": {
         "responses": {
@@ -651,22 +666,6 @@
           }
         ],
         "x-aomi-auth": ["account"]
-      }
-    },
-    "/api/widget/v1/signing-requests/{request_id}": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": [],
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": ["account", "thread"]
       }
     },
     "/api/_internal/secrets": {

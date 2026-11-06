@@ -36,6 +36,7 @@ import { ReactNode } from 'react';
 import { ReactPortal } from 'react';
 import type { RuntimeAccount } from '@aomi-labs/react';
 import { SponsorshipPaymasterServiceContext } from '@aomi-labs/client';
+import { SvmCluster } from '@aomi-labs/client';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Transport } from 'viem';
 import { VariantProps } from 'class-variance-authority';
@@ -247,6 +248,9 @@ export type AomiWalletKit = {
     signSolanaTransaction?: (payload: WalletSolanaSignPayload) => Promise<{
         signedTx: string;
     }>;
+    signAllSolanaTransactions?: (payloads: WalletSolanaSignPayload[]) => Promise<{
+        signedTx: string;
+    }[]>;
     signSolanaMessage?: (payload: WalletSolanaSignMessagePayload) => Promise<{
         signature: string;
     }>;

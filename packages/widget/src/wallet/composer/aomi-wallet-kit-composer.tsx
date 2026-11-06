@@ -572,6 +572,7 @@ export function AomiWalletKitComposer({
         ? {}
         : {
             signSolanaTransaction: svm?.execution.signSolanaTransaction,
+            signAllSolanaTransactions: svm?.execution.signAllSolanaTransactions,
             signSolanaMessage: svm?.execution.signSolanaMessage,
             sendSolanaTransaction: svm?.execution.sendSolanaTransaction,
             signAndSendSolanaTransaction:

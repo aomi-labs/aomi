@@ -1,5 +1,17 @@
 # @aomi-labs/client
 
+## 1.1.2
+
+### Patch Changes
+
+- An expired commit whose wallet attempt has a transaction hash saved in the recovery store reports that hash when executed again, so Commit Service can verify it on chain and reconcile the commit. Without a saved hash the commit stays blocked: nothing is sent or signed again.
+
+## 1.1.1
+
+### Patch Changes
+
+- Show the Solana logo on chain chips, including DeFiLlama yield and protocol searches.
+
 ## 1.1.0
 
 ### Minor Changes
@@ -53,7 +65,7 @@
 - e008a8d: SDK v2 facade, additive. `new Aomi()` (baseUrl defaults to https://chat.aomi.dev) with `auth: oauth({ clientId, store, onCode, scopes? })`, `bearer(token)` or `wallet(account)` (SIWE with an EVM key, for bots and scripts), `cookieSession` for first-party pages, and `signer: { evm, svm }` (replaces `wallet`). The device flow registers a public client (`clientName`) when no `clientId` is given.
   - `aomi.agent.thread(id?)` → `Thread.send(text)` → `Turn`: await it for `{ state, reply, commits }` (a failed turn rejects with `turn_failed`), iterate `turn.steps({ decode? })`, `turn.interrupt()`. `thread.rename()`, `aomi.agent.threads.list()`; `aomi.agent.run()` answers `reply`.
   - One `Commit` (`CommitHandle`) for EVM and Solana transactions and messages: `kind`, `state`, `signUrl`, `sign()` and `approve()` (at the version you were handed or reviewed), `refresh()`, `settled()` (waits; rejects with `CommitSettleError`; the snapshot is `settlement`).
-  - `aomi.pipeline.build(op, args)`, `operations()`, `invoke()` use the default app unless `{ app }` is given, pick EVM or Solana from the operation and fill `topic`; for EVM, `build.commit()` answers a Commit. Solana builds review and simulate only (`commit()` throws `svm_commit_unavailable`). `aomi.pipeline.skills.list()`.
+  - `aomi.pipeline.build(op, args)`, `operations()`, `invoke()` use the default app unless `{ app }` is given, pick EVM or Solana from the operation and fill `topic`; for EVM, `build.commit()` answers a Commit. `aomi.pipeline.skills.list()`.
   - `aomi.account`: `me()`, `wallets.list/balance`, `apps.install/uninstall` and `apps.credentials(name).set/save/clear` (by name or application id), `guard.get/set` (with `revision`), `statement()`, `logins`, `merge()` (offers and Retry-After are on the error), `keys` (the BYOK and secrets vault, `/v1/account/keys`), `policies` (on-chain Swig policies), `switchTo(ticket)`, SIWE/SIWS nonce and verify, Solana wallet links, `exchangeProviderCredential(c, { newSession })` and `grantDeviceLink()` (a Privy or Para credential for the CLI's one-time device-link code). `aomi.builder.credits`.
   - `AomiError` (`code`, `hint`, `status`) and `isAomiError(e, code?)`. `AccountGraphApiError` messages are the server's message or code.
   - `AomiClient`'s secret methods use `/v1/account/keys`; `AomiClient.resolveAppKey(key)` and `addAccountApp(…, { apiKey })`. An `x402` client is kept when there is no signer.
