@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { chromium, type Locator, type Page } from "@playwright/test";
 import { hostedPortalUrl, installHostedWallet } from "../hosted-wallet-fixture";
 import { loadFlows, type Flow } from "./flows";
+import { accountFor, tally, type Verdict } from "./report";
 
 type Beta = Anthropic.Beta.Messages.BetaMessageParam;
 type ToolResultContent =
@@ -41,7 +42,7 @@ type Finding = {
 };
 type FlowResult = {
   flow: Flow;
-  verdict: "pass" | "fail" | "blocked" | "incomplete";
+  verdict: Verdict;
   summary: string;
   steps: number;
   findings: Finding[];
@@ -492,11 +493,31 @@ function redactImages(messages: Beta[]): unknown {
   );
 }
 
+function emptyResult(
+  flow: Flow,
+  verdict: Verdict,
+  summary: string,
+): FlowResult {
+  return {
+    flow,
+    verdict,
+    summary,
+    steps: 0,
+    findings: [],
+    consoleErrors: [],
+    failedRequests: [],
+    blockedRequests: [],
+    screenshots: [],
+  };
+}
+
 function markdown(results: FlowResult[], usage: Usage, runDir: string): string {
   const lines = [
     `# AI QA (advisory) — ${hostedPortalUrl()}`,
     "",
-    `Model ${MODEL}; ${results.length} flows; input ${usage.totalInput} tokens (${usage.cacheRead} cached), output ${usage.output}.`,
+    `${tally(results)}.`,
+    "",
+    `Model ${MODEL}; input ${usage.totalInput} tokens (${usage.cacheRead} cached), output ${usage.output}.`,
     `Artifacts: ${runDir}`,
     "",
     "| Flow | Verdict | Findings | Console errors | 5xx |",
@@ -578,19 +599,21 @@ async function main() {
       // Advisory: a flow that cannot start is reported, and the run goes on.
       const message = error instanceof Error ? error.message : String(error);
       console.log(`  harness error: ${message}`);
-      results.push({
-        flow,
-        verdict: "blocked",
-        summary: `Harness error: ${message}`,
-        steps: 0,
-        findings: [],
-        consoleErrors: [],
-        failedRequests: [],
-        blockedRequests: [],
-        screenshots: [],
-      });
+      results.push(
+        emptyResult(flow, "harness_error", `Harness error: ${message}`),
+      );
     }
   }
+  // Every selected flow appears once; one the budget stopped is NOT_RUN.
+  const all = accountFor(flows, results, (flow) =>
+    emptyResult(
+      flow,
+      "not_run",
+      "Not run: the run's input-token budget was spent.",
+    ),
+  );
+  results.splice(0, results.length, ...all);
+  console.log(tally(results));
   mkdirSync(runDir, { recursive: true });
   writeFileSync(
     join(runDir, "report.json"),
