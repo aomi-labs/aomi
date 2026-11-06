@@ -1,5 +1,11 @@
 # @aomi-labs/client
 
+## 1.1.2
+
+### Patch Changes
+
+- An expired commit whose wallet attempt has a transaction hash saved in the recovery store reports that hash when executed again, so Commit Service can verify it on chain and reconcile the commit. Without a saved hash the commit stays blocked: nothing is sent or signed again.
+
 ## 1.1.1
 
 ### Patch Changes

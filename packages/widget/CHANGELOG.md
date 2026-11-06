@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.1
+
+### Patch Changes
+
+- Para embedded wallets sign commit transactions through Para's `signTransaction` with its review callback, and commits use `sign_and_broadcast`: Commit Service stores the signed transaction (nonce pinned) before anything is broadcast. Para's review page opens from a "Review in Para" button, a fresh user gesture, instead of a popup the browser blocks after async work (Para's SDK then waited forever). Signing is bounded; an unfinished signature is reported as not completed, never as a user rejection, and a retry signs the same nonce.
+
 ## 5.1.0
 
 ### Minor Changes
