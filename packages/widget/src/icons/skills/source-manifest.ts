@@ -32,6 +32,7 @@ export const skillIconSources = {
   curve: "https://www.convexfinance.com/static/icons/svg/crv.svg",
   etherfi: "https://www.ether.fi/assets/etherfi-logo.svg",
   jupiter: "https://developers.jup.ag/docs/resources/brand-kit",
+  jupiter_lend: "https://developers.jup.ag/docs/resources/brand-kit",
   kamino: "https://kamino.com/assets/app-common.1788795681.js",
   lifi_swap: "https://li.fi/brand-guidelines",
   morpho: "https://morpho.org/",
@@ -58,6 +59,7 @@ export const skillIconSources = {
   uniswap:
     "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/exchanges/mono/uniswap.svg",
   yearn: "https://yearn.fi/",
+  xstocks: "https://xstocks.fi/favicon.svg",
   zksync_era_native:
     "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/networks/mono/zksync.svg",
   zora: "https://zora.co/",
@@ -68,6 +70,7 @@ export const skillIconGenericAliases = {
   dummy: "FlaskConicalIcon",
   common_erc20: "CoinsIcon",
   spl_token: "CoinsIcon",
+  rwa: "LandmarkIcon",
 } as const;
 
 /** Built-in skills with no confidently attributable mark in this package. */

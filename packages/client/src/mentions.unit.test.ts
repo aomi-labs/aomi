@@ -3,7 +3,19 @@ import {
   appendCapabilityHints,
   extractCapabilityHints,
   stripCapabilityHints,
+  skillLabel,
 } from "./mentions";
+
+describe("Solana skill labels", () => {
+  it.each([
+    ["xstocks", "xStocks"],
+    ["rwa", "RWA"],
+    ["jupiter_lend", "Jupiter Lend"],
+    ["meteora", "Meteora"],
+  ])("preserves the display spelling for %s", (name, label) => {
+    expect(skillLabel({ name })).toBe(label);
+  });
+});
 
 describe("selected app delegation", () => {
   it("keeps a branded app's registered name in the task target", () => {

@@ -25,5 +25,6 @@
   "stargate": "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/tokens/mono/STG.svg",
   "sushiswap": "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/exchanges/mono/sushiswap.svg",
   "uniswap": "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/exchanges/mono/uniswap.svg",
-  "zksync_era_native": "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/networks/mono/zksync.svg"
+  "zksync_era_native": "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/networks/mono/zksync.svg",
+  "xstocks": "https://xstocks.fi/favicon.svg"
 }
