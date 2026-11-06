@@ -2,7 +2,8 @@
 
 import { cn } from "@/lib/cn";
 import { useState, type FC } from "react";
-import { useAomiRuntime, useControl } from "@aomi-labs/react";
+import { useThread } from "@assistant-ui/react";
+import { useControl } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import {
@@ -47,7 +48,8 @@ export const ModelSelect: FC<ModelSelectProps> = ({
 }) => {
   const { state, getAvailableModels, getCurrentThreadControl, onModelSelect } =
     useControl();
-  const { isRunning } = useAomiRuntime();
+  // A selector, not the whole runtime: re-render when the run state flips, not on every streamed event.
+  const isRunning = useThread((thread) => thread.isRunning);
   const [open, setOpen] = useState(false);
   const { resetHighlight, commandHighlightProps } = useControlMenuHighlight();
 
