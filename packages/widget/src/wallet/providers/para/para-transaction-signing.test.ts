@@ -146,7 +146,7 @@ describe("Para commit transaction signing", () => {
     const client = para({
       signTransaction: vi.fn(
         (args) =>
-          new Promise((resolve) => {
+          new Promise<{ signature?: string }>((resolve) => {
             finish = () => resolve(para().signTransaction!(args));
           }),
       ),
