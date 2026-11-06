@@ -1,5 +1,11 @@
 # @aomi-labs/client
 
+## 1.1.3
+
+### Patch Changes
+
+- Preserve the xStocks brand spelling and RWA acronym in capability labels and working traces.
+
 ## 1.1.2
 
 ### Patch Changes

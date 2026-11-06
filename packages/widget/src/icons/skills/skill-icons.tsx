@@ -1,5 +1,5 @@
 import { useId, type FC, type SVGProps } from "react";
-import { CoinsIcon, FlaskConicalIcon } from "lucide-react";
+import { CoinsIcon, FlaskConicalIcon, LandmarkIcon } from "lucide-react";
 
 import {
   AcrossIcon,
@@ -348,6 +348,11 @@ export function MeteoraSkillIcon(props: SkillIconProps) {
   return <SourcedSkillIcon mark="meteora" {...props} />;
 }
 
+/** Official xStocks symbol, optically sized to match the other skill marks. */
+export function XStocksSkillIcon(props: SkillIconProps) {
+  return <SourcedSkillIcon mark="xstocks" {...props} />;
+}
+
 /** Published Krexa artwork; a raster exception until an official vector is available. */
 export function KrexaSkillIcon(props: SkillIconProps) {
   const maskId = useId();
@@ -424,6 +429,8 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   spl_token: CoinsIcon,
   etherfi: EtherfiSkillIcon,
   jupiter: JupiterSkillIcon,
+  // Earn and predictions share Jupiter's identity; predictions live in jupiter.
+  jupiter_lend: JupiterSkillIcon,
   kamino: KaminoSkillIcon,
   lifi_swap: LifiSkillIcon,
   morpho: MorphoSkillIcon,
@@ -436,11 +443,14 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   renzo: RenzoSkillIcon,
   robinhood_stocks: RobinhoodStocksSkillIcon,
   rocket_pool: RocketPoolSkillIcon,
+  // RWA is an asset category, so use the shared semantic landmark glyph.
+  rwa: LandmarkIcon,
   sanctum: SanctumSkillIcon,
   squads: SquadsSkillIcon,
   stargate: StargateSkillIcon,
   sushiswap: SushiSwapSkillIcon,
   uniswap: UniswapSkillIcon,
+  xstocks: XStocksSkillIcon,
   yearn: YearnSkillIcon,
   zksync_era_native: ZkSyncEraSkillIcon,
   zora: ZoraSkillIcon,

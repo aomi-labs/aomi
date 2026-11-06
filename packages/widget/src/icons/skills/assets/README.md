@@ -40,6 +40,12 @@ Common ERC-20 uses the shared coin glyph; Dummy uses a laboratory flask because
 it is a developer testing capability, not a protocol brand. Unknown custom
 skills continue to use the caller's neutral fallback.
 
+xStocks uses the complete official symbol from its favicon, rendered in
+`currentColor` at 18px on the 24px canvas to balance its solid geometry against
+the other marks. Jupiter Lend and predictions reuse the existing Jupiter mark;
+predictions remain part of the `jupiter` skill. RWA is an asset category and uses
+the shared Lucide landmark glyph rather than a protocol logo.
+
 Krexa is a documented raster exception: its published transparent 120px WebP
 symbol is embedded locally as an alpha mask in `KrexaSkillIcon`, so it follows
 `currentColor` in both themes without retaining its original blue color.

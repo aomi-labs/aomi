@@ -30,6 +30,7 @@ const BUILT_IN_SKILL_IDS = [
   "eigenlayer",
   "etherfi",
   "jupiter",
+  "jupiter_lend",
   "kamino",
   "kelp",
   "krexa",
@@ -48,12 +49,14 @@ const BUILT_IN_SKILL_IDS = [
   "renzo",
   "robinhood_stocks",
   "rocket_pool",
+  "rwa",
   "sanctum",
   "spl_token",
   "squads",
   "stargate",
   "sushiswap",
   "uniswap",
+  "xstocks",
   "yearn",
   "zksync_era_native",
   "zora",
@@ -158,6 +161,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(47);
+    expect(manifestIds).toHaveLength(50);
   });
 });

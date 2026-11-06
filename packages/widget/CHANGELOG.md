@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.2
+
+### Patch Changes
+
+- Add xStocks and RWA artwork and reuse Jupiter's mark for Jupiter Lend. Library, capability mentions, the picker, and the working trace share the same local icons in both themes.
+
 ## 5.1.1
 
 ### Patch Changes

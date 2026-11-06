@@ -410,7 +410,9 @@ const BRAND_LABELS: Record<string, string> = {
   common_erc20: "ERC20",
   defillama: "DefiLlama",
   lifi_swap: "LI.FI",
+  rwa: "RWA",
   spl_token: "SPL Token",
+  xstocks: "xStocks",
 };
 
 /** The brand spelling for a normalized (lowercase, `_`-joined) skill ID. */
