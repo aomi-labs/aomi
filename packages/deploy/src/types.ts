@@ -369,7 +369,7 @@ export interface PromoteResult {
   promote: {
     deploymentId: string;
     releaseTags: string[];
-    status: "promoted" | "blocked" | string;
+    status: "promoted" | "blocked" | "awaiting_review" | string;
     sdkStatus?: SdkVersionStatus | null;
     activation?: ActivateResult["activation"];
   };
