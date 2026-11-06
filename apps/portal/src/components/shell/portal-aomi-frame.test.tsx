@@ -906,6 +906,31 @@ describe("ThreadUrlBootstrap", () => {
     };
   });
 
+  it("keeps a Recent selection made while the initial unlinked page is still loading", () => {
+    runtimeState.current.threadListLoading = true;
+    const navigation = createThreadUrlNavigation();
+    const view = render(
+      <ThreadUrlBootstrap key="initial" navigation={navigation} />,
+    );
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "selected-saved",
+      threadMetadata: new Map([
+        [
+          "selected-saved",
+          { title: "Saved callback preparation", status: "regular" },
+        ],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+      threadListLoading: false,
+    };
+    view.rerender(
+      <ThreadUrlBootstrap key="selected-saved" navigation={navigation} />,
+    );
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=selected-saved");
+  });
+
   it("waits for remote metadata before selecting a linked MCP thread", async () => {
     window.history.replaceState({}, "", "/?thread=mcp-linked");
     runtimeState.current.threadListLoading = true;
