@@ -79,7 +79,13 @@ packageExtensions:
 # dynamically registered client's default resources. This widens Agent,
 # Pipeline, and REST clients even when they request one exact resource. Aomi
 # binds resource-less RFC 7591 clients on their first authorize request instead.
+#
+# @assistant-ui/react 0.14.x gives ThreadPrimitive.Viewport a new composed ref on
+# every render, so each commit re-attaches every viewport ref: new observers,
+# size-handle re-registration and a forced layout inside the commit. The patch
+# keeps the auto-scroll ref stable, as 0.15 does; drop it with the move to 0.15.
 patchedDependencies:
+  "@assistant-ui/react@0.14.26": patches/@assistant-ui__react@0.14.26.patch
   "@better-auth/cimd@1.7.1": patches/@better-auth__cimd@1.7.1.patch
   "@better-auth/mcp@1.7.1": patches/@better-auth__mcp@1.7.1.patch
   "@better-auth/oauth-provider@1.7.1": patches/@better-auth__oauth-provider@1.7.1.patch
