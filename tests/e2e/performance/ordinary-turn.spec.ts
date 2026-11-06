@@ -31,6 +31,11 @@ async function measureTurn(
   return readPerfWindow(widget.page);
 }
 
+// Tracing snapshots the DOM on the page's main thread for every action and
+// assertion, and video recording competes for the runner's CPU: both land inside
+// the measured window. The perf JSON and optional CPU profile are attached instead.
+test.use({ trace: "off", video: "off" });
+
 // A tool turn must not block the main thread, write to the sidebar or remount
 // the widget. AOMI_PERF_PROFILE=1 attaches a CPU profile of the 4x CPU turn.
 test("an ordinary tool turn has no long tasks, sidebar writes or remounts", async ({

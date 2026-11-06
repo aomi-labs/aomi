@@ -1,0 +1,32 @@
+diff --git a/dist/primitives/thread/useThreadViewportAutoScroll.js b/dist/primitives/thread/useThreadViewportAutoScroll.js
+index 8dd2185..ef43131 100644
+--- a/dist/primitives/thread/useThreadViewportAutoScroll.js
++++ b/dist/primitives/thread/useThreadViewportAutoScroll.js
+@@ -71,17 +71,23 @@ const useThreadViewportAutoScroll = ({ autoScroll, scrollToBottomOnRunStart = tr
+ 		else if (autoScroll && threadViewportStore.getState().isAtBottom) scrollToBottom("instant");
+ 		handleScroll();
+ 	});
+-	const scrollRef = useManagedRef((el) => {
++	// Stable ref identity: an inline callback here gave the viewport a new composed
++	// ref every render, so React re-attached every viewport ref each commit (new
++	// observers, size-handle re-registration, a forced layout). Fixed upstream in 0.15.
++	const handleScrollRef = useRef(handleScroll);
++	handleScrollRef.current = handleScroll;
++	const scrollRef = useManagedRef(useCallback((el) => {
++		const onScroll = () => handleScrollRef.current();
+ 		const cancelPendingScrollToBottom = () => {
+ 			scrollingToBottomBehaviorRef.current = null;
+ 		};
+-		el.addEventListener("scroll", handleScroll);
++		el.addEventListener("scroll", onScroll);
+ 		el.addEventListener("pointerdown", cancelPendingScrollToBottom);
+ 		return () => {
+-			el.removeEventListener("scroll", handleScroll);
++			el.removeEventListener("scroll", onScroll);
+ 			el.removeEventListener("pointerdown", cancelPendingScrollToBottom);
+ 		};
+-	});
++	}, []));
+ 	useLayoutEffect(() => {
+ 		if (!scrollToBottomOnInitialize) return;
+ 		if (!hasMessages) {
