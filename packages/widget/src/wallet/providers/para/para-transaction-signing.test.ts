@@ -11,6 +11,7 @@ import {
   paraUnsignedTransaction,
   ParaSigningIncompleteError,
   PARA_REVIEW_TIMEOUT_MS,
+  PARA_SIGNATURE_GRACE_MS,
   signParaTransaction,
   type ParaTransactionSigningClient,
 } from "./para-transaction-signing";
@@ -125,12 +126,39 @@ describe("Para commit transaction signing", () => {
     const outcome = expect(signing).rejects.toMatchObject({
       name: "ParaSigningIncompleteError",
       reason: "timeout",
+      outcome: "unknown",
+      message: expect.stringContaining("at most one can go through"),
     });
     await vi.advanceTimersByTimeAsync(PARA_REVIEW_TIMEOUT_MS + 30_000);
+    expect(canceled?.()).toBe(true);
+    await vi.advanceTimersByTimeAsync(PARA_SIGNATURE_GRACE_MS);
     await outcome;
     // Para's polling loop is told to stop, and the review prompt is cleared.
     expect(canceled?.()).toBe(true);
     expect(reviews).toEqual([null]);
+  });
+
+  it("keeps a signature Para finishes just after being told to stop", async () => {
+    // Para saw the approval right before the stop flag and is still in its
+    // MPC signing round: that signature is real and must not be dropped.
+    vi.useFakeTimers();
+    let finish: (() => void) | undefined;
+    const client = para({
+      signTransaction: vi.fn(
+        (args) =>
+          new Promise((resolve) => {
+            finish = () => resolve(para().signTransaction!(args));
+          }),
+      ),
+    });
+    const signing = signParaTransaction(client, payload(5042, 3), {
+      onReviewUrl: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(PARA_REVIEW_TIMEOUT_MS + 30_000);
+    finish!();
+    await vi.advanceTimersByTimeAsync(1);
+    const signed = await signing;
+    expect(parseTransaction(signed).nonce).toBe(3);
   });
 
   it("keeps Para's pending review id when its review times out", async () => {

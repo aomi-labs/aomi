@@ -33,23 +33,35 @@ export type ParaTransactionSigningClient = ParaSigningClient & {
 export const PARA_REVIEW_TIMEOUT_MS = 5 * 60_000;
 /** Our bound on top of Para's, in case its polling never returns. */
 const GUARD_MS = 30_000;
+/**
+ * After asking Para to stop, how long to wait for a signature it is already
+ * computing. Para checks the stop flag only between polls, so an approval
+ * seen just before it can still finish its MPC signing round.
+ */
+export const PARA_SIGNATURE_GRACE_MS = 15_000;
 
 /**
- * Para returned no signature. Nothing was broadcast: Aomi broadcasts a Para
- * transaction only after Commit Service has stored its signed bytes, and a
- * Para signature can only be produced by this client's own sign call. A retry
- * signs the same prepared transaction (same nonce), so at most one can land.
+ * Para returned no signature to this page, so Aomi broadcast nothing. The
+ * outcome is still unknown: Para's server co-signs every signature and an
+ * approved review may finish signing after this page stopped waiting. Para
+ * never broadcasts it. Any such signature is bound to this prepared
+ * transaction's nonce, so it and a retry (which signs the same transaction,
+ * same nonce) cannot both land, and it is void once that nonce is used.
  */
 export class ParaSigningIncompleteError extends Error {
+  /** Never proof that signing did not happen. */
+  readonly outcome = "unknown" as const;
   constructor(
     readonly reason: "timeout" | "provider_error" | "no_signature",
     readonly pendingTransactionId?: string,
     options?: { cause?: unknown },
   ) {
     super(
-      reason === "timeout"
-        ? "Para signing did not finish in time. Nothing was broadcast; try again to sign the same transaction."
-        : "Para did not return a signature. Nothing was broadcast; try again to sign the same transaction.",
+      `${
+        reason === "timeout"
+          ? "Para didn't return a signature in time"
+          : "Para didn't return a signature"
+      }, so Aomi sent nothing. If you approved it in Para, that approval only covers this exact transaction: trying again signs the same transaction, and at most one can go through.`,
       options,
     );
     this.name = "ParaSigningIncompleteError";
@@ -107,12 +119,21 @@ export async function signParaTransaction(
   const transaction = paraUnsignedTransaction(payload);
   const timeoutMs = options.timeoutMs ?? PARA_REVIEW_TIMEOUT_MS;
   let canceled = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timers: Array<ReturnType<typeof setTimeout>> = [];
+  // Stop Para first, then give a signature already in flight time to arrive:
+  // one that does goes through the normal store-then-broadcast path.
   const guard = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      canceled = true;
-      reject(new ParaSigningIncompleteError("timeout"));
-    }, timeoutMs + GUARD_MS);
+    timers.push(
+      setTimeout(() => {
+        canceled = true;
+        timers.push(
+          setTimeout(
+            () => reject(new ParaSigningIncompleteError("timeout")),
+            PARA_SIGNATURE_GRACE_MS,
+          ),
+        );
+      }, timeoutMs + GUARD_MS),
+    );
   });
   try {
     const result = await Promise.race([
@@ -159,7 +180,7 @@ export async function signParaTransaction(
     return signed;
   } finally {
     canceled = true;
-    clearTimeout(timer);
+    for (const timer of timers) clearTimeout(timer);
     options.onReviewUrl(null);
   }
 }
