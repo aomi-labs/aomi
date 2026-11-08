@@ -1393,15 +1393,24 @@ describe("Solana sign-in with the wallet on another cluster", () => {
     expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
   });
 
-  it("asks no further once the sheet has moved on", async () => {
+  it("asks no further when the sheet closes during a retry", async () => {
+    let open = true;
+    mockState.accountClient!.siwsNonce.mockImplementation(async () => {
+      const issued = mockState.accountClient!.siwsNonce.mock.calls.length;
+      if (issued === 2) open = false;
+      return {
+        nonce: `nonce-${issued}`,
+        domain: "localhost:3000",
+        uri: "http://localhost:3000",
+      };
+    });
     const sign = vi.fn().mockRejectedValue(mismatch);
 
-    await expect(linkPhantom(sign, () => false)).rejects.toThrow(
-      mismatch.message,
-    );
+    await expect(linkPhantom(sign, () => open)).rejects.toThrow("cancelled");
 
     expect(sign).toHaveBeenCalledOnce();
-    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledTimes(2);
+    expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
   });
 
   it("does not retry once the wallet has signed", async () => {

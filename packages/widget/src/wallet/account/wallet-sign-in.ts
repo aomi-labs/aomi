@@ -79,8 +79,11 @@ export async function linkAccountWallet(
     }
     const walletApp = walletAppName(svm.walletName);
     const live = wallet.live ?? (() => true);
-    const sign = (message: string, chainId: SvmCluster) =>
-      signMessageWithActiveSvm(signMessage, message, chainId);
+    const sign = async (message: string, chainId: SvmCluster) => {
+      // The nonce request can outlive the sheet; a stale one never prompts.
+      if (!live()) throw new Error("Signing was cancelled.");
+      return signMessageWithActiveSvm(signMessage, message, chainId);
+    };
     if (!signedIn) {
       await onWalletCluster(svm.cluster, live, (chainId) =>
         signInWithSvmWallet({
