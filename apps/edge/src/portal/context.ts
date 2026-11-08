@@ -8,7 +8,7 @@ import {
 
 import type { Auth } from "@aomi-labs/account/better-auth";
 
-import { authServer } from "../auth/server";
+import { authEnvironment, authServer } from "../auth/server";
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
 import { wait as sleep, type FetchLike, type WaitLike } from "../kernel/proxy";
@@ -44,17 +44,17 @@ export function portalContext(
   const url = new URL(request.url);
   const { portal } = config(env);
   if (!portal.hosts.has(url.host.toLowerCase()) || !portal.upstream) return null;
+  const canonical = env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin;
+  const authEnv = authEnvironment(env, canonical);
   return {
-    env,
+    env: authEnv,
     portalOrigin: url.origin,
     upstreamOrigin: portal.upstream,
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
-    auth: () => authServer(env),
+    auth: () => authServer(authEnv),
     // Host aliases share the canonical OAuth identity. Keep the request URL
     // unchanged: browser origin checks and DPoP still bind to the transport.
-    resources: resourcesFor(
-      env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin,
-    ),
+    resources: resourcesFor(canonical),
     fetchImpl,
     wait,
     now,

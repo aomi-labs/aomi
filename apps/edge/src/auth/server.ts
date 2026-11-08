@@ -6,7 +6,7 @@ import { assertAuthBindings } from "../kernel/config";
 
 const environments = new WeakMap<EdgeEnv, Map<string, EdgeEnv>>();
 
-/** Only call for a configured headless API origin; its issuer is independent of Chat. */
+/** Request configuration for an admitted account surface and its canonical issuer. */
 export function authEnvironment(env: EdgeEnv, origin: string): EdgeEnv {
   let origins = environments.get(env);
   if (!origins) {
