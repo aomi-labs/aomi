@@ -13,6 +13,7 @@ import {
   Pencil,
   QrCode,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
@@ -32,6 +33,10 @@ import {
 } from "@/account/account-management/wallet-model";
 import { usedLabel } from "@/account/connections/connections-settings";
 import { ConnectionLanes } from "@/account/connections/connection-lanes";
+import {
+  OnchainPolicySettings,
+  useWalletLimits,
+} from "@/account/policy/onchain-policy-settings";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
 import { FamilyLabel } from "./family-label";
@@ -40,8 +45,9 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its lane on it, then Send, Rename and Pause as rows,
- * and Archive alone at the bottom. Changes save at once.
+ * every connection with its lane on it, then Send, Limits (where Swig is on),
+ * Rename and Pause as rows, and Archive alone at the bottom. Changes save at
+ * once.
  */
 export function AgentWalletManage({
   wallet,
@@ -65,17 +71,36 @@ export function AgentWalletManage({
 }) {
   const { renameWallet, dialog: renameDialog } = useRenameWallet(onRename);
   const [receive, setReceive] = useState<WalletFamily | null>(null);
+  const [limitsOpen, setLimitsOpen] = useState(false);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
-  const addresses = wallet.addresses;
+  // Deposits go where the funds live: under on-chain limits that is the
+  // policy's operating address, not the key.
+  const addresses = wallet.addresses.map((entry) => ({
+    ...entry,
+    address: entry.operating_address ?? entry.address,
+  }));
+  const svm = archived
+    ? undefined
+    : wallet.addresses.find((entry) => entry.family === "svm")?.address;
+  const limits = useWalletLimits(svm);
 
   if (receive)
     return (
       <ReceiveStep
-        wallet={wallet}
+        wallet={{ name: wallet.name, addresses }}
         family={receive}
         onFamily={setReceive}
         onBack={() => setReceive(null)}
+        onClose={onClose}
+      />
+    );
+  if (limitsOpen && svm)
+    return (
+      <LimitsStep
+        name={wallet.name}
+        delegate={svm}
+        onBack={() => setLimitsOpen(false)}
         onClose={onClose}
       />
     );
@@ -173,6 +198,15 @@ export function AgentWalletManage({
 
         <ListGroup>
           <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />
+          {limits.available ? (
+            <ActionRow
+              icon={SlidersHorizontal}
+              label="Limits"
+              description="Enforced on Solana by Swig"
+              step
+              onClick={() => setLimitsOpen(true)}
+            />
+          ) : null}
           {archived ? null : (
             <ActionRow
               icon={Pencil}
@@ -224,6 +258,46 @@ export function AgentWalletManage({
   );
 }
 
+/** Limits: the wallet's Swig policy, signed by your connected Solana wallet. */
+function LimitsStep({
+  name,
+  delegate,
+  onBack,
+  onClose,
+}: {
+  name: string;
+  delegate: string;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <AomiSheet onClose={onClose}>
+      <SheetHeader
+        leading={<BackButton onBack={onBack} />}
+        title="Limits"
+        description={`${name} · enforced on Solana by Swig`}
+        onClose={onClose}
+      />
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
+        <OnchainPolicySettings delegate={delegate} />
+      </div>
+    </AomiSheet>
+  );
+}
+
+function BackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Back"
+      onClick={onBack}
+      className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+    >
+      <ChevronLeft className="size-4" />
+    </button>
+  );
+}
+
 /** Receive: a tab per family (only with two), the QR, the address, its networks. */
 export function ReceiveStep({
   wallet,
@@ -252,16 +326,7 @@ export function ReceiveStep({
   return (
     <AomiSheet onClose={onClose}>
       <SheetHeader
-        leading={
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={onBack}
-            className={aomiButton({ variant: "ghost", size: "icon-sm" })}
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-        }
+        leading={<BackButton onBack={onBack} />}
         title="Receive"
         description={`${wallet.name} · send only on the networks listed`}
         onClose={onClose}

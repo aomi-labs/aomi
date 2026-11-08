@@ -42,6 +42,7 @@ vi.mock("@/wallet/context", () => ({
   }),
 }));
 import { PolicyPage } from "./policy-page";
+import { OnchainPolicySettings } from "./onchain-policy-settings";
 
 const profile = {
   user: {},
@@ -69,6 +70,24 @@ beforeEach(() => {
 });
 
 describe("Safety page", () => {
+  it("shows only transaction safety; limits live on each agent wallet", async () => {
+    request.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/account")) return profile;
+      return guardPolicy;
+    });
+    render(<PolicyPage />);
+    expect(
+      await screen.findByRole("radiogroup", { name: "Guard policy" }),
+    ).toBeTruthy();
+    expect(
+      request.mock.calls.some(([path]) =>
+        String(path).includes("/policies/swig"),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("Agent wallet limits", () => {
   it.each([
     ["solana:mainnet", "solana:mainnet"],
     ["solana:devnet", "solana:devnet"],
@@ -78,7 +97,7 @@ describe("Safety page", () => {
     ["testnet", "solana:testnet"],
     [undefined, "solana:mainnet"],
   ] as const)(
-    "requests canonical policy context for %s",
+    "requests the wallet's canonical policy context for %s",
     async (cluster, expected) => {
       identity.svmCluster = cluster;
       request.mockImplementation(async (path: string) => {
@@ -86,26 +105,23 @@ describe("Safety page", () => {
         if (path.startsWith("/api/account")) return profile;
         return guardPolicy;
       });
-      render(<PolicyPage />);
+      render(<OnchainPolicySettings delegate="AgentKey" />);
       await waitFor(() =>
         expect(request).toHaveBeenCalledWith(
-          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: expected })}`,
+          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: expected, delegate: "AgentKey" })}`,
           expect.objectContaining({ method: "GET" }),
         ),
       );
     },
   );
 
-  it("hides Swig limits when the deployment has the lane off", async () => {
+  it("renders nothing when the deployment has Swig off", async () => {
     request.mockImplementation(async (path: string) => {
       if (path.includes("/policies/swig")) throw disabled();
       if (path.startsWith("/api/account")) return profile;
       return guardPolicy;
     });
-    render(<PolicyPage />);
-    expect(
-      await screen.findByRole("radiogroup", { name: "Guard policy" }),
-    ).toBeTruthy();
+    const { container } = render(<OnchainPolicySettings delegate="AgentKey" />);
     await waitFor(() =>
       expect(
         request.mock.calls.some(([path]) =>
@@ -114,9 +130,10 @@ describe("Safety page", () => {
       ).toBe(true),
     );
     expect(screen.queryByText("Swig on Solana")).toBeNull();
+    expect(container.textContent).toBe("");
   });
 
-  it("shows Swig limits with the curated apps and token caps when enabled", async () => {
+  it("shows the curated apps and token caps for that wallet when enabled", async () => {
     request.mockImplementation(async (path: string) => {
       if (path.includes("/policies/swig"))
         return {
@@ -136,13 +153,14 @@ describe("Safety page", () => {
       if (path.startsWith("/api/account")) return profile;
       return guardPolicy;
     });
-    render(<PolicyPage />);
-    // The page reveals its sections once the guard policy loads.
-    await screen.findByRole("radiogroup", { name: "Guard policy" });
+    render(<OnchainPolicySettings delegate="AgentKey" />);
     expect(await screen.findByText("Swig on Solana")).toBeTruthy();
     expect(screen.getByText("Jupiter")).toBeTruthy();
     expect(screen.getByLabelText("Cap wSOL")).toBeTruthy();
     expect(screen.getByLabelText("Cap USDC")).toBeTruthy();
+    // The wallet is the delegate: there is no agent to pick.
+    expect(screen.queryByText("Delegated agent")).toBeNull();
+    expect(screen.getByText("Agent wallet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Activate Swig" })).toBeTruthy();
   });
 });
