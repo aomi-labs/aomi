@@ -50,7 +50,7 @@ export async function handleBetterAuth(request: Request, ctx: PortalContext): Pr
   }
   const origin = request.headers.get("origin");
   const crossOrigin =
-    origin !== null && origin !== aomiOAuthResources().portalOrigin;
+    origin !== null && origin !== ctx.portalOrigin;
   const browserClientId =
     isBrowserGrantEndpoint && crossOrigin
       ? await oauthClientId(request)
