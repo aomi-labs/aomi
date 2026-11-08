@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.3
+
+### Patch Changes
+
+- Signing in or linking a Solana wallet from the wallet sheet works when Phantom is on a different network than Aomi. Phantom won't show a sign-in message whose Chain ID isn't its own network, and wallets don't say which network they're on, so on that refusal the sheet asks again on the next Solana cluster (at most three tries), each time with a fresh nonce bound to that cluster. Any other failure, including the user declining, ends the attempt as before, and a sheet that is closed, restarted, switched to another wallet or unmounted asks no further. Widget wallet-session sign-in is unchanged.
+
 ## 5.1.2
 
 ### Patch Changes
