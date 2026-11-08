@@ -36,6 +36,8 @@ export const AGENT_API_HEADERS: Required<HeaderPolicy> = {
     "if-modified-since",
     "idempotency-key",
     "mcp-protocol-version",
+    "mcp-method",
+    "mcp-name",
     "x-aomi-run-budget-microusd",
     "x-request-id",
   ]),

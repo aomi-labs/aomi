@@ -572,6 +572,44 @@ describe("portal surface: OAuth tokens", () => {
 });
 
 describe("portal surface: MCP", () => {
+  it.each([
+    ["server/discover", undefined],
+    ["tools/list", undefined],
+    ["tools/call", "aomi_chat"],
+  ])("preserves the modern %s routing headers through the edge", async (method, name) => {
+    const token = await oauthToken({
+      sub: "user", scope: "mcp:agent agent:read agent:write",
+      aud: `${PORTAL}/v1/agent/mcp`,
+      client_id: "https://chatgpt.com/oauth/xkEGH8A9Tu-P/client.json",
+    });
+    const response = await portal("/v1/agent/mcp", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`, "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28", "mcp-method": method,
+        ...(name ? { "mcp-name": name } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: {
+        ...(name ? { name, arguments: {} } : {}),
+        _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} },
+      } }),
+    });
+    expect(response.status).toBe(200);
+    expect(seen[0].headers["mcp-method"]).toBe(method);
+    expect(seen[0].headers["mcp-name"]).toBe(name);
+    expect(seen[0].headers["mcp-protocol-version"]).toBe("2026-07-28");
+  });
+
+  it("admits browser MCP routing headers in preflight", async () => {
+    const response = await portal("/v1/agent/mcp", {
+      method: "OPTIONS", origin: "https://client.example",
+      headers: { "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type,mcp-protocol-version,mcp-method,mcp-name" },
+    });
+    expect(response.status).toBe(204);
+    const allowed = response.headers.get("access-control-allow-headers")!.toLowerCase().split(/,\s*/);
+    for (const header of ["mcp-protocol-version", "mcp-method", "mcp-name"]) expect(allowed).toContain(header);
+  });
+
   it("challenges an anonymous MCP call with the resource metadata and re-authorization scopes", async () => {
     const response = await portal("/v1/agent/mcp", {
       method: "POST",
