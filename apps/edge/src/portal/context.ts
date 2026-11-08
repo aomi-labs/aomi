@@ -50,7 +50,11 @@ export function portalContext(
     upstreamOrigin: portal.upstream,
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
     auth: () => authServer(env),
-    resources: resourcesFor(url.origin),
+    // Host aliases share the canonical OAuth identity. Keep the request URL
+    // unchanged: browser origin checks and DPoP still bind to the transport.
+    resources: resourcesFor(
+      env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin,
+    ),
     fetchImpl,
     wait,
     now,

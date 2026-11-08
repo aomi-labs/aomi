@@ -17,6 +17,7 @@ vi.mock("@aomi-labs/account/better-auth", () => ({
   oauthRedirectFailureDiagnostics: mocks.oauthRedirectFailureDiagnostics,
 }));
 vi.mock("./oauth/request-policy", () => ({
+  oauthClientId: async () => undefined,
   // The policy hands the (possibly scope-narrowed) request back to the route,
   // so the mock has to return one rather than a bare pass signal. A plain
   // function, not vi.fn(), so the global mock reset cannot strip it.
@@ -26,11 +27,16 @@ vi.mock("./oauth/request-policy", () => ({
   }),
 }));
 
+vi.mock("../portal/principal", () => ({
+  isManagedWidgetClientOrigin: async () => false,
+}));
+
 import type { PortalContext } from "../portal/context";
 import { handleBetterAuth } from "./better-auth";
 
 const ctx = {
   env: {},
+  portalOrigin: "https://portal.example",
   auth: () => ({ api: { getSession: mocks.getSession }, handler: mocks.handler }),
 } as unknown as PortalContext;
 const GET = (request: Request) => handleBetterAuth(request, ctx);
@@ -165,4 +171,17 @@ describe("public DPoP endpoint", () => {
     expect(forwarded.url).toBe("https://portal.example/api/auth/oauth2/token");
     expect(await forwarded.text()).toContain("code=fixture");
   });
+});
+
+
+it("treats an allowed transport alias as its own browser origin at token exchange", async () => {
+  const alias = "https://alias.example";
+  const aliasContext = { ...ctx, portalOrigin: alias };
+  const request = (origin: string) => new Request(`${alias}/api/auth/oauth2/token`, {
+    method: "POST", headers: { origin, "content-type": "application/x-www-form-urlencoded" },
+    body: "grant_type=authorization_code&code=fixture",
+  });
+  expect((await handleBetterAuth(request(alias), aliasContext)).status).toBe(200);
+  expect((mocks.handler.mock.calls[0][0] as Request).url).toBe("https://portal.example/api/auth/oauth2/token");
+  expect((await handleBetterAuth(request("https://unrelated.example"), aliasContext)).status).toBe(403);
 });

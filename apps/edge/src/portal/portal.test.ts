@@ -17,6 +17,7 @@ import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
 import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
+import { portalContext } from "./context";
 
 // The account layer, faked in-process: who a cookie, session bearer or widget
 // session belongs to, which partner widget a client registered, and the keys.
@@ -64,6 +65,16 @@ vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
   readManagedOAuthClient: async (clientId: string) =>
     clientId === "client-1" ? { clientClass: "partner_widget", disabled: false, origins: [PARTNER] } : null,
+}));
+
+vi.mock("@better-auth/oauth-provider/resource-client", () => ({
+  oauthProviderResourceClient: () => ({
+    getActions: () => ({
+      getProtectedResourceMetadata: async (
+        overrides: Record<string, unknown>,
+      ) => overrides,
+    }),
+  }),
 }));
 
 const PORTAL = "https://portal.example";
@@ -128,13 +139,14 @@ async function oauthToken(input: {
   guest?: boolean;
   scope: string;
   aud: string;
+  client_id?: string;
   cnf?: { jkt: string };
 }) {
   return signPortal(
     {
       sub: input.sub,
       scope: input.scope,
-      client_id: "client-1",
+      client_id: input.client_id ?? "client-1",
       jti: "grant-1",
       "https://aomi.dev/canonical_user_id": `acct-${input.sub}`,
       "https://aomi.dev/principal_class": input.guest ? "guest" : "user",
@@ -162,7 +174,11 @@ const world: FetchLike = async (request) => {
   if (url.origin === UPSTREAM) {
     return echo(request, body, "vercel");
   }
-  if (url.origin === AGENT) return echo(request, body, "agent");
+  if (url.origin === AGENT) {
+    const response = echo(request, body, "agent");
+    if (url.pathname === "/v1/agent/mcp") response.headers.set("mcp-protocol-version", "2026-07-28");
+    return response;
+  }
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === MANAGER) return echo(request, body, "manager");
@@ -572,6 +588,64 @@ describe("portal surface: OAuth tokens", () => {
 });
 
 describe("portal surface: MCP", () => {
+  it.each([
+    ["server/discover", undefined],
+    ["tools/list", undefined],
+    ["tools/call", "aomi_chat"],
+  ])("preserves the modern %s routing headers through the edge", async (method, name) => {
+    const token = await oauthToken({
+      sub: "user", scope: "mcp:agent agent:read agent:write",
+      aud: `${PORTAL}/v1/agent/mcp`,
+      client_id: "https://oauth-client.example/metadata/client.json",
+    });
+    const response = await portal("/v1/agent/mcp", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`, "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28", "mcp-method": method,
+        ...(name ? { "mcp-name": name } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: {
+        ...(name ? { name, arguments: {} } : {}),
+        _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} },
+      } }),
+    });
+    expect(response.status).toBe(200);
+    expect(seen[0].headers["mcp-method"]).toBe(method);
+    expect(seen[0].headers["mcp-name"]).toBe(name);
+    expect(seen[0].headers["mcp-protocol-version"]).toBe("2026-07-28");
+    expect((await upstreamBearer(seen[0])).payload.client_id).toBe("https://oauth-client.example/metadata/client.json");
+  });
+
+  it("exposes the upstream MCP protocol version to an authorized browser client", async () => {
+    const token = await oauthToken({
+      sub: "user", scope: "mcp:agent agent:read agent:write", aud: `${PORTAL}/v1/agent/mcp`,
+    });
+    const response = await portal("/v1/agent/mcp", {
+      method: "POST", origin: PARTNER,
+      headers: {
+        authorization: `Bearer ${token}`, "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe(PARTNER);
+    expect(response.headers.get("mcp-protocol-version")).toBe("2026-07-28");
+    expect(response.headers.get("access-control-expose-headers")!.toLowerCase().split(/,\s*/))
+      .toContain("mcp-protocol-version");
+  });
+
+  it("admits browser MCP routing headers in preflight", async () => {
+    const response = await portal("/v1/agent/mcp", {
+      method: "OPTIONS", origin: "https://client.example",
+      headers: { "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type,mcp-protocol-version,mcp-method,mcp-name" },
+    });
+    expect(response.status).toBe(204);
+    const allowed = response.headers.get("access-control-allow-headers")!.toLowerCase().split(/,\s*/);
+    for (const header of ["mcp-protocol-version", "mcp-method", "mcp-name"]) expect(allowed).toContain(header);
+  });
+
   it("challenges an anonymous MCP call with the resource metadata and re-authorization scopes", async () => {
     const response = await portal("/v1/agent/mcp", {
       method: "POST",
@@ -1093,5 +1167,122 @@ describe("portal surface: removed routes", () => {
     const response = await call("portal user", method, path);
     expect(((await response.json()) as { tag: string }).tag).toBe("vercel");
     expect(seen.every((record) => !record.url.startsWith(BACKEND))).toBe(true);
+  });
+});
+
+describe("portal transport aliases retain canonical OAuth identity", () => {
+  const alias = "https://alias.example";
+  const aliasEnv = {
+    ...env,
+    BETTER_AUTH_URL: PORTAL,
+    PORTAL_HOSTS: "portal.example,alias.example",
+  };
+  const call = (path: string, init: RequestInit = {}) =>
+    handleRequest(new Request(`${alias}${path}`, init), aliasEnv, world);
+
+  it("uses the canonical resource and issuer while keeping the actual browser origin", () => {
+    const ctx = portalContext(
+      new Request(`${alias}/v1/agent/sessions`),
+      aliasEnv,
+      world,
+    )!;
+    expect(ctx.portalOrigin).toBe(alias);
+    expect(ctx.resources.portalOrigin).toBe(PORTAL);
+    expect(ctx.resources.authorizationServerIssuer).toBe(ISSUER);
+    expect(
+      portalContext(
+        new Request("https://unlisted.example/v1/agent"),
+        aliasEnv,
+        world,
+      ),
+    ).toBeNull();
+  });
+
+  it("discovers canonical protected-resource metadata through the alias", async () => {
+    vi.stubEnv("BETTER_AUTH_URL", PORTAL);
+    try {
+      const response = await call(
+        "/.well-known/oauth-protected-resource/v1/agent",
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        resource: `${PORTAL}/v1/agent`,
+        authorization_servers: [ISSUER],
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("accepts canonical tokens on the alias without accepting another resource", async () => {
+    const good = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
+    expect(
+      (
+        await call("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${good}` },
+        })
+      ).status,
+    ).toBe(200);
+    const wrongIssuer = await new SignJWT(decodeJwt(good))
+      .setProtectedHeader({ alg: "EdDSA", kid: "portal-1" })
+      .setIssuer(`${alias}/api/auth`)
+      .sign(portalKey.privateKey);
+    expect((await call("/v1/agent/sessions", {
+      headers: { authorization: `Bearer ${wrongIssuer}` },
+    })).status).toBe(401);
+    const wrong = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${alias}/v1/agent`,
+    });
+    expect(
+      (
+        await call("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${wrong}` },
+        })
+      ).status,
+    ).toBe(401);
+  });
+
+  it("keeps DPoP bound to the actual alias URL", async () => {
+    const pair = await generateKeyPair("ES256");
+    const jwk = await exportJWK(pair.publicKey);
+    const token = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+      cnf: { jkt: await calculateJwkThumbprint(jwk) },
+    });
+    const proof = async (htu: string) =>
+      new SignJWT({
+        htm: "GET",
+        htu,
+        jti: crypto.randomUUID(),
+        ath: Buffer.from(
+          await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(token),
+          ),
+        ).toString("base64url"),
+      })
+        .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk })
+        .setIssuedAt()
+        .sign(pair.privateKey);
+    const headers = async (host: string) => ({
+      authorization: `DPoP ${token}`,
+      dpop: await proof(`${host}/v1/agent/sessions`),
+    });
+    expect(
+      (await call("/v1/agent/sessions", { headers: await headers(alias) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await call("/v1/agent/sessions", { headers: await headers(PORTAL) }))
+        .status,
+    ).toBe(401);
   });
 });
