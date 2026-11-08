@@ -478,7 +478,11 @@ export function useSheetFlow(
           );
         close();
       },
-      back: () => dispatch({ type: "back" }),
+      back: () => {
+        // Another wallet replaces this flow; a pending sign-in must not prompt.
+        flowToken.current++;
+        dispatch({ type: "back" });
+      },
       newAgentWallet: () => dispatch({ type: "agent" }),
       pick,
       pickChain,

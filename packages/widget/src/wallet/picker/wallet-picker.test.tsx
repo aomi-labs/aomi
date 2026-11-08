@@ -257,6 +257,24 @@ describe("wallet sheet", () => {
     );
   });
 
+  it("ends a pending sign-in when the user picks another wallet", async () => {
+    const linkWallet = vi.fn(() => new Promise<void>(() => undefined));
+    const connectEvmWallet = vi.fn(async () => {
+      setKit((kit) => ({ ...kit, wallets: [rabbyRow(MAIN)] }));
+    });
+    render(<Harness initial={baseKit({ linkWallet, connectEvmWallet })} />);
+
+    fireEvent.click(screen.getByText("Rabby"));
+    await waitFor(() => expect(linkWallet).toHaveBeenCalledOnce());
+    const { live } = (
+      linkWallet.mock.calls[0] as unknown as [{ live: () => boolean }]
+    )[0];
+    expect(live()).toBe(true);
+
+    fireEvent.click(await screen.findByText("Use another wallet"));
+    expect(live()).toBe(false);
+  });
+
   it("makes an address already in the account active without a signature", async () => {
     const linkWallet = vi.fn();
     const selectAccount = vi.fn(async () => undefined);
