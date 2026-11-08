@@ -1,0 +1,28 @@
+{
+  "package": "@circle-fin/x402-batching",
+  "version": "3.5.0",
+  "originalIntegrity": "sha512-BG4weseV3Q9Qpoo1MmFz588t5PQ210s6KxS1qVs9xEj6V4f771/JMrc7C4q/9pqnokl5wXxSxq6SGcsB5mL9SQ==",
+  "source": [
+    {
+      "path": "constants.ts",
+      "sha256": "3c34beccfdf123f568204a3422d81c74afb71c4fdeac2acf18ca2b5fc551e39d",
+      "modified": false
+    },
+    {
+      "path": "detection.ts",
+      "sha256": "103851843b60fde6e6bc4ddd67862a1535e32c4b7768d9a0ed17602a7d8ecb21",
+      "modified": false
+    },
+    {
+      "path": "hooks.ts",
+      "sha256": "93e80ee57220079659fa730f87cc6bcccd0ad074ef8f8a79003b65eb6eaccc39",
+      "modified": false
+    },
+    {
+      "path": "client/BatchEvmScheme.ts",
+      "sha256": "2186a9e0b65be7efeac99371721e820888145ed2e1fa33d408fad3ef30d063a0",
+      "modified": false
+    }
+  ],
+  "selectionOnly": true
+}

@@ -1,0 +1,23 @@
+{
+  "url": "https://api-staging.aomi.dev/v1/task/build",
+  "method": "OPTIONS",
+  "origin": "https://chat-staging.aomi.dev",
+  "requestedMethod": "POST",
+  "requestedHeaders": [
+    "content-type",
+    "payment-signature"
+  ],
+  "credentials": "none",
+  "bodySent": false,
+  "redirectsFollowed": false,
+  "startedAt": "2026-11-08T12:46:31.917538+00:00",
+  "status": 403,
+  "corsHeaders": {},
+  "responseBytesRead": 17,
+  "allowsOrigin": false,
+  "allowsPost": false,
+  "allowsRequestedHeaders": false,
+  "observedPaymentHeaderExposure": false,
+  "completedAt": "2026-11-08T12:46:32.342416+00:00",
+  "limitation": "OPTIONS checks the public browser preflight only. No task challenge, proof, wallet, service purchase or actual POST response was requested."
+}

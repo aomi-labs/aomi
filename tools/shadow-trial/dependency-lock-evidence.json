@@ -1,0 +1,117 @@
+{
+  "directPins": {
+    "@x402/fetch": "2.10.0",
+    "@x402/extensions": "2.10.0",
+    "@x402/core": "2.10.0",
+    "viem": "2.47.11"
+  },
+  "bundleResolvedPackages": {
+    "@aomi-labs/shadow-trial-candidate": {
+      "version": "0.0.0",
+      "license": null
+    },
+    "zod": {
+      "version": "3.24.2",
+      "license": "MIT"
+    },
+    "@x402/core": {
+      "version": "2.10.0",
+      "license": "Apache-2.0"
+    },
+    "@x402/fetch": {
+      "version": "2.10.0",
+      "license": "Apache-2.0"
+    },
+    "ajv": {
+      "version": "8.17.1",
+      "license": "MIT"
+    },
+    "fast-deep-equal": {
+      "version": "3.1.3",
+      "license": "MIT"
+    },
+    "json-schema-traverse": {
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    "fast-uri": {
+      "version": "3.0.1",
+      "license": "MIT"
+    },
+    "@x402/extensions": {
+      "version": "2.10.0",
+      "license": "Apache-2.0"
+    }
+  },
+  "scope": "Standalone source build with exact lockfile; Portal uses committed self-contained bundle, no workspace dependency changes.",
+  "lockfile": "pnpm-lock.yaml",
+  "packageManager": "pnpm@10.28.0",
+  "officialArchives": [
+    {
+      "name": "@x402/fetch",
+      "version": "2.10.0",
+      "url": "https://registry.npmjs.org/@x402/fetch/-/fetch-2.10.0.tgz",
+      "integrity": "sha512-Rpe7JL0wzsdRmUfzULCjWI+yq5dkEtYFdE7qbtL81VMdOjq3E50fxJd3dcg/U+Lam+CAHQA5FZkcjP932Xyk0A=="
+    },
+    {
+      "name": "@x402/extensions",
+      "version": "2.10.0",
+      "url": "https://registry.npmjs.org/@x402/extensions/-/extensions-2.10.0.tgz",
+      "integrity": "sha512-IkRVeIsCgpoNpoI0jqFMPaNnt0Mkgm39OFbvXql68SDewcRrAuG40zFD4/EA6lbhor7vOieNkJnA2krFytFabQ=="
+    },
+    {
+      "name": "@x402/core",
+      "version": "2.10.0",
+      "url": "https://registry.npmjs.org/@x402/core/-/core-2.10.0.tgz",
+      "integrity": "sha512-n9Exnt1HN4LFaINaPYhk6Cy3ICBt0e46XN1Uo5i6efIZfIoqP6pY8ONSX/M9bU4F1fpvMj0JZ3xdcBZCiGInfw=="
+    },
+    {
+      "name": "zod",
+      "version": "3.24.2",
+      "url": "https://registry.npmjs.org/zod/-/zod-3.24.2.tgz",
+      "integrity": "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ=="
+    },
+    {
+      "name": "esbuild",
+      "version": "0.27.3",
+      "url": "https://registry.npmjs.org/esbuild/-/esbuild-0.27.3.tgz",
+      "integrity": "sha512-8VwMnyGCONIs6cWue2IdpHxHnAjzxnw2Zr7MkVxB2vjmQ2ivqGFb4LEG3SMnv0Gb2F/G/2yA8zUaiL1gywDCCg=="
+    },
+    {
+      "name": "@esbuild/darwin-arm64",
+      "version": "0.27.3",
+      "url": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.27.3.tgz",
+      "integrity": "sha512-Re491k7ByTVRy0t3EKWajdLIr0gz2kKKfzafkth4Q8A5n1xTHrkqZgLLjFEHVD+AXdUGgQMq+Godfq45mGpCKg=="
+    },
+    {
+      "name": "ajv",
+      "version": "8.17.1",
+      "url": "https://registry.npmjs.org/ajv/-/ajv-8.17.1.tgz",
+      "integrity": "sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g=="
+    },
+    {
+      "name": "fast-uri",
+      "version": "3.0.1",
+      "url": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.0.1.tgz",
+      "integrity": "sha512-MWipKbbYiYI0UC7cl8m/i/IWTqfC8YXsqjzybjddLsFjStroQzsHXkc73JutMvBiXmOvapk+axIl79ig5t55Bw=="
+    },
+    {
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "url": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q=="
+    },
+    {
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
+    },
+    {
+      "name": "require-from-string",
+      "version": "2.0.2",
+      "url": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="
+    }
+  ]
+}

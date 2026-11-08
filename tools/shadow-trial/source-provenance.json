@@ -1,0 +1,8 @@
+{
+  "original_revision": "87c12f2a2eedb22c9b57df749cdcb831861bb048",
+  "original_sha256": "788bfd0e86e5e0631952c5e110142dfa8c89c87dd3c6e3d274da3dfcb5fb7626",
+  "adaptation": "Browser runtime only: async WebCrypto and byte helpers, explicit journal and SDK injection. Existing payment/preview/recovery logic retained. No claim this standalone candidate is deployed or has a wallet attached.",
+  "source_author_credit": "Existing product-mono TaskClient implementation, reviewed previously; this work only adapts runtime IO and integration.",
+  "original_capture_filename": "task-client-87c12f.ts",
+  "source_repository": "aomi-labs/product-mono"
+}

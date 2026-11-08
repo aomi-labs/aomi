@@ -1,0 +1,2 @@
+Source: @circle-fin/x402-batching 3.5.0, Circle Internet Financial. Apache-2.0.
+This browser candidate includes the exact public BatchEvmScheme and its three runtime support sources from the integrity-verified published source map. No algorithm modifications. Type-only source files are omitted because they emit no JavaScript. The package client barrel imports Node crypto through GatewayClient; that unrelated class is not included.

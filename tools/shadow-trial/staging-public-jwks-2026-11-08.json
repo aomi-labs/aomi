@@ -1,0 +1,15 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "use": "sig",
+      "key_ops": [
+        "verify"
+      ],
+      "alg": "EdDSA",
+      "kid": "aomi-api-server-staging-1",
+      "x": "SSoS5R7oDRof_8pDVwtHUeR9ibmkZDwMYBojA6NYIPQ"
+    }
+  ]
+}

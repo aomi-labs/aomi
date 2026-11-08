@@ -1,0 +1,16 @@
+{
+  "url": "https://api-staging.aomi.dev/.well-known/jwks.json",
+  "method": "GET",
+  "started_at": "2026-11-08T12:40:17.414156+00:00",
+  "credentials": "none",
+  "redirects_followed": false,
+  "source_provenance": "Retained official Task API facts API Server JWKS route and separately observed staging origin; public keys only.",
+  "status": 200,
+  "public_key_shape_valid": true,
+  "sha256": "dab4619b1928a8d76dbfe0f713fe7b46101f93bcfbba61c0463f886a2054eb06",
+  "key_ids": [
+    "aomi-api-server-staging-1"
+  ],
+  "matches_prior_public_keys": true,
+  "completed_at": "2026-11-08T12:40:18.776423+00:00"
+}
