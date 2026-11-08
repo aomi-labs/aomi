@@ -78,40 +78,48 @@ export async function linkAccountWallet(
       );
     }
     const walletApp = walletAppName(svm.walletName);
-    const sign = (message: string) =>
-      signMessageWithActiveSvm(signMessage, message, svm.cluster);
+    const live = wallet.live ?? (() => true);
+    const sign = async (message: string, chainId: SvmCluster) => {
+      // The nonce request can outlive the sheet; a stale one never prompts.
+      if (!live()) throw new Error("Signing was cancelled.");
+      return signMessageWithActiveSvm(signMessage, message, chainId);
+    };
     if (!signedIn) {
-      await signInWithSvmWallet({
-        accountClient,
-        address: wallet.address,
-        chainId: svm.cluster,
-        walletApp,
-        messageConfig,
-        signMessage: sign,
-      });
+      await onWalletCluster(svm.cluster, live, (chainId) =>
+        signInWithSvmWallet({
+          accountClient,
+          address: wallet.address,
+          chainId,
+          walletApp,
+          messageConfig,
+          signMessage: (message) => sign(message, chainId),
+        }),
+      );
       return;
     }
-    const nonceResult = await accountClient.getWalletLinkNonce({
-      address: wallet.address,
-      chainId: svm.cluster,
+    return onWalletCluster(svm.cluster, live, async (chainId) => {
+      const nonceResult = await accountClient.getWalletLinkNonce({
+        address: wallet.address,
+        chainId,
+      });
+      const message = buildSiwsMessage({
+        address: wallet.address,
+        chainId,
+        nonce: nonceResult.nonce,
+        intent: "link",
+        ...messageConfigFromNonce(nonceResult, messageConfig),
+      });
+      const result = await accountClient.linkWallet({
+        family: "svm",
+        address: wallet.address,
+        chainId,
+        walletApp,
+        message,
+        signature: await sign(message, chainId),
+        nonce: nonceResult.nonce,
+      });
+      return result.account;
     });
-    const message = buildSiwsMessage({
-      address: wallet.address,
-      chainId: svm.cluster,
-      nonce: nonceResult.nonce,
-      intent: "link",
-      ...messageConfigFromNonce(nonceResult, messageConfig),
-    });
-    const result = await accountClient.linkWallet({
-      family: "svm",
-      address: wallet.address,
-      chainId: svm.cluster,
-      walletApp,
-      message,
-      signature: await sign(message),
-      nonce: nonceResult.nonce,
-    });
-    return result.account;
   }
   if (!evm.signMessageForAccount && !evm.signMessageAsync) {
     throw new Error("Wallet linking requires an active EVM signer");
@@ -205,17 +213,67 @@ async function signInWithEvmWallet(input: {
   });
 }
 
+const SVM_SIGN_IN_CLUSTERS: readonly SvmCluster[] = [
+  "solana:mainnet",
+  "solana:devnet",
+  "solana:testnet",
+];
+
+// Phantom: "The app's signature request cannot be shown as the chain ID does
+// not match the provided chain ID for verification." Other wording, a user
+// dismissal included, is not this refusal and is never retried.
+const WALLET_CLUSTER_MISMATCH =
+  /signature request cannot be shown as the chain id does not match/i;
+
+/** The wallet refused to show the message: its Chain ID isn't the wallet's network. */
+class WalletClusterMismatchError extends Error {}
+
+/**
+ * Phantom refuses a SIWS message whose Chain ID isn't its own network, and no
+ * wallet API exposes that network. On that refusal only, and while the caller
+ * is still live, try the next cluster; each attempt binds a fresh nonce to its
+ * own Chain ID.
+ */
+async function onWalletCluster<T>(
+  preferred: SvmCluster,
+  live: () => boolean,
+  attempt: (cluster: SvmCluster) => Promise<T>,
+): Promise<T> {
+  let mismatch: unknown;
+  for (const cluster of [
+    preferred,
+    ...SVM_SIGN_IN_CLUSTERS.filter((other) => other !== preferred),
+  ]) {
+    if (mismatch && !live()) break;
+    try {
+      return await attempt(cluster);
+    } catch (error) {
+      if (!(error instanceof WalletClusterMismatchError)) throw error;
+      mismatch = error;
+    }
+  }
+  throw mismatch;
+}
+
 async function signMessageWithActiveSvm(
   signMessage: NonNullable<SvmWalletRuntime["execution"]["signSolanaMessage"]>,
   message: string,
   chainId: SvmCluster,
 ): Promise<string> {
-  const result = await signMessage({
-    message: utf8ToBase64(message),
-    cluster: chainId,
-    description: "Authorize this Solana wallet for your Aomi account.",
-  });
-  return result.signature;
+  try {
+    const result = await signMessage({
+      message: utf8ToBase64(message),
+      cluster: chainId,
+      description: "Authorize this Solana wallet for your Aomi account.",
+    });
+    return result.signature;
+  } catch (error) {
+    const text = (error as { message?: unknown } | null)?.message;
+    if (typeof text === "string" && WALLET_CLUSTER_MISMATCH.test(text)) {
+      throw new WalletClusterMismatchError(text, { cause: error });
+    }
+    throw error;
+  }
 }
 
 async function signInWithSvmWallet(input: {

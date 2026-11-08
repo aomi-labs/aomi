@@ -2,6 +2,19 @@
 
 ## Last Updated
 
+2026-11-08 — PHANTOM DEVNET SIGN-IN (`fix/phantom-devnet-signin`).
+  Phantom won't show a SIWS message whose `Chain ID` isn't its own network,
+  and no wallet API exposes that network; the widget always named Aomi's
+  selected cluster (default mainnet), so a Devnet Phantom looped on "Sign
+  message". `wallet-sign-in.ts` now retries sign-in and link on the next SIWS
+  cluster only when the sign call fails with Phantom's explicit "signature
+  request cannot be shown as the chain ID does not match" refusal (at most 3
+  attempts, fresh nonce bound to each attempt's cluster) and the sheet's
+  `live()` still holds (`LinkWalletInput.live`). Widget 5.1.3. Pending: the
+  widget wallet-session SIWS adapter
+  (`createSiwsAccountAuthAdapter`, fingerprint includes the cluster) has the
+  same gap; real Phantom E2E not run.
+
 2026-11-04 — SOLANA PARITY F2b (`feat/solana-parity-2`).
   Agent contract and backend fixtures regenerated (family-scoped
   `/v1/pipeline/{evm,svm}/commits`, `family` on commit results, Solana safety

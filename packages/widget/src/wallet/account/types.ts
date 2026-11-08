@@ -39,6 +39,8 @@ export type LinkWalletInput = {
   family: WalletFamily;
   address: string;
   chainId?: number;
+  /** False once the caller has moved on; a stale sign-in asks the wallet no further. */
+  live?: () => boolean;
 };
 
 export type UpdateWalletInput = {
