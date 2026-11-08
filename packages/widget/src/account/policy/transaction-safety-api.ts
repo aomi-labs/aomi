@@ -6,8 +6,8 @@ import type {
 import type { DisplayQuery } from "@aomi-labs/react";
 
 /**
- * The account's default policy. Saves write it straight into the cache, so it
- * never goes stale on its own.
+ * The account's default transaction safety. Saves write it straight into the
+ * cache, so it never goes stale on its own.
  */
 export const accountSafetyQuery = (
   guard: AomiGuard,
@@ -17,13 +17,6 @@ export const accountSafetyQuery = (
   staleTime: Infinity,
   fetcher: () => guard.get(),
 });
-
-export function fetchTransactionSafety(
-  guard: AomiGuard,
-  threadId?: string,
-): Promise<TransactionSafetyPolicy> {
-  return guard.get({ thread: threadId });
-}
 
 export async function saveTransactionSafety(
   guard: AomiGuard,
@@ -69,9 +62,7 @@ export async function saveOrReloadTransactionSafety(
   } catch (error) {
     // Keep the original error if the re-read fails; admission stays
     // server-owned.
-    const latest = await fetchTransactionSafety(guard, threadId).catch(
-      () => undefined,
-    );
+    const latest = await guard.get({ thread: threadId }).catch(() => undefined);
     return { ok: false, error, latest };
   }
 }

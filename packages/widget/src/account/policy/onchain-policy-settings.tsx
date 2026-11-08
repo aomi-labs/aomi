@@ -5,6 +5,7 @@ import { useDisplayQuery } from "@aomi-labs/react";
 import { CheckCircle2, ShieldCheck, TriangleAlert } from "lucide-react";
 import {
   normalizeSolanaCluster,
+  shortAddress,
   type AomiBindOnchainPolicy,
   type AomiOnchainAddress,
 } from "@aomi-labs/client";
@@ -22,6 +23,7 @@ import {
   policyErrorCode,
   policyFromForm,
   toAtomic,
+  type LimitKind,
   type TokenCapInput,
 } from "./policy-api";
 
@@ -34,18 +36,20 @@ const CHAIN_WARNINGS = {
     "On-chain permissions could not be read right now, so this policy is unverified. Try again shortly.",
 };
 
-function short(address?: string): string {
-  if (!address) return "—";
-  return `${address.slice(0, 5)}…${address.slice(-5)}`;
-}
+const short = (address?: string) =>
+  address ? shortAddress(address, { head: 5, tail: 5 }) : "—";
 
 const INPUT =
   "border-aomi-border bg-aomi-raised h-9 w-full rounded-lg border px-3 outline-none";
+const FIELD = "space-y-2 text-[12px]";
+/** A checkbox card: an allowed app or a token cap. */
+const OPTION =
+  "border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]";
 
 /**
  * Swig on-chain limits for a delegated Solana agent. The backend gates the
  * provider behind a deployment flag; when it answers "disabled" this section
- * renders nothing, so the Safety tab is unchanged wherever the lane is off.
+ * renders nothing, so the Safety tab is unchanged wherever the flag is off.
  *
  * Token caps are not optional for real use: Swig refuses any token the role
  * has no limit for, and a Jupiter swap from SOL spends wrapped SOL from a
@@ -87,9 +91,7 @@ export function OnchainPolicySettings() {
   const [amount, setAmount] = useState("1");
   /** Per-mint cap in display units, keyed by mint address; absent = uncapped. */
   const [tokenCaps, setTokenCaps] = useState<Record<string, string>>({});
-  const [limitKind, setLimitKind] = useState<"lifetime" | "recurring">(
-    "recurring",
-  );
+  const [limitKind, setLimitKind] = useState<LimitKind>("recurring");
   const [slotWindow, setSlotWindow] = useState(216_000);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -199,18 +201,26 @@ export function OnchainPolicySettings() {
     });
   };
 
-  // A stale binding means the form was built on an outdated policy: reload it,
-  // then explain, since `load` clears the error it starts with.
-  const fail = async (cause: unknown) => {
-    if (policyErrorCode(cause) === "stale_policy_binding") await load();
-    setActionError(explainPolicyError(cause));
-  };
-
-  const save = async () => {
-    if (!profile || !ctx || !owner || !delegate) return;
+  // One wallet ceremony at a time. A stale binding means the form was built on
+  // an outdated policy: reload it, then explain, since `load` clears the error
+  // it starts with.
+  const run = async (ceremony: () => Promise<void>) => {
     setBusy(true);
     setActionError(null);
     try {
+      await ceremony();
+      await load();
+    } catch (cause) {
+      if (policyErrorCode(cause) === "stale_policy_binding") await load();
+      setActionError(explainPolicyError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () => {
+    if (!profile || !ctx || !owner || !delegate) return;
+    return run(async () => {
       if (
         !profile.user_accounts.some(
           (account) =>
@@ -271,33 +281,22 @@ export function OnchainPolicySettings() {
         ...body,
         transaction_signature: signature,
       });
-      await load();
-    } catch (cause) {
-      await fail(cause);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const revoke = async () => {
-    if (!ctx?.binding) return;
-    setBusy(true);
-    setActionError(null);
-    try {
-      const prepared = await policies.prepareRevoke(ctx.binding.id);
+  const revoke = () => {
+    const binding = ctx?.binding;
+    if (!binding) return;
+    return run(async () => {
+      const prepared = await policies.prepareRevoke(binding.id);
       if (!prepared.unsigned_transaction_base64)
         throw new Error("No revoke transaction was returned.");
       const { signature } = await send(
         prepared.unsigned_transaction_base64,
         "Revoke Swig policy",
       );
-      await confirmPolicyRevoke(policies, ctx.binding.id, signature);
-      await load();
-    } catch (cause) {
-      await fail(cause);
-    } finally {
-      setBusy(false);
-    }
+      await confirmPolicyRevoke(policies, binding.id, signature);
+    });
   };
 
   if (unavailable) return null;
@@ -363,7 +362,7 @@ export function OnchainPolicySettings() {
 
       <section className="border-aomi-border rounded-2xl border p-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <label className="space-y-2 text-[12px]">
+          <label className={FIELD}>
             <span className="font-medium">Delegated agent</span>
             <select
               value={delegate}
@@ -383,7 +382,7 @@ export function OnchainPolicySettings() {
               </span>
             )}
           </label>
-          <label className="space-y-2 text-[12px]">
+          <label className={FIELD}>
             <span className="font-medium">SOL limit</span>
             <input
               value={amount}
@@ -401,10 +400,7 @@ export function OnchainPolicySettings() {
             {targetEntries.map(([name, target]) => {
               const checked = targets.includes(target.address);
               return (
-                <label
-                  key={target.address}
-                  className="border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]"
-                >
+                <label key={target.address} className={OPTION}>
                   <input
                     type="checkbox"
                     checked={checked}
@@ -448,10 +444,7 @@ export function OnchainPolicySettings() {
               const remaining = ctx.remaining_token_amounts[mint.address];
               const decimals = MINT_DECIMALS[symbol];
               return (
-                <label
-                  key={mint.address}
-                  className="border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]"
-                >
+                <label key={mint.address} className={OPTION}>
                   <input
                     type="checkbox"
                     checked={capped}
@@ -488,12 +481,14 @@ export function OnchainPolicySettings() {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <label className="space-y-2 text-[12px]">
+          <label className={FIELD}>
             <span className="font-medium">Limit behavior</span>
             <select
               value={limitKind}
               onChange={(event) =>
-                setLimitKind(event.target.value as "lifetime" | "recurring")
+                setLimitKind(
+                  event.target.value === "lifetime" ? "lifetime" : "recurring",
+                )
               }
               className={INPUT}
             >
@@ -502,7 +497,7 @@ export function OnchainPolicySettings() {
             </select>
           </label>
           {limitKind === "recurring" && (
-            <label className="space-y-2 text-[12px]">
+            <label className={FIELD}>
               <span className="font-medium">Slot window</span>
               <select
                 value={slotWindow}

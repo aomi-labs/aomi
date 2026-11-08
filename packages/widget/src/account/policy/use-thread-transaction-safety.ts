@@ -9,7 +9,6 @@ import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
 import { useShellAomi } from "@/account/transport";
 import {
   accountSafetyQuery,
-  fetchTransactionSafety,
   onTransactionSafetyDefaultChange,
   safetyErrorMessage,
   saveOrReloadTransactionSafety,
@@ -74,7 +73,7 @@ export function useThreadTransactionSafety({
     resource: "transaction-safety",
     parameters: ["thread", threadId],
     enabled: threadLoads,
-    fetcher: () => fetchTransactionSafety(guard, threadId),
+    fetcher: () => guard.get({ thread: threadId }),
   });
   const account = enabled ? accountQuery.data : undefined;
   const storePolicy = useCallback(
@@ -175,9 +174,7 @@ export function useThreadTransactionSafety({
       const prior =
         thread?.id === threadId
           ? thread.policy
-          : await fetchTransactionSafety(guard, threadId).catch(
-              () => undefined,
-            );
+          : await guard.get({ thread: threadId }).catch(() => undefined);
       if (!prior) {
         setError("Could not load this chat's safety level.");
         return false;
@@ -209,9 +206,9 @@ export function useThreadTransactionSafety({
     setError(undefined);
     // An unsent chat reads as the account default with that revision; the
     // PUT materializes the thread from the same snapshot.
-    const prior = await fetchTransactionSafety(guard, held.threadId).catch(
-      () => undefined,
-    );
+    const prior = await guard
+      .get({ thread: held.threadId })
+      .catch(() => undefined);
     if (!prior) {
       setBusy(false);
       setError("Could not set this chat's safety level. Try again.");

@@ -26,7 +26,7 @@ export function policyErrorCode(cause: unknown): string | undefined {
 }
 
 /**
- * The backend gates the whole Swig lane behind one deployment flag and
+ * The backend gates the whole Swig provider behind one deployment flag and
  * answers 404 with these codes when it is off. The settings section renders
  * nothing in that case, so production stays untouched until the flag flips.
  */
@@ -127,6 +127,9 @@ export function atomicToSol(value: string): string {
   return fromAtomic(value, 9);
 }
 
+/** Whether a policy's limits last for the role's lifetime or reset each window. */
+export type LimitKind = "lifetime" | "recurring";
+
 /** One per-mint cap from the form, already in atomic units. */
 export interface TokenCapInput {
   mint: AomiOnchainAddress;
@@ -136,7 +139,7 @@ export interface TokenCapInput {
 export function policyFromForm(
   targets: AomiOnchainAddress[],
   amount: string,
-  limitKind: "lifetime" | "recurring",
+  limitKind: LimitKind,
   slotWindow: number,
   tokenCaps: TokenCapInput[] = [],
 ): AomiOnchainPolicy {

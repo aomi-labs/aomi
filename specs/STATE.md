@@ -2,6 +2,16 @@
 
 ## Last Updated
 
+2026-11-08 — POLICY DESLOP (`cecilia/claude/policy-deslop`).
+  Behavior-preserving cleanup of the Safety tab and lane picker. Swig settings
+  share one `run` wrapper for activate/update/revoke, hoisted field/option
+  classes, the client's `shortAddress`, and a `LimitKind` type (no cast);
+  `fetchTransactionSafety` (a `guard.get` forwarder) is gone; `laneOptions`
+  returns a non-empty tuple so the picker drops its `!`s; the remembered
+  safety default is read without a cast. Pending: derive the Swig delegate
+  instead of syncing it with an effect (changes which delegate shows after a
+  profile refetch), and stop calling the Swig flag a "lane" in its test title.
+
 2026-11-04 — SOLANA PARITY F2b (`feat/solana-parity-2`).
   Agent contract and backend fixtures regenerated (family-scoped
   `/v1/pipeline/{evm,svm}/commits`, `family` on commit results, Solana safety

@@ -17,11 +17,7 @@ import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { TransactionSafetyMode } from "@aomi-labs/client";
 import { Button } from "@/ui/button";
 import { AomiButton } from "@/ui/aomi/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { useAomiWalletKit } from "@/wallet/context";
 import {
   TRANSACTION_SAFETY_LEVELS,
@@ -93,8 +89,8 @@ const DEFAULT_KEY = "aomi:transaction-safety-default";
 function rememberedDefault(storage: ScopedStorage): TransactionSafetyMode {
   try {
     const stored = storage.migrate("safetyDefault", DEFAULT_KEY);
-    if (TRANSACTION_SAFETY_LEVELS.some((level) => level.id === stored))
-      return stored as TransactionSafetyMode;
+    const level = TRANSACTION_SAFETY_LEVELS.find(({ id }) => id === stored);
+    if (level) return level.id;
   } catch {
     /* Storage can be blocked; fall back to the platform default. */
   }
