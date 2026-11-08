@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.4
+
+### Patch Changes
+
+- Show the staged Solana action titles in signing links and the portal sidebar, including saved reviews with generic assembly labels. Compute-budget instructions do not replace the human-readable action name.
+
 ## 5.1.3
 
 ### Patch Changes

@@ -476,13 +476,14 @@ describe("SVM preparation", () => {
             payer: "wallet",
             cluster: "mainnet-beta",
             version: "v0",
-            description: "Transfer SOL",
+            description: "svm bundle of 1 instructions",
             kind: "transfer",
             instructions: [
               {
                 program_id: "program",
                 data_base64: "YWJj",
                 accounts: [],
+                description: "Transfer SOL",
               } as never,
             ],
           },
@@ -500,6 +501,25 @@ describe("SVM preparation", () => {
       },
     });
     expect(selectActivity([staged, committed]).transactions).toHaveLength(1);
+    expect(selectActivity([staged, committed]).transactions[0].label).toBe(
+      "Transfer SOL",
+    );
+    expect(selectActivity([committed]).transactions[0].label).toBe(
+      "Transfer SOL",
+    );
+    const unnamed = structuredClone(committed);
+    if (unnamed.request.type !== "execute_svm")
+      throw new Error("Expected Solana fixture");
+    unnamed.request.transactions[0].description = "";
+    // Historical action events may predate required instruction descriptions.
+    delete (
+      unnamed.request.transactions[0].instructions[0] as {
+        description?: string;
+      }
+    ).description;
+    expect(selectActivity([staged, unnamed]).transactions[0].label).toBe(
+      "Transfer",
+    );
     const duplicate = tool(2, "svm_stage_ix", {
       ix_ids: [2],
       instructions: [{ ...ix, pending_ix_id: 2 }],
