@@ -1232,6 +1232,189 @@ describe("useAomiBackendAccountRuntime", () => {
   });
 });
 
+describe("Solana sign-in with the wallet on another cluster", () => {
+  const address = "45q4DRCin6RkWkUFbTm5L9ZwuA7QgVdHewgQxQcExgdq";
+  // Phantom's refusal when the message's Chain ID isn't its own network.
+  const mismatch = new Error(
+    "The app's signature request cannot be shown as the chain ID does not match the provided chain ID for verification.",
+  );
+
+  async function linkPhantom(
+    sign: ReturnType<typeof vi.fn>,
+    live?: () => boolean,
+  ) {
+    const { result } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: { status: "unauthenticated", provider: "para" } as never,
+        evm: { accounts: () => [], signMessageAsync: undefined } as never,
+        svm: {
+          activeAccount: {
+            id: "Phantom",
+            family: "svm",
+            address,
+            walletName: "Phantom",
+            active: true,
+          },
+          identity: () => ({
+            address,
+            cluster: "solana:mainnet",
+            walletName: "Phantom",
+            walletSource: "injected",
+            transport: "extension",
+          }),
+          selectedNetwork: {
+            id: "solana-mainnet",
+            label: "Solana",
+            cluster: "solana:mainnet",
+            rpcHttpUrl: "https://api.mainnet-beta.solana.com",
+          },
+          execution: { signSolanaMessage: sign },
+          accounts: () => [],
+        } as never,
+      }),
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    return act(() =>
+      result.current.linkWallet!({
+        accountId: "Phantom",
+        family: "svm",
+        address,
+        live,
+      }),
+    );
+  }
+
+  const signedMessages = (sign: ReturnType<typeof vi.fn>) =>
+    sign.mock.calls.map(([payload]) =>
+      Buffer.from(payload.message, "base64").toString("utf8"),
+    );
+  const chainIds = (sign: ReturnType<typeof vi.fn>) =>
+    signedMessages(sign).map(
+      (message) => message.match(/^Chain ID: (.+)$/m)?.[1],
+    );
+
+  beforeEach(() => {
+    let issued = 0;
+    const nonce = async () => ({
+      nonce: `nonce-${++issued}`,
+      domain: "localhost:3000",
+      uri: "http://localhost:3000",
+    });
+    mockState.accountClient!.siwsNonce.mockImplementation(nonce);
+    mockState.accountClient!.getWalletLinkNonce.mockImplementation(nonce);
+    mockState.accountClient!.verifySiws.mockResolvedValue({ success: true });
+    mockState.accountClient!.linkWallet.mockResolvedValue({ status: "linked" });
+  });
+
+  it("signs in on Devnet with a fresh nonce after Phantom refuses Mainnet", async () => {
+    const sign = vi
+      .fn()
+      .mockRejectedValueOnce(mismatch)
+      .mockResolvedValue({ signature: "c2ln" });
+
+    await linkPhantom(sign);
+
+    expect(mockState.accountClient?.siwsNonce.mock.calls).toEqual([
+      [{ walletAddress: address, chainId: "solana:mainnet" }],
+      [{ walletAddress: address, chainId: "solana:devnet" }],
+    ]);
+    const devnet = signedMessages(sign)[1]!;
+    expect(devnet).toContain("Chain ID: solana:devnet");
+    expect(devnet).toContain("Nonce: nonce-2");
+    expect(mockState.accountClient?.verifySiws).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.verifySiws).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: devnet,
+        chainId: "solana:devnet",
+        signature: "c2ln",
+      }),
+    );
+  });
+
+  it("links on Devnet with a fresh link nonce after Phantom refuses Mainnet", async () => {
+    mockState.accountClient!.getAccount.mockResolvedValue({
+      user: { id: "aomi-user" },
+      linkedAccounts: [],
+      wallets: [],
+      session: { betterAuthUserId: "ba-user" },
+    });
+    const sign = vi
+      .fn()
+      .mockRejectedValueOnce(mismatch)
+      .mockResolvedValue({ signature: "bGluaw==" });
+
+    await linkPhantom(sign);
+
+    expect(mockState.accountClient?.getWalletLinkNonce.mock.calls).toEqual([
+      [{ address, chainId: "solana:mainnet" }],
+      [{ address, chainId: "solana:devnet" }],
+    ]);
+    expect(chainIds(sign)).toEqual(["solana:mainnet", "solana:devnet"]);
+    expect(mockState.accountClient?.linkWallet).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.linkWallet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainId: "solana:devnet",
+        nonce: "nonce-2",
+        message: signedMessages(sign)[1],
+        signature: "bGluaw==",
+      }),
+    );
+  });
+
+  it("stops after every cluster refuses", async () => {
+    const sign = vi.fn().mockRejectedValue(mismatch);
+
+    await expect(linkPhantom(sign)).rejects.toThrow(mismatch.message);
+
+    expect(chainIds(sign)).toEqual([
+      "solana:mainnet",
+      "solana:devnet",
+      "solana:testnet",
+    ]);
+    expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { code: 4001, message: "User rejected the request." },
+    {
+      code: "ACTION_REJECTED",
+      message:
+        "User rejected the request because chain ID does not match their network.",
+    },
+  ])("does not retry a declined prompt ($code)", async (rejected) => {
+    const sign = vi.fn().mockRejectedValue(rejected);
+
+    await expect(linkPhantom(sign)).rejects.toBe(rejected);
+
+    expect(sign).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
+  });
+
+  it("asks no further once the sheet has moved on", async () => {
+    const sign = vi.fn().mockRejectedValue(mismatch);
+
+    await expect(linkPhantom(sign, () => false)).rejects.toThrow(
+      mismatch.message,
+    );
+
+    expect(sign).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry once the wallet has signed", async () => {
+    const sign = vi.fn().mockResolvedValue({ signature: "c2ln" });
+    mockState.accountClient!.verifySiws.mockRejectedValue(mismatch);
+
+    await expect(linkPhantom(sign)).rejects.toBe(mismatch);
+
+    expect(sign).toHaveBeenCalledOnce();
+    expect(mockState.accountClient?.siwsNonce).toHaveBeenCalledOnce();
+  });
+});
+
 describe("resolveLinkedWalletName", () => {
   const accounts = [
     {

@@ -186,6 +186,7 @@ export function useSheetFlow(
           family: target.family,
           address: target.address,
           chainId: target.chainId,
+          live,
         });
         if (live()) close();
       } catch (cause) {
