@@ -70,7 +70,7 @@ function laneOptions(
   if (portal)
     return [
       {
-        id: "here",
+        id: "ask_client",
         label: "Ask",
         description: "You approve each trade",
         Icon: UserCheck,
@@ -79,13 +79,13 @@ function laneOptions(
     ];
   return [
     {
-      id: "portal",
+      id: "ask_aomi",
       label: "Ask on Aomi",
       description: "You approve each trade in Aomi",
       Icon: UserCheck,
     },
     {
-      id: "here",
+      id: "ask_client",
       label: `Ask in ${client}`,
       description: `${client} can approve its own trades`,
       Icon: BadgeCheck,
@@ -435,7 +435,7 @@ export function WalletView({
                 <LaneSelect
                   wallet={row.name}
                   client={client}
-                  lane={lanes[row.id] ?? "portal"}
+                  lane={lanes[row.id] ?? "ask_aomi"}
                   portal={portal}
                   askOnly={askOnly}
                   disabled={disabled}

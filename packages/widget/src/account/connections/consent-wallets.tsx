@@ -51,13 +51,13 @@ export function ConsentWallets({
   client,
   connectionKey,
   name,
-  startLane = "portal",
+  startLane = "ask_aomi",
   app,
   askOnly = false,
   onChange,
 }: ConsentWalletsProps) {
   const { rows, agents, failed } = useWalletRows(client);
-  const start = askOnly ? "portal" : startLane;
+  const start = askOnly ? "ask_aomi" : startLane;
   // What the server holds; a connection it doesn't know yet holds nothing,
   // so its shown lanes are written.
   const known = useMemo(
@@ -90,7 +90,7 @@ export function ConsentWallets({
     if (!agents || !known) return { ready: false, update: null };
     const wallets = agents.map((wallet) => ({
       id: wallet.id,
-      lane: lanes[wallet.id] ?? "portal",
+      lane: lanes[wallet.id] ?? "ask_aomi",
     }));
     const changed = wallets.some((entry) => entry.lane !== known[entry.id]);
     if (!changed && !app && !askOnly) return { ready: true, update: null };
@@ -102,7 +102,7 @@ export function ConsentWallets({
           ? {
               application: app,
               ...(pending
-                ? { new_app_wallet: { lane: lanes[pending] ?? "portal" } }
+                ? { new_app_wallet: { lane: lanes[pending] ?? "ask_aomi" } }
                 : {}),
             }
           : {}),

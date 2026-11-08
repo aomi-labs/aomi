@@ -418,7 +418,7 @@ const root = routes(
         account: yes("The account default"),
         thread: text("This thread", { placeholder: "id" }),
       },
-      [arg("guarded_only, balanced or unrestricted", "mode", true)],
+      [arg("strict, balanced or yolo", "mode", true)],
       guard,
     ),
     apps: routes(

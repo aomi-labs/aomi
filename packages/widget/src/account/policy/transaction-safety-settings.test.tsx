@@ -79,7 +79,7 @@ describe("default transaction safety", () => {
         "/v1/account/transaction-safety",
         expect.objectContaining({
           method: "PUT",
-          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+          body: JSON.stringify({ mode: "strict", expectedRevision: 1 }),
         }),
       ),
     );
@@ -88,9 +88,7 @@ describe("default transaction safety", () => {
       /Only actions a protocol guard covers/,
     );
 
-    await act(async () =>
-      settle({ ...account, mode: "guarded_only", revision: 2 }),
-    );
+    await act(async () => settle({ ...account, mode: "strict", revision: 2 }));
     expect(screen.getByRole("radio", { name: "Strict" })).toHaveAttribute(
       "aria-checked",
       "true",
@@ -120,9 +118,7 @@ describe("default transaction safety", () => {
     expect(strict.querySelector(".animate-spin")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
 
-    await act(async () =>
-      settle({ ...account, mode: "guarded_only", revision: 2 }),
-    );
+    await act(async () => settle({ ...account, mode: "strict", revision: 2 }));
     expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-busy");
     expect(screen.getByRole("radio", { name: "Balanced" })).toBeEnabled();
     expect(
@@ -138,7 +134,7 @@ describe("default transaction safety", () => {
     state.request.mockImplementation((_path: string, options?: RequestInit) =>
       Promise.resolve(
         options?.method === "PUT"
-          ? { ...account, mode: "guarded_only", revision: 2 }
+          ? { ...account, mode: "strict", revision: 2 }
           : account,
       ),
     );
@@ -151,7 +147,7 @@ describe("default transaction safety", () => {
       expect(state.request).toHaveBeenCalledWith(
         "/v1/account/transaction-safety",
         expect.objectContaining({
-          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+          body: JSON.stringify({ mode: "strict", expectedRevision: 1 }),
         }),
       ),
     );
@@ -174,9 +170,7 @@ describe("default transaction safety", () => {
           new Error("Policy changed in another window. Review and save again."),
         );
       return Promise.resolve(
-        ++reads === 1
-          ? account
-          : { ...account, mode: "guarded_only", revision: 5 },
+        ++reads === 1 ? account : { ...account, mode: "strict", revision: 5 },
       );
     });
     renderSettings();

@@ -255,7 +255,8 @@ describe.skipIf(!enabled)("account connections", () => {
           application: { id: 86, name: "hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
-            { id: HOODIT, name: "Hoodit", lane: "portal", archived: false },
+            // Stored before the rename as `portal`; it reads as Ask on Aomi.
+            { id: HOODIT, name: "Hoodit", lane: "ask_aomi", archived: false },
           ],
           last_used_at: 1760408000,
         }),

@@ -26,7 +26,9 @@ export function signsWith(wallet: AomiAccountWallet): string {
     return `you sign in ${app.charAt(0).toUpperCase()}${app.slice(1)}`;
   }
   if (wallet.lane === "instant") return "signs at once";
-  return wallet.lane === "here" ? "you approve here" : "you approve on Aomi";
+  return wallet.lane === "ask_client"
+    ? "you approve here"
+    : "you approve on Aomi";
 }
 
 /** `aomi wallets`: the account's wallets, agent wallets first. */

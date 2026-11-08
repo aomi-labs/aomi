@@ -92,7 +92,9 @@ describe("device code sheet", () => {
     );
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[1]).toMatchObject({
       method: "PUT",
-      body: JSON.stringify({ wallets: [{ id: "g-trading", lane: "here" }] }),
+      body: JSON.stringify({
+        wallets: [{ id: "g-trading", lane: "ask_client" }],
+      }),
     });
   });
 
@@ -148,7 +150,7 @@ describe("device code sheet", () => {
       .mock.calls.filter(([, init]) => init?.method === "PUT");
     expect(puts).toHaveLength(2);
     expect(puts[1]?.[1]?.body).toBe(
-      JSON.stringify({ wallets: [{ id: "g-trading", lane: "here" }] }),
+      JSON.stringify({ wallets: [{ id: "g-trading", lane: "ask_client" }] }),
     );
   });
 

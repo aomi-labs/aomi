@@ -14,7 +14,10 @@ import {
 } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
-import type { TransactionSafetyMode } from "@aomi-labs/client";
+import {
+  normalizeTransactionSafetyMode,
+  type TransactionSafetyMode,
+} from "@aomi-labs/client";
 import { Button } from "@/ui/button";
 import { AomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
@@ -88,9 +91,11 @@ const DEFAULT_KEY = "aomi:transaction-safety-default";
  * the model selector instead of popping in once the account request lands. */
 function rememberedDefault(storage: ScopedStorage): TransactionSafetyMode {
   try {
-    const stored = storage.migrate("safetyDefault", DEFAULT_KEY);
-    const level = TRANSACTION_SAFETY_LEVELS.find(({ id }) => id === stored);
-    if (level) return level.id;
+    // A browser may still hold a spelling from before the rename.
+    const stored = normalizeTransactionSafetyMode(
+      storage.migrate("safetyDefault", DEFAULT_KEY),
+    );
+    if (stored) return stored;
   } catch {
     /* Storage can be blocked; fall back to the platform default. */
   }
@@ -193,7 +198,7 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
     void safety.select(mode);
   };
   const choose = (mode: TransactionSafetyMode) => {
-    if (mode === "unrestricted" && safety.mode !== "unrestricted")
+    if (mode === "yolo" && safety.mode !== "yolo")
       setConfirming(true);
     else apply(mode);
   };
@@ -295,7 +300,7 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
               <AomiButton
                 variant="danger-fill"
                 size="sm"
-                onClick={() => apply("unrestricted")}
+                onClick={() => apply("yolo")}
               >
                 Turn on
               </AomiButton>

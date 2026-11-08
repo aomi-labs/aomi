@@ -15,14 +15,15 @@ sources_of_truth:
 # Transaction safety controls
 
 Transaction safety is separate from on-chain permissions and signing grants.
-The UI calls it the **guard policy**. It has three levels. The API enum values
-are unchanged:
+The UI calls it the **guard policy**. It has three levels, and the API values
+match the labels (servers also accept the pre-rename `guarded_only` and
+`unrestricted`; the client reads them with `normalizeTransactionSafetyMode`):
 
-| UI label | API value      | Account default | Meaning                              |
-| -------- | -------------- | --------------- | ------------------------------------ |
-| Strict   | `guarded_only` | yes             | Only actions a protocol guard covers |
-| Balanced | `balanced`     | yes             | Blocks critical guard findings       |
-| Yolo     | `unrestricted` | no, chat only   | Runs even when guards flag it        |
+| UI label | API value  | Account default | Meaning                              |
+| -------- | ---------- | --------------- | ------------------------------------ |
+| Strict   | `strict`   | yes             | Only actions a protocol guard covers |
+| Balanced | `balanced` | yes             | Blocks critical guard findings       |
+| Yolo     | `yolo`     | no, chat only   | Runs even when guards flag it        |
 
 The UI has two surfaces:
 
@@ -34,9 +35,10 @@ The UI has two surfaces:
   it with `hideSafety`.
 - **Settings "Safety" tab** (tab id `policy`). Under "Guard policy · Default
   for new chats" the user picks Strict or Balanced. Wallet signing settings sit
-  below. Changing the default does not change existing chats. The Swig
-  on-chain policy form is hidden (`SWIG_POLICY_ENABLED = false`), and loading
-  the safety settings needs no Solana wallet or Swig binding.
+  below. Changing the default does not change existing chats. Loading the
+  safety settings needs no Solana wallet or Swig binding: Swig on-chain limits
+  live on each agent wallet (Manage › Limits), shown only where the backend
+  has the Swig provider on.
 
 The authenticated `transactionSafety` SDK namespace reads and updates the
 account default and owned thread selection. Writes carry `expectedRevision`;
@@ -54,7 +56,7 @@ cannot create another Submit for an uncertain attempt. Ordered Submit all checks
 the remaining cohort and stops when any leg is blocked, stale or unavailable.
 
 Standalone EVM Pipeline and Task build requests accept the optional top-level
-`transactionSafetyMode` (`guarded_only`, `balanced`, or `unrestricted`). When a
+`transactionSafetyMode` (`strict`, `balanced`, or `yolo`). When a
 request omits it, the backend uses the thread's saved policy, then the account
 default. An explicit request value overrides both for that request. Portable
 EVM Builds seal the mode they were prepared under. A later simulate or commit

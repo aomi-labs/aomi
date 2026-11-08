@@ -47,7 +47,7 @@ export function useAccessWrite() {
       ...connection.wallets
         .filter((entry) => entry.id !== wallet.id)
         .map((entry) => ({ id: entry.id, lane: entry.lane })),
-      { id: wallet.id, lane: connection.ask_only ? "portal" : lane },
+      { id: wallet.id, lane: connection.ask_only ? "ask_aomi" : lane },
     ];
     setSaving((current) => ({ ...current, [key]: wallets }));
     setError(null);

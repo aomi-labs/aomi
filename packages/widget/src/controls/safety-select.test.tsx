@@ -155,10 +155,7 @@ describe("SafetySelect", () => {
   it("renders the remembered default before the account answers", async () => {
     // Only a chat that hasn't started inherits the account default.
     state.runtime = { currentThreadId: "draft", events: [] };
-    window.localStorage.setItem(
-      "aomi:transaction-safety-default",
-      "guarded_only",
-    );
+    window.localStorage.setItem("aomi:transaction-safety-default", "strict");
     const pending: Array<() => void> = [];
     state.request.mockImplementation(
       (path: string) =>
@@ -189,7 +186,7 @@ describe("SafetySelect", () => {
 
   it("quietly shows the account default while a started chat's level loads", async () => {
     state.runtime = { currentThreadId: "chat-unseen", events: [{}] };
-    state.thread = policy("unrestricted", 4, "thread");
+    state.thread = policy("yolo", 4, "thread");
     let answerThread: (() => void) | undefined;
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
@@ -216,7 +213,7 @@ describe("SafetySelect", () => {
 
   it("keeps each widget instance's remembered chat level to itself", async () => {
     state.runtime = { currentThreadId: "chat-shared", events: [{}] };
-    state.thread = policy("unrestricted", 4, "thread");
+    state.thread = policy("yolo", 4, "thread");
     const first = render(
       <WidgetStorageProvider
         scope={{ backendUrl: "https://a.test", appId: "1" }}
@@ -245,7 +242,7 @@ describe("SafetySelect", () => {
   });
 
   it("names a failed load on the trigger and retries it from the menu", async () => {
-    state.thread = policy("unrestricted", 4, "thread");
+    state.thread = policy("yolo", 4, "thread");
     const request = state.request.getMockImplementation()!;
     state.request.mockImplementation((path: string, init?: RequestInit) =>
       path.includes("/threads/")
@@ -294,7 +291,7 @@ describe("SafetySelect", () => {
       expect((await trigger()).textContent).toBe("Balanced"),
     );
 
-    state.thread = policy("guarded_only", 4, "thread");
+    state.thread = policy("strict", 4, "thread");
     state.runtime = { currentThreadId: "chat-b", events: [{}] };
     view.rerender(<SafetySelect />);
     await waitFor(async () =>
@@ -303,7 +300,7 @@ describe("SafetySelect", () => {
   });
 
   it("follows a new default saved from Settings", async () => {
-    state.thread = policy("guarded_only", 4, "thread");
+    state.thread = policy("strict", 4, "thread");
     render(<SafetySelect />, { wrapper: Cache });
     await waitFor(async () =>
       expect((await trigger()).textContent).toBe("Strict"),
@@ -317,7 +314,7 @@ describe("SafetySelect", () => {
     // Only the save event can move the footer: the account GET still answers
     // Balanced.
     await act(() =>
-      saveTransactionSafety(state.aomi.account.guard, "guarded_only", 1),
+      saveTransactionSafety(state.aomi.account.guard, "strict", 1),
     );
     expect(
       await screen.findByText("New chats start on Strict"),
@@ -335,7 +332,7 @@ describe("SafetySelect", () => {
       [
         "/v1/account/transaction-safety/threads/chat-a",
         expect.objectContaining({
-          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 3 }),
+          body: JSON.stringify({ mode: "strict", expectedRevision: 3 }),
         }),
       ],
     ]);
@@ -361,7 +358,7 @@ describe("SafetySelect", () => {
 
     expect(puts()).toHaveLength(1);
     expect(JSON.parse(String(puts()[0]![1].body))).toEqual({
-      mode: "unrestricted",
+      mode: "yolo",
       expectedRevision: 3,
     });
     const yolo = await trigger();
@@ -425,7 +422,7 @@ describe("SafetySelect", () => {
       [
         "/v1/account/transaction-safety/threads/draft",
         expect.objectContaining({
-          body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+          body: JSON.stringify({ mode: "strict", expectedRevision: 1 }),
         }),
       ],
     ]);

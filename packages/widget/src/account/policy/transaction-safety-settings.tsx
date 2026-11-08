@@ -23,12 +23,11 @@ import {
 
 /** The note under each policy; the levels file keeps the short menu copy. */
 const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
-  guarded_only:
+  strict:
     "Only actions a protocol guard covers. Generic actions and any critical finding are blocked.",
   balanced:
     "Supported and generic actions. Stops on critical findings and warns when a guard has limited coverage.",
-  unrestricted:
-    "Runs actions even when a guard flags a critical issue or can't check them. Only inside a chat, from the shield next to the model.",
+  yolo: "Runs actions even when a guard flags a critical issue or can't check them. Only inside a chat, from the shield next to the model.",
 };
 
 /**

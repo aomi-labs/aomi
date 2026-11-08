@@ -52,7 +52,7 @@ const connections = [
     application: null,
     ask_only: false,
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "here", archived: false },
+      { id: "g-trading", name: "Trading", lane: "ask_client", archived: false },
     ],
     last_used_at: null,
     connected_at: null,
@@ -67,7 +67,7 @@ const connections = [
     application: null,
     ask_only: true,
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "portal", archived: false },
+      { id: "g-trading", name: "Trading", lane: "ask_aomi", archived: false },
     ],
     last_used_at: NOW / 1000 - 30 * 3600,
     connected_at: 1,
@@ -97,19 +97,19 @@ const agentWallet = (
   connections,
 });
 // The server judges every connection's lane on every wallet: a bot with no
-// row is `here`, an Ask-only client `aomi`.
+// row is `ask_client`, an Ask-only client `ask_aomi`.
 const agentWallets = [
   agentWallet("g-trading", "Trading", [
-    { key: "oauth:c1", label: "Claude", lane: "portal" },
-    { key: "portal", label: "Aomi", lane: "here" },
-    { key: "telegram:77", label: "Hoodit", lane: "here" },
-    { key: "telegram:78", label: "Markets", lane: "here" },
+    { key: "oauth:c1", label: "Claude", lane: "ask_aomi" },
+    { key: "portal", label: "Aomi", lane: "ask_client" },
+    { key: "telegram:77", label: "Hoodit", lane: "ask_client" },
+    { key: "telegram:78", label: "Markets", lane: "ask_client" },
   ]),
   agentWallet("g-hoodit", "Hoodit", [
-    { key: "oauth:c1", label: "Claude", lane: "portal" },
-    { key: "portal", label: "Aomi", lane: "here" },
+    { key: "oauth:c1", label: "Claude", lane: "ask_aomi" },
+    { key: "portal", label: "Aomi", lane: "ask_client" },
     { key: "telegram:77", label: "Hoodit", lane: "instant" },
-    { key: "telegram:78", label: "Markets", lane: "here" },
+    { key: "telegram:78", label: "Markets", lane: "ask_client" },
   ]),
 ];
 
@@ -272,7 +272,7 @@ describe("Connections tab", () => {
         wallets: [
           { id: "g-hoodit", lane: "instant" },
           { id: "g-old", lane: "instant" },
-          { id: "g-trading", lane: "portal" },
+          { id: "g-trading", lane: "ask_aomi" },
         ],
       },
     });
