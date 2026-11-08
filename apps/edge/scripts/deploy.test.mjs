@@ -114,6 +114,14 @@ describe("edge deploy script", () => {
     expect(() => deployArgs({ ...staging, LANDING_HOSTS: "aomi.dev" })).toThrow(/LANDING_UPSTREAM_ORIGIN must be set/);
   });
 
+  it("rejects malformed or insecure Portal issuers before deployment", () => {
+    const portal = { ...staging, PORTAL_HOSTS: "chat-staging.aomi.dev", EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567" };
+    for (const BETTER_AUTH_URL of ["not-a-url", "http://chat-staging.aomi.dev"])
+      expect(() => deployArgs({ ...portal, BETTER_AUTH_URL })).toThrow();
+    expect(deployArgs({ ...portal, BETTER_AUTH_URL: "https://chat-staging.aomi.dev" }))
+      .toContain("BETTER_AUTH_URL:https://chat-staging.aomi.dev");
+  });
+
   it("binds the environment's Hyperdrive config, or none where no portal runs", () => {
     const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
     const parse = (text) => ts.parseConfigFileTextToJson("wrangler.jsonc", text).config;

@@ -28,10 +28,12 @@ export const openWidget = (methods: readonly string[]): CorsPolicy => ({
     "Authorization", "Content-Type", "Aomi-App-Key", "Last-Event-ID", "DPoP", "Idempotency-Key",
     "Payment-Signature", "X-Aomi-Inference-Funding", "X-Aomi-Run-Budget-Microusd", "X-Aomi-CSRF",
     "X-Request-Id", "X-Session-Id", "X-Thread-Id",
+    "Mcp-Protocol-Version", "Mcp-Method", "Mcp-Name",
   ],
   expose: [
     "DPoP-Nonce", "WWW-Authenticate", "Payment-Required", "Payment-Receipt", "Payment-Response",
     "X-Payment-Response", "Retry-After", "X-Request-Id",
+    "Mcp-Protocol-Version",
   ],
   maxAge: 600,
 });
