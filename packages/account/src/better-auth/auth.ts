@@ -351,6 +351,9 @@ export function createAuth(input: Env) {
       fetchClientMetadataResource: (url, init) =>
         fetch(url, { ...init, redirect: "manual" }),
       metadataProfile: "mcp-2026-07-28",
+      // client_uri is display-only and may live on another origin (Hermes
+      // Agent hosts its document on github.io); keep logout redirects bound.
+      originBoundFields: ["post_logout_redirect_uris"],
       onClientCreated: async ({ client, context }) => {
         const resource = context.query?.resource;
         if (typeof resource === "string") {
