@@ -139,13 +139,14 @@ async function oauthToken(input: {
   guest?: boolean;
   scope: string;
   aud: string;
+  client_id?: string;
   cnf?: { jkt: string };
 }) {
   return signPortal(
     {
       sub: input.sub,
       scope: input.scope,
-      client_id: "client-1",
+      client_id: input.client_id ?? "client-1",
       jti: "grant-1",
       "https://aomi.dev/canonical_user_id": `acct-${input.sub}`,
       "https://aomi.dev/principal_class": input.guest ? "guest" : "user",
@@ -173,7 +174,11 @@ const world: FetchLike = async (request) => {
   if (url.origin === UPSTREAM) {
     return echo(request, body, "vercel");
   }
-  if (url.origin === AGENT) return echo(request, body, "agent");
+  if (url.origin === AGENT) {
+    const response = echo(request, body, "agent");
+    if (url.pathname === "/v1/agent/mcp") response.headers.set("mcp-protocol-version", "2026-07-28");
+    return response;
+  }
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === MANAGER) return echo(request, body, "manager");
@@ -591,7 +596,7 @@ describe("portal surface: MCP", () => {
     const token = await oauthToken({
       sub: "user", scope: "mcp:agent agent:read agent:write",
       aud: `${PORTAL}/v1/agent/mcp`,
-      client_id: "https://chatgpt.com/oauth/xkEGH8A9Tu-P/client.json",
+      client_id: "https://oauth-client.example/metadata/client.json",
     });
     const response = await portal("/v1/agent/mcp", {
       method: "POST",
@@ -609,6 +614,26 @@ describe("portal surface: MCP", () => {
     expect(seen[0].headers["mcp-method"]).toBe(method);
     expect(seen[0].headers["mcp-name"]).toBe(name);
     expect(seen[0].headers["mcp-protocol-version"]).toBe("2026-07-28");
+    expect((await upstreamBearer(seen[0])).payload.client_id).toBe("https://oauth-client.example/metadata/client.json");
+  });
+
+  it("exposes the upstream MCP protocol version to an authorized browser client", async () => {
+    const token = await oauthToken({
+      sub: "user", scope: "mcp:agent agent:read agent:write", aud: `${PORTAL}/v1/agent/mcp`,
+    });
+    const response = await portal("/v1/agent/mcp", {
+      method: "POST", origin: PARTNER,
+      headers: {
+        authorization: `Bearer ${token}`, "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe(PARTNER);
+    expect(response.headers.get("mcp-protocol-version")).toBe("2026-07-28");
+    expect(response.headers.get("access-control-expose-headers")!.toLowerCase().split(/,\s*/))
+      .toContain("mcp-protocol-version");
   });
 
   it("admits browser MCP routing headers in preflight", async () => {
