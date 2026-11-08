@@ -392,7 +392,7 @@ describe("Pipeline SDK lifecycle", () => {
       fetch,
       guest: false,
     }).pipeline;
-    const options = { transactionSafetyMode: "guarded_only" as const };
+    const options = { transactionSafetyMode: "strict" as const };
     const input = {
       operation: "/v1/pipeline/apps/default/operations/tool",
       arguments: {},
@@ -411,11 +411,11 @@ describe("Pipeline SDK lifecycle", () => {
         JSON.parse(init.body).transactionSafetyMode,
       ]),
     ).toEqual([
-      ["/v1/pipeline/svm/build", "guarded_only"],
-      ["/v1/pipeline/svm/stage", "guarded_only"],
-      ["/v1/pipeline/svm/simulate", "guarded_only"],
-      ["/v1/pipeline/svm/commit", "guarded_only"],
-      ["/v1/pipeline/evm/simulate", "guarded_only"],
+      ["/v1/pipeline/svm/build", "strict"],
+      ["/v1/pipeline/svm/stage", "strict"],
+      ["/v1/pipeline/svm/simulate", "strict"],
+      ["/v1/pipeline/svm/commit", "strict"],
+      ["/v1/pipeline/evm/simulate", "strict"],
     ]);
   });
 

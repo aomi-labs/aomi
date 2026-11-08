@@ -146,7 +146,7 @@ describe("PipelineTransport", () => {
 });
 
 describe("EVM request transaction safety", () => {
-  it.each([undefined, "guarded_only", "balanced", "unrestricted"] as const)(
+  it.each([undefined, "strict", "balanced", "yolo"] as const)(
     "carries %s only when selected by the caller",
     async (mode) => {
       const fetch = vi.fn().mockImplementation(async () => Response.json({}));
@@ -186,7 +186,7 @@ describe("EVM request transaction safety", () => {
       expiresAt: 1,
       digest: "digest",
       attestation: "sealed",
-      transactionSafetyMode: "guarded_only",
+      transactionSafetyMode: "strict",
     };
     await pipeline.evm.simulate(build);
     await pipeline.evm.simulate(build, { transactionSafetyMode: "balanced" });
@@ -197,6 +197,6 @@ describe("EVM request transaction safety", () => {
       build,
       transactionSafetyMode: "balanced",
     });
-    expect(build.transactionSafetyMode).toBe("guarded_only");
+    expect(build.transactionSafetyMode).toBe("strict");
   });
 });

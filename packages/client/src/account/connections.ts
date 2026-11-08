@@ -14,7 +14,7 @@
 import { asRecord, numberOrNull, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
-import { laneOf, type AomiLane } from "./lanes";
+import { normalizeLane, type AomiLane } from "./lanes";
 
 export type { AomiLane } from "./lanes";
 
@@ -80,7 +80,7 @@ export type AomiConnectionSettings = Pick<
  * A connection's lanes on agent wallets; it replaces the lanes it had (a
  * wallet left out goes back to the default). `application` (an app's name,
  * from app-locked consent) locks the connection to that app. On an Ask-only
- * connection every lane is stored as `portal`.
+ * connection every lane is stored as `ask_aomi`.
  */
 export type AomiConnectionWalletsUpdate = {
   wallets: { id: string; lane: AomiLane }[];
@@ -234,7 +234,7 @@ function walletsOf(value: unknown): AomiConnectionWallet[] {
           {
             id,
             name: stringValue(wallet?.name) ?? "",
-            lane: laneOf(wallet?.lane),
+            lane: normalizeLane(wallet?.lane),
             archived: wallet?.archived === true,
           },
         ]

@@ -217,9 +217,14 @@ describe("agent wallets", () => {
     created_at: 1_760_000_000,
     addresses: [
       { family: "evm", address: agent.address, wallet_id: "w_12" },
-      { family: "svm", address: "B4KZ1111", wallet_id: "w_13" },
+      {
+        family: "svm",
+        address: "B4KZ1111",
+        wallet_id: "w_13",
+        operating_address: "Swig1111",
+      },
     ],
-    connections: [{ key: "oauth:c1", label: "Claude Code", lane: "portal" }],
+    connections: [{ key: "oauth:c1", label: "Claude Code", lane: "ask_aomi" }],
   };
   const world = {
     ...trading,
@@ -230,7 +235,11 @@ describe("agent wallets", () => {
     app: { id: 90, name: "world" },
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
-    connections: [{ key: "telegram:42", lane: "instant" }],
+    // A server from before the rename spells Ask in the client `here`.
+    connections: [
+      { key: "telegram:42", lane: "instant" },
+      { key: "cli", lane: "here" },
+    ],
   };
 
   it("lists, creates, updates and withdraws with portal CSRF on writes", async () => {
@@ -276,6 +285,7 @@ describe("agent wallets", () => {
       app: { id: 90, name: "world", label: "world" },
       connections: [
         { key: "telegram:42", label: "telegram:42", lane: "instant" },
+        { key: "cli", label: "cli", lane: "ask_client" },
       ],
     });
 
@@ -466,16 +476,16 @@ describe("connections", () => {
     });
 
     const update = {
-      wallets: [{ id: "g-1", lane: "portal" }],
+      wallets: [{ id: "g-1", lane: "ask_aomi" }],
       application: "world",
-      new_app_wallet: { lane: "portal" },
+      new_app_wallet: { lane: "ask_aomi" },
       ask_only: true,
     };
     expect(
       await client.account.connections.setConnectionWallets("oauth:c1", update),
     ).toEqual({
       ask_only: true,
-      wallets: [{ id: "g-1", name: "", lane: "portal", archived: false }],
+      wallets: [{ id: "g-1", name: "", lane: "ask_aomi", archived: false }],
     });
     expect(calls.at(-1)).toMatchObject({
       method: "PUT",

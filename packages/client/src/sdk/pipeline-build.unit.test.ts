@@ -210,7 +210,7 @@ describe("aomi.pipeline without an app", () => {
     const build = await aomi.pipeline.build(
       "svm_stage_tx",
       { amount: "1" },
-      { app: "jupiter", transactionSafetyMode: "guarded_only" },
+      { app: "jupiter", transactionSafetyMode: "strict" },
     );
     expect(calls[0]?.path).toBe(
       "/v1/pipeline/apps/jupiter/operations/svm_stage_tx",
@@ -218,14 +218,14 @@ describe("aomi.pipeline without an app", () => {
     expect(build.chainFamily).toBe("svm");
     expect(
       calls.find((call) => call.path === "/v1/pipeline/svm/build")?.body,
-    ).toMatchObject({ transactionSafetyMode: "guarded_only" });
+    ).toMatchObject({ transactionSafetyMode: "strict" });
     const commit = await build.commit({
-      transactionSafetyMode: "unrestricted",
+      transactionSafetyMode: "yolo",
     });
     expect(commit.ref).toBe(svmView.commit_id);
     expect(calls.at(-1)).toMatchObject({
       path: "/v1/pipeline/svm/commit",
-      body: { transactionSafetyMode: "unrestricted" },
+      body: { transactionSafetyMode: "yolo" },
     });
     await commit.refresh();
     expect(calls.at(-1)?.path).toBe(

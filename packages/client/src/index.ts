@@ -466,8 +466,10 @@ export * from "./commit-lifecycle";
 export {
   TRANSACTION_SAFETY_NAMES,
   TransactionSafetyTransport,
+  normalizeTransactionSafetyMode,
   transactionSafetyPolicy,
 } from "./transaction-safety";
+export { normalizeLane } from "./account/lanes";
 export type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,

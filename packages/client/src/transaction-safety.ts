@@ -17,7 +17,7 @@ export const TRANSACTION_SAFETY_NAMES: Record<
   TransactionSafetyMode,
   { label: string; description: string }
 > = {
-  guarded_only: {
+  strict: {
     label: "Strict",
     description: "Only actions a protocol guard covers",
   },
@@ -25,8 +25,26 @@ export const TRANSACTION_SAFETY_NAMES: Record<
     label: "Balanced",
     description: "Blocks critical guard findings",
   },
-  unrestricted: { label: "Yolo", description: "Runs even when guards flag it" },
+  yolo: { label: "Yolo", description: "Runs even when guards flag it" },
 };
+
+/** The spellings servers sent before the rename, and what they mean now. */
+const LEGACY_MODES: Record<string, TransactionSafetyMode> = {
+  guarded_only: "strict",
+  unrestricted: "yolo",
+};
+
+/**
+ * A mode from the wire, storage or a command line, legacy spellings
+ * included; `undefined` when it names no mode.
+ */
+export function normalizeTransactionSafetyMode(
+  value: unknown,
+): TransactionSafetyMode | undefined {
+  if (typeof value !== "string") return undefined;
+  if (value in TRANSACTION_SAFETY_NAMES) return value as TransactionSafetyMode;
+  return LEGACY_MODES[value];
+}
 
 type RequestResponse = (
   method: AomiHttpMethod,
@@ -42,7 +60,7 @@ export class TransactionSafetyTransport {
     return this.request("GET", "/v1/account/transaction-safety");
   }
   setAccountDefault(
-    mode: Exclude<TransactionSafetyMode, "unrestricted">,
+    mode: Exclude<TransactionSafetyMode, "yolo">,
     expectedRevision: number,
   ): Promise<TransactionSafetyPolicy> {
     return this.request("PUT", "/v1/account/transaction-safety", {
@@ -99,6 +117,11 @@ export class TransactionSafetyTransport {
 export function transactionSafetyPolicy(
   value: unknown,
 ): TransactionSafetyPolicy {
+  // A server from before the rename sends a legacy mode; read it as the new one.
+  if (value && typeof value === "object" && "mode" in value) {
+    const mode = normalizeTransactionSafetyMode(value.mode);
+    if (mode) value = { ...value, mode };
+  }
   validatePipelineArguments(
     value,
     agentSchemas.TransactionSafetyPolicy,

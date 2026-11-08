@@ -4,6 +4,7 @@ import { Aomi } from "./aomi";
 import { AccountGraphApiError } from "../account/graph";
 import { AomiError, isAomiError } from "../api-error";
 import { bearer } from "./auth";
+import type { TransactionSafetyMode } from "../transaction-safety";
 
 type Call = { method: string; path: string; body: unknown; csrf: boolean };
 
@@ -120,7 +121,7 @@ describe("aomi.account", () => {
     });
     const { aomi, calls } = backend({
       "GET /v1/account/transaction-safety": () =>
-        Response.json(policy("guarded_only", 3)),
+        Response.json(policy("strict", 3)),
       "PUT /v1/account/transaction-safety": (body) =>
         Response.json(policy((body as { mode: string }).mode, 4)),
     });
@@ -132,8 +133,14 @@ describe("aomi.account", () => {
       mode: "balanced",
       expectedRevision: 3,
     });
+    await expect(aomi.account.guard.set({ mode: "yolo" })).rejects.toSatisfy(
+      (error) => isAomiError(error, "invalid_mode"),
+    );
+    // A caller still on the old spelling is held to the same rule.
     await expect(
-      aomi.account.guard.set({ mode: "unrestricted" }),
+      aomi.account.guard.set({
+        mode: "unrestricted" as unknown as TransactionSafetyMode,
+      }),
     ).rejects.toSatisfy((error) => isAomiError(error, "invalid_mode"));
   });
 

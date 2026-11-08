@@ -19,7 +19,7 @@ import {
   stringValue,
 } from "../internal/record";
 import type { AomiWalletFamily } from "../types";
-import { laneOf, type AomiLane } from "./lanes";
+import { normalizeLane, type AomiLane } from "./lanes";
 
 /** The app that created a wallet and stays linked to it. */
 export type AomiAgentWalletApp = { id: number; name: string; label: string };
@@ -29,6 +29,11 @@ export type AomiAgentWalletAddress = {
   family: AomiWalletFamily;
   address: string;
   wallet_id: string;
+  /**
+   * Where this key's funds live when an on-chain policy holds them (the Swig
+   * wallet address of a Solana key with active limits). Deposits go here.
+   */
+  operating_address?: string;
 };
 
 /** A connection with a lane set on the wallet. */
@@ -148,10 +153,12 @@ export function parseAgentWallet(value: unknown): AomiAgentWallet {
     created_at: numberOrNull(record.created_at) ?? 0,
     addresses: list(record.addresses, "addresses").map((entry) => {
       const address = asRecord(entry);
+      const operating = stringValue(address?.operating_address);
       return {
         family: family(address?.family),
         address: text(address?.address, "address.address"),
         wallet_id: text(address?.wallet_id, "address.wallet_id"),
+        ...(operating ? { operating_address: operating } : {}),
       };
     }),
     connections: list(record.connections, "connections").map((entry) => {
@@ -160,7 +167,7 @@ export function parseAgentWallet(value: unknown): AomiAgentWallet {
       return {
         key,
         label: stringValue(connection?.label) ?? key,
-        lane: laneOf(connection?.lane),
+        lane: normalizeLane(connection?.lane),
       };
     }),
   };
