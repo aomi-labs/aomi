@@ -90,12 +90,16 @@ export async function enforceAomiOAuthRequestPolicy(
       ["openid", "profile", "email", "offline_access"].includes(scope),
     );
 
-  // A refresh grant inherits the resource that was bound when it was issued.
-  // Codex follows RFC 8707 and does not repeat `resource` on refresh, so let
-  // Better Auth resolve that stored binding instead of rejecting the request.
+  // A code or refresh grant inherits the one resource this policy admitted at
+  // authorize. Codex does not repeat `resource` on refresh, and Hermes' plugin
+  // OAuth sends none at the code exchange, so let Better Auth resolve that
+  // stored binding instead of rejecting the request. The token can never be
+  // wider than the code or refresh token it is exchanged for.
   if (
     isToken &&
-    values.get("grant_type") === "refresh_token" &&
+    ["authorization_code", "refresh_token"].includes(
+      values.get("grant_type") ?? "",
+    ) &&
     resources.length === 0
   ) {
     return proceed(request);

@@ -186,6 +186,35 @@ describe("OAuth request policy", () => {
     );
   });
 
+  it("lets a code exchange inherit the resource bound at authorize", async () => {
+    const token = (body: string) =>
+      enforceAomiOAuthRequestPolicy(
+        new Request("https://portal.example/api/auth/oauth2/token", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body,
+        }),
+      );
+    const exchange =
+      "grant_type=authorization_code&code=opaque-code&client_id=hermes" +
+      "&code_verifier=verifier&redirect_uri=http%3A%2F%2F127.0.0.1%3A5555%2Fcallback";
+    mocks.bindClientResource.mockClear();
+    await expectContinue(token(exchange));
+    expect(mocks.bindClientResource).not.toHaveBeenCalled();
+    // A resource that is named must still be exactly one known Aomi resource.
+    await expectReject(
+      token(`${exchange}&resource=https%3A%2F%2Fforeign.example%2Fv1%2Fagent`),
+    );
+    await expectReject(
+      token(
+        `${exchange}&resource=https%3A%2F%2Fportal.example%2Fv1%2Fagent` +
+          "&resource=https%3A%2F%2Fportal.example%2Fv1%2Fagent%2Fmcp",
+      ),
+    );
+    // Other grants still have to name their resource.
+    await expectReject(token("grant_type=client_credentials&client_id=hermes"));
+  });
+
   it("limits unauthenticated DCR to an exact MCP resource", async () => {
     const register = (resource: string) =>
       enforceAomiOAuthRequestPolicy(

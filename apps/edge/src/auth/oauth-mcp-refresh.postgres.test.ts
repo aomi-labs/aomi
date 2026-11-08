@@ -126,9 +126,17 @@ describePostgres("MCP grants keep a refresh token", () => {
     ["CIMD Pipeline MCP", "/v1/pipeline/mcp", "cimd"],
     ["CIMD private_key_jwt Agent MCP", "/v1/agent/mcp", "cimd-jwt"],
     ["CIMD private_key_jwt Pipeline MCP", "/v1/pipeline/mcp", "cimd-jwt"],
+    // Hermes' plugin OAuth names the resource at authorize only, not at the
+    // code exchange: the code's own binding has to carry the audience.
+    [
+      "DCR Agent MCP, exchanged without resource,",
+      "/v1/agent/mcp",
+      "dcr",
+      false,
+    ],
   ])(
     "refreshes an %s grant built from the advertised scopes",
-    async (_name, path, strategy) => {
+    async (_name, path, strategy, exchangeNamesResource = true) => {
       const resource = `${origin}${path}`;
       const redirectUri = "http://127.0.0.1:43199/callback";
       const advertised = await protectedResourceMetadata(path);
@@ -234,7 +242,7 @@ describePostgres("MCP grants keep a refresh token", () => {
         redirect_uri: redirectUri,
         client_id: clientId,
         code_verifier: verifier,
-        resource,
+        ...(exchangeNamesResource ? { resource } : {}),
       };
       const token = await tokenRequest(exchange);
       expect(token.response.status, JSON.stringify(token.body)).toBe(200);
