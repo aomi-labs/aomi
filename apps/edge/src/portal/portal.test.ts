@@ -17,6 +17,7 @@ import { handleRequest } from "../handler";
 import { resetEdgeServices } from "../identity";
 import type { FetchLike } from "../kernel/proxy";
 import { resetJwksCache } from "./jwks";
+import { portalContext } from "./context";
 
 // The account layer, faked in-process: who a cookie, session bearer or widget
 // session belongs to, which partner widget a client registered, and the keys.
@@ -64,6 +65,16 @@ vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
   readManagedOAuthClient: async (clientId: string) =>
     clientId === "client-1" ? { clientClass: "partner_widget", disabled: false, origins: [PARTNER] } : null,
+}));
+
+vi.mock("@better-auth/oauth-provider/resource-client", () => ({
+  oauthProviderResourceClient: () => ({
+    getActions: () => ({
+      getProtectedResourceMetadata: async (
+        overrides: Record<string, unknown>,
+      ) => overrides,
+    }),
+  }),
 }));
 
 const PORTAL = "https://portal.example";
@@ -1093,5 +1104,122 @@ describe("portal surface: removed routes", () => {
     const response = await call("portal user", method, path);
     expect(((await response.json()) as { tag: string }).tag).toBe("vercel");
     expect(seen.every((record) => !record.url.startsWith(BACKEND))).toBe(true);
+  });
+});
+
+describe("portal transport aliases retain canonical OAuth identity", () => {
+  const alias = "https://alias.example";
+  const aliasEnv = {
+    ...env,
+    BETTER_AUTH_URL: PORTAL,
+    PORTAL_HOSTS: "portal.example,alias.example",
+  };
+  const call = (path: string, init: RequestInit = {}) =>
+    handleRequest(new Request(`${alias}${path}`, init), aliasEnv, world);
+
+  it("uses the canonical resource and issuer while keeping the actual browser origin", () => {
+    const ctx = portalContext(
+      new Request(`${alias}/v1/agent/sessions`),
+      aliasEnv,
+      world,
+    )!;
+    expect(ctx.portalOrigin).toBe(alias);
+    expect(ctx.resources.portalOrigin).toBe(PORTAL);
+    expect(ctx.resources.authorizationServerIssuer).toBe(ISSUER);
+    expect(
+      portalContext(
+        new Request("https://unlisted.example/v1/agent"),
+        aliasEnv,
+        world,
+      ),
+    ).toBeNull();
+  });
+
+  it("discovers canonical protected-resource metadata through the alias", async () => {
+    vi.stubEnv("BETTER_AUTH_URL", PORTAL);
+    try {
+      const response = await call(
+        "/.well-known/oauth-protected-resource/v1/agent",
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        resource: `${PORTAL}/v1/agent`,
+        authorization_servers: [ISSUER],
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("accepts canonical tokens on the alias without accepting another resource", async () => {
+    const good = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
+    expect(
+      (
+        await call("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${good}` },
+        })
+      ).status,
+    ).toBe(200);
+    const wrongIssuer = await new SignJWT(decodeJwt(good))
+      .setProtectedHeader({ alg: "EdDSA", kid: "portal-1" })
+      .setIssuer(`${alias}/api/auth`)
+      .sign(portalKey.privateKey);
+    expect((await call("/v1/agent/sessions", {
+      headers: { authorization: `Bearer ${wrongIssuer}` },
+    })).status).toBe(401);
+    const wrong = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${alias}/v1/agent`,
+    });
+    expect(
+      (
+        await call("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${wrong}` },
+        })
+      ).status,
+    ).toBe(401);
+  });
+
+  it("keeps DPoP bound to the actual alias URL", async () => {
+    const pair = await generateKeyPair("ES256");
+    const jwk = await exportJWK(pair.publicKey);
+    const token = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+      cnf: { jkt: await calculateJwkThumbprint(jwk) },
+    });
+    const proof = async (htu: string) =>
+      new SignJWT({
+        htm: "GET",
+        htu,
+        jti: crypto.randomUUID(),
+        ath: Buffer.from(
+          await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(token),
+          ),
+        ).toString("base64url"),
+      })
+        .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk })
+        .setIssuedAt()
+        .sign(pair.privateKey);
+    const headers = async (host: string) => ({
+      authorization: `DPoP ${token}`,
+      dpop: await proof(`${host}/v1/agent/sessions`),
+    });
+    expect(
+      (await call("/v1/agent/sessions", { headers: await headers(alias) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await call("/v1/agent/sessions", { headers: await headers(PORTAL) }))
+        .status,
+    ).toBe(401);
   });
 });

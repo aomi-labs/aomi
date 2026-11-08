@@ -98,6 +98,8 @@ export function deployArgs(env = process.env) {
   // The portal's account surface fails closed without its database and issuer;
   // Landing's own /api routes need its upstream.
   if (vars.PORTAL_HOSTS) for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL"]) required(key, env);
+  if (vars.BETTER_AUTH_URL && new URL(vars.BETTER_AUTH_URL).protocol !== "https:")
+    throw new Error("BETTER_AUTH_URL must use https");
   if (vars.LANDING_HOSTS) required("LANDING_UPSTREAM_ORIGIN", env);
   return [
     "wrangler",
