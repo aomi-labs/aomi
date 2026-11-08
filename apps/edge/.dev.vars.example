@@ -34,4 +34,3 @@ PARA_API_BASE_URL=
 
 # Headless API identity (CLI, SDK, MCP); independent of Chat's domain.
 # HEADLESS_API_ORIGIN=http://127.0.0.1:8787
-# HEADLESS_AUTH_UPSTREAM_ORIGIN=http://127.0.0.1:3001

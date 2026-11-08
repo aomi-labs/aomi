@@ -15,17 +15,16 @@ const staging = {
 };
 
 describe("edge deploy script", () => {
-  it("requires independent headless auth configuration before activation", () => {
+  it("requires the account database, issuer and portal upstream before headless activation", () => {
     const headless = {
       ...staging,
       HEADLESS_API_ORIGIN: "https://api-staging.aomi.dev",
       BETTER_AUTH_URL: "https://chat-staging.aomi.dev",
       EDGE_HYPERDRIVE_ID: "fixture",
     };
-    expect(() => deployArgs(headless)).toThrow("HEADLESS_AUTH_UPSTREAM_ORIGIN");
-    const pages = { ...headless, HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://auth-pages.example" };
+    expect(() => deployArgs(headless)).toThrow("PORTAL_UPSTREAM_ORIGIN");
+    const pages = { ...headless, PORTAL_UPSTREAM_ORIGIN: "https://portal.example" };
     expect(deployArgs(pages)).toContain("HEADLESS_API_ORIGIN:https://api-staging.aomi.dev");
-    expect(() => deployArgs({ ...pages, HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://api-staging.aomi.dev" })).toThrow("separate deployment alias");
     expect(() => deployArgs({ ...pages, HEADLESS_API_ORIGIN: "https://api-staging.aomi.dev/path" })).toThrow("without a path");
   });
   it("passes provider settings to the deployed Worker", () => {

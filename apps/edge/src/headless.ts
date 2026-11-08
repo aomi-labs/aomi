@@ -3,6 +3,7 @@ import { ROUTES, resourcesFor } from "@aomi-labs/account/policy";
 import { isOAuthDiscovery } from "./auth/well-known";
 import { authServer } from "./auth/server";
 import type { EdgeEnv } from "./env";
+import { config } from "./kernel/config";
 import type { FetchLike, WaitLike } from "./kernel/proxy";
 import type { PortalContext } from "./portal/context";
 
@@ -49,8 +50,8 @@ export function headlessContext(
   return {
     env: authEnv,
     portalOrigin: url.origin,
-    // Without a page upstream only the sign-in pages fail; tokens, discovery and MCP stay up.
-    upstreamOrigin: env.HEADLESS_AUTH_UPSTREAM_ORIGIN ?? "",
+    // The same chat-portal as the Chat hosts. Without it only the sign-in pages fail.
+    upstreamOrigin: config(env).portal.upstream ?? "",
     trustedOrigins: [url.origin],
     auth: () => authServer(authEnv),
     resources: resourcesFor(url.origin),

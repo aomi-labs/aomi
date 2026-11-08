@@ -221,9 +221,9 @@ account, OAuth discovery, token and protected-resource routes on that exact
 origin, with issuer `<api-origin>/api/auth`. Changing `PORTAL_HOSTS` or
 `BETTER_AUTH_URL` does not change it.
 
-Sign-in, consent and device pages stay under `/oauth/*` and come from
-`HEADLESS_AUTH_UPSTREAM_ORIGIN`, a deployment alias that is never a public
-Chat host. Without it only those pages return 503. Task discovery, webhooks,
+Sign-in, consent and device pages stay under `/oauth/*` and come from the
+same chat-portal as the Chat hosts (`PORTAL_UPSTREAM_ORIGIN`). Without it only
+those pages return 503. Task discovery, webhooks,
 health and Manager routes keep the API router.
 
 Chat routes and aliases keep the `BETTER_AUTH_URL` issuer. A Chat grant cannot

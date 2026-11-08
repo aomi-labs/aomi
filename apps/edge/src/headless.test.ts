@@ -44,11 +44,11 @@ describe("headless API independent of the Chat hostname", () => {
     });
   });
 
-  it("serves sign-in pages from the upstream alias", async () => {
+  it("serves sign-in pages from the portal upstream", async () => {
     const fetch = vi.fn(async (_request: Request) => new Response("login"));
     await handleRequest(
       new Request(`${api}/oauth/device?user_code=fixture`),
-      { ...env, HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://auth-pages.example" },
+      { ...env, PORTAL_UPSTREAM_ORIGIN: "https://auth-pages.example" },
       fetch,
     );
     expect(fetch.mock.calls[0][0].url).toBe("https://auth-pages.example/oauth/device?user_code=fixture");
