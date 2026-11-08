@@ -139,7 +139,11 @@ export async function signParaTransaction(
     const result = await Promise.race([
       para.signTransaction({
         walletId,
-        rlpEncodedTxBase64: hexToBase64(serializeTransaction(transaction)),
+        // Para decodes a complete transaction envelope before hashing/signing it.
+        // Match its official viem adapter's empty signature placeholders.
+        rlpEncodedTxBase64: hexToBase64(
+          serializeTransaction(transaction, { r: "0x", s: "0x", v: 0n }),
+        ),
         chainId: String(payload.chain_id),
         timeoutMs,
         isCanceled: () => canceled,

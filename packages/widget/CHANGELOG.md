@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.5
+
+### Patch Changes
+
+- Encode the complete EIP-1559 transaction envelope for Para signing so the provider can decode it before review. Preserve the exact prepared transaction and existing review and unknown-outcome safeguards.
+
 ## 5.1.4
 
 ### Patch Changes
