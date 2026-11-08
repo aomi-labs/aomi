@@ -2,6 +2,19 @@
 
 ## Last Updated
 
+2026-11-08 — LANE AND SAFETY NAMES, LIMITS ON THE WALLET (`cecilia/claude/policy-deslop`).
+  Wire rename, compatible: lanes `portal`/`here` → `ask_aomi`/`ask_client`,
+  safety modes `guarded_only`/`unrestricted` → `strict`/`yolo`. The client
+  normalizes legacy spellings at every read (responses, the remembered safety
+  default, CLI args, `@aomi-labs/account` SQL reads); requests send the new
+  ones, so the backend that accepts both deploys first. The agent-v1 contract
+  files were edited by hand to match; rerun `pnpm generate:agent-api` against
+  the paired product-mono branch once it lands. Receive on an agent wallet uses
+  `operating_address` (the Swig wallet address) when present. Swig limits left
+  the Safety tab for Manage › Limits on each agent wallet, fetched with
+  `delegate` = the wallet's Solana key; Yolo uses `ShieldOff`, not the Instant
+  lane's `Zap`. Pending: Send still draws from the key, not the Swig address.
+
 2026-11-08 — POLICY DESLOP (`cecilia/claude/policy-deslop`).
   Behavior-preserving cleanup of the Safety tab and lane picker. Swig settings
   share one `run` wrapper for activate/update/revoke, hoisted field/option
