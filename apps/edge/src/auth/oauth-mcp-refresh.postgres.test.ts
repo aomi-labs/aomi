@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createHash, randomUUID } from "node:crypto";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import {
   afterAll,
   beforeAll,
@@ -11,16 +12,22 @@ import {
 } from "vitest";
 
 const fetchMetadata = vi.hoisted(() => vi.fn());
+const fetchJwks = vi.hoisted(() => vi.fn());
 const cimdClientId = "https://client.example/mcp-client.json";
-// The edge fetches client metadata documents with plain `fetch` (auth.ts), so
-// the test answers for the one CIMD client there and leaves every other URL alone.
+const jwtClientId = "https://client.example/jwt-mcp-client.json";
+const jwksUri = "https://client.example/jwks.json";
+// The edge fetches client metadata and keys with plain `fetch` (auth.ts).
+// Answer only for these test clients and leave every other URL alone.
 const realFetch = globalThis.fetch;
 vi.stubGlobal(
   "fetch",
-  (input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
-    (input instanceof Request ? input.url : String(input)) === cimdClientId
-      ? fetchMetadata(input, init)
-      : realFetch(input, init),
+  (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = input instanceof Request ? input.url : String(input);
+    if ([cimdClientId, jwtClientId].includes(url))
+      return fetchMetadata(url, init);
+    if (url === jwksUri) return fetchJwks(url, init);
+    return realFetch(input, init);
+  },
 );
 afterAll(() => vi.unstubAllGlobals());
 
@@ -42,16 +49,32 @@ const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
 describePostgres("MCP grants keep a refresh token", () => {
   let pool: ReturnType<typeof import("@aomi-labs/account").getPool>;
   let route: ReturnType<typeof edgeRoute>;
+  let clientKey: Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
+  let clientJwk: Awaited<ReturnType<typeof exportJWK>>;
 
   beforeEach(() => {
-    fetchMetadata.mockImplementation(async () =>
+    fetchJwks.mockImplementation(async () =>
+      Response.json({ keys: [clientJwk] }),
+    );
+    fetchMetadata.mockImplementation(async (clientId: string) =>
       Response.json({
-        client_id: cimdClientId,
+        client_id: clientId,
         client_name: "MCP interoperability test",
         client_uri: "https://client.example/",
         application_type: "native",
         redirect_uris: ["http://127.0.0.1:43199/callback"],
-        token_endpoint_auth_method: "none",
+        token_endpoint_auth_method:
+          clientId === jwtClientId ? "private_key_jwt" : "none",
+        ...(clientId === jwtClientId
+          ? {
+              token_endpoint_auth_methods_supported: [
+                "none",
+                "private_key_jwt",
+              ],
+              token_endpoint_auth_signing_alg: "RS256",
+              jwks_uri: jwksUri,
+            }
+          : {}),
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
       }),
@@ -59,6 +82,14 @@ describePostgres("MCP grants keep a refresh token", () => {
   });
 
   beforeAll(async () => {
+    const keys = await generateKeyPair("RS256");
+    clientKey = keys.privateKey;
+    clientJwk = {
+      ...(await exportJWK(keys.publicKey)),
+      kid: "chatgpt-test",
+      alg: "RS256",
+      use: "sig",
+    };
     process.env.DATABASE_URL = databaseUrl;
     process.env.BETTER_AUTH_URL = origin;
     const account = await import("@aomi-labs/account");
@@ -93,6 +124,8 @@ describePostgres("MCP grants keep a refresh token", () => {
     ["DCR Pipeline MCP", "/v1/pipeline/mcp", "dcr"],
     ["CIMD Agent MCP", "/v1/agent/mcp", "cimd"],
     ["CIMD Pipeline MCP", "/v1/pipeline/mcp", "cimd"],
+    ["CIMD private_key_jwt Agent MCP", "/v1/agent/mcp", "cimd-jwt"],
+    ["CIMD private_key_jwt Pipeline MCP", "/v1/pipeline/mcp", "cimd-jwt"],
   ])(
     "refreshes an %s grant built from the advertised scopes",
     async (_name, path, strategy) => {
@@ -103,7 +136,7 @@ describePostgres("MCP grants keep a refresh token", () => {
       const scope = advertised.scopes.join(" ");
       expect(advertised.scopes).toContain("offline_access");
 
-      let clientId = cimdClientId;
+      let clientId = strategy === "cimd-jwt" ? jwtClientId : cimdClientId;
       if (strategy === "dcr") {
         const registration = await jsonRequest("/oauth2/register", {
           client_name: `Aomi MCP client ${randomUUID()}`,
@@ -140,6 +173,14 @@ describePostgres("MCP grants keep a refresh token", () => {
           origin,
         ).searchParams.get("error"),
       ).toBe("invalid_request");
+
+      if (strategy === "cimd-jwt") {
+        // Also recover a client cached by an earlier failed ChatGPT connection.
+        await pool.query(
+          "delete from ba_oauth_client_resources where client_id = $1 and resource_id = $2",
+          [clientId, resource],
+        );
+      }
 
       const authorized = await getRequest(
         `/oauth2/authorize?${new URLSearchParams({
@@ -187,15 +228,16 @@ describePostgres("MCP grants keep a refresh token", () => {
       ).searchParams.get("code");
       expect(code).toEqual(expect.any(String));
 
-      const token = await formRequest("/oauth2/token", {
+      const exchange = {
         grant_type: "authorization_code",
         code: code!,
         redirect_uri: redirectUri,
         client_id: clientId,
         code_verifier: verifier,
         resource,
-      });
-      expect(token.response.status).toBe(200);
+      };
+      const token = await tokenRequest(exchange);
+      expect(token.response.status, JSON.stringify(token.body)).toBe(200);
       // Without this the grant cannot outlive one access token.
       const refreshToken = requiredString(token.body, "refresh_token");
       expect(scopesOf(token.body)).toContain("offline_access");
@@ -203,7 +245,7 @@ describePostgres("MCP grants keep a refresh token", () => {
 
       // Codex follows RFC 8707 and does not repeat `resource` on refresh; the
       // grant's stored binding is what has to carry the audience through.
-      const refreshed = await formRequest("/oauth2/token", {
+      const refreshed = await tokenRequest({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
         client_id: clientId,
@@ -218,13 +260,43 @@ describePostgres("MCP grants keep a refresh token", () => {
       expect(requiredString(refreshed.body, "refresh_token")).not.toBe(
         refreshToken,
       );
-      const wrongAudience = await formRequest("/oauth2/token", {
+      const wrongAudience = await tokenRequest({
         grant_type: "refresh_token",
         refresh_token: requiredString(refreshed.body, "refresh_token"),
         client_id: clientId,
         resource: `${origin}${path === "/v1/agent/mcp" ? "/v1/pipeline/mcp" : "/v1/agent/mcp"}`,
       });
       expect(wrongAudience.response.status).toBe(400);
+
+      if (strategy === "cimd-jwt") {
+        const unauthenticated = await formRequest("/oauth2/token", {
+          grant_type: "refresh_token",
+          refresh_token: requiredString(refreshed.body, "refresh_token"),
+          client_id: clientId,
+        });
+        expect(unauthenticated.response.status).not.toBe(200);
+        expect(unauthenticated.body).toMatchObject({ error: "invalid_client" });
+      }
+
+      async function tokenRequest(body: Record<string, string>) {
+        const assertion =
+          strategy === "cimd-jwt"
+            ? {
+                client_assertion_type:
+                  "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                client_assertion: await new SignJWT({})
+                  .setProtectedHeader({ alg: "RS256", kid: "chatgpt-test" })
+                  .setIssuer(clientId)
+                  .setSubject(clientId)
+                  .setAudience(`${origin}/api/auth/oauth2/token`)
+                  .setIssuedAt()
+                  .setExpirationTime("2m")
+                  .setJti(randomUUID())
+                  .sign(clientKey),
+              }
+            : {};
+        return formRequest("/oauth2/token", { ...body, ...assertion });
+      }
     },
   );
 

@@ -1,5 +1,11 @@
 # @aomi-labs/account
 
+## 0.7.1
+
+### Patch Changes
+
+- Bind metadata-document OAuth clients using `private_key_jwt`, including ChatGPT, to admitted MCP resources. Keep exact resource grants, signed client authentication, and managed-client restrictions intact.
+
 ## 0.7.0
 
 ### Minor Changes
