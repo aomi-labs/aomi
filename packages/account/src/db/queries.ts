@@ -679,8 +679,10 @@ export async function denyAgentWalletsForUser(input: {
   await input.db.query(`update users set agents_paused = true where id = $1`, [
     input.userId,
   ]);
+  // Stored as `portal` until every backend reads the new spelling; see the
+  // lane rename migration in product-mono.
   await input.db.query(
-    `update wallet_access set lane = 'ask_aomi',
+    `update wallet_access set lane = 'portal',
         updated_at = extract(epoch from now())::bigint
       where user_id = $1 and lane not in ('ask_aomi', 'portal')`,
     [input.userId],

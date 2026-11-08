@@ -354,7 +354,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
          join wallet_access wa on wa.user_id = u.id where u.id = $1`,
       [owner.userId],
     );
-    expect(paused.rows).toEqual([{ agents_paused: true, lane: "ask_aomi" }]);
+    expect(paused.rows).toEqual([{ agents_paused: true, lane: "portal" }]);
     const grants = await pool.query(
       `select count(*)::int as count from signing_delegations where public_key_id=$1 and revoked_at is null`,
       [agentId],
