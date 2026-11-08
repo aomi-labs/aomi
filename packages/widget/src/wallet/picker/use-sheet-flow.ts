@@ -97,8 +97,15 @@ export function useSheetFlow(
   const canActivateWallet = useWalletActivationGuard();
   const canActivateRef = useRef(canActivateWallet);
   canActivateRef.current = canActivateWallet;
-  // Each flow takes a token; closing the sheet or starting another drops it.
+  // Each flow takes a token; closing the sheet, starting another or
+  // unmounting drops it.
   const flowToken = useRef(0);
+  useEffect(
+    () => () => {
+      flowToken.current++;
+    },
+    [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -186,6 +193,7 @@ export function useSheetFlow(
           family: target.family,
           address: target.address,
           chainId: target.chainId,
+          live,
         });
         if (live()) close();
       } catch (cause) {
@@ -477,7 +485,11 @@ export function useSheetFlow(
           );
         close();
       },
-      back: () => dispatch({ type: "back" }),
+      back: () => {
+        // Another wallet replaces this flow; a pending sign-in must not prompt.
+        flowToken.current++;
+        dispatch({ type: "back" });
+      },
       newAgentWallet: () => dispatch({ type: "agent" }),
       pick,
       pickChain,

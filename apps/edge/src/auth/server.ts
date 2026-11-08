@@ -4,20 +4,27 @@ import type { BetterAuthSession } from "@aomi-labs/account/principal";
 import type { EdgeEnv } from "../env";
 import { assertAuthBindings } from "../kernel/config";
 
-const servers = new WeakMap<EdgeEnv, Auth>();
+const servers = new WeakMap<EdgeEnv, Map<string, Auth>>();
 
 /**
- * The Better Auth server, built once per isolate: its plugins seed the OAuth
+ * The Better Auth server, built once per wallet domain: its plugins seed the OAuth
  * resources on first use, which must not repeat per request. It holds no
  * connection; every query goes to the current request's pool
  * (`withDatabase`).
  */
-export function authServer(env: EdgeEnv): Auth {
-  let auth = servers.get(env);
+export function authServer(env: EdgeEnv, walletDomain = ""): Auth {
+  let domains = servers.get(env);
+  if (!domains) {
+    domains = new Map();
+    servers.set(env, domains);
+  }
+  let auth = domains.get(walletDomain);
   if (!auth) {
     assertAuthBindings(env);
-    auth = createAuth(env as unknown as Record<string, string | undefined>);
-    servers.set(env, auth);
+    // Wallet proofs follow the admitted transport host; OAuth keeps BETTER_AUTH_URL.
+    const authEnv = walletDomain ? { ...env, AOMI_AUTH_DOMAIN: walletDomain } : env;
+    auth = createAuth(authEnv as unknown as Record<string, string | undefined>);
+    domains.set(walletDomain, auth);
   }
   return auth;
 }
