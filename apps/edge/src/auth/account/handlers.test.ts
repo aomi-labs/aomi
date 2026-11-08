@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const service = vi.hoisted(() => ({
   consumeWalletLinkNonce: vi.fn(),
+  unlinkAuthIdentity: vi.fn(),
+  unlinkTelegramConnection: vi.fn(),
   exchangeProviderForExistingSession: vi.fn(),
   getAccountResponseForBetterAuthSession: vi.fn(),
   mergeAccountWithTicket: vi.fn(),
@@ -11,7 +13,10 @@ const service = vi.hoisted(() => ({
   verifyWalletLinkSignature: vi.fn(),
 }));
 
-vi.mock("@aomi-labs/account/account", () => ({ ...service, shortAddress: (value: string) => value }));
+vi.mock("@aomi-labs/account/account", () => ({
+  ...service,
+  shortAddress: (value: string) => value,
+}));
 vi.mock("@aomi-labs/account/better-auth", () => ({
   SIWS_CLUSTERS: ["solana:mainnet", "solana:devnet", "solana:testnet"],
   readAccountAuthEnv: () => ({
@@ -28,7 +33,13 @@ vi.mock("../server", () => ({
   sessionUserSeed: () => ({ betterAuthUserId: "ba-a" }),
 }));
 
-import { linkProvider, linkWallet, mergeAccount } from "./handlers";
+import {
+  linkProvider,
+  linkWallet,
+  mergeAccount,
+  unlinkIdentity,
+  disconnectTelegramConnection,
+} from "./handlers";
 
 const principal = {
   kind: "cookie",
@@ -203,4 +214,29 @@ describe("account merge handlers", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: code });
   });
+});
+
+describe("identity unlink guards", () => {
+  it.each([
+    ["has_wallets", 409, "identity_has_wallets"],
+    ["protected", 403, "protected_identity"],
+  ] as const)(
+    "returns %s without reporting revocation",
+    async (result, status, code) => {
+      service.unlinkAuthIdentity.mockResolvedValue(result);
+      const response = await unlinkIdentity({
+        principal,
+        params: { id: "42" },
+      } as never);
+      expect(response.status).toBe(status);
+      expect(await response.json()).toMatchObject({ error: code });
+    },
+  );
+});
+
+it("does not report a Telegram disconnect when owned keys prevent unlink", async () => {
+  service.unlinkTelegramConnection.mockResolvedValue("has_wallets");
+  const response = await disconnectTelegramConnection({principal} as never);
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({error: "identity_has_wallets"});
 });

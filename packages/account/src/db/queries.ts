@@ -358,7 +358,13 @@ export async function revokeAuthIdentity(input: {
     `select id from auth_providers
       where user_id = $1 and provider = $2
         and issuer_environment = $3 and tenant_id = $4 and subject = $5
-      limit 1`,
+        and method <> 'agent'
+        and not exists (
+          select 1 from public_keys pk
+          join agent_wallet_keys awk on awk.public_key_id = pk.id
+          where pk.auth_provider_id = auth_providers.id
+        )
+      limit 1 for update`,
     [
       input.userId,
       canonicalProvider(input.provider),
@@ -368,11 +374,10 @@ export async function revokeAuthIdentity(input: {
     ],
   );
   const identityId = identity.rows[0]?.id;
-  if (identityId != null) {
-    await db.query(`delete from public_keys where auth_provider_id = $1`, [
-      Number(identityId),
-    ]);
-  }
+  if (identityId == null) return false;
+  await db.query(`delete from public_keys where auth_provider_id = $1`, [
+    Number(identityId),
+  ]);
   const result = await db.query(
     `delete from auth_providers
       where user_id = $1 and provider = $2
@@ -576,6 +581,33 @@ export async function findAuthIdentityById(
     [Number(identityId)],
   );
   return result.rows[0] ? mapIdentity(result.rows[0]) : null;
+}
+
+/** Lock the identity before checking keys, so concurrent FK inserts cannot race unlink. */
+export async function findAuthIdentityForUnlink(
+  userId: AomiUserId,
+  identityId: string,
+  db: Db,
+): Promise<{
+  identity: DbAomiAuthIdentity;
+  method: string;
+  hasWallets: boolean;
+} | null> {
+  const result = await db.query(
+    `select * from auth_providers where id = $1 and user_id = $2 for update`,
+    [Number(identityId), userId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const keys = await db.query(
+    `select exists(select 1 from public_keys where auth_provider_id = $1) as present`,
+    [Number(identityId)],
+  );
+  return {
+    identity: mapIdentity(row),
+    method: String(row.method),
+    hasWallets: keys.rows[0]?.present === true,
+  };
 }
 
 export async function updateAuthIdentityLabel(input: {
@@ -1442,6 +1474,8 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
         ? "embedded"
         : "external",
     provider: provider ? publicProvider(provider) : null,
+    authIdentityId:
+      row.auth_provider_id == null ? null : String(row.auth_provider_id),
     providerWalletId: null,
     linkedVia: provider ? publicProvider(provider) : "import",
     label: agent
@@ -1476,6 +1510,7 @@ function toAccountWallet(wallet: DbAomiWallet): AccountWallet {
     address: wallet.address,
     kind: wallet.kind,
     provider: wallet.provider ?? undefined,
+    authIdentityId: wallet.authIdentityId ?? undefined,
     providerWalletId: wallet.providerWalletId ?? undefined,
     chainScope: wallet.chainScope ?? undefined,
     linkedVia: wallet.linkedVia,

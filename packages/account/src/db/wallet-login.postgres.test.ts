@@ -65,8 +65,7 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     await (await getMigrations(auth.options)).runMigrations();
     service = await import("../service/account-service");
     merge = await import("../service/account-merge");
-    handlers =
-      await import("../../../../apps/edge/src/auth/account/handlers");
+    handlers = await import("../../../../apps/edge/src/auth/account/handlers");
   }, 30_000);
   afterAll(async () => {
     await pool?.end();
@@ -209,6 +208,104 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).status).toBe("linked");
   }
+  it.each(["para", "privy"])(
+    "protects %s keys when the same subject has legacy and current scopes",
+    async (provider) => {
+      const userId = randomUUID();
+      const subject = `owner:${randomUUID()}`;
+      await pool.query(`insert into users (id, username) values ($1, $1)`, [
+        userId,
+      ]);
+      const identities = await pool.query(
+        `insert into auth_providers (user_id, provider, issuer_environment, tenant_id, subject, method, value, created_at, updated_at)
+       values ($1, $2, 'aomi', 'global', $3, $2, $3, 1, 1),
+              ($1, $2, 'provider:current', 'current-tenant', $3, $2, $3, 2, 2)
+       returning id, issuer_environment`,
+        [userId, provider, subject],
+      );
+      const legacyId = String(
+        identities.rows.find((row) => row.issuer_environment === "aomi").id,
+      );
+      const currentId = String(
+        identities.rows.find(
+          (row) => row.issuer_environment === "provider:current",
+        ).id,
+      );
+      const address = wallet("evm").address.toLowerCase();
+      const key = await pool.query(
+        `insert into public_keys (chain_type, address, user_id, auth_provider_id, created_at, updated_at)
+       values ('evm', $1, $2, $3, 2, 2) returning id`,
+        [address, userId, currentId],
+      );
+      expect(
+        await service.unlinkAuthIdentity({ userId, identityId: currentId }),
+      ).toBe("has_wallets");
+      const queries = await import("./queries");
+      const user = await queries.findAomiUserById(userId);
+      const response = await queries.buildAccountResponse({
+        user: user!,
+        session: {
+          carrier: "widget",
+          expiresAt: Date.now(),
+          authMethod: provider,
+        },
+      });
+      expect(response.wallets).toEqual([
+        expect.objectContaining({
+          id: String(key.rows[0].id),
+          authIdentityId: currentId,
+        }),
+      ]);
+      expect(
+        await service.unlinkAuthIdentity({ userId, identityId: legacyId }),
+      ).toBe("revoked");
+      expect(
+        (
+          await pool.query(
+            `select auth_provider_id from public_keys where id = $1`,
+            [key.rows[0].id],
+          )
+        ).rows,
+      ).toEqual([{ auth_provider_id: currentId }]);
+    },
+  );
+
+  it("blocks a concurrent key insert while unlink checks an empty identity", async () => {
+    const userId = randomUUID();
+    await pool.query(`insert into users (id, username) values ($1, $1)`, [
+      userId,
+    ]);
+    const result = await pool.query(
+      `insert into auth_providers (user_id, provider, issuer_environment, tenant_id, subject, method, value, created_at, updated_at)
+       values ($1, 'privy', 'privy:prod', 'tenant', $1, 'privy', $1, 1, 1) returning id`,
+      [userId],
+    );
+    const identityId = String(result.rows[0].id);
+    const removal = await pool.connect();
+    const linking = await pool.connect();
+    try {
+      await removal.query("begin");
+      const { findAuthIdentityForUnlink } = await import("./queries");
+      expect(
+        (await findAuthIdentityForUnlink(userId, identityId, removal))
+          ?.hasWallets,
+      ).toBe(false);
+      await linking.query("set lock_timeout = '100ms'");
+      await expect(
+        linking.query(
+          `insert into public_keys (chain_type, address, user_id, auth_provider_id, created_at, updated_at)
+         values ('evm', $1, $2, $3, 1, 1)`,
+          [wallet("evm").address.toLowerCase(), userId, identityId],
+        ),
+      ).rejects.toMatchObject({ code: "55P03" });
+    } finally {
+      await removal.query("rollback");
+      await linking.query("reset lock_timeout");
+      removal.release();
+      linking.release();
+    }
+  });
+
   it("maps an agent wallet to kind agent, never removes it and never counts it as a login", async () => {
     const w = wallet("evm");
     const owner = await w.signIn();
@@ -234,6 +331,24 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
       [agentAddress, owner.userId, identity.rows[0].id, now],
     );
     const agentId = String(agentKey.rows[0].id);
+    expect(
+      await service.unlinkAuthIdentity({
+        userId: owner.userId,
+        identityId: String(identity.rows[0].id),
+      }),
+    ).toBe("protected");
+    const { revokeAuthIdentity } = await import("./queries");
+    expect(
+      await revokeAuthIdentity({
+        userId: owner.userId,
+        provider: "para",
+        issuerEnvironment: "aomi",
+        tenantId: "global",
+        subject,
+        db: pool,
+      }),
+    ).toBe(false);
+
     const created = await pool.query(
       `insert into agent_wallets (user_id, name, para_subject, created_at, updated_at)
        values ($1, 'Trading', $2, $3, $3)
@@ -247,6 +362,29 @@ describe.skipIf(!enabled)("canonical wallet login", () => {
        values ($1, 'evm', $2, $3, $4, $4)`,
       [agentWalletId, owner.userId, agentId, now],
     );
+
+    // Legacy identities can lack method='agent'; ownership still protects them.
+    const legacyAgent = await pool.connect();
+    try {
+      await legacyAgent.query("begin");
+      await legacyAgent.query(
+        `update auth_providers set method = 'para' where id = $1`,
+        [identity.rows[0].id],
+      );
+      expect(
+        await revokeAuthIdentity({
+          userId: owner.userId,
+          provider: "para",
+          issuerEnvironment: "aomi",
+          tenantId: "global",
+          subject,
+          db: legacyAgent,
+        }),
+      ).toBe(false);
+    } finally {
+      await legacyAgent.query("rollback");
+      legacyAgent.release();
+    }
 
     // The agent address is named after its agent wallet.
     const account = await service.getAccountResponseForBetterAuthSession({

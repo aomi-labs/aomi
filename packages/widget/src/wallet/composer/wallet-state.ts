@@ -16,6 +16,7 @@ export type LinkedWalletFact = {
   address: string;
   kind?: WalletKind;
   provider?: string;
+  authIdentityId?: string;
   chainId?: number;
   label?: string;
   /** Embedded only: the email of the login that owns the address. */
@@ -84,6 +85,7 @@ type WalletFacts = {
   address: string;
   kind: WalletKind;
   provider?: string;
+  authIdentityId?: string;
   chainId?: number;
   walletName?: string;
   /** The user's own name for the address. */
@@ -161,6 +163,7 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
         ? { capability: wallet.capability ?? connection?.capability }
         : {}),
       ...(connection?.manageable ? { manageable: true } : {}),
+      authIdentityId: wallet.authIdentityId,
       linkedWalletId: wallet.id,
       ...(connection ? { connectionId: connection.id } : {}),
     };

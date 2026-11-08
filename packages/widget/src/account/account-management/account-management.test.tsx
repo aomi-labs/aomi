@@ -52,6 +52,7 @@ const metamask = row("0x4f02000000000000000000000000000000077de0", {
 const privyEvm = row("0x13af000000000000000000000000000000005cf7", {
   kind: "embedded",
   provider: "privy",
+  authIdentityId: "privy-1",
   brand: "Privy",
   actions: [],
 });
@@ -60,6 +61,7 @@ const privySvm = row("Dmf3fB111111111111111111111111111111djxu", {
   family: "svm",
   kind: "embedded",
   provider: "privy",
+  authIdentityId: "privy-1",
   brand: "Privy",
   active: true,
   actions: [],

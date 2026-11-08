@@ -158,6 +158,11 @@ export async function renameIdentity({
   });
   if (result === "not_found") return error(404, "identity_not_found");
   if (result === "protected") return error(403, "protected_identity");
+  if (result === "has_wallets")
+    return error(409, "identity_has_wallets", {
+      message:
+        "This sign-in method has linked addresses and cannot be removed.",
+    });
   return Response.json(await accountResponse(current));
 }
 
@@ -171,6 +176,11 @@ export async function unlinkIdentity({
   });
   if (result === "not_found") return error(404, "identity_not_found");
   if (result === "protected") return error(403, "protected_identity");
+  if (result === "has_wallets")
+    return error(409, "identity_has_wallets", {
+      message:
+        "This sign-in method has linked addresses and cannot be removed.",
+    });
   if (result === "last_factor")
     return error(409, "cannot_unlink_last_login_factor");
   return Response.json({ status: "revoked" });
@@ -317,6 +327,10 @@ export async function disconnectTelegramConnection({
     userId: account(principal).accountId,
   });
   if (result === "not_found") return error(404, "connection_not_found");
+  if (result === "has_wallets")
+    return error(409, "identity_has_wallets", {
+      message: "This sign-in method has linked addresses and cannot be removed.",
+    });
   if (result === "last_factor")
     return error(409, "cannot_unlink_last_login_factor");
   return Response.json({ revoked: true });

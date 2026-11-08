@@ -184,7 +184,7 @@ export async function revokeOAuthConnection(input: {
  */
 export async function unlinkTelegramConnection(input: {
   userId: AomiUserId;
-}): Promise<"revoked" | "not_found" | "last_factor"> {
+}): Promise<"revoked" | "not_found" | "last_factor" | "has_wallets"> {
   const ids = await listTelegramIdentityIds(input.userId);
   if (!ids.length) return "not_found";
   for (const identityId of ids) {
@@ -192,6 +192,7 @@ export async function unlinkTelegramConnection(input: {
       userId: input.userId,
       identityId,
     });
+    if (result === "has_wallets") return "has_wallets";
     if (result === "last_factor" || result === "protected")
       return "last_factor";
   }

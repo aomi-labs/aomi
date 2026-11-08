@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 5.1.4
+
+- Preserve wallet ownership by account identity and prevent identity removal from deleting wallet links.
+
 ## 5.1.3
 
 ### Patch Changes

@@ -87,54 +87,48 @@ export function familySlots(rows: readonly WalletRow[]) {
   });
 }
 
-/**
- * Wallets (linked external addresses, then the one waiting to be verified), then one
- * group per Para or Privy login with its addresses. The account graph does
- * not say which login owns an embedded address, so a provider's addresses
- * sit under its first login.
- */
+/** Group embedded addresses by their owning identity, never by provider alone. */
 export function walletSections(
   rows: readonly WalletRow[],
   unlinked: WalletRow | undefined,
   signInMethods: readonly LinkedAuthAccount[],
 ): { wallets: WalletRow[]; logins: LoginGroup[] } {
-  const byProvider = new Map<LoginProvider, WalletRow[]>();
-  const wallets: WalletRow[] = [];
-  for (const row of rows) {
-    // Agent wallets have their own group above these.
-    if (row.kind === "agent") continue;
-    const provider = loginProvider(row.provider);
-    if (!provider) {
-      if (row.linked) wallets.push(row);
-      continue;
-    }
-    if (row.linked)
-      byProvider.set(provider, [...(byProvider.get(provider) ?? []), row]);
-  }
-  if (unlinked) wallets.push(unlinked);
-  const familyFirst = (list: WalletRow[] = []) =>
-    [...list].sort(
-      (a, b) => Number(a.family === "svm") - Number(b.family === "svm"),
-    );
-  const logins: LoginGroup[] = [];
+  const groups = new Map<string, LoginGroup>();
   for (const identity of signInMethods) {
     const provider = loginProvider(identity.provider);
     if (!provider) continue;
-    logins.push({
-      key: `identity:${identity.id}`,
-      provider,
-      identity,
-      rows: familyFirst(byProvider.get(provider)),
-    });
-    byProvider.delete(provider);
+    const key = `identity:${identity.id}`;
+    groups.set(key, { key, provider, identity, rows: [] });
   }
-  for (const [provider, list] of byProvider) {
-    logins.push({
-      key: `provider:${provider}`,
-      provider,
-      rows: familyFirst(list),
-    });
+  const wallets: WalletRow[] = [];
+  for (const row of rows) {
+    if (row.kind === "agent" || !row.linked) continue;
+    const provider = loginProvider(row.provider);
+    if (!provider) {
+      wallets.push(row);
+      continue;
+    }
+    const key = row.authIdentityId
+      ? `identity:${row.authIdentityId}`
+      : `provider:${provider}`;
+    const group = groups.get(key);
+    if (group && group.provider === provider) group.rows.push(row);
+    else {
+      // Old servers without ownership data remain visible without attributing
+      // their addresses to an arbitrary login.
+      const fallbackKey = `${key}:${provider}`;
+      const fallback = groups.get(fallbackKey);
+      if (fallback) fallback.rows.push(row);
+      else groups.set(fallbackKey, { key: fallbackKey, provider, rows: [row] });
+    }
   }
+  if (unlinked) wallets.push(unlinked);
+  const logins = [...groups.values()].map((group) => ({
+    ...group,
+    rows: [...group.rows].sort(
+      (a, b) => Number(a.family === "svm") - Number(b.family === "svm"),
+    ),
+  }));
   return { wallets, logins };
 }
 

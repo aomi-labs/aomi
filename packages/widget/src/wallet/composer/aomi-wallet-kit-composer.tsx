@@ -159,12 +159,15 @@ export function AomiWalletKitComposer({
                 ? wallet.kind
                 : "external",
             provider: wallet.provider,
+            authIdentityId: wallet.authIdentityId,
             chainId: wallet.chainId,
             label: wallet.label ?? undefined,
             loginEmail:
               wallet.kind === "embedded"
                 ? account.linkedAccounts.find(
-                    (login) => login.provider === wallet.provider,
+                    (login) =>
+                      login.id === wallet.authIdentityId &&
+                      login.provider === wallet.provider,
                   )?.email
                 : undefined,
             walletApp: wallet.walletApp,

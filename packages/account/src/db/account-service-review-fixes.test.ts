@@ -12,6 +12,7 @@ const queryMocks = vi.hoisted(() => ({
   deleteBetterAuthSiweWallet: vi.fn(),
   deleteBetterAuthSiwsWallet: vi.fn(),
   findAuthIdentityById: vi.fn(),
+  findAuthIdentityForUnlink: vi.fn(),
   findAomiUserById: vi.fn(),
   findProviderSubjectOwners: vi.fn(),
   findSignalOwner: vi.fn(),
@@ -248,13 +249,17 @@ describe("unlinkAuthIdentity last-factor handling", () => {
   it("does not unlink the user's last usable provider login", async () => {
     queryMocks.withTransaction.mockImplementation(async (fn) => fn(tx));
     queryMocks.lockIdentityResolutionKeys.mockResolvedValue(undefined);
-    queryMocks.findAuthIdentityById.mockResolvedValue({
-      id: "para-row",
-      userId: "user-a",
-      provider: "para",
-      issuerEnvironment: "para:beta",
-      tenantId: "project-a",
-      subject: "para-user",
+    queryMocks.findAuthIdentityForUnlink.mockResolvedValue({
+      identity: {
+        id: "para-row",
+        userId: "user-a",
+        provider: "para",
+        issuerEnvironment: "para:beta",
+        tenantId: "project-a",
+        subject: "para-user",
+      },
+      method: "para",
+      hasWallets: false,
     });
     queryMocks.countLoginFactors.mockResolvedValue(1);
 
@@ -273,13 +278,17 @@ describe("unlinkAuthIdentity last-factor handling", () => {
   it("allows unlinking after another usable login method is present", async () => {
     queryMocks.withTransaction.mockImplementation(async (fn) => fn(tx));
     queryMocks.lockIdentityResolutionKeys.mockResolvedValue(undefined);
-    queryMocks.findAuthIdentityById.mockResolvedValue({
-      id: "para-row",
-      userId: "user-a",
-      provider: "para",
-      issuerEnvironment: "para:beta",
-      tenantId: "project-a",
-      subject: "para-user",
+    queryMocks.findAuthIdentityForUnlink.mockResolvedValue({
+      identity: {
+        id: "para-row",
+        userId: "user-a",
+        provider: "para",
+        issuerEnvironment: "para:beta",
+        tenantId: "project-a",
+        subject: "para-user",
+      },
+      method: "para",
+      hasWallets: false,
     });
     queryMocks.countLoginFactors.mockResolvedValue(2);
     queryMocks.revokeAuthIdentity.mockResolvedValue(true);
@@ -293,6 +302,41 @@ describe("unlinkAuthIdentity last-factor handling", () => {
     expect(queryMocks.revokeAuthIdentity).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "user-a", db: tx }),
     );
+  });
+  it.each(["para", "privy"])(
+    "refuses a %s login with owned keys regardless of displayed counts",
+    async (provider) => {
+      queryMocks.withTransaction.mockImplementation(async (fn) => fn(tx));
+      queryMocks.findAuthIdentityForUnlink.mockResolvedValue({
+        identity: { id: "current", userId: "user-a", provider },
+        method: provider,
+        hasWallets: true,
+      });
+      const { unlinkAuthIdentity } = await import("../service/account-service");
+      await expect(
+        unlinkAuthIdentity({ userId: "user-a", identityId: "current" }),
+      ).resolves.toBe("has_wallets");
+      expect(queryMocks.revokeAuthIdentity).not.toHaveBeenCalled();
+      expect(queryMocks.findAuthIdentityForUnlink).toHaveBeenCalledWith(
+        "user-a",
+        "current",
+        tx,
+      );
+    },
+  );
+
+  it("refuses internal agent identities even without dependent keys", async () => {
+    queryMocks.withTransaction.mockImplementation(async (fn) => fn(tx));
+    queryMocks.findAuthIdentityForUnlink.mockResolvedValue({
+      identity: { id: "agent", userId: "user-a", provider: "privy" },
+      method: "agent",
+      hasWallets: false,
+    });
+    const { unlinkAuthIdentity } = await import("../service/account-service");
+    await expect(
+      unlinkAuthIdentity({ userId: "user-a", identityId: "agent" }),
+    ).resolves.toBe("protected");
+    expect(queryMocks.revokeAuthIdentity).not.toHaveBeenCalled();
   });
 });
 

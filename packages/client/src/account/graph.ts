@@ -31,6 +31,8 @@ export type AccountGraphWallet = {
   /** `agent`: an Aomi agent wallet (signs on the server under its rule). */
   kind?: "external" | "embedded" | "smart_account" | "agent";
   provider?: string;
+  /** The account identity that owns this address. */
+  authIdentityId?: string;
   providerWalletId?: string;
   chainScope?: string;
   chainId?: number;

@@ -15,6 +15,12 @@ const walletKit = vi.hoisted(() => ({
   activateWallet: vi.fn(async () => "connecting" as const),
   signOutAccount: vi.fn(async () => undefined),
   deleteAccount: vi.fn(async () => undefined),
+  unlinkLinkedAccount: vi.fn(async (_id: string) => undefined),
+  accountLinkedAccounts: [] as {
+    id: string;
+    provider: string;
+    subject: string;
+  }[],
   disconnect: vi.fn(async () => undefined),
   identity: {
     address: "",
@@ -99,6 +105,7 @@ describe("AccountSettings", () => {
       embeddedProvider: undefined,
     };
     walletKit.wallets = readyWallets();
+    walletKit.accountLinkedAccounts = [];
     walletKit.accountUser = undefined;
     seedAccountOverview({
       user: { user_id: "acct-1", verified_email: "alice@example.com" },
@@ -187,5 +194,26 @@ describe("AccountSettings", () => {
     expect(walletKit.deleteAccount).toHaveBeenCalledTimes(2);
     expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+  it("refuses removal of a login with linked addresses without opening a destructive confirmation", async () => {
+    walletKit.accountLinkedAccounts = [
+      { id: "current", provider: "privy", subject: "subject" },
+    ];
+    walletKit.wallets = readyWallets().map((row) => ({
+      ...row,
+      provider: "privy",
+      kind: "embedded",
+      authIdentityId: "current",
+    }));
+    await act(async () =>
+      render(<AccountSettings />, { wrapper: AccountOverviewFixture }),
+    );
+    await click(screen.getByRole("button", { name: "Actions for Privy" }));
+    await click(screen.getByRole("menuitem", { name: "Remove from account" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Privy has linked addresses and cannot be removed.",
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(walletKit.unlinkLinkedAccount).not.toHaveBeenCalled();
   });
 });

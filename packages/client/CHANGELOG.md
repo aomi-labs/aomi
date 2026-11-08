@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 1.1.4
+
+- Preserve wallet ownership by account identity and prevent identity removal from deleting wallet links.
+
 ## 1.1.3
 
 ### Patch Changes

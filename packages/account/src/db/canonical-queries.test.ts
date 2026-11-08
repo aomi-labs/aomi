@@ -3,6 +3,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   countLoginFactors,
+  buildAccountResponse,
+  findAuthIdentityForUnlink,
   revokeAuthIdentity,
   updateWalletLabel,
   upsertWallet,
@@ -111,6 +113,7 @@ describe("canonical account queries", () => {
     });
 
     expect(wallet.id).toBe("7");
+    expect(wallet.authIdentityId).toBe("42");
     expect(wallet.provider).toBe("siwe");
     expect(wallet.label).toBe("CLI wallet");
     expect(wallet.walletApp).toBe("Rabby");
@@ -188,10 +191,98 @@ describe("canonical account queries", () => {
       }),
     ).resolves.toBe(true);
 
+    expect(calls[0]?.sql).toContain("method <> 'agent'");
+    expect(calls[0]?.sql).toContain("agent_wallet_keys");
     expect(calls.map((call) => call.sql.replace(/\s+/g, " "))).toEqual([
       expect.stringContaining("select id from auth_providers"),
       expect.stringContaining("delete from public_keys"),
       expect.stringContaining("delete from auth_providers"),
     ]);
+  });
+  it("does not issue deletes when the guarded identity is missing or protected", async () => {
+    const { db, calls } = fakeDb(() => ({ rows: [] }));
+    await expect(
+      revokeAuthIdentity({
+        userId: "user-1",
+        provider: "privy",
+        issuerEnvironment: "privy:prod",
+        tenantId: "tenant",
+        subject: "agent",
+        db: db as never,
+      }),
+    ).resolves.toBe(false);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.sql).toContain("agent_wallet_keys");
+  });
+
+  it("locks only the requested user's identity before counting all owned keys", async () => {
+    const { db, calls } = fakeDb((call) =>
+      call.sql.includes("for update")
+        ? {
+            rows: [
+              {
+                id: 42,
+                user_id: "user-1",
+                provider: "privy",
+                method: "privy",
+                created_at: 1,
+                updated_at: 1,
+              },
+            ],
+          }
+        : { rows: [{ present: true }] },
+    );
+    const state = await findAuthIdentityForUnlink("user-1", "42", db as never);
+    expect(state?.hasWallets).toBe(true);
+    expect(state?.identity.id).toBe("42");
+    expect(calls[0]?.params).toEqual([42, "user-1"]);
+    expect(calls[0]?.sql).toContain("for update");
+    expect(calls[1]?.sql).toContain("auth_provider_id = $1");
+    expect(calls[1]?.sql).not.toContain("archived");
+  });
+
+  it("preserves owning identity IDs in the account response", async () => {
+    const { db } = fakeDb((call) =>
+      call.sql.includes("from public_keys pk")
+        ? {
+            rows: [
+              {
+                id: 7,
+                user_id: "user-1",
+                auth_provider_id: 42,
+                wallet_provider: "privy",
+                chain_type: "evm",
+                address: "0x1111111111111111111111111111111111111111",
+                created_at: 1,
+                updated_at: 1,
+              },
+            ],
+          }
+        : { rows: [] },
+    );
+    const response = await buildAccountResponse({
+      user: {
+        id: "user-1",
+        betterAuthUserId: null,
+        displayName: null,
+        primaryEmail: null,
+        avatarUrl: null,
+        metadata: {},
+        deactivatedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      session: {
+        carrier: "widget",
+        expiresAt: Date.now(),
+        authMethod: "privy",
+      },
+      db: db as never,
+    });
+    expect(response.wallets[0]).toMatchObject({
+      id: "7",
+      authIdentityId: "42",
+      provider: "privy",
+    });
   });
 });

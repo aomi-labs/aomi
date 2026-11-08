@@ -171,11 +171,15 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
           unlinkLogin
             ? async (identity, group) => {
                 const name = providerName(group.provider);
+                if (group.rows.length) {
+                  setActionError(
+                    `${name} has linked addresses and cannot be removed.`,
+                  );
+                  return;
+                }
                 const confirmed = await confirm({
                   title: `Remove ${name} from account?`,
-                  description: group.rows.length
-                    ? `You can no longer sign in with ${name}, and its ${group.rows.length} ${group.rows.length === 1 ? "address is" : "addresses are"} removed too.`
-                    : `You can no longer sign in to this account with ${name}.`,
+                  description: `You can no longer sign in to this account with ${name}.`,
                   confirmLabel: "Remove",
                   tone: "danger",
                 });

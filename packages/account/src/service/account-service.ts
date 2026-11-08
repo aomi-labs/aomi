@@ -8,6 +8,7 @@ import {
   deleteBetterAuthSiweWallet,
   deleteBetterAuthSiwsWallet,
   findAuthIdentityById,
+  findAuthIdentityForUnlink,
   findAomiUserById,
   findSignalOwner,
   findWalletById,
@@ -920,17 +921,25 @@ function walletKeyString(family: WalletFamily, address: string): string {
 export async function unlinkAuthIdentity(input: {
   userId: AomiUserId;
   identityId: string;
-}): Promise<"revoked" | "not_found" | "last_factor" | "protected"> {
+}): Promise<
+  "revoked" | "not_found" | "last_factor" | "protected" | "has_wallets"
+> {
   const result = await withTransaction(async (db) => {
     await lockIdentityResolutionKeys(
       [`aomi-login-factors:${input.userId}`],
       db,
     );
-    const identity = await findAuthIdentityById(input.identityId, db);
-    if (!identity || identity.userId !== input.userId) {
+    const state = await findAuthIdentityForUnlink(
+      input.userId,
+      input.identityId,
+      db,
+    );
+    if (!state) {
       return { status: "not_found" as const };
     }
+    const { identity } = state;
     if (
+      state.method === "agent" ||
       identity.provider === "better_auth" ||
       identity.provider === "siwe" ||
       identity.provider === "siws" ||
@@ -938,6 +947,7 @@ export async function unlinkAuthIdentity(input: {
     ) {
       return { status: "protected" as const };
     }
+    if (state.hasWallets) return { status: "has_wallets" as const };
     const factorCount = await countLoginFactors(input.userId, db);
     if (factorCount <= 1) return { status: "last_factor" as const };
     const revoked = await revokeAuthIdentity({

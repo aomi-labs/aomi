@@ -75,6 +75,7 @@ export type DbAomiWallet = {
   chainScope: string | null;
   kind: WalletKind;
   provider: string | null;
+  authIdentityId: string | null;
   providerWalletId: string | null;
   linkedVia: LinkedVia;
   label: string | null;
@@ -110,6 +111,8 @@ export type AccountWallet = {
   address: string;
   kind?: WalletKind;
   provider?: string;
+  /** The account identity that owns this address. */
+  authIdentityId?: string;
   providerWalletId?: string;
   chainScope?: string;
   chainId?: number;
