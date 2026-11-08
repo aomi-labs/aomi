@@ -97,8 +97,15 @@ export function useSheetFlow(
   const canActivateWallet = useWalletActivationGuard();
   const canActivateRef = useRef(canActivateWallet);
   canActivateRef.current = canActivateWallet;
-  // Each flow takes a token; closing the sheet or starting another drops it.
+  // Each flow takes a token; closing the sheet, starting another or
+  // unmounting drops it.
   const flowToken = useRef(0);
+  useEffect(
+    () => () => {
+      flowToken.current++;
+    },
+    [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
