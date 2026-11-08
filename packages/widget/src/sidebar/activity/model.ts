@@ -11,6 +11,7 @@ import {
 } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
 import { messageChainId, unwrapToolStep } from "@aomi-labs/client/trace";
+import { svmTransactionLabel } from "./transaction-label";
 
 type RecordValue = Record<string, unknown>;
 export type ActivityTransaction = {
@@ -419,7 +420,7 @@ export function selectActivity(
         });
         if (request.type === "execute_svm") {
           const assembled = request.transactions[index];
-          match.label = assembled.description || match.label;
+          match.label = svmTransactionLabel(assembled);
           for (const duplicate of matches.slice(1))
             transactions.splice(transactions.indexOf(duplicate), 1);
         }
@@ -438,11 +439,13 @@ export function selectActivity(
             ? "svm"
             : "evm",
         label:
-          string(raw.label) ??
-          string(raw.description) ??
-          (request.type === "sign"
-            ? "Sign wallet request"
-            : `Transaction ${index + 1}`),
+          request.type === "execute_svm"
+            ? svmTransactionLabel(request.transactions[index])
+            : (string(raw.label) ??
+              string(raw.description) ??
+              (request.type === "sign"
+                ? "Sign wallet request"
+                : `Transaction ${index + 1}`)),
         kind:
           request.type === "sign"
             ? "signature"

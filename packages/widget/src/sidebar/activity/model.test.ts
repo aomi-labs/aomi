@@ -476,13 +476,14 @@ describe("SVM preparation", () => {
             payer: "wallet",
             cluster: "mainnet-beta",
             version: "v0",
-            description: "Transfer SOL",
+            description: "svm bundle of 1 instructions",
             kind: "transfer",
             instructions: [
               {
                 program_id: "program",
                 data_base64: "YWJj",
                 accounts: [],
+                description: "Transfer SOL",
               } as never,
             ],
           },
@@ -500,6 +501,12 @@ describe("SVM preparation", () => {
       },
     });
     expect(selectActivity([staged, committed]).transactions).toHaveLength(1);
+    expect(selectActivity([staged, committed]).transactions[0].label).toBe(
+      "Transfer SOL",
+    );
+    expect(selectActivity([committed]).transactions[0].label).toBe(
+      "Transfer SOL",
+    );
     const duplicate = tool(2, "svm_stage_ix", {
       ix_ids: [2],
       instructions: [{ ...ix, pending_ix_id: 2 }],

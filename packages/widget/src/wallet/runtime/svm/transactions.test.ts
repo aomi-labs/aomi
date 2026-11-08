@@ -3,7 +3,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   Connection,
+  ComputeBudgetProgram,
   Keypair,
+  SystemProgram,
   Transaction,
   TransactionMessage,
   VersionedTransaction,
@@ -33,6 +35,55 @@ function wallet(
 }
 
 describe("buildSvmTransactionMethods", () => {
+  it.each(["legacy", "v0"])(
+    "passes every %s instruction unchanged to the signing wallet",
+    async (version) => {
+      const payer = Keypair.generate();
+      const recipient = Keypair.generate().publicKey;
+      const instructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+        SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: recipient,
+          lamports: 1_000_000,
+        }),
+      ];
+      const message = new TransactionMessage({
+        payerKey: payer.publicKey,
+        recentBlockhash: Keypair.generate().publicKey.toBase58(),
+        instructions,
+      });
+      const transaction = new VersionedTransaction(
+        version === "v0"
+          ? message.compileToV0Message()
+          : message.compileToLegacyMessage(),
+      );
+      const unsignedTx = Buffer.from(transaction.serialize()).toString(
+        "base64",
+      );
+      const signTransaction = vi.fn(
+        async (received: VersionedTransaction | Transaction) => {
+          expect(received).toBeInstanceOf(VersionedTransaction);
+          expect(
+            Buffer.from((received as VersionedTransaction).message.serialize()),
+          ).toEqual(Buffer.from(transaction.message.serialize()));
+          return received;
+        },
+      );
+      const execution = buildSvmTransactionMethods(
+        wallet({ signTransaction }),
+        {
+          preferDirectSend: false,
+          rpcHttpUrl: "https://solana.example",
+        },
+      );
+      expect(await execution.signSolanaTransaction!({ unsignedTx })).toEqual({
+        signedTx: unsignedTx,
+      });
+      expect(signTransaction).toHaveBeenCalledOnce();
+    },
+  );
+
   it("rejects an exact-signer mismatch before asking the connected wallet to sign", async () => {
     const signMessage = vi.fn();
     const execution = buildSvmTransactionMethods(wallet({ signMessage }), {
