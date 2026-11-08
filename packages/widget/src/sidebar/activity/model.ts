@@ -420,7 +420,7 @@ export function selectActivity(
         });
         if (request.type === "execute_svm") {
           const assembled = request.transactions[index];
-          match.label = svmTransactionLabel(assembled);
+          match.label = svmTransactionLabel(assembled, match.label);
           for (const duplicate of matches.slice(1))
             transactions.splice(transactions.indexOf(duplicate), 1);
         }

@@ -61,13 +61,18 @@ describe("buildSvmTransactionMethods", () => {
       const unsignedTx = Buffer.from(transaction.serialize()).toString(
         "base64",
       );
+      const signed = VersionedTransaction.deserialize(transaction.serialize());
+      signed.sign([payer]);
       const signTransaction = vi.fn(
         async (received: VersionedTransaction | Transaction) => {
-          expect(received).toBeInstanceOf(VersionedTransaction);
           expect(
-            Buffer.from((received as VersionedTransaction).message.serialize()),
+            Buffer.from(
+              received instanceof VersionedTransaction
+                ? received.message.serialize()
+                : received.serializeMessage(),
+            ),
           ).toEqual(Buffer.from(transaction.message.serialize()));
-          return received;
+          return signed;
         },
       );
       const execution = buildSvmTransactionMethods(
@@ -78,8 +83,11 @@ describe("buildSvmTransactionMethods", () => {
         },
       );
       expect(await execution.signSolanaTransaction!({ unsignedTx })).toEqual({
-        signedTx: unsignedTx,
+        signedTx: Buffer.from(signed.serialize()).toString("base64"),
       });
+      expect(Buffer.from(signed.serialize()).toString("base64")).not.toBe(
+        unsignedTx,
+      );
       expect(signTransaction).toHaveBeenCalledOnce();
     },
   );

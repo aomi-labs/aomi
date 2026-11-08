@@ -507,6 +507,19 @@ describe("SVM preparation", () => {
     expect(selectActivity([committed]).transactions[0].label).toBe(
       "Transfer SOL",
     );
+    const unnamed = structuredClone(committed);
+    if (unnamed.request.type !== "execute_svm")
+      throw new Error("Expected Solana fixture");
+    unnamed.request.transactions[0].description = "";
+    // Historical action events may predate required instruction descriptions.
+    delete (
+      unnamed.request.transactions[0].instructions[0] as {
+        description?: string;
+      }
+    ).description;
+    expect(selectActivity([staged, unnamed]).transactions[0].label).toBe(
+      "Transfer",
+    );
     const duplicate = tool(2, "svm_stage_ix", {
       ix_ids: [2],
       instructions: [{ ...ix, pending_ix_id: 2 }],
