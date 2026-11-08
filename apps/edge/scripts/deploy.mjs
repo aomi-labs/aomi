@@ -19,6 +19,8 @@ export const TOPOLOGIES = ["staging", "rc", "production"];
 const REQUIRED_ORIGINS = ["BACKEND_ORIGINS", "API_SERVER_ORIGIN"];
 const OPTIONAL_ORIGINS = [
   "PAYMENT_ORIGIN",
+  "HEADLESS_API_ORIGIN",
+  "HEADLESS_AUTH_UPSTREAM_ORIGIN",
   "PORTAL_UPSTREAM_ORIGIN",
   "BUILD_UPSTREAM_ORIGIN",
   "LANDING_UPSTREAM_ORIGIN",
@@ -97,6 +99,15 @@ export function deployArgs(env = process.env) {
   for (const key of present) vars[key] = value(key, env);
   // The portal's account surface fails closed without its database and issuer;
   // Landing's own /api routes need its upstream.
+  if (vars.HEADLESS_API_ORIGIN) {
+    const api = new URL(vars.HEADLESS_API_ORIGIN);
+    if (api.origin !== vars.HEADLESS_API_ORIGIN) throw new Error("HEADLESS_API_ORIGIN must be an origin without a path");
+    for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL", "HEADLESS_AUTH_UPSTREAM_ORIGIN"]) required(key, env);
+    const pages = new URL(vars.HEADLESS_AUTH_UPSTREAM_ORIGIN);
+    const publicHosts = [api.host, ...(vars.PORTAL_HOSTS ?? "").split(",").map((host) => host.trim())];
+    if (pages.origin !== vars.HEADLESS_AUTH_UPSTREAM_ORIGIN || publicHosts.includes(pages.host))
+      throw new Error("HEADLESS_AUTH_UPSTREAM_ORIGIN must be a separate deployment alias, not a public account host");
+  }
   if (vars.PORTAL_HOSTS) for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL"]) required(key, env);
   if (vars.LANDING_HOSTS) required("LANDING_UPSTREAM_ORIGIN", env);
   return [

@@ -120,6 +120,8 @@ describePostgres("MCP grants keep a refresh token", () => {
   // nothing to refresh. This drives the exact loop a client runs: read the
   // advertised scopes, ask for precisely those, then refresh.
   it.each([
+    ["API DCR Agent MCP", "/v1/agent/mcp", "api-dcr"],
+    ["API CIMD Pipeline MCP", "/v1/pipeline/mcp", "api-cimd"],
     ["DCR Agent MCP", "/v1/agent/mcp", "dcr"],
     ["DCR Pipeline MCP", "/v1/pipeline/mcp", "dcr"],
     ["CIMD Agent MCP", "/v1/agent/mcp", "cimd"],
@@ -129,6 +131,8 @@ describePostgres("MCP grants keep a refresh token", () => {
   ])(
     "refreshes an %s grant built from the advertised scopes",
     async (_name, path, strategy) => {
+      route = edgeRoute(origin, "development", strategy.startsWith("api-"));
+      strategy = strategy.replace(/^api-/, "");
       const resource = `${origin}${path}`;
       const redirectUri = "http://127.0.0.1:43199/callback";
       const advertised = await protectedResourceMetadata(path);
@@ -656,11 +660,12 @@ function restoreEnv(name: string, value: string | undefined): void {
 }
 
 /** The edge Worker as a portal host serves it, against this suite's database. */
-function edgeRoute(origin: string, nodeEnv = "development") {
+function edgeRoute(origin: string, nodeEnv = "development", headless = false) {
   const env = {
     ...process.env,
     NODE_ENV: nodeEnv,
-    PORTAL_HOSTS: new URL(origin).host,
+    PORTAL_HOSTS: headless ? "chat.example" : new URL(origin).host,
+    ...(headless ? { HEADLESS_API_ORIGIN: origin, BETTER_AUTH_URL: "https://chat.example" } : {}),
     PORTAL_UPSTREAM_ORIGIN: "http://pages.invalid",
   } as unknown as EdgeEnv;
   const route = (request: Request) => handleRequest(request, env, fetch);

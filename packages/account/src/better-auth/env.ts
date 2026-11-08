@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 export interface AccountAuthEnv {
   betterAuthSecret: string;
   betterAuthUrl: string;
@@ -23,11 +25,25 @@ export interface AccountAuthEnv {
 
 type AccountAuthEnvInput = Record<string, string | undefined>;
 
+const requestEnv = new AsyncLocalStorage<AccountAuthEnvInput>();
+
+/** Account/OAuth policy follows this request's configured issuer, never a concurrent host. */
+export function withAccountAuthEnv<T>(
+  env: AccountAuthEnvInput,
+  run: () => T,
+): T {
+  return requestEnv.run(env, run);
+}
+
+export function accountAuthEnv(): AccountAuthEnvInput {
+  return requestEnv.getStore() ?? process.env;
+}
+
 const DEV_BETTER_AUTH_SECRET =
   "dev-better-auth-secret-change-me-at-least-32-bytes";
 
 export function readAccountAuthEnv(
-  env: AccountAuthEnvInput = process.env,
+  env: AccountAuthEnvInput = accountAuthEnv(),
 ): AccountAuthEnv {
   const betterAuthUrl = resolveBetterAuthUrl(env);
   const url = new URL(betterAuthUrl);
@@ -72,7 +88,7 @@ function nonEmpty(value: string | undefined): string | undefined {
 }
 
 export function isAccountAuthLocalRuntime(
-  env: AccountAuthEnvInput = process.env,
+  env: AccountAuthEnvInput = accountAuthEnv(),
 ): boolean {
   return env.NODE_ENV === "development" || env.NODE_ENV === "test";
 }
@@ -94,11 +110,7 @@ function requiredAuthEnvValue(input: {
 }
 
 function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
-
-  return (
-    firstUrl(env.BETTER_AUTH_URL) ??
-    "http://localhost:3001"
-  );
+  return firstUrl(env.BETTER_AUTH_URL) ?? "http://localhost:3001";
 }
 
 function firstUrl(...values: Array<string | undefined>): string | undefined {

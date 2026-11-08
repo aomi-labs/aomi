@@ -1223,3 +1223,46 @@ describe("portal transport aliases retain canonical OAuth identity", () => {
     ).toBe(401);
   });
 });
+
+describe("API host OAuth isolation", () => {
+  it("accepts an API grant after Chat moves and rejects a Chat issuer on that API", async () => {
+    const api = "https://api.aomi.dev";
+    const claims = {
+      sub: "user",
+      scope: "agent:read",
+      client_id: "api-client",
+      "https://aomi.dev/canonical_user_id": "acct-user",
+      "https://aomi.dev/principal_class": "user",
+    };
+    const token = await new SignJWT(claims)
+      .setProtectedHeader({ alg: "EdDSA", kid: "portal-1" })
+      .setIssuer(`${api}/api/auth`)
+      .setAudience(`${api}/v1`)
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(portalKey.privateKey);
+    const environment = {
+      ...env,
+      HEADLESS_API_ORIGIN: api,
+      PORTAL_HOSTS: "aomi.chat",
+      BETTER_AUTH_URL: "https://aomi.chat",
+    };
+    const request = (token: string) =>
+      new Request(`${api}/v1/agent/sessions`, {
+        headers: { authorization: `Bearer ${token}`, cookie: "session=user" },
+      });
+    const response = await handleRequest(request(token), environment, world);
+    expect(response.status).toBe(200);
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      sub: "acct-user",
+      resource: `${api}/v1/agent`,
+      auth_source: "oauth",
+    });
+    expect(seen[0].headers.cookie).toBeUndefined();
+    const wrongIssuer = await signPortal(claims, { aud: `${api}/v1` });
+    expect(
+      (await handleRequest(request(wrongIssuer), environment, world)).status,
+    ).toBe(401);
+    expect(account.lookups).toBe(0);
+  });
+});

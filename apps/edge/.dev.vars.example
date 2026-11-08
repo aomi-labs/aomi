@@ -31,3 +31,8 @@ PRIVY_APP_ID=
 PARA_JWT_AUDIENCE=
 PARA_JWKS_URL=
 PARA_API_BASE_URL=
+
+# Headless API identity stays on this origin when Chat's public domain changes.
+# Activate only after binding the account database and testing login at the API host.
+# HEADLESS_API_ORIGIN=http://127.0.0.1:8787
+# HEADLESS_AUTH_UPSTREAM_ORIGIN=http://127.0.0.1:3001

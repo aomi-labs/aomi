@@ -20,7 +20,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import * as chains from "viem/chains";
 import { grants, loadState, updateState, type CliState } from "./state";
 
-export const DEFAULT_BASE_URL = "https://chat.aomi.dev";
+export const DEFAULT_BASE_URL = "https://api.aomi.dev";
 
 /** Exit codes: 0 ok, 1 error, 2 usage, 3 needs approval or sign-in. */
 export class CliError extends Error {

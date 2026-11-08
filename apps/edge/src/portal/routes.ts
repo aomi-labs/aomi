@@ -280,5 +280,6 @@ export async function handlePortalRequest(request: Request, ctx: PortalContext):
   if (catalogKind) return catalog(request, catalogKind, ctx);
   const rows = ROUTES.filter((row) => row.path.test(pathname));
   if (rows.length) return served(rows, request, ctx);
+  if (!ctx.upstreamOrigin) return Response.json({ error: "auth_ui_unconfigured" }, { status: 503 });
   return passThrough(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal");
 }

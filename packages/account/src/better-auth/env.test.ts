@@ -84,3 +84,26 @@ describe("readAccountAuthEnv", () => {
     expect(env.privyAccessTokenVerificationKey).toBe("privy-verification-key");
   });
 });
+
+describe("request-scoped account policy", () => {
+  it("isolates concurrent API and Chat issuers without changing process.env", async () => {
+    const original = process.env.BETTER_AUTH_URL;
+    const { withAccountAuthEnv } = await import("./env");
+    const { aomiOAuthResources } = await import("./oauth-policy");
+    const scoped = (url: string) =>
+      withAccountAuthEnv(
+        { NODE_ENV: "test", BETTER_AUTH_URL: url },
+        async () => {
+          await Promise.resolve();
+          return aomiOAuthResources().authorizationServerIssuer;
+        },
+      );
+    expect(
+      await Promise.all([
+        scoped("https://api.aomi.dev"),
+        scoped("https://aomi.chat"),
+      ]),
+    ).toEqual(["https://api.aomi.dev/api/auth", "https://aomi.chat/api/auth"]);
+    expect(process.env.BETTER_AUTH_URL).toBe(original);
+  });
+});

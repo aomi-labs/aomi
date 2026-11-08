@@ -264,17 +264,9 @@ function guestConnectionError(
   }
   const message = `Aomi guest sign-in failed with HTTP ${status} at ${origin} (${authPath}).`;
   if (status !== 404) return new GuestSignInError(response, message);
-  const portal =
-    origin === "https://api.aomi.dev"
-      ? "https://chat.aomi.dev"
-      : origin === "https://api-staging.aomi.dev"
-        ? "https://chat-staging.aomi.dev"
-        : null;
   return new GuestSignInError(
     response,
-    portal
-      ? `${message} This is a backend origin; guest sign-in requires the Portal origin at ${portal}. Check baseUrl.`
-      : `${message} Check that baseUrl points to the Portal origin.`,
+    `${message} Check that baseUrl points to the public Aomi API and that its account routes are enabled.`,
   );
 }
 

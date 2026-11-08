@@ -213,3 +213,35 @@ Before deploying the stack, reconcile these external settings together:
 
 The Sentry project slug `aomi-bff` is an external project identifier, separate
 from the app service tags (`portal` and `build`); it does not name a signer.
+
+## Stable headless API identity
+
+CLI, SDK and MCP clients use the API origin (`https://api.aomi.dev` in production).
+`HEADLESS_API_ORIGIN` enables the account, OAuth discovery, token and protected
+resource routes on that exact origin. Its issuer is `<api-origin>/api/auth`;
+resources include `/v1`, `/v1/agent/mcp`, `/v1/pipeline/mcp` and app MCP paths.
+Changing `PORTAL_HOSTS`, `BETTER_AUTH_URL` or the public Chat domain does not
+change that identity. Account configuration is request-scoped so concurrent
+API and Chat requests cannot borrow each other's issuer or resource policy.
+
+Interactive login, consent and device approval pages stay under the API origin
+(`/oauth/*`). `HEADLESS_AUTH_UPSTREAM_ORIGIN` names their stable provider alias;
+it must never name a public Chat hostname. The API handles machine requests
+itself without redirecting to Chat. An unavailable page upstream does not
+remove token, discovery or MCP routes. Task/venue discovery, payment webhooks,
+health checks and Manager routes retain the API router.
+
+Existing Chat account/OAuth routes and frontend aliases share the original
+canonical `BETTER_AUTH_URL` issuer and audiences. Keep that value fixed for a
+frontend-only hostname migration.
+Do not redirect or remove those routes while installed clients still use them.
+Explicit CLI endpoints and stored grants are not silently migrated: API-host
+login creates an API grant, and a Chat grant cannot authorize an API resource.
+
+Roll out the Worker and API inventory first, verify guest/wallet login, MCP
+PKCE, device login and refresh through the public API host, then publish the
+client defaults. Configure wallet-provider allowed origins for the API host
+before real-provider acceptance. RC activation also needs its direct OIDC
+Agent REST acceptance path separated from the OAuth gateway; keep it off until
+that contract is tested. Staging and production use their own API origins,
+databases and signing configuration.

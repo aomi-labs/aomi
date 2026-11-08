@@ -43,7 +43,12 @@ export interface EdgeEnv {
   /** PKCS#8 PEM of the `aomi-edge` signing key (secret, pushed by deploy). */
   EDGE_SERVICE_PRIVATE_KEY?: string;
 
-  // Account surface (sign-in, OAuth server, account graph) on the portal hosts.
+  /** Stable public origin for CLI, SDK and MCP auth/resources, independent of Chat hosts. */
+  HEADLESS_API_ORIGIN?: string;
+  /** Stable deployment alias for interactive headless sign-in pages; never a public Chat host. */
+  HEADLESS_AUTH_UPSTREAM_ORIGIN?: string;
+
+  // Account surface (sign-in, OAuth server, account graph) on the portal and API hosts.
   /** Hyperdrive in front of the environment's Postgres; one pool per request. */
   HYPERDRIVE?: { connectionString: string };
   /** Better Auth's session and cookie signing secret (secret, pushed by deploy, 32+ characters). */

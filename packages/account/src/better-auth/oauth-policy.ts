@@ -11,7 +11,7 @@ import {
   type ResourceKind,
   type ResourcePolicy,
 } from "../policy";
-import { readAccountAuthEnv } from "./env";
+import { accountAuthEnv, readAccountAuthEnv } from "./env";
 
 export {
   ACCOUNT_SCOPES,
@@ -68,13 +68,13 @@ export type AomiOAuthResourceKind = ResourceKind;
 export type AomiOAuthResourcePolicy = ResourcePolicy;
 
 export function aomiOAuthResources(
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ) {
   return resourcesFor(new URL(readAccountAuthEnv(env).betterAuthUrl).origin);
 }
 
 export function aomiOAuthResourcePolicies(
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): readonly AomiOAuthResourcePolicy[] {
   return resourcePolicies(aomiOAuthResources(env), MCP_DPOP_REQUIRED);
 }
@@ -82,7 +82,7 @@ export function aomiOAuthResourcePolicies(
 /** The fixed resources, and every app-locked MCP path (`/v1/apps/<app>/mcp`). */
 export function aomiOAuthResourcePolicy(
   resource: string,
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): AomiOAuthResourcePolicy | null {
   return resourcePolicy(aomiOAuthResources(env), MCP_DPOP_REQUIRED, resource);
 }
@@ -93,7 +93,7 @@ export function aomiOAuthResourcePolicy(
  */
 export function acceptsAomiApiToken(
   resource: string,
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): boolean {
   const policy = aomiOAuthResourcePolicy(resource, env);
   return policy !== null && acceptsApiToken(policy);
@@ -102,7 +102,7 @@ export function acceptsAomiApiToken(
 /** The MCP resource locked to one app: the agent MCP with that app forced. */
 export function appMcpResource(
   name: string,
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): string {
   return appMcpResourceOn(aomiOAuthResources(env), name);
 }
@@ -110,7 +110,7 @@ export function appMcpResource(
 /** The app an app-locked MCP resource names; undefined for any other resource. */
 export function appMcpName(
   resource: string,
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): string | undefined {
   return appMcpNameOn(aomiOAuthResources(env), resource);
 }
@@ -118,7 +118,7 @@ export function appMcpName(
 export function guestScopesForAomiResource(
   resource: string,
   requestedScopes: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): string[] {
   const policy = aomiOAuthResourcePolicy(resource, env);
   if (!policy) return [];
@@ -141,7 +141,7 @@ export function guestScopesForAomiResource(
 export function narrowScopesForAomiResource(
   resource: string,
   requestedScopes: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ): string[] {
   const policy = aomiOAuthResourcePolicy(resource, env);
   if (!policy) return [];
@@ -152,7 +152,7 @@ export function narrowScopesForAomiResource(
 export function validateAomiResourceScopes(
   resource: string,
   requestedScopes: readonly string[],
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = accountAuthEnv(),
 ):
   | { ok: true; policy: AomiOAuthResourcePolicy }
   | {
