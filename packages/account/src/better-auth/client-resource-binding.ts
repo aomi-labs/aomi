@@ -37,7 +37,7 @@ const DEVICE_CODE_GRANTS = new Set([
 ]);
 
 /**
- * Bind public clients to admitted resources, transactionally.
+ * Bind public and metadata-document clients to admitted resources, transactionally.
  *
  * RFC 7591 does not define registration-time `resources`, and Codex omits that
  * extension. The first authorize request is therefore the earliest request
@@ -75,11 +75,19 @@ export async function bindAomiPublicClientResource(input: {
       return "client_not_found";
     }
     const grants = stringArray(row.grant_types);
-    if (
-      row.token_endpoint_auth_method !== "none" ||
-      (!exactSet(grants, AUTHORIZATION_CODE_GRANTS) &&
-        !exactSet(grants, DEVICE_CODE_GRANTS))
-    ) {
+    const metadataClient = row.client_discovery_id === "cimd";
+    const publicClient =
+      row.token_endpoint_auth_method === "none" &&
+      (exactSet(grants, AUTHORIZATION_CODE_GRANTS) ||
+        exactSet(grants, DEVICE_CODE_GRANTS));
+    // ChatGPT authenticates with its metadata document's signing keys. The
+    // OAuth provider verifies that assertion at the token endpoint; it still
+    // needs the same exact MCP resource link before authorization can start.
+    const metadataAssertionClient =
+      metadataClient &&
+      row.token_endpoint_auth_method === "private_key_jwt" &&
+      exactSet(grants, AUTHORIZATION_CODE_GRANTS);
+    if (!publicClient && !metadataAssertionClient) {
       await client.query("rollback");
       return "client_not_eligible";
     }
@@ -87,7 +95,6 @@ export async function bindAomiPublicClientResource(input: {
     // A metadata document identifies one client across resource servers. Bind
     // each grant's audience exactly, without pinning that client's identity to
     // the first MCP it used. DCR and managed-widget clients keep their policy.
-    const metadataClient = row.client_discovery_id === "cimd";
     if (
       metadataClient &&
       (!input.resource.endsWith("/mcp") ||

@@ -71,41 +71,73 @@ const agent = "https://portal.example/v1/agent/mcp";
 const pipeline = "https://portal.example/v1/pipeline/mcp";
 
 describe("public OAuth client resource binding", () => {
-  it("links a CIMD identity to both known MCP resources idempotently", async () => {
-    const db = new BindingDatabase();
-    db.clients.set("metadata", {
-      authMethod: "none",
-      grants: ["authorization_code", "refresh_token"],
-      discoveryId: "cimd",
-    });
-    const resources = aomiOAuthResources();
-    for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+  it.each(["none", "private_key_jwt"])(
+    "links a %s CIMD identity to both known MCP resources idempotently",
+    async (authMethod) => {
+      const db = new BindingDatabase();
+      db.clients.set("metadata", {
+        authMethod,
+        grants: ["authorization_code", "refresh_token"],
+        discoveryId: "cimd",
+      });
+      const resources = aomiOAuthResources();
+      for (const resource of [resources.agentMcp, resources.pipelineMcp]) {
+        await expect(
+          bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
+        ).resolves.toBe("bound");
+        await expect(
+          bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
+        ).resolves.toBe("already_bound");
+      }
       await expect(
-        bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
-      ).resolves.toBe("bound");
+        bindAomiPublicClientResource({
+          clientId: "metadata",
+          resource: resources.agentRest,
+          db,
+        }),
+      ).resolves.toBe("resource_conflict");
       await expect(
-        bindAomiPublicClientResource({ clientId: "metadata", resource, db }),
-      ).resolves.toBe("already_bound");
-    }
-    await expect(
-      bindAomiPublicClientResource({
-        clientId: "metadata",
-        resource: resources.agentRest,
-        db,
-      }),
-    ).resolves.toBe("resource_conflict");
-    await expect(
-      bindAomiPublicClientResource({
-        clientId: "metadata",
-        resource: "https://foreign.example/v1/agent/mcp",
-        db,
-      }),
-    ).resolves.toBe("resource_conflict");
-    expect([...db.resources.get("metadata")!]).toEqual([
-      resources.agentMcp,
-      resources.pipelineMcp,
-    ]);
-  });
+        bindAomiPublicClientResource({
+          clientId: "metadata",
+          resource: "https://foreign.example/v1/agent/mcp",
+          db,
+        }),
+      ).resolves.toBe("resource_conflict");
+      expect([...db.resources.get("metadata")!]).toEqual([
+        resources.agentMcp,
+        resources.pipelineMcp,
+      ]);
+    },
+  );
+
+  it.each([
+    ["private_key_jwt", undefined, ["authorization_code", "refresh_token"]],
+    ["client_secret_basic", "cimd", ["authorization_code", "refresh_token"]],
+    [
+      "private_key_jwt",
+      "cimd",
+      ["authorization_code", "refresh_token", "client_credentials"],
+    ],
+    [
+      "private_key_jwt",
+      "cimd",
+      ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
+    ],
+  ])(
+    "does not auto-bind an ineligible %s client (%s, %j)",
+    async (authMethod, discoveryId, grants) => {
+      const db = new BindingDatabase();
+      db.clients.set("ineligible", { authMethod, discoveryId, grants });
+      await expect(
+        bindAomiPublicClientResource({
+          clientId: "ineligible",
+          resource: agent,
+          db,
+        }),
+      ).resolves.toBe("client_not_eligible");
+      expect(db.resources.size).toBe(0);
+    },
+  );
 
   it("atomically binds an unscoped public authorization-code client", async () => {
     const db = new BindingDatabase();
