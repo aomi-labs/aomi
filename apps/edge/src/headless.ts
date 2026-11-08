@@ -1,12 +1,15 @@
 import { decodeJwt } from "jose";
 import { ROUTES, resourcesFor } from "@aomi-labs/account/policy";
 import { isOAuthDiscovery } from "./auth/well-known";
-import { authEnvironment, authServer } from "./auth/server";
+import { authServer } from "./auth/server";
 import type { EdgeEnv } from "./env";
 import type { FetchLike, WaitLike } from "./kernel/proxy";
 import type { PortalContext } from "./portal/context";
 
-/** One independently configured issuer on the API host. Legacy portal issuers stay untouched. */
+// authServer caches per env object, so the API issuer's env must be stable.
+const issuerEnvs = new WeakMap<EdgeEnv, EdgeEnv>();
+
+/** The account surface on the API host, with its own issuer. Chat hosts keep portalContext. */
 export function headlessContext(
   request: Request,
   env: EdgeEnv,
@@ -14,25 +17,20 @@ export function headlessContext(
   wait: WaitLike,
 ): PortalContext | null {
   const url = new URL(request.url);
-  if (!env.HEADLESS_API_ORIGIN || url.origin !== env.HEADLESS_API_ORIGIN)
-    return null;
+  if (!env.HEADLESS_API_ORIGIN || url.origin !== env.HEADLESS_API_ORIGIN) return null;
   const path = url.pathname;
   const rows = ROUTES.filter((row) => row.path.test(path));
-  // Existing raw backend clients keep that verifier. Decoding only selects the
-  // already-public backend router; its signature/audience checks still authorize.
+  // Raw backend credentials keep the backend verifier, which still checks them.
   if (rows.length && rows.every((row) => row.to === "backend")) {
     const authorization = request.headers.get("authorization");
     if (!authorization && request.headers.has("aomi-app-key")) return null;
-    const match = /^Bearer ([^ ]+)$/i.exec(authorization ?? "");
-    if (match) {
-      try {
-        if (["aomi-edge", "aomi-build"].includes(decodeJwt(match[1]).iss ?? "")) return null;
-      } catch {
-        // An invalid explicit credential stays on the gateway and fails closed.
-      }
+    const bearer = /^Bearer ([^ ]+)$/i.exec(authorization ?? "")?.[1];
+    try {
+      if (bearer && ["aomi-edge", "aomi-build"].includes(decodeJwt(bearer).iss ?? "")) return null;
+    } catch {
+      // An invalid explicit credential stays on the gateway and fails closed.
     }
   }
-  // Venue discovery, Task payments, webhooks and Manager keep their existing API router.
   const owns =
     path === "/api/auth" ||
     path.startsWith("/api/auth/") ||
@@ -43,11 +41,15 @@ export function headlessContext(
     path === "/.well-known/api-catalog" ||
     path.startsWith("/api/public/catalog/");
   if (!owns) return null;
-  const authEnv = authEnvironment(env, url.origin);
+  let authEnv = issuerEnvs.get(env);
+  if (!authEnv) {
+    authEnv = { NODE_ENV: process.env.NODE_ENV, ...env, BETTER_AUTH_URL: url.origin } as EdgeEnv;
+    issuerEnvs.set(env, authEnv);
+  }
   return {
     env: authEnv,
     portalOrigin: url.origin,
-    // An absent UI upstream must not disable auth, tokens or MCP. Only page requests fail closed.
+    // Without a page upstream only the sign-in pages fail; tokens, discovery and MCP stay up.
     upstreamOrigin: env.HEADLESS_AUTH_UPSTREAM_ORIGIN ?? "",
     trustedOrigins: [url.origin],
     auth: () => authServer(authEnv),

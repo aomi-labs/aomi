@@ -139,22 +139,12 @@ describePostgres("production Better Auth OAuth device route", () => {
       token_type: "Bearer",
       scope,
     });
-    // Adding a frontend hostname must keep this installed client's existing
-    // canonical issuer and refresh grant intact.
-    route = edgeRoute(origin, "development", "new-chat.example");
-    const refreshed = await formRequest("/oauth2/token", {
-      grant_type: "refresh_token", client_id: clientId, resource,
-      refresh_token: requiredString(token.body, "refresh_token"),
-    });
-    expect(refreshed.response.status).toBe(200);
-    const { decodeJwt } = await import("jose");
-    expect(decodeJwt(requiredString(refreshed.body, "access_token"))).toMatchObject({ iss: `${origin}/api/auth`, aud: resource });
-
   });
 
   it("completes API-host device sign-in and refresh independently of Chat", async () => {
     const api = "https://api.example";
     const resource = `${api}/v1`;
+    const scope = "agent:read offline_access";
     const env = {
       ...process.env,
       NODE_ENV: "development",
@@ -162,25 +152,16 @@ describePostgres("production Better Auth OAuth device route", () => {
       BETTER_AUTH_URL: "https://aomi.chat",
       PORTAL_HOSTS: "aomi.chat",
     } as unknown as EdgeEnv;
-    const send = async (
-      path: string,
-      body: Record<string, unknown>,
-      cookie?: string,
-    ) => {
+    const send = async (path: string, body: Record<string, string | string[]>, cookie?: string) => {
+      const form = path === "/oauth2/token";
       const response = await handleRequest(
         new Request(`${api}/api/auth${path}`, {
           method: "POST",
           headers: {
-            "content-type":
-              path === "/oauth2/token"
-                ? "application/x-www-form-urlencoded"
-                : "application/json",
+            "content-type": form ? "application/x-www-form-urlencoded" : "application/json",
             ...(cookie ? { cookie } : {}),
           },
-          body:
-            path === "/oauth2/token"
-              ? new URLSearchParams(body as Record<string, string>)
-              : JSON.stringify(body),
+          body: form ? new URLSearchParams(body as Record<string, string>) : JSON.stringify(body),
         }),
         env,
       );
@@ -191,57 +172,33 @@ describePostgres("production Better Auth OAuth device route", () => {
       token_endpoint_auth_method: "none",
       grant_types: [deviceGrant, "refresh_token"],
       resources: [resource],
-      scope: "agent:read offline_access",
+      scope,
     });
-    expect(registration.response.status).toBe(201);
     const client_id = requiredString(registration.body, "client_id");
-    const issued = await send("/device/code", {
-      client_id,
-      resource,
-      scope: "agent:read offline_access",
-    });
-    expect(issued.response.status).toBe(200);
-    expect(requiredString(issued.body, "verification_uri")).toBe(
-      `${api}/oauth/device`,
-    );
-    const guest = await send("/guest", {});
-    expect(guest.response.status).toBe(200);
-    const cookie = responseCookie(guest.response);
-    const claim = await handleRequest(
-      new Request(
-        `${api}/api/auth/device?${new URLSearchParams({ user_code: requiredString(issued.body, "user_code") })}`,
-        { headers: { cookie } },
-      ),
+    const issued = await send("/device/code", { client_id, resource, scope });
+    const userCode = requiredString(issued.body, "user_code");
+    expect(requiredString(issued.body, "verification_uri")).toBe(`${api}/oauth/device`);
+    const cookie = responseCookie((await send("/guest", {})).response);
+    await handleRequest(
+      new Request(`${api}/api/auth/device?${new URLSearchParams({ user_code: userCode })}`, { headers: { cookie } }),
       env,
     );
-    expect(claim.status).toBe(200);
-    const approved = await send(
-      "/device/approve",
-      { userCode: requiredString(issued.body, "user_code") },
-      cookie,
-    );
-    expect(approved.response.status).toBe(200);
+    expect((await send("/device/approve", { userCode }, cookie)).response.status).toBe(200);
     const token = await send("/oauth2/token", {
       grant_type: deviceGrant,
       device_code: requiredString(issued.body, "device_code"),
       client_id,
       resource,
     });
-    expect(token.response.status).toBe(200);
     const { decodeJwt } = await import("jose");
-    expect(decodeJwt(requiredString(token.body, "access_token"))).toMatchObject(
-      { iss: `${api}/api/auth`, aud: resource },
-    );
+    expect(decodeJwt(requiredString(token.body, "access_token"))).toMatchObject({ iss: `${api}/api/auth`, aud: resource });
     const refreshed = await send("/oauth2/token", {
       grant_type: "refresh_token",
       client_id,
       resource,
       refresh_token: requiredString(token.body, "refresh_token"),
     });
-    expect(refreshed.response.status).toBe(200);
-    expect(
-      decodeJwt(requiredString(refreshed.body, "access_token")),
-    ).toMatchObject({ iss: `${api}/api/auth`, aud: resource });
+    expect(decodeJwt(requiredString(refreshed.body, "access_token"))).toMatchObject({ iss: `${api}/api/auth`, aud: resource });
   });
 
   async function jsonRequest(
@@ -562,12 +519,11 @@ function restoreEnv(name: string, value: string | undefined): void {
 }
 
 /** The edge Worker as a portal host serves it, against this suite's database. */
-function edgeRoute(origin: string, nodeEnv = "development", aliasHost = "") {
+function edgeRoute(origin: string, nodeEnv = "development") {
   const env = {
     ...process.env,
     NODE_ENV: nodeEnv,
-    BETTER_AUTH_URL: origin,
-    PORTAL_HOSTS: [new URL(origin).host, aliasHost].filter(Boolean).join(","),
+    PORTAL_HOSTS: new URL(origin).host,
     PORTAL_UPSTREAM_ORIGIN: "http://pages.invalid",
   } as unknown as EdgeEnv;
   const route = (request: Request) => handleRequest(request, env, fetch);

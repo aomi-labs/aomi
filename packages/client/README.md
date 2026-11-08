@@ -636,11 +636,3 @@ aomi whoami --private-key "$PRIVATE_KEY"                         # EVM, SIWE
 aomi whoami --solana-private-key "$SOLANA_KEY" --cluster devnet  # Solana, SIWS
 aomi pipeline build supply --app aave '{"asset":"USDC","amount":"100"}' --commit
 ```
-
-
-Headless API resources stay on `api.aomi.dev` when the Chat or Build domains change.
-Use `https://api.aomi.dev/v1/agent/mcp` for Agent MCP and
-`https://api.aomi.dev/v1/pipeline/mcp` for Pipeline MCP. OAuth discovery and
-token endpoints are served on the API host itself. Explicitly configured older
-Chat endpoints remain supported during migration; obtain a fresh grant when
-switching hosts, since OAuth audiences and issuers are not interchangeable.

@@ -28,10 +28,7 @@ type AccountAuthEnvInput = Record<string, string | undefined>;
 const requestEnv = new AsyncLocalStorage<AccountAuthEnvInput>();
 
 /** Account/OAuth policy follows this request's configured issuer, never a concurrent host. */
-export function withAccountAuthEnv<T>(
-  env: AccountAuthEnvInput,
-  run: () => T,
-): T {
+export function withAccountAuthEnv<T>(env: AccountAuthEnvInput, run: () => T): T {
   return requestEnv.run(env, run);
 }
 
@@ -110,7 +107,11 @@ function requiredAuthEnvValue(input: {
 }
 
 function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
-  return firstUrl(env.BETTER_AUTH_URL) ?? "http://localhost:3001";
+
+  return (
+    firstUrl(env.BETTER_AUTH_URL) ??
+    "http://localhost:3001"
+  );
 }
 
 function firstUrl(...values: Array<string | undefined>): string | undefined {

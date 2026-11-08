@@ -29,23 +29,20 @@ export async function handleRequest(
 ): Promise<Response> {
   const headless = headlessContext(request, env, fetchImpl, waitImpl);
   const portal = headless ?? portalContext(request, env, fetchImpl, waitImpl);
-  const serveAccount = () => withAccountAuthEnv(
-    portal!.env as unknown as Record<string, string | undefined>,
-    () => handlePortalRequest(request, portal!),
-  );
+  // The API host's issuer is request-scoped; Chat hosts keep the process configuration.
+  const serveAccount = () =>
+    headless
+      ? withAccountAuthEnv(headless.env as unknown as Record<string, string | undefined>, () => handlePortalRequest(request, headless))
+      : handlePortalRequest(request, portal!);
   // The account surface opens a pool over Hyperdrive on first use; it closes after the request.
   const database = env.HYPERDRIVE?.connectionString;
   if (portal && database)
-    return withSecurityHeaders(
-      await withDatabase(database, serveAccount, waitUntil),
-    );
+    return withSecurityHeaders(await withDatabase(database, serveAccount, waitUntil));
   const build = portal ? null : buildContext(request, env, fetchImpl);
   // A Build host without its upstream fails closed instead of falling to the public API.
   if (!portal && !build && isBuildHost(env, new URL(request.url).host)) {
     const error = new EdgeError(503, "build_unconfigured");
-    return withSecurityHeaders(
-      errorResponse(error, { surface: "build", operation: "context", request }),
-    );
+    return withSecurityHeaders(errorResponse(error, { surface: "build", operation: "context", request }));
   }
   const response = portal
     ? await serveAccount()

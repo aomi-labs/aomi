@@ -4,23 +4,6 @@ import type { BetterAuthSession } from "@aomi-labs/account/principal";
 import type { EdgeEnv } from "../env";
 import { assertAuthBindings } from "../kernel/config";
 
-const environments = new WeakMap<EdgeEnv, Map<string, EdgeEnv>>();
-
-/** Request configuration for an admitted account surface and its canonical issuer. */
-export function authEnvironment(env: EdgeEnv, origin: string): EdgeEnv {
-  let origins = environments.get(env);
-  if (!origins) {
-    origins = new Map();
-    environments.set(env, origins);
-  }
-  let scoped = origins.get(origin);
-  if (!scoped) {
-    scoped = { NODE_ENV: process.env.NODE_ENV, ...env, BETTER_AUTH_URL: origin } as EdgeEnv;
-    origins.set(origin, scoped);
-  }
-  return scoped;
-}
-
 const servers = new WeakMap<EdgeEnv, Auth>();
 
 /**

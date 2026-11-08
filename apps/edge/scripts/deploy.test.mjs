@@ -23,14 +23,10 @@ describe("edge deploy script", () => {
       EDGE_HYPERDRIVE_ID: "fixture",
     };
     expect(() => deployArgs(headless)).toThrow("HEADLESS_AUTH_UPSTREAM_ORIGIN");
-    expect(
-      deployArgs({
-        ...headless,
-        HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://auth-pages.example",
-      }),
-    ).toContain("HEADLESS_API_ORIGIN:https://api-staging.aomi.dev");
-    expect(() => deployArgs({ ...headless, PORTAL_HOSTS: "chat-staging.aomi.dev", HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://chat-staging.aomi.dev" })).toThrow("separate deployment alias");
-    expect(() => deployArgs({ ...headless, HEADLESS_API_ORIGIN: "https://api-staging.aomi.dev/path" })).toThrow("without a path");
+    const pages = { ...headless, HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://auth-pages.example" };
+    expect(deployArgs(pages)).toContain("HEADLESS_API_ORIGIN:https://api-staging.aomi.dev");
+    expect(() => deployArgs({ ...pages, HEADLESS_AUTH_UPSTREAM_ORIGIN: "https://api-staging.aomi.dev" })).toThrow("separate deployment alias");
+    expect(() => deployArgs({ ...pages, HEADLESS_API_ORIGIN: "https://api-staging.aomi.dev/path" })).toThrow("without a path");
   });
   it("passes provider settings to the deployed Worker", () => {
     const providers = {

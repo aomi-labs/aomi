@@ -103,9 +103,8 @@ export function deployArgs(env = process.env) {
     const api = new URL(vars.HEADLESS_API_ORIGIN);
     if (api.origin !== vars.HEADLESS_API_ORIGIN) throw new Error("HEADLESS_API_ORIGIN must be an origin without a path");
     for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL", "HEADLESS_AUTH_UPSTREAM_ORIGIN"]) required(key, env);
-    const pages = new URL(vars.HEADLESS_AUTH_UPSTREAM_ORIGIN);
-    const publicHosts = [api.host, ...(vars.PORTAL_HOSTS ?? "").split(",").map((host) => host.trim())];
-    if (pages.origin !== vars.HEADLESS_AUTH_UPSTREAM_ORIGIN || publicHosts.includes(pages.host))
+    const pages = new URL(vars.HEADLESS_AUTH_UPSTREAM_ORIGIN).host;
+    if ([api.host, ...(vars.PORTAL_HOSTS ?? "").split(",")].map((host) => host.trim()).includes(pages))
       throw new Error("HEADLESS_AUTH_UPSTREAM_ORIGIN must be a separate deployment alias, not a public account host");
   }
   if (vars.PORTAL_HOSTS) for (const key of ["EDGE_HYPERDRIVE_ID", "BETTER_AUTH_URL"]) required(key, env);
