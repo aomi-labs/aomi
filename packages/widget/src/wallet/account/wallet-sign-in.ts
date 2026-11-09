@@ -30,6 +30,8 @@ export type ActiveSvmSigner = {
   external: boolean;
   walletName?: string;
   signMessage?: SvmWalletRuntime["execution"]["signSolanaMessage"];
+  /** The wallet refused `cluster` and signed on this one: it is the wallet's network. */
+  adoptCluster?: (cluster: SvmCluster) => void;
 };
 
 /**
@@ -85,7 +87,7 @@ export async function linkAccountWallet(
       return signMessageWithActiveSvm(signMessage, message, chainId);
     };
     if (!signedIn) {
-      await onWalletCluster(svm.cluster, live, (chainId) =>
+      await onWalletCluster(svm, live, (chainId) =>
         signInWithSvmWallet({
           accountClient,
           address: wallet.address,
@@ -97,7 +99,7 @@ export async function linkAccountWallet(
       );
       return;
     }
-    return onWalletCluster(svm.cluster, live, async (chainId) => {
+    return onWalletCluster(svm, live, async (chainId) => {
       const nonceResult = await accountClient.getWalletLinkNonce({
         address: wallet.address,
         chainId,
@@ -232,10 +234,10 @@ class WalletClusterMismatchError extends Error {}
  * Phantom refuses a SIWS message whose Chain ID isn't its own network, and no
  * wallet API exposes that network. On that refusal only, and while the caller
  * is still live, try the next cluster; each attempt binds a fresh nonce to its
- * own Chain ID.
+ * own Chain ID. The cluster that signs after a refusal is the wallet's network.
  */
 async function onWalletCluster<T>(
-  preferred: SvmCluster,
+  { cluster: preferred, adoptCluster }: ActiveSvmSigner,
   live: () => boolean,
   attempt: (cluster: SvmCluster) => Promise<T>,
 ): Promise<T> {
@@ -246,7 +248,10 @@ async function onWalletCluster<T>(
   ]) {
     if (mismatch && !live()) break;
     try {
-      return await attempt(cluster);
+      const result = await attempt(cluster);
+      // A flow the user has left must not move the network under the next one.
+      if (mismatch && live()) adoptCluster?.(cluster);
+      return result;
     } catch (error) {
       if (!(error instanceof WalletClusterMismatchError)) throw error;
       mismatch = error;

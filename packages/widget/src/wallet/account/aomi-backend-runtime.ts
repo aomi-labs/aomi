@@ -352,6 +352,13 @@ export function useAomiBackendAccountRuntime(input: {
             external: activeSvmIsExternal,
             walletName: activeSvmWalletName,
             signMessage: signSolanaMessage,
+            // Run Solana actions on the network the wallet signed in on.
+            adoptCluster: (cluster) => {
+              const network = input.svm?.supportedNetworks.find(
+                (candidate) => candidate.cluster === cluster,
+              );
+              if (network) input.svm?.selectAppNetwork?.(network.id);
+            },
           },
           messageConfig: authMessageConfig,
         },

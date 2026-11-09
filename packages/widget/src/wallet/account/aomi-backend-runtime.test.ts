@@ -1238,6 +1238,13 @@ describe("Solana sign-in with the wallet on another cluster", () => {
   const mismatch = new Error(
     "The app's signature request cannot be shown as the chain ID does not match the provided chain ID for verification.",
   );
+  const selectAppNetwork = vi.fn();
+  const network = (cluster: string) => ({
+    id: cluster.replace(":", "-"),
+    label: cluster,
+    cluster,
+    rpcHttpUrl: "https://rpc.invalid",
+  });
 
   async function linkPhantom(
     sign: ReturnType<typeof vi.fn>,
@@ -1264,12 +1271,13 @@ describe("Solana sign-in with the wallet on another cluster", () => {
             walletSource: "injected",
             transport: "extension",
           }),
-          selectedNetwork: {
-            id: "solana-mainnet",
-            label: "Solana",
-            cluster: "solana:mainnet",
-            rpcHttpUrl: "https://api.mainnet-beta.solana.com",
-          },
+          selectedNetwork: network("solana:mainnet"),
+          supportedNetworks: [
+            "solana:mainnet",
+            "solana:devnet",
+            "solana:testnet",
+          ].map(network),
+          selectAppNetwork,
           execution: { signSolanaMessage: sign },
           accounts: () => [],
         } as never,
@@ -1296,6 +1304,7 @@ describe("Solana sign-in with the wallet on another cluster", () => {
     );
 
   beforeEach(() => {
+    selectAppNetwork.mockReset();
     let issued = 0;
     const nonce = async () => ({
       nonce: `nonce-${++issued}`,
@@ -1331,6 +1340,29 @@ describe("Solana sign-in with the wallet on another cluster", () => {
         signature: "c2ln",
       }),
     );
+    expect(selectAppNetwork.mock.calls).toEqual([["solana-devnet"]]);
+  });
+
+  it("keeps the network when the user leaves before the fallback signs", async () => {
+    let open = true;
+    const sign = vi
+      .fn()
+      .mockRejectedValueOnce(mismatch)
+      .mockImplementation(async () => {
+        open = false;
+        return { signature: "c2ln" };
+      });
+
+    await linkPhantom(sign, () => open);
+
+    expect(chainIds(sign)).toEqual(["solana:mainnet", "solana:devnet"]);
+    expect(selectAppNetwork).not.toHaveBeenCalled();
+  });
+
+  it("keeps the network when the wallet signs on it", async () => {
+    await linkPhantom(vi.fn().mockResolvedValue({ signature: "c2ln" }));
+
+    expect(selectAppNetwork).not.toHaveBeenCalled();
   });
 
   it("links on Devnet with a fresh link nonce after Phantom refuses Mainnet", async () => {
@@ -1361,6 +1393,7 @@ describe("Solana sign-in with the wallet on another cluster", () => {
         signature: "bGluaw==",
       }),
     );
+    expect(selectAppNetwork.mock.calls).toEqual([["solana-devnet"]]);
   });
 
   it("stops after every cluster refuses", async () => {
@@ -1374,6 +1407,7 @@ describe("Solana sign-in with the wallet on another cluster", () => {
       "solana:testnet",
     ]);
     expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
+    expect(selectAppNetwork).not.toHaveBeenCalled();
   });
 
   it.each([

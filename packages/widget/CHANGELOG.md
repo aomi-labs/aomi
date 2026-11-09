@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.8
+
+### Patch Changes
+
+- Run Solana actions on the network Phantom signed in on. When Phantom refuses the selected Solana network at sign-in and signs on another, Aomi switches to that network, so Devnet or Testnet Phantom gets Devnet or Testnet transactions instead of Mainnet ones. No new UI.
+
 ## 5.1.7
 
 ### Patch Changes
