@@ -249,7 +249,8 @@ async function onWalletCluster<T>(
     if (mismatch && !live()) break;
     try {
       const result = await attempt(cluster);
-      if (mismatch) adoptCluster?.(cluster);
+      // A flow the user has left must not move the network under the next one.
+      if (mismatch && live()) adoptCluster?.(cluster);
       return result;
     } catch (error) {
       if (!(error instanceof WalletClusterMismatchError)) throw error;

@@ -1343,6 +1343,22 @@ describe("Solana sign-in with the wallet on another cluster", () => {
     expect(selectAppNetwork.mock.calls).toEqual([["solana-devnet"]]);
   });
 
+  it("keeps the network when the user leaves before the fallback signs", async () => {
+    let open = true;
+    const sign = vi
+      .fn()
+      .mockRejectedValueOnce(mismatch)
+      .mockImplementation(async () => {
+        open = false;
+        return { signature: "c2ln" };
+      });
+
+    await linkPhantom(sign, () => open);
+
+    expect(chainIds(sign)).toEqual(["solana:mainnet", "solana:devnet"]);
+    expect(selectAppNetwork).not.toHaveBeenCalled();
+  });
+
   it("keeps the network when the wallet signs on it", async () => {
     await linkPhantom(vi.fn().mockResolvedValue({ signature: "c2ln" }));
 
