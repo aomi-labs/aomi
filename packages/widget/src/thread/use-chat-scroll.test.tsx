@@ -20,12 +20,27 @@ beforeEach(() => {
   vi.useFakeTimers();
   height = 2000;
   resizes.clear();
-  for (const property of ["scrollHeight", "clientHeight", "scrollTo"])
+  for (const property of [
+    "scrollHeight",
+    "clientHeight",
+    "scrollTo",
+    "scrollTop",
+  ])
     descriptors.set(
       property,
       Object.getOwnPropertyDescriptor(HTMLElement.prototype, property),
     );
+  const offsets = new WeakMap<HTMLElement, number>();
   Object.defineProperties(HTMLElement.prototype, {
+    scrollTop: {
+      configurable: true,
+      get() {
+        return offsets.get(this) ?? 0;
+      },
+      set(value: number) {
+        offsets.set(this, Math.max(0, Math.min(value, height - 300)));
+      },
+    },
     scrollHeight: {
       configurable: true,
       get() {
@@ -146,6 +161,20 @@ describe("saved scroll with the native assistant viewport", () => {
     height = 2500;
     resize();
     expect(viewport().scrollTop).toBe(100);
+  });
+
+  it("restores after the transcript gains its initial layout", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 100, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    const node = view.getByTestId("viewport");
+    // The browser clamps the early write while native runtime messages mount.
+    expect(node.scrollTop).toBe(0);
+    height = 2000;
+    resize();
+    await frames();
+    expect(node.scrollTop).toBe(100);
   });
 
   it("keeps saved bottom-follow and freshly admitted live run scrolling", async () => {

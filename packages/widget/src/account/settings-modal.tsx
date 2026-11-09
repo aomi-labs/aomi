@@ -168,6 +168,13 @@ export function SettingsModal({
   const [tab, setTab] = useState<SettingsTab>(
     accountOnly ? "account" : initialTab,
   );
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [onClose]);
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
   const [visited, setVisited] = useState<SettingsTab[]>([

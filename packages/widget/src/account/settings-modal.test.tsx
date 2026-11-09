@@ -62,6 +62,13 @@ describe("SettingsModal directory shell", () => {
     session.status = "ready";
   });
 
+  it("closes on Escape", () => {
+    const onClose = vi.fn();
+    render(<SettingsModal onClose={onClose} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it("waits for sign-in before showing the requested credit top-up", () => {
     session.status = "anonymous";
     const view = render(

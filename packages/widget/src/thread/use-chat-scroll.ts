@@ -18,7 +18,13 @@ export function useChatScroll(loading: boolean) {
     const node = viewport.current;
     if (node && savedScroll.current && !savedScroll.current.atBottom)
       node.scrollTop = savedScroll.current.top;
-    const frame = requestAnimationFrame(() => setRestoring(false));
+    const frame = requestAnimationFrame(() => {
+      // Native runtime messages may mount after our first layout. Restore
+      // against their measured height, after the browser can accept the offset.
+      if (node && savedScroll.current && !savedScroll.current.atBottom)
+        node.scrollTop = savedScroll.current.top;
+      setRestoring(false);
+    });
     return () => cancelAnimationFrame(frame);
   }, [loading]);
   useLayoutEffect(() => {
