@@ -324,6 +324,12 @@ describe("ClientSession Stop terminal races", () => {
   it.each([
     new TypeError("Network response unavailable"),
     new AgentApiError(
+      429,
+      "request_in_flight",
+      "Network response unavailable",
+      true,
+    ),
+    new AgentApiError(
       503,
       "upstream_unavailable",
       "Network response unavailable",

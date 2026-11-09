@@ -47,6 +47,12 @@ describe("send failure notices", () => {
     ],
     [apiError(409, "execution_conflict"), false, "Account busy", undefined],
     [new Error("socket closed"), true, "Unable to confirm message", undefined],
+    [
+      apiError(429, "request_in_flight"),
+      true,
+      "Unable to confirm message",
+      undefined,
+    ],
     [apiError(400, "invalid_request"), false, "Message not sent", undefined],
   ] as const)(
     "names %s (start uncertain: %s) as %s",

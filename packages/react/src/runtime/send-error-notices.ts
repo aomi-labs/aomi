@@ -84,7 +84,7 @@ export function describeSendFailure(
       },
     };
   }
-  if (status === 429)
+  if (status === 429 && !isAomiError(error, "request_in_flight"))
     return {
       notice: {
         type: "error",
