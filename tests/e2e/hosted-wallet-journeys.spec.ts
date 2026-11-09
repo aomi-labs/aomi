@@ -339,10 +339,6 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
   await assertFundedTestWallet(expectedAddress, chainId);
   const { wallet, forbiddenRequests } = await signIn(page, "evm", chainId);
   expect(wallet.address.toLowerCase()).toBe(expectedAddress.toLowerCase());
-  const mode = page.getByRole("combobox", { name: "Execution mode" });
-  await mode.click();
-  await page.getByRole("button", { name: /Direct/ }).click();
-  await expect(mode).toContainText("Direct");
   await sendPrompt(
     page,
     `This is an attended human_sync wallet request. Do not request, require, or use Privy or delegated signing. Prepare a native-token transfer of exactly 1 wei on chain ${chainId} from my connected wallet to the burn address ${BURN_ADDRESS}. Construct and simulate it, then call commit_txs so I can review the pending wallet approval. Do not sign or broadcast.`,

@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.6
+
+### Patch Changes
+
+- Restore saved transcript position after initial message layout and close Settings with Escape.
+
 ## 5.1.5
 
 ### Patch Changes
