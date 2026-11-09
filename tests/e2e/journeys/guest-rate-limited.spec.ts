@@ -27,6 +27,17 @@ test("a rate-limited send ends the pending state and keeps its draft and refusal
   await expect(
     page.getByText(/Your message was not sent because of rate limiting/),
   ).toBeVisible();
+  await widget.send.click();
+  await expect(widget.input).toHaveText("send limited draft");
+  await expect(
+    page.getByText("Too many requests", { exact: true }),
+  ).toHaveCount(1);
+  await page.unroute("**/v1/agent/chat");
+  await widget.send.click();
+  await expect(widget.replies).toContainText("Fake reply: send limited draft");
+  await expect(
+    page.getByText("Too many requests", { exact: true }),
+  ).toHaveCount(0);
 });
 
 test("a rate-limited guest sign-in shows why the message was not sent and keeps the draft", async ({

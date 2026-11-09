@@ -11,7 +11,7 @@ describe("send failure notices", () => {
       describeSendFailure(apiError(429, "rate_limited"), false).notice,
     ).toMatchObject({
       title: "Too many requests",
-      message: expect.stringMatching(/not sent.*draft is saved/),
+      message: expect.stringMatching(/not sent.*rate limiting/),
       duration: Infinity,
     });
   });
@@ -47,6 +47,12 @@ describe("send failure notices", () => {
     ],
     [apiError(409, "execution_conflict"), false, "Account busy", undefined],
     [new Error("socket closed"), true, "Unable to confirm message", undefined],
+    [
+      new Error("fetch adapter HTTP 429"),
+      true,
+      "Unable to confirm message",
+      undefined,
+    ],
     [
       apiError(429, "request_in_flight"),
       true,

@@ -239,19 +239,40 @@ describe("saved scroll with the native assistant viewport", () => {
     expect(view.getByTestId("viewport").scrollTop).toBe(500);
   });
 
-  it("lets the reader take over while a partial transcript is restoring", async () => {
+  it.each(["wheel", "keyboard"])(
+    "lets %s take over while a partial transcript is restoring",
+    async (input) => {
+      height = 600;
+      const store = createChatViewStore();
+      store.patch("a", { scroll: { top: 1000, atBottom: false } });
+      const view = render(<Fixture store={store} />);
+      const node = view.getByTestId("viewport");
+      await frames();
+      if (input === "wheel") fireEvent.wheel(node);
+      else fireEvent.keyDown(node, { key: "PageUp" });
+      node.scrollTop = 100;
+      fireEvent.scroll(node);
+      height = 2000;
+      resize();
+      await frames();
+      expect(node.scrollTop).toBe(100);
+    },
+  );
+
+  it("finishes an unreachable offset after layout settles", async () => {
     height = 600;
     const store = createChatViewStore();
     store.patch("a", { scroll: { top: 1000, atBottom: false } });
     const view = render(<Fixture store={store} />);
-    const node = view.getByTestId("viewport");
     await frames();
-    fireEvent.wheel(node);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+    const node = view.getByTestId("viewport");
     node.scrollTop = 100;
     fireEvent.scroll(node);
     height = 2000;
     resize();
-    await frames();
     expect(node.scrollTop).toBe(100);
   });
 });
