@@ -19,7 +19,10 @@ const location = (value) => {
 export const normalizeBundleLabels = (code) => code
   .replace(/^\/\/ (.+\.(?:[cm]?js|tsx?|json))$/gm, (_, value) => "// " + location(value))
   .replace(/^(  ")([^"\n]+\.(?:[cm]?js|tsx?|json))("\([^\n]*\) \{)$/gm,
-    (_, start, value, end) => start + location(value) + end);
+    (_, start, value, end) => start + location(value) + end)
+  // Ajv's generated JS retains a TypeScript-only lint directive. The repository
+  // does not register that rule for .mjs; remove only this exact Ajv comment.
+  .replace(/^([ \t]*)\/\/ eslint-disable-next-line @typescript-eslint\/unbound-method\r?\n(?=\1ref: Object\.prototype\.hasOwnProperty,)/gm, "");
 const outputs = new Map();
 const clientSource = await readFile(resolve(here, "src/browser-task-client.ts"), "utf8");
 const originalLines = clientSource.split("\n");
@@ -42,6 +45,8 @@ for (const [entry, output] of [
 ]) {
   const result = await build({ absWorkingDir: here, entryPoints: [entry], bundle: true,
     platform: "browser", format: "esm", target: "es2022", write: false,
+    // Keep the validated standalone semantics independent of Portal tsconfig.
+    tsconfigRaw: { compilerOptions: { useDefineForClassFields: true } },
     metafile: true, legalComments: "eof", logLevel: "silent",
     plugins: [{ name: "current-browser-client", setup(build) {
       build.onLoad({ filter: /browser-task-client\.mjs$/ }, () => ({ contents: client, loader: "js" }));

@@ -2520,7 +2520,6 @@ var require_code2 = __commonJS({
     exports.reportMissingProp = reportMissingProp;
     function hasPropFunc(gen2) {
       return gen2.scopeValue("func", {
-        // eslint-disable-next-line @typescript-eslint/unbound-method
         ref: Object.prototype.hasOwnProperty,
         code: (0, codegen_1._)`Object.prototype.hasOwnProperty`
       });
