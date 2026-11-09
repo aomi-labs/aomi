@@ -142,7 +142,7 @@ export async function signParaTransaction(
         // Para decodes a complete transaction envelope before hashing/signing it.
         // Match its official viem adapter's empty signature placeholders.
         rlpEncodedTxBase64: hexToBase64(
-          serializeTransaction(transaction, { r: "0x", s: "0x", v: 0n }),
+          serializeTransaction(transaction, { r: "0x", s: "0x", v: BigInt(0) }),
         ),
         chainId: String(payload.chain_id),
         timeoutMs,
