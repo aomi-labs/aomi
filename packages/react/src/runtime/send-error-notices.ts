@@ -38,6 +38,7 @@ const APP_ACCESS_NOTICES: Record<
 
 export type SendFailure = {
   notice: NotificationData;
+  rateLimited?: boolean;
   /** The chat is gone for this user; stop reopening it on load. */
   forgetThread?: boolean;
 };
@@ -74,6 +75,7 @@ export function describeSendFailure(
           ? `in ${Math.max(1, seconds)} seconds`
           : `in about ${Math.ceil(seconds / 60)} minutes`;
     return {
+      rateLimited: true,
       notice: {
         type: "error",
         title: "Too many requests",
@@ -84,6 +86,17 @@ export function describeSendFailure(
       },
     };
   }
+  if (status === 429 && !startUncertain)
+    return {
+      rateLimited: true,
+      notice: {
+        type: "error",
+        title: "Too many requests",
+        message:
+          "Your message was not sent because of rate limiting. Try again shortly.",
+        duration: Infinity,
+      },
+    };
   // Only the user's own credit exhaustion opens the payment modal, whose
   // copy is its own; `kind` routes it. A code-less 402 is the same refusal
   // from an older server.

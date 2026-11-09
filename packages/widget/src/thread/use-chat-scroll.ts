@@ -18,16 +18,40 @@ export function useChatScroll(loading: boolean) {
   useLayoutEffect(() => {
     if (!restoring || loading || (restoreReader && messageCount === 0)) return;
     const node = viewport.current;
-    if (node && savedScroll.current && !savedScroll.current.atBottom)
-      node.scrollTop = savedScroll.current.top;
+    let settled: ReturnType<typeof setTimeout>;
+    const restore = () => {
+      if (node && savedScroll.current && !savedScroll.current.atBottom) {
+        node.scrollTop = savedScroll.current.top;
+        // A nonempty native transcript can still have only its first rows.
+        // Keep observing its layout until the browser can accept the offset.
+        if (Math.abs(node.scrollTop - savedScroll.current.top) > 1) return;
+      }
+      setRestoring(false);
+    };
+    if (node && restoreReader) node.scrollTop = savedScroll.current!.top;
+    const observer = new ResizeObserver(() => {
+      restore();
+      clearTimeout(settled);
+      // A changed conversation may genuinely be shorter. Stop retrying once
+      // layout has stayed still, leaving the browser's valid clamped offset.
+      settled = setTimeout(() => setRestoring(false), 1000);
+    });
+    if (node) {
+      observer.observe(node);
+      for (const child of node.children) observer.observe(child);
+    }
     const frame = requestAnimationFrame(() => {
       // Native runtime messages may mount after our first layout. Restore
       // against their measured height, after the browser can accept the offset.
-      if (node && savedScroll.current && !savedScroll.current.atBottom)
-        node.scrollTop = savedScroll.current.top;
-      setRestoring(false);
+      restore();
+      clearTimeout(settled);
+      settled = setTimeout(() => setRestoring(false), 1000);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      clearTimeout(settled);
+    };
   }, [loading, messageCount, restoreReader, restoring]);
   useLayoutEffect(() => {
     const version = view?.store.version();
@@ -52,6 +76,9 @@ export function useChatScroll(loading: boolean) {
       // They must not replace an existing reader's restored position.
       scrollToBottomOnInitialize: !restoreReader,
       scrollToBottomOnThreadSwitch: !restoreReader,
+      onWheel: () => setRestoring(false),
+      onPointerDown: () => setRestoring(false),
+      onKeyDown: () => setRestoring(false),
       onScroll: (event: UIEvent<HTMLDivElement>) => {
         const node = event.currentTarget;
         setFollowing(
