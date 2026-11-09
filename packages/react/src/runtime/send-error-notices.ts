@@ -84,6 +84,16 @@ export function describeSendFailure(
       },
     };
   }
+  if (status === 429)
+    return {
+      notice: {
+        type: "error",
+        title: "Too many requests",
+        message:
+          "Your message was not sent because of rate limiting. Your draft is saved; try again shortly.",
+        duration: Infinity,
+      },
+    };
   // Only the user's own credit exhaustion opens the payment modal, whose
   // copy is its own; `kind` routes it. A code-less 402 is the same refusal
   // from an older server.

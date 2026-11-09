@@ -6,6 +6,15 @@ const apiError = (status: number, code: string) =>
   new AgentApiError(status, code, `${code} from server`, false);
 
 describe("send failure notices", () => {
+  it("keeps a send rate-limit refusal visible without suggesting acceptance", () => {
+    expect(
+      describeSendFailure(apiError(429, "rate_limited"), false).notice,
+    ).toMatchObject({
+      title: "Too many requests",
+      message: expect.stringMatching(/not sent.*draft is saved/),
+      duration: Infinity,
+    });
+  });
   it.each([
     [404, "app_not_found", "App not found", /doesn't exist/],
     [409, "app_inactive", "App not active", /isn't active yet/],

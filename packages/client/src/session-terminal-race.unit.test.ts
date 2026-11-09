@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AgentApiError,
+  AomiApiError,
   AomiClient,
   GuestSignInError,
   Session,
@@ -94,6 +95,25 @@ function setup() {
 afterEach(() => vi.useRealTimers());
 
 describe("ClientSession Stop terminal races", () => {
+  it.each([
+    new AgentApiError(429, "rate_limited", "Too many requests", true),
+    new AomiApiError(429, "request_failed", "Too many requests", true),
+  ])(
+    "ends a rate-limited start without requiring Stop: %s",
+    async (failure) => {
+      const { session, start, interrupt } = setup();
+      start.mockRejectedValueOnce(failure);
+      await expect(session.sendAsync("Explain")).rejects.toBe(failure);
+      expect(session.getSnapshot()).toMatchObject({
+        isSubmitting: false,
+        isStartUncertain: false,
+      });
+      expect(session.getSnapshot().messages).toEqual([]);
+      await expect(session.interrupt()).resolves.toBeUndefined();
+      expect(interrupt).not.toHaveBeenCalled();
+      session.close();
+    },
+  );
   it("preserves completion when the stream finishes before the Stop response", async () => {
     vi.useFakeTimers();
     const { session, interrupt, streams } = setup();

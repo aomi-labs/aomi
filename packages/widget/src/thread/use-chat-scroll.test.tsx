@@ -213,4 +213,45 @@ describe("saved scroll with the native assistant viewport", () => {
     await frames();
     expect(viewport.scrollTop).toBe(2200);
   });
+
+  it("restores bottom after cached native messages arrive late", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 1700, atBottom: true } });
+    const view = render(<Fixture store={store} ready={false} />);
+    await frames();
+    height = 2000;
+    view.rerender(<Fixture store={store} ready />);
+    resize();
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(1700);
+  });
+
+  it("waits for a partial transcript to grow enough to restore the reader", async () => {
+    height = 300;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 500, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    await frames();
+    height = 2000;
+    resize();
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(500);
+  });
+
+  it("lets the reader take over while a partial transcript is restoring", async () => {
+    height = 600;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 1000, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    const node = view.getByTestId("viewport");
+    await frames();
+    fireEvent.wheel(node);
+    node.scrollTop = 100;
+    fireEvent.scroll(node);
+    height = 2000;
+    resize();
+    await frames();
+    expect(node.scrollTop).toBe(100);
+  });
 });
