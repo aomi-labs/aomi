@@ -2,10 +2,12 @@
 
 import { useLayoutEffect, useRef, useState, type UIEvent } from "react";
 import { useChatView } from "@aomi-labs/react";
+import { useThread } from "@assistant-ui/react";
 
 /** Saved reader position owns initialization; native live/bottom following remains active. */
 export function useChatScroll(loading: boolean) {
   const view = useChatView();
+  const messageCount = useThread((thread) => thread.messages.length);
   const viewport = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(view?.store.get(view.threadId)?.scroll);
   const [restoring, setRestoring] = useState(true);
@@ -14,7 +16,7 @@ export function useChatScroll(loading: boolean) {
   );
   const [following, setFollowing] = useState(!restoreReader);
   useLayoutEffect(() => {
-    if (loading) return;
+    if (!restoring || loading || (restoreReader && messageCount === 0)) return;
     const node = viewport.current;
     if (node && savedScroll.current && !savedScroll.current.atBottom)
       node.scrollTop = savedScroll.current.top;
@@ -26,7 +28,7 @@ export function useChatScroll(loading: boolean) {
       setRestoring(false);
     });
     return () => cancelAnimationFrame(frame);
-  }, [loading]);
+  }, [loading, messageCount, restoreReader, restoring]);
   useLayoutEffect(() => {
     const version = view?.store.version();
     return () => {

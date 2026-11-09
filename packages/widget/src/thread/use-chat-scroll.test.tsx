@@ -103,20 +103,24 @@ function Fixture({
   store,
   id = "a",
   running = false,
+  ready = true,
 }: {
   store: ChatViewStore;
   id?: string;
   running?: boolean;
+  ready?: boolean;
 }) {
   const view = useMemo(() => ({ store, threadId: id }), [store, id]);
   const runtime = useExternalStoreRuntime({
-    messages: [
-      {
-        id: `${id}-message`,
-        role: "assistant" as const,
-        content: [{ type: "text" as const, text: "Native scroll fixture" }],
-      },
-    ],
+    messages: ready
+      ? [
+          {
+            id: `${id}-message`,
+            role: "assistant" as const,
+            content: [{ type: "text" as const, text: "Native scroll fixture" }],
+          },
+        ]
+      : [],
     isRunning: running,
     onNew: async () => {},
     convertMessage: (message) => message,
@@ -175,6 +179,19 @@ describe("saved scroll with the native assistant viewport", () => {
     resize();
     await frames();
     expect(node.scrollTop).toBe(100);
+  });
+
+  it("restores when native cached messages arrive after the initialization frame", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 100, atBottom: false } });
+    const view = render(<Fixture store={store} ready={false} />);
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(0);
+    height = 2000;
+    view.rerender(<Fixture store={store} ready />);
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(100);
   });
 
   it("keeps saved bottom-follow and freshly admitted live run scrolling", async () => {
