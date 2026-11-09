@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.7
+
+### Patch Changes
+
+- Wait for native cached messages before completing reader scroll restoration on a first revisit.
+
 ## 5.1.6
 
 ### Patch Changes
