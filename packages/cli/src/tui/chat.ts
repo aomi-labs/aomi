@@ -603,7 +603,7 @@ export async function runTui(flags: ChatFlags): Promise<void> {
       };
       // Yolo runs flagged actions too, so it asks first, as on the web.
       const choose = (mode: TransactionSafetyMode) =>
-        mode === "unrestricted"
+        mode === "yolo"
           ? pick(
               [
                 {

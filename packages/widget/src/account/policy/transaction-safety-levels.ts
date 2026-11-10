@@ -1,4 +1,4 @@
-import { ShieldCheckIcon, ShieldIcon, ZapIcon } from "lucide-react";
+import { ShieldCheckIcon, ShieldIcon, ShieldOffIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import {
   TRANSACTION_SAFETY_NAMES,
@@ -17,9 +17,9 @@ export type TransactionSafetyLevel = {
 
 /** The guard policy modes, with the shared names and this UI's icons. */
 const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
-  guarded_only: {
-    id: "guarded_only",
-    ...TRANSACTION_SAFETY_NAMES.guarded_only,
+  strict: {
+    id: "strict",
+    ...TRANSACTION_SAFETY_NAMES.strict,
     Icon: ShieldIcon,
     canBeDefault: true,
     danger: false,
@@ -31,10 +31,12 @@ const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
     canBeDefault: true,
     danger: false,
   },
-  unrestricted: {
-    id: "unrestricted",
-    ...TRANSACTION_SAFETY_NAMES.unrestricted,
-    Icon: ZapIcon,
+  yolo: {
+    id: "yolo",
+    ...TRANSACTION_SAFETY_NAMES.yolo,
+    // Not the lightning of the Instant lane: Yolo turns guards off, it does
+    // not skip approval.
+    Icon: ShieldOffIcon,
     canBeDefault: false,
     danger: true,
   },
@@ -42,9 +44,9 @@ const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
 
 /** The levels strictest first, as the menus list them. */
 export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
-  LEVELS.guarded_only,
+  LEVELS.strict,
   LEVELS.balanced,
-  LEVELS.unrestricted,
+  LEVELS.yolo,
 ];
 
 export const YOLO_CONFIRM_TITLE = "Turn on Yolo for this chat?";

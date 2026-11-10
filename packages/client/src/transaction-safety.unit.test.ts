@@ -28,7 +28,7 @@ const safety: TransactionSafetyProjection = {
     limitations: [],
   },
   decision: {
-    mode: "unrestricted",
+    mode: "yolo",
     policyRevision: 4,
     assessmentDigest: "assessment",
     eligibility: "eligible",
@@ -69,21 +69,19 @@ describe("transaction safety client", () => {
   });
   it("requires expected revision and preserves authoritative response", async () => {
     const policy = {
-      mode: "guarded_only",
+      mode: "strict",
       revision: 5,
       scope: "thread",
       source: "user",
     };
     const request = vi.fn().mockResolvedValue(Response.json(policy));
     const client = new TransactionSafetyTransport(request);
-    expect(await client.setThread("owned/chat", "guarded_only", 4)).toEqual(
-      policy,
-    );
+    expect(await client.setThread("owned/chat", "strict", 4)).toEqual(policy);
     expect(request).toHaveBeenCalledWith(
       "PUT",
       "/v1/account/transaction-safety/threads/owned%2Fchat",
       expect.objectContaining({
-        body: { mode: "guarded_only", expectedRevision: 4 },
+        body: { mode: "strict", expectedRevision: 4 },
       }),
     );
     await expect(client.setThread("chat", "balanced", 0)).rejects.toThrow(

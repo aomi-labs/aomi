@@ -233,7 +233,7 @@ export function DeviceSheet() {
               client={client}
               connectionKey={`oauth:${state.clientId}`}
               name={cli ? "terminal" : name}
-              startLane="here"
+              startLane="ask_client"
               onChange={lanes.onChange}
             />
           ) : null}

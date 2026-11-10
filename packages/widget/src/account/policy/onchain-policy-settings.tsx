@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { CheckCircle2, ShieldCheck, TriangleAlert } from "lucide-react";
 import {
   normalizeSolanaCluster,
+  shortAddress,
   type AomiBindOnchainPolicy,
   type AomiOnchainAddress,
 } from "@aomi-labs/client";
@@ -22,6 +23,7 @@ import {
   policyErrorCode,
   policyFromForm,
   toAtomic,
+  type LimitKind,
   type TokenCapInput,
 } from "./policy-api";
 
@@ -34,62 +36,61 @@ const CHAIN_WARNINGS = {
     "On-chain permissions could not be read right now, so this policy is unverified. Try again shortly.",
 };
 
-function short(address?: string): string {
-  if (!address) return "—";
-  return `${address.slice(0, 5)}…${address.slice(-5)}`;
-}
+const short = (address?: string) =>
+  address ? shortAddress(address, { head: 5, tail: 5 }) : "—";
 
 const INPUT =
   "border-aomi-border bg-aomi-raised h-9 w-full rounded-lg border px-3 outline-none";
+const FIELD = "space-y-2 text-[12px]";
+/** A checkbox card: an allowed app or a token cap. */
+const OPTION =
+  "border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]";
 
 /**
- * Swig on-chain limits for a delegated Solana agent. The backend gates the
- * provider behind a deployment flag; when it answers "disabled" this section
- * renders nothing, so the Safety tab is unchanged wherever the lane is off.
+ * One agent wallet's Swig context on the connected Solana network: the
+ * catalog, its binding and what is left of its limits. The wallet sheet and
+ * its Limits step share it through the display cache. `available` is false
+ * until it loads, and stays false where the deployment has Swig off.
+ */
+export function useWalletLimits(delegate: string | undefined) {
+  const wallet = useAomiWalletKit();
+  const policies = useShellAomi().account.policies;
+  const network =
+    normalizeSolanaCluster(wallet.identity.svmCluster) ?? "solana:mainnet";
+  const query = useDisplayQuery({
+    resource: "transaction-safety",
+    parameters: ["swig", network, delegate],
+    enabled: Boolean(delegate),
+    fetcher: (signal) => policies.get(network, { signal, delegate }),
+  });
+  const unavailable = Boolean(
+    query.error && isPolicyProviderUnavailable(query.error),
+  );
+  return { query, unavailable, available: Boolean(query.data) && !unavailable };
+}
+
+/**
+ * Swig on-chain limits for one agent wallet's Solana address (`delegate`).
+ * The backend gates the provider behind a deployment flag; when it answers
+ * "disabled" this renders nothing.
  *
  * Token caps are not optional for real use: Swig refuses any token the role
  * has no limit for, and a Jupiter swap from SOL spends wrapped SOL from a
  * token account. The form therefore caps mints alongside the SOL limit.
  */
-export function OnchainPolicySettings() {
+export function OnchainPolicySettings({ delegate }: { delegate: string }) {
   const wallet = useAomiWalletKit();
   const policies = useShellAomi().account.policies;
-  const network =
-    normalizeSolanaCluster(wallet.identity.svmCluster) ?? "solana:mainnet";
-  // The account profile is the shared settings read; only the chain's Swig
-  // context is fetched here, cached per chain in the display cache.
+  // The owner must be a Solana wallet linked to the account.
   const profileQuery = useAccountProfileQuery();
-  const overview = profileQuery.data;
-  const profile = useMemo(
-    () =>
-      overview?.signing_policies &&
-      overview.delegated_accounts &&
-      overview.user_accounts
-        ? {
-            signing_policies: overview.signing_policies,
-            delegated_accounts: overview.delegated_accounts,
-            user_accounts: overview.user_accounts,
-          }
-        : null,
-    [overview],
-  );
-  const ctxQuery = useDisplayQuery({
-    resource: "transaction-safety",
-    parameters: ["swig", network],
-    fetcher: (signal) => policies.get(network, { signal }),
-  });
+  const linked = profileQuery.data?.user_accounts ?? null;
+  const { query: ctxQuery, unavailable } = useWalletLimits(delegate);
   const ctx = ctxQuery.data ?? null;
-  const unavailable = Boolean(
-    ctxQuery.error && isPolicyProviderUnavailable(ctxQuery.error),
-  );
-  const [delegate, setDelegate] = useState("");
   const [targets, setTargets] = useState<string[]>([]);
   const [amount, setAmount] = useState("1");
   /** Per-mint cap in display units, keyed by mint address; absent = uncapped. */
   const [tokenCaps, setTokenCaps] = useState<Record<string, string>>({});
-  const [limitKind, setLimitKind] = useState<"lifetime" | "recurring">(
-    "recurring",
-  );
+  const [limitKind, setLimitKind] = useState<LimitKind>("recurring");
   const [slotWindow, setSlotWindow] = useState(216_000);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -124,7 +125,6 @@ export function OnchainPolicySettings() {
     const bindingKey = JSON.stringify(binding);
     if (seededBinding.current === bindingKey) return;
     seededBinding.current = bindingKey;
-    setDelegate(binding.delegate.address);
     setTargets(
       binding.policy.rules
         .filter((rule) => rule.type === "allowed_call_target")
@@ -159,33 +159,10 @@ export function OnchainPolicySettings() {
     setTokenCaps(caps);
   }, [ctx]);
 
-  const delegates = useMemo(() => {
-    if (!profile) return [];
-    const automatic = new Set(
-      profile.signing_policies
-        .filter(
-          (policy) => policy.address.chain === "svm" && policy.mode === "auto",
-        )
-        .map((policy) => policy.address.address),
-    );
-    return profile.delegated_accounts.filter(
-      (account) =>
-        account.address.chain === "svm" &&
-        account.status === "active" &&
-        automatic.has(account.address.address),
-    );
-  }, [profile]);
-
-  useEffect(() => {
-    if (!delegate && delegates[0]) setDelegate(delegates[0].address.address);
-  }, [delegate, delegates]);
-
   const owner = wallet.identity.svmAddress;
   const targetEntries = Object.entries(ctx?.targets ?? {});
   const mintEntries = Object.entries(ctx?.mints ?? {});
-  const canSubmit = Boolean(
-    owner && delegate && targets.length && amount && !busy,
-  );
+  const canSubmit = Boolean(owner && targets.length && amount && !busy);
 
   const send = async (unsignedTx: string, description: string) => {
     const execute =
@@ -199,20 +176,28 @@ export function OnchainPolicySettings() {
     });
   };
 
-  // A stale binding means the form was built on an outdated policy: reload it,
-  // then explain, since `load` clears the error it starts with.
-  const fail = async (cause: unknown) => {
-    if (policyErrorCode(cause) === "stale_policy_binding") await load();
-    setActionError(explainPolicyError(cause));
-  };
-
-  const save = async () => {
-    if (!profile || !ctx || !owner || !delegate) return;
+  // One wallet ceremony at a time. A stale binding means the form was built on
+  // an outdated policy: reload it, then explain, since `load` clears the error
+  // it starts with.
+  const run = async (ceremony: () => Promise<void>) => {
     setBusy(true);
     setActionError(null);
     try {
+      await ceremony();
+      await load();
+    } catch (cause) {
+      if (policyErrorCode(cause) === "stale_policy_binding") await load();
+      setActionError(explainPolicyError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () => {
+    if (!linked || !ctx || !owner) return;
+    return run(async () => {
       if (
-        !profile.user_accounts.some(
+        !linked.some(
           (account) =>
             account.address.chain === "svm" &&
             account.address.address === owner,
@@ -271,37 +256,26 @@ export function OnchainPolicySettings() {
         ...body,
         transaction_signature: signature,
       });
-      await load();
-    } catch (cause) {
-      await fail(cause);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const revoke = async () => {
-    if (!ctx?.binding) return;
-    setBusy(true);
-    setActionError(null);
-    try {
-      const prepared = await policies.prepareRevoke(ctx.binding.id);
+  const revoke = () => {
+    const binding = ctx?.binding;
+    if (!binding) return;
+    return run(async () => {
+      const prepared = await policies.prepareRevoke(binding.id);
       if (!prepared.unsigned_transaction_base64)
         throw new Error("No revoke transaction was returned.");
       const { signature } = await send(
         prepared.unsigned_transaction_base64,
         "Revoke Swig policy",
       );
-      await confirmPolicyRevoke(policies, ctx.binding.id, signature);
-      await load();
-    } catch (cause) {
-      await fail(cause);
-    } finally {
-      setBusy(false);
-    }
+      await confirmPolicyRevoke(policies, binding.id, signature);
+    });
   };
 
   if (unavailable) return null;
-  if (!profile || !ctx) {
+  if (!linked || !ctx) {
     return error ? (
       <p role="alert" className="type-meta text-aomi-danger">
         {error}
@@ -344,7 +318,7 @@ export function OnchainPolicySettings() {
             <span>{short(owner)}</span>
           </div>
           <div>
-            <span className="text-aomi-muted block">Delegated agent</span>
+            <span className="text-aomi-muted block">Agent wallet</span>
             <span>{short(delegate)}</span>
           </div>
           <div>
@@ -363,27 +337,7 @@ export function OnchainPolicySettings() {
 
       <section className="border-aomi-border rounded-2xl border p-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <label className="space-y-2 text-[12px]">
-            <span className="font-medium">Delegated agent</span>
-            <select
-              value={delegate}
-              onChange={(event) => setDelegate(event.target.value)}
-              disabled={Boolean(ctx.binding)}
-              className={INPUT}
-            >
-              {delegates.map((account) => (
-                <option key={account.id} value={account.address.address}>
-                  {short(account.address.address)}
-                </option>
-              ))}
-            </select>
-            {!delegates.length && (
-              <span className="text-aomi-muted block">
-                Set a Solana agent wallet to Automatic signing first.
-              </span>
-            )}
-          </label>
-          <label className="space-y-2 text-[12px]">
+          <label className={FIELD}>
             <span className="font-medium">SOL limit</span>
             <input
               value={amount}
@@ -401,10 +355,7 @@ export function OnchainPolicySettings() {
             {targetEntries.map(([name, target]) => {
               const checked = targets.includes(target.address);
               return (
-                <label
-                  key={target.address}
-                  className="border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]"
-                >
+                <label key={target.address} className={OPTION}>
                   <input
                     type="checkbox"
                     checked={checked}
@@ -448,10 +399,7 @@ export function OnchainPolicySettings() {
               const remaining = ctx.remaining_token_amounts[mint.address];
               const decimals = MINT_DECIMALS[symbol];
               return (
-                <label
-                  key={mint.address}
-                  className="border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-[12px]"
-                >
+                <label key={mint.address} className={OPTION}>
                   <input
                     type="checkbox"
                     checked={capped}
@@ -488,12 +436,14 @@ export function OnchainPolicySettings() {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <label className="space-y-2 text-[12px]">
+          <label className={FIELD}>
             <span className="font-medium">Limit behavior</span>
             <select
               value={limitKind}
               onChange={(event) =>
-                setLimitKind(event.target.value as "lifetime" | "recurring")
+                setLimitKind(
+                  event.target.value === "lifetime" ? "lifetime" : "recurring",
+                )
               }
               className={INPUT}
             >
@@ -502,7 +452,7 @@ export function OnchainPolicySettings() {
             </select>
           </label>
           {limitKind === "recurring" && (
-            <label className="space-y-2 text-[12px]">
+            <label className={FIELD}>
               <span className="font-medium">Slot window</span>
               <select
                 value={slotWindow}

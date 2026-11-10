@@ -680,9 +680,9 @@ export async function denyAgentWalletsForUser(input: {
     input.userId,
   ]);
   await input.db.query(
-    `update wallet_access set lane = 'portal',
+    `update wallet_access set lane = 'ask_aomi',
         updated_at = extract(epoch from now())::bigint
-      where user_id = $1 and lane <> 'portal'`,
+      where user_id = $1 and lane <> 'ask_aomi'`,
     [input.userId],
   );
 }
@@ -1119,7 +1119,7 @@ export async function listConnectionSettings(
     wallets: {
       id: string;
       name: string;
-      lane: "portal" | "here" | "instant";
+      lane: "ask_aomi" | "ask_client" | "instant";
       archived: boolean;
     }[];
   }[]
@@ -1164,7 +1164,7 @@ export async function listConnectionSettings(
     ).map(({ id, name, lane, archived }) => ({
       id,
       name,
-      lane: lane === "here" || lane === "instant" ? lane : "portal",
+      lane: lane === "ask_client" || lane === "instant" ? lane : "ask_aomi",
       archived: archived === true,
     })),
   }));

@@ -136,7 +136,7 @@ describe("OAuthConsentClient", () => {
           body: {
             wallets: [],
             application: "world",
-            new_app_wallet: { lane: "portal" },
+            new_app_wallet: { lane: "ask_aomi" },
             ask_only: true,
           },
         },

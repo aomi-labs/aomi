@@ -146,7 +146,7 @@ create table if not exists wallet_access (
   user_id text not null,
   connection_key text not null,
   agent_wallet_id uuid not null,
-  lane text not null default 'portal' check (lane in ('portal', 'here', 'instant')),
+  lane text not null default 'ask_aomi' check (lane in ('ask_aomi', 'ask_client', 'instant')),
   created_at bigint not null,
   updated_at bigint not null,
   primary key (user_id, connection_key, agent_wallet_id),

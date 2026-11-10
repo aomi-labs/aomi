@@ -263,7 +263,7 @@ const routes: Record<string, unknown> = {
   },
   "POST /v1/account/apps/7/secrets": { slots: [] },
   "GET /v1/account/transaction-safety": {
-    mode: "guarded_only",
+    mode: "strict",
     revision: 2,
     scope: "account_default",
     source: "user",

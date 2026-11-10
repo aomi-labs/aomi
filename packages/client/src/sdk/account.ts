@@ -148,22 +148,23 @@ export class AomiGuard {
   /**
    * Set the mode at `revision`, or at the current one. A stale `revision`
    * fails instead of overwriting a change made elsewhere. Account defaults
-   * cannot be `unrestricted`.
+   * cannot be `yolo`.
    */
   async set(input: {
     mode: TransactionSafetyMode;
     thread?: string;
     revision?: number;
   }): Promise<TransactionSafetyPolicy> {
+    const { mode } = input;
     const revision = input.revision ?? (await this.get(input)).revision;
     if (input.thread)
-      return this.transport.setThread(input.thread, input.mode, revision);
-    if (input.mode === "unrestricted")
+      return this.transport.setThread(input.thread, mode, revision);
+    if (mode === "yolo")
       throw new AomiError(
         "invalid_mode",
-        "The account default cannot be unrestricted; set it on a thread",
+        "The account default cannot be yolo; set it on a thread",
       );
-    return this.transport.setAccountDefault(input.mode, revision);
+    return this.transport.setAccountDefault(mode, revision);
   }
 }
 

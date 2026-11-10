@@ -17,7 +17,7 @@ export const TRANSACTION_SAFETY_NAMES: Record<
   TransactionSafetyMode,
   { label: string; description: string }
 > = {
-  guarded_only: {
+  strict: {
     label: "Strict",
     description: "Only actions a protocol guard covers",
   },
@@ -25,7 +25,7 @@ export const TRANSACTION_SAFETY_NAMES: Record<
     label: "Balanced",
     description: "Blocks critical guard findings",
   },
-  unrestricted: { label: "Yolo", description: "Runs even when guards flag it" },
+  yolo: { label: "Yolo", description: "Runs even when guards flag it" },
 };
 
 type RequestResponse = (
@@ -42,7 +42,7 @@ export class TransactionSafetyTransport {
     return this.request("GET", "/v1/account/transaction-safety");
   }
   setAccountDefault(
-    mode: Exclude<TransactionSafetyMode, "unrestricted">,
+    mode: Exclude<TransactionSafetyMode, "yolo">,
     expectedRevision: number,
   ): Promise<TransactionSafetyPolicy> {
     return this.request("PUT", "/v1/account/transaction-safety", {

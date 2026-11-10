@@ -66,7 +66,7 @@ export function ConnectionLanes({
     saving[connection.key]?.find((entry) => entry.id === agentWallet?.id)
       ?.lane ??
     judged?.find((entry) => entry.key === connection.key)?.lane ??
-    "portal";
+    "ask_aomi";
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader

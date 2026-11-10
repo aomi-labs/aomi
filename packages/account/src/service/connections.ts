@@ -38,17 +38,17 @@ export type AccountConnection = {
   telegram: { user: string | null; bot: string } | null;
   /** The app this connection is locked to; null when it is open. */
   application: { id: number; name: string; label: string } | null;
-  /** Always `aomi`, whatever its wallets say. */
+  /** Always `ask_aomi`, whatever its wallets say. */
   ask_only: boolean;
   /**
-   * Its lanes set on agent wallets (`aomi`, `here`, `instant`); a wallet
+   * Its lanes set on agent wallets (`ask_aomi`, `ask_client`, `instant`); a wallet
    * left out has the client's default. An archived wallet's lane is kept
    * (marked) so it comes back on restore.
    */
   wallets: {
     id: string;
     name: string;
-    lane: "portal" | "here" | "instant";
+    lane: "ask_aomi" | "ask_client" | "instant";
     archived: boolean;
   }[];
   /** Unix seconds. */

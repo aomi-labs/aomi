@@ -139,7 +139,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           view.initiator === own &&
           (lanes
             .get(`${principal.sub}\0${own}`)
-            ?.some((row) => row.id === AGENT_GROUP.id && row.lane === "here") ??
+            ?.some((row) => row.id === AGENT_GROUP.id && row.lane === "ask_client") ??
             false));
       if (method === "GET" && rest.length === 0)
         return json(response, 200, {

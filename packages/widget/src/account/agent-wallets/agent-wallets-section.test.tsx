@@ -8,7 +8,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AomiCommits, shortAddress } from "@aomi-labs/client";
-import { AccountOverviewFixture } from "@/test/account-overview-fixture";
+import {
+  AccountOverviewFixture,
+  seedAccountOverview,
+} from "@/test/account-overview-fixture";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { AgentWalletsSection } from "./agent-wallets-section";
 
@@ -86,7 +89,7 @@ const trading = wallet("g-trading", "Trading", {
     { family: "svm", address: SVM, wallet_id: "w_13" },
   ],
   connections: [
-    { key: "oauth:c1", label: "Claude Code", lane: "portal" },
+    { key: "oauth:c1", label: "Claude Code", lane: "ask_aomi" },
     { key: "portal", label: "Aomi", lane: "instant" },
   ],
 });
@@ -122,7 +125,7 @@ const connections = [
   connection("oauth:c1", "ai", "Claude Code", {
     detail: "AI client",
     wallets: [
-      { id: "g-trading", name: "Trading", lane: "portal", archived: false },
+      { id: "g-trading", name: "Trading", lane: "ask_aomi", archived: false },
     ],
   }),
 ];
@@ -186,6 +189,12 @@ beforeEach(() => {
         return Response.json({ connections });
       if (url.pathname.endsWith("/balances"))
         return Response.json({ networks: [] });
+      // Swig is off unless a test turns it on.
+      if (url.pathname === "/v1/account/policies/swig")
+        return Response.json(
+          { error: "off", error_code: "swig_disabled" },
+          { status: 404 },
+        );
       if (method === "PATCH") return Response.json(trading);
       return Response.json({ pause_all: false });
     }),
@@ -446,9 +455,10 @@ describe("Agent wallets band", () => {
     expect(writes().at(-1)).toEqual({
       method: "PUT",
       path: "/v1/account/connections/oauth%3Ac1/wallets",
-      body: { wallets: [{ id: "g-trading", lane: "here" }] },
+      body: { wallets: [{ id: "g-trading", lane: "ask_client" }] },
     });
-    // Send, Rename and a Pause switch, then Archive alone at the bottom.
+    // Send, Rename and a Pause switch, then Archive alone at the bottom; no
+    // Limits while the deployment has Swig off.
     const actions = within(sheet)
       .getAllByRole("button")
       .map((button) => button.textContent)
@@ -456,6 +466,7 @@ describe("Agent wallets band", () => {
         ["Send", "Rename", "Archive"].some((label) => text === label),
       );
     expect(actions).toEqual(["Send", "Rename", "Archive"]);
+    expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
     expect(
       within(sheet).getByRole("switch", { name: "Pause Trading" }),
     ).toHaveAttribute("aria-checked", "false");
@@ -475,6 +486,76 @@ describe("Agent wallets band", () => {
     fireEvent.click(within(receive).getByRole("radio", { name: "SVM" }));
     expect(receive).toHaveTextContent(SVM);
     expect(within(receive).queryByText("Base")).toBeNull();
+  });
+
+  it("receives at the operating address and opens Limits where Swig is on", async () => {
+    const SWIG = "Swig111111111111111111111111111111111Vault";
+    list.wallets = [
+      {
+        ...trading,
+        addresses: [
+          { family: "evm", address: EVM, wallet_id: "w_12" },
+          {
+            family: "svm",
+            address: SVM,
+            wallet_id: "w_13",
+            operating_address: SWIG,
+          },
+        ],
+      },
+      world,
+    ];
+    respond = (_method, path) =>
+      path === "/v1/account/policies/swig"
+        ? Response.json({
+            provider: "swig",
+            chain_ref: "solana:mainnet",
+            targets: { Jupiter: { chain: "svm", address: "JUP6" } },
+            mints: {},
+            slot_windows: [216_000],
+            binding: null,
+            chain_status: null,
+            remaining_native_amount: null,
+            remaining_token_amounts: {},
+          })
+        : undefined;
+    // A signed-in owner with a linked Solana wallet, as the form needs.
+    seedAccountOverview({
+      user: { user_id: "acct-1" },
+      user_accounts: [{ address: { chain: "svm", address: "RootWa11et" } }],
+    } as never);
+    await renderSection();
+    const sheet = await manage("Trading");
+    // The policy holds the Solana funds, so deposits go there, not the key.
+    expect(sheet).toHaveTextContent(shortAddress(SWIG));
+    expect(sheet).not.toHaveTextContent(shortAddress(SVM));
+    // Limits sits after Send, for this wallet's Solana key only.
+    fireEvent.click(
+      await within(sheet).findByRole("button", { name: /^Limits/ }),
+    );
+    expect(
+      calls.some(
+        (call) =>
+          call.path ===
+          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: "solana:mainnet", delegate: SVM })}`,
+      ),
+    ).toBe(true);
+    const limits = await screen.findByRole("dialog");
+    expect(within(limits).getByText("Limits")).toBeInTheDocument();
+    expect(await within(limits).findByText("Jupiter")).toBeInTheDocument();
+    fireEvent.click(within(limits).getByRole("button", { name: "Back" }));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: /Receive/,
+      }),
+    );
+    const receive = await screen.findByRole("dialog");
+    fireEvent.click(within(receive).getByRole("radio", { name: "SVM" }));
+    expect(receive).toHaveTextContent(SWIG);
+    expect(
+      within(receive).getByRole("img", { name: `QR code for ${SWIG}` }),
+    ).toBeInTheDocument();
+    await act(async () => seedAccountOverview(null));
   });
 
   it("shows no family tabs on Receive for a one-address wallet, and Restore alone when archived", async () => {

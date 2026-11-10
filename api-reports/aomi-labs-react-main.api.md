@@ -509,7 +509,7 @@ export function useActions(session: Session | undefined): {
                 };
                 decision: {
                     assessmentDigest: string;
-                    mode: "guarded_only" | "balanced" | "unrestricted";
+                    mode: "strict" | "balanced" | "yolo";
                     policyRevision: number;
                     eligibility: "eligible" | "blocked" | "waiting";
                     reasonCode: string;
@@ -663,7 +663,7 @@ export function useActions(session: Session | undefined): {
                 };
                 decision: {
                     assessmentDigest: string;
-                    mode: "guarded_only" | "balanced" | "unrestricted";
+                    mode: "strict" | "balanced" | "yolo";
                     policyRevision: number;
                     eligibility: "eligible" | "blocked" | "waiting";
                     reasonCode: string;
@@ -738,7 +738,7 @@ export function useActions(session: Session | undefined): {
                 };
                 decision: {
                     assessmentDigest: string;
-                    mode: "guarded_only" | "balanced" | "unrestricted";
+                    mode: "strict" | "balanced" | "yolo";
                     policyRevision: number;
                     eligibility: "eligible" | "blocked" | "waiting";
                     reasonCode: string;

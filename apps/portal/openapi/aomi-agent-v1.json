@@ -9382,7 +9382,7 @@
       },
       "TransactionSafetyMode": {
         "type": "string",
-        "enum": ["guarded_only", "balanced", "unrestricted"]
+        "enum": ["strict", "balanced", "yolo"]
       },
       "TransactionSafetyPolicy": {
         "type": "object",
@@ -10016,8 +10016,8 @@
           },
           "lane": {
             "type": "string",
-            "enum": ["portal", "here", "instant"],
-            "description": "An agent wallet's lane for the caller's connection: portal (the user approves its trades on the portal), here (the caller approves its own trades), instant (they sign at once)."
+            "enum": ["ask_aomi", "ask_client", "instant"],
+            "description": "An agent wallet's lane for the caller's connection: ask_aomi (the user approves its trades on Aomi), ask_client (the caller approves its own trades), instant (they sign at once)."
           }
         }
       },

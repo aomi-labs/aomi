@@ -87,15 +87,20 @@ export class AccountPoliciesTransport {
     private readonly basePath = "/v1/account/policies/swig",
   ) {}
 
-  /** Targets, mints, slot windows and the current binding on `chainRef`. */
+  /**
+   * Targets, mints, slot windows and the current binding on `chainRef`; with
+   * `delegate`, the binding of that delegated address only.
+   */
   get(
     chainRef: string,
-    options: { signal?: AbortSignal } = {},
+    options: { signal?: AbortSignal; delegate?: string } = {},
   ): Promise<AomiOnchainPolicyProviderCtx> {
-    return this.request(
-      `${this.basePath}?${new URLSearchParams({ chain_ref: chainRef })}`,
-      { method: "GET", signal: options.signal },
-    );
+    const query = new URLSearchParams({ chain_ref: chainRef });
+    if (options.delegate) query.set("delegate", options.delegate);
+    return this.request(`${this.basePath}?${query}`, {
+      method: "GET",
+      signal: options.signal,
+    });
   }
 
   /** The transaction to sign for `body`. */

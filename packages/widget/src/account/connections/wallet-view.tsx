@@ -57,7 +57,10 @@ type LaneOption = {
  * The choices a connection has on an agent wallet. The portal is the owner:
  * it always approves, so it picks only between Ask and Instant.
  */
-function laneOptions(client: string, portal = false): LaneOption[] {
+function laneOptions(
+  client: string,
+  portal = false,
+): [LaneOption, ...LaneOption[]] {
   const instant: LaneOption = {
     id: "instant",
     label: "Instant",
@@ -67,7 +70,7 @@ function laneOptions(client: string, portal = false): LaneOption[] {
   if (portal)
     return [
       {
-        id: "here",
+        id: "ask_client",
         label: "Ask",
         description: "You approve each trade",
         Icon: UserCheck,
@@ -76,13 +79,13 @@ function laneOptions(client: string, portal = false): LaneOption[] {
     ];
   return [
     {
-      id: "portal",
+      id: "ask_aomi",
       label: "Ask on Aomi",
       description: "You approve each trade in Aomi",
       Icon: UserCheck,
     },
     {
-      id: "here",
+      id: "ask_client",
       label: `Ask in ${client}`,
       description: `${client} can approve its own trades`,
       Icon: BadgeCheck,
@@ -119,12 +122,14 @@ export function LaneSelect({
 }) {
   const [open, setOpen] = useState(false);
   const options = laneOptions(client, portal);
-  const current = options.find((option) => option.id === lane) ?? options[0]!;
+  // The first option is the strictest: the picker's default and resting look.
+  const [first] = options;
+  const current = options.find((option) => option.id === lane) ?? first;
   if (askOnly)
     return (
       <span className={cn(lanePill, "pointer-events-none")}>
         <Lock className="h-3 w-3 shrink-0 opacity-60" />
-        <span className="truncate">{options[0]!.label}</span>
+        <span className="truncate">{first.label}</span>
       </span>
     );
   return (
@@ -136,12 +141,12 @@ export function LaneSelect({
           aria-expanded={open}
           aria-label={`${wallet}: ${current.label}`}
           disabled={disabled}
-          className={cn(lanePill, lane !== options[0]!.id && "text-aomi-fg")}
+          className={cn(lanePill, lane !== first.id && "text-aomi-fg")}
         >
           <current.Icon
             className={cn(
               "h-3 w-3 shrink-0",
-              lane === options[0]!.id && "opacity-60",
+              lane === first.id && "opacity-60",
             )}
           />
           <span className="truncate">{current.label}</span>
@@ -430,7 +435,7 @@ export function WalletView({
                 <LaneSelect
                   wallet={row.name}
                   client={client}
-                  lane={lanes[row.id] ?? "portal"}
+                  lane={lanes[row.id] ?? "ask_aomi"}
                   portal={portal}
                   askOnly={askOnly}
                   disabled={disabled}
