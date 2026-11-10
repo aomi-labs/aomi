@@ -249,3 +249,21 @@ Per-user isolation: the candidate branch + release tag both encode the
 > callback is a browser redirect. Pointing at staging requires the App's
 > webhook+callback to be the staging host **and** staging to have the
 > `AOMI_GITHUB_APP_*` secrets (else `oauth/start` → `500 github_app.toml not found`).
+
+## Portal page Worker binding (cutover preparation)
+
+The Edge deploy script accepts `PORTAL_PAGES_SERVICE`, the name of an already
+deployed Portal page Worker in the same Cloudflare account. It generates the
+`PORTAL_PAGES` HTTP service binding; this is not a runtime string variable.
+The page Worker must be deployed before the binding is enabled. The deployment
+pipeline must supply the service name from its environment configuration.
+
+When bound, Portal page passthrough uses the service directly, retaining the
+public request URL, cookies and forwarding metadata. API and authentication
+handlers remain at Edge. A failed service request returns an upstream error;
+it never retries against the HTTP page upstream. Without the binding, the
+existing `PORTAL_UPSTREAM_ORIGIN` path remains in use.
+
+This support does not deploy a page Worker, enable a binding in any environment,
+or change public routes. Page deployment ownership, staging runtime acceptance
+and the production cutover remain separate gates.

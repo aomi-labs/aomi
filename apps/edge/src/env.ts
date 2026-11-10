@@ -67,7 +67,9 @@ export interface EdgeEnv {
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example chat.aomi.dev). */
   PORTAL_HOSTS?: string;
-  /** Where the Vercel portal is reached from the edge (its *.vercel.app alias). */
+  /** Private page Worker binding; when present, replaces the HTTP page upstream. */
+  PORTAL_PAGES?: { fetch(request: Request): Promise<Response> };
+  /** HTTP page upstream, used until PORTAL_PAGES is bound. */
   PORTAL_UPSTREAM_ORIGIN?: string;
   /**
    * Extra origins whose cookie reads and writes the portal trusts (its own host
