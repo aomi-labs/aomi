@@ -32,7 +32,7 @@ sources_of_truth:
 
 - auth: [topics/auth/facts/auth.md](topics/auth/facts/auth.md), [topics/auth/facts/wallet-kit.md](topics/auth/facts/wallet-kit.md), [topics/auth/facts/base-account.md](topics/auth/facts/base-account.md)
 - apps: [topics/apps/facts/app-surfaces.md](topics/apps/facts/app-surfaces.md), [topics/apps/facts/widget-frame.md](topics/apps/facts/widget-frame.md), [topics/apps/facts/working-trace.md](topics/apps/facts/working-trace.md)
-- bff: [topics/bff/facts/endpoints.md](topics/bff/facts/endpoints.md)
+- bff: [topics/bff/facts/endpoints.md](topics/bff/facts/endpoints.md), [topics/bff/facts/issuer-cutover.md](topics/bff/facts/issuer-cutover.md)
 - client-runtime: [topics/client-runtime/facts/react-runtime.md](topics/client-runtime/facts/react-runtime.md), [topics/client-runtime/facts/transport-client.md](topics/client-runtime/facts/transport-client.md), [topics/client-runtime/facts/cli.md](topics/client-runtime/facts/cli.md), [topics/client-runtime/facts/solana-transactions.md](topics/client-runtime/facts/solana-transactions.md)
 - development: [topics/development/facts/workspace.md](topics/development/facts/workspace.md)
 - deploy: [topics/deploy/facts/projects.md](topics/deploy/facts/projects.md)

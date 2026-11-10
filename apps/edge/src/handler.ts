@@ -1,4 +1,5 @@
 import { withDatabase } from "@aomi-labs/account";
+import { withAccountAuthEnv } from "@aomi-labs/account/better-auth";
 
 import { handleApiRequest } from "./api/surface";
 import { buildContext, isBuildHost } from "./build/context";
@@ -26,10 +27,17 @@ export async function handleRequest(
   waitUntil?: (promise: Promise<unknown>) => void,
 ): Promise<Response> {
   const portal = portalContext(request, env, fetchImpl, waitImpl);
+  const servePortal = () => {
+    if (!portal) throw new Error("Portal context is required");
+    const serve = () => handlePortalRequest(request, portal);
+    if (!env.PORTAL_LEGACY_AUTH) return serve();
+    const strings = Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+    return withAccountAuthEnv({ ...strings, BETTER_AUTH_URL: portal.resources.portalOrigin }, serve);
+  };
   // The account surface opens a pool over Hyperdrive on first use; it closes after the request.
   const database = env.HYPERDRIVE?.connectionString;
   if (portal && database)
-    return withSecurityHeaders(await withDatabase(database, () => handlePortalRequest(request, portal), waitUntil));
+    return withSecurityHeaders(await withDatabase(database, servePortal, waitUntil));
   const build = portal ? null : buildContext(request, env, fetchImpl);
   // A Build host without its upstream fails closed instead of falling to the public API.
   if (!portal && !build && isBuildHost(env, new URL(request.url).host)) {
@@ -37,7 +45,7 @@ export async function handleRequest(
     return withSecurityHeaders(errorResponse(error, { surface: "build", operation: "context", request }));
   }
   const response = portal
-    ? await handlePortalRequest(request, portal)
+    ? await servePortal()
     : build
       ? await handleBuildRequest(request, build)
       : isLandingHost(env, new URL(request.url).host)

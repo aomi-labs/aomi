@@ -36,3 +36,9 @@ PARA_API_BASE_URL=
 # Deploy-only input to scripts/deploy.mjs (not a runtime string variable):
 # PORTAL_PAGES_SERVICE names the already deployed page Worker in the same account.
 # Unset retains PORTAL_UPSTREAM_ORIGIN. Target must not be the Edge Worker itself.
+
+# Optional hosted migration policy, supplied only from committed environment config:
+# PORTAL_LEGACY_AUTH={"origin":"https://old-portal.example","expiresAt":"<UTC deadline>"}
+# BETTER_AUTH_URL remains the new primary. Legacy host must also be in PORTAL_HOSTS.
+# Old issuance/discovery/validation stops at the deadline; never retire without
+# the measured client/refresh-token lifetime gate. Unset leaves alias behavior unchanged.

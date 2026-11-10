@@ -9,6 +9,7 @@ import {
 import type { Auth } from "@aomi-labs/account/better-auth";
 
 import { authServer } from "../auth/server";
+import { authOrigin } from "../auth/origin";
 import type { EdgeEnv } from "../env";
 import { config } from "../kernel/config";
 import { wait as sleep, type FetchLike, type WaitLike } from "../kernel/proxy";
@@ -44,17 +45,17 @@ export function portalContext(
   const url = new URL(request.url);
   const { portal } = config(env);
   if (!portal.hosts.has(url.host.toLowerCase()) || (!portal.upstream && !env.PORTAL_PAGES)) return null;
+  const requestTime = now();
+  const origin = authOrigin(env, url.host, requestTime);
   return {
     env,
     portalOrigin: url.origin,
     upstreamOrigin: portal.upstream,
     trustedOrigins: [...new Set([url.origin, ...portal.trustedOrigins])],
-    auth: () => authServer(env, url.host),
-    // Host aliases share the canonical OAuth identity. Keep the request URL
-    // unchanged: browser origin checks and DPoP still bind to the transport.
-    resources: resourcesFor(
-      env.BETTER_AUTH_URL ? new URL(env.BETTER_AUTH_URL).origin : url.origin,
-    ),
+    auth: () => authServer(env, url.host, requestTime),
+    // Legacy identity is limited to its admitted host and deadline. Browser
+    // origin checks and DPoP always retain the actual transport URL.
+    resources: resourcesFor(new URL(origin ?? url.origin).origin),
     fetchImpl,
     wait,
     now,

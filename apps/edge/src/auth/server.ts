@@ -3,6 +3,7 @@ import type { BetterAuthSession } from "@aomi-labs/account/principal";
 
 import type { EdgeEnv } from "../env";
 import { assertAuthBindings } from "../kernel/config";
+import { authOrigin } from "./origin";
 
 const servers = new WeakMap<EdgeEnv, Map<string, Auth>>();
 
@@ -12,19 +13,26 @@ const servers = new WeakMap<EdgeEnv, Map<string, Auth>>();
  * connection; every query goes to the current request's pool
  * (`withDatabase`).
  */
-export function authServer(env: EdgeEnv, walletDomain = ""): Auth {
+export function authServer(env: EdgeEnv, walletDomain = "", now = Date.now()): Auth {
+  const origin = authOrigin(env, walletDomain, now);
+  const key = JSON.stringify([walletDomain, origin]);
   let domains = servers.get(env);
   if (!domains) {
     domains = new Map();
     servers.set(env, domains);
   }
-  let auth = domains.get(walletDomain);
+  let auth = domains.get(key);
   if (!auth) {
     assertAuthBindings(env);
-    // Wallet proofs follow the admitted transport host; OAuth keeps BETTER_AUTH_URL.
-    const authEnv = walletDomain ? { ...env, AOMI_AUTH_DOMAIN: walletDomain } : env;
+    // Wallet proofs follow the transport host. Only an explicitly bounded old
+    // host may retain its OAuth authority while clients move to the new primary.
+    const authEnv = {
+      ...env,
+      ...(origin ? { BETTER_AUTH_URL: origin } : {}),
+      ...(walletDomain ? { AOMI_AUTH_DOMAIN: walletDomain } : {}),
+    };
     auth = createAuth(authEnv as unknown as Record<string, string | undefined>);
-    domains.set(walletDomain, auth);
+    domains.set(key, auth);
   }
   return auth;
 }

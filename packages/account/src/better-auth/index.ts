@@ -28,7 +28,11 @@ export {
   type AomiOAuthResourceKind,
   type AomiOAuthResourcePolicy,
 } from "./oauth-policy";
-export { readAccountAuthEnv, type AccountAuthEnv } from "./env";
+export {
+  readAccountAuthEnv,
+  withAccountAuthEnv,
+  type AccountAuthEnv,
+} from "./env";
 export {
   listManagedWidgetOrigins,
   readManagedOAuthClient,
