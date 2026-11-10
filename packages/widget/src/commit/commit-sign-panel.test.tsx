@@ -184,6 +184,62 @@ afterEach(() => {
 });
 
 describe("CommitSignPanel", () => {
+  it.each(["needs_signature", "confirmed"] as const)(
+    "uses the staged Solana action title in an existing %s review",
+    async (state) => {
+      const instruction = {
+        payer: "wallet",
+        cluster: "mainnet-beta",
+        accounts: [],
+        program_id: "11111111111111111111111111111111",
+        data_base64: "AgAAAAEAAAAAAAAA",
+        description: "Transfer SOL",
+        kind: "transfer",
+      };
+      const initial = view({
+        chain_family: "svm",
+        chain_ref: "mainnet-beta",
+        signer: "wallet",
+        state,
+        action: null,
+      });
+      initial.review!.request = {
+        type: "execute_svm",
+        transactions: [
+          {
+            payer: "wallet",
+            cluster: "mainnet-beta",
+            version: "legacy",
+            description: "svm bundle of 2 instructions",
+            kind: "svm_assembled",
+            instructions: [
+              {
+                ...instruction,
+                program_id: "ComputeBudget111111111111111111111111111111",
+                description: "compute_budget",
+              },
+              instruction,
+            ],
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [],
+          approvals: [],
+          warnings: [],
+          fees: [],
+          guards: [],
+          gas: null,
+          logs: [],
+        },
+      };
+      const { handle } = await open(initial);
+      render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+      expect(screen.getByText("Transfer SOL")).toBeInTheDocument();
+      expect(screen.queryByText(/svm bundle|compute_budget/)).toBeNull();
+    },
+  );
+
   it("renders the review with its origin and signs the reviewed version", async () => {
     const { handle, writes } = await open(
       view(),

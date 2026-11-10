@@ -4,6 +4,7 @@ import { LazyMotion, domMax } from "motion/react";
 import type { CommitHandle, CommitReview, CommitView } from "@aomi-labs/client";
 import { isMessageReview, projectCommitLifecycle } from "@aomi-labs/client";
 import type { ActivityTransaction } from "@/sidebar/activity/model";
+import { svmTransactionLabel } from "@/sidebar/activity/transaction-label";
 import {
   TransactionCard,
   TransactionList,
@@ -34,7 +35,7 @@ function commitTransactions(
           ...base,
           id: `${view.commit_id}:${index}`,
           family: "svm" as const,
-          label: tx.description,
+          label: svmTransactionLabel(tx),
           kind: tx.kind,
           cluster: tx.cluster,
         }))

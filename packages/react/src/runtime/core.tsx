@@ -133,6 +133,7 @@ export function AomiRuntimeCore({
   const readComposerTextRef = useRef<() => string>(() => "");
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const notificationContext = useNotification();
+  const rateLimitNotice = useRef<string | undefined>(undefined);
   const userContext = useUser();
   const {
     getControlState,
@@ -200,6 +201,10 @@ export function AomiRuntimeCore({
         });
     },
     onSendSuccess: (threadId) => {
+      if (rateLimitNotice.current) {
+        notificationContext.dismissNotification(rateLimitNotice.current);
+        rateLimitNotice.current = undefined;
+      }
       const wasRemote = remoteThreadIdsRef.current.has(threadId);
       remoteThreadIdsRef.current.add(threadId);
       if (threadPersistenceKey)
@@ -242,7 +247,10 @@ export function AomiRuntimeCore({
             : {};
         failure.notice.duration = Infinity;
       }
-      notificationContext.showNotification(failure.notice);
+      if (failure.rateLimited && rateLimitNotice.current)
+        notificationContext.dismissNotification(rateLimitNotice.current);
+      const noticeId = notificationContext.showNotification(failure.notice);
+      if (failure.rateLimited) rateLimitNotice.current = noticeId;
     },
   });
 

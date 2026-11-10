@@ -20,12 +20,27 @@ beforeEach(() => {
   vi.useFakeTimers();
   height = 2000;
   resizes.clear();
-  for (const property of ["scrollHeight", "clientHeight", "scrollTo"])
+  for (const property of [
+    "scrollHeight",
+    "clientHeight",
+    "scrollTo",
+    "scrollTop",
+  ])
     descriptors.set(
       property,
       Object.getOwnPropertyDescriptor(HTMLElement.prototype, property),
     );
+  const offsets = new WeakMap<HTMLElement, number>();
   Object.defineProperties(HTMLElement.prototype, {
+    scrollTop: {
+      configurable: true,
+      get() {
+        return offsets.get(this) ?? 0;
+      },
+      set(value: number) {
+        offsets.set(this, Math.max(0, Math.min(value, height - 300)));
+      },
+    },
     scrollHeight: {
       configurable: true,
       get() {
@@ -88,20 +103,24 @@ function Fixture({
   store,
   id = "a",
   running = false,
+  ready = true,
 }: {
   store: ChatViewStore;
   id?: string;
   running?: boolean;
+  ready?: boolean;
 }) {
   const view = useMemo(() => ({ store, threadId: id }), [store, id]);
   const runtime = useExternalStoreRuntime({
-    messages: [
-      {
-        id: `${id}-message`,
-        role: "assistant" as const,
-        content: [{ type: "text" as const, text: "Native scroll fixture" }],
-      },
-    ],
+    messages: ready
+      ? [
+          {
+            id: `${id}-message`,
+            role: "assistant" as const,
+            content: [{ type: "text" as const, text: "Native scroll fixture" }],
+          },
+        ]
+      : [],
     isRunning: running,
     onNew: async () => {},
     convertMessage: (message) => message,
@@ -148,6 +167,33 @@ describe("saved scroll with the native assistant viewport", () => {
     expect(viewport().scrollTop).toBe(100);
   });
 
+  it("restores after the transcript gains its initial layout", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 100, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    const node = view.getByTestId("viewport");
+    // The browser clamps the early write while native runtime messages mount.
+    expect(node.scrollTop).toBe(0);
+    height = 2000;
+    resize();
+    await frames();
+    expect(node.scrollTop).toBe(100);
+  });
+
+  it("restores when native cached messages arrive after the initialization frame", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 100, atBottom: false } });
+    const view = render(<Fixture store={store} ready={false} />);
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(0);
+    height = 2000;
+    view.rerender(<Fixture store={store} ready />);
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(100);
+  });
+
   it("keeps saved bottom-follow and freshly admitted live run scrolling", async () => {
     const store = createChatViewStore();
     store.patch("a", { scroll: { top: 1700, atBottom: true } });
@@ -166,5 +212,67 @@ describe("saved scroll with the native assistant viewport", () => {
     view.rerender(<Fixture store={store} running />);
     await frames();
     expect(viewport.scrollTop).toBe(2200);
+  });
+
+  it("restores bottom after cached native messages arrive late", async () => {
+    height = 0;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 1700, atBottom: true } });
+    const view = render(<Fixture store={store} ready={false} />);
+    await frames();
+    height = 2000;
+    view.rerender(<Fixture store={store} ready />);
+    resize();
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(1700);
+  });
+
+  it("waits for a partial transcript to grow enough to restore the reader", async () => {
+    height = 300;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 500, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    await frames();
+    height = 2000;
+    resize();
+    await frames();
+    expect(view.getByTestId("viewport").scrollTop).toBe(500);
+  });
+
+  it.each(["wheel", "keyboard"])(
+    "lets %s take over while a partial transcript is restoring",
+    async (input) => {
+      height = 600;
+      const store = createChatViewStore();
+      store.patch("a", { scroll: { top: 1000, atBottom: false } });
+      const view = render(<Fixture store={store} />);
+      const node = view.getByTestId("viewport");
+      await frames();
+      if (input === "wheel") fireEvent.wheel(node);
+      else fireEvent.keyDown(node, { key: "PageUp" });
+      node.scrollTop = 100;
+      fireEvent.scroll(node);
+      height = 2000;
+      resize();
+      await frames();
+      expect(node.scrollTop).toBe(100);
+    },
+  );
+
+  it("finishes an unreachable offset after layout settles", async () => {
+    height = 600;
+    const store = createChatViewStore();
+    store.patch("a", { scroll: { top: 1000, atBottom: false } });
+    const view = render(<Fixture store={store} />);
+    await frames();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+    const node = view.getByTestId("viewport");
+    node.scrollTop = 100;
+    fireEvent.scroll(node);
+    height = 2000;
+    resize();
+    expect(node.scrollTop).toBe(100);
   });
 });

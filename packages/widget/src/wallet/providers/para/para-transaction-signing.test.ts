@@ -1,8 +1,10 @@
 import {
+  fromRlp,
   keccak256,
   parseTransaction,
   recoverTransactionAddress,
   serializeTransaction,
+  toRlp,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +39,19 @@ const payload = (chainId: number, nonce = 0) => ({
   },
 });
 
-/** A Para client that signs the RLP it is given with `signer`. */
+/** Model Para's full-envelope decoder, then hash only the unsigned fields. */
+function paraSigningPayload(rlpEncodedTxBase64: string): `0x${string}` {
+  const encoded = Buffer.from(rlpEncodedTxBase64, "base64").toString("hex");
+  if (!encoded.startsWith("02")) throw new Error("Expected EIP-1559 transaction");
+  const fields = fromRlp(`0x${encoded.slice(2)}`, "hex");
+  if (!Array.isArray(fields) || fields.length !== 12) {
+    throw new Error("Para expects a complete 12-field EIP-1559 envelope");
+  }
+  // The placeholder signature is not part of the signing preimage.
+  return `0x02${toRlp(fields.slice(0, 9)).slice(2)}`;
+}
+
+/** A Para client that decodes the transaction before signing with `signer`. */
 function para(
   overrides: Partial<ParaTransactionSigningClient> = {},
   signer = account,
@@ -46,9 +60,7 @@ function para(
     wallets: { w1: { id: "w1", address: account.address, type: "EVM" } },
     signTransaction: vi.fn(async ({ rlpEncodedTxBase64 }) => ({
       signature: await signer.sign({
-        hash: keccak256(
-          `0x${Buffer.from(rlpEncodedTxBase64, "base64").toString("hex")}`,
-        ),
+        hash: keccak256(paraSigningPayload(rlpEncodedTxBase64)),
       }),
     })),
     ...overrides,
@@ -61,6 +73,46 @@ afterEach(() => {
 });
 
 describe("Para commit transaction signing", () => {
+  it.each([5042, 5042002])(
+    "passes a full Para envelope with unchanged prepared fields on chain %s",
+    async (chainId) => {
+      const prepared = paraUnsignedTransaction(payload(chainId, 7));
+      const unsigned = serializeTransaction(prepared);
+      // This is the old request shape. A raw-hash mock incorrectly accepted it.
+      expect(() =>
+        paraSigningPayload(
+          Buffer.from(unsigned.slice(2), "hex").toString("base64"),
+        ),
+      ).toThrow("12-field");
+
+      let seenEnvelope = "";
+      const client = para({
+        signTransaction: vi.fn(async (args) => {
+          seenEnvelope = Buffer.from(args.rlpEncodedTxBase64, "base64").toString(
+            "hex",
+          );
+          expect(paraSigningPayload(args.rlpEncodedTxBase64)).toBe(unsigned);
+          return para().signTransaction!(args);
+        }),
+      });
+      const signed = await signParaTransaction(client, payload(chainId, 7), {
+        onReviewUrl: () => {},
+      });
+      const fields = fromRlp(`0x${seenEnvelope.slice(2)}`, "hex");
+      expect(Array.isArray(fields)).toBe(true);
+      if (!Array.isArray(fields)) throw new Error("Expected transaction fields");
+      expect(fields.slice(9)).toEqual(["0x", "0x", "0x"]);
+      const parsed = parseTransaction(signed);
+      // viem omits zero-valued value when parsing its empty RLP integer.
+      expect({ ...parsed, value: parsed.value ?? 0n }).toMatchObject(prepared);
+      await expect(
+        recoverTransactionAddress({
+          serializedTransaction: signed as `0x02${string}`,
+        }),
+      ).resolves.toBe(account.address);
+    },
+  );
+
   it.each([
     ["Arc", 5042],
     ["Arc Testnet", 5042002],

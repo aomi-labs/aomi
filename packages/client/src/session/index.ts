@@ -1598,6 +1598,14 @@ function isDefinitiveStartRejection(error: unknown): boolean {
   // a loading App before it accepts a turn. Neither left work to stop.
   if (error instanceof GuestSignInError || isAomiError(error, "app_loading"))
     return true;
+  // A retryable admission limit still refused this attempt; it did not start
+  // a turn. Edge refusals can use the generic API error transport.
+  if (
+    isAomiError(error) &&
+    error.status === 429 &&
+    error.code !== "request_in_flight"
+  )
+    return true;
   return (
     error instanceof AgentApiError &&
     !error.retryable &&

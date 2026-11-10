@@ -66,7 +66,7 @@ try {
   command(["session", "list"]);
   evidence.remoteSessionList = "pass";
   const guard = command(["guard", "--account"]);
-  assert.ok(["guarded_only", "balanced"].includes(guard.mode));
+  assert.ok(["strict", "balanced"].includes(guard.mode));
   const savedGuard = command(["guard", guard.mode, "--account"]);
   assert.equal(savedGuard.mode, guard.mode);
   assert.equal(command(["guard", "--account"]).mode, guard.mode);

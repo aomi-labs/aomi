@@ -17,13 +17,23 @@ type Account = {
 };
 type Session = { user?: { id?: string; isAnonymous?: boolean } } | null;
 
-async function browserJson<T>(page: Page, path: string): Promise<T> {
-  return page.evaluate(async (endpoint) => {
-    const response = await fetch(endpoint, { credentials: "include" });
-    if (!response.ok)
-      throw new Error(`${endpoint} returned HTTP ${response.status}`);
-    return response.json() as Promise<T>;
-  }, path);
+async function browserJson<T>(
+  page: Page,
+  path: string,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return page.evaluate(
+    async ({ endpoint, headers }) => {
+      const response = await fetch(endpoint, {
+        credentials: "include",
+        headers,
+      });
+      if (!response.ok)
+        throw new Error(`${endpoint} returned HTTP ${response.status}`);
+      return response.json() as Promise<T>;
+    },
+    { endpoint: path, headers },
+  );
 }
 
 async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
@@ -339,20 +349,24 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
   await assertFundedTestWallet(expectedAddress, chainId);
   const { wallet, forbiddenRequests } = await signIn(page, "evm", chainId);
   expect(wallet.address.toLowerCase()).toBe(expectedAddress.toLowerCase());
-  const mode = page.getByRole("combobox", { name: "Execution mode" });
-  await mode.click();
-  await page.getByRole("button", { name: /Direct/ }).click();
-  await expect(mode).toContainText("Direct");
   await sendPrompt(
     page,
     `This is an attended human_sync wallet request. Do not request, require, or use Privy or delegated signing. Prepare a native-token transfer of exactly 1 wei on chain ${chainId} from my connected wallet to the burn address ${BURN_ADDRESS}. Construct and simulate it, then call commit_txs so I can review the pending wallet approval. Do not sign or broadcast.`,
   );
   const review = page.getByTestId(testIds.txReview);
   await expect(review).toBeVisible({ timeout: 150_000 });
-  await review.getByText("Transaction details").click();
-  const request = JSON.parse(
-    await review.locator("details").first().locator("pre").innerText(),
-  ) as {
+  const commitId = await review.getAttribute("data-action-id");
+  expect(commitId).toMatch(/^[0-9a-f-]{36}$/);
+  const threadId = new URL(page.url()).searchParams.get("thread");
+  expect(threadId).toBeTruthy();
+  const commit = await browserJson<{
+    state: string;
+    review?: { request: unknown };
+  }>(page, `/api/commits/${commitId}`, { "X-Thread-Id": threadId! });
+  expect(commit.state).toBe("needs_signature");
+  // The durable review is the evidence the UI presents; raw transaction JSON
+  // is deliberately no longer rendered in the wallet card.
+  const request = commit.review?.request as {
     type: string;
     transactions?: Array<{
       from: string;
@@ -402,9 +416,14 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
       Boolean(request.simulation?.gas?.units),
   ).toBe(true);
   await expect(review.getByText(/(?: fee$|Estimated gas ·)/)).toBeVisible();
-  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
+  await expect(
+    review.getByRole("button", { name: "Send transaction", exact: true }),
+  ).toBeEnabled();
   expect(wallet.blocked).toEqual([]);
   expect(forbiddenRequests).toEqual([]);
+  console.log(
+    `Hosted wallet review: commit=${commitId}, chain=${chainId}, state=${commit.state}, native_value=1, broadcast=not_requested`,
+  );
 });
 
 async function assertFundedTestWallet(address: string, chainId: number) {

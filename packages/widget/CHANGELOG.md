@@ -1,5 +1,41 @@
 # @aomi-labs/widget
 
+## 5.1.8
+
+### Patch Changes
+
+- Run Solana actions on the network Phantom signed in on. When Phantom refuses the selected Solana network at sign-in and signs on another, Aomi switches to that network, so Devnet or Testnet Phantom gets Devnet or Testnet transactions instead of Mainnet ones. No new UI.
+
+## 5.1.7
+
+### Patch Changes
+
+- Wait for native cached messages before completing reader scroll restoration on a first revisit.
+
+## 5.1.6
+
+### Patch Changes
+
+- Restore saved transcript position after initial message layout and close Settings with Escape.
+
+## 5.1.5
+
+### Patch Changes
+
+- Encode the complete EIP-1559 transaction envelope for Para signing so the provider can decode it before review. Preserve the exact prepared transaction and existing review and unknown-outcome safeguards.
+
+## 5.1.4
+
+### Patch Changes
+
+- Show the staged Solana action titles in signing links and the portal sidebar, including saved reviews with generic assembly labels. Compute-budget instructions do not replace the human-readable action name.
+
+## 5.1.3
+
+### Patch Changes
+
+- Signing in or linking a Solana wallet from the wallet sheet works when Phantom is on a different network than Aomi. Phantom won't show a sign-in message whose Chain ID isn't its own network, and wallets don't say which network they're on, so on that refusal the sheet asks again on the next Solana cluster (at most three tries), each time with a fresh nonce bound to that cluster. Any other failure, including the user declining, ends the attempt as before, and a sheet that is closed, restarted, switched to another wallet or unmounted asks no further. Widget wallet-session sign-in is unchanged.
+
 ## 5.1.2
 
 ### Patch Changes
