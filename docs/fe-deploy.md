@@ -267,3 +267,10 @@ existing `PORTAL_UPSTREAM_ORIGIN` path remains in use.
 This support does not deploy a page Worker, enable a binding in any environment,
 or change public routes. Page deployment ownership, staging runtime acceptance
 and the production cutover remain separate gates.
+
+Portal's Nitro build keeps package dependency chunks separate and preserves
+execution order. Recursive dependency capture can otherwise put shared viem
+helpers into a lazy Privy chunk, evaluating Privy's browser initialization on
+server startup. The retained build configuration preserves page SSR; it does
+not replace the wallet UI with a client-only shell. Validate it in workerd,
+since a successful bundle dry run does not catch module-initialization errors.

@@ -7,7 +7,22 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadAppEnv(root, mode);
-  const base = appConfig({ root, env, walletShims: true });
+  const base = appConfig({
+    root,
+    env,
+    walletShims: true,
+    nitro: {
+      rolldownConfig: {
+        preserveEntrySignatures: "allow-extension",
+        output: {
+          // Do not pull viem's shared helpers into a lazy wallet vendor's chunk.
+          // Loading those helpers must not evaluate browser-only SDK modules.
+          codeSplitting: { includeDependenciesRecursively: false },
+          strictExecutionOrder: true,
+        },
+      },
+    },
+  });
   return mergeConfig(base, {
     plugins: [sentryTanstackStart(sentryOptions(env, "portal"))],
     resolve: {
