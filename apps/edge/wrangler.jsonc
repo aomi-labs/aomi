@@ -33,6 +33,8 @@
   // "kv_namespaces": [{ "binding": "EDGE_CACHE", "id": "" }],
   // No committed vars: constants live in code, per-environment values come
   // from scripts/deploy.mjs and secrets from product-mono's deploy pipeline.
+  // Portal pages may be bound privately as PORTAL_PAGES by the generated deploy
+  // configuration. No service is bound until its page Worker is deployed.
   "vars": {},
   "env": {
     // Local development only: adds the E2E wallet harness (src/dev.ts). Never deployed.

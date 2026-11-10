@@ -85,6 +85,8 @@ export function deployArgs(env = process.env) {
   if (!TOPOLOGIES.includes(topology))
     throw new Error(`EDGE_TOPOLOGY must be one of ${TOPOLOGIES.join(", ")}, not ${topology}`);
   const name = required("EDGE_WORKER_NAME", env);
+  if (value("PORTAL_PAGES_SERVICE", env) === name)
+    throw new Error("PORTAL_PAGES_SERVICE must not target the Edge Worker itself");
   const vars = { EDGE_TOPOLOGY: topology };
   for (const key of REQUIRED_ORIGINS) vars[key] = origins(key, required(key, env));
   for (const key of OPTIONAL_ORIGINS) if (value(key, env)) vars[key] = origins(key, value(key, env));
@@ -117,7 +119,15 @@ export function deployArgs(env = process.env) {
 }
 
 /** The config a deploy runs: the checked-in one with the environment's Hyperdrive binding, or none. */
-export function deployConfig(source, hyperdriveId) {
+export function deployConfig(source, hyperdriveId, portalPagesService = "") {
+  if (portalPagesService) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(portalPagesService))
+      throw new Error("PORTAL_PAGES_SERVICE must be a Worker service name");
+    const marker = '"vars": {},';
+    if (!source.includes(marker)) throw new Error("Worker config has no service insertion point");
+    const services = [{ binding: "PORTAL_PAGES", service: portalPagesService }];
+    source = source.replace(marker, `"services": ${JSON.stringify(services)},\n  ${marker}`);
+  }
   if (!source.includes(LOCAL_HYPERDRIVE)) {
     if (hyperdriveId) throw new Error("EDGE_HYPERDRIVE_ID is set, but this Worker config has no Hyperdrive binding");
     return source;
@@ -134,7 +144,7 @@ export function deploy(env = process.env) {
     const args = deployArgs(env);
     // rc alone binds the replay Durable Object; see wrangler.rc.jsonc.
     const source = value("EDGE_TOPOLOGY", env) === "rc" ? "wrangler.rc.jsonc" : "wrangler.jsonc";
-    writeFileSync(output, deployConfig(readFileSync(resolve(ROOT, source), "utf8"), value("EDGE_HYPERDRIVE_ID", env)));
+    writeFileSync(output, deployConfig(readFileSync(resolve(ROOT, source), "utf8"), value("EDGE_HYPERDRIVE_ID", env), value("PORTAL_PAGES_SERVICE", env)));
     return spawnSync("pnpm", args, { cwd: ROOT, stdio: "inherit", env }).status ?? 1;
   } catch (error) {
     console.error(error.message);
