@@ -1,46 +1,48 @@
 ---
-title: Canonical Chat Issuer Cutover
+title: OAuth Issuer
 owner: frontend
 status: authoritative
 area: bff
-review_after_days: 14
+review_after_days: 30
 sources_of_truth:
   - apps/edge/src/auth/server.ts
   - apps/edge/src/portal/context.ts
   - packages/account/src/better-auth/env.ts
+  - scripts/test-issuer-cutover.mjs
 ---
 
-# Canonical Chat issuer cutover
+# OAuth issuer
 
-The approved authentication base is `https://aomi.chat`, with OAuth issuer
-`https://aomi.chat/api/auth`. Cecilia explicitly rejected legacy issuer
-compatibility. There is no grace period, secondary issuer, or old-host token
-acceptance. Admitted aliases use the configured canonical issuer too.
+The Edge trusts exactly one OAuth issuer: the auth base in `BETTER_AUTH_URL`
+with the path `/api/auth`. There is no secondary issuer and no grace period. A
+token minted under any other issuer fails issuer and resource validation.
 
-Existing clients must update their authentication origin and sign in again.
-Old-origin access tokens are rejected by issuer/resource validation. Existing
-client registrations and refresh grants must be inventoried before activation;
-no old grant portability is promised. SDK/CLI defaults must move to aomi.chat in the cutover release.
-Old domains may redirect pages, but must not serve legacy authentication or apps. This PR prepares runtime code and tests; it does not change live config.
+## Alias hosts
 
-Account policy runs in request-scoped configuration rather than process-wide
-state, including under concurrent requests. No database schema change is needed.
-The account package is versioned and packed with this server export.
+A host the portal admits as an alias uses the same issuer and the same
+protected resources as the auth base. The request URL is left unchanged, so
+browser origin checks, DPoP and wallet proofs still bind to the host the
+request arrived on.
 
-Before activation, verify social/GitHub callbacks, Manager redirects, Para/Privy
-origins, discovery, strict issuer/resource/audience checks, and real browser
-sessions on aomi.chat and aomi.build. These are separate sites with host-scoped
-cookies; signing in again is expected and shared cookies are not promised.
+## Sessions
 
-Rollback must restore an explicitly tested issuer/Edge/page tuple. Reverting the
-issuer invalidates new-issuer clients; do not silently enable dual trust. Preserve
-signing keys and account data, and communicate the required reauthentication.
+Cookies are host-scoped. A session on one site does not carry to another, so
+`aomi.chat` and `aomi.build` each need their own sign-in.
+
+## Request-scoped configuration
+
+Account and OAuth policy read their environment through `withAccountAuthEnv`,
+which is scoped to one request, and fall back to `process.env` outside a
+request. Concurrent requests do not share it.
 
 ## Local verification
 
 `node scripts/test-issuer-cutover.mjs <loopback PostgreSQL port>` runs the Edge
-suite against an owned disposable local database. It exercises canonical wallet
-login/session, DCR/device issuance, exact JWT issuer/audience/signature, refresh
-rotation/replay rejection, and discovery. Unit tests reject old-issuer tokens on
-both the canonical host and admitted aliases. These are local proofs, not hosted
-callback/browser acceptance or evidence of production activation.
+suite against a disposable local database. It covers wallet login and session,
+DCR and device issuance, exact JWT issuer, audience and signature, refresh
+rotation with replay rejection, and discovery. Unit tests reject tokens from
+another issuer on both the auth base and alias hosts. This is a local check; it
+does not exercise hosted callbacks or real browsers.
+
+The move of the auth base to `https://aomi.chat` is planned in
+[the issuer cutover plan](../plans/2026-11-10-issuer-cutover.md).
