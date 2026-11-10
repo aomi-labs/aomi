@@ -13,7 +13,6 @@ import {
 import { normalizeAppDescriptor } from "../app-descriptor";
 import {
   TransactionSafetyTransport,
-  normalizeTransactionSafetyMode,
   type TransactionSafetyMode,
   type TransactionSafetyPolicy,
 } from "../transaction-safety";
@@ -149,14 +148,14 @@ export class AomiGuard {
   /**
    * Set the mode at `revision`, or at the current one. A stale `revision`
    * fails instead of overwriting a change made elsewhere. Account defaults
-   * cannot be `yolo`. Legacy mode spellings are accepted.
+   * cannot be `yolo`.
    */
   async set(input: {
     mode: TransactionSafetyMode;
     thread?: string;
     revision?: number;
   }): Promise<TransactionSafetyPolicy> {
-    const mode = normalizeTransactionSafetyMode(input.mode) ?? input.mode;
+    const { mode } = input;
     const revision = input.revision ?? (await this.get(input)).revision;
     if (input.thread)
       return this.transport.setThread(input.thread, mode, revision);

@@ -16,8 +16,7 @@ sources_of_truth:
 
 Transaction safety is separate from on-chain permissions and signing grants.
 The UI calls it the **guard policy**. It has three levels, and the API values
-match the labels (servers also accept the pre-rename `guarded_only` and
-`unrestricted`; the client reads them with `normalizeTransactionSafetyMode`):
+match the labels:
 
 | UI label | API value  | Account default | Meaning                              |
 | -------- | ---------- | --------------- | ------------------------------------ |

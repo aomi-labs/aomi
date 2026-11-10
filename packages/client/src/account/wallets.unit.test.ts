@@ -235,10 +235,9 @@ describe("agent wallets", () => {
     app: { id: 90, name: "world" },
     last_used_at: null,
     addresses: [{ family: "evm", address: "0x41c2", wallet_id: "w_31" }],
-    // A server from before the rename spells Ask in the client `here`.
     connections: [
       { key: "telegram:42", lane: "instant" },
-      { key: "cli", lane: "here" },
+      { key: "cli", lane: "ask_client" },
     ],
   };
 

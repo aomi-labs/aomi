@@ -14,7 +14,7 @@
 import { asRecord, numberOrNull, stringValue } from "../internal/record";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
-import { normalizeLane, type AomiLane } from "./lanes";
+import { laneOf, type AomiLane } from "./lanes";
 
 export type { AomiLane } from "./lanes";
 
@@ -234,7 +234,7 @@ function walletsOf(value: unknown): AomiConnectionWallet[] {
           {
             id,
             name: stringValue(wallet?.name) ?? "",
-            lane: normalizeLane(wallet?.lane),
+            lane: laneOf(wallet?.lane),
             archived: wallet?.archived === true,
           },
         ]

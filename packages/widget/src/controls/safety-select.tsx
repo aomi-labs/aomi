@@ -14,10 +14,7 @@ import {
 } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
-import {
-  normalizeTransactionSafetyMode,
-  type TransactionSafetyMode,
-} from "@aomi-labs/client";
+import type { TransactionSafetyMode } from "@aomi-labs/client";
 import { Button } from "@/ui/button";
 import { AomiButton } from "@/ui/aomi/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
@@ -91,11 +88,9 @@ const DEFAULT_KEY = "aomi:transaction-safety-default";
  * the model selector instead of popping in once the account request lands. */
 function rememberedDefault(storage: ScopedStorage): TransactionSafetyMode {
   try {
-    // A browser may still hold a spelling from before the rename.
-    const stored = normalizeTransactionSafetyMode(
-      storage.migrate("safetyDefault", DEFAULT_KEY),
-    );
-    if (stored) return stored;
+    const stored = storage.migrate("safetyDefault", DEFAULT_KEY);
+    const level = TRANSACTION_SAFETY_LEVELS.find(({ id }) => id === stored);
+    if (level) return level.id;
   } catch {
     /* Storage can be blocked; fall back to the platform default. */
   }

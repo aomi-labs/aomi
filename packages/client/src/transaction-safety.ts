@@ -28,24 +28,6 @@ export const TRANSACTION_SAFETY_NAMES: Record<
   yolo: { label: "Yolo", description: "Runs even when guards flag it" },
 };
 
-/** The spellings servers sent before the rename, and what they mean now. */
-const LEGACY_MODES: Record<string, TransactionSafetyMode> = {
-  guarded_only: "strict",
-  unrestricted: "yolo",
-};
-
-/**
- * A mode from the wire, storage or a command line, legacy spellings
- * included; `undefined` when it names no mode.
- */
-export function normalizeTransactionSafetyMode(
-  value: unknown,
-): TransactionSafetyMode | undefined {
-  if (typeof value !== "string") return undefined;
-  if (value in TRANSACTION_SAFETY_NAMES) return value as TransactionSafetyMode;
-  return LEGACY_MODES[value];
-}
-
 type RequestResponse = (
   method: AomiHttpMethod,
   path: string,
@@ -117,11 +99,6 @@ export class TransactionSafetyTransport {
 export function transactionSafetyPolicy(
   value: unknown,
 ): TransactionSafetyPolicy {
-  // A server from before the rename sends a legacy mode; read it as the new one.
-  if (value && typeof value === "object" && "mode" in value) {
-    const mode = normalizeTransactionSafetyMode(value.mode);
-    if (mode) value = { ...value, mode };
-  }
   validatePipelineArguments(
     value,
     agentSchemas.TransactionSafetyPolicy,

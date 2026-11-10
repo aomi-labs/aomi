@@ -3,11 +3,10 @@
 ## Last Updated
 
 2026-11-08 — LANE AND SAFETY NAMES, LIMITS ON THE WALLET (`cecilia/claude/policy-deslop`).
-  Wire rename, compatible: lanes `portal`/`here` → `ask_aomi`/`ask_client`,
-  safety modes `guarded_only`/`unrestricted` → `strict`/`yolo`. The client
-  normalizes legacy spellings at every read (responses, the remembered safety
-  default, CLI args, `@aomi-labs/account` SQL reads); requests send the new
-  ones, so the backend that accepts both deploys first. The agent-v1 contract
+  Wire rename, breaking: lanes `portal`/`here` → `ask_aomi`/`ask_client`,
+  safety modes `guarded_only`/`unrestricted` → `strict`/`yolo`. No old
+  spelling is read or written anywhere; the product-mono migration rewrites
+  the stored rows, and both sides ship together. The agent-v1 contract
   files were edited by hand to match; rerun `pnpm generate:agent-api` against
   the paired product-mono branch once it lands. Receive on an agent wallet uses
   `operating_address` (the Swig wallet address) when present. Swig limits left

@@ -19,7 +19,7 @@ import {
   stringValue,
 } from "../internal/record";
 import type { AomiWalletFamily } from "../types";
-import { normalizeLane, type AomiLane } from "./lanes";
+import { laneOf, type AomiLane } from "./lanes";
 
 /** The app that created a wallet and stays linked to it. */
 export type AomiAgentWalletApp = { id: number; name: string; label: string };
@@ -167,7 +167,7 @@ export function parseAgentWallet(value: unknown): AomiAgentWallet {
       return {
         key,
         label: stringValue(connection?.label) ?? key,
-        lane: normalizeLane(connection?.lane),
+        lane: laneOf(connection?.lane),
       };
     }),
   };

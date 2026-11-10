@@ -4,7 +4,6 @@ import { Aomi } from "./aomi";
 import { AccountGraphApiError } from "../account/graph";
 import { AomiError, isAomiError } from "../api-error";
 import { bearer } from "./auth";
-import type { TransactionSafetyMode } from "../transaction-safety";
 
 type Call = { method: string; path: string; body: unknown; csrf: boolean };
 
@@ -136,12 +135,6 @@ describe("aomi.account", () => {
     await expect(aomi.account.guard.set({ mode: "yolo" })).rejects.toSatisfy(
       (error) => isAomiError(error, "invalid_mode"),
     );
-    // A caller still on the old spelling is held to the same rule.
-    await expect(
-      aomi.account.guard.set({
-        mode: "unrestricted" as unknown as TransactionSafetyMode,
-      }),
-    ).rejects.toSatisfy((error) => isAomiError(error, "invalid_mode"));
   });
 
   it("reads credits and the statement", async () => {

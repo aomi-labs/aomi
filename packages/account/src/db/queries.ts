@@ -679,12 +679,10 @@ export async function denyAgentWalletsForUser(input: {
   await input.db.query(`update users set agents_paused = true where id = $1`, [
     input.userId,
   ]);
-  // Stored as `portal` until every backend reads the new spelling; see the
-  // lane rename migration in product-mono.
   await input.db.query(
-    `update wallet_access set lane = 'portal',
+    `update wallet_access set lane = 'ask_aomi',
         updated_at = extract(epoch from now())::bigint
-      where user_id = $1 and lane not in ('ask_aomi', 'portal')`,
+      where user_id = $1 and lane <> 'ask_aomi'`,
     [input.userId],
   );
 }
@@ -1166,7 +1164,7 @@ export async function listConnectionSettings(
     ).map(({ id, name, lane, archived }) => ({
       id,
       name,
-      lane: laneOf(lane),
+      lane: lane === "ask_client" || lane === "instant" ? lane : "ask_aomi",
       archived: archived === true,
     })),
   }));
@@ -1563,13 +1561,4 @@ function isMissingRelation(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "42P01"
   );
-}
-
-/**
- * A stored lane, pre-rename spellings included (`portal`, `here`); anything
- * else reads as `ask_aomi`, the owner approves.
- */
-function laneOf(lane: string): "ask_aomi" | "ask_client" | "instant" {
-  if (lane === "ask_client" || lane === "here") return "ask_client";
-  return lane === "instant" ? "instant" : "ask_aomi";
 }

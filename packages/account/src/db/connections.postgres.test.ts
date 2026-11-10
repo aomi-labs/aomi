@@ -165,7 +165,7 @@ describe.skipIf(!enabled)("account connections", () => {
          (user_id, connection_key, agent_wallet_id, lane, created_at, updated_at)
        values ('owner', 'oauth:claude', $1, 'instant', 1, 1),
               ('owner', 'oauth:claude', $3, 'instant', 1, 1),
-              ('owner', 'telegram:88', $2, 'portal', 1, 1)`,
+              ('owner', 'telegram:88', $2, 'ask_aomi', 1, 1)`,
       [TRADING, HOODIT, OLD],
     );
     // Owner was linked from Hoodit, then a later code from the side bot was
@@ -255,7 +255,6 @@ describe.skipIf(!enabled)("account connections", () => {
           application: { id: 86, name: "hoodit", label: "Hoodit" },
           ask_only: true,
           wallets: [
-            // Stored before the rename as `portal`; it reads as Ask on Aomi.
             { id: HOODIT, name: "Hoodit", lane: "ask_aomi", archived: false },
           ],
           last_used_at: 1760408000,

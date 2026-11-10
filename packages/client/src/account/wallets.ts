@@ -11,7 +11,7 @@ import {
   responseReader,
   stringValue,
 } from "../internal/record";
-import { normalizeLane } from "./lanes";
+import { laneOf } from "./lanes";
 import {
   agentWalletPaths,
   parseAgentWallet,
@@ -301,6 +301,6 @@ function parseAccountWallet(value: unknown): AomiAccountWallet {
     created_at: numberOrNull(record.created_at) ?? 0,
     agent_wallet_id: stringValue(record.agent_wallet_id) ?? null,
     maker_app: stringValue(record.maker_app) ?? null,
-    ...(record.lane === undefined ? {} : { lane: normalizeLane(record.lane) }),
+    ...(record.lane === undefined ? {} : { lane: laneOf(record.lane) }),
   };
 }

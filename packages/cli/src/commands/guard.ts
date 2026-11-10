@@ -1,14 +1,16 @@
 import {
   TRANSACTION_SAFETY_NAMES,
-  normalizeTransactionSafetyMode,
   type TransactionSafetyMode,
 } from "@aomi-labs/client";
 import { connect, json, out, usage, type ConnectFlags } from "../context";
 import { loadState } from "../state";
 
-/** `strict`, `balanced` or `yolo` (or a pre-rename wire name) to a mode. */
+const MODES = Object.keys(TRANSACTION_SAFETY_NAMES) as TransactionSafetyMode[];
+
+/** `strict`, `balanced` or `yolo` to a mode. */
 export function guardMode(name: string): TransactionSafetyMode | undefined {
-  return normalizeTransactionSafetyMode(name.toLowerCase());
+  const wanted = name.toLowerCase();
+  return MODES.find((mode) => mode === wanted);
 }
 
 /** `aomi guard [mode]`: the current thread's signing guard, or the account default. */

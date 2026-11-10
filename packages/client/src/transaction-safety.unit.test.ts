@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   TransactionSafetyTransport,
-  normalizeTransactionSafetyMode,
   transactionSafetyPolicy,
 } from "./transaction-safety";
 import { reviewEligibility } from "./commit-lifecycle";
@@ -89,20 +88,6 @@ describe("transaction safety client", () => {
       "positive policy revision",
     );
     expect(request).toHaveBeenCalledTimes(1);
-  });
-  it("reads the modes servers sent before the rename", () => {
-    expect(normalizeTransactionSafetyMode("guarded_only")).toBe("strict");
-    expect(normalizeTransactionSafetyMode("unrestricted")).toBe("yolo");
-    expect(normalizeTransactionSafetyMode("balanced")).toBe("balanced");
-    expect(normalizeTransactionSafetyMode("unknown")).toBeUndefined();
-    expect(
-      transactionSafetyPolicy({
-        mode: "guarded_only",
-        revision: 1,
-        scope: "thread",
-        source: "user",
-      }).mode,
-    ).toBe("strict");
   });
   it("does not coerce malformed policy into Balanced", () => {
     expect(() =>
