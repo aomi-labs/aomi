@@ -32,7 +32,7 @@ sources_of_truth:
 
 - auth: [topics/auth/facts/auth.md](topics/auth/facts/auth.md), [topics/auth/facts/wallet-kit.md](topics/auth/facts/wallet-kit.md), [topics/auth/facts/base-account.md](topics/auth/facts/base-account.md)
 - apps: [topics/apps/facts/app-surfaces.md](topics/apps/facts/app-surfaces.md), [topics/apps/facts/widget-frame.md](topics/apps/facts/widget-frame.md), [topics/apps/facts/working-trace.md](topics/apps/facts/working-trace.md)
-- bff: [topics/bff/facts/endpoints.md](topics/bff/facts/endpoints.md)
+- bff: [topics/bff/facts/endpoints.md](topics/bff/facts/endpoints.md), [topics/bff/facts/sentry-observability.md](topics/bff/facts/sentry-observability.md)
 - client-runtime: [topics/client-runtime/facts/react-runtime.md](topics/client-runtime/facts/react-runtime.md), [topics/client-runtime/facts/transport-client.md](topics/client-runtime/facts/transport-client.md), [topics/client-runtime/facts/cli.md](topics/client-runtime/facts/cli.md), [topics/client-runtime/facts/solana-transactions.md](topics/client-runtime/facts/solana-transactions.md)
 - development: [topics/development/facts/workspace.md](topics/development/facts/workspace.md)
 - deploy: [topics/deploy/facts/projects.md](topics/deploy/facts/projects.md)
@@ -40,6 +40,17 @@ sources_of_truth:
 ## Policy
 
 - Durable repo knowledge belongs in `docs/topics/<topic>/facts/`.
+- A facts page states what is true of the code at this commit, in the present tense. It changes only when the code changes.
+- If a sentence can become false without a commit, it is state. State goes to `specs/STATE.md`, the pull request or the tracking issue.
+- A facts page does not contain any of these:
+  - What a pull request or branch does, such as "this PR does not change live config".
+  - A dated audit, review or "as of" statement.
+  - A run result such as PASS, FAIL or BLOCKED.
+  - Work that has not happened yet.
+  - Who approved, rejected or decided something.
+- Unfinished work and decision records go to `docs/topics/<topic>/plans/`. A plan describes intent, never current behavior.
+- The frontmatter `status` is `authoritative`, `working` or `archived`. It says how far to trust the page, not how far the work has progressed.
+- `pnpm run check:doc-facts` checks these rules and runs in CI.
 - Use `./scripts/repowiki add <topic>` and `./scripts/repowiki update <topic>` to expand or refresh topic docs.
 - Search results are only meaningful after `./scripts/repowiki refresh` or `./scripts/repowiki index`.
 - The wrapper in `scripts/repowiki` assumes `product-mono` lives next to this repo, provides the Rust `repowiki` binary, and exposes that Rust workspace locally through `./aomi` when needed by generated docs.

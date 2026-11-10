@@ -1,7 +1,7 @@
 ---
 title: Chat regeneration, editing, and cancellation
 owner: frontend
-status: active
+status: authoritative
 sources_of_truth:
   - packages/client/src/session/index.ts
   - packages/client/src/session/conversation.ts

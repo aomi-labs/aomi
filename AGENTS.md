@@ -10,6 +10,13 @@ integration; `packages/widget` owns the published widget.
 `packages/account` owns shared authentication and BFF support. Deployed apps
 live under `apps/`, including Portal, Build, and Landing.
 
+## Documentation
+
+- A facts page (`docs/topics/<topic>/facts/`) states what is true of the code at this commit, in the present tense. If a sentence can become false without a commit, it is state and does not go there.
+- State goes to the system that owns it: `specs/STATE.md`, the pull request or the tracking issue. This covers rollout progress, audit results, pending work, who decided what, and what a pull request does or does not do.
+- Unfinished work and decision records go to `docs/topics/<topic>/plans/`. When the work ships, move its durable facts to a facts page.
+- `pnpm run check:doc-facts` enforces this in CI. [`docs/index.md`](docs/index.md) has the full rule.
+
 ## Build, Test, and Development Commands
 
 Use the repository-pinned pnpm version through Corepack. For Aomi local work,

@@ -11,6 +11,8 @@ Before adding, renaming or setting any env var or secret, follow AGENTS.md
 
 ## After Completing a Task
 
+State belongs in `specs/STATE.md`, never on a facts page. See AGENTS.md "Documentation".
+
 Update `specs/STATE.md` with:
 
 - What changed (files modified, features added/fixed)

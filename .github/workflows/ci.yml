@@ -34,6 +34,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Facts pages state facts
+        run: |
+          python3 -B -m unittest discover -s scripts -p 'test_check_doc_facts.py'
+          python3 -B scripts/check_doc_facts.py
+
       - name: Select affected checks
         id: select
         env:
