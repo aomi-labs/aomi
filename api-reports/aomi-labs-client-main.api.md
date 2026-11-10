@@ -312,6 +312,7 @@ export class AccountPoliciesTransport {
     confirmRevoke(bindingId: number, transactionSignature: string): Promise<AomiPreparedOnchainPolicy>;
     get(chainRef: string, options?: {
         signal?: AbortSignal;
+        delegate?: string;
     }): Promise<AomiOnchainPolicyProviderCtx>;
     prepare(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy>;
     // (undocumented)
@@ -774,6 +775,7 @@ export type AomiAgentWalletAddress = {
     family: AomiWalletFamily;
     address: string;
     wallet_id: string;
+    operating_address?: string;
 };
 
 // @public
@@ -1372,7 +1374,7 @@ export interface AomiIngestSecretsResponse {
 }
 
 // @public
-export type AomiLane = "portal" | "here" | "instant";
+export type AomiLane = "ask_aomi" | "ask_client" | "instant";
 
 // @public
 export interface AomiListSecretsResponse {
@@ -4570,7 +4572,7 @@ export class TransactionSafetyTransport {
     // (undocumented)
     getThread(threadId: string): Promise<TransactionSafetyPolicy>;
     // (undocumented)
-    setAccountDefault(mode: Exclude<TransactionSafetyMode, "unrestricted">, expectedRevision: number): Promise<TransactionSafetyPolicy>;
+    setAccountDefault(mode: Exclude<TransactionSafetyMode, "yolo">, expectedRevision: number): Promise<TransactionSafetyPolicy>;
     // (undocumented)
     setThread(threadId: string, mode: TransactionSafetyMode, expectedRevision: number): Promise<TransactionSafetyPolicy>;
 }
