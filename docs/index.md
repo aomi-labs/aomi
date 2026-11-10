@@ -40,6 +40,7 @@ sources_of_truth:
 ## Policy
 
 - Durable repo knowledge belongs in `docs/topics/<topic>/facts/`.
+- A facts page states what is true of the code at this commit. If a sentence can become false without a commit, it is state: put it in `specs/STATE.md`, the pull request or `docs/topics/<topic>/plans/`, not on a facts page.
 - Use `./scripts/repowiki add <topic>` and `./scripts/repowiki update <topic>` to expand or refresh topic docs.
 - Search results are only meaningful after `./scripts/repowiki refresh` or `./scripts/repowiki index`.
 - The wrapper in `scripts/repowiki` assumes `product-mono` lives next to this repo, provides the Rust `repowiki` binary, and exposes that Rust workspace locally through `./aomi` when needed by generated docs.

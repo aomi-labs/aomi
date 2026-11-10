@@ -10,6 +10,8 @@ integration; `packages/widget` owns the published widget.
 `packages/account` owns shared authentication and BFF support. Deployed apps
 live under `apps/`, including Portal, Build, and Landing.
 
+A facts page (`docs/topics/<topic>/facts/`) states what is true of the code at this commit. If a sentence can become false without a commit, it is state: put it in `specs/STATE.md`, the pull request or `docs/topics/<topic>/plans/`, not on a facts page.
+
 ## Build, Test, and Development Commands
 
 Use the repository-pinned pnpm version through Corepack. For Aomi local work,

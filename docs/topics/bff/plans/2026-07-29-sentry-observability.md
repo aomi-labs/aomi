@@ -1,15 +1,4 @@
----
-title: BFF Sentry Observability Decision Record
-owner: platform
-status: authoritative
-area: bff
-review_after_days: 30
-sources_of_truth:
-  - apps/portal/src/sentry.server.config.ts
-  - apps/build/src/sentry.server.config.ts
-  - apps/edge/src/index.ts
-  - packages/observability/src
----
+> Decision record and implementation plan from 2026-07-29, written for the Next.js apps. It describes intent and one period's progress, not current behavior.
 
 # BFF Sentry Observability Decision Record
 

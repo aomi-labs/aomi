@@ -179,8 +179,8 @@ breaking cutover creates a new reviewed consumer commit and advances the pin.
 
 ## TypeScript reform clean cutover
 
-Cecilia explicitly requested removal of compatibility layers in the #806 stack.
-The proposed `ts-reform-clean-cutover-v2` baseline freezes the updated headless and
+The TypeScript reform release (#806) removes compatibility layers on purpose.
+The `ts-reform-clean-cutover-v2` baseline freezes the updated headless and
 Vite consumers at commit `09cb7adaf36946f80e0cc7849e5965712e8ba8da`, tagged
 `consumer-baseline/ts-reform-clean-cutover-v2`. This replaces the payments-v2 pin
 for this intentional breaking release. Candidate checks still copy immutable
