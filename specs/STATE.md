@@ -6158,9 +6158,3 @@ Controls disabled while isProcessing === true
 
 - The Manage sheet drops "Used by"; its header reads "Agent wallet · made in <app> · used …". `AomiAgentWallet.app` is the app that made the wallet.
 - Card groups keep their height inside scrolling sheets (`listGroupClass` `shrink-0`), so long Manage sheets scroll instead of clipping.
-
-## 2026-11-10 — Facts pages state facts
-
-- Added `scripts/check_doc_facts.py` (`pnpm run check:doc-facts`) and a CI step. A facts page states what is true of the code at the commit; rollout progress, dated audits, verdicts, pending work and decision history fail the check.
-- Moved the Sentry decision record and plan to `docs/topics/bff/plans/` and wrote a short facts page from the code.
-- `status` is `authoritative`, `working` or `archived`. The rule is in `AGENTS.md` and `docs/index.md`.

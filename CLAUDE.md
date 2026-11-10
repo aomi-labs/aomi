@@ -11,7 +11,7 @@ Before adding, renaming or setting any env var or secret, follow AGENTS.md
 
 ## After Completing a Task
 
-State belongs in `specs/STATE.md`, never on a facts page. See AGENTS.md "Documentation".
+A facts page (`docs/topics/<topic>/facts/`) states what is true of the code at this commit. State goes in `specs/STATE.md`, never on a facts page.
 
 Update `specs/STATE.md` with:
 

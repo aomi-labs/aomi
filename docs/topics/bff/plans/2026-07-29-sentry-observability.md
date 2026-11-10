@@ -1,4 +1,4 @@
-> Decision record and implementation plan from 2026-07-29, written for the Next.js apps. It describes intent and one period's progress, not current behavior. The current wiring is in [BFF Sentry observability](../facts/sentry-observability.md).
+> Decision record and implementation plan from 2026-07-29, written for the Next.js apps. It describes intent and one period's progress, not current behavior.
 
 # BFF Sentry Observability Decision Record
 
