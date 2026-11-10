@@ -223,47 +223,26 @@ beforeEach(() => {
   resetEdgeServices();
 });
 
-describe("Portal issuer migration", () => {
-  it("accepts legacy grants only on the bounded old-host authority", async () => {
+describe("Portal canonical issuer cutover", () => {
+  it("rejects old-issuer tokens on both canonical and admitted alias hosts", async () => {
     const token = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
-    const cfg = {
-      ...env,
-      BETTER_AUTH_URL: "https://aomi.chat",
-      NODE_ENV: "test",
-      PORTAL_HOSTS: "portal.example,aomi.chat",
-      PORTAL_LEGACY_AUTH: JSON.stringify({ origin: PORTAL, expiresAt: new Date(Date.now() + 60_000).toISOString() }),
-    };
-    const headers = { authorization: `Bearer ${token}` };
-    const old = await handleRequest(new Request(`${PORTAL}/v1/agent/sessions`, { headers }), cfg, world);
-    expect(old.status).toBe(200);
-    expect((await upstreamBearer(seen[0])).payload.resource).toBe(`${PORTAL}/v1/agent`);
-    seen = [];
-    const primary = await handleRequest(new Request("https://aomi.chat/v1/agent/sessions", { headers }), cfg, world);
-    expect(primary.status).toBe(401);
-    expect(seen).toHaveLength(0);
-    const expired = await handleRequest(new Request(`${PORTAL}/v1/agent/sessions`, { headers }), {
-      ...cfg,
-      PORTAL_LEGACY_AUTH: JSON.stringify({ origin: PORTAL, expiresAt: "2020-01-01T00:00:00Z" }),
-    }, world);
-    expect(expired.status).toBe(401);
-    expect(seen).toHaveLength(0);
+    const cfg = { ...env, BETTER_AUTH_URL: "https://aomi.chat", NODE_ENV: "test", PORTAL_HOSTS: "portal.example,aomi.chat" };
+    for (const host of [PORTAL, "https://aomi.chat"]) {
+      const response = await handleRequest(new Request(`${host}/v1/agent/sessions`, {
+        headers: { authorization: `Bearer ${token}` },
+      }), cfg, world);
+      expect(response.status).toBe(401);
+      expect(seen).toHaveLength(0);
+    }
   });
 
-  it("advertises the primary resource identity independently of the legacy host", () => {
-    const cfg = {
-      ...env,
-      BETTER_AUTH_URL: "https://aomi.chat",
-      NODE_ENV: "test",
-      PORTAL_HOSTS: "portal.example,aomi.chat",
-      PORTAL_LEGACY_AUTH: JSON.stringify({ origin: PORTAL, expiresAt: "2026-12-01T00:00:00Z" }),
-    };
-    const now = () => Date.parse("2026-11-10T00:00:00Z");
-    const primary = portalContext(new Request("https://aomi.chat/"), cfg, world, undefined, now)!;
-    const legacy = portalContext(new Request(`${PORTAL}/`), cfg, world, undefined, now)!;
-    expect(primary.resources.authorizationServerIssuer).toBe("https://aomi.chat/api/auth");
-    expect(legacy.resources.authorizationServerIssuer).toBe(`${PORTAL}/api/auth`);
-    expect(primary.portalOrigin).toBe("https://aomi.chat");
-    expect(legacy.portalOrigin).toBe(PORTAL);
+  it("uses only the canonical issuer for admitted aliases", () => {
+    const cfg = { ...env, BETTER_AUTH_URL: "https://aomi.chat", PORTAL_HOSTS: "portal.example,aomi.chat" };
+    for (const host of [PORTAL, "https://aomi.chat"]) {
+      const context = portalContext(new Request(`${host}/`), cfg, world)!;
+      expect(context.resources.authorizationServerIssuer).toBe("https://aomi.chat/api/auth");
+      expect(context.portalOrigin).toBe(host);
+    }
   });
 });
 

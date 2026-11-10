@@ -30,9 +30,8 @@ export async function handleRequest(
   const servePortal = () => {
     if (!portal) throw new Error("Portal context is required");
     const serve = () => handlePortalRequest(request, portal);
-    if (!env.PORTAL_LEGACY_AUTH) return serve();
     const strings = Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
-    return withAccountAuthEnv({ ...strings, BETTER_AUTH_URL: portal.resources.portalOrigin }, serve);
+    return withAccountAuthEnv({ ...process.env, ...strings, BETTER_AUTH_URL: portal.resources.portalOrigin }, serve);
   };
   // The account surface opens a pool over Hyperdrive on first use; it closes after the request.
   const database = env.HYPERDRIVE?.connectionString;

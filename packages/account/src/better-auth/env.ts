@@ -27,7 +27,7 @@ type AccountAuthEnvInput = Record<string, string | undefined>;
 
 const requestEnv = new AsyncLocalStorage<AccountAuthEnvInput>();
 
-/** Account/OAuth policy follows this request's configured issuer, never a concurrent host. */
+/** Account/OAuth policy follows this request's configured issuer. */
 export function withAccountAuthEnv<T>(env: AccountAuthEnvInput, run: () => T): T {
   return requestEnv.run(env, run);
 }

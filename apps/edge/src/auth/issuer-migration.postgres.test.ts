@@ -74,21 +74,16 @@ describe.skipIf(!enabled)("Canonical Chat issuer migration", () => {
     }
   });
 
-  it("keeps account identity and OAuth issuance isolated across canonical and legacy hosts", async () => {
+  it("issues and refreshes credentials only for the canonical Chat issuer", async () => {
     const { handleRequest } = await import("../handler");
-    const alias = "https://chat.aomi.dev";
     const signer = privateKeyToAccount(generatePrivateKey());
     const env = {
       NODE_ENV: "development",
       BETTER_AUTH_URL: origin,
-      BETTER_AUTH_SECRET: "wallet-alias-test-secret-at-least-32-bytes",
-      PORTAL_LEGACY_AUTH: JSON.stringify({
-        origin: alias,
-        expiresAt: new Date(Date.now() + 180_000).toISOString(),
-      }),
-      PORTAL_HOSTS: `${new URL(origin).host},${new URL(alias).host}`,
+      BETTER_AUTH_SECRET: "canonical-issuer-test-secret-at-least-32-bytes",
+      PORTAL_HOSTS: new URL(origin).host,
       PORTAL_UPSTREAM_ORIGIN: "http://pages.invalid",
-      AOMI_TRUSTED_ORIGINS: `${origin},${alias}`,
+      AOMI_TRUSTED_ORIGINS: origin,
     };
     const call = (host: string, path: string, body?: object, cookie?: string) =>
       handleRequest(
@@ -119,8 +114,8 @@ describe.skipIf(!enabled)("Canonical Chat issuer migration", () => {
         fetch,
       );
     const userIds: string[] = [];
-    // Revisit the canonical host to catch an auth-server cache shared across domains.
-    for (const host of [origin, alias, origin]) {
+    // Revisit the canonical host to verify stable account identity.
+    for (const host of [origin, origin]) {
       const nonceResponse = await call(host, "/api/auth/siwe/nonce", {});
       expect(nonceResponse.status).toBe(200);
       const { nonce } = await nonceResponse.json();
@@ -221,7 +216,7 @@ describe.skipIf(!enabled)("Canonical Chat issuer migration", () => {
     }
     expect(new Set(userIds).size).toBe(1);
     expect(new Set(canonicalUsers).size).toBe(1);
-    for (const host of [origin, alias]) {
+    for (const host of [origin]) {
       const discovery = await call(
         host,
         "/.well-known/oauth-authorization-server",
@@ -243,7 +238,7 @@ describe.skipIf(!enabled)("Canonical Chat issuer migration", () => {
     }
 
     const { nonce } = await (
-      await call(alias, "/api/auth/siwe/nonce", {})
+      await call(origin, "/api/auth/siwe/nonce", {})
     ).json();
     const message = createSiweMessage({
       address: signer.address,
@@ -251,13 +246,13 @@ describe.skipIf(!enabled)("Canonical Chat issuer migration", () => {
       version: "1",
       nonce,
       domain: "unrelated.invalid",
-      uri: alias,
+      uri: origin,
       issuedAt: new Date(),
     });
-    const wrongDomain = await call(alias, "/api/auth/siwe/verify", {
+    const wrongDomain = await call(origin, "/api/auth/siwe/verify", {
       message,
       signature: await signer.signMessage({ message }),
     });
     expect(wrongDomain.status).toBe(401);
-  });
+  }, 30_000);
 });

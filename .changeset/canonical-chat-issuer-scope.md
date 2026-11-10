@@ -2,7 +2,6 @@
 "@aomi-labs/account": patch
 ---
 
-Add request-scoped account auth configuration so a canonical Chat authority and
-an explicitly bounded legacy hostname cannot exchange issuer/resource policy
-through process-wide environment state. No hosted issuer is activated by this
-package change.
+Add request-scoped account auth configuration so hosted canonical issuer/resource
+policy follows the request environment without process-wide mutation. Legacy
+issuer compatibility is not supported. No hosted issuer is activated here.

@@ -86,7 +86,7 @@ describe("readAccountAuthEnv", () => {
 });
 
 describe("request-scoped account policy", () => {
-  it("isolates concurrent canonical and legacy Chat issuers without changing process.env", async () => {
+  it("isolates concurrent production and staging issuers without changing process.env", async () => {
     const original = process.env.BETTER_AUTH_URL;
     const { withAccountAuthEnv } = await import("./env");
     const { aomiOAuthResources } = await import("./oauth-policy");
@@ -100,10 +100,10 @@ describe("request-scoped account policy", () => {
       );
     expect(
       await Promise.all([
-        scoped("https://chat.aomi.dev"),
+        scoped("https://staging.aomi.chat"),
         scoped("https://aomi.chat"),
       ]),
-    ).toEqual(["https://chat.aomi.dev/api/auth", "https://aomi.chat/api/auth"]);
+    ).toEqual(["https://staging.aomi.chat/api/auth", "https://aomi.chat/api/auth"]);
     expect(process.env.BETTER_AUTH_URL).toBe(original);
   });
 });
