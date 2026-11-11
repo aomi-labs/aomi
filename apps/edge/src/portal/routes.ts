@@ -280,5 +280,5 @@ export async function handlePortalRequest(request: Request, ctx: PortalContext):
   if (catalogKind) return catalog(request, catalogKind, ctx);
   const rows = ROUTES.filter((row) => row.path.test(pathname));
   if (rows.length) return served(rows, request, ctx);
-  return passThrough(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal");
+  return passThrough(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal", ctx.env.PORTAL_PAGES);
 }

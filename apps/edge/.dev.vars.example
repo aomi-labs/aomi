@@ -7,7 +7,8 @@ BACKEND_ORIGINS=http://127.0.0.1:8080
 API_SERVER_ORIGIN=http://127.0.0.1:8083
 CORS_ALLOWED_HOST_PATTERNS=localhost:3000,127.0.0.1:3000
 # Portal surface: serve the portal's moved routes for this host and pass the rest
-# to the Next.js dev server.
+# to the TanStack dev server. A hosted PORTAL_PAGES Worker service binding
+# replaces this HTTP upstream; it is a Wrangler binding, not a string variable.
 PORTAL_HOSTS=localhost:8787
 PORTAL_UPSTREAM_ORIGIN=http://localhost:3001
 PAYMENT_ORIGIN=http://127.0.0.1:8084
@@ -31,3 +32,7 @@ PRIVY_APP_ID=
 PARA_JWT_AUDIENCE=
 PARA_JWKS_URL=
 PARA_API_BASE_URL=
+
+# Deploy-only input to scripts/deploy.mjs (not a runtime string variable):
+# PORTAL_PAGES_SERVICE names the already deployed page Worker in the same account.
+# Unset retains PORTAL_UPSTREAM_ORIGIN. Target must not be the Edge Worker itself.

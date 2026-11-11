@@ -818,6 +818,67 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     }
   });
 
+  it("serves pages through the private Worker with no HTTP upstream", async () => {
+    let forwarded: Request | undefined;
+    const response = await portal("/settings?tab=wallet", {
+      headers: { cookie: "session=private", "cf-connecting-ip": "192.0.2.1" },
+      env: {
+        PORTAL_UPSTREAM_ORIGIN: undefined,
+        PORTAL_PAGES: {
+          fetch: async (request) => {
+            forwarded = request;
+            return new Response("page", { headers: { "set-cookie": "page=1; Secure" } });
+          },
+        },
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("page");
+    expect(forwarded?.url).toBe(`${PORTAL}/settings?tab=wallet`);
+    expect(forwarded?.headers.get("cookie")).toBe("session=private");
+    expect(forwarded?.headers.get("x-forwarded-host")).toBe(new URL(PORTAL).host);
+    expect(response.headers.get("set-cookie")).toBe("page=1; Secure");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("streams a page request body to the binding and preserves redirects", async () => {
+    const response = await portal("/page-action?next=home", {
+      method: "POST",
+      body: "payload",
+      env: {
+        PORTAL_UPSTREAM_ORIGIN: undefined,
+        PORTAL_PAGES: {
+          fetch: async (request) => {
+            expect(request.method).toBe("POST");
+            expect(await request.text()).toBe("payload");
+            return new Response(null, { status: 303, headers: { location: "/home" } });
+          },
+        },
+      },
+    });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/home");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("keeps API routes at Edge when a page Worker is bound", async () => {
+    let pageCalls = 0;
+    const response = await portal("/api/thread/models", {
+      env: { PORTAL_PAGES: { fetch: async () => { pageCalls++; return new Response("page"); } } },
+    });
+    expect(pageCalls).toBe(0);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(["gpt", 3, "claude"]);
+  });
+
+  it("does not fall back to HTTP when the bound page Worker fails", async () => {
+    const response = await portal("/settings", {
+      env: { PORTAL_PAGES: { fetch: async () => { throw new Error("page unavailable"); } } },
+    });
+    expect(response.status).toBe(502);
+    expect(seen).toHaveLength(0);
+  });
+
   it("answers 404 for an /api method the allowlist does not name and passes unknown paths to Vercel", async () => {
     const wrongMethod = await portal("/api/thread/models", { method: "POST" });
     expect(wrongMethod.status).toBe(404);
