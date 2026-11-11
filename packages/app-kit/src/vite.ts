@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { loadEnv, type PluginOption, type UserConfig } from "vite";
+import { loadEnv, type Plugin, type PluginOption, type UserConfig } from "vite";
 import { commitSha, deployTarget, type AppEnv } from "./platform.ts";
 
 export type { AppEnv };
@@ -45,6 +46,21 @@ export interface AppConfigOptions {
 }
 
 /**
+ * Nitro's Workers preset aliases `buffer` to `node:buffer` for every
+ * environment. A browser has no such module, so its bundle takes the polyfill.
+ */
+const browserBuffer: Plugin = {
+  name: "aomi:browser-buffer",
+  enforce: "pre",
+  applyToEnvironment: (environment) => environment.config.consumer === "client",
+  resolveId(id, importer) {
+    // The trailing slash makes Node skip its built-in and find the package.
+    if (id === "node:buffer" && importer)
+      return createRequire(importer).resolve("buffer/");
+  },
+};
+
+/**
  * The Vite config every Start app shares; apps add their own parts with
  * `mergeConfig` (merged plugins run after these, merged aliases before).
  */
@@ -60,6 +76,7 @@ export function appConfig(options: AppConfigOptions): UserConfig {
   return {
     plugins: [
       ...(options.plugins ?? []),
+      browserBuffer,
       tanstackStart({
         importProtection: {
           behavior: "error",
