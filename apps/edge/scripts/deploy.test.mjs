@@ -15,6 +15,19 @@ const staging = {
 };
 
 describe("edge deploy script", () => {
+  it("binds the Portal page Worker without changing unrelated bindings", () => {
+    const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+    const id = "9b2f30980123456789abcdef01234567";
+    const bound = deployConfig(source, id, "aomi-portal-staging");
+    expect(ts.parseConfigFileTextToJson("wrangler.jsonc", bound).config.services).toEqual([
+      { binding: "PORTAL_PAGES", service: "aomi-portal-staging" },
+    ]);
+    expect(bound).toContain(id);
+    expect(deployConfig(source, id)).not.toContain('"services":');
+    expect(() => deployConfig(source, id, "https://staging.aomi.chat")).toThrow(/Worker service name/);
+    expect(() => deployArgs({ ...staging, PORTAL_PAGES_SERVICE: staging.EDGE_WORKER_NAME })).toThrow(/itself/);
+  });
+
   it("passes provider settings to the deployed Worker", () => {
     const providers = {
       PRIVY_APP_ID: "privy-fixture",

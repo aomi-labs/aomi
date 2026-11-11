@@ -19,7 +19,7 @@ export type PortalContext = {
   /** The public portal origin this request arrived on (its own host). */
   portalOrigin: string;
   /** Where the portal's pages are reached from the edge (never the public host). */
-  upstreamOrigin: string;
+  upstreamOrigin: string | null;
   /** The Better Auth server (sessions, OAuth, signing keys). */
   auth: () => Auth;
   /** Origins whose cookie writes and reads the portal trusts. */
@@ -43,7 +43,7 @@ export function portalContext(
 ): PortalContext | null {
   const url = new URL(request.url);
   const { portal } = config(env);
-  if (!portal.hosts.has(url.host.toLowerCase()) || !portal.upstream) return null;
+  if (!portal.hosts.has(url.host.toLowerCase()) || (!portal.upstream && !env.PORTAL_PAGES)) return null;
   return {
     env,
     portalOrigin: url.origin,

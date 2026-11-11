@@ -117,17 +117,27 @@ export function target(origin: string, path: string, search = ""): URL {
 }
 
 /**
- * Hand a request on an app origin to its Vercel app unchanged (headers,
+ * Hand a request on an app origin to its page runtime unchanged (headers,
  * cookies, body), with forwarding metadata so the app sees its public host.
  */
 export async function passThrough(
   request: Request,
-  upstreamOrigin: string,
+  upstreamOrigin: string | null,
   fetchImpl: FetchLike,
   surface: string,
+  service?: { fetch(request: Request): Promise<Response> },
 ): Promise<Response> {
   const url = new URL(request.url);
   try {
+    // A bound Worker receives the public URL directly without a network fetch.
+    // Never retry a failed binding through HTTP: that could recurse through Edge.
+    if (service) {
+      return await proxy(request, url, {
+        fetchImpl: (forwarded) => service.fetch(forwarded),
+        forwarded: "host",
+      });
+    }
+    if (!upstreamOrigin) throw unreachable(new Error("no page upstream configured"));
     return await proxy(request, target(upstreamOrigin, url.pathname, url.search), { fetchImpl, forwarded: "host" });
   } catch (error) {
     return errorResponse(error, { surface, operation: "passthrough", request });
