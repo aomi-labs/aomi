@@ -33,7 +33,7 @@ jobs:
 
       - name: Run canonical staging smoke
         env:
-          PORTAL_PREVIEW_URL: https://chat-staging.aomi.dev
+          PORTAL_PREVIEW_URL: https://staging.aomi.chat
           BUILD_PREVIEW_URL: https://build-staging.aomi.dev
         run: pnpm exec playwright test --project=preview
 

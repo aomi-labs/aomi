@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SEARCH =
-  "client_id=codex-mcp&scope=agent%3Aread+mcp%3Aagent&resource=https%3A%2F%2Fchat-staging.aomi.dev%2Fv1%2Fagent%2Fmcp&exp=4102444800&sig=signed-request";
+  "client_id=codex-mcp&scope=agent%3Aread+mcp%3Aagent&resource=https%3A%2F%2Fstaging.aomi.chat%2Fv1%2Fagent%2Fmcp&exp=4102444800&sig=signed-request";
 const mocks = vi.hoisted(() => ({ search: "" }));
 
 vi.mock("@/lib/navigation", () => ({

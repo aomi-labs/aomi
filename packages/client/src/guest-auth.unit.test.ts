@@ -17,7 +17,7 @@ const session = (anonymous = false) => ({
 describe("guest connection diagnostics", () => {
   it.each([
     ["api.aomi.dev", "chat.aomi.dev"],
-    ["api-staging.aomi.dev", "chat-staging.aomi.dev"],
+    ["api-staging.aomi.dev", "staging.aomi.chat"],
   ])(
     "explains a raw backend 404 on %s without retrying elsewhere",
     async (backend, portal) => {
@@ -110,7 +110,7 @@ describe("guest connection diagnostics", () => {
     await expect(
       client.requestResponse("POST", "/v1/agent/chat", {}),
     ).rejects.toThrow(
-      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal origin at https://chat-staging.aomi.dev. Check baseUrl.",
+      "Aomi guest sign-in failed with HTTP 404 at https://api-staging.aomi.dev (/api/auth/guest). This is a backend origin; guest sign-in requires the Portal origin at https://staging.aomi.chat. Check baseUrl.",
     );
     expect(fetch).toHaveBeenCalledOnce();
   });

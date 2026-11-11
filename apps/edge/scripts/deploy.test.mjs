@@ -9,7 +9,7 @@ import { deployArgs, deployConfig } from "./deploy.mjs";
 const staging = {
   EDGE_TOPOLOGY: "staging",
   EDGE_WORKER_NAME: "aomi-edge-staging",
-  EDGE_ROUTES: "api-staging.aomi.dev/*, chat-staging.aomi.dev/api/*",
+  EDGE_ROUTES: "api-staging.aomi.dev/*, staging.aomi.chat/api/*",
   BACKEND_ORIGINS: "https://b1.example, https://b2.example",
   API_SERVER_ORIGIN: "https://agent.example",
 };
@@ -36,8 +36,8 @@ describe("edge deploy script", () => {
         PORTAL_UPSTREAM_ORIGIN: "https://chat-portal.vercel.example",
         BUILD_UPSTREAM_ORIGIN: "https://build.vercel.example",
         MANAGER_ORIGIN: "https://manager.example",
-        PORTAL_HOSTS: "chat-staging.aomi.dev",
-        BETTER_AUTH_URL: "https://chat-staging.aomi.dev",
+        PORTAL_HOSTS: "staging.aomi.chat",
+        BETTER_AUTH_URL: "https://staging.aomi.chat",
         EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567",
         CORS_ALLOWED_HOST_PATTERNS: "*.aomi.dev,api-staging.aomi.dev",
         TASK_CORS_PUBLIC_ORIGINS: "https://stableops.dev",
@@ -55,7 +55,7 @@ describe("edge deploy script", () => {
       "--route",
       "api-staging.aomi.dev/*",
       "--route",
-      "chat-staging.aomi.dev/api/*",
+      "staging.aomi.chat/api/*",
       "--var",
       "EDGE_TOPOLOGY:staging",
       "--var",
@@ -71,9 +71,9 @@ describe("edge deploy script", () => {
       "--var",
       "MANAGER_ORIGIN:https://manager.example",
       "--var",
-      "PORTAL_HOSTS:chat-staging.aomi.dev",
+      "PORTAL_HOSTS:staging.aomi.chat",
       "--var",
-      "BETTER_AUTH_URL:https://chat-staging.aomi.dev",
+      "BETTER_AUTH_URL:https://staging.aomi.chat",
       "--var",
       "CORS_ALLOWED_HOST_PATTERNS:*.aomi.dev,api-staging.aomi.dev",
       "--var",
@@ -97,16 +97,16 @@ describe("edge deploy script", () => {
     expect(() => deployArgs({ ...staging, BACKEND_ORIGINS: "" })).toThrow(/BACKEND_ORIGINS must be set/);
     expect(() => deployArgs({ ...staging, BACKEND_ORIGINS: "http://b1.example" })).toThrow(/not https/);
     expect(() => deployArgs({ ...staging, MANAGER_ORIGIN: "http://manager.example" })).toThrow(/not https/);
-    expect(() => deployArgs({ ...staging, PORTAL_HOSTS: "chat-staging.aomi.dev" })).toThrow(/EDGE_HYPERDRIVE_ID must be set/);
+    expect(() => deployArgs({ ...staging, PORTAL_HOSTS: "staging.aomi.chat" })).toThrow(/EDGE_HYPERDRIVE_ID must be set/);
     expect(() => deployArgs({ ...staging, LANDING_HOSTS: "aomi.dev" })).toThrow(/LANDING_UPSTREAM_ORIGIN must be set/);
   });
 
   it("rejects malformed or insecure Portal issuers before deployment", () => {
-    const portal = { ...staging, PORTAL_HOSTS: "chat-staging.aomi.dev", EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567" };
-    for (const BETTER_AUTH_URL of ["not-a-url", "http://chat-staging.aomi.dev"])
+    const portal = { ...staging, PORTAL_HOSTS: "staging.aomi.chat", EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567" };
+    for (const BETTER_AUTH_URL of ["not-a-url", "http://staging.aomi.chat"])
       expect(() => deployArgs({ ...portal, BETTER_AUTH_URL })).toThrow();
-    expect(deployArgs({ ...portal, BETTER_AUTH_URL: "https://chat-staging.aomi.dev" }))
-      .toContain("BETTER_AUTH_URL:https://chat-staging.aomi.dev");
+    expect(deployArgs({ ...portal, BETTER_AUTH_URL: "https://staging.aomi.chat" }))
+      .toContain("BETTER_AUTH_URL:https://staging.aomi.chat");
   });
 
   it("binds the environment's Hyperdrive config, or none where no portal runs", () => {

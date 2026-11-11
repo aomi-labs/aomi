@@ -22,7 +22,7 @@ describe("GitHub dev session route", () => {
   it("is not available off localhost", async () => {
     const res = await GET(
       new Request(
-        "https://chat-staging.aomi.dev/api/build/auth/github/dev-session?login=alice",
+        "https://staging.aomi.chat/api/build/auth/github/dev-session?login=alice",
       ),
     );
     expect(res.status).toBe(404);

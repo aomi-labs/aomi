@@ -50,7 +50,7 @@ A Commit's simulation evidence is already in its durable review.
 
 | Setting | Meaning |
 | --- | --- |
-| `--backend-url` / `AOMI_BACKEND_URL` | Portal/BFF origin, production `https://chat.aomi.dev`, staging `https://chat-staging.aomi.dev` |
+| `--backend-url` / `AOMI_BACKEND_URL` | Portal/BFF origin, production `https://chat.aomi.dev`, staging `https://staging.aomi.chat` |
 | `--public-key` | Intended sender context, not authorization or proof of funding |
 | `--chain` | Explicit session chain ID |
 | `--rpc-url` / `CHAIN_RPC_URL` | Signing RPC, must match the prepared transaction's chain |

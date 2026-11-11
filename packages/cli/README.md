@@ -89,4 +89,4 @@ for a run. Esc stops a turn; ctrl+c quits.
 Everything lives under `~/.aomi` (`AOMI_STATE_DIR` overrides it): `cli.json`
 (backend, thread, model, chain, local signer keys) and `grants.json`.
 `AOMI_BACKEND_URL` or `aomi config set-backend`
-point the CLI at another Aomi, e.g. `https://chat-staging.aomi.dev`.
+point the CLI at another Aomi, e.g. `https://staging.aomi.chat`.

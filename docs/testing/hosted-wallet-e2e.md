@@ -1,7 +1,7 @@
 # Hosted wallet browser journeys
 
 `hosted-wallet-journeys.spec.ts` drives the existing Portal at
-`https://chat-staging.aomi.dev` through its normal wallet picker and same-origin
+`https://staging.aomi.chat` through its normal wallet picker and same-origin
 auth/chat routes. Playwright registers an injected EVM provider or Solana Wallet
 Standard provider before hydration. The private keys stay in the test runner;
 only the exact Portal SIWE/SIWS challenge can be signed. The server verifies the

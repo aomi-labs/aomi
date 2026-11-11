@@ -268,7 +268,7 @@ function guestConnectionError(
     origin === "https://api.aomi.dev"
       ? "https://chat.aomi.dev"
       : origin === "https://api-staging.aomi.dev"
-        ? "https://chat-staging.aomi.dev"
+        ? "https://staging.aomi.chat"
         : null;
   return new GuestSignInError(
     response,

@@ -15,7 +15,7 @@ describe("resolveChatUrl", () => {
 
   it("falls back when env var is empty string", () => {
     process.env.NEXT_PUBLIC_CHAT_URL = "";
-    expect(resolveChatUrl()).toBe("https://chat-staging.aomi.dev");
+    expect(resolveChatUrl()).toBe("https://staging.aomi.chat");
   });
 
   it("trims whitespace from env var value", () => {
@@ -25,7 +25,7 @@ describe("resolveChatUrl", () => {
 
   it("falls back when env var is only whitespace", () => {
     process.env.NEXT_PUBLIC_CHAT_URL = "   ";
-    expect(resolveChatUrl()).toBe("https://chat-staging.aomi.dev");
+    expect(resolveChatUrl()).toBe("https://staging.aomi.chat");
   });
 
   it("preserves trailing slashes from env var", () => {

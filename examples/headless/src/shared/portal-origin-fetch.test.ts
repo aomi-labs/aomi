@@ -5,11 +5,11 @@ describe("headless widget origin transport", () => {
   it("binds same-origin SIWS and Agent calls to the Portal Origin", async () => {
     const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
     const boundFetch = createPortalOriginFetch(
-      "https://chat-staging.aomi.dev",
+      "https://staging.aomi.chat",
       fetchImpl as typeof fetch,
     );
     await boundFetch(
-      "https://chat-staging.aomi.dev/api/auth/widget/siws/nonce",
+      "https://staging.aomi.chat/api/auth/widget/siws/nonce",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -17,7 +17,7 @@ describe("headless widget origin transport", () => {
     );
     const init = (fetchImpl.mock.calls as unknown[][])[0]?.[1] as RequestInit;
     expect(new Headers(init.headers).get("origin")).toBe(
-      "https://chat-staging.aomi.dev",
+      "https://staging.aomi.chat",
     );
     expect(new Headers(init.headers).get("content-type")).toBe(
       "application/json",
@@ -27,7 +27,7 @@ describe("headless widget origin transport", () => {
   it("leaves unrelated destinations untouched", async () => {
     const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
     const boundFetch = createPortalOriginFetch(
-      "https://chat-staging.aomi.dev",
+      "https://staging.aomi.chat",
       fetchImpl as typeof fetch,
     );
     const init = { method: "GET" };

@@ -25,7 +25,7 @@ const env: EdgeEnv = {
   API_SERVER_ORIGIN: "https://agent-staging-2.aomi.dev",
   PAYMENT_ORIGIN: "https://payment-staging.aomi.dev",
   CORS_ALLOWED_HOST_PATTERNS:
-    "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,chat-staging.aomi.dev,*.vercel.app,dev.wcm.inc",
+    "*.aomi.dev,*.staging.aomi.dev,api-staging.aomi.dev,staging.aomi.chat,*.vercel.app,dev.wcm.inc",
 };
 
 const productionEnv: EdgeEnv = {
@@ -123,7 +123,7 @@ describe("CORS", () => {
       ["https://api-staging.aomi.dev", true],
       ["https://app.aomi.dev", true],
       ["https://app.staging.aomi.dev", true],
-      ["https://chat-staging.aomi.dev", true],
+      ["https://staging.aomi.chat", true],
       ["https://preview-project.vercel.app", true],
       // Exact host, not a wildcard: `*.wcm.inc` would also admit their
       // MegaETH deployment, which runs the same ABI on a different chain.
