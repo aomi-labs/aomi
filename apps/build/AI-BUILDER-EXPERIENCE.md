@@ -53,14 +53,14 @@ Decoded with product sketches + code:
 
 | Phrase | Means |
 |--------|--------|
-| **Chat mock** | Chat-**like** AI Builder on **Build** (create), not `chat.aomi.dev` |
+| **Chat mock** | Chat-**like** AI Builder on **Build** (create), not `aomi.chat` |
 | **Build more or less done** | Manage/deploy/Environment clarity is good enough — stop trapping there |
 | **Next highest value** | Create / generate journey mock inside live Build |
 | **Don't get trapped** | Ship stages; don't polish Cursor chrome forever |
 
 Architecture sketch (team):
 
-- `chat.aomi.dev` — user runtime, BetterAuth, **no build**
+- `aomi.chat` — user runtime, BetterAuth, **no build**
 - `build.aomi.dev` — builder, GitHub login, deploy/operate **and** (next) Create
 - **Gordian** = mock experience → **Han** = wiring → **final** `build.aomi.dev`
 
@@ -79,7 +79,7 @@ Two hosts. Build has **two modes**. Create is not a third product hostname.
 ```mermaid
 flowchart TB
   subgraph hosts [Hosts]
-    Chat["chat.aomi.dev\nRuntime · BetterAuth\nTalk to live agent"]
+    Chat["aomi.chat\nRuntime · BetterAuth\nTalk to live agent"]
     Build["build.aomi.dev\nControl plane · GitHub"]
   end
 
@@ -131,7 +131,7 @@ flowchart LR
 | Live manage/deploy | Projects / Operate BFFs | Live (Han) |
 | Hosted Smithers API | `POST /api/build` | **Docs only** |
 | Local Smithers | `aomi/packages/smither` | CLI exists |
-| Runtime chat | `chat.aomi.dev` | Live; Build deep-links here |
+| Runtime chat | `aomi.chat` | Live; Build deep-links here |
 
 ---
 
@@ -147,7 +147,7 @@ flowchart TD
   C --> T[Test · aomi-run]
   T --> S[Ship · download / init GitHub]
   S --> Dep[Deploy from Projects]
-  Dep --> Chat[Open chat.aomi.dev]
+  Dep --> Chat[Open aomi.chat]
 ```
 
 Every stage needs: loading · error · success · back · next (when interactive).

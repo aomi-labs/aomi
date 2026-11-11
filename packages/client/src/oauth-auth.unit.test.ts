@@ -23,24 +23,24 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001", {
+    await authorized("https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001", {
       method: "GET",
     });
-    await authorized("https://chat.aomi.dev/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
+    await authorized("https://aomi.chat/api/commits/c0ffee00-0000-4000-8000-000000000001/manual", {
       method: "POST",
     });
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:read"],
       forceRefresh: false,
     });
     expect(oauth).toHaveBeenNthCalledWith(2, {
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:actions:resolve"],
       forceRefresh: false,
     });
@@ -68,16 +68,16 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/v1/agent/sessions", {
+    await authorized("https://aomi.chat/v1/agent/sessions", {
       method: "GET",
     });
 
     expect(oauth).toHaveBeenCalledWith({
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:read"],
       forceRefresh: false,
     });
@@ -93,20 +93,20 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/v1/agent", { method: "GET" });
-    await authorized("https://chat.aomi.dev/v1/pipeline", { method: "GET" });
+    await authorized("https://aomi.chat/v1/agent", { method: "GET" });
+    await authorized("https://aomi.chat/v1/pipeline", { method: "GET" });
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:read"],
       forceRefresh: false,
     });
     expect(oauth).toHaveBeenNthCalledWith(2, {
-      resource: "https://chat.aomi.dev/v1/pipeline",
+      resource: "https://aomi.chat/v1/pipeline",
       scopes: ["pipeline:catalog"],
       forceRefresh: false,
     });
@@ -123,14 +123,14 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/v1/account/credits");
-    await authorized("https://chat.aomi.dev/v1/account/statement");
+    await authorized("https://aomi.chat/v1/account/credits");
+    await authorized("https://aomi.chat/v1/account/statement");
     await authorized(
-      "https://chat.aomi.dev/v1/account/credits/funding-events",
+      "https://aomi.chat/v1/account/credits/funding-events",
       {
         method: "POST",
         headers: { "payment-signature": "signed" },
@@ -138,17 +138,17 @@ describe("public API OAuth transport", () => {
     );
 
     expect(oauth).toHaveBeenNthCalledWith(1, {
-      resource: "https://chat.aomi.dev/v1/account",
+      resource: "https://aomi.chat/v1/account",
       scopes: ["account:credits:read"],
       forceRefresh: false,
     });
     expect(oauth).toHaveBeenNthCalledWith(2, {
-      resource: "https://chat.aomi.dev/v1/account",
+      resource: "https://aomi.chat/v1/account",
       scopes: ["account:usage:read"],
       forceRefresh: false,
     });
     expect(oauth).toHaveBeenNthCalledWith(3, {
-      resource: "https://chat.aomi.dev/v1/account",
+      resource: "https://aomi.chat/v1/account",
       scopes: ["account:credits:fund", "payments:submit"],
       forceRefresh: false,
     });
@@ -167,13 +167,13 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
     expect(
       (
-        await authorized("https://chat.aomi.dev/v1/pipeline/tool-calls", {
+        await authorized("https://aomi.chat/v1/pipeline/tool-calls", {
           method: "POST",
         })
       ).status,
@@ -207,11 +207,11 @@ describe("public API OAuth transport", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
-    await authorized("https://chat.aomi.dev/v1/agent/chat", {
+    await authorized("https://aomi.chat/v1/agent/chat", {
       method: "POST",
     });
 
@@ -283,10 +283,10 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("uses the existing same-origin session without probing or creating a guest", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     const fetchImpl = vi.fn();
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
 
@@ -295,14 +295,14 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("does not replace a signed-in session during forced guest acquisition", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(
         Response.json({ code: "session_exists" }, { status: 409 }),
       );
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
 
@@ -315,7 +315,7 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("falls back to the anonymous cookie when Better Auth refuses a second anonymous sign-in", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     const fetchImpl = vi.fn().mockResolvedValue(
       Response.json(
         {
@@ -326,7 +326,7 @@ describe("Better Auth guest bootstrap", () => {
       ),
     );
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
 
@@ -339,24 +339,24 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("retries a same-origin 401 after establishing the guest cookie", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     const authFetch = vi.fn().mockResolvedValue(Response.json({}));
     const upstream = vi
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: authFetch as typeof fetch,
     });
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       guest,
     });
 
     expect(
-      (await authorized("https://chat.aomi.dev/v1/agent/sessions")).status,
+      (await authorized("https://aomi.chat/v1/agent/sessions")).status,
     ).toBe(200);
     expect(authFetch).toHaveBeenCalledTimes(1);
     expect(String(authFetch.mock.calls[0]?.[0])).toContain(
@@ -371,7 +371,7 @@ describe("Better Auth guest bootstrap", () => {
   it.each(["app_key_required", "app_key_not_scoped"])(
     "keeps the guest identity when an App rejects access (%s)",
     async (code) => {
-      vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+      vi.stubGlobal("location", { origin: "https://aomi.chat" });
       const authFetch = vi.fn().mockResolvedValue(
         Response.json({
           session: { id: "guest-session" },
@@ -388,16 +388,16 @@ describe("Better Auth guest bootstrap", () => {
         );
       const authorized = wrapFetchWithPublicApiAuthorization({
         fetch: upstream as typeof fetch,
-        baseUrl: "https://chat.aomi.dev",
+        baseUrl: "https://aomi.chat",
         guest: createGuestSessionProvider({
-          baseUrl: "https://chat.aomi.dev",
+          baseUrl: "https://aomi.chat",
           fetch: authFetch as typeof fetch,
         }),
       });
 
       expect(
         (
-          await authorized("https://chat.aomi.dev/v1/agent/chat", {
+          await authorized("https://aomi.chat/v1/agent/chat", {
             method: "POST",
           })
         ).status,
@@ -427,13 +427,13 @@ describe("Better Auth guest bootstrap", () => {
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
 
     expect(
       (
-        await authorized("https://chat.aomi.dev/v1/agent/chat", {
+        await authorized("https://aomi.chat/v1/agent/chat", {
           method: "POST",
         })
       ).status,
@@ -443,7 +443,7 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("finishes an in-flight guest session before a wallet session transition", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     let finishGuest!: (response: Response) => void;
     const fetchImpl = vi.fn(
       () =>
@@ -452,7 +452,7 @@ describe("Better Auth guest bootstrap", () => {
         }),
     );
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
     const guestRequest = guest({ forceRefresh: true });
@@ -470,7 +470,7 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("makes a guest retry wait for an active wallet session transition", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     let finishWallet!: () => void;
     const walletRequest = withBrowserSessionTransition(
       () =>
@@ -486,7 +486,7 @@ describe("Better Auth guest bootstrap", () => {
         Response.json({ code: "session_exists" }, { status: 409 }),
       );
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
     const guestRequest = guest({ forceRefresh: true });
@@ -500,12 +500,12 @@ describe("Better Auth guest bootstrap", () => {
   });
 
   it("fails closed when anonymous session establishment is unavailable", async () => {
-    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    vi.stubGlobal("location", { origin: "https://aomi.chat" });
     const fetchImpl = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 503 }));
     const guest = createGuestSessionProvider({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchImpl as typeof fetch,
     });
 
@@ -531,12 +531,12 @@ it.each(["/api/thread/model", "/api/thread/sim/world"])(
     }));
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
-    await authorized(`https://chat.aomi.dev${path}`, { method: "POST" });
+    await authorized(`https://aomi.chat${path}`, { method: "POST" });
     expect(oauth).toHaveBeenCalledWith({
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:write"],
       forceRefresh: false,
     });

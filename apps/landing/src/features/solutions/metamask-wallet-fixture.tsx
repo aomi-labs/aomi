@@ -168,7 +168,7 @@ export function MetaMaskWalletFixture() {
               </p>
             </div>
             <a
-              href="https://chat.aomi.dev"
+              href="https://aomi.chat"
               target="_blank"
               rel="noreferrer"
               aria-label="Open full Aomi chat"
@@ -195,7 +195,7 @@ export function MetaMaskWalletFixture() {
           </div>
 
           <footer className={styles.metaMaskFullChatFooter}>
-            <a href="https://chat.aomi.dev" target="_blank" rel="noreferrer">
+            <a href="https://aomi.chat" target="_blank" rel="noreferrer">
               Open full chat <ExternalLink aria-hidden />
             </a>
           </footer>

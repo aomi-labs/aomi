@@ -27,7 +27,7 @@ export type Logger = {
 // =============================================================================
 
 export type AomiClientOptions = {
-  /** Base URL of the public Aomi API (e.g. "https://chat.aomi.dev" or "/" for same-origin proxying) */
+  /** Base URL of the public Aomi API (e.g. "https://aomi.chat" or "/" for same-origin proxying) */
   baseUrl: string;
   /** Optional fetch implementation for payment-aware browser transports and tests. */
   fetch?: typeof fetch;

@@ -266,7 +266,7 @@ function guestConnectionError(
   if (status !== 404) return new GuestSignInError(response, message);
   const portal =
     origin === "https://api.aomi.dev"
-      ? "https://chat.aomi.dev"
+      ? "https://aomi.chat"
       : origin === "https://api-staging.aomi.dev"
         ? "https://staging.aomi.chat"
         : null;

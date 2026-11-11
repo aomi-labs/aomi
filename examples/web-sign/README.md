@@ -38,11 +38,11 @@ writes a static bundle to `dist/`, which you can host anywhere.
 
 ### Environment
 
-| Variable                   | Default                 | Purpose                                                                                        |
-| -------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `VITE_AOMI_BASE_URL`       | `https://chat.aomi.dev` | Aomi Portal/API origin. Use `http://localhost:3000` for a local Portal.                        |
-| `VITE_AOMI_APPLICATION_ID` | _(empty)_               | Pin a hosted App by numeric id. Empty uses default Agent routing, so no App is needed.         |
-| `VITE_ALLOWED_TARGETS`     | _(empty)_               | Comma-separated addresses. When set, Approve requires every transaction to target one of them. |
+| Variable                   | Default             | Purpose                                                                                        |
+| -------------------------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| `VITE_AOMI_BASE_URL`       | `https://aomi.chat` | Aomi Portal/API origin. Use `http://localhost:3000` for a local Portal.                        |
+| `VITE_AOMI_APPLICATION_ID` | _(empty)_           | Pin a hosted App by numeric id. Empty uses default Agent routing, so no App is needed.         |
+| `VITE_ALLOWED_TARGETS`     | _(empty)_           | Comma-separated addresses. When set, Approve requires every transaction to target one of them. |
 
 All three values are public build-time configuration. This app has no secrets.
 
@@ -135,7 +135,7 @@ sign-in in [`../headless-client`](../headless-client).
 
 | You want                                                  | Use                                                                                                                        |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Users chat with Aomi and you write no UI                  | The hosted Portal at [chat.aomi.dev](https://chat.aomi.dev)                                                                |
+| Users chat with Aomi and you write no UI                  | The hosted Portal at [aomi.chat](https://aomi.chat)                                                                        |
 | Aomi inside your site with minimal code                   | The embeddable Widget ([installation](https://aomi.dev/docs/guides/widget/installation))                                   |
 | Your own UI, review screen, or signing policy             | This example: `@aomi-labs/client` in the browser ([headless library](https://aomi.dev/docs/integrate/ui/headless-library)) |
 | New tools or protocol integrations available to the agent | Build an App ([Aomi Apps](https://aomi.dev/docs/build/plugins/aomi-app)), then pin it with `VITE_AOMI_APPLICATION_ID`      |

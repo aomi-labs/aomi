@@ -8,7 +8,7 @@ import {
 } from "./guest-auth";
 
 afterEach(() => vi.unstubAllGlobals());
-const origin = "https://chat.aomi.dev";
+const origin = "https://aomi.chat";
 const session = (anonymous = false) => ({
   session: { id: "existing" },
   user: { id: "user-existing", isAnonymous: anonymous },
@@ -16,7 +16,7 @@ const session = (anonymous = false) => ({
 
 describe("guest connection diagnostics", () => {
   it.each([
-    ["api.aomi.dev", "chat.aomi.dev"],
+    ["api.aomi.dev", "aomi.chat"],
     ["api-staging.aomi.dev", "staging.aomi.chat"],
   ])(
     "explains a raw backend 404 on %s without retrying elsewhere",
@@ -93,7 +93,7 @@ describe("guest connection diagnostics", () => {
     });
 
     await expect(guest()).rejects.toThrow(
-      "HTTP 404 at https://chat.aomi.dev (/api/auth/guest).",
+      "HTTP 404 at https://aomi.chat (/api/auth/guest).",
     );
   });
 

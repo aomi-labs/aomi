@@ -10,7 +10,7 @@ Incomplete checks are not passes.
 
 ## Captured deployed failures
 
-Target: `https://chat.aomi.dev`, Base mainnet (8453).
+Target: `https://aomi.chat`, Base mainnet (8453).
 Authorized test wallet: `0x28581d8065dA7e25710F25F9DD30F9d361757A7D`.
 Initial wallet balance: 0.000211786008159268 ETH; nonce 106.
 

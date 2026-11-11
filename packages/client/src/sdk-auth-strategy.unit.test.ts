@@ -16,7 +16,7 @@ vi.mock("./oauth", () => ({
   createAomiDeviceGrantManager: vi.fn(),
 }));
 
-const baseUrl = "https://chat.aomi.dev";
+const baseUrl = "https://aomi.chat";
 
 describe("high-level OAuth strategy", () => {
   const requests: AomiOAuthTokenRequest[] = [];

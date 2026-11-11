@@ -65,7 +65,7 @@ export interface EdgeEnv {
   RC_OIDC_WORKFLOWS?: string;
 
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
-  /** Comma-separated public portal hosts (for example chat.aomi.dev). */
+  /** Comma-separated public portal hosts (for example aomi.chat). */
   PORTAL_HOSTS?: string;
   /** Private page Worker binding; when present, replaces the HTTP page upstream. */
   PORTAL_PAGES?: { fetch(request: Request): Promise<Response> };

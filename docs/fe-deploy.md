@@ -28,7 +28,7 @@ the browser never holds GitHub tokens or service credentials.
 > - Portal typecheck fixed: test files excluded from `tsconfig.json` (`vitest` handles its own type checking)
 > - Portal vitest aliases: added `@/` and `@aomi-labs/*` to vitest config — unblocks real widget-lib imports in tests
 > - Portal bfcache fix: stale "Waiting for GitHub..." state cleared when user returns without redirect params
-> - Redirect URL mismatch fixed: `NEXT_PUBLIC_BACKEND_URL` → `https://api.aomi.dev` (production), staging backend `AOMI_PORTAL_URL` → `https://chat.aomi.dev`
+> - Redirect URL mismatch fixed: `NEXT_PUBLIC_BACKEND_URL` → `https://api.aomi.dev` (production), staging backend `AOMI_PORTAL_URL` → `https://aomi.chat`
 > - CLI error messages: all 7 GOAL spec error types unified across deploy/status/activate commands
 > - All 132 portal tests + 375 package tests = 507 tests passing
 

@@ -15,7 +15,7 @@ export function publicApiContract(rustRepo) {
       {
         cwd: rustRepo,
         encoding: "utf8",
-        env: { ...process.env, AOMI_PORTAL_URL: "https://chat.aomi.dev" },
+        env: { ...process.env, AOMI_PORTAL_URL: "https://aomi.chat" },
       },
     );
     if (result.status !== 0)

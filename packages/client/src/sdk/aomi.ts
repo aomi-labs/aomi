@@ -28,7 +28,7 @@ import { AomiAccount } from "./account";
 import { createEvmPaymentClient } from "../payment";
 import { AccountCreditsTransport } from "../account/credits";
 
-/** `baseUrl` defaults to https://chat.aomi.dev. */
+/** `baseUrl` defaults to https://aomi.chat. */
 type AomiConnectionOptions = Omit<AomiClientOptions, "baseUrl"> & {
   baseUrl?: string;
   /**
@@ -65,7 +65,7 @@ export type AomiOptions = (
   AomiExecutionOptions;
 
 /** Where `new Aomi()` talks when no `baseUrl` is given. */
-const DEFAULT_BASE_URL = "https://chat.aomi.dev";
+const DEFAULT_BASE_URL = "https://aomi.chat";
 
 function memoryRecovery(): CommitRecoveryStore {
   const records = new Map<string, CommitRecoveryRecord>();

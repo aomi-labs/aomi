@@ -107,7 +107,7 @@ export function MarketingNav() {
           <a href="https://build.aomi.dev" className={styles.navConsole}>
             Console
           </a>
-          <a href="https://chat.aomi.dev" className={styles.navApp}>
+          <a href="https://aomi.chat" className={styles.navApp}>
             App <span aria-hidden>→</span>
           </a>
         </div>
@@ -150,7 +150,7 @@ export function MarketingNav() {
             ))}
             <div className={styles.navMobileActions}>
               <a href="https://build.aomi.dev">Console</a>
-              <a href="https://chat.aomi.dev">Open app →</a>
+              <a href="https://aomi.chat">Open app →</a>
             </div>
           </div>
         </div>

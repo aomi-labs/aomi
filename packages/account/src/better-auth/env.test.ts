@@ -34,17 +34,17 @@ describe("readAccountAuthEnv", () => {
   it("trusts the configured origins and the auth URL, nothing inferred", () => {
     const env = readAccountAuthEnv({
       BETTER_AUTH_SECRET: "prod-secret",
-      BETTER_AUTH_URL: "https://chat.aomi.dev",
+      BETTER_AUTH_URL: "https://aomi.chat",
       AOMI_TRUSTED_ORIGINS: "https://build.aomi.dev",
       NODE_ENV: "production",
     });
 
-    expect(env.betterAuthUrl).toBe("https://chat.aomi.dev");
-    expect(env.siweDomain).toBe("chat.aomi.dev");
+    expect(env.betterAuthUrl).toBe("https://aomi.chat");
+    expect(env.siweDomain).toBe("aomi.chat");
     expect(env.clientIpHeader).toBe("cf-connecting-ip");
     expect(env.trustedOrigins).toEqual([
       "https://build.aomi.dev",
-      "https://chat.aomi.dev",
+      "https://aomi.chat",
     ]);
   });
 

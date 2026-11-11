@@ -998,7 +998,7 @@ describe("payment edge", () => {
         method: "POST",
         body,
         headers: {
-          Origin: "https://chat.aomi.dev",
+          Origin: "https://aomi.chat",
           Authorization: "Bearer delegated",
           "Idempotency-Key": "one",
           "Payment-Signature": "proof",

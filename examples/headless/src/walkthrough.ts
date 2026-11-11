@@ -7,7 +7,7 @@
 
 import { Aomi, PipelineApiError, type MessageEvent } from "@aomi-labs/client";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://aomi.chat";
 
 // 1. Create one SDK facade.
 //

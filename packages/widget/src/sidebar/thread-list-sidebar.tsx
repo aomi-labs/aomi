@@ -34,7 +34,7 @@ export const DEFAULT_SIDEBAR_PRODUCTS: SidebarProduct[] = [
     badge: "Chat",
     label: "Aomi Chat",
     description: "Talk to onchain agents",
-    href: "https://chat.aomi.dev",
+    href: "https://aomi.chat",
   },
   {
     id: "build",
