@@ -79,7 +79,6 @@ single-project read first proves account ownership, then uses that project's
 
 ## Deletion boundary
 
-The refactor deliberately removed compatibility surfaces instead of aliasing
-them. New code must not restore source-named routes, source identifiers, client
+Compatibility surfaces are deliberately removed instead of aliased. New code must not restore source-named routes, source identifiers, client
 manifest parsing, GitHub candidate imports, or per-platform defaults on
 account-wide reads.

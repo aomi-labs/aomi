@@ -1,3 +1,5 @@
+> Transition note for retiring the copy-in shadcn registry. It describes a one-time migration and its remaining steps, not current behavior.
+
 # Registry transition
 
 Install the widget through `@aomi-labs/widget`. The copy-in shadcn registry is

@@ -1,9 +1,4 @@
----
-title: Arc simulation response migration
-owner: frontend
-status: working
-area: development
----
+> Migration note and release-candidate status for the Arc simulation response change (client 0.8.0). It describes a one-time transition and one period's verification, not current behavior.
 
 # Arc simulation response migration
 
