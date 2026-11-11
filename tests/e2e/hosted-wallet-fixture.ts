@@ -29,7 +29,7 @@ export const BURN_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const ONE_WEI_DISPLAY = "0.000000000000000001";
 export type WalletFamily = "evm" | "svm";
 
-const HOSTED_TEST_PORTALS = new Set(["staging.aomi.chat", "chat-rc.aomi.dev"]);
+const HOSTED_TEST_PORTALS = new Set(["staging.aomi.chat", "rc.aomi.chat"]);
 
 export function hostedPortalUrl(): string {
   const raw = process.env.AOMI_HOSTED_E2E_PORTAL_URL;

@@ -5,6 +5,7 @@ import { buildContext, isBuildHost } from "./build/context";
 import { handleBuildRequest } from "./build/routes";
 import type { EdgeEnv } from "./env";
 import { withSecurityHeaders } from "./kernel/cors";
+import { config } from "./kernel/config";
 import { EdgeError, errorResponse } from "./kernel/errors";
 import { wait, type FetchLike, type WaitLike } from "./kernel/proxy";
 import { handleLandingRequest, isLandingHost } from "./landing";
@@ -25,6 +26,16 @@ export async function handleRequest(
   waitImpl: WaitLike = wait,
   waitUntil?: (promise: Promise<unknown>) => void,
 ): Promise<Response> {
+  const requestUrl = new URL(request.url);
+  const redirect = config(env).portal.redirects.get(requestUrl.host.toLowerCase());
+  if (redirect)
+    return withSecurityHeaders(new Response(null, {
+      status: 308,
+      headers: {
+        "cache-control": "no-store",
+        location: `${redirect}${requestUrl.pathname}${requestUrl.search}`,
+      },
+    }));
   const portal = portalContext(request, env, fetchImpl, waitImpl);
   // The account surface opens a pool over Hyperdrive on first use; it closes after the request.
   const database = env.HYPERDRIVE?.connectionString;

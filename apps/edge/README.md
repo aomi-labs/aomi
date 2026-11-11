@@ -28,6 +28,9 @@ venue-specific URL.
 - `src/portal/*`: the portal surface. On a `PORTAL_HOSTS` host the edge is
   the portal's only server; page paths pass through to `PORTAL_UPSTREAM_ORIGIN`
   (the portal app) unchanged, cookies included.
+  `PORTAL_HOST_REDIRECTS` (`legacy-host=https://canonical-host`, comma
+  separated) answers a retired portal host with an uncached 308 to the same
+  path on a `PORTAL_HOSTS` origin, before any page, auth or API handling.
   - `principal.ts`: who is calling, from exactly one credential. OAuth access
     tokens (Bearer or DPoP) are verified against Better Auth's JWKS (isolate
     and `EDGE_CACHE`). A session cookie, Better Auth bearer or widget session

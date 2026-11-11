@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EdgeCache, EdgeEnv } from "./env";
 import { handleRequest } from "./handler";
 import { isAllowedCorsOrigin } from "./kernel/cors";
-import { config } from "./kernel/config";
+import { config, portalHostRedirects } from "./kernel/config";
 import { rankOrigins, resolvePool, routingKeyFor } from "./kernel/pool";
 import { resolveRoute } from "./api/routes";
 import type { FetchLike } from "./kernel/proxy";
@@ -53,6 +53,55 @@ function paymentTerms(request: Request): Response | null {
 }
 
 describe("route resolution", () => {
+  it("redirects an exact legacy portal host before pages, auth or API dispatch", async () => {
+    const response = await handleRequest(
+      new Request("https://legacy-portal.aomi.dev/api/auth/oauth2/authorize?client_id=one&state=two", {
+        method: "POST",
+      }),
+      {
+        ...env,
+        PORTAL_HOSTS: "portal.aomi.chat",
+        PORTAL_HOST_REDIRECTS: "legacy-portal.aomi.dev=https://portal.aomi.chat",
+      },
+      never,
+    );
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://portal.aomi.chat/api/auth/oauth2/authorize?client_id=one&state=two",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("strict-transport-security")).not.toBeNull();
+  });
+
+  it("rejects unsafe or cross-host portal redirects", () => {
+    const canonical = new Set(["portal.aomi.chat"]);
+    expect([...portalHostRedirects("legacy-portal.aomi.dev=https://portal.aomi.chat", canonical)]).toEqual([
+      ["legacy-portal.aomi.dev", "https://portal.aomi.chat"],
+    ]);
+    for (const value of [
+      "legacy-portal.aomi.dev=http://portal.aomi.chat",
+      "legacy-portal.aomi.dev=https://evil.example",
+      "legacy-portal.aomi.dev=https://portal.aomi.chat/path",
+      "portal.aomi.chat=https://portal.aomi.chat",
+      "legacy-portal.aomi.dev=https://portal.aomi.chat?query=1",
+      "legacy-portal.aomi.dev=https://portal.aomi.chat,legacy-portal.aomi.dev=https://portal.aomi.chat",
+    ]) expect(() => portalHostRedirects(value, canonical)).toThrow();
+  });
+
+  it("does not redirect the canonical portal host", async () => {
+    const response = await handleRequest(
+      new Request("https://portal.aomi.chat/"),
+      {
+        ...env,
+        PORTAL_HOSTS: "portal.aomi.chat",
+        PORTAL_UPSTREAM_ORIGIN: "https://portal-pages.example",
+        PORTAL_HOST_REDIRECTS: "legacy-portal.aomi.dev=https://portal.aomi.chat",
+      },
+      async () => new Response("canonical", { status: 200 }),
+    );
+    expect(response.status).toBe(200);
+  });
+
   it("keeps /api paths intact for backend", () => {
     const route = resolveRoute(new URL("https://api-staging.aomi.dev/api/chat"), env);
     expect(route?.targets[0].toString()).toBe(

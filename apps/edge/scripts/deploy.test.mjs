@@ -122,6 +122,20 @@ describe("edge deploy script", () => {
       .toContain("BETTER_AUTH_URL:https://staging.aomi.chat");
   });
 
+  it("permits only exact HTTPS portal redirects into the canonical portal host", () => {
+    const portal = { ...staging, PORTAL_HOSTS: "staging.aomi.chat", BETTER_AUTH_URL: "https://staging.aomi.chat", EDGE_HYPERDRIVE_ID: "9b2f30980123456789abcdef01234567" };
+    expect(deployArgs({ ...portal, PORTAL_HOST_REDIRECTS: "chat-staging.aomi.dev=https://staging.aomi.chat" }))
+      .toContain("PORTAL_HOST_REDIRECTS:chat-staging.aomi.dev=https://staging.aomi.chat");
+    for (const redirects of [
+      "chat-staging.aomi.dev=http://staging.aomi.chat",
+      "chat-staging.aomi.dev=https://evil.example",
+      "chat-staging.aomi.dev=https://staging.aomi.chat/path",
+      "staging.aomi.chat=https://staging.aomi.chat",
+      "chat-staging.aomi.dev=https://staging.aomi.chat?query=1",
+      "chat-staging.aomi.dev=https://staging.aomi.chat,chat-staging.aomi.dev=https://staging.aomi.chat",
+    ]) expect(() => deployArgs({ ...portal, PORTAL_HOST_REDIRECTS: redirects })).toThrow();
+  });
+
   it("binds the environment's Hyperdrive config, or none where no portal runs", () => {
     const source = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
     const parse = (text) => ts.parseConfigFileTextToJson("wrangler.jsonc", text).config;

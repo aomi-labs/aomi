@@ -18,6 +18,7 @@ export type Config = {
   cors: { hostPatterns: readonly string[]; taskPublicOrigins: readonly string[] };
   portal: {
     hosts: ReadonlySet<string>;
+    redirects: ReadonlyMap<string, string>;
     upstream: string | null;
     trustedOrigins: readonly string[];
     catalogPlatforms: readonly string[];
@@ -53,11 +54,49 @@ function hosts(value: string | undefined): Set<string> {
   return new Set(list(value).map((host) => host.toLowerCase()));
 }
 
+const DNS_HOST = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+
+/**
+ * Parse exact legacy portal hosts to canonical HTTPS origins. Restrict the
+ * destination to PORTAL_HOSTS so a mistyped setting cannot turn the public
+ * edge into an open redirect.
+ */
+export function portalHostRedirects(
+  value: string | undefined,
+  portalHosts: ReadonlySet<string>,
+): ReadonlyMap<string, string> {
+  const redirects = new Map<string, string>();
+  for (const entry of (value ?? "").split(",").map((item) => item.trim()).filter(Boolean)) {
+    const separator = entry.indexOf("=");
+    if (separator <= 0 || separator !== entry.lastIndexOf("="))
+      throw new Error("PORTAL_HOST_REDIRECTS entries must be host=https://origin");
+    const source = entry.slice(0, separator).trim().toLowerCase();
+    if (!DNS_HOST.test(source) || portalHosts.has(source))
+      throw new Error(`PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`);
+    let target: URL;
+    try {
+      target = new URL(entry.slice(separator + 1).trim());
+    } catch {
+      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} is not an origin`);
+    }
+    if (
+      target.protocol !== "https:" || target.username || target.password || target.port ||
+      target.pathname !== "/" || target.search || target.hash ||
+      !portalHosts.has(target.hostname.toLowerCase())
+    )
+      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`);
+    if (redirects.has(source)) throw new Error(`PORTAL_HOST_REDIRECTS repeats ${source}`);
+    redirects.set(source, target.origin);
+  }
+  return redirects;
+}
+
 const parsed = new WeakMap<EdgeEnv, Config>();
 
 export function config(env: EdgeEnv): Config {
   const cached = parsed.get(env);
   if (cached) return cached;
+  const portalHosts = hosts(env.PORTAL_HOSTS);
   const value: Config = {
     pool: list(env.BACKEND_ORIGINS),
     apiServer: origin(env.API_SERVER_ORIGIN),
@@ -68,7 +107,8 @@ export function config(env: EdgeEnv): Config {
       taskPublicOrigins: list(env.TASK_CORS_PUBLIC_ORIGINS),
     },
     portal: {
-      hosts: hosts(env.PORTAL_HOSTS),
+      hosts: portalHosts,
+      redirects: portalHostRedirects(env.PORTAL_HOST_REDIRECTS, portalHosts),
       upstream: origin(env.PORTAL_UPSTREAM_ORIGIN),
       trustedOrigins: list(env.PORTAL_TRUSTED_ORIGINS),
       catalogPlatforms: list(env.APP_CATALOG_PLATFORMS),
