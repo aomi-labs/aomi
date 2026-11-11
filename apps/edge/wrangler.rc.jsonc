@@ -21,7 +21,7 @@
   // Run next to the us-east-1 database, as wrangler.jsonc does.
   "placement": { "region": "aws:us-east-1" },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // The account database behind the ChatRC portal (chat-rc.aomi.dev). A deploy
+  // The account database behind the ChatRC portal (rc.aomi.chat). A deploy
   // swaps in the rc EDGE_HYPERDRIVE_ID, or drops the binding when none is set.
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local" }],
   // rc only: the shared wrangler.jsonc stays free of Durable Object migrations so
