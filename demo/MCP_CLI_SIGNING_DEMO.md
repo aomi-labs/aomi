@@ -11,9 +11,9 @@ same address as the signer.
 
 ## Fixed staging values
 
-- Portal origin: `https://chat-staging.aomi.dev`
-- Agent MCP endpoint: `https://chat-staging.aomi.dev/v1/agent/mcp`
-- Pipeline MCP endpoint: `https://chat-staging.aomi.dev/v1/pipeline/mcp`
+- Portal origin: `https://staging.aomi.chat`
+- Agent MCP endpoint: `https://staging.aomi.chat/v1/agent/mcp`
+- Pipeline MCP endpoint: `https://staging.aomi.chat/v1/pipeline/mcp`
 - EVM chain: Base (`8453`)
 - Required CLI version: `@aomi-labs/client@0.5.1` or a build of this change
 
@@ -57,7 +57,7 @@ For ChatGPT developer-mode testing, follow OpenAI's current
 
 1. In ChatGPT, open **Settings → Security and login** and enable Developer mode.
 2. Open ChatGPT Plugins, select the plus button, and create an MCP connection.
-3. Enter `https://chat-staging.aomi.dev/v1/agent/mcp` as the public HTTPS endpoint.
+3. Enter `https://staging.aomi.chat/v1/agent/mcp` as the public HTTPS endpoint.
 4. Complete the opened Aomi SIWE sign-in and OAuth consent. Review the discovered
    tools before starting the take.
 5. Start a new chat with the connection enabled.
@@ -117,7 +117,7 @@ export AOMI_STATE_DIR="$(mktemp -d /tmp/aomi-mcp-demo.XXXXXX)"
 case "$PRIVATE_KEY" in 0x*) ;; *) export PRIVATE_KEY="0x$PRIVATE_KEY" ;; esac
 aomi wallet set "$PRIVATE_KEY"
 aomi account login \
-  --backend-url https://chat-staging.aomi.dev \
+  --backend-url https://staging.aomi.chat \
   --wallet \
   --no-browser \
   --chain 8453

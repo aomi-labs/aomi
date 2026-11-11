@@ -12,12 +12,12 @@ describe("headless OAuth configuration", () => {
   it("supports the exact Pipeline resource with its own scopes", () => {
     expect(
       resolveHeadlessOAuthConfig(
-        "https://chat-staging.aomi.dev",
-        "https://chat-staging.aomi.dev/v1/pipeline",
+        "https://staging.aomi.chat",
+        "https://staging.aomi.chat/v1/pipeline",
         undefined,
       ),
     ).toEqual({
-      resource: "https://chat-staging.aomi.dev/v1/pipeline",
+      resource: "https://staging.aomi.chat/v1/pipeline",
       scopes: ["pipeline:catalog", "pipeline:execute"],
     });
   });

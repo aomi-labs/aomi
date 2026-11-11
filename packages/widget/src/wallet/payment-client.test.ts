@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createWidgetX402Client } from "./payment-client";
 
-const CHAT_URL = "https://chat-staging.aomi.dev/v1/agent/chat";
+const CHAT_URL = "https://staging.aomi.chat/v1/agent/chat";
 
 describe("createWidgetX402Client", () => {
   it("uses the shared wallet adapter to switch chains and sign", async () => {

@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
       NEXT_PUBLIC_CHAT_URL:
         stage === "production"
           ? "https://chat.aomi.dev"
-          : "https://chat-staging.aomi.dev",
+          : "https://staging.aomi.chat",
       NEXT_PUBLIC_BUILD_ENGINE: "",
     },
     walletShims: true,
