@@ -14,6 +14,8 @@ const BUILT_IN_SKILL_IDS = [
   "aave_v4",
   "across",
   "aerodrome",
+  "aomi_bridge",
+  "aomi_swap",
   "arbitrum_bridge",
   "avantis",
   "base_native",
@@ -161,6 +163,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(50);
+    expect(manifestIds).toHaveLength(52);
   });
 });

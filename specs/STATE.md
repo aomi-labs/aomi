@@ -2,6 +2,18 @@
 
 ## Last Updated
 
+2026-11-12 — AOMI SWAP AND BRIDGE TRACE (`feat/aomi-swap`, pairs product-mono `feat/aomi-swap`).
+  The backend replaced the `lifi_swap` skill with provider-neutral `aomi_swap`
+  (`swap_quote`, `stage_swap`) and `aomi_bridge` (`bridge_quote`,
+  `stage_bridge`, `bridge_status`). New trace adapter
+  `packages/client/src/trace/protocols/swap.ts` titles them "Quote/Stage swap",
+  "Quote/Stage bridge", "Check bridge" and shows a staged swap's venues
+  (`result.route.path`, e.g. "Uniswap V3 → Aerodrome") as a route chip. The
+  LI.FI adapter stays for saved threads. Skill labels "Swap"/"Bridge" and
+  lucide swap/bridge icons. Pending: hand test with a real wallet; the local
+  E2E fork wallet cannot sign Commit Service `sign` actions (Send stays
+  disabled even for a plain ETH transfer).
+
 2026-11-08 — PHANTOM DEVNET SIGN-IN (`fix/phantom-devnet-signin`).
   Phantom won't show a SIWS message whose `Chain ID` isn't its own network,
   and no wallet API exposes that network; the widget always named Aomi's
