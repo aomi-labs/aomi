@@ -50,13 +50,13 @@ in base64. A mode stays pending until the existing backend permit commit
 succeeds; no UI availability check replaces backend linked-owner, exact-wallet,
 expiry, or version checks.
 
-## Widget library 3.0 migration
+## Widget library 3.0
 
-`@aomi-labs/widget` 3.0 changes `AomiWalletKit.identity.address` and
-`identity.svmAddress` from the transport-active addresses to the account-aware
-operating addresses. Either is absent when no linked, signable selection exists.
+In `@aomi-labs/widget` 3.0, `AomiWalletKit.identity.address` and
+`identity.svmAddress` are the account-aware operating addresses, not the
+transport-active addresses. Either is absent when no linked, signable selection exists.
 Transport state remains available through `accounts`; canonical UI/domain state
-is exposed through `wallets`. The old `walletModalRows` contract was removed.
+is exposed through `wallets`.
 Consumers that fund, quote, prepare, or sign must read `identity.*`, while
 connection-management UI should project `wallets`.
 
@@ -107,7 +107,7 @@ Assembly freezes explicit selections and app defaults. Otherwise commit defaults
 to Hosted for Auto or Wallet for Manual; it rejects Auto × Wallet and
 unsupported adapters without changing authorizer, submitter, or payer.
 
-## EVM routes available today
+## EVM routes
 
 | Broadcaster × execution | Manual × UI                       | Manual × CLI                          | Auto × UI                 | Auto × CLI                |
 | ----------------------- | --------------------------------- | ------------------------------------- | ------------------------- | ------------------------- |

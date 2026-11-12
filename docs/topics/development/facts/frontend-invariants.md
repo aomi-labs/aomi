@@ -79,7 +79,7 @@ The supported widget package is `@aomi-labs/widget`. The owner-authorized
 package-name cutover retires `@aomi-labs/widget-lib`, including its implicit
 provider SDK dependencies. Fresh-install checks target the current package;
 trusted-base consumer sources remain unchanged. Existing npm releases are not
-unpublished by this repository change.
+unpublished.
 
 Run `pnpm run test:contracts` from the checkout. The default Git revision is pinned
 in `tests/contracts/consumer-baseline.json`; `--base <full-commit-sha>` is an explicit

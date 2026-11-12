@@ -67,6 +67,11 @@ export interface EdgeEnv {
   // Portal surface: the edge is routed on these hosts' /api/* and /v1/* paths.
   /** Comma-separated public portal hosts (for example aomi.chat). */
   PORTAL_HOSTS?: string;
+  /**
+   * Comma-separated legacy-host=canonical-origin redirects. The canonical
+   * origin must be one of PORTAL_HOSTS; paths and queries are preserved.
+   */
+  PORTAL_HOST_REDIRECTS?: string;
   /** Private page Worker binding; when present, replaces the HTTP page upstream. */
   PORTAL_PAGES?: { fetch(request: Request): Promise<Response> };
   /** HTTP page upstream, used until PORTAL_PAGES is bound. */

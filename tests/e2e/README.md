@@ -45,7 +45,7 @@ transaction request. Each run writes `output/ai-qa/<run>/report.md`,
 Claude finds; only a broken harness exits non-zero.
 
 ```sh
-AOMI_HOSTED_E2E_PORTAL_URL=https://chat-rc.aomi.dev \
+AOMI_HOSTED_E2E_PORTAL_URL=https://rc.aomi.chat \
 AOMI_HOSTED_E2E_EVM_PRIVATE_KEY=0x<disposable unfunded key> \
 ANTHROPIC_API_KEY=... pnpm ai-qa --flows sidebar   # --list shows the flows
 ```

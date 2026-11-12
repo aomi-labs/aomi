@@ -27,6 +27,7 @@ const OPTIONAL_ORIGINS = [
 // Per-environment settings, passed through when set.
 const SETTINGS = [
   "PORTAL_HOSTS",
+  "PORTAL_HOST_REDIRECTS",
   "PORTAL_TRUSTED_ORIGINS",
   "BETTER_AUTH_URL",
   "PRIVY_APP_ID",
@@ -80,6 +81,33 @@ function routes(raw) {
   return list;
 }
 
+function portalHostRedirects(raw, portalHosts) {
+  const hosts = new Set((portalHosts ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
+  const dnsHost = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+  const seen = new Set();
+  for (const entry of raw.split(",").map((part) => part.trim()).filter(Boolean)) {
+    const separator = entry.indexOf("=");
+    if (separator <= 0 || separator !== entry.lastIndexOf("="))
+      throw new Error("PORTAL_HOST_REDIRECTS entries must be host=https://origin");
+    const source = entry.slice(0, separator).trim().toLowerCase();
+    if (!dnsHost.test(source) || hosts.has(source) || seen.has(source))
+      throw new Error(`PORTAL_HOST_REDIRECTS source ${source} is not a distinct DNS host`);
+    let target;
+    try {
+      target = new URL(entry.slice(separator + 1).trim());
+    } catch {
+      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} is not an origin`);
+    }
+    if (
+      target.protocol !== "https:" || target.username || target.password || target.port ||
+      target.pathname !== "/" || target.search || target.hash ||
+      !hosts.has(target.hostname.toLowerCase())
+    )
+      throw new Error(`PORTAL_HOST_REDIRECTS target for ${source} must be one canonical portal origin`);
+    seen.add(source);
+  }
+}
+
 export function deployArgs(env = process.env) {
   const topology = required("EDGE_TOPOLOGY", env);
   if (!TOPOLOGIES.includes(topology))
@@ -91,6 +119,7 @@ export function deployArgs(env = process.env) {
   for (const key of REQUIRED_ORIGINS) vars[key] = origins(key, required(key, env));
   for (const key of OPTIONAL_ORIGINS) if (value(key, env)) vars[key] = origins(key, value(key, env));
   for (const key of SETTINGS) if (value(key, env)) vars[key] = value(key, env);
+  if (vars.PORTAL_HOST_REDIRECTS) portalHostRedirects(vars.PORTAL_HOST_REDIRECTS, vars.PORTAL_HOSTS);
   // The RC test identity (api/rc-oidc.ts) is configured for rc alone, all three or none.
   const present = RC_IDENTITY.filter((key) => value(key, env));
   if (present.length && topology !== "rc") throw new Error(`${present[0]} is only valid for the rc topology`);

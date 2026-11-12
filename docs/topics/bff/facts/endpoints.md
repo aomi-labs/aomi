@@ -23,7 +23,7 @@ The deploy and launch routes below belong to Aomi Build, not the portal.
 
 The two MCP paths are unversioned OAuth resources and require a valid exact-
 resource token even for `initialize` and `tools/list`. `/api/mcp` and
-`/api/mcp/direct` were removed without aliases. REST accepts either the exact
+`/api/mcp/direct` are removed, without aliases. REST accepts either the exact
 resource OAuth grant or a first-party Better Auth session; anonymous/Bearer
 sessions are bounded to the guest ceiling and are never tokenless requests.
 

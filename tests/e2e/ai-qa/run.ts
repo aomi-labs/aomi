@@ -7,7 +7,7 @@
  * is advice: the process exits 0 whatever Claude finds, and non-zero only when
  * the harness itself cannot run.
  *
- *   AOMI_HOSTED_E2E_PORTAL_URL=https://chat-rc.aomi.dev \
+ *   AOMI_HOSTED_E2E_PORTAL_URL=https://rc.aomi.chat \
  *   AOMI_HOSTED_E2E_EVM_PRIVATE_KEY=0x<disposable> \
  *   ANTHROPIC_API_KEY=... pnpm ai-qa [--flows <regex>]
  */
