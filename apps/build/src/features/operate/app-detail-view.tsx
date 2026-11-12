@@ -5,7 +5,21 @@
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { AppFixture, TxRecord } from "@/features/operate/fixtures";
 
-const HOUR_LABELS = ["00:00", "06:00", "12:00", "18:00", "23:00"];
+import type { ObservabilityWindow } from "./client";
+
+const WINDOW_SECONDS = {
+  "1h": 3600,
+  "24h": 86400,
+  "7d": 604800,
+  "30d": 2592000,
+};
+
+function ago(seconds: number): string {
+  if (seconds === 0) return "Now";
+  if (seconds >= 86400) return `${Number((seconds / 86400).toFixed(1))}d ago`;
+  if (seconds >= 3600) return `${Number((seconds / 3600).toFixed(1))}h ago`;
+  return `${Math.round(seconds / 60)}m ago`;
+}
 
 function BarChart({
   series,
@@ -58,9 +72,11 @@ function BarChart({
 
 export function LatencyChart({
   values,
+  window = "24h",
   height = 96,
 }: {
   values: Array<number | null>;
+  window?: ObservabilityWindow;
   height?: number;
 }) {
   const samples = values.filter(
@@ -72,7 +88,7 @@ export function LatencyChart({
         className="text-dim flex items-center justify-center text-xs"
         style={{ height }}
       >
-        No latency samples in the last 24 hours.
+        No latency samples in the selected {window} window.
       </div>
     );
   }
@@ -98,7 +114,7 @@ export function LatencyChart({
       className="relative"
       style={{ height }}
       role="img"
-      aria-label={`P95 turn latency: ${samples.length} hourly sample${samples.length === 1 ? "" : "s"} in the last 24 hours`}
+      aria-label={`P95 turn latency: ${samples.length} sample${samples.length === 1 ? "" : "s"} in the selected ${window} window`}
     >
       <svg
         viewBox={`0 0 100 ${height}`}
@@ -123,8 +139,9 @@ export function LatencyChart({
       {values.map((value, index) => {
         if (value === null || !Number.isFinite(value)) return null;
         const { x, y } = point(value, index);
-        const hoursAgo = values.length - 1 - index;
-        const label = `${hoursAgo ? `${hoursAgo}h ago` : "Now"}: ${value.toFixed(1)} s`;
+        const secondsAgo =
+          ((values.length - 1 - index) * WINDOW_SECONDS[window]) / 24;
+        const label = `${ago(secondsAgo)}: ${value.toFixed(1)} s`;
         return (
           <span
             key={index}
@@ -208,6 +225,8 @@ export function AppDetailView({
   displayName,
   example = false,
   dashboardHref,
+  window = "24h",
+  onWindowChange,
   onBack,
   onOpenTrace,
   onOpenTx,
@@ -216,11 +235,14 @@ export function AppDetailView({
   displayName?: string;
   example?: boolean;
   dashboardHref?: string | null;
+  window?: ObservabilityWindow;
+  onWindowChange?: (window: ObservabilityWindow) => void;
   onBack: () => void;
   onOpenTrace: (tool: string) => void;
   onOpenTx: (txId: string) => void;
 }) {
   const { meta, detail } = app;
+  const seconds = WINDOW_SECONDS[window];
   const latencySamples = detail.p95Hourly.filter(
     (value): value is number => value !== null && Number.isFinite(value),
   );
@@ -276,14 +298,21 @@ export function AppDetailView({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="border-border bg-surface flex rounded-md border text-xs">
-            {["1h", "24h", "7d", "30d"].map((r) => (
+          <div
+            className="border-border bg-surface flex rounded-md border text-xs"
+            role="group"
+            aria-label="Activity time range"
+          >
+            {(["1h", "24h", "7d", "30d"] as const).map((range) => (
               <button
-                key={r}
+                key={range}
                 type="button"
-                className={`px-3 py-1.5 ${r === "24h" ? "bg-accent-hover text-foreground rounded-md" : "text-dim"}`}
+                aria-pressed={range === window}
+                disabled={!onWindowChange}
+                onClick={() => onWindowChange?.(range)}
+                className={`px-3 py-1.5 ${range === window ? "bg-accent-hover text-foreground rounded-md" : "text-dim"}`}
               >
-                {r}
+                {range}
               </button>
             ))}
           </div>
@@ -301,7 +330,7 @@ export function AppDetailView({
       </div>
 
       {/* Funnel */}
-      <Panel title="Conversion funnel · 24h">
+      <Panel title={`Conversion funnel · ${window}`}>
         <div className="flex flex-wrap items-stretch gap-0">
           {detail.funnel.map((stage, i) => {
             const prev = i > 0 ? detail.funnel[i - 1].value : null;
@@ -350,7 +379,7 @@ export function AppDetailView({
       {/* Charts */}
       <div className="grid gap-2 lg:grid-cols-3">
         <Panel
-          title="Activity by hour"
+          title={`Activity · ${window}`}
           right={
             <span className="text-dim flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1">
@@ -373,20 +402,20 @@ export function AppDetailView({
             ]}
           />
           <div className="text-dim mt-1 flex justify-between text-[10px]">
-            {HOUR_LABELS.map((label) => (
-              <span key={label}>{label}</span>
-            ))}
+            {[1, 0.75, 0.5, 0.25, 0]
+              .map((fraction) => ago(seconds * fraction))
+              .map((label) => (
+                <span key={label}>{label}</span>
+              ))}
           </div>
         </Panel>
         <Panel
           title="P95 turn latency"
-          right={
-            <span className="text-dim text-xs">seconds · hourly · 24h</span>
-          }
+          right={<span className="text-dim text-xs">seconds · {window}</span>}
         >
-          <LatencyChart values={detail.p95Hourly} />
+          <LatencyChart values={detail.p95Hourly} window={window} />
           <div className="text-dim mt-1 flex justify-between text-[10px]">
-            <span>23h ago</span>
+            <span>{ago((seconds * 23) / 24)}</span>
             <span>
               peak{" "}
               {latencySamples.length
@@ -396,7 +425,7 @@ export function AppDetailView({
             <span>Now</span>
           </div>
           <p className="text-dim mt-2 text-xs">
-            {latencySamples.length} hourly sample
+            {latencySamples.length} sample
             {latencySamples.length === 1 ? "" : "s"} · Gaps mean no
             measurements.
           </p>
@@ -427,7 +456,7 @@ export function AppDetailView({
 
       {/* Tools table → click a row to open its trace in Logs */}
       <Panel
-        title="Tools · 24h"
+        title={`Tools · ${window}`}
         right={
           <span className="text-dim text-xs">
             {detail.toolsSummary} · click a row to open its trace in Logs
