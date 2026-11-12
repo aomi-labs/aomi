@@ -48,3 +48,5 @@ export const operateTransactionsRoute = at("GET", operate("transactions"));
 export const operateUsageRoute = at("GET", operate("usage"));
 export const operateModelKeysRoute = at("GET", operate("model-keys"));
 
+export const deploymentApproveRoute = at("POST", deployments("approve"));
+export const deploymentGrandfatherRoute = at("POST", deployments("grandfather"));

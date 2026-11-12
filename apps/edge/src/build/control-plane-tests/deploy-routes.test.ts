@@ -576,6 +576,8 @@ describe("deployRoute", () => {
   });
 
   it("deploys by Project identity without a client-selected platform", async () => {
+    // CLI deploys are an approver's; builders deploy from the Build site.
+    getGitHubSession.mockResolvedValue({ githubUserId: "61880411", githubLogin: "arixoneth" });
     vi.stubEnv("BUILD_DEFAULT_PLATFORM", "community");
     const fetchMock = vi
       .fn()
