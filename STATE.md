@@ -6,6 +6,7 @@ Rewrite this file in place; never append history. Keep it under 60 lines. Remove
 
 ## In flight
 
+- 2026-11-12 · @CeciliaZ030 · Builder API keys at the Build edge; deploys after the product-mono#1712 migration · #878
 - 2026-11-12 · @arixoneth · trace: provider-neutral swap and bridge tool rows · #877
 - 2026-11-12 · @CeciliaZ030 · Default the SDK, CLI and widget to aomi.chat (draft) · #875
 - 2026-11-02 · @arixoneth · Execution-only wallets never sign in (draft) · #824

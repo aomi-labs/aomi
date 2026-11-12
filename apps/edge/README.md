@@ -86,6 +86,18 @@ venue-specific URL.
     `@aomi-labs/internal` (`ManagerClient`) with a five-minute `aomi-edge`
     service bearer; failures answer with the same
     `{ error, code?, retryable?, deployError? }` bodies.
+  - `api-keys.ts`: builder API keys (`aomi_key_…`), stored as SHA-256 hashes
+    in the `api_keys` table behind `HYPERDRIVE` (the migration is
+    product-mono's). `GET`, `POST` and `DELETE /api/build/keys` list, create
+    and revoke the signed-in builder's keys and take the portal session
+    cookie only. A request presenting a key is served only by the
+    `endpoint()` routes that stay on the manager (activate, promote and the
+    secrets routes read the vault and refuse a key). Its manager calls carry a `role: "user"` builder
+    bearer (`auth_source: "api_key"`, the key's capabilities as `scope`)
+    instead of the service bearer, so the manager enforces the capabilities;
+    calls that leave the manager's routes, such as the secrets vault, are
+    refused at the edge. Credits, sign-in, key management and the
+    pass-through answer a key 403.
   - Not moved: `build/**` (the Vercel sandbox), `integrations`, `dev-session`
     (local only) and `internal/sentry-smoke`.
 

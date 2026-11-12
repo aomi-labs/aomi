@@ -293,8 +293,9 @@ function continuationFrom(value: unknown): GitHubOAuthContinuation | null {
 
 /** The bearer a CLI presents, or nothing. */
 export function bearerOf(request: Request): string {
-  const authorization = request.headers.get("authorization");
-  return authorization?.startsWith("Bearer ")
+  // Scheme names are case-insensitive (RFC 9110).
+  const authorization = request.headers.get("authorization") ?? "";
+  return /^bearer /i.test(authorization)
     ? authorization.slice("Bearer ".length).trim()
     : "";
 }
