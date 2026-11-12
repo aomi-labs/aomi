@@ -42,6 +42,9 @@ export async function handleRequest(
   if (portal && database)
     return withSecurityHeaders(await withDatabase(database, () => handlePortalRequest(request, portal), waitUntil));
   const build = portal ? null : buildContext(request, env, fetchImpl);
+  // Build reads builder API keys from the same database, opened only when a request needs it.
+  if (build && database)
+    return withSecurityHeaders(await withDatabase(database, () => handleBuildRequest(request, build), waitUntil));
   // A Build host without its upstream fails closed instead of falling to the public API.
   if (!portal && !build && isBuildHost(env, new URL(request.url).host)) {
     const error = new EdgeError(503, "build_unconfigured");

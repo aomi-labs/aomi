@@ -2,11 +2,18 @@
  * The Build surface at the edge: GitHub sign-in, CLI login, builder credits,
  * the anonymous GitHub App install start and the launch, deployments and
  * operate control-plane families (over the `@aomi-labs/internal` manager
- * client). Anything not listed here passes through to the Vercel Build app
- * unchanged: the build sandbox, integrations and the local-only helpers.
+ * client) and builder API key management. Anything not listed here passes
+ * through to the Vercel Build app unchanged: the build sandbox, integrations
+ * and the local-only helpers.
+ *
+ * A request presenting a builder API key is served only by the `endpoint()`
+ * routes, whose manager calls carry the key's builder bearer. Every other
+ * route, builder credits and the pass-through answer it 403.
  */
+import { EdgeError } from "../kernel/errors";
 import { passThrough as passThroughTo, proxy, target } from "../kernel/proxy";
 import { BACKEND_API_HEADERS } from "../portal/headers";
+import { carriesApiKey, KEY_ROUTES } from "./api-keys";
 import type { BuildContext } from "./context";
 import { BUILDER_CREDITS_PREFIX, credits } from "./credits";
 import { DEPLOY_ROUTES } from "./deploy";
@@ -48,6 +55,7 @@ export const BUILD_ROUTES: readonly BuildRoute[] = [
   { operation: "cli.exchange", method: "POST", path: "/api/build/cli/exchange", handle: cliExchange },
   { operation: "cli.status", method: "GET", path: "/api/build/cli/status", handle: cliStatus },
   { operation: "github_app.install_start", method: "GET", path: GITHUB_APP_INSTALL_START_PATH, handle: installStart },
+  ...KEY_ROUTES,
   ...DEPLOY_ROUTES,
   ...OPERATE_ROUTES,
 ];
@@ -68,11 +76,17 @@ async function run(operation: string, handle: Handler, request: Request, ctx: Bu
   }
 }
 
+/** An API key reaches only the routes that carry it to the manager as its builder. */
+const refuseKey: Handler = () => {
+  throw new EdgeError(403, "api_key_not_allowed");
+};
+
 /** Serve one request on the Build surface. */
 export async function handleBuildRequest(request: Request, ctx: BuildContext): Promise<Response> {
   const url = new URL(request.url);
+  const withKey = carriesApiKey(request);
   if (url.pathname === BUILDER_CREDITS_PREFIX || url.pathname.startsWith(`${BUILDER_CREDITS_PREFIX}/`))
-    return run("builder.credits", credits, request, ctx);
+    return run("builder.credits", withKey ? refuseKey : credits, request, ctx);
   const routes = BUILD_ROUTES.filter((route) => matches(route, url.pathname));
   if (routes.length) {
     const route = routes.find((candidate) => candidate.method === request.method);
@@ -81,7 +95,8 @@ export async function handleBuildRequest(request: Request, ctx: BuildContext): P
         status: 405,
         headers: { allow: routes.map((candidate) => candidate.method).join(", ") },
       });
-    return run(route.operation, route.handle, request, ctx);
+    return run(route.operation, withKey && !route.keys ? refuseKey : route.handle, request, ctx);
   }
+  if (withKey) return run("pass_through", refuseKey, request, ctx);
   return passThrough(request, ctx);
 }

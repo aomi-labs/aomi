@@ -26,6 +26,11 @@ export type BuildRoute = {
   /** An exact path, or a pattern whose named groups join the input. */
   path: string | RegExp;
   handle: Handler;
+  /**
+   * Set when a builder API key may call the route: every upstream call it makes
+   * goes through the caller's manager client. Unset routes refuse keys.
+   */
+  keys?: true;
 };
 
 export type Call<I> = Caller & { input: I; client: ManagerClient; request: Request; ctx: BuildContext };
@@ -49,12 +54,12 @@ export function endpoint<O, S extends z.ZodType = typeof NONE>(
   const handle = async (request: Request, ctx: BuildContext) => {
     const caller = await authorize(request, ctx, definition.auth ?? {});
     const input = await parseInput((definition.input ?? NONE) as S, request, groups(path, request));
-    const client = await managerClient(request, ctx);
+    const client = await managerClient(request, ctx, caller);
     const output = await definition.run({ ...caller, input, client, request, ctx });
     if (output instanceof Response) return output;
     return Response.json(output, { status: definition.status ?? 200, headers: { "Cache-Control": "no-store" } });
   };
-  return { operation, method, path, handle };
+  return { operation, method, path, handle, keys: true };
 }
 
 function groups(path: string | RegExp, request: Request): Record<string, string> {
