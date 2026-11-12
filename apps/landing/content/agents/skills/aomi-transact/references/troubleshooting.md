@@ -2,7 +2,7 @@
 
 | Symptom | Investigation and next action |
 | --- | --- |
-| Guest sign-in HTTP 404 | Read `aomi config current --json`. Match sanitized origin and source to the failed guest endpoint. The Portal host is `chat.aomi.dev` (staging `staging.aomi.chat`); a direct `api.*` backend origin cannot serve guest login. Fix the winning CLI override in its owning shell/session configuration. |
+| Guest sign-in HTTP 404 | Read `aomi config current --json`. Match sanitized origin and source to the failed guest endpoint. The Portal host is `aomi.chat` (staging `staging.aomi.chat`); a direct `api.*` backend origin cannot serve guest login. Fix the winning CLI override in its owning shell/session configuration. |
 | Standalone package npm E404 | Release/install blocker. Preserve the working binary; source success or a migration shim is not proof the replacement is publicly installable. |
 | Missing Commit/payment command | Check installed binary and `tx --help`; report the required package capability. Avoid automatic global upgrades or comparing standalone and legacy embedded version numbers. |
 | No legacy Action after chat | Refresh `tx list --json` and inspect Commits. An agent can also have returned a quote or clarification rather than preparing execution. |

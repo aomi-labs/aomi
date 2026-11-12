@@ -2,7 +2,7 @@
 
 TypeScript client for the Aomi on-chain agent backend. Works in Node.js and browsers.
 
-The production API is `https://chat.aomi.dev`; pass it as `baseUrl` (the CLI
+The production API is `https://aomi.chat`; pass it as `baseUrl` (the CLI
 uses it by default).
 
 ## Which credential do I need?
@@ -33,7 +33,7 @@ OAuth once and let the SDK own exact resources, scopes, refresh, and revocation:
 import { Aomi, oauth } from "@aomi-labs/client";
 
 const aomi = new Aomi({
-  baseUrl: "https://chat.aomi.dev",
+  baseUrl: "https://aomi.chat",
   auth: oauth({
     clientId: process.env.AOMI_OAUTH_CLIENT_ID!,
     store: myDurableGrantStore,
@@ -59,13 +59,13 @@ for your own integration, register a device client once and keep its
 `client_id` (it is not a secret, and there is no client secret):
 
 ```bash
-curl -sX POST https://chat.aomi.dev/api/auth/oauth2/register \
+curl -sX POST https://aomi.chat/api/auth/oauth2/register \
   -H 'content-type: application/json' \
   -d '{
     "client_name": "My Aomi bot",
     "token_endpoint_auth_method": "none",
     "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
-    "resources": ["https://chat.aomi.dev/v1/agent"],
+    "resources": ["https://aomi.chat/v1/agent"],
     "scope": "agent:read agent:write agent:actions:resolve offline_access"
   }'
 # => { "client_id": "...", ... }  → export AOMI_OAUTH_CLIENT_ID=<client_id>
@@ -74,7 +74,7 @@ curl -sX POST https://chat.aomi.dev/api/auth/oauth2/register \
 Registration only accepts public clients (`token_endpoint_auth_method: "none"`)
 with exactly the device-code and refresh-token grants, and exactly one REST
 resource. For Pipeline, register a second client with resource
-`https://chat.aomi.dev/v1/pipeline` and scope
+`https://aomi.chat/v1/pipeline` and scope
 `pipeline:catalog pipeline:execute offline_access`.
 
 Agent REST uses the exact OAuth resource `https://<portal>/v1/agent`; Pipeline
@@ -112,7 +112,7 @@ Direct typed access to the Agent and Pipeline transports.
 ```ts
 import { AomiClient } from "@aomi-labs/client";
 
-const client = new AomiClient({ baseUrl: "https://chat.aomi.dev" });
+const client = new AomiClient({ baseUrl: "https://aomi.chat" });
 const sessions = await client.agent.sessions.list();
 console.log(sessions.sessions);
 ```
@@ -131,7 +131,7 @@ key.
 import { Aomi } from "@aomi-labs/client";
 
 const aomi = new Aomi({
-  baseUrl: "https://chat.aomi.dev",
+  baseUrl: "https://aomi.chat",
   signer: {
     evm: {
       address,
@@ -286,7 +286,7 @@ const svm = solanaSigner(process.env.SOLANA_SECRET_KEY!, {
   cluster: "solana:devnet",
 });
 const aomi = new Aomi({
-  baseUrl: "https://chat.aomi.dev",
+  baseUrl: "https://aomi.chat",
   auth: wallet(svm), // SIWS on the signer's cluster
   signer: { svm },
 });
@@ -528,7 +528,7 @@ and legacy Action execution.
 import { Session, commitCapabilities } from "@aomi-labs/client";
 
 const session = new Session(
-  { baseUrl: "https://chat.aomi.dev" },
+  { baseUrl: "https://aomi.chat" },
   {
     actions: walletCapabilities,
     commits: commitCapabilities(wallets),

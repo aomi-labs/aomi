@@ -83,11 +83,9 @@ describe("OAuthConsentClient", () => {
   });
 
   it("reads the app an app-locked resource names", () => {
-    expect(consentApp("https://chat.aomi.dev/v1/apps/world/mcp")).toBe("world");
-    expect(consentApp("https://chat.aomi.dev/v1/agent/mcp")).toBeUndefined();
-    expect(
-      consentApp("https://chat.aomi.dev/v1/apps/World/mcp"),
-    ).toBeUndefined();
+    expect(consentApp("https://aomi.chat/v1/apps/world/mcp")).toBe("world");
+    expect(consentApp("https://aomi.chat/v1/agent/mcp")).toBeUndefined();
+    expect(consentApp("https://aomi.chat/v1/apps/World/mcp")).toBeUndefined();
     expect(consentApp(null)).toBeUndefined();
   });
 

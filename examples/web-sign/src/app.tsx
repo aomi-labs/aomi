@@ -14,7 +14,7 @@ import { Chat } from "./chat";
 import { InjectedWallet, type InjectedProvider } from "./injected-wallet";
 
 const env = import.meta.env;
-const baseUrl = env.VITE_AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
+const baseUrl = env.VITE_AOMI_BASE_URL?.trim() || "https://aomi.chat";
 const applicationId = env.VITE_AOMI_APPLICATION_ID?.trim()
   ? Number(env.VITE_AOMI_APPLICATION_ID)
   : undefined;

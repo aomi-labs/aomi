@@ -32,7 +32,7 @@ permissions:
     write: [~/.aomi/]
     deny_write: [SOUL.md, MEMORY.md, AGENTS.md]
   network:
-    allow: [chat.aomi.dev]
+    allow: [aomi.chat]
     deny: "*"
   shell:
     - aomi
@@ -115,8 +115,8 @@ Source: https://github.com/aomi-labs/skills/tree/main/aomi-transact
 For hosted tools, connect Agent and Pipeline separately with OAuth:
 
 ```sh
-codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp
-codex mcp add aomi-pipeline --url https://chat.aomi.dev/v1/pipeline/mcp
+codex mcp add aomi-agent --url https://aomi.chat/v1/agent/mcp
+codex mcp add aomi-pipeline --url https://aomi.chat/v1/pipeline/mcp
 ```
 
 Codex derives the resource from each URL; omit `--oauth-resource` to avoid a

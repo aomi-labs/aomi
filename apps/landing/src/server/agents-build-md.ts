@@ -64,7 +64,7 @@ export default function AssistantPage() {
 }
 \`\`\`
 
-Set \`NEXT_PUBLIC_AOMI_API_URL=https://chat.aomi.dev\` and the deployed App's canonical \`NEXT_PUBLIC_AOMI_APPLICATION_ID\` in \`.env.local\`. The Application ID selects an activated App; it is not an API key. Browser-wallet mode uses an origin-bound session, and users approve wallet actions explicitly.
+Set \`NEXT_PUBLIC_AOMI_API_URL=https://aomi.chat\` and the deployed App's canonical \`NEXT_PUBLIC_AOMI_APPLICATION_ID\` in \`.env.local\`. The Application ID selects an activated App; it is not an API key. Browser-wallet mode uses an origin-bound session, and users approve wallet actions explicitly.
 
 Full quickstart with wallet integration: <https://aomi.dev/docs/build/quickstart.md>
 

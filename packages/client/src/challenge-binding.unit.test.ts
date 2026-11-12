@@ -101,15 +101,15 @@ describe("widget challenge binding", () => {
     // jsdom always provides a window; simulate a non-browser runtime.
     vi.stubGlobal("window", undefined);
     await adapter().exchange({
-      baseUrl: "https://chat.aomi.dev",
-      fetch: fetchReturning(challengeResponse({ domain: "chat.aomi.dev", uri: "https://chat.aomi.dev" })),
+      baseUrl: "https://aomi.chat",
+      fetch: fetchReturning(challengeResponse({ domain: "aomi.chat", uri: "https://aomi.chat" })),
     });
     expect(signer.signMessage).toHaveBeenCalledTimes(1);
 
     signer.signMessage.mockClear();
     await expect(
       adapter().exchange({
-        baseUrl: "https://chat.aomi.dev",
+        baseUrl: "https://aomi.chat",
         fetch: fetchReturning(challengeResponse({ nonce: "" })),
       }),
     ).rejects.toBeInstanceOf(AccountChallengeBindingError);

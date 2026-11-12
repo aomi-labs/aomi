@@ -12,12 +12,12 @@ import {
 } from "./grant-stores";
 
 const grant: AomiOAuthGrant = {
-  issuer: "https://chat.aomi.dev/api/auth",
+  issuer: "https://aomi.chat/api/auth",
   clientId: "managed-client",
   accessToken: "access",
   refreshToken: "refresh",
   expiresAt: 2_000_000_000_000,
-  resource: "https://chat.aomi.dev/v1/agent",
+  resource: "https://aomi.chat/v1/agent",
   scopes: ["agent:read"],
 };
 

@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       NEXT_PUBLIC_BACKEND_URL: env.BACKEND_URL || backend,
       NEXT_PUBLIC_CHAT_URL:
         stage === "production"
-          ? "https://chat.aomi.dev"
+          ? "https://aomi.chat"
           : "https://staging.aomi.chat",
       NEXT_PUBLIC_BUILD_ENGINE: "",
     },

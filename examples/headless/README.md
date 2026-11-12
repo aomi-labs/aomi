@@ -8,7 +8,7 @@ you need.
 
 Install workspace dependencies and execute an example from the repository
 root. The guest, OAuth, and walkthrough examples call production
-(`https://chat.aomi.dev`) unless `AOMI_BASE_URL` says otherwise; the wallet,
+(`https://aomi.chat`) unless `AOMI_BASE_URL` says otherwise; the wallet,
 SIWS, and credit examples sign with throwaway keys and keep a local default.
 
 ```sh

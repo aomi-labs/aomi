@@ -54,7 +54,7 @@ export default function ContactPage() {
           <a href="mailto:contact@aomi.dev">
             <Mail aria-hidden /> contact@aomi.dev
           </a>
-          <a href="https://chat.aomi.dev">
+          <a href="https://aomi.chat">
             <MessageCircle aria-hidden /> Open Aomi
           </a>
         </div>

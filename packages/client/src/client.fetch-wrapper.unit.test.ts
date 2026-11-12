@@ -99,7 +99,7 @@ describe("wrapFetchWithAccountBearer", () => {
       getBearer,
     );
 
-    await wrapped("https://chat.aomi.dev/v1/pipeline/mcp", {
+    await wrapped("https://aomi.chat/v1/pipeline/mcp", {
       method: "POST",
     });
 
@@ -121,7 +121,7 @@ describe("wrapFetchWithAccountBearer", () => {
     );
     const account = bearerSource("different-account");
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchMock as typeof fetch,
       guest,
       getAccountBearer: account,
@@ -158,7 +158,7 @@ describe("wrapFetchWithAccountBearer", () => {
     }) as ReturnType<typeof vi.fn> & GetAccountBearer;
     account.required = true;
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchMock as typeof fetch,
       guest,
       getAccountBearer: account,
@@ -176,7 +176,7 @@ describe("wrapFetchWithAccountBearer", () => {
     const account = bearerSource(null);
     account.required = true;
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchMock as typeof fetch,
       getAccountBearer: account,
       guest: true,
@@ -196,7 +196,7 @@ describe("wrapFetchWithAccountBearer", () => {
     getBearer.required = true;
     const guest = vi.fn(async () => "guest-session");
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: fetchMock as unknown as typeof fetch,
       getAccountBearer: getBearer,
       guest,

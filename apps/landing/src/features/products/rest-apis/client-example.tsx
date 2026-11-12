@@ -90,7 +90,7 @@ export function ClientExample({
           </button>
         </div>
         <span>
-          {mode === "curl" ? "chat.aomi.dev" : "@aomi-labs/client · npm 0.7.6+"}
+          {mode === "curl" ? "aomi.chat" : "@aomi-labs/client · npm 0.7.6+"}
         </span>
       </div>
       <div className={styles.codeBody}>

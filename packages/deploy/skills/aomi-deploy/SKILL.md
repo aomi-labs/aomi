@@ -143,7 +143,7 @@ The **smallest useful flow** (the entire happy path) is:
 5. Poll `status(deploymentId)` until `ready` (or `failed`).
 6. `activate({ releaseTags, apps })` (both come off the deploy result / status).
 7. Poll `appStatuses({ projectId })` until each activated release is live, then embed chat:
-   `https://chat.aomi.dev?app=<name>&application_id=<id>&lock_app=1`.
+   `https://aomi.chat?app=<name>&application_id=<id>&lock_app=1`.
 
 Render it however the host brand wants — a single button, a stepper, a config
 form, a conversational intake — because the contract underneath is just those

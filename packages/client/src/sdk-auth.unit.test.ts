@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Aomi, oauth, type AomiOAuthGrant, type AomiOAuthGrantStore } from "./";
 
-const baseUrl = "https://chat.aomi.dev";
+const baseUrl = "https://aomi.chat";
 const issuer = `${baseUrl}/api/auth`;
 const clientId = "managed-public-client";
 

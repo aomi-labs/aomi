@@ -58,7 +58,7 @@ afterEach(() => {
 describe("AomiWidget props", () => {
   it.each([
     [{ applicationId: "" }, /applicationId is required/],
-    [{ applicationId: "1", baseUrl: "chat.aomi.dev" }, /baseUrl must be/],
+    [{ applicationId: "1", baseUrl: "aomi.chat" }, /baseUrl must be/],
     [{ applicationId: "1", theme: "blue" }, /theme must be/],
     [{ applicationId: "1", auth: privyAuth({ appId: " " }) }, /needs appId/],
     [{ applicationId: "1", auth: paraAuth({ apiKey: "" }) }, /needs apiKey/],

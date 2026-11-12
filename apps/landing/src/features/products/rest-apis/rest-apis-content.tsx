@@ -134,7 +134,7 @@ const guarantees = [
 const sdkExample = `import { Aomi } from "@aomi-labs/client";
 
 const aomi = new Aomi({
-  baseUrl: "https://chat.aomi.dev",
+  baseUrl: "https://aomi.chat",
 });
 
 const run = aomi.agent.run(
@@ -146,7 +146,7 @@ run.on("action", (action) => renderApproval(action));
 const result = await run.result();
 console.log(result.sessionId, result.actions);`;
 
-const curlExample = `curl https://chat.aomi.dev/v1/agent/chat \\
+const curlExample = `curl https://aomi.chat/v1/agent/chat \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: $(uuidgen)" \\
   -H "Content-Type: application/json" \\

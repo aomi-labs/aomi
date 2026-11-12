@@ -1,7 +1,7 @@
 import { Aomi, type AomiOAuthTokenProvider } from "@aomi-labs/client";
 import { resolveHeadlessOAuthConfig } from "../shared/oauth";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://aomi.chat";
 const accessToken = process.env.AOMI_OAUTH_ACCESS_TOKEN?.trim();
 const { resource, scopes } = resolveHeadlessOAuthConfig(baseUrl);
 if (!accessToken) {

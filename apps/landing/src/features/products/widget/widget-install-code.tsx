@@ -66,7 +66,7 @@ aomi account login --wallet
 
 aomi wallet current --json`,
   MCP: `npx skills add aomi-labs/skills
-codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp
+codex mcp add aomi-agent --url https://aomi.chat/v1/agent/mcp
 codex mcp login aomi-agent
 
 # OAuth binds the session to your Aomi account.
