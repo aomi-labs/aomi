@@ -10,11 +10,11 @@ review_after_days: 7
 # Markdown Inventory
 
 - Indexed markdown files: 26
-- Excluded markdown files: 93
+- Excluded markdown files: 96
 
 ## Reasons
 - `indexed`: 26
-- `not-included`: 93
+- `not-included`: 96
 
 ## Indexed Files
 - `AGENTS.md` via `root-guidance`
@@ -54,8 +54,10 @@ review_after_days: 7
 - `.changeset/sign-page-batch-cards.md` (not-included)
 - `.changeset/solana-commits.md` (not-included)
 - `.changeset/solana-sign-in.md` (not-included)
+- `.changeset/staging-chat-host.md` (not-included)
 - `.changeset/trace-no-failed-count.md` (not-included)
 - `CLAUDE.md` (not-included)
+- `STATE.md` (not-included)
 - `api-reports/aomi-labs-client-browser-auth.api.md` (not-included)
 - `api-reports/aomi-labs-client-main.api.md` (not-included)
 - `api-reports/aomi-labs-client-node.api.md` (not-included)
@@ -102,6 +104,7 @@ review_after_days: 7
 - `apps/portal/README.md` (not-included)
 - `demo/MCP_CLI_SIGNING_DEMO.md` (not-included)
 - `demo/README.md` (not-included)
+- `docs/decisions.md` (not-included)
 - `docs/testing/hosted-wallet-e2e.md` (not-included)
 - `docs/topics/security/official-install-paths.md` (not-included)
 - `docs/trace-attribution/README.md` (not-included)
