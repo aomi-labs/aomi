@@ -14,14 +14,7 @@ import {
 import { validResult } from "./protocol-adapter";
 import type { ProtocolAdapter } from "./protocol-adapter";
 
-/** The DEX hops a swap takes, e.g. "Uniswap V3 → Aerodrome". */
-const venuesFact = (result: Record<string, unknown> | null): ToolFact | null => {
-  const path = asString(asRecord(result?.route)?.path);
-  return path ? { kind: "route", value: path, source: "result" } : null;
-};
-
 const stagedFacts = (
-  rawLabel: string,
   parsedArgs: unknown,
   resultRecord: Record<string, unknown> | null,
 ): (ToolFact | null)[] => {
@@ -34,7 +27,6 @@ const stagedFacts = (
     tokenSymbol(result?.to_token) ?? requestedTokenLabel(args?.to_token);
   const requested = asString(args?.amount);
   return [
-    rawLabel.includes("swap") ? venuesFact(result) : null,
     locationFact(result, args),
     tokenPairFact({ symbol: fromToken }, { symbol: toToken }),
     amountDisplayFact(result?.from_amount, "primary") ??
@@ -63,7 +55,7 @@ const match: ToolMatcher = ({ rawLabel, parsedArgs, resultRecord }) => {
     stage_swap: "swap.stage",
     bridge_quote: "bridge.quote",
   }[name] ?? "bridge.stage";
-  return operation(id, rawLabel, stagedFacts(name, parsedArgs, resultRecord));
+  return operation(id, rawLabel, stagedFacts(parsedArgs, resultRecord));
 };
 
 const routeChips = [

@@ -996,7 +996,7 @@ describe("tool interpreter", () => {
     ]);
   });
 
-  it("shows a staged swap's venues and never a provider", () => {
+  it("shows a staged swap without its venues or provider", () => {
     const step = decode({
       toolName: "stage_swap",
       argsText: JSON.stringify({
@@ -1035,12 +1035,14 @@ describe("tool interpreter", () => {
     expect(step.icon).toBe("swap");
     expect(labelsFor(step.chips)).toEqual(
       expect.arrayContaining([
-        "Uniswap V3 → Aerodrome Slipstreams",
         "Base",
         "USDC -> WETH",
         "1000 USDC",
         "0.49812 WETH",
       ]),
+    );
+    expect(labelsFor(step.chips)).not.toContain(
+      "Uniswap V3 → Aerodrome Slipstreams",
     );
   });
 
