@@ -4,8 +4,7 @@ import type { Scenario } from "./types";
  * Scenario 6: one agent, two virtual machines — the Solana leg.
  *
  * Runs entirely on the Surfpool mainnet-fork mirror; phase 0 proved both legs
- * execute there (Jupiter swap finalized, Marinade stake confirmed — see
- * specs/SOLANA-DEMO-PLAN.md "Phase 0 VERDICT"). Not a one-take real-money
+ * execute there (Jupiter swap finalized, Marinade stake confirmed). Not a one-take real-money
  * proof video after all: as re-recordable as DS2.
  *
  * Environment contract:

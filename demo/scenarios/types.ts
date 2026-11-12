@@ -94,7 +94,7 @@ export type Scenario = {
      * Token accounts fabricated after reset via `surfnet_setTokenAccount`
      * (raw base units). `amount: "0"` creates an EMPTY ATA — required for
      * first-time destinations while the svm_stage_ix skill manifests still
-     * block ATA creation (see SOLANA-DEMO-PLAN.md).
+     * block ATA creation.
      */
     tokenAccounts?: Array<{ symbol: string; mint: string; amount: string }>;
     /**

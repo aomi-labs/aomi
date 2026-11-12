@@ -34,9 +34,6 @@ Advanced hosts compose the compiled `@aomi-labs/widget/frame` entry and supply
 an explicit `backendUrl`. The retired `@aomi-labs/widget-lib` package is no
 longer built or published from this repository. Migrate imports to
 `@aomi-labs/widget` and install the SDK peers for any selected wallet provider.
-The frozen copy-in
-registry remains available for one release; see
-[registry transition](docs/topics/development/facts/registry-retirement.md).
 
 ## SDK and CLI
 

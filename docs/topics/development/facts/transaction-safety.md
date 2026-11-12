@@ -66,7 +66,7 @@ identity and are not rewritten by a mode selection.
 
 The EVM SDK accepts the mode on build/stage input and mutation options. The API
 may separately authorize limited guard coverage through a signed permission.
-Its additional UI controls are deferred; the signing settings keep their
+It has no additional UI controls; the signing settings keep their
 original form. Saving a chat safety setting never expands that signing grant.
 
 ExecuteEvm Actions may carry server-authored ordered `commitStages`. The SDK
@@ -113,7 +113,7 @@ previously invoked attempt on replay. A retry returns the original Action and
 cohort references before fresh simulation or review; it does not create a new
 wallet invocation.
 
-Ordinary manual EVM message-signing execution Actions are currently unavailable:
+Ordinary manual EVM message-signing execution Actions are unavailable:
 the Action result protocol has no durable pre-signature admission claim. The
 client disables Submit and refuses wallet execution or a newly signed result;
 the server rejects new requests before opening an approval and also refuses

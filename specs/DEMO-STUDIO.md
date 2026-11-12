@@ -99,7 +99,7 @@ A pinned EVM fork does not cover the whole surface.
 | CEX | Binance, Bybit, OKX | No | Venue sandbox API keys |
 | Read-only data | DefiLlama, Dune, GeckoTerminal, Hyperliquid, dYdX, GMX, Morpho, Yearn, l2beat, Kaito, Neynar | N/A | Live APIs, response-cached |
 
-**Plan (2026-07-31 late): `specs/SOLANA-DEMO-PLAN.md`** — full replication
+**Scenario 6 on Surfpool:** replication
 plan for scenario 6 on a Surfpool mainnet fork. Key upgrades over what's below:
 mainnet-beta forking and declarative USDC fixtures (`surfnet_setTokenAccount`)
 already exist in `test-env svm`; the only real code gap is the portal's
