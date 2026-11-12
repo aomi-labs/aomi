@@ -21,7 +21,7 @@ sources_of_truth:
 provider-token sign-in/linking, anonymous users, OAuth Provider 1.7, and
 canonical Aomi account resolution.
 
-One Better Auth issuer now serves Agent REST, Pipeline REST, Agent MCP, and
+One Better Auth issuer serves Agent REST, Pipeline REST, Agent MCP, and
 Pipeline MCP. It uses the official OAuth Provider, MCP, CIMD, JWT/JWKS,
 Anonymous, Bearer, and device-authorization components. The four exact
 resources and scope vocabulary live in `better-auth/oauth-policy.ts`; custom

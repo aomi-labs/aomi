@@ -33,7 +33,7 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 - [client-runtime/facts/react-runtime.md](client-runtime/facts/react-runtime.md): React provider shell, thread runtime, and event flow
 - [client-runtime/facts/transport-client.md](client-runtime/facts/transport-client.md): HTTP, SSE, and shared API types
 - [client-runtime/facts/cli.md](client-runtime/facts/cli.md): `aomi` CLI entrypoint and command structure
-- [client-runtime/facts/solana-transactions.md](client-runtime/facts/solana-transactions.md): Solana approvals, signing, broadcast, and browser acceptance
+- [client-runtime/facts/solana-transactions.md](client-runtime/facts/solana-transactions.md): Solana account selection for Auto, with a pointer to wallet routing
 
 ## Development
 
@@ -46,6 +46,5 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 ## Supporting References
 
 - [../index.md](../index.md): repo wiki entrypoint and policy
-- [../local-dev-stack.md](../local-dev-stack.md): local BFF/BetterAuth stack setup
 - [../../specs/DOMAIN.md](../../specs/DOMAIN.md): architecture rules and flows
 - [../../specs/METADATA.md](../../specs/METADATA.md): package and environment metadata
