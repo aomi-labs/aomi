@@ -214,7 +214,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       const owner = principal.sub;
       const state =
         walletRules.get(owner) ??
-        ({ revision: 0, rules: [], admin: { kind: "aomi_managed" } } as FakeRules);
+        ({
+          revision: 0,
+          rules: NO_RULES,
+          admin: { kind: "aomi_managed" },
+        } as FakeRules);
       walletRules.set(owner, state);
       const pending = [...ruleChanges.values()].find(
         (entry) =>
@@ -236,11 +240,12 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         const refused = ownerOnly();
         if (refused) return refused;
         const sent = JSON.parse(await readBody(request)) as {
-          rules?: FakeRule[];
+          rules?: Partial<FakeRuleSet>;
           admin?: FakeRules["admin"];
           instant?: string[];
         };
-        const next = sent.rules ?? state.rules;
+        // A field left out of a write is a rule turned off.
+        const next = sent.rules ? { ...NO_RULES, ...sent.rules } : state.rules;
         const waits =
           Boolean(sent.admin || sent.instant?.length) ||
           loosens(state.rules, next);
@@ -519,15 +524,22 @@ const AGENT_GROUP = {
   connections: [],
 };
 
-type FakeRule =
-  | { kind: "target_allow"; apps: string[] }
-  | { kind: "asset_cap"; asset: string; amount: string; window: "day" }
-  | { kind: "validity"; not_after: number }
-  | { kind: "recipient_is_owner" };
+type FakeRuleSet = {
+  apps: string[] | null;
+  limits: { asset: string; amount: string }[];
+  not_after: number | null;
+  owner_only: boolean;
+};
+const NO_RULES: FakeRuleSet = {
+  apps: null,
+  limits: [],
+  not_after: null,
+  owner_only: false,
+};
 type FakeAdmin =
   | { kind: "aomi_managed" }
   | { kind: "wallet"; family: "evm" | "svm"; address: string };
-type FakeRules = { revision: number; rules: FakeRule[]; admin: FakeAdmin };
+type FakeRules = { revision: number; rules: FakeRuleSet; admin: FakeAdmin };
 type FakeChange = {
   id: string;
   agent_wallet_id: string;
@@ -539,7 +551,7 @@ type FakeChange = {
   signer: FakeAdmin | null;
   sign_message: string | null;
   /** What approving it puts in force. */
-  apply: { rules: FakeRule[]; admin: FakeAdmin };
+  apply: { rules: FakeRuleSet; admin: FakeAdmin };
 };
 
 const RULES_CATALOG = {
@@ -564,33 +576,30 @@ const RULES_CATALOG = {
 };
 
 /** Whether `next` gives the agent anything `current` did not. */
-function loosens(current: FakeRule[], next: FakeRule[]): boolean {
-  const caps = (rules: FakeRule[]) =>
-    rules.filter((rule) => rule.kind === "asset_cap");
-  const was = caps(current);
-  const now = caps(next);
+function loosens(current: FakeRuleSet, next: FakeRuleSet): boolean {
+  const was = current.limits;
+  const now = next.limits;
   if (was.length && !now.length) return true;
   if (
-    now.some((cap) => {
-      const before = was.find((entry) => entry.asset === cap.asset);
+    now.some((limit) => {
+      const before = was.find((entry) => entry.asset === limit.asset);
       return before
-        ? BigInt(cap.amount) > BigInt(before.amount)
+        ? BigInt(limit.amount) > BigInt(before.amount)
         : was.length > 0;
     })
   )
     return true;
-  return current.some((rule) => {
-    const after = next.find((entry) => entry.kind === rule.kind);
-    if (rule.kind === "asset_cap") return false;
-    if (!after) return true;
-    if (rule.kind === "target_allow" && after.kind === "target_allow")
-      return after.apps.some((app) => !rule.apps.includes(app));
-    return (
-      rule.kind === "validity" &&
-      after.kind === "validity" &&
-      after.not_after > rule.not_after
-    );
-  });
+  if (
+    current.apps &&
+    (!next.apps || next.apps.some((app) => !current.apps!.includes(app)))
+  )
+    return true;
+  if (
+    current.not_after !== null &&
+    (next.not_after === null || next.not_after > current.not_after)
+  )
+    return true;
+  return current.owner_only && !next.owner_only;
 }
 
 function rulesBody(state: FakeRules, pending: FakeChange | null) {
@@ -599,18 +608,25 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
     agent_wallet_id: AGENT_GROUP.id,
     wallet_name: AGENT_GROUP.name,
     revision: state.revision,
-    rules: state.rules.map((rule) => {
-      if (rule.kind !== "asset_cap") return rule;
-      const token = RULES_CATALOG.tokens.find(
-        (entry) => entry.asset === rule.asset,
-      );
-      return {
-        ...rule,
-        symbol: token?.symbol ?? null,
-        decimals: token?.decimals ?? null,
-      };
-    }),
-    sentences: state.rules.map((rule) => rule.kind),
+    rules: {
+      ...state.rules,
+      limits: state.rules.limits.map((limit) => {
+        const token = RULES_CATALOG.tokens.find(
+          (entry) => entry.asset === limit.asset,
+        );
+        return {
+          ...limit,
+          symbol: token?.symbol ?? null,
+          decimals: token?.decimals ?? null,
+        };
+      }),
+    },
+    sentences: [
+      ...(state.rules.apps ? ["apps"] : []),
+      ...state.rules.limits.map(() => "limit"),
+      ...(state.rules.not_after === null ? [] : ["not_after"]),
+      ...(state.rules.owner_only ? ["owner_only"] : []),
+    ],
     admin: state.admin,
     stopped_until: null,
     usage: [],

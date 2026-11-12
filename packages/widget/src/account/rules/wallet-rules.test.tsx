@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { AomiRuleSet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { RuleChangePanel } from "./rule-change-card";
@@ -50,19 +51,12 @@ const body = (extra: object = {}) => ({
   agent_wallet_id: WALLET.id,
   wallet_name: WALLET.name,
   revision: 3,
-  rules: [
-    { kind: "target_allow", apps: ["jupiter", "kamino"] },
-    {
-      kind: "asset_cap",
-      asset: USDC,
-      amount: "200000000",
-      window: "day",
-      symbol: "USDC",
-      decimals: 6,
-    },
-    { kind: "validity", not_after: 1795219200 },
-    { kind: "recipient_is_owner" },
-  ],
+  rules: {
+    apps: ["jupiter", "kamino"],
+    limits: [{ asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 }],
+    not_after: 1795219200,
+    owner_only: true,
+  },
   sentences: [],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
@@ -147,6 +141,9 @@ async function renderRules() {
   });
   return screen.findByRole("region", { name: "Rules" });
 }
+const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
+const sentRules = (index: number) =>
+  (writes()[index]!.body as { rules: AomiRuleSet }).rules;
 const row = (kind: string) =>
   document.querySelector(`[data-rule="${kind}"]`) as HTMLElement;
 const setLimit = (value: string) => {
@@ -180,7 +177,7 @@ describe("Wallet rules", () => {
   it("shows each rule as a sentence with its control, today's use and the admin", async () => {
     const section = await renderRules();
     expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
-    expect(row("target_allow")).toHaveTextContent("Can use Jupiter, Kamino");
+    expect(row("apps")).toHaveTextContent("Can use Jupiter, Kamino");
     const cap = document.querySelector(`[data-asset="${USDC}"]`) as HTMLElement;
     expect(cap).toHaveTextContent("Up to 200 USDC a day");
     expect(within(cap).getByText("Base")).toBeTruthy();
@@ -191,9 +188,9 @@ describe("Wallet rules", () => {
     expect(
       within(cap).getByRole("textbox", { name: "USDC daily limit" }),
     ).toHaveValue("200");
-    expect(row("validity")).toHaveTextContent("Until Nov 21");
+    expect(row("not_after")).toHaveTextContent("Until Nov 21");
     expect(screen.getByLabelText("End date")).toHaveValue("2026-11-21");
-    expect(row("recipient_is_owner")).toHaveTextContent(
+    expect(row("owner_only")).toHaveTextContent(
       "Sends only to your wallets",
     );
     expect(
@@ -236,9 +233,7 @@ describe("Wallet rules", () => {
   it("shows an unknown token by its short address and raw amount", async () => {
     const unknown = "eip155:1/erc20:0x1111111111111111111111111111111111112222";
     rules = body({
-      rules: [
-        { kind: "asset_cap", asset: unknown, amount: "5000", window: "day" },
-      ],
+      rules: { ...NO_RULES, limits: [{ asset: unknown, amount: "5000" }] },
       usage: [],
     });
     await renderRules();
@@ -248,13 +243,13 @@ describe("Wallet rules", () => {
     expect(screen.getByText("Ethereum")).toBeTruthy();
   });
 
-  it("saves a lower limit at once with the full list and no display fields", async () => {
+  it("saves a lower limit at once with the full set and no display fields", async () => {
     await renderRules();
     respond = (method, _path, sent) => {
       if (method !== "POST") return undefined;
       rules = body({
         revision: 4,
-        rules: (sent as { rules: object[] }).rules,
+        rules: (sent as { rules: object }).rules,
       });
       return Response.json({ status: "applied", rules });
     };
@@ -264,17 +259,12 @@ describe("Wallet rules", () => {
       method: "POST",
       path: "/v1/account/agent-wallets/g-trading/rules",
       body: {
-        rules: [
-          { kind: "target_allow", apps: ["jupiter", "kamino"] },
-          {
-            kind: "asset_cap",
-            asset: USDC,
-            amount: "100000000",
-            window: "day",
-          },
-          { kind: "validity", not_after: 1795219200 },
-          { kind: "recipient_is_owner" },
-        ],
+        rules: {
+          apps: ["jupiter", "kamino"],
+          limits: [{ asset: USDC, amount: "100000000" }],
+          not_after: 1795219200,
+          owner_only: true,
+        },
       },
     });
     expect(await screen.findByText("Saved.")).toBeTruthy();
@@ -288,9 +278,10 @@ describe("Wallet rules", () => {
       if (path.endsWith("/approve")) {
         rules = body({
           revision: 4,
-          rules: body().rules.map((rule) =>
-            rule.kind === "asset_cap" ? { ...rule, amount: "400000000" } : rule,
-          ),
+          rules: {
+            ...body().rules,
+            limits: [{ ...body().rules.limits[0], amount: "400000000" }],
+          },
         });
         return Response.json(rules);
       }
@@ -503,18 +494,18 @@ describe("Wallet rules", () => {
   });
 
   it("starts from No rules and opens the same editor with Set rules", async () => {
-    rules = body({ revision: 0, rules: [], usage: [] });
+    rules = body({ revision: 0, rules: NO_RULES, usage: [] });
     await renderRules();
     expect(
       screen.getByText(
         "No rules. This wallet follows only who approves trades.",
       ),
     ).toBeTruthy();
-    expect(row("target_allow")).toBeNull();
+    expect(row("apps")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Set rules" }));
-    expect(row("target_allow")).toHaveTextContent("Can use any app");
-    expect(row("validity")).toHaveTextContent("No end date");
-    expect(row("recipient_is_owner")).toHaveTextContent("Sends to any address");
+    expect(row("apps")).toHaveTextContent("Can use any app");
+    expect(row("not_after")).toHaveTextContent("No end date");
+    expect(row("owner_only")).toHaveTextContent("Sends to any address");
     expect(screen.getByText("No limits. Any token can be spent.")).toBeTruthy();
     expect(
       screen.queryByText("Tokens without a limit can't be spent"),
@@ -525,7 +516,7 @@ describe("Wallet rules", () => {
       rules = body({
         revision: 1,
         usage: [],
-        rules: (sent as { rules: object[] }).rules,
+        rules: (sent as { rules: object }).rules,
       });
       return Response.json({ status: "applied", rules });
     };
@@ -534,7 +525,7 @@ describe("Wallet rules", () => {
     );
     await waitFor(() =>
       expect(writes()[0]?.body).toEqual({
-        rules: [{ kind: "recipient_is_owner" }],
+        rules: { ...NO_RULES, owner_only: true },
       }),
     );
   });
@@ -556,12 +547,10 @@ describe("Wallet rules", () => {
     });
     fireEvent.click(add);
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect((writes()[0]!.body as { rules: object[] }).rules.at(-1)).toEqual({
-      kind: "asset_cap",
-      asset: SOL,
-      amount: "500000000",
-      window: "day",
-    });
+    expect(sentRules(0).limits).toEqual([
+      { asset: USDC, amount: "200000000" },
+      { asset: SOL, amount: "500000000" },
+    ]);
   });
 
   it("picks apps from the catalog, several at once, and removes one", async () => {
@@ -573,10 +562,7 @@ describe("Wallet rules", () => {
     fireEvent.click(within(picker).getByLabelText("Kamino"));
     fireEvent.click(within(picker).getByRole("button", { name: "Save apps" }));
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect((writes()[0]!.body as { rules: object[] }).rules).toContainEqual({
-      kind: "target_allow",
-      apps: ["jupiter", "uniswap"],
-    });
+    expect(sentRules(0).apps).toEqual(["jupiter", "uniswap"]);
   });
 
   it("moves the end date and removes it", async () => {
@@ -585,17 +571,17 @@ describe("Wallet rules", () => {
       target: { value: "2026-12-01" },
     });
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect((writes()[0]!.body as { rules: object[] }).rules).toContainEqual({
-      kind: "validity",
-      not_after: Date.UTC(2026, 11, 1, 23, 59, 59) / 1000,
-    });
+    expect(sentRules(0).not_after).toBe(
+      Date.UTC(2026, 11, 1, 23, 59, 59) / 1000,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Remove end date" }));
     await waitFor(() => expect(writes()).toHaveLength(2));
-    expect(
-      (writes()[1]!.body as { rules: { kind: string }[] }).rules.map(
-        (rule) => rule.kind,
-      ),
-    ).toEqual(["target_allow", "asset_cap", "recipient_is_owner"]);
+    expect(sentRules(1)).toEqual({
+      apps: ["jupiter", "kamino"],
+      limits: [{ asset: USDC, amount: "200000000" }],
+      not_after: null,
+      owner_only: true,
+    });
   });
 
   it("changes the admin to one of the account's wallets and shows the card", async () => {

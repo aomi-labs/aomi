@@ -158,7 +158,7 @@ const walletRules = (extra: object = {}) => ({
   agent_wallet_id: "g-trading",
   wallet_name: "Trading",
   revision: 1,
-  rules: [{ kind: "recipient_is_owner" }],
+  rules: { apps: null, limits: [], not_after: null, owner_only: true },
   sentences: ["Sends only to your wallets"],
   admin: { kind: "aomi_managed" },
   stopped_until: null,

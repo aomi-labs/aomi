@@ -1697,16 +1697,6 @@ export interface AomiRequestOptions {
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
 
 // @public
-export type AomiRuleAssetCap = {
-    kind: "asset_cap";
-    asset: string;
-    amount: string;
-    window: "day";
-    symbol?: string | null;
-    decimals?: number | null;
-};
-
-// @public
 export type AomiRuleChange = {
     id: string;
     agent_wallet_id: string;
@@ -1729,8 +1719,11 @@ export type AomiRuleChangeLine = {
 export type AomiRuleChangeState = "awaiting_admin" | "applied" | "declined" | "expired" | "superseded";
 
 // @public
-export type AomiRuleRecipientIsOwner = {
-    kind: "recipient_is_owner";
+export type AomiRuleLimit = {
+    asset: string;
+    amount: string;
+    symbol?: string | null;
+    decimals?: number | null;
 };
 
 // @public
@@ -1768,7 +1761,7 @@ export type AomiRulesCatalogToken = {
 
 // @public
 export type AomiRulesChangeRequest = {
-    rules?: AomiWalletRule[];
+    rules?: AomiRuleSet;
     admin?: AomiRulesAdmin;
     instant?: string[];
 };
@@ -1780,9 +1773,11 @@ export type AomiRulesChangeResult = {
 };
 
 // @public
-export type AomiRuleTargetAllow = {
-    kind: "target_allow";
-    apps: string[];
+export type AomiRuleSet = {
+    apps: string[] | null;
+    limits: AomiRuleLimit[];
+    not_after: number | null;
+    owner_only: boolean;
 };
 
 // @public
@@ -1792,12 +1787,6 @@ export type AomiRuleUsage = {
     cap: string;
     symbol: string | null;
     decimals: number | null;
-};
-
-// @public
-export type AomiRuleValidity = {
-    kind: "validity";
-    not_after: number;
 };
 
 // @public
@@ -1933,14 +1922,11 @@ export type AomiWalletErrorCode = (typeof WALLET_ERROR_CODES)[keyof typeof WALLE
 export type AomiWalletFamily = "evm" | "svm";
 
 // @public (undocumented)
-export type AomiWalletRule = AomiRuleTargetAllow | AomiRuleAssetCap | AomiRuleValidity | AomiRuleRecipientIsOwner;
-
-// @public (undocumented)
 export type AomiWalletRules = {
     agent_wallet_id: string;
     wallet_name: string;
     revision: number;
-    rules: AomiWalletRule[];
+    rules: AomiRuleSet;
     sentences: string[];
     admin: AomiRulesAdmin;
     stopped_until: number | null;
@@ -3186,6 +3172,9 @@ export class GuestSignInError extends AomiApiError {
 
 // @public
 export function handlePaymentChallenges(request: Request, initialResponse: Response, fetchImpl: typeof globalThis.fetch, client: x402Client | x402HTTPClient): Promise<Response>;
+
+// @public
+export const hasRules: (rules: AomiRuleSet) => boolean;
 
 // @public (undocumented)
 export type InterruptIntent = Schemas$3["InterruptIntent"];

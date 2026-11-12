@@ -390,7 +390,7 @@ describe("aomi rules", () => {
     agent_wallet_id: WALLET,
     wallet_name: "Trading wallet",
     revision: 3,
-    rules: [{ kind: "recipient_is_owner" }],
+    rules: { apps: null, limits: [], not_after: null, owner_only: true },
     sentences: ["Can use Jupiter, Kamino", "Up to 0.5 SOL a day on Solana"],
     admin: { kind: "aomi_managed" },
     stopped_until: null,

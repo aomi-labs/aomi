@@ -26,39 +26,41 @@ import type {
 } from "../types";
 import { walletRequest, type RequestResponse } from "./wallets";
 
-/** The apps the agent may use; anything else is refused. */
-export type AomiRuleTargetAllow = { kind: "target_allow"; apps: string[] };
-
 /**
- * A spending limit on one asset per window. `amount` is in base units, a
+ * A spending limit on one asset per UTC day. `amount` is in base units, a
  * decimal string that can exceed 2^53. `symbol` and `decimals` are filled by
- * the server for display (`symbol` is null for a token it does not know);
- * leave them out of a write.
+ * the server for display (`symbol` is null for a token it does not know); a
+ * write does not send them.
  */
-export type AomiRuleAssetCap = {
-  kind: "asset_cap";
+export type AomiRuleLimit = {
   /**
    * `eip155:<chainId>/native`, `eip155:<chainId>/erc20:<0x address>`,
    * `solana:mainnet-beta/native` or `solana:mainnet-beta/token:<mint>`.
    */
   asset: string;
   amount: string;
-  window: "day";
   symbol?: string | null;
   decimals?: number | null;
 };
 
-/** The agent may sign until `not_after` (unix seconds). */
-export type AomiRuleValidity = { kind: "validity"; not_after: number };
+/** What the agent may sign with a wallet; each field is one rule. */
+export type AomiRuleSet = {
+  /** The apps the agent may use; null allows any app. */
+  apps: string[] | null;
+  /** A token with no limit can't be spent once any limit is set. */
+  limits: AomiRuleLimit[];
+  /** The agent may sign until then (unix seconds); null is no end date. */
+  not_after: number | null;
+  /** Sends only go to the account's own wallets. */
+  owner_only: boolean;
+};
 
-/** Sends only go to the account's own wallets. */
-export type AomiRuleRecipientIsOwner = { kind: "recipient_is_owner" };
-
-export type AomiWalletRule =
-  | AomiRuleTargetAllow
-  | AomiRuleAssetCap
-  | AomiRuleValidity
-  | AomiRuleRecipientIsOwner;
+/** False for a wallet whose every rule is off. */
+export const hasRules = (rules: AomiRuleSet): boolean =>
+  rules.apps !== null ||
+  rules.limits.length > 0 ||
+  rules.not_after !== null ||
+  rules.owner_only;
 
 /**
  * Who may loosen a wallet's rules. `aomi_managed`: the owner approves in the
@@ -113,7 +115,7 @@ export type AomiWalletRules = {
   wallet_name: string;
   /** 0: the wallet never had rules. */
   revision: number;
-  rules: AomiWalletRule[];
+  rules: AomiRuleSet;
   /** The rules as sentences, in the server's order. */
   sentences: string[];
   admin: AomiRulesAdmin;
@@ -128,9 +130,9 @@ export type AomiWalletRules = {
   admin_wallets: AomiRulesAdminWallet[];
 };
 
-/** A field left out keeps its current value. `rules` is the full new list. */
+/** A field left out keeps its current value. `rules` is the full new set. */
 export type AomiRulesChangeRequest = {
-  rules?: AomiWalletRule[];
+  rules?: AomiRuleSet;
   admin?: AomiRulesAdmin;
   /** Connection keys to make Instant on this wallet. */
   instant?: string[];
@@ -232,40 +234,42 @@ function parseAdmin(value: unknown): AomiRulesAdmin {
   throw invalid(`unsupported admin: ${String(kind)}`);
 }
 
-/** One rule. A kind this SDK does not know fails: it must not be dropped from a write. */
-export function parseWalletRule(value: unknown): AomiWalletRule {
-  const record = asRecord(value);
-  const kind = record?.kind;
-  switch (kind) {
-    case "target_allow":
+const RULE_FIELDS = ["apps", "limits", "not_after", "owner_only"];
+
+/**
+ * The rule set; a missing one reads as no rules. A field this SDK does not
+ * know fails: it must not be dropped from a write.
+ */
+export function parseRuleSet(value: unknown): AomiRuleSet {
+  const record = value === undefined || value === null ? {} : asRecord(value);
+  if (!record) throw invalid("rules must be an object");
+  const unknown = Object.keys(record).find(
+    (field) => !RULE_FIELDS.includes(field),
+  );
+  if (unknown) throw invalid(`unsupported rule: ${unknown}`);
+  const { apps, not_after, owner_only } = record;
+  if (owner_only !== undefined && typeof owner_only !== "boolean")
+    throw invalid("rules.owner_only must be a boolean");
+  return {
+    apps:
+      apps === undefined || apps === null
+        ? null
+        : list(apps, "rules.apps").map((app) => text(app, "rules.apps")),
+    limits: list(record.limits, "rules.limits").map((entry) => {
+      const limit = asRecord(entry);
       return {
-        kind,
-        apps: list(record?.apps, "rule.apps").map((app) =>
-          text(app, "rule.apps"),
-        ),
+        asset: text(limit?.asset, "limit.asset"),
+        amount: amount(limit?.amount, "limit.amount"),
+        symbol: stringValue(limit?.symbol) ?? null,
+        decimals: decimalsOf(limit?.decimals),
       };
-    case "asset_cap": {
-      if (record?.window !== "day")
-        throw invalid(`unsupported window: ${String(record?.window)}`);
-      return {
-        kind,
-        asset: text(record.asset, "rule.asset"),
-        amount: amount(record.amount, "rule.amount"),
-        window: "day",
-        symbol: stringValue(record.symbol) ?? null,
-        decimals: decimalsOf(record.decimals),
-      };
-    }
-    case "validity":
-      return {
-        kind,
-        not_after: unixSeconds(record?.not_after, "rule.not_after"),
-      };
-    case "recipient_is_owner":
-      return { kind };
-    default:
-      throw invalid(`unsupported rule: ${String(kind)}`);
-  }
+    }),
+    not_after:
+      not_after === undefined || not_after === null
+        ? null
+        : unixSeconds(not_after, "rules.not_after"),
+    owner_only: owner_only === true,
+  };
 }
 
 const STATES: readonly AomiRuleChangeState[] = [
@@ -308,7 +312,7 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     agent_wallet_id: text(record.agent_wallet_id, "agent_wallet_id"),
     wallet_name: text(record.wallet_name, "wallet_name"),
     revision: unixSeconds(record.revision, "revision"),
-    rules: list(record.rules, "rules").map(parseWalletRule),
+    rules: parseRuleSet(record.rules),
     sentences: list(record.sentences, "sentences").map((sentence) =>
       text(sentence, "sentences"),
     ),
@@ -363,17 +367,13 @@ export function parseRulesCatalog(value: unknown): AomiRulesCatalog {
   };
 }
 
-/** A rule as a write sends it: no server-filled display fields. */
-function wireRule(rule: AomiWalletRule): AomiWalletRule {
-  return rule.kind === "asset_cap"
-    ? {
-        kind: rule.kind,
-        asset: rule.asset,
-        amount: rule.amount,
-        window: rule.window,
-      }
-    : rule;
-}
+/** The rule set as a write sends it: no server-filled display fields. */
+const wireRules = (rules: AomiRuleSet): AomiRuleSet => ({
+  apps: rules.apps,
+  limits: rules.limits.map(({ asset, amount }) => ({ asset, amount })),
+  not_after: rules.not_after,
+  owner_only: rules.owner_only,
+});
 
 /** An agent wallet's rules, the catalog they pick from, and rule changes. */
 export class AccountRulesTransport {
@@ -402,7 +402,7 @@ export class AccountRulesTransport {
       await this.request("POST", rulesPaths.wallet(agentWalletId), {
         body: {
           ...request,
-          ...(request.rules ? { rules: request.rules.map(wireRule) } : {}),
+          ...(request.rules ? { rules: wireRules(request.rules) } : {}),
         },
       }),
     );
