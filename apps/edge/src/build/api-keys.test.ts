@@ -296,7 +296,7 @@ describe("builder API key callers", () => {
     expect(keys.rows[0].revokedAt).toBeNull();
   });
 
-  it("opens only endpoint() routes to keys", () => {
+  it("opens only endpoint() routes that stay on the manager to keys", () => {
     const closed = BUILD_ROUTES.filter((route) => !route.keys).map((route) => route.operation);
     expect(closed).toEqual([
       "github.login",
@@ -312,6 +312,13 @@ describe("builder API key callers", () => {
       "api_key.create",
       "api_key.revoke",
       "deployment.sdk_status",
+      // These read the secrets vault, which a key cannot reach.
+      "deployment.activate",
+      "deployment.promote",
+      "deployment.required_secrets",
+      "deployment.secrets_read",
+      "deployment.secrets_write",
+      "deployment.secrets_delete",
     ]);
   });
 

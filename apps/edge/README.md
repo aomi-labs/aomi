@@ -91,7 +91,8 @@ venue-specific URL.
     product-mono's). `GET`, `POST` and `DELETE /api/build/keys` list, create
     and revoke the signed-in builder's keys and take the portal session
     cookie only. A request presenting a key is served only by the
-    `endpoint()` routes. Its manager calls carry a `role: "user"` builder
+    `endpoint()` routes that stay on the manager (activate, promote and the
+    secrets routes read the vault and refuse a key). Its manager calls carry a `role: "user"` builder
     bearer (`auth_source: "api_key"`, the key's capabilities as `scope`)
     instead of the service bearer, so the manager enforces the capabilities;
     calls that leave the manager's routes, such as the secrets vault, are

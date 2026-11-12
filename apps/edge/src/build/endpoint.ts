@@ -40,6 +40,8 @@ type Definition<S extends z.ZodType, O> = {
   input?: S;
   /** The success status, 200 unless set. A handler may return a Response for any other. */
   status?: number;
+  /** False when the route reads the secrets vault, which a key cannot reach. */
+  keys?: false;
   run: (call: Call<z.output<S>>) => Promise<O>;
 };
 
@@ -59,7 +61,7 @@ export function endpoint<O, S extends z.ZodType = typeof NONE>(
     if (output instanceof Response) return output;
     return Response.json(output, { status: definition.status ?? 200, headers: { "Cache-Control": "no-store" } });
   };
-  return { operation, method, path, handle, keys: true };
+  return { operation, method, path, handle, ...(definition.keys === false ? {} : { keys: true as const }) };
 }
 
 function groups(path: string | RegExp, request: Request): Record<string, string> {
