@@ -261,6 +261,7 @@ export type Capability =
   | "actions" // resolve staged actions and commits
   | "account" // own profile, identities, wallets, provider links, deactivation
   | "portal_session" // signed-in portal cookie session only: agent-wallet writes, platform links, disconnects
+  | "owner_session" // the owner's own sign-in, the portal or a CLI session: wallet rule changes
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
   | "settings" // installed apps, app secrets, BYOK keys
@@ -296,8 +297,11 @@ const GRANTS: Record<
   SessionKind,
   { user: readonly Capability[]; guest: readonly Capability[] }
 > = {
-  cookie: { user: [...SIGNED_IN, "portal_session"], guest: GUEST },
-  session_bearer: { user: SIGNED_IN, guest: GUEST },
+  cookie: {
+    user: [...SIGNED_IN, "portal_session", "owner_session"],
+    guest: GUEST,
+  },
+  session_bearer: { user: [...SIGNED_IN, "owner_session"], guest: GUEST },
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
     guest: GUEST.filter((capability) => !EMBEDDED.includes(capability)),
@@ -366,7 +370,8 @@ export type Denial = {
     | "unauthenticated"
     | "invalid_token"
     | "insufficient_scope"
-    | "portal_session_required";
+    | "portal_session_required"
+    | "owner_session_required";
   requiredScopes?: readonly string[];
 };
 
@@ -397,7 +402,9 @@ export function authorize(
             code:
               need.capability === "portal_session"
                 ? "portal_session_required"
-                : "insufficient_scope",
+                : need.capability === "owner_session"
+                  ? "owner_session_required"
+                  : "insufficient_scope",
           },
         };
   }
@@ -436,6 +443,7 @@ export type Requirement =
   | string
   | { capability: Capability; anonymous?: true; oauthScope?: string }
   | typeof PORTAL_SESSION
+  | typeof OWNER_SESSION
   | "public";
 
 /**
@@ -444,6 +452,19 @@ export type Requirement =
  * checks the same thing on the bearer's `auth_source`.
  */
 export const PORTAL_SESSION = "portal_session";
+
+/**
+ * The owner's own signed-in session: the portal cookie or a CLI session
+ * bearer, never a guest, a widget or an OAuth client. Wallet rule changes;
+ * the backend checks the same thing on the bearer's `auth_source`.
+ */
+export const OWNER_SESSION = "owner_session";
+
+/**
+ * How recent a portal sign-in must be to approve a rule change with a click.
+ * A wallet signature in the body proves the admin instead.
+ */
+export const FRESH_LOGIN_SECONDS = 10 * 60;
 
 export type Route = {
   path: RegExp;
@@ -466,6 +487,11 @@ export type Route = {
   challengeScopes?: readonly string[];
   /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
   approve?: true;
+  /**
+   * A portal cookie session must have signed in within `FRESH_LOGIN_SECONDS`,
+   * unless the body carries a wallet `signature`; else 403 `login_stale`.
+   */
+  freshLogin?: true;
   /** backend: a /v1 name for a backend /api route, `[the /v1 prefix, the backend's]`. */
   rewrite?: readonly [string, string];
 };
@@ -535,7 +561,7 @@ const FUNDING = "\\/v1\\/account\\/credits\\/funding-events";
  * withdraw), pause-all, each connection's label and agent wallets, and linking
  * a platform account with a one-time code. Served by the backend under /v1.
  * Reads take the scope api-server asks of OAuth clients; writes are for a
- * portal session only.
+ * portal session only, except wallet rules, which a CLI session also changes.
  */
 const wallets = (
   path: RegExp,
@@ -707,6 +733,33 @@ export const ROUTES: readonly Route[] = [
   wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/, {
     POST: PORTAL_SESSION,
   }),
+  // Wallet rules: anyone with agent:read sees them, only the owner's own
+  // session changes them, and a click-approval needs a recent portal sign-in.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/rules$/,
+    { GET: "agent:read", POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rules\/catalog$/,
+    { GET: "agent:read" },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+$/,
+    { GET: "agent:read" },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+\/approve$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules", freshLogin: true },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+\/decline$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
   wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
   wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, {
     PUT: PORTAL_SESSION,

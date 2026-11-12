@@ -68,6 +68,9 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
   const settings = new Map<string, ConnectionSetting>();
   /** Each connection's lane per agent wallet, by account and connection key. */
   const lanes = new Map<string, { id: string; lane: string }[]>();
+  /** Each account's rules on its one agent wallet, and its rule changes by id. */
+  const walletRules = new Map<string, FakeRules>();
+  const ruleChanges = new Map<string, { owner: string; change: FakeChange }>();
   const agents = new Map<string, FakeAgentBackend>();
   const streams = new Set<ServerResponse>();
   const agentFor = (owner: string) => {
@@ -103,6 +106,8 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       pausedAll.clear();
       settings.clear();
       lanes.clear();
+      walletRules.clear();
+      ruleChanges.clear();
       for (const agent of agents.values()) agent.reset();
       return json(response, 204);
     }
@@ -190,6 +195,110 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       return json(response, 404, {
         error: { code: "fixture_route_not_found" },
       });
+    }
+
+    // The agent wallet's rules: a change that only takes power away applies
+    // at once; one that gives power, or names an admin or an Instant
+    // connection, waits as a rule change the owner's own session decides.
+    const rulesPath =
+      url.pathname === `/v1/account/agent-wallets/${AGENT_GROUP.id}/rules`;
+    const changePath =
+      /^\/v1\/account\/rule-changes\/([^/]+)(?:\/(approve|decline))?$/.exec(
+        url.pathname,
+      );
+    if (rulesPath || changePath || url.pathname === "/v1/account/rules/catalog") {
+      const principal = verifyBearer(request, "aomi-backend");
+      record(principal);
+      if (!principal)
+        return json(response, 401, { error: { code: "invalid_token" } });
+      const owner = principal.sub;
+      const state =
+        walletRules.get(owner) ??
+        ({ revision: 0, rules: [], admin: { kind: "aomi_managed" } } as FakeRules);
+      walletRules.set(owner, state);
+      const pending = [...ruleChanges.values()].find(
+        (entry) =>
+          entry.owner === owner && entry.change.state === "awaiting_admin",
+      )?.change;
+      const body = () => rulesBody(state, pending ?? null);
+      // The backend's check that the caller is the owner's own session.
+      const ownerOnly = () =>
+        principal.principal_class === "guest"
+          ? json(response, 403, { error: "guest_account" })
+          : principal.auth_source === "session" ||
+              principal.auth_source === "cli_session"
+            ? null
+            : json(response, 403, { error: "scope_denied" });
+      if (method === "GET" && !rulesPath && !changePath)
+        return json(response, 200, RULES_CATALOG);
+      if (method === "GET" && rulesPath) return json(response, 200, body());
+      if (method === "POST" && rulesPath) {
+        const refused = ownerOnly();
+        if (refused) return refused;
+        const sent = JSON.parse(await readBody(request)) as {
+          rules?: FakeRule[];
+          admin?: FakeRules["admin"];
+          instant?: string[];
+        };
+        const next = sent.rules ?? state.rules;
+        const waits =
+          Boolean(sent.admin || sent.instant?.length) ||
+          loosens(state.rules, next);
+        if (!waits) {
+          if (JSON.stringify(next) === JSON.stringify(state.rules))
+            return json(response, 200, { status: "unchanged", rules: body() });
+          state.rules = next;
+          state.revision += 1;
+          return json(response, 200, { status: "applied", rules: body() });
+        }
+        if (pending)
+          return json(response, 409, { error: "rules_change_pending" });
+        const change: FakeChange = {
+          id: `00000000-0000-4000-8000-${String(ruleChanges.size + 1).padStart(12, "0")}`,
+          agent_wallet_id: AGENT_GROUP.id,
+          wallet_name: AGENT_GROUP.name,
+          lines: [{ text: "Rules: gives the agent more", loosens: true }],
+          state: "awaiting_admin",
+          proposed_by: principal.auth_source === "cli_session" ? "cli" : "portal",
+          expires_at: Math.floor(Date.now() / 1000) + 24 * 3600,
+          signer: state.admin.kind === "wallet" ? state.admin : null,
+          sign_message:
+            state.admin.kind === "wallet" ? "Aomi rule change" : null,
+          apply: { rules: next, admin: sent.admin ?? state.admin },
+        };
+        ruleChanges.set(change.id, { owner, change });
+        return json(response, 200, {
+          status: "waiting",
+          rules: rulesBody(state, change),
+        });
+      }
+      const entry = changePath && ruleChanges.get(changePath[1]!);
+      // A stranger's change answers 404, never 403.
+      if (!entry || entry.owner !== owner)
+        return json(response, 404, { error: "rules_change_not_found" });
+      const { apply, ...view } = entry.change;
+      if (method === "GET" && !changePath![2])
+        return json(response, 200, view);
+      if (method === "POST" && changePath![2]) {
+        const refused = ownerOnly();
+        if (refused) return refused;
+        if (view.state !== "awaiting_admin")
+          return json(response, 409, { error: "rules_change_not_open" });
+        if (changePath![2] === "decline") entry.change.state = "declined";
+        else {
+          const sent = JSON.parse((await readBody(request)) || "{}") as {
+            signature?: string;
+          };
+          if (view.signer && !sent.signature)
+            return json(response, 403, { error: "rules_signature_required" });
+          entry.change.state = "applied";
+          state.rules = apply.rules;
+          state.admin = apply.admin;
+          state.revision += 1;
+        }
+        return json(response, 200, rulesBody(state, null));
+      }
+      return json(response, 404, { error: "not_found" });
     }
 
     // The account's wallet list: one EVM agent wallet
@@ -409,6 +518,108 @@ const AGENT_GROUP = {
   ],
   connections: [],
 };
+
+type FakeRule =
+  | { kind: "target_allow"; apps: string[] }
+  | { kind: "asset_cap"; asset: string; amount: string; window: "day" }
+  | { kind: "validity"; not_after: number }
+  | { kind: "recipient_is_owner" };
+type FakeAdmin =
+  | { kind: "aomi_managed" }
+  | { kind: "wallet"; family: "evm" | "svm"; address: string };
+type FakeRules = { revision: number; rules: FakeRule[]; admin: FakeAdmin };
+type FakeChange = {
+  id: string;
+  agent_wallet_id: string;
+  wallet_name: string;
+  lines: { text: string; loosens: boolean }[];
+  state: "awaiting_admin" | "applied" | "declined";
+  proposed_by: string;
+  expires_at: number;
+  signer: FakeAdmin | null;
+  sign_message: string | null;
+  /** What approving it puts in force. */
+  apply: { rules: FakeRule[]; admin: FakeAdmin };
+};
+
+const RULES_CATALOG = {
+  apps: [
+    { id: "uniswap", label: "Uniswap", chains: ["eip155:1", "eip155:8453"] },
+    { id: "jupiter", label: "Jupiter", chains: ["solana:mainnet-beta"] },
+  ],
+  tokens: [
+    {
+      asset: "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      symbol: "USDC",
+      decimals: 6,
+      chain: "Base",
+    },
+    {
+      asset: "solana:mainnet-beta/native",
+      symbol: "SOL",
+      decimals: 9,
+      chain: "Solana",
+    },
+  ],
+};
+
+/** Whether `next` gives the agent anything `current` did not. */
+function loosens(current: FakeRule[], next: FakeRule[]): boolean {
+  const caps = (rules: FakeRule[]) =>
+    rules.filter((rule) => rule.kind === "asset_cap");
+  const was = caps(current);
+  const now = caps(next);
+  if (was.length && !now.length) return true;
+  if (
+    now.some((cap) => {
+      const before = was.find((entry) => entry.asset === cap.asset);
+      return before
+        ? BigInt(cap.amount) > BigInt(before.amount)
+        : was.length > 0;
+    })
+  )
+    return true;
+  return current.some((rule) => {
+    const after = next.find((entry) => entry.kind === rule.kind);
+    if (rule.kind === "asset_cap") return false;
+    if (!after) return true;
+    if (rule.kind === "target_allow" && after.kind === "target_allow")
+      return after.apps.some((app) => !rule.apps.includes(app));
+    return (
+      rule.kind === "validity" &&
+      after.kind === "validity" &&
+      after.not_after > rule.not_after
+    );
+  });
+}
+
+function rulesBody(state: FakeRules, pending: FakeChange | null) {
+  const { apply: _, ...view } = pending ?? ({} as FakeChange);
+  return {
+    agent_wallet_id: AGENT_GROUP.id,
+    wallet_name: AGENT_GROUP.name,
+    revision: state.revision,
+    rules: state.rules.map((rule) => {
+      if (rule.kind !== "asset_cap") return rule;
+      const token = RULES_CATALOG.tokens.find(
+        (entry) => entry.asset === rule.asset,
+      );
+      return {
+        ...rule,
+        symbol: token?.symbol ?? null,
+        decimals: token?.decimals ?? null,
+      };
+    }),
+    sentences: state.rules.map((rule) => rule.kind),
+    admin: state.admin,
+    stopped_until: null,
+    usage: [],
+    window_ends_at: (Math.floor(Date.now() / 86_400_000) + 1) * 86_400,
+    pending: pending ? view : null,
+    enforced_by: ["aomi"],
+    admin_wallets: [],
+  };
+}
 
 type ConnectionSetting = {
   key: string;

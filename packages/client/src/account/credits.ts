@@ -2,6 +2,7 @@ import type { components } from "../generated/agent-v1/types";
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import { AccountWalletsTransport } from "./wallets";
+import { AccountRulesTransport } from "./rules";
 import { AccountConnectionsTransport } from "./connections";
 import { AccountLinkTransport } from "./account-link";
 import { AccountKeysTransport, AccountPoliciesTransport } from "./keys";
@@ -176,6 +177,8 @@ export class AccountTransport extends AccountGraphTransport {
   readonly credits: AccountCreditsTransport;
   /** The wallet list, agent wallets, balances and the thread switch. */
   readonly wallets: AccountWalletsTransport;
+  /** An agent wallet's rules, their catalog and rule changes. */
+  readonly rules: AccountRulesTransport;
   /** Connected OAuth clients and Telegram (portal sessions only). */
   readonly connections: AccountConnectionsTransport;
   /** Link a platform account with a one-time code (portal sessions only). */
@@ -192,6 +195,7 @@ export class AccountTransport extends AccountGraphTransport {
     this.policies = new AccountPoliciesTransport(request);
     this.credits = new AccountCreditsTransport(requestResponse);
     this.wallets = new AccountWalletsTransport(requestResponse);
+    this.rules = new AccountRulesTransport(requestResponse);
     this.connections = new AccountConnectionsTransport(requestResponse);
     this.link = new AccountLinkTransport(requestResponse);
   }

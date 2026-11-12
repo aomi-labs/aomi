@@ -514,6 +514,27 @@ export type {
   AomiAgentWalletWithdraw,
   AomiAgentWallets,
 } from "./account/agent-wallets";
+export { RULES_ERROR_CODES } from "./account/rules";
+export type {
+  AccountRulesTransport,
+  AomiRuleAssetCap,
+  AomiRuleChange,
+  AomiRuleChangeLine,
+  AomiRuleChangeState,
+  AomiRuleRecipientIsOwner,
+  AomiRuleTargetAllow,
+  AomiRuleUsage,
+  AomiRuleValidity,
+  AomiRulesAdmin,
+  AomiRulesAdminWallet,
+  AomiRulesCatalog,
+  AomiRulesCatalogApp,
+  AomiRulesCatalogToken,
+  AomiRulesChangeRequest,
+  AomiRulesChangeResult,
+  AomiWalletRule,
+  AomiWalletRules,
+} from "./account/rules";
 export { AomiWallets } from "./sdk/wallets";
 export type {
   AomiAccountConnection,

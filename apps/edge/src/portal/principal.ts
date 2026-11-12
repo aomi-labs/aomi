@@ -11,6 +11,7 @@ import {
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   guestScopesFor,
+  OWNER_SESSION,
   PORTAL_SESSION,
   scopesOn as heldScopes,
   type Need,
@@ -339,6 +340,7 @@ export function resourceOf(row: Route, request: Request, resources: Resources): 
 export function needOf(row: Route, requirement: Requirement, request: Request, resource: string | undefined): Need | "public" {
   if (requirement === "public") return "public";
   if (requirement === PORTAL_SESSION) return { capability: "portal_session" };
+  if (requirement === OWNER_SESSION) return { capability: "owner_session" };
   if (typeof requirement !== "string") {
     // Fuzzer setup accepts Agent grants; browser and widget sessions retain
     // their existing capability policy, including each route's guest access.

@@ -15,7 +15,11 @@ import {
   ShieldCheck,
   SlidersHorizontal,
 } from "lucide-react";
-import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
+import {
+  shortAddress,
+  type AomiAgentWallet,
+  type AomiWalletRules,
+} from "@aomi-labs/client";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -37,6 +41,7 @@ import {
   OnchainPolicySettings,
   useWalletLimits,
 } from "@/account/policy/onchain-policy-settings";
+import { WalletRules } from "@/account/rules/wallet-rules";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
 import { FamilyLabel } from "./family-label";
@@ -45,9 +50,10 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its lane on it, then Send, Limits (where Swig is on),
- * Rename and Pause as rows, and Archive alone at the bottom. Changes save at
- * once.
+ * every connection with its lane on it, its rules, then Send, Limits (where
+ * Swig is on), Rename and Pause as rows, and Archive alone at the bottom.
+ * Changes save at once; a rule change that gives the agent power waits for
+ * the wallet's admin.
  */
 export function AgentWalletManage({
   wallet,
@@ -72,6 +78,8 @@ export function AgentWalletManage({
   const { renameWallet, dialog: renameDialog } = useRenameWallet(onRename);
   const [receive, setReceive] = useState<WalletFamily | null>(null);
   const [limitsOpen, setLimitsOpen] = useState(false);
+  // A lane made Instant on a wallet-admin wallet files a rule change instead.
+  const [filed, setFiled] = useState<AomiWalletRules | null>(null);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
   // Deposits go where the funds live: under on-chain limits that is the
@@ -188,6 +196,7 @@ export function AgentWalletManage({
           brand="Aomi"
           disabled={paused}
           onClose={onClose}
+          onRulesFiled={setFiled}
         />
         {paused ? (
           <p className="type-meta text-aomi-muted -mt-2 flex items-start gap-1.5">
@@ -195,6 +204,8 @@ export function AgentWalletManage({
             Paused: nothing signs, whatever these say, until you resume.
           </p>
         ) : null}
+
+        {archived ? null : <WalletRules wallet={wallet} filed={filed} />}
 
         <ListGroup>
           <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />

@@ -153,6 +153,23 @@ const agentRow = (
   }) as WalletRow;
 const rows = [agentRow(EVM, "12"), agentRow(SVM, "13", true)];
 
+/** `GET /v1/account/agent-wallets/g-trading/rules`. */
+const walletRules = (extra: object = {}) => ({
+  agent_wallet_id: "g-trading",
+  wallet_name: "Trading",
+  revision: 1,
+  rules: [{ kind: "recipient_is_owner" }],
+  sentences: ["Sends only to your wallets"],
+  admin: { kind: "aomi_managed" },
+  stopped_until: null,
+  usage: [],
+  window_ends_at: null,
+  pending: null,
+  enforced_by: ["aomi"],
+  admin_wallets: [],
+  ...extra,
+});
+
 let list: { pause_all: boolean; wallets: object[] };
 let calls: { method: string; path: string; body: unknown }[] = [];
 let respond: (method: string, path: string) => Response | undefined;
@@ -433,6 +450,95 @@ describe("Agent wallets band", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "A trade from this wallet is still in flight.",
     );
+  });
+
+  it("shows a wallet's rules between its lanes and its actions, and hides them once archived", async () => {
+    respond = (_method, path) =>
+      path.endsWith("/rules") ? Response.json(walletRules()) : undefined;
+    await renderSection();
+    const sheet = await manage("Trading");
+    const rules = await within(sheet).findByRole("region", { name: "Rules" });
+    expect(await within(rules).findByText("Aomi-managed")).toBeInTheDocument();
+    const after = (node: Element) =>
+      Boolean(
+        rules.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    expect(after(within(sheet).getByText("Who can use it"))).toBe(false);
+    expect(after(within(sheet).getByRole("button", { name: "Send" }))).toBe(
+      true,
+    );
+    expect(
+      calls.some(
+        (call) => call.path === "/v1/account/agent-wallets/g-trading/rules",
+      ),
+    ).toBe(true);
+    fireEvent.keyDown(sheet, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
+    const archived = await manage("Old");
+    expect(
+      within(archived).queryByRole("region", { name: "Rules" }),
+    ).toBeNull();
+    expect(calls.some((call) => call.path.includes("g-old/rules"))).toBe(false);
+  });
+
+  it("files Instant as a rule change when the wallet's admin must sign it", async () => {
+    const pending = {
+      id: "ch-9",
+      agent_wallet_id: "g-trading",
+      wallet_name: "Trading",
+      lines: [{ text: "Claude Code: signs without asking", loosens: true }],
+      state: "awaiting_admin",
+      proposed_by: "portal",
+      expires_at: Math.floor(Date.now() / 1000) + 86_000,
+      signer: { kind: "wallet", family: "evm", address: EVM },
+      sign_message: "Aomi rule change ch-9",
+    };
+    respond = (method, path) => {
+      if (path.endsWith("/rules"))
+        return method === "POST"
+          ? Response.json({
+              status: "waiting",
+              rules: walletRules({ pending }),
+            })
+          : Response.json(walletRules());
+      if (method === "PUT" && path.endsWith("/wallets"))
+        return Response.json(
+          { error: "rules_signature_required" },
+          { status: 403 },
+        );
+      return undefined;
+    };
+    await renderSection();
+    const sheet = await manage("Trading");
+    await within(sheet).findByText("Aomi-managed");
+    fireEvent.click(
+      within(sheet).getByRole("combobox", { name: "Trading: Ask on Aomi" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: "Turn on" })),
+    );
+    const card = await screen.findByRole("region", {
+      name: "Rule change for Trading",
+    });
+    expect(card).toHaveTextContent("Claude Code: signs without asking");
+    expect(
+      within(card).getByRole("button", { name: "Sign in wallet" }),
+    ).toBeInTheDocument();
+    expect(writes().slice(-2)).toEqual([
+      {
+        method: "PUT",
+        path: "/v1/account/connections/oauth%3Ac1/wallets",
+        body: { wallets: [{ id: "g-trading", lane: "instant" }] },
+      },
+      {
+        method: "POST",
+        path: "/v1/account/agent-wallets/g-trading/rules",
+        body: { instant: ["oauth:c1"] },
+      },
+    ]);
+    expect(screen.queryByText("Couldn’t save that. Try again.")).toBeNull();
   });
 
   it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
