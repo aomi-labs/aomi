@@ -1150,11 +1150,36 @@ describe("operateAppDetailRoute", () => {
     expect(client.listUserProjects).not.toHaveBeenCalled();
   });
 
-  it("derives the parent project and bound platform from the application", async () => {
+  it("refuses an older manager response for a requested seven-day window", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.getBuilderApplicationDetail.mockResolvedValue({
+      project: { id: 900 }, windowSeconds: 86400,
+    });
+    const response = await operateAppDetailRoute(new Request(
+      "http://localhost:3000/api/build/operate/observability/detail?applicationId=77&window=7d",
+    ));
+    expect(response.status).toBe(503);
+    expect(client.getBuilderApplicationDetail).toHaveBeenCalledWith({
+      githubUserId: "gh-1", applicationId: 77, window: "7d",
+    });
+    expect(client.getUserProjectObservability).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported activity ranges before contacting the manager", async () => {
+    setSession({ githubUserId: "gh-1" });
+    const response = await operateAppDetailRoute(new Request(
+      "http://localhost:3000/api/build/operate/observability/detail?applicationId=77&window=365d",
+    ));
+    expect(response.status).toBe(400);
+    expect(client.getBuilderApplicationDetail).not.toHaveBeenCalled();
+  });
+
+  it.each(["1h", "24h", "7d", "30d"] as const)("derives the owned application and forwards the %s range", async (window) => {
     setSession({ githubUserId: "gh-1" });
     oneSource("world-markets");
     client.getBuilderApplicationDetail.mockResolvedValue({
       project: { id: 900 },
+      windowSeconds: { "1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000 }[window],
       platform: "community",
       app: { applicationId: 77, name: "demo" },
     });
@@ -1183,7 +1208,7 @@ describe("operateAppDetailRoute", () => {
       { deploymentId: "dep-1", apps: [] },
     ]);
 
-    const res = await operateAppDetailRoute(appDetailReq());
+    const res = await operateAppDetailRoute(appDetailReq(`?applicationId=77&window=${window}`));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -1199,6 +1224,7 @@ describe("operateAppDetailRoute", () => {
     expect(client.getBuilderApplicationDetail).toHaveBeenCalledWith({
       githubUserId: "gh-1",
       applicationId: 77,
+      window,
     });
     expect(client.listUserProjects).not.toHaveBeenCalled();
   });

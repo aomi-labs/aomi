@@ -161,6 +161,10 @@ export function liveAppDetailView(
   payload: LiveAppDetailPayload,
 ): LiveAppDetailView {
   const detail = payload.detail;
+  const activityWindow =
+    detail.windowSeconds >= 86400 && detail.windowSeconds !== 86400
+      ? `${detail.windowSeconds / 86400}d`
+      : `${detail.windowSeconds / 3600}h`;
 
   const funnelValues = [
     detail.funnel.chats24h,
@@ -267,17 +271,17 @@ export function liveAppDetailView(
         {
           label: "Active users",
           value: activeUsers,
-          sub: "24h",
+          sub: activityWindow,
         },
         {
           label: "Credits",
           value: credits24h,
-          sub: "24h",
+          sub: activityWindow,
         },
         {
           label: "Credits / turn",
           value: creditsPerTurn,
-          sub: "24h",
+          sub: activityWindow,
         },
         {
           label: "P95 latency",
@@ -297,10 +301,12 @@ export function liveAppDetailView(
         {
           label: "Tool errors",
           value: toolErrors,
+          sub: healthWindow,
         },
         {
           label: "Tx failures",
           value: txFailures,
+          sub: healthWindow,
         },
       ],
       chatsHourly,

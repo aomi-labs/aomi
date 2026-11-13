@@ -373,12 +373,14 @@ const payments = endpoint("operate.payments", "GET", ops("payments"), {
 });
 
 const appDetail = endpoint("operate.app_detail", "GET", ops("observability/detail"), {
-  input: z.object({ applicationId: id }),
+  input: z.object({ applicationId: id, window: z.enum(["1h", "24h", "7d", "30d"]).default("24h") }),
   run: async ({ input, client, session }) => {
-    const { applicationId } = input;
+    const { applicationId, window } = input;
     const githubUserId = session.githubUserId;
     // The application names its project; the manager proves it the caller's.
-    const detail = await client.getBuilderApplicationDetail({ githubUserId, applicationId });
+    const detail = await client.getBuilderApplicationDetail({ githubUserId, applicationId, window });
+    const seconds = { "1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000 }[window];
+    if (detail.windowSeconds !== seconds) throw new EdgeError(503, "This time range is not available on the backend yet.");
     const project = { githubUserId, projectId: detail.project.id };
     const [health, transactionPage, logPage, deployments] = await Promise.all([
       client.getUserProjectObservability(project),
