@@ -72,6 +72,12 @@ single-project read first proves account ownership, then uses that project's
   `projectId`.
 - Observability overview and detail share the same project identity. A card
   that links to detail cannot switch back to the default platform.
+- App detail supports 1h, 24h, 7d and 30d activity windows, passed through the
+  Edge to the manager and included in both caches. Activity uses 24 equal
+  buckets across the selected window. Daily credits remain a separately
+  labelled seven-day series; health cards retain their labelled health window.
+  An older manager that ignores the selected window returns an explicit error
+  instead of showing 24-hour counts under a seven-day label.
 - Telegram configuration receives the same builder-wide projects collection,
   so every owned eligible application is selectable regardless of platform.
 - Project creation persists only after the backend validates the repository's
@@ -79,7 +85,6 @@ single-project read first proves account ownership, then uses that project's
 
 ## Deletion boundary
 
-The refactor deliberately removed compatibility surfaces instead of aliasing
-them. New code must not restore source-named routes, source identifiers, client
+Compatibility surfaces are deliberately removed instead of aliased. New code must not restore source-named routes, source identifiers, client
 manifest parsing, GitHub candidate imports, or per-platform defaults on
 account-wide reads.

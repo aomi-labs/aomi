@@ -14,7 +14,7 @@ export default function Page() {
       </header>
       <AomiWidget
         applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID || "1"}
-        baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL || "https://chat.aomi.dev"}
+        baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL || "https://aomi.chat"}
         height={"min(760px, 85vh)"}
       />
     </main>

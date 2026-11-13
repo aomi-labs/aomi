@@ -15,7 +15,7 @@ describe("expired guest sessions", () => {
   it.each(["new", "existing", "confirmed"] as const)(
     "sends the prompt again in a fresh chat when a %s same-origin cookie guest expires",
     async (initial) => {
-      const origin = "https://chat.aomi.dev";
+      const origin = "https://aomi.chat";
       vi.stubGlobal("location", { origin });
       const backend = new FakeAgentBackend();
       let subject = initial === "new" ? 0 : 1;

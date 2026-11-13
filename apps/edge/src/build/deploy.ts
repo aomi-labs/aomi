@@ -161,6 +161,7 @@ const status = endpoint("deployment.status", "GET", deployments("status"), {
 });
 
 const activate = endpoint("deployment.activate", "POST", deployments("activate"), {
+  keys: false,
   auth: { write: true, cliScope: "activate" },
   input: z
     .object({ releaseTags: z.array(text), projectId: id, apps: names })
@@ -252,6 +253,7 @@ async function ownedApplication({ client, session }: Call<unknown>, applicationI
 }
 
 const secrets = endpoint("deployment.secrets_read", "GET", deployments("secrets"), {
+  keys: false,
   input: byApplication,
   run: async (call) => {
     const application = await ownedApplication(call, call.input.applicationId);
@@ -261,6 +263,7 @@ const secrets = endpoint("deployment.secrets_read", "GET", deployments("secrets"
 });
 
 const secretsWrite = endpoint("deployment.secrets_write", "POST", deployments("secrets"), {
+  keys: false,
   auth: { write: true },
   input: z.object({
     applicationId: id,
@@ -287,6 +290,7 @@ const secretsWrite = endpoint("deployment.secrets_write", "POST", deployments("s
 });
 
 const secretsDelete = endpoint("deployment.secrets_delete", "DELETE", deployments("secrets"), {
+  keys: false,
   auth: { write: true },
   input: z.object({ name: text, applicationId: id }),
   run: async (call) => {
@@ -306,6 +310,7 @@ const records = endpoint("deployment.records", "GET", deployments("records"), {
 });
 
 const promote = endpoint("deployment.promote", "POST", deployments("promote"), {
+  keys: false,
   auth: { write: true },
   input: z.object({ deploymentId: text, projectId: id, apps: names.optional().catch(undefined) }),
   status: 202,
@@ -429,6 +434,7 @@ const userProjects = endpoint("deployment.projects", "GET", deployments("project
 // The manager's secret declarations for each live release plus the required
 // slots still unfilled in the vault. Never secret values.
 const requiredSecrets = endpoint("deployment.required_secrets", "GET", deployments("required-secrets"), {
+  keys: false,
   input: byProject,
   run: async ({ input, client, session }) => {
     try {

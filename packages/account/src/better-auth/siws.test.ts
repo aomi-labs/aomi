@@ -18,8 +18,8 @@ describe("Better Auth SIWS protocol", () => {
       chainId: "solana:devnet",
       nonce: "nonce-123",
       intent: "sign-in",
-      domain: "chat.aomi.dev",
-      uri: "https://chat.aomi.dev",
+      domain: "aomi.chat",
+      uri: "https://aomi.chat",
       issuedAt: new Date(NOW),
     });
     const signature = Buffer.from(
@@ -28,9 +28,9 @@ describe("Better Auth SIWS protocol", () => {
 
     expect(parseSiwsMessage(message)).toEqual({
       statement: "Sign in to Aomi.",
-      domain: "chat.aomi.dev",
+      domain: "aomi.chat",
       address,
-      uri: "https://chat.aomi.dev",
+      uri: "https://aomi.chat",
       chainId: "solana:devnet",
       nonce: "nonce-123",
       issuedAt: "2030-01-02T03:04:05.000Z",
@@ -43,8 +43,8 @@ describe("Better Auth SIWS protocol", () => {
         chainId: "solana:devnet",
         intent: "sign-in",
         nonce: "nonce-123",
-        domain: "chat.aomi.dev",
-        uri: "https://chat.aomi.dev",
+        domain: "aomi.chat",
+        uri: "https://aomi.chat",
         now: NOW,
       }),
     ).toBe(true);

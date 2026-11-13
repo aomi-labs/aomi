@@ -24,7 +24,6 @@ sources_of_truth:
 - [topics/index.md](topics/index.md): curated topic list
 - [generated/repo-inventory.md](generated/repo-inventory.md): generated workspace inventory
 - [generated/markdown-inventory.md](generated/markdown-inventory.md): generated markdown inventory
-- [local-dev-stack.md](local-dev-stack.md): local BFF/BetterAuth stack setup
 - [../specs/DOMAIN.md](../specs/DOMAIN.md): architecture and runtime invariants
 - [../specs/METADATA.md](../specs/METADATA.md): environment and package reference
 
@@ -40,7 +39,8 @@ sources_of_truth:
 ## Policy
 
 - Durable repo knowledge belongs in `docs/topics/<topic>/facts/`.
-- A facts page states what is true of the code at this commit. If a sentence can become false without a commit, it is state: put it in `specs/STATE.md`, the pull request or `docs/topics/<topic>/plans/`, not on a facts page.
+- A facts page states what is true of the code at this commit. If a sentence can become false without a commit, it is state: it goes in the pull request or the issue, never in a repo file.
+- There are no plans, status or work-log files. Current state is one line each in [`STATE.md`](../STATE.md); durable decisions are one line each in [decisions.md](decisions.md). Git history keeps removed pages.
 - Use `./scripts/repowiki add <topic>` and `./scripts/repowiki update <topic>` to expand or refresh topic docs.
 - Search results are only meaningful after `./scripts/repowiki refresh` or `./scripts/repowiki index`.
 - The wrapper in `scripts/repowiki` assumes `product-mono` lives next to this repo, provides the Rust `repowiki` binary, and exposes that Rust workspace locally through `./aomi` when needed by generated docs.

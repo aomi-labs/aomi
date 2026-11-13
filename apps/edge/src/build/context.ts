@@ -1,6 +1,10 @@
 import type { EdgeEnv } from "../env";
 import { config, type Config } from "../kernel/config";
+import { getPool } from "@aomi-labs/account";
+
+import { EdgeError } from "../kernel/errors";
 import type { FetchLike } from "../kernel/proxy";
+import { postgresKeys, type ApiKeyStore } from "./api-keys";
 
 /** Everything the Build surface needs per request, resolved once. */
 export type BuildContext = {
@@ -18,6 +22,8 @@ export type BuildContext = {
   production: boolean;
   fetchImpl: FetchLike;
   now: () => number;
+  /** Builder API keys, in the database behind `HYPERDRIVE`. */
+  keys: ApiKeyStore;
 };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -45,5 +51,9 @@ export function buildContext(
     production: env.EDGE_TOPOLOGY === "production",
     fetchImpl,
     now,
+    keys: postgresKeys(() => {
+      if (!env.HYPERDRIVE) throw new EdgeError(503, "api_keys_unconfigured");
+      return getPool();
+    }),
   };
 }

@@ -26,6 +26,11 @@ export type BuildRoute = {
   /** An exact path, or a pattern whose named groups join the input. */
   path: string | RegExp;
   handle: Handler;
+  /**
+   * Set when a builder API key may call the route: every upstream call it makes
+   * goes through the caller's manager client. Unset routes refuse keys.
+   */
+  keys?: true;
 };
 
 export type Call<I> = Caller & { input: I; client: ManagerClient; request: Request; ctx: BuildContext };
@@ -35,6 +40,8 @@ type Definition<S extends z.ZodType, O> = {
   input?: S;
   /** The success status, 200 unless set. A handler may return a Response for any other. */
   status?: number;
+  /** False when the route reads the secrets vault, which a key cannot reach. */
+  keys?: false;
   run: (call: Call<z.output<S>>) => Promise<O>;
 };
 
@@ -49,12 +56,12 @@ export function endpoint<O, S extends z.ZodType = typeof NONE>(
   const handle = async (request: Request, ctx: BuildContext) => {
     const caller = await authorize(request, ctx, definition.auth ?? {});
     const input = await parseInput((definition.input ?? NONE) as S, request, groups(path, request));
-    const client = await managerClient(request, ctx);
+    const client = await managerClient(request, ctx, caller);
     const output = await definition.run({ ...caller, input, client, request, ctx });
     if (output instanceof Response) return output;
     return Response.json(output, { status: definition.status ?? 200, headers: { "Cache-Control": "no-store" } });
   };
-  return { operation, method, path, handle };
+  return { operation, method, path, handle, ...(definition.keys === false ? {} : { keys: true as const }) };
 }
 
 function groups(path: string | RegExp, request: Request): Record<string, string> {

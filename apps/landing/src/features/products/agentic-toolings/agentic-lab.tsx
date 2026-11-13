@@ -44,12 +44,12 @@ const mcpClients: Record<
   codex: {
     label: "Codex",
     format: "Terminal",
-    code: "codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp\ncodex mcp login aomi-agent",
+    code: "codex mcp add aomi-agent --url https://aomi.chat/v1/agent/mcp\ncodex mcp login aomi-agent",
   },
   claude: {
     label: "Claude Code",
     format: "Terminal",
-    code: "claude mcp add --transport http aomi-agent https://chat.aomi.dev/v1/agent/mcp",
+    code: "claude mcp add --transport http aomi-agent https://aomi.chat/v1/agent/mcp",
   },
   cursor: {
     label: "Cursor",
@@ -57,7 +57,7 @@ const mcpClients: Record<
     code: `{
   "mcpServers": {
     "aomi-agent": {
-      "url": "https://chat.aomi.dev/v1/agent/mcp"
+      "url": "https://aomi.chat/v1/agent/mcp"
     }
   }
 }`,

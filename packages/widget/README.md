@@ -7,7 +7,7 @@ import "@aomi-labs/widget/styles.css";
 <AomiWidget applicationId="YOUR_HOSTED_APP_ID" />;
 ```
 
-The default API is `https://chat.aomi.dev`. Set `baseUrl` explicitly for a local
+The default API is `https://aomi.chat`. Set `baseUrl` explicitly for a local
 backend or another deployment. `applicationId` identifies the hosted app; the
 optional `routing` configuration separately selects Auto or Direct execution.
 The default auth mode is `browser_wallet`, so guest chat starts without an

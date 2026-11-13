@@ -841,7 +841,8 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation",
+          "project:deploy"
         ]
       }
     },
@@ -880,7 +881,8 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation",
+          "builder:read"
         ]
       }
     },
@@ -893,7 +895,8 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation",
+          "project:deploy"
         ]
       }
     },

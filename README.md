@@ -25,7 +25,7 @@ export function Assistant() {
 }
 ```
 
-The default API origin is `https://chat.aomi.dev`; pass `apiUrl` for another
+The default API origin is `https://aomi.chat`; pass `apiUrl` for another
 Portal/BFF. Browser wallets are the default authentication mode. Optional
 Privy and Para integrations load when selected and require their SDK packages.
 The widget scopes its styles, overlays and preferences to each instance.
@@ -34,9 +34,6 @@ Advanced hosts compose the compiled `@aomi-labs/widget/frame` entry and supply
 an explicit `backendUrl`. The retired `@aomi-labs/widget-lib` package is no
 longer built or published from this repository. Migrate imports to
 `@aomi-labs/widget` and install the SDK peers for any selected wallet provider.
-The frozen copy-in
-registry remains available for one release; see
-[registry transition](docs/topics/development/facts/registry-retirement.md).
 
 ## SDK and CLI
 

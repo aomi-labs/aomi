@@ -47,7 +47,7 @@ export type AomiWidgetProps = {
   children?: ReactNode;
   /** The hosted App's Application ID; scopes threads and sign-in state. */
   applicationId: string | number;
-  /** Aomi backend origin. Defaults to https://chat.aomi.dev. */
+  /** Aomi backend origin. Defaults to https://aomi.chat. */
   baseUrl?: string;
   /** Color theme. "system" follows the visitor's OS setting. Defaults to "system". */
   theme?: AomiWidgetTheme;
@@ -79,7 +79,7 @@ export type AomiWidgetProps = {
   wallets?: WalletPresentationConfig;
 };
 
-const DEFAULT_BASE_URL = "https://chat.aomi.dev";
+const DEFAULT_BASE_URL = "https://aomi.chat";
 const THEMES: readonly AomiWidgetTheme[] = ["light", "dark", "system"];
 
 type WidgetConfig =

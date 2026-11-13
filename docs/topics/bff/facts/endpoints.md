@@ -23,7 +23,7 @@ The deploy and launch routes below belong to Aomi Build, not the portal.
 
 The two MCP paths are unversioned OAuth resources and require a valid exact-
 resource token even for `initialize` and `tools/list`. `/api/mcp` and
-`/api/mcp/direct` were removed without aliases. REST accepts either the exact
+`/api/mcp/direct` are removed, without aliases. REST accepts either the exact
 resource OAuth grant or a first-party Better Auth session; anonymous/Bearer
 sessions are bounded to the guest ceiling and are never tokenless requests.
 
@@ -52,5 +52,5 @@ and custody boundaries.
 - Onboarding backend calls use Build's service identity: `aomi-edge` mints a short-lived `service` bearer with `EDGE_SERVICE_PRIVATE_KEY`. The committed service-topology TOML is selected automatically from the backend target / Vercel environment.
 - The Build onboarding BFF does not use `AOMI_ADMIN_SECRET` or `APP_DEPLOY_ACTIVATION_TOKEN`. Activation tokens remain the CLI/update-path credential, not the browser onboarding credential.
 - Launch defaults are env-driven server-side config read in `apps/edge/src/kernel/config.ts`: `BUILD_DEFAULT_PLATFORM` (one platform slug), `BUILD_TEMPLATE_REPO` and `BUILD_CREATED_REPO_PRIVATE`. Aomi Build does not expose platform names as a directory. Its switcher sends one exact platform name through the signed-in user's source read; the manager returns `404` for an unknown name, and the browser changes context only after a successful response. Existing-repository connection signs the exact platform, `owner/repo`, and an allowlisted Build Projects return URL into GitHub OAuth state; the callback proves repo access, claims the source, and returns success or an actionable error to the scoped Projects page.
-- Chat links use `NEXT_PUBLIC_CHAT_URL`, defaulting to `https://chat.aomi.dev`.
+- Chat links use `NEXT_PUBLIC_CHAT_URL`, defaulting to `https://aomi.chat`.
 - Redeploy requires a Build-side `GITHUB_TOKEN` because it calls GitHub's workflow-run rerun endpoint directly.

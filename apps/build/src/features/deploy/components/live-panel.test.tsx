@@ -48,14 +48,14 @@ describe("LivePanel", () => {
     render(
       <LivePanel
         repo="user/my-agent"
-        chatUrl="https://chat.aomi.dev?app=my-agent"
+        chatUrl="https://aomi.chat?app=my-agent"
       />,
     );
     const link = screen.getByText("Open in chat");
     expect(link).toBeInTheDocument();
     expect(link.closest("a")).toHaveAttribute(
       "href",
-      "https://chat.aomi.dev?app=my-agent",
+      "https://aomi.chat?app=my-agent",
     );
   });
 
@@ -63,13 +63,13 @@ describe("LivePanel", () => {
     render(
       <LivePanel
         repo="user/my-agent"
-        chatUrl="https://chat.aomi.dev?app=my-agent&lock_app=1"
+        chatUrl="https://aomi.chat?app=my-agent&lock_app=1"
       />,
     );
     const frame = screen.getByTitle("Chat with user/my-agent");
     expect(frame).toHaveAttribute(
       "src",
-      "https://chat.aomi.dev?app=my-agent&lock_app=1",
+      "https://aomi.chat?app=my-agent&lock_app=1",
     );
   });
 

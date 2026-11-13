@@ -9,7 +9,7 @@ import { solanaSigner } from "../solana";
 import { Aomi } from "./aomi";
 import { wallet } from "./auth";
 
-const baseUrl = "https://chat.aomi.dev";
+const baseUrl = "https://aomi.chat";
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
 
 describe("wallet sign-in", () => {
@@ -88,7 +88,7 @@ describe("wallet sign-in", () => {
         if (url.pathname === "/api/auth/siws/nonce")
           return Response.json({
             nonce: "abcdefgh12345678",
-            domain: "chat.aomi.dev",
+            domain: "aomi.chat",
             uri: baseUrl,
           });
         if (url.pathname === "/api/auth/siws/verify")

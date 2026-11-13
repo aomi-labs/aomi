@@ -9,8 +9,8 @@ beforeEach(() => {
 
 describe("resolveChatUrl", () => {
   it("returns the env var value when set", () => {
-    process.env.NEXT_PUBLIC_CHAT_URL = "https://custom-chat.aomi.dev";
-    expect(resolveChatUrl()).toBe("https://custom-chat.aomi.dev");
+    process.env.NEXT_PUBLIC_CHAT_URL = "https://custom-aomi.chat";
+    expect(resolveChatUrl()).toBe("https://custom-aomi.chat");
   });
 
   it("falls back when env var is empty string", () => {
@@ -36,38 +36,38 @@ describe("resolveChatUrl", () => {
 
 describe("chatAppUrl", () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CHAT_URL = "https://chat.aomi.dev";
+    process.env.NEXT_PUBLIC_CHAT_URL = "https://aomi.chat";
   });
 
   it("constructs a deep-link URL for the given app name", () => {
-    expect(chatAppUrl("my-bot")).toBe("https://chat.aomi.dev?app=my-bot");
+    expect(chatAppUrl("my-bot")).toBe("https://aomi.chat?app=my-bot");
   });
 
   it("encodes special characters in app name", () => {
-    expect(chatAppUrl("my bot!")).toBe("https://chat.aomi.dev?app=my+bot%21");
+    expect(chatAppUrl("my bot!")).toBe("https://aomi.chat?app=my+bot%21");
   });
 
   it("encodes url-unsafe characters", () => {
-    expect(chatAppUrl("a&b/c")).toBe("https://chat.aomi.dev?app=a%26b%2Fc");
+    expect(chatAppUrl("a&b/c")).toBe("https://aomi.chat?app=a%26b%2Fc");
   });
 
   it("handles empty app name", () => {
-    expect(chatAppUrl("")).toBe("https://chat.aomi.dev?app=");
+    expect(chatAppUrl("")).toBe("https://aomi.chat?app=");
   });
 
   it("handles numeric app names", () => {
-    expect(chatAppUrl("123")).toBe("https://chat.aomi.dev?app=123");
+    expect(chatAppUrl("123")).toBe("https://aomi.chat?app=123");
   });
 
   it("can lock the frame to the requested app", () => {
     expect(chatAppUrl("my-bot", { locked: true })).toBe(
-      "https://chat.aomi.dev?app=my-bot&lock_app=1",
+      "https://aomi.chat?app=my-bot&lock_app=1",
     );
   });
 
   it("can target a specific application row", () => {
     expect(chatAppUrl("my-bot", { locked: true, applicationId: 42 })).toBe(
-      "https://chat.aomi.dev?app=my-bot&application_id=42&lock_app=1",
+      "https://aomi.chat?app=my-bot&application_id=42&lock_app=1",
     );
   });
 });

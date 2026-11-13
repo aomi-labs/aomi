@@ -1,6 +1,6 @@
 /**
  * The chat host: NEXT_PUBLIC_CHAT_URL, which the build defaults to
- * chat.aomi.dev in production and staging.aomi.chat everywhere else.
+ * aomi.chat in production and staging.aomi.chat everywhere else.
  */
 export function resolveChatUrl(): string {
   return (

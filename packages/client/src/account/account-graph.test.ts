@@ -12,13 +12,13 @@ describe("shared account graph transport", () => {
       }),
     );
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch,
       getAccountBearer: async () => "opaque-session",
     });
     await client.account.updateAccount({ displayName: "Aron" });
     const [url, options] = fetch.mock.calls[0];
-    expect(String(url)).toBe("https://chat.aomi.dev/v1/account");
+    expect(String(url)).toBe("https://aomi.chat/v1/account");
     expect(new Headers(options.headers).get("Authorization")).toBe(
       "Bearer opaque-session",
     );
@@ -27,7 +27,7 @@ describe("shared account graph transport", () => {
   });
   it("preserves typed error status and body without consuming the body twice", async () => {
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       getAccountBearer: async () => "opaque-session",
       fetch: vi
         .fn()
