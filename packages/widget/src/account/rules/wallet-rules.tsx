@@ -35,6 +35,7 @@ import {
   dateInputSeconds,
   dateInputValue,
   fromBaseUnits,
+  ruleTemplates,
   rulesErrorCode,
   rulesFailure,
   sameAdmin,
@@ -96,7 +97,9 @@ export function WalletRules({
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
-  const [panel, setPanel] = useState<"apps" | "limit" | "admin" | null>(null);
+  const [panel, setPanel] = useState<
+    "apps" | "limit" | "admin" | "template" | null
+  >(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped after each answered save, so a draft that had to wait shows the
@@ -199,7 +202,7 @@ export function WalletRules({
             Enforced by{" "}
             {rules.enforced_by
               .map((name) => `${name.charAt(0).toUpperCase()}${name.slice(1)}`)
-              .join(", ")}
+              .join(" + ")}
           </StatusPill>
         ) : (
           <StatusPill>Enforced by Aomi</StatusPill>
@@ -228,12 +231,40 @@ export function WalletRules({
     );
 
   const pending = rules.pending;
-  const { apps, limits, not_after: notAfter, owner_only: ownerOnly } =
-    rules.rules;
+  const {
+    apps,
+    limits,
+    not_after: notAfter,
+    owner_only: ownerOnly,
+  } = rules.rules;
   const empty = rules.revision === 0 || !hasRules(rules.rules);
   const left = pending ? timeUntil(pending.expires_at) : null;
   const write = (next: Partial<AomiRuleSet>) =>
     void save({ rules: { ...rules.rules, ...next } });
+  // An app list already keeps plain sends to the owner's wallets.
+  const sendsHome = ownerOnly || apps !== null;
+  const templates = (
+    <AomiButton
+      variant="ghost"
+      size="sm"
+      aria-expanded={panel === "template"}
+      onClick={() => setPanel(panel === "template" ? null : "template")}
+    >
+      Use a template
+    </AomiButton>
+  );
+  const templatePanel =
+    panel === "template" ? (
+      <TemplatePicker
+        catalog={catalog}
+        saving={saving}
+        onCancel={() => setPanel(null)}
+        onPick={(next) => {
+          setEditing(true);
+          void save({ rules: next });
+        }}
+      />
+    ) : null;
 
   return (
     <section
@@ -309,9 +340,17 @@ export function WalletRules({
           <p className="type-meta text-aomi-muted min-w-0 flex-1">
             No rules. This wallet follows only who approves trades.
           </p>
-          <AomiButton size="sm" onClick={() => setEditing(true)}>
-            Set rules
-          </AomiButton>
+          <span className="flex items-center gap-1">
+            {templates}
+            <AomiButton size="sm" onClick={() => setEditing(true)}>
+              Set rules
+            </AomiButton>
+          </span>
+          {templatePanel ? (
+            <div className="border-aomi-border w-full rounded-[10px] border">
+              {templatePanel}
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
@@ -399,8 +438,8 @@ export function WalletRules({
             </div>
 
             <div data-rule="owner_only" className={ROW}>
-              <p className={cn(SENTENCE, !ownerOnly && "text-aomi-muted")}>
-                {ownerOnly ? (
+              <p className={cn(SENTENCE, !sendsHome && "text-aomi-muted")}>
+                {sendsHome ? (
                   <>
                     Sends only to <Strong>your wallets</Strong>
                   </>
@@ -409,11 +448,11 @@ export function WalletRules({
                 )}
               </p>
               <span className="type-meta text-aomi-muted flex items-center gap-2">
-                {ownerOnly ? "On" : "Off"}
+                {ownerOnly ? "On" : apps !== null ? "With an app list" : "Off"}
                 <Switch
                   aria-label="Sends only to your wallets"
-                  checked={ownerOnly}
-                  disabled={saving}
+                  checked={sendsHome}
+                  disabled={saving || (!ownerOnly && apps !== null)}
                   onCheckedChange={(on) => write({ owner_only: on })}
                 />
               </span>
@@ -457,6 +496,8 @@ export function WalletRules({
             Lower a number and it saves at once. Raise one and it needs
             approval. Limits reset at 00:00 UTC.
           </p>
+          <div className="flex justify-end">{templates}</div>
+          {templatePanel ? <ListGroup>{templatePanel}</ListGroup> : null}
         </>
       )}
 
@@ -710,6 +751,55 @@ function AppPicker({
         onCancel={onCancel}
         onSave={() => onSave([...picked].sort())}
       />
+    </div>
+  );
+}
+
+/** Ready-made rule sets; picking one sends it like any other edit. */
+function TemplatePicker({
+  catalog,
+  saving,
+  onCancel,
+  onPick,
+}: {
+  catalog: AomiRulesCatalog | null;
+  saving: boolean;
+  onCancel: () => void;
+  onPick: (rules: AomiRuleSet) => void;
+}) {
+  return (
+    <div role="group" aria-label="Rule templates" className={PANEL}>
+      {ruleTemplates(catalog).map((template) => (
+        <div
+          key={template.id}
+          data-rule-template={template.id}
+          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="type-control">{template.name}</span>
+            <span className="type-meta text-aomi-muted">
+              {template.summary}
+            </span>
+          </span>
+          <AomiButton
+            size="sm"
+            disabled={saving}
+            aria-label={`Use ${template.name}`}
+            onClick={() => onPick(template.rules)}
+          >
+            Use
+          </AomiButton>
+        </div>
+      ))}
+      <p className="type-meta text-aomi-muted">
+        A template replaces this wallet&rsquo;s rules. If it gives the agent
+        more than it has now, it waits for approval.
+      </p>
+      <div className="flex justify-end">
+        <AomiButton variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </AomiButton>
+      </div>
     </div>
   );
 }

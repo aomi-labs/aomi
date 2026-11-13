@@ -190,9 +190,7 @@ describe("Wallet rules", () => {
     ).toHaveValue("200");
     expect(row("not_after")).toHaveTextContent("Until Nov 21");
     expect(screen.getByLabelText("End date")).toHaveValue("2026-11-21");
-    expect(row("owner_only")).toHaveTextContent(
-      "Sends only to your wallets",
-    );
+    expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
     expect(
       screen.getByRole("switch", { name: "Sends only to your wallets" }),
     ).toHaveAttribute("aria-checked", "true");
@@ -528,6 +526,82 @@ describe("Wallet rules", () => {
         rules: { ...NO_RULES, owner_only: true },
       }),
     );
+  });
+
+  it("says an app list already keeps sends to the owner's wallets", async () => {
+    rules = body({
+      rules: { ...NO_RULES, apps: ["jupiter"] },
+      usage: [],
+      enforced_by: ["aomi", "swig"],
+    });
+    const section = await renderRules();
+    expect(within(section).getByText("Enforced by Aomi + Swig")).toBeTruthy();
+    expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
+    expect(row("owner_only")).toHaveTextContent("With an app list");
+    const toggle = screen.getByRole("switch", {
+      name: "Sends only to your wallets",
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toBeDisabled();
+  });
+
+  it("sets a wallet's first rules from a template", async () => {
+    rules = body({ revision: 0, rules: NO_RULES, usage: [] });
+    await renderRules();
+    respond = (method, _path, sent) => {
+      if (method !== "POST") return undefined;
+      rules = body({
+        revision: 1,
+        usage: [],
+        rules: (sent as { rules: object }).rules,
+      });
+      return Response.json({ status: "applied", rules });
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Use a template" }));
+    const picker = screen.getByRole("group", { name: "Rule templates" });
+    expect(within(picker).getByText("Only my wallets")).toBeTruthy();
+    expect(within(picker).getByText("Two-week trial")).toBeTruthy();
+    fireEvent.click(
+      within(picker).getByRole("button", { name: "Use USDC budget" }),
+    );
+    await waitFor(() =>
+      expect(writes()[0]?.body).toEqual({
+        rules: {
+          ...NO_RULES,
+          owner_only: true,
+          limits: [{ asset: USDC, amount: "100000000" }],
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("group", { name: "Rule templates" }),
+      ).toBeNull(),
+    );
+    expect(document.querySelector(`[data-asset="${USDC}"]`)).not.toBeNull();
+  });
+
+  it("sends a template that gives more power to the approval card", async () => {
+    await renderRules();
+    respond = (method, _path, sent) => {
+      if (method !== "POST") return undefined;
+      expect((sent as { rules: AomiRuleSet }).rules).toEqual({
+        ...NO_RULES,
+        owner_only: true,
+      });
+      rules = body({
+        pending: change({
+          lines: [{ text: "Can use any app", loosens: true }],
+        }),
+      });
+      return Response.json({ status: "waiting", rules });
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Use a template" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Use Only my wallets" }),
+    );
+    expect(await screen.findByText("Can use any app")).toBeTruthy();
+    expect(rules.rules.apps).toEqual(["jupiter", "kamino"]);
   });
 
   it("adds a limit for a catalog token in human units", async () => {

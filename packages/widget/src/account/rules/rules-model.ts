@@ -3,6 +3,7 @@ import {
   SUPPORTED_CHAINS,
   shortAddress,
   type AomiRuleLimit,
+  type AomiRuleSet,
   type AomiRulesAdmin,
   type AomiRulesAdminWallet,
   type AomiRulesCatalog,
@@ -116,6 +117,63 @@ export function withLimit(
   return limits.map((limit) =>
     limit.asset === asset ? { ...limit, amount } : limit,
   );
+}
+
+export type RuleTemplate = {
+  id: string;
+  name: string;
+  summary: string;
+  rules: AomiRuleSet;
+};
+
+/**
+ * Ready-made rule sets. The budget one names every USDC the catalog lists,
+ * so it has no limits until the catalog has loaded.
+ */
+export function ruleTemplates(
+  catalog: AomiRulesCatalog | null,
+  now = Date.now(),
+): RuleTemplate[] {
+  const off: AomiRuleSet = {
+    apps: null,
+    limits: [],
+    not_after: null,
+    owner_only: false,
+  };
+  const usdc = (catalog?.tokens ?? []).filter(
+    (token) => token.symbol === "USDC",
+  );
+  const twoWeeks = dateInputSeconds(
+    dateInputValue(Math.floor(now / 1000) + 14 * 86_400),
+  );
+  return [
+    {
+      id: "own-wallets",
+      name: "Only my wallets",
+      summary: "Trades anywhere. Sends go only to your wallets.",
+      rules: { ...off, owner_only: true },
+    },
+    {
+      id: "usdc-budget",
+      name: "USDC budget",
+      summary:
+        "Up to 100 USDC a day on each chain. No other token can be spent.",
+      rules: {
+        ...off,
+        owner_only: true,
+        limits: usdc.map((token) => ({
+          asset: token.asset,
+          amount: toBaseUnits("100", token.decimals) ?? "0",
+        })),
+      },
+    },
+    {
+      id: "two-weeks",
+      name: "Two-week trial",
+      summary: "Sends go only to your wallets, and it stops after 14 days.",
+      rules: { ...off, owner_only: true, not_after: twoWeeks },
+    },
+  ].filter((template) => template.id !== "usdc-budget" || usdc.length > 0);
 }
 
 export const sameWallet = (
