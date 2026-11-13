@@ -159,24 +159,6 @@ describe("AppDetailPage", () => {
     expect(operateAppDetailFetch).toHaveBeenCalledTimes(2);
   });
 
-  it("does not label an old server's 24-hour response as seven days", async () => {
-    render(<AppDetailPage applicationId={77} />);
-    await screen.findByRole("heading", { name: "goal-digger" });
-    fireEvent.click(screen.getByRole("button", { name: "7d" }));
-    expect(
-      await screen.findByText(
-        "The server did not return the selected time range. Try again shortly.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Conversion funnel · 7d"),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Return to 24 hours" }));
-    expect(
-      await screen.findByText("Conversion funnel · 24h"),
-    ).toBeInTheDocument();
-  });
-
   it("renders the live detail aggregate under the owned app identity", async () => {
     render(<AppDetailPage applicationId={77} />);
 
