@@ -594,7 +594,7 @@ describe("Agent wallets band", () => {
     expect(within(receive).queryByText("Base")).toBeNull();
   });
 
-  it("receives at the operating address and opens Limits where Swig is on", async () => {
+  it("receives at the operating address and shows the rules on chain where Swig is on", async () => {
     const SWIG = "Swig111111111111111111111111111111111Vault";
     list.wallets = [
       {
@@ -612,20 +612,28 @@ describe("Agent wallets band", () => {
       world,
     ];
     respond = (_method, path) =>
-      path === "/v1/account/policies/swig"
-        ? Response.json({
-            provider: "swig",
-            chain_ref: "solana:mainnet",
-            targets: { Jupiter: { chain: "svm", address: "JUP6" } },
-            mints: {},
-            slot_windows: [216_000],
-            binding: null,
-            chain_status: null,
-            remaining_native_amount: null,
-            remaining_token_amounts: {},
-          })
-        : undefined;
-    // A signed-in owner with a linked Solana wallet, as the form needs.
+      path.endsWith("/rules")
+        ? Response.json(walletRules())
+        : path === "/v1/account/policies/swig"
+          ? Response.json({
+              provider: "swig",
+              chain_ref: "solana:mainnet",
+              targets: { Jupiter: { chain: "svm", address: "JUP6" } },
+              mints: {},
+              slot_windows: [216_000],
+              binding: null,
+              chain_status: null,
+              remaining_native_amount: null,
+              remaining_token_amounts: {},
+              from_rules: {
+                policy: null,
+                missing: "Add a daily SOL limit first. Swig needs one.",
+                aomi_only: [],
+                in_sync: false,
+              },
+            })
+          : undefined;
+    // A signed-in owner with a linked Solana wallet, as the ceremony needs.
     seedAccountOverview({
       user: { user_id: "acct-1" },
       user_accounts: [{ address: { chain: "svm", address: "RootWa11et" } }],
@@ -635,10 +643,15 @@ describe("Agent wallets band", () => {
     // The policy holds the Solana funds, so deposits go there, not the key.
     expect(sheet).toHaveTextContent(shortAddress(SWIG));
     expect(sheet).not.toHaveTextContent(shortAddress(SVM));
-    // Limits sits after Send, for this wallet's Solana key only.
-    fireEvent.click(
-      await within(sheet).findByRole("button", { name: /^Limits/ }),
-    );
+    // The same rules on chain sit under the rules, for this wallet's Solana
+    // key only, with no separate Limits step.
+    expect(
+      await within(sheet).findByText("Swig on Solana"),
+    ).toBeInTheDocument();
+    expect(
+      within(sheet).getByText("Add a daily SOL limit first. Swig needs one."),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
     expect(
       calls.some(
         (call) =>
@@ -646,10 +659,6 @@ describe("Agent wallets band", () => {
           `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: "solana:mainnet", delegate: SVM })}`,
       ),
     ).toBe(true);
-    const limits = await screen.findByRole("dialog");
-    expect(within(limits).getByText("Limits")).toBeInTheDocument();
-    expect(await within(limits).findByText("Jupiter")).toBeInTheDocument();
-    fireEvent.click(within(limits).getByRole("button", { name: "Back" }));
     fireEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: /Receive/,

@@ -42,7 +42,7 @@ vi.mock("@/wallet/context", () => ({
   }),
 }));
 import { PolicyPage } from "./policy-page";
-import { OnchainPolicySettings } from "./onchain-policy-settings";
+import { OnchainRules } from "@/account/rules/onchain-rules";
 
 const profile = {
   user: {},
@@ -105,7 +105,7 @@ describe("Agent wallet limits", () => {
         if (path.startsWith("/api/account")) return profile;
         return guardPolicy;
       });
-      render(<OnchainPolicySettings delegate="AgentKey" />);
+      render(<OnchainRules delegate="AgentKey" revision={1} />);
       await waitFor(() =>
         expect(request).toHaveBeenCalledWith(
           `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: expected, delegate: "AgentKey" })}`,
@@ -121,7 +121,9 @@ describe("Agent wallet limits", () => {
       if (path.startsWith("/api/account")) return profile;
       return guardPolicy;
     });
-    const { container } = render(<OnchainPolicySettings delegate="AgentKey" />);
+    const { container } = render(
+      <OnchainRules delegate="AgentKey" revision={1} />,
+    );
     await waitFor(() =>
       expect(
         request.mock.calls.some(([path]) =>
@@ -133,34 +135,139 @@ describe("Agent wallet limits", () => {
     expect(container.textContent).toBe("");
   });
 
-  it("shows the curated apps and token caps for that wallet when enabled", async () => {
+  const policy = {
+    version: 1,
+    rules: [
+      {
+        type: "allowed_call_target",
+        target: { chain: "svm", address: "JUP6" },
+      },
+      {
+        type: "recurring_native_asset_limit",
+        amount: "500000000",
+        window: { unit: "slots", value: 216_000 },
+      },
+      {
+        type: "recurring_token_asset_limit",
+        mint: { chain: "svm", address: "EPjF" },
+        amount: "100000000",
+        window: { unit: "slots", value: 216_000 },
+      },
+    ],
+  };
+  const ctx = (extra: object = {}) => ({
+    provider: "swig",
+    chain_ref: "solana:mainnet",
+    targets: { Jupiter: { chain: "svm", address: "JUP6" } },
+    mints: {
+      wSOL: { chain: "svm", address: "So111" },
+      USDC: { chain: "svm", address: "EPjF" },
+    },
+    slot_windows: [216_000],
+    binding: null,
+    chain_status: null,
+    remaining_native_amount: null,
+    remaining_token_amounts: {},
+    from_rules: {
+      policy,
+      missing: null,
+      aomi_only: ["Until Nov 21", "Sends only to your wallets"],
+      in_sync: false,
+    },
+    ...extra,
+  });
+  const serve = (body: object) =>
     request.mockImplementation(async (path: string) => {
-      if (path.includes("/policies/swig"))
-        return {
-          provider: "swig",
-          chain_ref: "solana:mainnet",
-          targets: { Jupiter: { chain: "svm", address: "JUP6" } },
-          mints: {
-            wSOL: { chain: "svm", address: "So111" },
-            USDC: { chain: "svm", address: "EPjF" },
-          },
-          slot_windows: [216_000],
-          binding: null,
-          chain_status: null,
-          remaining_native_amount: null,
-          remaining_token_amounts: {},
-        };
+      if (path.includes("/policies/swig")) return body;
       if (path.startsWith("/api/account")) return profile;
       return guardPolicy;
     });
-    render(<OnchainPolicySettings delegate="AgentKey" />);
+
+  it("offers the wallet's rules for the chain, with nothing to fill in", async () => {
+    serve(ctx());
+    render(<OnchainRules delegate="AgentKey" revision={1} />);
     expect(await screen.findByText("Swig on Solana")).toBeTruthy();
-    expect(screen.getByText("Jupiter")).toBeTruthy();
-    expect(screen.getByLabelText("Cap wSOL")).toBeTruthy();
-    expect(screen.getByLabelText("Cap USDC")).toBeTruthy();
-    // The wallet is the delegate: there is no agent to pick.
-    expect(screen.queryByText("Delegated agent")).toBeNull();
-    expect(screen.getByText("Agent wallet")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activate Swig" })).toBeTruthy();
+    expect(screen.getByText("Off")).toBeTruthy();
+    const next = screen.getByRole("list", { name: "Goes on chain" });
+    expect(next).toHaveTextContent("Can use Jupiter");
+    expect(next).toHaveTextContent("Up to 0.5 SOL a day");
+    expect(next).toHaveTextContent("Up to 100 USDC a day");
+    expect(
+      screen.getByText(
+        "Aomi alone enforces: Until Nov 21 · Sends only to your wallets",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Enforce on chain" }),
+    ).toBeEnabled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("says what the rules lack when they cannot go on chain", async () => {
+    serve(
+      ctx({
+        from_rules: {
+          policy: null,
+          missing: "Add a daily SOL limit first. Swig needs one.",
+          aomi_only: [],
+          in_sync: false,
+        },
+      }),
+    );
+    render(<OnchainRules delegate="AgentKey" revision={1} />);
+    expect(
+      await screen.findByText("Add a daily SOL limit first. Swig needs one."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Enforce on chain" }),
+    ).toBeDisabled();
+  });
+
+  it("says when the chain is behind the rules and offers the update", async () => {
+    const binding = {
+      id: 7,
+      policy: { ...policy, rules: policy.rules.slice(0, 2) },
+    };
+    serve(
+      ctx({
+        binding,
+        chain_status: "current",
+        remaining_native_amount: "300000000",
+      }),
+    );
+    render(<OnchainRules delegate="AgentKey" revision={1} />);
+    expect(await screen.findByText("Behind your rules")).toBeTruthy();
+    expect(
+      screen.getByRole("list", { name: "On chain now" }),
+    ).not.toHaveTextContent("USDC");
+    expect(
+      screen.getByRole("list", { name: "After you update" }),
+    ).toHaveTextContent("Up to 100 USDC a day");
+    expect(screen.getByText("Left on chain: 0.3 SOL")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Update on chain" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Remove from chain" }),
+    ).toBeTruthy();
+  });
+
+  it("shows On with no update to make when the chain holds the rules", async () => {
+    serve(
+      ctx({
+        binding: { id: 7, policy },
+        chain_status: "current",
+        from_rules: { policy, missing: null, aomi_only: [], in_sync: true },
+      }),
+    );
+    render(<OnchainRules delegate="AgentKey" revision={1} />);
+    expect(await screen.findByText("On")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Update on chain" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Enforce on chain" }),
+    ).toBeNull();
   });
 });

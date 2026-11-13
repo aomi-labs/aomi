@@ -28,6 +28,7 @@ import { SheetAlert } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useShellAomi } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
+import { OnchainRules } from "./onchain-rules";
 import { RuleChangeCard, walletName } from "./rule-change-card";
 import {
   assetAmount,
@@ -82,9 +83,12 @@ const appLabel = (id: string, catalog: AomiRulesCatalog | null) =>
  */
 export function WalletRules({
   wallet,
+  delegate,
   filed,
 }: {
   wallet: { id: string; name: string };
+  /** The wallet's Solana address, where Swig can enforce the rules too. */
+  delegate?: string;
   /** Rules another control just filed a change on (a lane made Instant). */
   filed?: AomiWalletRules | null;
 }) {
@@ -545,6 +549,9 @@ export function WalletRules({
           />
         ) : null}
       </ListGroup>
+      {delegate ? (
+        <OnchainRules delegate={delegate} revision={rules.revision} />
+      ) : null}
     </section>
   );
 }

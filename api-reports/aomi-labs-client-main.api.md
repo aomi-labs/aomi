@@ -1517,6 +1517,7 @@ export interface AomiOnchainPolicyProviderCtx {
     chain_ref: string;
     // (undocumented)
     chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
+    from_rules?: AomiRulesPolicy | null;
     mints: Record<string, AomiOnchainAddress>;
     // (undocumented)
     provider: string;
