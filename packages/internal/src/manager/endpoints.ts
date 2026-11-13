@@ -560,8 +560,8 @@ export const ENDPOINTS = {
       read: read(BuilderApplication),
     }),
 
-  getBuilderApplicationDetail: (input: GetBuilderApplicationInput) =>
-    application(input, "detail", { op: "get_builder_application_detail", read: read(OperateAppDetailResult) }),
+  getBuilderApplicationDetail: (input: GetBuilderApplicationInput & { window?: "1h" | "24h" | "7d" | "30d" }) =>
+    application(input, "detail", { op: "get_builder_application_detail", query: { window: input.window }, read: read(OperateAppDetailResult) }),
 
   /** The private application's current Build key, or null before one is issued. */
   getBuilderAppKey: (input: BuilderAppKeyInput) =>
