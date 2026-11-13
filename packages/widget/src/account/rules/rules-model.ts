@@ -2,11 +2,10 @@ import {
   AomiApiError,
   SUPPORTED_CHAINS,
   shortAddress,
-  type AomiRuleAssetCap,
+  type AomiRuleLimit,
   type AomiRulesAdmin,
   type AomiRulesAdminWallet,
   type AomiRulesCatalog,
-  type AomiWalletRule,
 } from "@aomi-labs/client";
 
 /**
@@ -51,7 +50,7 @@ export function assetChain(asset: string, catalog?: AomiRulesCatalog): string {
   return chain?.name ?? `Chain ${reference ?? ""}`.trim();
 }
 
-type Displayed = Pick<AomiRuleAssetCap, "asset" | "symbol" | "decimals">;
+type Displayed = Pick<AomiRuleLimit, "asset" | "symbol" | "decimals">;
 
 /** `200 USDC`; an unknown token shows its raw amount and short address. */
 export function assetAmount(amount: string, asset: Displayed): string {
@@ -105,46 +104,17 @@ export function dateInputSeconds(value: string): number | null {
   return Number.isFinite(ms) ? ms / 1000 : null;
 }
 
-/** The rule of one kind, when the list has it. */
-export function ruleOf<Kind extends AomiWalletRule["kind"]>(
-  rules: readonly AomiWalletRule[],
-  kind: Kind,
-): Extract<AomiWalletRule, { kind: Kind }> | undefined {
-  return rules.find(
-    (rule): rule is Extract<AomiWalletRule, { kind: Kind }> =>
-      rule.kind === kind,
-  );
-}
-
-/** The list with every rule of `kind` replaced by `next` (or dropped). */
-export function withRule(
-  rules: readonly AomiWalletRule[],
-  kind: AomiWalletRule["kind"],
-  next?: AomiWalletRule,
-): AomiWalletRule[] {
-  const rest = rules.filter((rule) => rule.kind !== kind);
-  return next ? [...rest, next] : rest;
-}
-
-/** The list with one asset's limit set to `amount`, or removed when null. */
-export function withCap(
-  rules: readonly AomiWalletRule[],
+/** The limits with one asset's set to `amount`, or removed when null. */
+export function withLimit(
+  limits: readonly AomiRuleLimit[],
   asset: string,
   amount: string | null,
-): AomiWalletRule[] {
-  const has = rules.some(
-    (rule) => rule.kind === "asset_cap" && rule.asset === asset,
-  );
-  if (amount === null)
-    return rules.filter(
-      (rule) => !(rule.kind === "asset_cap" && rule.asset === asset),
-    );
-  if (!has)
-    return [...rules, { kind: "asset_cap", asset, amount, window: "day" }];
-  return rules.map((rule) =>
-    rule.kind === "asset_cap" && rule.asset === asset
-      ? { ...rule, amount }
-      : rule,
+): AomiRuleLimit[] {
+  if (amount === null) return limits.filter((limit) => limit.asset !== asset);
+  if (!limits.some((limit) => limit.asset === asset))
+    return [...limits, { asset, amount }];
+  return limits.map((limit) =>
+    limit.asset === asset ? { ...limit, amount } : limit,
   );
 }
 

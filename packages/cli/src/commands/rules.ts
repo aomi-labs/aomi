@@ -1,6 +1,7 @@
 import {
   AomiApiError,
   RULES_ERROR_CODES,
+  hasRules,
   type Aomi,
   type AomiRuleChange,
   type AomiRuleUsage,
@@ -41,7 +42,7 @@ const changeLines = (change: AomiRuleChange) =>
 /** One wallet: its sentences, today's use, the admin and any waiting change. */
 export function rulesLines(rules: AomiWalletRules): string[] {
   const lines = [`${rules.wallet_name}  ${rules.agent_wallet_id}`];
-  if (rules.revision === 0 || !rules.rules.length) lines.push("  No rules");
+  if (rules.revision === 0 || !hasRules(rules.rules)) lines.push("  No rules");
   for (const sentence of rules.sentences) lines.push(`  ${sentence}`);
   for (const usage of rules.usage) lines.push(`  ${usageLine(usage)}`);
   if (rules.stopped_until) lines.push("  Stopped by the agent until 00:00 UTC");

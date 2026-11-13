@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AomiClient } from "../client";
 import {
   RULES_ERROR_CODES,
+  hasRules,
   parseRuleChange,
   parseWalletRules,
   type AomiWalletRules,
@@ -12,6 +13,8 @@ const WALLET = "6f1c2b8e-0000-4000-8000-000000000001";
 const CHANGE = "9a000000-0000-4000-8000-000000000009";
 const USDC = "eip155:8453/erc20:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const SOL = "solana:mainnet-beta/native";
+
+const NO_RULES = { apps: null, limits: [], not_after: null, owner_only: false };
 
 const change = {
   id: CHANGE,
@@ -28,27 +31,15 @@ const body = {
   agent_wallet_id: WALLET,
   wallet_name: "Trading wallet",
   revision: 3,
-  rules: [
-    { kind: "target_allow", apps: ["jupiter", "kamino", "uniswap"] },
-    {
-      kind: "asset_cap",
-      asset: SOL,
-      amount: "500000000",
-      window: "day",
-      symbol: "SOL",
-      decimals: 9,
-    },
-    {
-      kind: "asset_cap",
-      asset: USDC,
-      amount: "200000000",
-      window: "day",
-      symbol: "USDC",
-      decimals: 6,
-    },
-    { kind: "validity", not_after: 1795219200 },
-    { kind: "recipient_is_owner" },
-  ],
+  rules: {
+    apps: ["jupiter", "kamino", "uniswap"],
+    limits: [
+      { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
+      { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
+    ],
+    not_after: 1795219200,
+    owner_only: true,
+  },
   sentences: [
     "Can use Jupiter, Kamino, Uniswap",
     "Up to 0.5 SOL a day on Solana",
@@ -125,7 +116,7 @@ describe("wallet rules", () => {
       agent_wallet_id: WALLET,
       wallet_name: "New",
       revision: 0,
-      rules: [],
+      rules: NO_RULES,
       sentences: [],
       admin: { kind: "aomi_managed" },
       stopped_until: null,
@@ -141,22 +132,15 @@ describe("wallet rules", () => {
     const huge = "123456789012345678901234567890";
     const read = parseWalletRules({
       ...body,
-      rules: [
-        {
-          kind: "asset_cap",
-          asset: USDC,
-          amount: huge,
-          window: "day",
-          symbol: null,
-        },
-      ],
+      rules: {
+        ...NO_RULES,
+        limits: [{ asset: USDC, amount: huge, symbol: null }],
+      },
       usage: [{ asset: USDC, used: huge, cap: huge, symbol: null }],
     });
-    expect(read.rules[0]).toEqual({
-      kind: "asset_cap",
+    expect(read.rules.limits[0]).toEqual({
       asset: USDC,
       amount: huge,
-      window: "day",
       symbol: null,
       decimals: null,
     });
@@ -164,19 +148,18 @@ describe("wallet rules", () => {
   });
 
   it.each([
-    ["a rule kind it does not know", { rules: [{ kind: "gas_cap" }] }],
+    ["a rule it does not know", { rules: { ...NO_RULES, gas_cap: "5" } }],
+    ["the old list of rules", { rules: [{ kind: "recipient_is_owner" }] }],
     [
       "a numeric amount",
-      { rules: [{ kind: "asset_cap", asset: USDC, amount: 5, window: "day" }] },
+      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: 5 }] } },
     ],
     [
-      "another window",
-      {
-        rules: [
-          { kind: "asset_cap", asset: USDC, amount: "5", window: "week" },
-        ],
-      },
+      "an amount that is not digits",
+      { rules: { ...NO_RULES, limits: [{ asset: USDC, amount: "1.5" }] } },
     ],
+    ["an end date that is not a number", { rules: { not_after: "soon" } }],
+    ["a flag that is not a boolean", { rules: { owner_only: "yes" } }],
     ["an unknown admin", { admin: { kind: "multisig" } }],
   ])("rejects %s rather than dropping it from the next write", (_, extra) => {
     expect(() => parseWalletRules({ ...body, ...extra })).toThrow(
@@ -184,7 +167,15 @@ describe("wallet rules", () => {
     );
   });
 
-  it("changes rules with CSRF, sending only kind, asset, amount and window for a limit", async () => {
+  it("reads no rules and tells them from a wallet with one", () => {
+    const none = parseWalletRules({ ...body, rules: NO_RULES }).rules;
+    expect(none).toEqual(NO_RULES);
+    expect(hasRules(none)).toBe(false);
+    expect(hasRules({ ...none, apps: [] })).toBe(true);
+    expect(hasRules({ ...none, owner_only: true })).toBe(true);
+  });
+
+  it("changes rules with CSRF, sending only asset and amount for a limit", async () => {
     const { rules, calls } = backend({
       [`POST /v1/account/agent-wallets/${WALLET}/rules`]: () =>
         Response.json({
@@ -196,13 +187,15 @@ describe("wallet rules", () => {
     const result = await rules.change(WALLET, { rules: read.rules });
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
     expect(calls[0]!.body).toEqual({
-      rules: [
-        body.rules[0],
-        { kind: "asset_cap", asset: SOL, amount: "500000000", window: "day" },
-        { kind: "asset_cap", asset: USDC, amount: "200000000", window: "day" },
-        body.rules[3],
-        body.rules[4],
-      ],
+      rules: {
+        apps: ["jupiter", "kamino", "uniswap"],
+        limits: [
+          { asset: SOL, amount: "500000000" },
+          { asset: USDC, amount: "200000000" },
+        ],
+        not_after: 1795219200,
+        owner_only: true,
+      },
     });
     expect(result.status).toBe("waiting");
     expect(result.rules.pending).toEqual(change);

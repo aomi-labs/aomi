@@ -9,14 +9,15 @@ import {
   type ReactNode,
 } from "react";
 import { Hand, Plus, X } from "lucide-react";
-import type {
-  AomiRuleAssetCap,
-  AomiRuleUsage,
-  AomiRulesAdmin,
-  AomiRulesCatalog,
-  AomiRulesChangeRequest,
-  AomiWalletRule,
-  AomiWalletRules,
+import {
+  hasRules,
+  type AomiRuleLimit,
+  type AomiRuleSet,
+  type AomiRuleUsage,
+  type AomiRulesAdmin,
+  type AomiRulesCatalog,
+  type AomiRulesChangeRequest,
+  type AomiWalletRules,
 } from "@aomi-labs/client";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -34,7 +35,6 @@ import {
   dateInputSeconds,
   dateInputValue,
   fromBaseUnits,
-  ruleOf,
   rulesErrorCode,
   rulesFailure,
   sameAdmin,
@@ -43,8 +43,7 @@ import {
   toBaseUnits,
   untilDate,
   usedPercent,
-  withCap,
-  withRule,
+  withLimit,
 } from "./rules-model";
 
 const ROW =
@@ -76,7 +75,7 @@ const appLabel = (id: string, catalog: AomiRulesCatalog | null) =>
 
 /**
  * Wallet › Manage › Rules: what the agent may sign with this wallet, as
- * sentences with their controls. Each edit sends the full new list: one that
+ * sentences with their controls. Each edit sends the full new set: one that
  * only takes power away saves at once, one that gives power opens the rule
  * change card and waits for the admin.
  */
@@ -228,17 +227,13 @@ export function WalletRules({
       </section>
     );
 
-  const list = rules.rules;
   const pending = rules.pending;
-  const apps = ruleOf(list, "target_allow");
-  const validity = ruleOf(list, "validity");
-  const ownerOnly = Boolean(ruleOf(list, "recipient_is_owner"));
-  const caps = list.filter(
-    (rule): rule is AomiRuleAssetCap => rule.kind === "asset_cap",
-  );
-  const empty = rules.revision === 0 || list.length === 0;
+  const { apps, limits, not_after: notAfter, owner_only: ownerOnly } =
+    rules.rules;
+  const empty = rules.revision === 0 || !hasRules(rules.rules);
   const left = pending ? timeUntil(pending.expires_at) : null;
-  const write = (next: AomiWalletRule[]) => void save({ rules: next });
+  const write = (next: Partial<AomiRuleSet>) =>
+    void save({ rules: { ...rules.rules, ...next } });
 
   return (
     <section
@@ -321,15 +316,13 @@ export function WalletRules({
       ) : (
         <>
           <ListGroup aria-busy={saving || undefined}>
-            <div data-rule="target_allow">
+            <div data-rule="apps">
               <div className={ROW}>
                 <p className={cn(SENTENCE, !apps && "text-aomi-muted")}>
-                  {apps?.apps.length ? (
+                  {apps?.length ? (
                     <>
                       Can use{" "}
-                      <Names
-                        names={apps.apps.map((id) => appLabel(id, catalog))}
-                      />
+                      <Names names={apps.map((id) => appLabel(id, catalog))} />
                     </>
                   ) : apps ? (
                     "Can use no app"
@@ -349,40 +342,34 @@ export function WalletRules({
               {panel === "apps" ? (
                 <AppPicker
                   catalog={catalog}
-                  selected={apps?.apps ?? []}
+                  selected={apps ?? []}
                   saving={saving}
                   onCancel={() => setPanel(null)}
-                  onSave={(ids) =>
-                    write(
-                      withRule(
-                        list,
-                        "target_allow",
-                        ids.length
-                          ? { kind: "target_allow", apps: ids }
-                          : undefined,
-                      ),
-                    )
-                  }
+                  onSave={(ids) => write({ apps: ids.length ? ids : null })}
                 />
               ) : null}
             </div>
 
-            {caps.map((cap) => (
+            {limits.map((cap) => (
               <CapRow
                 key={`${cap.asset}:${cap.amount}:${epoch}`}
                 cap={cap}
                 usage={rules.usage.find((entry) => entry.asset === cap.asset)}
                 chain={assetChain(cap.asset, catalog ?? undefined)}
                 saving={saving}
-                onAmount={(amount) => write(withCap(list, cap.asset, amount))}
+                onAmount={(amount) =>
+                  write({ limits: withLimit(limits, cap.asset, amount) })
+                }
               />
             ))}
 
-            <div data-rule="validity" className={ROW}>
-              <p className={cn(SENTENCE, !validity && "text-aomi-muted")}>
-                {validity ? (
+            <div data-rule="not_after" className={ROW}>
+              <p
+                className={cn(SENTENCE, notAfter === null && "text-aomi-muted")}
+              >
+                {notAfter !== null ? (
                   <>
-                    Until <Strong>{untilDate(validity.not_after)}</Strong>
+                    Until <Strong>{untilDate(notAfter)}</Strong>
                   </>
                 ) : (
                   "No end date"
@@ -394,30 +381,24 @@ export function WalletRules({
                   aria-label="End date"
                   disabled={saving}
                   className={INPUT}
-                  value={validity ? dateInputValue(validity.not_after) : ""}
+                  value={notAfter !== null ? dateInputValue(notAfter) : ""}
                   onChange={(event) => {
                     const seconds = dateInputSeconds(event.target.value);
-                    if (seconds === null || seconds === validity?.not_after)
-                      return;
-                    write(
-                      withRule(list, "validity", {
-                        kind: "validity",
-                        not_after: seconds,
-                      }),
-                    );
+                    if (seconds === null || seconds === notAfter) return;
+                    write({ not_after: seconds });
                   }}
                 />
-                {validity ? (
+                {notAfter !== null ? (
                   <RemoveButton
                     label="Remove end date"
                     disabled={saving}
-                    onClick={() => write(withRule(list, "validity"))}
+                    onClick={() => write({ not_after: null })}
                   />
                 ) : null}
               </span>
             </div>
 
-            <div data-rule="recipient_is_owner" className={ROW}>
+            <div data-rule="owner_only" className={ROW}>
               <p className={cn(SENTENCE, !ownerOnly && "text-aomi-muted")}>
                 {ownerOnly ? (
                   <>
@@ -433,23 +414,15 @@ export function WalletRules({
                   aria-label="Sends only to your wallets"
                   checked={ownerOnly}
                   disabled={saving}
-                  onCheckedChange={(on) =>
-                    write(
-                      withRule(
-                        list,
-                        "recipient_is_owner",
-                        on ? { kind: "recipient_is_owner" } : undefined,
-                      ),
-                    )
-                  }
+                  onCheckedChange={(on) => write({ owner_only: on })}
                 />
               </span>
             </div>
 
-            <div data-rule="asset_cap">
+            <div data-rule="limits">
               <div className={ROW}>
                 <p className={cn(SENTENCE, "text-aomi-muted")}>
-                  {caps.length
+                  {limits.length
                     ? "Tokens without a limit can't be spent"
                     : "No limits. Any token can be spent."}
                 </p>
@@ -465,10 +438,12 @@ export function WalletRules({
               {panel === "limit" ? (
                 <LimitPicker
                   catalog={catalog}
-                  taken={caps.map((cap) => cap.asset)}
+                  taken={limits.map((limit) => limit.asset)}
                   saving={saving}
                   onCancel={() => setPanel(null)}
-                  onAdd={(asset, amount) => write(withCap(list, asset, amount))}
+                  onAdd={(asset, amount) =>
+                    write({ limits: withLimit(limits, asset, amount) })
+                  }
                 />
               ) : null}
             </div>
@@ -563,7 +538,7 @@ function CapRow({
   saving,
   onAmount,
 }: {
-  cap: AomiRuleAssetCap;
+  cap: AomiRuleLimit;
   usage?: AomiRuleUsage;
   chain: string;
   saving: boolean;
@@ -584,7 +559,7 @@ function CapRow({
     onAmount(amount);
   };
   return (
-    <div data-rule="asset_cap" data-asset={cap.asset} className={ROW}>
+    <div data-rule="limit" data-asset={cap.asset} className={ROW}>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="type-control flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>
