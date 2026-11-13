@@ -42,8 +42,24 @@ export function AppDetailPage({ applicationId }: { applicationId: number }) {
       ),
       window,
     ],
-    queryFn: () =>
-      operateAppDetailFetch<LiveAppDetailPayload>(applicationId, window),
+    queryFn: async () => {
+      const result = await operateAppDetailFetch<LiveAppDetailPayload>(
+        applicationId,
+        window,
+      );
+      const seconds = {
+        "1h": 3600,
+        "24h": 86400,
+        "7d": 604800,
+        "30d": 2592000,
+      };
+      if (result.detail.windowSeconds !== seconds[window]) {
+        throw new Error(
+          "The server did not return the selected time range. Try again shortly.",
+        );
+      }
+      return result;
+    },
     enabled: account.signedIn && accountKey !== null,
     staleTime: buildQueryStaleTime.operate,
   });
