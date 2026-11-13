@@ -165,7 +165,7 @@ const walletRules = (extra: object = {}) => ({
   usage: [],
   window_ends_at: null,
   pending: null,
-  enforced_by: ["aomi"],
+  enforcement: [],
   admin_wallets: [],
   ...extra,
 });
@@ -594,7 +594,7 @@ describe("Agent wallets band", () => {
     expect(within(receive).queryByText("Base")).toBeNull();
   });
 
-  it("receives at the operating address and shows the rules on chain where Swig is on", async () => {
+  it("receives at the operating address and shows the rules on chain where a provider can hold them", async () => {
     const SWIG = "Swig111111111111111111111111111111111Vault";
     list.wallets = [
       {
@@ -613,52 +613,36 @@ describe("Agent wallets band", () => {
     ];
     respond = (_method, path) =>
       path.endsWith("/rules")
-        ? Response.json(walletRules())
-        : path === "/v1/account/policies/swig"
-          ? Response.json({
-              provider: "swig",
-              chain_ref: "solana:mainnet",
-              targets: { Jupiter: { chain: "svm", address: "JUP6" } },
-              mints: {},
-              slot_windows: [216_000],
-              binding: null,
-              chain_status: null,
-              remaining_native_amount: null,
-              remaining_token_amounts: {},
-              from_rules: {
-                policy: null,
-                missing: "Add a daily SOL limit first. Swig needs one.",
-                aomi_only: [],
-                in_sync: false,
-              },
-            })
-          : undefined;
-    // A signed-in owner with a linked Solana wallet, as the ceremony needs.
-    seedAccountOverview({
-      user: { user_id: "acct-1" },
-      user_accounts: [{ address: { chain: "svm", address: "RootWa11et" } }],
-    } as never);
+        ? Response.json(
+            walletRules({
+              enforcement: [
+                {
+                  provider: "swig",
+                  name: "Swig",
+                  state: "off",
+                  covers: { apps: [], limits: [] },
+                  left: {},
+                  note: "Add a daily SOL limit first. Swig needs one.",
+                  ready: false,
+                  signer: { family: "svm", address: null },
+                },
+              ],
+            }),
+          )
+        : undefined;
     await renderSection();
     const sheet = await manage("Trading");
     // The policy holds the Solana funds, so deposits go there, not the key.
     expect(sheet).toHaveTextContent(shortAddress(SWIG));
     expect(sheet).not.toHaveTextContent(shortAddress(SVM));
-    // The same rules on chain sit under the rules, for this wallet's Solana
-    // key only, with no separate Limits step.
+    // The same rules on chain are one row of the rules, with no separate
+    // Limits step and no request that names a provider.
+    expect(await within(sheet).findByText("Swig · Off")).toBeInTheDocument();
     expect(
-      await within(sheet).findByText("Swig on Solana"),
-    ).toBeInTheDocument();
-    expect(
-      within(sheet).getByText("Add a daily SOL limit first. Swig needs one."),
+      within(sheet).getByText(/Add a daily SOL limit first\. Swig needs one\./),
     ).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
-    expect(
-      calls.some(
-        (call) =>
-          call.path ===
-          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: "solana:mainnet", delegate: SVM })}`,
-      ),
-    ).toBe(true);
+    expect(calls.some((call) => call.path.includes("/policies/"))).toBe(false);
     fireEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: /Receive/,

@@ -57,7 +57,23 @@ const body = {
   ],
   window_ends_at: 1795046400,
   pending: null,
-  enforced_by: ["aomi"],
+  enforcement: [
+    {
+      provider: "swig",
+      name: "Swig",
+      state: "behind",
+      covers: {
+        apps: ["jupiter", "kamino"],
+        limits: [SOL],
+        not_after: false,
+        owner_only: false,
+      },
+      left: { [SOL]: "300000000" },
+      note: "Your rules changed since you signed.",
+      ready: true,
+      signer: { family: "svm", address: "HZpj1111" },
+    },
+  ],
   admin_wallets: [{ kind: "wallet", family: "svm", address: "HZpj1111" }],
 };
 
@@ -123,9 +139,53 @@ describe("wallet rules", () => {
       usage: [],
       window_ends_at: null,
       pending: null,
-      enforced_by: [],
+      enforcement: [],
       admin_wallets: [],
     });
+  });
+
+  it("prepares and confirms putting the rules on chain, by provider id", async () => {
+    const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
+    const transaction = {
+      family: "svm",
+      network: "solana:mainnet",
+      unsigned_base64: "dHg=",
+    };
+    const { rules, calls } = backend({
+      [`POST ${step}/prepare`]: () => Response.json({ transaction }),
+      [`POST ${step}/confirm`]: () => Response.json({ rules: body }),
+    });
+    const request = { revision: 4, owner: "HZpj1111" };
+    expect(await rules.prepareEnforcement(WALLET, "swig", request)).toEqual(
+      transaction,
+    );
+    expect(
+      await rules.confirmEnforcement(WALLET, "swig", {
+        ...request,
+        transaction_signature: "5ig",
+      }),
+    ).toEqual(body);
+    expect(calls.map((call) => call.body)).toEqual([
+      request,
+      { ...request, transaction_signature: "5ig" },
+    ]);
+    expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
+  });
+
+  it("reads no transaction when the chain already holds the rules, and refuses an unknown state", async () => {
+    const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
+    const { rules } = backend({
+      [`POST ${step}/prepare`]: () => Response.json({ transaction: null }),
+    });
+    expect(
+      await rules.prepareEnforcement(WALLET, "swig", { revision: 4 }),
+    ).toBeNull();
+    expect(() =>
+      parseWalletRules({
+        ...body,
+        enforcement: [{ ...body.enforcement[0], state: "paused" }],
+      }),
+    ).toThrow(/unsupported enforcement state/);
   });
 
   it("keeps amounts beyond 2^53 as strings and an unknown token's null symbol", () => {

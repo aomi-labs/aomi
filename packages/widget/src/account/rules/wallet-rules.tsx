@@ -28,8 +28,8 @@ import { SheetAlert } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useShellAomi } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
-import { OnchainRules } from "./onchain-rules";
 import { RuleChangeCard, walletName } from "./rule-change-card";
+import { RuleEnforcement, enforcers } from "./rule-enforcement";
 import {
   assetAmount,
   assetChain,
@@ -83,12 +83,9 @@ const appLabel = (id: string, catalog: AomiRulesCatalog | null) =>
  */
 export function WalletRules({
   wallet,
-  delegate,
   filed,
 }: {
   wallet: { id: string; name: string };
-  /** The wallet's Solana address, where Swig can enforce the rules too. */
-  delegate?: string;
   /** Rules another control just filed a change on (a lane made Instant). */
   filed?: AomiWalletRules | null;
 }) {
@@ -214,16 +211,10 @@ export function WalletRules({
     <SectionHeader
       title="Rules"
       action={
-        rules?.enforced_by.length ? (
-          <StatusPill>
-            Enforced by{" "}
-            {rules.enforced_by
-              .map((name) => `${name.charAt(0).toUpperCase()}${name.slice(1)}`)
-              .join(" + ")}
-          </StatusPill>
-        ) : (
-          <StatusPill>Enforced by Aomi</StatusPill>
-        )
+        <StatusPill>
+          Enforced by{" "}
+          {["Aomi", ...enforcers(rules?.enforcement ?? [])].join(" + ")}
+        </StatusPill>
       }
     />
   );
@@ -260,6 +251,16 @@ export function WalletRules({
     void save({ rules: { ...rules.rules, ...next } });
   // An app list already keeps plain sends to the owner's wallets.
   const sendsHome = ownerOnly || apps !== null;
+  // Once a provider checks on chain, each rule says who checks it.
+  const onChain = enforcers(rules.enforcement).length > 0;
+  const checkedBy = (covers: Parameters<typeof enforcers>[1]) =>
+    onChain ? (
+      <span data-checked-by>
+        <StatusPill>
+          {["Aomi", ...enforcers(rules.enforcement, covers)].join(" + ")}
+        </StatusPill>
+      </span>
+    ) : null;
   const templates = (
     <AomiButton
       variant="ghost"
@@ -386,6 +387,7 @@ export function WalletRules({
                     "Can use any app"
                   )}
                 </p>
+                {checkedBy((covers) => covers.apps.length > 0)}
                 <AomiButton
                   size="sm"
                   aria-expanded={panel === "apps"}
@@ -416,6 +418,12 @@ export function WalletRules({
                 )}
                 usage={rules.usage.find((entry) => entry.asset === cap.asset)}
                 chain={assetChain(cap.asset, catalog ?? undefined)}
+                tag={checkedBy((covers) => covers.limits.includes(cap.asset))}
+                left={rules.enforcement.flatMap((entry) =>
+                  entry.state !== "off" && entry.left[cap.asset] !== undefined
+                    ? [{ name: entry.name, amount: entry.left[cap.asset] }]
+                    : [],
+                )}
                 saving={saving}
                 onAmount={(amount) =>
                   write({ limits: withLimit(limits, cap.asset, amount) })
@@ -435,6 +443,9 @@ export function WalletRules({
                   "No end date"
                 )}
               </p>
+              {notAfter !== null
+                ? checkedBy((covers) => covers.not_after)
+                : null}
               <span className="flex items-center gap-1">
                 <input
                   type="date"
@@ -468,6 +479,7 @@ export function WalletRules({
                   "Sends to any address"
                 )}
               </p>
+              {sendsHome ? checkedBy((covers) => covers.owner_only) : null}
               <span className="type-meta text-aomi-muted flex items-center gap-2">
                 {ownerOnly ? "On" : apps !== null ? "With an app list" : "Off"}
                 <Switch
@@ -566,10 +578,21 @@ export function WalletRules({
             onPick={(admin) => void save({ admin })}
           />
         ) : null}
+        {rules.enforcement.map((entry) => (
+          <RuleEnforcement
+            key={entry.provider}
+            client={aomi}
+            walletId={wallet.id}
+            revision={rules.revision}
+            entry={entry}
+            onRules={(next) => {
+              version.current += 1;
+              setRules(next);
+            }}
+            onStale={() => void load()}
+          />
+        ))}
       </ListGroup>
-      {delegate ? (
-        <OnchainRules delegate={delegate} revision={rules.revision} />
-      ) : null}
     </section>
   );
 }
@@ -602,6 +625,8 @@ function CapRow({
   token,
   usage,
   chain,
+  tag,
+  left,
   saving,
   onAmount,
 }: {
@@ -610,6 +635,10 @@ function CapRow({
   token?: { symbol: string; decimals: number };
   usage?: AomiRuleUsage;
   chain: string;
+  /** Who checks this limit, once a provider checks on chain. */
+  tag: ReactNode;
+  /** What each on-chain provider will still let through, in base units. */
+  left: readonly { name: string; amount: string }[];
   saving: boolean;
   /** The new base-unit amount; null removes the limit. */
   onAmount: (amount: string | null) => void;
@@ -640,6 +669,7 @@ function CapRow({
             Up to <Strong>{assetAmount(cap.amount, known)} a day</Strong>
           </span>
           <StatusPill>{chain}</StatusPill>
+          {tag}
         </p>
         {usage ? (
           <div className="flex items-center gap-2">
@@ -665,6 +695,15 @@ function CapRow({
             </span>
           </div>
         ) : null}
+        {left.map((entry) => (
+          <span
+            key={entry.name}
+            data-left-on-chain
+            className="type-meta text-aomi-muted tabular-nums"
+          >
+            {fromBaseUnits(entry.amount, decimals)} left on {entry.name}
+          </span>
+        ))}
         {invalid ? (
           <span className="type-meta text-aomi-danger">
             Enter a valid amount.

@@ -1132,6 +1132,8 @@ describe("portal surface: wallet rules", () => {
   const READS = ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"];
   const WRITES = [
     "/v1/account/agent-wallets/g-1/rules",
+    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/prepare",
+    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/confirm",
     "/v1/account/rule-changes/ch-1/approve",
     "/v1/account/rule-changes/ch-1/decline",
   ];

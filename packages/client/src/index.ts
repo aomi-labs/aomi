@@ -530,6 +530,9 @@ export type {
   AomiRulesCatalogToken,
   AomiRulesChangeRequest,
   AomiRulesChangeResult,
+  AomiRulesEnforceRequest,
+  AomiRulesEnforcement,
+  AomiRulesTransaction,
   AomiWalletRules,
 } from "./account/rules";
 export { AomiWallets } from "./sdk/wallets";

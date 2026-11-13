@@ -329,6 +329,9 @@ export class AccountRulesTransport {
         signal?: AbortSignal;
     }): Promise<AomiRulesCatalog>;
     change(agentWalletId: string, request: AomiRulesChangeRequest): Promise<AomiRulesChangeResult>;
+    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest & {
+        transaction_signature?: string;
+    }): Promise<AomiWalletRules>;
     declineChange(changeId: string): Promise<AomiWalletRules>;
     get(agentWalletId: string, options?: {
         signal?: AbortSignal;
@@ -336,6 +339,7 @@ export class AccountRulesTransport {
     getChange(changeId: string, options?: {
         signal?: AbortSignal;
     }): Promise<AomiRuleChange>;
+    prepareEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiRulesTransaction | null>;
 }
 
 // @public (undocumented)
@@ -1517,7 +1521,6 @@ export interface AomiOnchainPolicyProviderCtx {
     chain_ref: string;
     // (undocumented)
     chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
-    from_rules?: AomiRulesPolicy | null;
     mints: Record<string, AomiOnchainAddress>;
     // (undocumented)
     provider: string;
@@ -1774,11 +1777,45 @@ export type AomiRulesChangeResult = {
 };
 
 // @public
+export type AomiRulesEnforcement = {
+    provider: string;
+    name: string;
+    state: "off" | "on" | "behind" | "unverified";
+    covers: {
+        apps: string[];
+        limits: string[];
+        not_after: boolean;
+        owner_only: boolean;
+    };
+    left: Record<string, string>;
+    note: string | null;
+    ready: boolean;
+    signer: {
+        family: AomiWalletFamily;
+        address: string | null;
+    };
+};
+
+// @public (undocumented)
+export type AomiRulesEnforceRequest = {
+    revision: number;
+    owner?: string;
+    remove?: boolean;
+};
+
+// @public
 export type AomiRuleSet = {
     apps: string[] | null;
     limits: AomiRuleLimit[];
     not_after: number | null;
     owner_only: boolean;
+};
+
+// @public
+export type AomiRulesTransaction = {
+    family: AomiWalletFamily;
+    network: string;
+    unsigned_base64: string;
 };
 
 // @public
@@ -1934,7 +1971,7 @@ export type AomiWalletRules = {
     usage: AomiRuleUsage[];
     window_ends_at: number | null;
     pending: AomiRuleChange | null;
-    enforced_by: string[];
+    enforcement: AomiRulesEnforcement[];
     admin_wallets: AomiRulesAdminWallet[];
 };
 
@@ -3926,6 +3963,7 @@ export const RULES_ERROR_CODES: {
     readonly changeNotFound: "rules_change_not_found";
     readonly changeNotOpen: "rules_change_not_open";
     readonly changed: "rules_changed";
+    readonly chainNotSettled: "chain_not_settled";
     readonly changePending: "rules_change_pending";
     readonly signatureRequired: "rules_signature_required";
     readonly signatureInvalid: "rules_signature_invalid";

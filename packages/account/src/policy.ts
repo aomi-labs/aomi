@@ -547,7 +547,7 @@ const renamed =
   });
 /** The secrets vault: BYOK provider keys and values tools use by handle. */
 const keys = renamed("/v1/account/keys", "/api/secrets");
-/** On-chain spending policies (Swig): prepare, sign and confirm a binding or its revoke. */
+/** A provider's own on-chain policies: prepare, sign and confirm a binding or its revoke. */
 const policies = renamed(
   "/v1/account/policies",
   "/api/account/onchain-policies",
@@ -741,6 +741,12 @@ export const ROUTES: readonly Route[] = [
     { GET: "agent:read", POST: OWNER_SESSION },
     { operation: "account.rules" },
   ),
+  // The same rules on chain: the owner's wallet signs, so the chain decides.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/rules\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
   wallets(
     /^\/v1\/account\/rules\/catalog$/,
     { GET: "agent:read" },
@@ -881,7 +887,9 @@ export const ROUTES: readonly Route[] = [
     POST: signedIn,
   }),
   // One guest sign-in; the two older paths stay for published SDKs (client <= 0.11, widget <= 4).
-  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", {
+    POST: "public",
+  }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {
     POST: "public",
   }),

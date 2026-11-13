@@ -675,7 +675,7 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
     usage: [],
     window_ends_at: (Math.floor(Date.now() / 86_400_000) + 1) * 86_400,
     pending: pending ? view : null,
-    enforced_by: ["aomi"],
+    enforcement: [],
     // One linked wallet, so the admin picker has a wallet to choose.
     admin_wallets: [
       {
