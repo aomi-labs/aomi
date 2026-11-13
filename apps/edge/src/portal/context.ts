@@ -43,7 +43,11 @@ export function portalContext(
 ): PortalContext | null {
   const url = new URL(request.url);
   const { portal } = config(env);
-  if (!portal.hosts.has(url.host.toLowerCase()) || (!portal.upstream && !env.PORTAL_PAGES)) return null;
+  if (
+    !portal.hosts.has(url.host.toLowerCase()) ||
+    (!portal.upstream && !env.PORTAL_PAGES)
+  )
+    return null;
   return {
     env,
     portalOrigin: url.origin,
@@ -62,7 +66,10 @@ export function portalContext(
 }
 
 /** The policy of one protected resource this portal origin hosts (an app-locked MCP path included). */
-export function policyFor(resource: string, ctx: Pick<PortalContext, "resources">): ResourcePolicy {
+export function policyFor(
+  resource: string,
+  ctx: Pick<PortalContext, "resources">,
+): ResourcePolicy {
   const policy = resourcePolicy(ctx.resources, MCP_DPOP_REQUIRED, resource);
   if (!policy) throw new Error(`unknown protected resource ${resource}`);
   return policy;

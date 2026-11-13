@@ -139,7 +139,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
       statusAction={
         ruled
           ? {
-              label: "Open Rules",
+              label: "Open wallet settings",
               onClick: () => requestSettingsOpen("account"),
             }
           : undefined

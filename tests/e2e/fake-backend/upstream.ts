@@ -144,7 +144,9 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           view.initiator === own &&
           (lanes
             .get(`${principal.sub}\0${own}`)
-            ?.some((row) => row.id === AGENT_GROUP.id && row.lane === "ask_client") ??
+            ?.some(
+              (row) => row.id === AGENT_GROUP.id && row.lane === "ask_client",
+            ) ??
             false));
       if (method === "GET" && rest.length === 0)
         return json(response, 200, {
@@ -206,7 +208,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       /^\/v1\/account\/rule-changes\/([^/]+)(?:\/(approve|decline))?$/.exec(
         url.pathname,
       );
-    if (rulesPath || changePath || url.pathname === "/v1/account/rules/catalog") {
+    if (
+      rulesPath ||
+      changePath ||
+      url.pathname === "/v1/account/rules/catalog"
+    ) {
       const principal = verifyBearer(request, "aomi-backend");
       record(principal);
       if (!principal)
@@ -220,6 +226,11 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           admin: { kind: "aomi_managed" },
         } as FakeRules);
       walletRules.set(owner, state);
+      // A change nobody decided in time is closed before anything reads it.
+      const now = Math.floor(Date.now() / 1000);
+      for (const { change } of ruleChanges.values())
+        if (change.state === "awaiting_admin" && change.expires_at <= now)
+          change.state = "expired";
       const pending = [...ruleChanges.values()].find(
         (entry) =>
           entry.owner === owner && entry.change.state === "awaiting_admin",
@@ -264,12 +275,19 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           wallet_name: AGENT_GROUP.name,
           lines: [{ text: "Rules: gives the agent more", loosens: true }],
           state: "awaiting_admin",
-          proposed_by: principal.auth_source === "cli_session" ? "cli" : "portal",
+          proposed_by:
+            principal.auth_source === "cli_session" ? "cli" : "portal",
           expires_at: Math.floor(Date.now() / 1000) + 24 * 3600,
           signer: state.admin.kind === "wallet" ? state.admin : null,
           sign_message:
             state.admin.kind === "wallet" ? "Aomi rule change" : null,
-          apply: { rules: next, admin: sent.admin ?? state.admin },
+          apply: {
+            rules: next,
+            admin: sent.admin ?? state.admin,
+            instant: sent.instant ?? [],
+            // The rules it was filed against: approval is refused once they move.
+            revision: state.revision,
+          },
         };
         ruleChanges.set(change.id, { owner, change });
         return json(response, 200, {
@@ -282,15 +300,17 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       if (!entry || entry.owner !== owner)
         return json(response, 404, { error: "rules_change_not_found" });
       const { apply, ...view } = entry.change;
-      if (method === "GET" && !changePath![2])
-        return json(response, 200, view);
+      if (method === "GET" && !changePath![2]) return json(response, 200, view);
       if (method === "POST" && changePath![2]) {
         const refused = ownerOnly();
         if (refused) return refused;
         if (view.state !== "awaiting_admin")
           return json(response, 409, { error: "rules_change_not_open" });
         if (changePath![2] === "decline") entry.change.state = "declined";
-        else {
+        else if (apply.revision !== state.revision) {
+          // A cut applied while it waited: approving would undo that cut.
+          return json(response, 409, { error: "rules_changed" });
+        } else {
           const sent = JSON.parse((await readBody(request)) || "{}") as {
             signature?: string;
           };
@@ -300,6 +320,10 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           state.rules = apply.rules;
           state.admin = apply.admin;
           state.revision += 1;
+          for (const key of apply.instant)
+            lanes.set(`${owner}\0${key}`, [
+              { id: AGENT_GROUP.id, lane: "instant" },
+            ]);
         }
         return json(response, 200, rulesBody(state, null));
       }
@@ -545,13 +569,19 @@ type FakeChange = {
   agent_wallet_id: string;
   wallet_name: string;
   lines: { text: string; loosens: boolean }[];
-  state: "awaiting_admin" | "applied" | "declined";
+  state: "awaiting_admin" | "applied" | "declined" | "expired";
   proposed_by: string;
   expires_at: number;
   signer: FakeAdmin | null;
   sign_message: string | null;
   /** What approving it puts in force. */
-  apply: { rules: FakeRuleSet; admin: FakeAdmin };
+  apply: {
+    rules: FakeRuleSet;
+    admin: FakeAdmin;
+    /** Connections it makes Instant on the wallet. */
+    instant: string[];
+    revision: number;
+  };
 };
 
 const RULES_CATALOG = {
@@ -622,10 +652,23 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
       }),
     },
     sentences: [
-      ...(state.rules.apps ? ["apps"] : []),
-      ...state.rules.limits.map(() => "limit"),
-      ...(state.rules.not_after === null ? [] : ["not_after"]),
-      ...(state.rules.owner_only ? ["owner_only"] : []),
+      ...(state.rules.apps ? [`Can use ${state.rules.apps.join(", ")}`] : []),
+      ...state.rules.limits.map((limit) => {
+        const token = RULES_CATALOG.tokens.find(
+          (entry) => entry.asset === limit.asset,
+        );
+        return token
+          ? `Up to ${Number(limit.amount) / 10 ** token.decimals} ${token.symbol} a day on ${token.chain}`
+          : `Up to ${limit.amount} base units of ${limit.asset} a day`;
+      }),
+      ...(state.rules.not_after === null
+        ? []
+        : [
+            `Until ${new Date(state.rules.not_after * 1000).toISOString().slice(0, 10)}`,
+          ]),
+      ...(state.rules.owner_only || state.rules.apps
+        ? ["Sends only to your wallets"]
+        : []),
     ],
     admin: state.admin,
     stopped_until: null,
@@ -633,7 +676,14 @@ function rulesBody(state: FakeRules, pending: FakeChange | null) {
     window_ends_at: (Math.floor(Date.now() / 86_400_000) + 1) * 86_400,
     pending: pending ? view : null,
     enforced_by: ["aomi"],
-    admin_wallets: [],
+    // One linked wallet, so the admin picker has a wallet to choose.
+    admin_wallets: [
+      {
+        kind: "wallet",
+        family: "evm",
+        address: "0x00000000000000000000000000000000000000a1",
+      },
+    ],
   };
 }
 

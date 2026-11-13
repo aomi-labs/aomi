@@ -97,6 +97,7 @@ export function WalletRules({
   const refreshWallets = useRefreshWallets();
   const [rules, setRules] = useState<AomiWalletRules | null>(null);
   const [catalog, setCatalog] = useState<AomiRulesCatalog | null>(null);
+  const [catalogFailed, setCatalogFailed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -111,34 +112,44 @@ export function WalletRules({
   const [epoch, setEpoch] = useState(0);
   const live = useRef(true);
   const card = useRef<HTMLDivElement>(null);
+  // Bumped by every newer source of rules (a save, a decision, a filed
+  // change), so a read that started before it cannot overwrite it.
+  const version = useRef(0);
 
   const load = useCallback(async () => {
+    const started = ++version.current;
     try {
       const next = await aomi.account.rules.get(wallet.id);
-      if (!live.current) return null;
+      if (!live.current || started !== version.current) return null;
       setRules(next);
       setFailed(false);
       return next;
     } catch {
-      if (live.current) setFailed(true);
+      if (live.current && started === version.current) setFailed(true);
       return null;
     }
   }, [aomi, wallet.id]);
 
+  const loadCatalog = useCallback(() => {
+    setCatalogFailed(false);
+    aomi.account.rules.catalog().then(
+      (next) => live.current && setCatalog(next),
+      () => live.current && setCatalogFailed(true),
+    );
+  }, [aomi]);
+
   useEffect(() => {
     live.current = true;
     void load();
-    aomi.account.rules.catalog().then(
-      (next) => live.current && setCatalog(next),
-      () => undefined,
-    );
+    loadCatalog();
     return () => {
       live.current = false;
     };
-  }, [aomi, load]);
+  }, [load, loadCatalog]);
 
   useEffect(() => {
     if (!filed) return;
+    version.current += 1;
     setRules(filed);
     if (filed.pending) setReviewing(true);
   }, [filed]);
@@ -161,6 +172,7 @@ export function WalletRules({
     try {
       const result = await aomi.account.rules.change(wallet.id, request);
       if (!live.current) return;
+      version.current += 1;
       setRules(result.rules);
       setEpoch((count) => count + 1);
       setPanel(null);
@@ -175,6 +187,7 @@ export function WalletRules({
   };
 
   const decided = (next: AomiWalletRules, outcome: "approved" | "declined") => {
+    version.current += 1;
     setRules(next);
     setReviewing(false);
     setError(null);
@@ -385,6 +398,7 @@ export function WalletRules({
               {panel === "apps" ? (
                 <AppPicker
                   catalog={catalog}
+                  onRetry={catalogFailed ? loadCatalog : undefined}
                   selected={apps ?? []}
                   saving={saving}
                   onCancel={() => setPanel(null)}
@@ -397,6 +411,9 @@ export function WalletRules({
               <CapRow
                 key={`${cap.asset}:${cap.amount}:${epoch}`}
                 cap={cap}
+                token={catalog?.tokens.find(
+                  (entry) => entry.asset === cap.asset,
+                )}
                 usage={rules.usage.find((entry) => entry.asset === cap.asset)}
                 chain={assetChain(cap.asset, catalog ?? undefined)}
                 saving={saving}
@@ -481,6 +498,7 @@ export function WalletRules({
               {panel === "limit" ? (
                 <LimitPicker
                   catalog={catalog}
+                  onRetry={catalogFailed ? loadCatalog : undefined}
                   taken={limits.map((limit) => limit.asset)}
                   saving={saving}
                   onCancel={() => setPanel(null)}
@@ -581,21 +599,29 @@ function RemoveButton({
 /** One limit: "Up to 200 USDC a day", its chain, today's use and the number. */
 function CapRow({
   cap,
+  token,
   usage,
   chain,
   saving,
   onAmount,
 }: {
   cap: AomiRuleLimit;
+  /** The catalog's entry for the asset, for a limit stored without its names. */
+  token?: { symbol: string; decimals: number };
   usage?: AomiRuleUsage;
   chain: string;
   saving: boolean;
   /** The new base-unit amount; null removes the limit. */
   onAmount: (amount: string | null) => void;
 }) {
-  // An unknown token is edited in its raw units.
-  const decimals = typeof cap.decimals === "number" ? cap.decimals : 0;
-  const name = cap.symbol ?? shortAsset(cap.asset);
+  // A token neither the limit nor the catalog names is edited in raw units.
+  const known = {
+    asset: cap.asset,
+    symbol: cap.symbol ?? token?.symbol,
+    decimals: typeof cap.decimals === "number" ? cap.decimals : token?.decimals,
+  };
+  const decimals = known.decimals ?? 0;
+  const name = known.symbol ?? shortAsset(cap.asset);
   const shown = fromBaseUnits(cap.amount, decimals);
   const [draft, setDraft] = useState(shown);
   const [invalid, setInvalid] = useState(false);
@@ -611,7 +637,7 @@ function CapRow({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="type-control flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>
-            Up to <Strong>{assetAmount(cap.amount, cap)} a day</Strong>
+            Up to <Strong>{assetAmount(cap.amount, known)} a day</Strong>
           </span>
           <StatusPill>{chain}</StatusPill>
         </p>
@@ -701,15 +727,46 @@ function PanelActions({
   );
 }
 
+/** A picker with nothing to list: empty, still loading, or failed with a retry. */
+function CatalogState({
+  empty,
+  loading,
+  failed,
+  onRetry,
+}: {
+  empty: string | null;
+  loading: string;
+  failed: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <p className="type-meta text-aomi-muted flex items-center gap-2">
+      {empty ?? (onRetry ? failed : loading)}
+      {!empty && onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="hover:text-aomi-fg underline underline-offset-2"
+        >
+          Try again
+        </button>
+      ) : null}
+    </p>
+  );
+}
+
 /** The catalog's apps as checkboxes; unchecking every one lifts the rule. */
 function AppPicker({
   catalog,
+  onRetry,
   selected,
   saving,
   onCancel,
   onSave,
 }: {
   catalog: AomiRulesCatalog | null;
+  /** Set when the catalog could not be read; reads it again. */
+  onRetry?: () => void;
   selected: readonly string[];
   saving: boolean;
   onCancel: () => void;
@@ -748,9 +805,12 @@ function AppPicker({
           ))}
         </div>
       ) : (
-        <p className="type-meta text-aomi-muted">
-          {catalog ? "No apps to pick from yet." : "Loading apps…"}
-        </p>
+        <CatalogState
+          empty={catalog ? "No apps to pick from yet." : null}
+          loading="Loading apps…"
+          failed="Couldn’t load the apps."
+          onRetry={onRetry}
+        />
       )}
       <PanelActions
         saving={saving}
@@ -814,12 +874,14 @@ function TemplatePicker({
 /** Pick a catalog token and its daily amount in human units. */
 function LimitPicker({
   catalog,
+  onRetry,
   taken,
   saving,
   onCancel,
   onAdd,
 }: {
   catalog: AomiRulesCatalog | null;
+  onRetry?: () => void;
   taken: readonly string[];
   saving: boolean;
   onCancel: () => void;
@@ -859,9 +921,12 @@ function LimitPicker({
           <span className="type-meta text-aomi-muted">a day</span>
         </div>
       ) : (
-        <p className="type-meta text-aomi-muted">
-          {catalog ? "Every token here has a limit." : "Loading tokens…"}
-        </p>
+        <CatalogState
+          empty={catalog ? "Every token here has a limit." : null}
+          loading="Loading tokens…"
+          failed="Couldn’t load the tokens."
+          onRetry={onRetry}
+        />
       )}
       <PanelActions
         saving={saving}

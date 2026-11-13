@@ -49,7 +49,8 @@ export class PrincipalError extends EdgeError {
 }
 
 /** The signing keys could not be read. */
-const authUnavailable = (cause: unknown) => new EdgeError(502, "auth_unavailable", { cause });
+const authUnavailable = (cause: unknown) =>
+  new EdgeError(502, "auth_unavailable", { cause });
 
 function hasDpopPresentation(request: Request): boolean {
   return (
@@ -110,11 +111,13 @@ async function sessionPrincipal(
   kind: "cookie" | "session_bearer",
   ctx: PortalContext,
 ): Promise<Principal> {
-  if (kind === "cookie" && !request.headers.has("cookie")) return { kind: "none" };
+  if (kind === "cookie" && !request.headers.has("cookie"))
+    return { kind: "none" };
   const session = await getBetterAuthSession(ctx.auth(), request);
   const seed = sessionUserSeed(session);
   if (!seed || !session) {
-    if (kind === "session_bearer") throw new PrincipalError(401, "invalid_token");
+    if (kind === "session_bearer")
+      throw new PrincipalError(401, "invalid_token");
     return { kind: "none" };
   }
   if (kind === "cookie") {
@@ -156,8 +159,12 @@ async function verifyWithJwks(
     jwksUrl: `${ctx.portalOrigin}/api/auth/jwks`,
   };
   const verify = async (fresh: boolean) =>
-    (await jwtVerify(token, await portalJwks({ ...base, fresh }), { ...options, currentDate: new Date(ctx.now()) }))
-      .payload;
+    (
+      await jwtVerify(token, await portalJwks({ ...base, fresh }), {
+        ...options,
+        currentDate: new Date(ctx.now()),
+      })
+    ).payload;
   try {
     return await verify(false);
   } catch (error) {
@@ -184,7 +191,9 @@ async function oauthRequestPrincipal(
       }),
     );
   }
-  const [scheme, token] = (request.headers.get("authorization") ?? "").trim().split(/\s+/, 2);
+  const [scheme, token] = (request.headers.get("authorization") ?? "")
+    .trim()
+    .split(/\s+/, 2);
   let claims: JWTPayload;
   try {
     claims = await verifyWithJwks(token ?? "", ctx, {
@@ -193,7 +202,12 @@ async function oauthRequestPrincipal(
     });
   } catch (error) {
     if (error instanceof JwksUnavailableError) throw authUnavailable(error);
-    throw new PrincipalError(401, "invalid_token", requiredScopes, bearerChallenge(resource));
+    throw new PrincipalError(
+      401,
+      "invalid_token",
+      requiredScopes,
+      bearerChallenge(resource),
+    );
   }
   const granted = grantedScopes(claims, resource, ctx);
   if (requiredScopes.some((scope) => !granted.includes(scope)))
@@ -202,7 +216,10 @@ async function oauthRequestPrincipal(
   if (scheme?.toLowerCase() === "dpop" || typeof cnf?.jkt === "string") {
     const proof = request.headers.get("dpop");
     if (!proof || scheme?.toLowerCase() !== "dpop")
-      throw dpopChallenge(new DpopError("DPoP-bound token requires a DPoP proof"), requiredScopes);
+      throw dpopChallenge(
+        new DpopError("DPoP-bound token requires a DPoP proof"),
+        requiredScopes,
+      );
     try {
       await verifyDpopProof({
         proof,
@@ -213,7 +230,8 @@ async function oauthRequestPrincipal(
         now: ctx.now,
       });
     } catch (error) {
-      if (error instanceof DpopError) throw dpopChallenge(error, requiredScopes);
+      if (error instanceof DpopError)
+        throw dpopChallenge(error, requiredScopes);
       throw error;
     }
   }
@@ -229,14 +247,22 @@ async function oauthRequestPrincipal(
   return principal;
 }
 
-function bearerChallenge(resource: string, scopes: readonly string[] = []): Headers {
-  const scope = scopes.length ? `, scope="${[...new Set(scopes)].join(" ")}"` : "";
+function bearerChallenge(
+  resource: string,
+  scopes: readonly string[] = [],
+): Headers {
+  const scope = scopes.length
+    ? `, scope="${[...new Set(scopes)].join(" ")}"`
+    : "";
   return new Headers({
     "www-authenticate": `Bearer resource_metadata="${protectedResourceMetadataUrl(resource)}"${scope}`,
   });
 }
 
-function dpopChallenge(error: DpopError, requiredScopes: readonly string[]): PrincipalError {
+function dpopChallenge(
+  error: DpopError,
+  requiredScopes: readonly string[],
+): PrincipalError {
   return new PrincipalError(
     401,
     "invalid_token",
@@ -252,12 +278,20 @@ function dpopChallenge(error: DpopError, requiredScopes: readonly string[]): Pri
  * `/v1`, the one sign-in Aomi's CLI and SDK use. MCP servers take only theirs.
  */
 function audiences(resource: string, ctx: PortalContext): string[] {
-  return acceptsApiToken(policyFor(resource, ctx)) ? [resource, ctx.resources.apiRest] : [resource];
+  return acceptsApiToken(policyFor(resource, ctx))
+    ? [resource, ctx.resources.apiRest]
+    : [resource];
 }
 
 /** A token's scopes on this resource: a `/v1` token carries every REST scope, and a route only gets its own. */
-function grantedScopes(claims: JWTPayload, resource: string, ctx: PortalContext): string[] {
-  const granted = String(claims.scope ?? "").split(/\s+/).filter(Boolean);
+function grantedScopes(
+  claims: JWTPayload,
+  resource: string,
+  ctx: PortalContext,
+): string[] {
+  const granted = String(claims.scope ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
   if (claims.aud === resource) return granted;
   const grantable = policyFor(resource, ctx).grantableScopes;
   return granted.filter((scope) => grantable.includes(scope));
@@ -306,15 +340,21 @@ export async function isManagedWidgetClientOrigin(
   const client = await readManagedOAuthClient(clientId);
   return Boolean(
     client &&
-      !client.disabled &&
-      client.clientClass === "partner_widget" &&
-      client.origins.includes(origin),
+    !client.disabled &&
+    client.clientClass === "partner_widget" &&
+    client.origins.includes(origin),
   );
 }
 
 /** The one permission check, from `@aomi-labs/account/policy`: the scopes to mint, or a PrincipalError. */
-export function authorize(principal: Principal, need: Need, ctx: PortalContext): string[] {
-  const result = decide(principal, need, (resource) => policyFor(resource, ctx));
+export function authorize(
+  principal: Principal,
+  need: Need,
+  ctx: PortalContext,
+): string[] {
+  const result = decide(principal, need, (resource) =>
+    policyFor(resource, ctx),
+  );
   if ("scopes" in result) return result.scopes;
   const { status, code, requiredScopes } = result.denied;
   throw new PrincipalError(status, code, requiredScopes);
@@ -330,24 +370,38 @@ export function scopesOn(
 }
 
 /** The OAuth resource a row checks scopes on: fixed, or the app MCP its path names (null: no such app). */
-export function resourceOf(row: Route, request: Request, resources: Resources): string | null | undefined {
+export function resourceOf(
+  row: Route,
+  request: Request,
+  resources: Resources,
+): string | null | undefined {
   if (row.on !== "appMcp") return row.on && resources[row.on];
-  const resource = appMcpResource(resources, new URL(request.url).pathname.split("/")[3] ?? "");
+  const resource = appMcpResource(
+    resources,
+    new URL(request.url).pathname.split("/")[3] ?? "",
+  );
   return appMcpName(resources, resource) ? resource : null;
 }
 
 /** The resolved need, or "public". */
-export function needOf(row: Route, requirement: Requirement, request: Request, resource: string | undefined): Need | "public" {
+export function needOf(
+  row: Route,
+  requirement: Requirement,
+  request: Request,
+  resource: string | undefined,
+): Need | "public" {
   if (requirement === "public") return "public";
   if (requirement === PORTAL_SESSION) return { capability: "portal_session" };
   if (requirement === OWNER_SESSION) return { capability: "owner_session" };
   if (typeof requirement !== "string") {
     // Fuzzer setup accepts Agent grants; browser and widget sessions retain
     // their existing capability policy, including each route's guest access.
-    if (!requirement.oauthScope || !isOAuthCredential(request)) return requirement;
+    if (!requirement.oauthScope || !isOAuthCredential(request))
+      return requirement;
     requirement = requirement.oauthScope;
   }
   const scopes = [requirement];
-  if (row.paid && request.headers.has("payment-signature")) scopes.push("payments:submit");
+  if (row.paid && request.headers.has("payment-signature"))
+    scopes.push("payments:submit");
   return { resource: resource!, scopes };
 }

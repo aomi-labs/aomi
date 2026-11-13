@@ -40,8 +40,14 @@ vi.mock("../auth/server", async (importOriginal) => ({
           : /session=(\w+)/.exec(headers.get("cookie") ?? "")?.[1];
         const session = name ? SESSIONS[name] : undefined;
         if (!session) return null;
-        const createdAt = account.sessionAgeMs === null ? undefined : new Date(Date.now() - account.sessionAgeMs);
-        return { user: { id: `ba-${name}`, isAnonymous: session.guest }, session: { token: `t-${name}`, createdAt } };
+        const createdAt =
+          account.sessionAgeMs === null
+            ? undefined
+            : new Date(Date.now() - account.sessionAgeMs);
+        return {
+          user: { id: `ba-${name}`, isAnonymous: session.guest },
+          session: { token: `t-${name}`, createdAt },
+        };
       },
     },
     handler: async () => Response.json(portalKey.jwks),
@@ -49,7 +55,11 @@ vi.mock("../auth/server", async (importOriginal) => ({
 }));
 vi.mock("@aomi-labs/account/account", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/account")>()),
-  getOrCreateAomiUserForBetterAuthSession: async ({ betterAuthUserId }: { betterAuthUserId: string }) => ({
+  getOrCreateAomiUserForBetterAuthSession: async ({
+    betterAuthUserId,
+  }: {
+    betterAuthUserId: string;
+  }) => ({
     id: SESSIONS[betterAuthUserId.slice(3)]!.sub,
   }),
 }));
@@ -57,8 +67,15 @@ vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/widget-auth")>()),
   resolveWidgetSession: async ({ request }: { request: Request }) => {
     account.lookups += 1;
-    const widget = WIDGETS[(request.headers.get("authorization") ?? "").slice("Bearer ".length)];
-    if (!widget || widget.origin !== request.headers.get("origin") || (widget.expiresAt ?? 2e9) * 1000 < Date.now())
+    const widget =
+      WIDGETS[
+        (request.headers.get("authorization") ?? "").slice("Bearer ".length)
+      ];
+    if (
+      !widget ||
+      widget.origin !== request.headers.get("origin") ||
+      (widget.expiresAt ?? 2e9) * 1000 < Date.now()
+    )
       return null;
     return {
       userId: widget.sub,
@@ -71,7 +88,9 @@ vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => ({
 vi.mock("@aomi-labs/account/better-auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/account/better-auth")>()),
   readManagedOAuthClient: async (clientId: string) =>
-    clientId === "client-1" ? { clientClass: "partner_widget", disabled: false, origins: [PARTNER] } : null,
+    clientId === "client-1"
+      ? { clientClass: "partner_widget", disabled: false, origins: [PARTNER] }
+      : null,
 }));
 
 vi.mock("@better-auth/oauth-provider/resource-client", () => ({
@@ -123,14 +142,25 @@ var SESSIONS: Record<string, { sub: string; guest: boolean }> = {
   user: { sub: "acct-user", guest: false },
   guest: { sub: "acct-guest", guest: true },
 };
-var WIDGETS: Record<string, { sub: string; origin: string; guest: boolean; expiresAt?: number }> = {
+var WIDGETS: Record<
+  string,
+  { sub: string; origin: string; guest: boolean; expiresAt?: number }
+> = {
   aomi_wst_user: { sub: "acct-widget", origin: PARTNER, guest: false },
   aomi_wst_guest: { sub: "acct-widget-guest", origin: PARTNER, guest: true },
   // A session the portal still describes but whose own lifetime has ended.
-  aomi_wst_stale: { sub: "acct-widget-stale", origin: PARTNER, guest: true, expiresAt: 1_700_000_000 },
+  aomi_wst_stale: {
+    sub: "acct-widget-stale",
+    origin: PARTNER,
+    guest: true,
+    expiresAt: 1_700_000_000,
+  },
 };
 
-async function signPortal(claims: Record<string, unknown>, options: { aud: string; exp?: number } = { aud: "aomi-edge" }) {
+async function signPortal(
+  claims: Record<string, unknown>,
+  options: { aud: string; exp?: number } = { aud: "aomi-edge" },
+) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ ...claims })
     .setProtectedHeader({ alg: "EdDSA", kid: "portal-1" })
@@ -163,7 +193,12 @@ async function oauthToken(input: {
   );
 }
 
-type Seen = { url: string; method: string; headers: Record<string, string>; body: string };
+type Seen = {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+};
 let seen: Seen[];
 
 function echo(request: Request, body: string, tag: string): Response {
@@ -171,37 +206,55 @@ function echo(request: Request, body: string, tag: string): Response {
   request.headers.forEach((value, name) => (headers[name] = value));
   const record = { url: request.url, method: request.method, headers, body };
   seen.push(record);
-  return Response.json({ tag, ...record }, { headers: { "x-request-id": "rid-1", "set-cookie": "nope=1" } });
+  return Response.json(
+    { tag, ...record },
+    { headers: { "x-request-id": "rid-1", "set-cookie": "nope=1" } },
+  );
 }
 
 /** The portal upstream (Vercel), the agent API, the payment service and the backend, faked. */
 const world: FetchLike = async (request) => {
   const url = new URL(request.url);
-  const body = request.method === "GET" || request.method === "HEAD" ? "" : await request.text();
+  const body =
+    request.method === "GET" || request.method === "HEAD"
+      ? ""
+      : await request.text();
   if (url.origin === UPSTREAM) {
     return echo(request, body, "vercel");
   }
   if (url.origin === AGENT) {
     const response = echo(request, body, "agent");
-    if (url.pathname === "/v1/agent/mcp") response.headers.set("mcp-protocol-version", "2026-07-28");
+    if (url.pathname === "/v1/agent/mcp")
+      response.headers.set("mcp-protocol-version", "2026-07-28");
     return response;
   }
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === PAYMENT) return echo(request, body, "payment");
   if (url.origin === MANAGER) return echo(request, body, "manager");
   if (url.origin === BACKEND) {
-    if (url.pathname === "/api/thread/models") return Response.json(["gpt", 3, "claude"]);
+    if (url.pathname === "/api/thread/models")
+      return Response.json(["gpt", 3, "claude"]);
     if (url.pathname === "/api/resource/skills")
-      return new Response(null, { status: 302, headers: { location: `${BACKEND}/elsewhere` } });
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${BACKEND}/elsewhere` },
+      });
     return echo(request, body, "backend");
   }
   return new Response("unexpected origin", { status: 599 });
 };
 
-function portal(path: string, init: RequestInit & { origin?: string; env?: Partial<EdgeEnv> } = {}) {
+function portal(
+  path: string,
+  init: RequestInit & { origin?: string; env?: Partial<EdgeEnv> } = {},
+) {
   const headers = new Headers(init.headers);
   if (init.origin) headers.set("origin", init.origin);
-  return handleRequest(new Request(`${PORTAL}${path}`, { ...init, headers }), { ...env, ...init.env }, world);
+  return handleRequest(
+    new Request(`${PORTAL}${path}`, { ...init, headers }),
+    { ...env, ...init.env },
+    world,
+  );
 }
 
 async function upstreamBearer(record: Seen) {
@@ -268,7 +321,9 @@ describe("portal surface: sessions", () => {
       body: "{}",
     });
     expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ error: { code: "csrf_failed" } });
+    expect(await response.json()).toMatchObject({
+      error: { code: "csrf_failed" },
+    });
     expect(seen).toHaveLength(0);
   });
 
@@ -278,7 +333,9 @@ describe("portal surface: sessions", () => {
       origin: "https://evil.example",
     });
     expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({ error: { code: "unauthenticated" } });
+    expect(await response.json()).toMatchObject({
+      error: { code: "unauthenticated" },
+    });
     expect(response.headers.get("www-authenticate")).toContain(
       `resource_metadata="${PORTAL}/.well-known/oauth-protected-resource/v1/agent"`,
     );
@@ -294,7 +351,11 @@ describe("portal surface: sessions", () => {
     expect((await upstreamBearer(seen[0])).payload.scope).toBe("agent:write");
     await portal("/v1/agent/chat", {
       method: "POST",
-      headers: { cookie: "session=guest", "content-type": "application/json", "payment-signature": "p" },
+      headers: {
+        cookie: "session=guest",
+        "content-type": "application/json",
+        "payment-signature": "p",
+      },
       origin: PORTAL,
       body: "{}",
     });
@@ -303,10 +364,16 @@ describe("portal surface: sessions", () => {
   });
 
   it("answers an unknown Better Auth bearer with 401 and a known one as a session bearer", async () => {
-    const bad = await portal("/v1/agent/sessions", { headers: { authorization: "Bearer nobody" } });
+    const bad = await portal("/v1/agent/sessions", {
+      headers: { authorization: "Bearer nobody" },
+    });
     expect(bad.status).toBe(401);
-    expect(await bad.json()).toMatchObject({ error: { code: "invalid_token" } });
-    const good = await portal("/v1/account/apps", { headers: { authorization: "Bearer user" } });
+    expect(await bad.json()).toMatchObject({
+      error: { code: "invalid_token" },
+    });
+    const good = await portal("/v1/account/apps", {
+      headers: { authorization: "Bearer user" },
+    });
     expect(good.status).toBe(200);
     expect((await upstreamBearer(seen[0])).payload).toMatchObject({
       scope: "account:apps:read",
@@ -319,7 +386,10 @@ describe("portal surface: widget sessions", () => {
   it("accepts a widget session from its bound origin and echoes that origin", async () => {
     const response = await portal("/v1/agent/chat", {
       method: "POST",
-      headers: { authorization: "Bearer aomi_wst_user", "content-type": "application/json" },
+      headers: {
+        authorization: "Bearer aomi_wst_user",
+        "content-type": "application/json",
+      },
       origin: PARTNER,
       body: '{"message":"hi"}',
     });
@@ -329,7 +399,11 @@ describe("portal surface: widget sessions", () => {
     expect(response.headers.get("vary")).toContain("Origin");
     const { payload } = await upstreamBearer(seen[0]);
     // A widget-started chat is the widget's, never the portal's (its lane may be Instant).
-    expect(payload).toMatchObject({ sub: "acct-widget", auth_source: "widget", scope: "agent:write" });
+    expect(payload).toMatchObject({
+      sub: "acct-widget",
+      auth_source: "widget",
+      scope: "agent:write",
+    });
     expect(seen[0].body).toBe('{"message":"hi"}');
   });
 
@@ -339,17 +413,24 @@ describe("portal surface: widget sessions", () => {
       origin: PARTNER,
     });
     expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({ error: { code: "invalid_widget_session" } });
+    expect(await response.json()).toMatchObject({
+      error: { code: "invalid_widget_session" },
+    });
     expect(seen).toHaveLength(0);
   });
 
   it("refuses a widget session from another origin and never falls back to a cookie", async () => {
     const response = await portal("/v1/agent/sessions", {
-      headers: { authorization: "Bearer aomi_wst_user", cookie: "session=user" },
+      headers: {
+        authorization: "Bearer aomi_wst_user",
+        cookie: "session=user",
+      },
       origin: "https://other.example",
     });
     expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({ error: { code: "invalid_widget_session" } });
+    expect(await response.json()).toMatchObject({
+      error: { code: "invalid_widget_session" },
+    });
   });
 
   it("denies embedded sessions the capabilities a backend bearer would need", async () => {
@@ -365,7 +446,12 @@ describe("portal surface: widget sessions", () => {
 describe("portal surface: a hosted app still loading", () => {
   const loading = () =>
     Response.json(
-      { error: { code: "app_loading", message: "Application 7 is loading on this server. Retry shortly." } },
+      {
+        error: {
+          code: "app_loading",
+          message: "Application 7 is loading on this server. Retry shortly.",
+        },
+      },
       { status: 503, headers: { "retry-after": "2" } },
     );
 
@@ -374,22 +460,34 @@ describe("portal surface: a hosted app still loading", () => {
     const waits: number[] = [];
     const fetchImpl: FetchLike = async (request, init) => {
       const response = await world(request, init);
-      const next = new URL(request.url).origin === AGENT ? answers.shift() : undefined;
+      const next =
+        new URL(request.url).origin === AGENT ? answers.shift() : undefined;
       return next ? next() : response;
     };
     const request = new Request(`${PORTAL}/v1/agent/chat`, {
       method: "POST",
-      headers: { authorization: "Bearer aomi_wst_user", "content-type": "application/json", origin: PARTNER },
+      headers: {
+        authorization: "Bearer aomi_wst_user",
+        "content-type": "application/json",
+        origin: PARTNER,
+      },
       body: '{"message":"hi"}',
     });
-    const response = handleRequest(request, env, fetchImpl, async (ms) => void waits.push(ms));
+    const response = handleRequest(
+      request,
+      env,
+      fetchImpl,
+      async (ms) => void waits.push(ms),
+    );
     return { response, waits };
   }
 
   it("waits out app_loading at the edge and sends the same turn once the app is ready", async () => {
     const { response, waits } = chat([loading, loading]);
     expect((await response).status).toBe(200);
-    expect(seen.map((record) => record.body)).toEqual(Array(3).fill('{"message":"hi"}'));
+    expect(seen.map((record) => record.body)).toEqual(
+      Array(3).fill('{"message":"hi"}'),
+    );
     expect(waits).toEqual([2_000, 2_000]);
   });
 
@@ -418,79 +516,141 @@ describe("portal surface: a hosted app still loading", () => {
 });
 
 describe("portal surface: OAuth tokens", () => {
-  describe.each(["/api/thread/model", "/api/thread/sim/world"])("Fuzzer setup %s", (path) => {
-    it.each([false, true])("forwards Agent write for guest=%s with the canonical account", async (guest) => {
-      const token = await oauthToken({ sub: guest ? "guest" : "user", guest, scope: "agent:write", aud: `${PORTAL}/v1/agent` });
-      const body = JSON.stringify({ forks: [{ chain_id: 5042002, overrides: [] }] });
-      const response = await portal(`${path}?user_state=%7B%7D`, {
-        method: "POST",
-        origin: PARTNER,
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "x-session-id": "seed-thread" },
-        body,
-      });
-      expect(response.status).toBe(200);
-      expect(seen).toHaveLength(1);
-      expect(seen[0]).toMatchObject({
-        url: `${BACKEND}${path}?user_state=%7B%7D`,
-        method: "POST",
-        body,
-        headers: { "x-thread-id": "seed-thread", "x-session-id": "seed-thread" },
-      });
-      expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: guest ? "acct-guest" : "acct-user", aud: "aomi-backend" });
-    });
+  describe.each(["/api/thread/model", "/api/thread/sim/world"])(
+    "Fuzzer setup %s",
+    (path) => {
+      it.each([false, true])(
+        "forwards Agent write for guest=%s with the canonical account",
+        async (guest) => {
+          const token = await oauthToken({
+            sub: guest ? "guest" : "user",
+            guest,
+            scope: "agent:write",
+            aud: `${PORTAL}/v1/agent`,
+          });
+          const body = JSON.stringify({
+            forks: [{ chain_id: 5042002, overrides: [] }],
+          });
+          const response = await portal(`${path}?user_state=%7B%7D`, {
+            method: "POST",
+            origin: PARTNER,
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json",
+              "x-session-id": "seed-thread",
+            },
+            body,
+          });
+          expect(response.status).toBe(200);
+          expect(seen).toHaveLength(1);
+          expect(seen[0]).toMatchObject({
+            url: `${BACKEND}${path}?user_state=%7B%7D`,
+            method: "POST",
+            body,
+            headers: {
+              "x-thread-id": "seed-thread",
+              "x-session-id": "seed-thread",
+            },
+          });
+          expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+            sub: guest ? "acct-guest" : "acct-user",
+            aud: "aomi-backend",
+          });
+        },
+      );
 
-    it("requires Agent write and rejects another resource without forwarding", async () => {
-      for (const grant of [
-        { scope: "agent:read", aud: `${PORTAL}/v1/agent`, status: 403 },
-        { scope: "agent:write", aud: `${PORTAL}/v1/pipeline`, status: 401 },
-      ]) {
-        const token = await oauthToken({ sub: "user", ...grant });
-        const response = await portal(path, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
-        expect(response.status).toBe(grant.status);
-      }
-      expect(seen).toHaveLength(0);
-    });
-
-    it("binds DPoP to the public URL despite spoofed forwarding headers", async () => {
-      const key = await generateKeyPair("ES256");
-      const jwk = await exportJWK(key.publicKey);
-      const token = await oauthToken({
-        sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent`,
-        cnf: { jkt: await calculateJwkThumbprint(jwk) },
+      it("requires Agent write and rejects another resource without forwarding", async () => {
+        for (const grant of [
+          { scope: "agent:read", aud: `${PORTAL}/v1/agent`, status: 403 },
+          { scope: "agent:write", aud: `${PORTAL}/v1/pipeline`, status: 401 },
+        ]) {
+          const token = await oauthToken({ sub: "user", ...grant });
+          const response = await portal(path, {
+            method: "POST",
+            headers: { authorization: `Bearer ${token}` },
+            body: "{}",
+          });
+          expect(response.status).toBe(grant.status);
+        }
+        expect(seen).toHaveLength(0);
       });
-      const proof = (origin: string) => new SignJWT({
-        htm: "POST", htu: `${origin}${path}`, jti: crypto.randomUUID(),
-        ath: Buffer.from(new Uint8Array(tokenHash)).toString("base64url"),
-      }).setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk }).setIssuedAt().sign(key.privateKey);
-      const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-      for (const [origin, status] of [[UPSTREAM, 401], [PORTAL, 200]] as const) {
-        const response = await portal(path, {
+
+      it("binds DPoP to the public URL despite spoofed forwarding headers", async () => {
+        const key = await generateKeyPair("ES256");
+        const jwk = await exportJWK(key.publicKey);
+        const token = await oauthToken({
+          sub: "user",
+          scope: "agent:write",
+          aud: `${PORTAL}/v1/agent`,
+          cnf: { jkt: await calculateJwkThumbprint(jwk) },
+        });
+        const proof = (origin: string) =>
+          new SignJWT({
+            htm: "POST",
+            htu: `${origin}${path}`,
+            jti: crypto.randomUUID(),
+            ath: Buffer.from(new Uint8Array(tokenHash)).toString("base64url"),
+          })
+            .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk })
+            .setIssuedAt()
+            .sign(key.privateKey);
+        const tokenHash = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(token),
+        );
+        for (const [origin, status] of [
+          [UPSTREAM, 401],
+          [PORTAL, 200],
+        ] as const) {
+          const response = await portal(path, {
+            method: "POST",
+            headers: {
+              authorization: `DPoP ${token}`,
+              dpop: await proof(origin),
+              host: "attacker.example",
+              "x-forwarded-host": "attacker.example",
+              "x-forwarded-proto": "http",
+            },
+            body: "{}",
+          });
+          expect(response.status).toBe(status);
+        }
+        expect(seen).toHaveLength(1);
+        expect(seen[0].headers.dpop).toBeUndefined();
+      });
+
+      it("preserves anonymous, cookie and widget access rules", async () => {
+        const anonymous = await portal(path, { method: "POST", body: "{}" });
+        expect(anonymous.status).toBe(path === "/api/thread/model" ? 200 : 401);
+        const cookie = await portal(path, {
           method: "POST",
-          headers: {
-            authorization: `DPoP ${token}`, dpop: await proof(origin),
-            host: "attacker.example", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "http",
-          },
+          origin: PARTNER,
+          headers: { cookie: "session=user" },
           body: "{}",
         });
-        expect(response.status).toBe(status);
-      }
-      expect(seen).toHaveLength(1);
-      expect(seen[0].headers.dpop).toBeUndefined();
-    });
-
-    it("preserves anonymous, cookie and widget access rules", async () => {
-      const anonymous = await portal(path, { method: "POST", body: "{}" });
-      expect(anonymous.status).toBe(path === "/api/thread/model" ? 200 : 401);
-      const cookie = await portal(path, { method: "POST", origin: PARTNER, headers: { cookie: "session=user" }, body: "{}" });
-      expect(cookie.status).toBe(403);
-      const widget = await portal(path, { method: "POST", origin: PARTNER, headers: { authorization: "Bearer aomi_wst_user" }, body: "{}" });
-      expect(widget.status).toBe(200);
-    });
-  });
+        expect(cookie.status).toBe(403);
+        const widget = await portal(path, {
+          method: "POST",
+          origin: PARTNER,
+          headers: { authorization: "Bearer aomi_wst_user" },
+          body: "{}",
+        });
+        expect(widget.status).toBe(200);
+      });
+    },
+  );
 
   it("does not extend Agent grants to unrelated backend controls", async () => {
-    const token = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
-    const response = await portal("/api/exec/simulate", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+    const token = await oauthToken({
+      sub: "user",
+      scope: "agent:write",
+      aud: `${PORTAL}/v1/agent`,
+    });
+    const response = await portal("/api/exec/simulate", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: "{}",
+    });
     expect(response.status).toBe(401);
     expect(seen).toHaveLength(0);
   });
@@ -501,7 +661,9 @@ describe("portal surface: OAuth tokens", () => {
       scope: "agent:read agent:write",
       aud: `${PORTAL}/v1/agent`,
     });
-    const response = await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } });
+    const response = await portal("/v1/agent/sessions", {
+      headers: { authorization: `Bearer ${token}` },
+    });
     expect(response.status).toBe(200);
     const { payload } = await upstreamBearer(seen[0]);
     expect(payload).toMatchObject({
@@ -515,20 +677,35 @@ describe("portal surface: OAuth tokens", () => {
   });
 
   it("refuses a token for another resource and a scope the token lacks", async () => {
-    const pipeline = await oauthToken({ sub: "user", scope: "pipeline:catalog", aud: `${PORTAL}/v1/pipeline` });
+    const pipeline = await oauthToken({
+      sub: "user",
+      scope: "pipeline:catalog",
+      aud: `${PORTAL}/v1/pipeline`,
+    });
     const wrongResource = await portal("/v1/agent/sessions", {
       headers: { authorization: `Bearer ${pipeline}` },
     });
     expect(wrongResource.status).toBe(401);
-    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    const readOnly = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
     const write = await portal("/v1/agent/chat", {
       method: "POST",
-      headers: { authorization: `Bearer ${readOnly}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${readOnly}`,
+        "content-type": "application/json",
+      },
       body: "{}",
     });
     expect(write.status).toBe(403);
-    expect(write.headers.get("www-authenticate")).toContain('error="insufficient_scope"');
-    expect(write.headers.get("www-authenticate")).toContain('scope="agent:write"');
+    expect(write.headers.get("www-authenticate")).toContain(
+      'error="insufficient_scope"',
+    );
+    expect(write.headers.get("www-authenticate")).toContain(
+      'scope="agent:write"',
+    );
   });
 
   it("holds guests to the resource's guest ceiling", async () => {
@@ -538,12 +715,18 @@ describe("portal surface: OAuth tokens", () => {
       scope: "agent:read payments:submit",
       aud: `${PORTAL}/v1/agent`,
     });
-    const response = await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } });
+    const response = await portal("/v1/agent/sessions", {
+      headers: { authorization: `Bearer ${token}` },
+    });
     expect(response.status).toBe(403);
   });
 
   it("lets a registered partner widget call cross-origin, and nobody else", async () => {
-    const token = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
+    const token = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
     const partner = await portal("/v1/agent/sessions", {
       headers: { authorization: `Bearer ${token}` },
       origin: PARTNER,
@@ -571,24 +754,37 @@ describe("portal surface: OAuth tokens", () => {
         htu,
         jti: crypto.randomUUID(),
         ath: Buffer.from(
-          await crypto.subtle.digest("SHA-256", new TextEncoder().encode(accessToken)),
+          await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(accessToken),
+          ),
         ).toString("base64url"),
       })
         .setProtectedHeader({ alg: "ES256", typ: "dpop+jwt", jwk: publicJwk })
         .setIssuedAt()
         .sign(dpopKey.privateKey);
 
-    const missing = await portal("/v1/agent/sessions", { headers: { authorization: `DPoP ${token}` } });
+    const missing = await portal("/v1/agent/sessions", {
+      headers: { authorization: `DPoP ${token}` },
+    });
     expect(missing.status).toBe(401);
-    expect(missing.headers.get("www-authenticate")).toMatch(/^DPoP error="invalid_dpop_proof"/);
+    expect(missing.headers.get("www-authenticate")).toMatch(
+      /^DPoP error="invalid_dpop_proof"/,
+    );
 
     const wrongUrl = await portal("/v1/agent/sessions", {
-      headers: { authorization: `DPoP ${token}`, dpop: await proof(`${PORTAL}/v1/agent/other`) },
+      headers: {
+        authorization: `DPoP ${token}`,
+        dpop: await proof(`${PORTAL}/v1/agent/other`),
+      },
     });
     expect(wrongUrl.status).toBe(401);
 
     const ok = await portal("/v1/agent/sessions?x=1", {
-      headers: { authorization: `DPoP ${token}`, dpop: await proof(`${PORTAL}/v1/agent/sessions`) },
+      headers: {
+        authorization: `DPoP ${token}`,
+        dpop: await proof(`${PORTAL}/v1/agent/sessions`),
+      },
     });
     expect(ok.status).toBe(200);
     expect(seen.at(-1)!.headers.dpop).toBeUndefined();
@@ -600,58 +796,92 @@ describe("portal surface: MCP", () => {
     ["server/discover", undefined],
     ["tools/list", undefined],
     ["tools/call", "aomi_chat"],
-  ])("preserves the modern %s routing headers through the edge", async (method, name) => {
-    const token = await oauthToken({
-      sub: "user", scope: "mcp:agent agent:read agent:write",
-      aud: `${PORTAL}/v1/agent/mcp`,
-      client_id: "https://oauth-client.example/metadata/client.json",
-    });
-    const response = await portal("/v1/agent/mcp", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`, "content-type": "application/json",
-        "mcp-protocol-version": "2026-07-28", "mcp-method": method,
-        ...(name ? { "mcp-name": name } : {}),
-      },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: {
-        ...(name ? { name, arguments: {} } : {}),
-        _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} },
-      } }),
-    });
-    expect(response.status).toBe(200);
-    expect(seen[0].headers["mcp-method"]).toBe(method);
-    expect(seen[0].headers["mcp-name"]).toBe(name);
-    expect(seen[0].headers["mcp-protocol-version"]).toBe("2026-07-28");
-    expect((await upstreamBearer(seen[0])).payload.client_id).toBe("https://oauth-client.example/metadata/client.json");
-  });
+  ])(
+    "preserves the modern %s routing headers through the edge",
+    async (method, name) => {
+      const token = await oauthToken({
+        sub: "user",
+        scope: "mcp:agent agent:read agent:write",
+        aud: `${PORTAL}/v1/agent/mcp`,
+        client_id: "https://oauth-client.example/metadata/client.json",
+      });
+      const response = await portal("/v1/agent/mcp", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          "mcp-protocol-version": "2026-07-28",
+          "mcp-method": method,
+          ...(name ? { "mcp-name": name } : {}),
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method,
+          params: {
+            ...(name ? { name, arguments: {} } : {}),
+            _meta: {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities": {},
+            },
+          },
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(seen[0].headers["mcp-method"]).toBe(method);
+      expect(seen[0].headers["mcp-name"]).toBe(name);
+      expect(seen[0].headers["mcp-protocol-version"]).toBe("2026-07-28");
+      expect((await upstreamBearer(seen[0])).payload.client_id).toBe(
+        "https://oauth-client.example/metadata/client.json",
+      );
+    },
+  );
 
   it("exposes the upstream MCP protocol version to an authorized browser client", async () => {
     const token = await oauthToken({
-      sub: "user", scope: "mcp:agent agent:read agent:write", aud: `${PORTAL}/v1/agent/mcp`,
+      sub: "user",
+      scope: "mcp:agent agent:read agent:write",
+      aud: `${PORTAL}/v1/agent/mcp`,
     });
     const response = await portal("/v1/agent/mcp", {
-      method: "POST", origin: PARTNER,
+      method: "POST",
+      origin: PARTNER,
       headers: {
-        authorization: `Bearer ${token}`, "content-type": "application/json",
-        "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list",
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        "mcp-protocol-version": "2026-07-28",
+        "mcp-method": "tools/list",
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("access-control-allow-origin")).toBe(PARTNER);
     expect(response.headers.get("mcp-protocol-version")).toBe("2026-07-28");
-    expect(response.headers.get("access-control-expose-headers")!.toLowerCase().split(/,\s*/))
-      .toContain("mcp-protocol-version");
+    expect(
+      response.headers
+        .get("access-control-expose-headers")!
+        .toLowerCase()
+        .split(/,\s*/),
+    ).toContain("mcp-protocol-version");
   });
 
   it("admits browser MCP routing headers in preflight", async () => {
     const response = await portal("/v1/agent/mcp", {
-      method: "OPTIONS", origin: "https://client.example",
-      headers: { "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type,mcp-protocol-version,mcp-method,mcp-name" },
+      method: "OPTIONS",
+      origin: "https://client.example",
+      headers: {
+        "access-control-request-method": "POST",
+        "access-control-request-headers":
+          "authorization,content-type,mcp-protocol-version,mcp-method,mcp-name",
+      },
     });
     expect(response.status).toBe(204);
-    const allowed = response.headers.get("access-control-allow-headers")!.toLowerCase().split(/,\s*/);
-    for (const header of ["mcp-protocol-version", "mcp-method", "mcp-name"]) expect(allowed).toContain(header);
+    const allowed = response.headers
+      .get("access-control-allow-headers")!
+      .toLowerCase()
+      .split(/,\s*/);
+    for (const header of ["mcp-protocol-version", "mcp-method", "mcp-name"])
+      expect(allowed).toContain(header);
   });
 
   it("challenges an anonymous MCP call with the resource metadata and re-authorization scopes", async () => {
@@ -664,7 +894,11 @@ describe("portal surface: MCP", () => {
     expect(response.headers.get("www-authenticate")).toBe(
       `Bearer error="invalid_token", resource_metadata="${PORTAL}/.well-known/oauth-protected-resource/v1/agent/mcp", scope="mcp:agent agent:read agent:write offline_access"`,
     );
-    expect(await response.json()).toMatchObject({ jsonrpc: "2.0", error: { code: -32000 }, id: null });
+    expect(await response.json()).toMatchObject({
+      jsonrpc: "2.0",
+      error: { code: -32000 },
+      id: null,
+    });
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
   });
 
@@ -694,7 +928,9 @@ describe("portal surface: MCP", () => {
     const [upstream] = seen;
     expect(upstream.url).toBe(`${AGENT}/v1/agent/mcp`);
     expect(upstream.headers["mcp-protocol-version"]).toBe("2026-07-28");
-    expect(upstream.body).toBe('{"jsonrpc":"2.0","method":"tools/list","id":2}');
+    expect(upstream.body).toBe(
+      '{"jsonrpc":"2.0","method":"tools/list","id":2}',
+    );
     expect((await upstreamBearer(upstream)).payload).toMatchObject({
       scope: "mcp:agent agent:read agent:write",
       resource: `${PORTAL}/v1/agent/mcp`,
@@ -707,27 +943,39 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     const withManager = { ...env, MANAGER_ORIGIN: MANAGER };
     const call = (path: string) =>
       handleRequest(
-        new Request(`${PORTAL}${path}`, { headers: { cookie: "session=user", origin: PORTAL } }),
+        new Request(`${PORTAL}${path}`, {
+          headers: { cookie: "session=user", origin: PORTAL },
+        }),
         withManager,
         world,
       );
     expect((await call("/api/account/bots")).status).toBe(200);
-    expect((await call("/api/integrations/github-app/oauth/start")).status).toBe(200);
+    expect(
+      (await call("/api/integrations/github-app/oauth/start")).status,
+    ).toBe(200);
     expect((await call("/api/account")).status).toBe(200);
     expect(seen.map((record) => record.url)).toEqual([
       `${MANAGER}/api/account/bots`,
       `${MANAGER}/api/integrations/github-app/oauth/start`,
       `${BACKEND}/api/account`,
     ]);
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      sub: "acct-user",
+      aud: "aomi-backend",
+    });
     expect(seen[0].headers.cookie).toBeUndefined();
   });
 
   it("forwards allowlisted /api routes to the backend pool with an account bearer", async () => {
-    const response = await portal("/api/thread/apps", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const response = await portal("/api/thread/apps", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(response.status).toBe(200);
     const [upstream] = seen;
-    expect(upstream.url).toBe(`${BACKEND}/api/thread/apps?platform=web&platform=telegram`);
+    expect(upstream.url).toBe(
+      `${BACKEND}/api/thread/apps?platform=web&platform=telegram`,
+    );
     expect((await upstreamBearer(upstream)).payload).toMatchObject({
       sub: "acct-user",
       aud: "aomi-backend",
@@ -736,7 +984,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   });
 
   it("sends the manager-owned control-plane routes to MANAGER_ORIGIN once it is set", async () => {
-    const unset = await portal("/api/account/bots", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const unset = await portal("/api/account/bots", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(unset.status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}/api/account/bots`);
     seen = [];
@@ -747,7 +998,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     });
     expect(bots.status).toBe(200);
     expect(seen[0].url).toBe(`${MANAGER}/api/account/bots`);
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend" });
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      sub: "acct-user",
+      aud: "aomi-backend",
+    });
     // The rest of /api/account and the chat routes stay on the backend pool.
     const settings = await portal("/api/account", {
       headers: { cookie: "session=user" },
@@ -759,12 +1013,26 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   });
 
   it("mints the browser's raw backend bearer as aomi-edge for the portal's own sessions only", async () => {
-    const response = await portal("/v1/account/bearer", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const response = await portal("/v1/account/bearer", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    const body = (await response.json()) as { bearer: string; expires_at: number };
-    const { payload, protectedHeader } = await jwtVerify(body.bearer, edgePublicKey, { issuer: "aomi-edge" });
-    expect(payload).toMatchObject({ sub: "acct-user", aud: "aomi-backend", role: "user" });
+    const body = (await response.json()) as {
+      bearer: string;
+      expires_at: number;
+    };
+    const { payload, protectedHeader } = await jwtVerify(
+      body.bearer,
+      edgePublicKey,
+      { issuer: "aomi-edge" },
+    );
+    expect(payload).toMatchObject({
+      sub: "acct-user",
+      aud: "aomi-backend",
+      role: "user",
+    });
     expect(protectedHeader.kid).toBe("aomi-edge-dev-1");
     expect(body.expires_at).toBe(payload.exp);
     expect(seen).toHaveLength(0);
@@ -777,10 +1045,14 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(widget.status).toBe(403);
     expect(await widget.json()).toEqual({ error: "insufficient_scope" });
     const oauth = await portal("/v1/account/bearer", {
-      headers: { authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read", aud: AGENT })}` },
+      headers: {
+        authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read", aud: AGENT })}`,
+      },
     });
     expect(oauth.status).toBe(401);
-    expect(await portal("/v1/account/bearer", { method: "POST", origin: PORTAL })).toMatchObject({ status: 404 });
+    expect(
+      await portal("/v1/account/bearer", { method: "POST", origin: PORTAL }),
+    ).toMatchObject({ status: 404 });
   });
 
   it("serves anonymous chat catalog reads without a bearer and keeps settings from guests", async () => {
@@ -790,7 +1062,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     const apps = await portal("/api/thread/apps", { origin: PARTNER });
     expect(apps.status).toBe(200);
     expect(seen[0].headers.authorization).toBeUndefined();
-    const settings = await portal("/api/account", { headers: { cookie: "session=guest" }, origin: PORTAL });
+    const settings = await portal("/api/account", {
+      headers: { cookie: "session=guest" },
+      origin: PORTAL,
+    });
     expect(settings.status).toBe(403);
     expect(await settings.json()).toEqual({ error: "insufficient_scope" });
     const anonymousSettings = await portal("/v1/account/keys");
@@ -798,17 +1073,26 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   });
 
   it("serves the keys vault and on-chain policies under /v1/account from their backend routes", async () => {
-    const keys = await portal("/v1/account/keys?client_id=c1", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const keys = await portal("/v1/account/keys?client_id=c1", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(keys.status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}/api/secrets?client_id=c1`);
     const prepare = await portal("/v1/account/policies/swig/7/revoke/prepare", {
       method: "POST",
-      headers: { cookie: "session=user", "content-type": "application/json", "x-aomi-csrf": "1" },
+      headers: {
+        cookie: "session=user",
+        "content-type": "application/json",
+        "x-aomi-csrf": "1",
+      },
       origin: PORTAL,
       body: "{}",
     });
     expect(prepare.status).toBe(200);
-    expect(seen[1].url).toBe(`${BACKEND}/api/account/onchain-policies/swig/7/revoke/prepare`);
+    expect(seen[1].url).toBe(
+      `${BACKEND}/api/account/onchain-policies/swig/7/revoke/prepare`,
+    );
     const oauth = await portal("/v1/account/keys/BYOK%3Aopenai", {
       method: "DELETE",
       headers: {
@@ -817,11 +1101,21 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     });
     expect(oauth.status).toBe(200);
     expect(seen[2].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
-    const guest = await portal("/v1/account/keys", { headers: { cookie: "session=guest" }, origin: PORTAL });
+    const guest = await portal("/v1/account/keys", {
+      headers: { cookie: "session=guest" },
+      origin: PORTAL,
+    });
     expect(guest.status).toBe(403);
     // The /api names are gone; the pages answer them.
-    for (const path of ["/api/secrets", "/api/account/onchain-policies/swig", "/api/account/transaction-safety"]) {
-      const old = await portal(path, { headers: { cookie: "session=user" }, origin: PORTAL });
+    for (const path of [
+      "/api/secrets",
+      "/api/account/onchain-policies/swig",
+      "/api/account/transaction-safety",
+    ]) {
+      const old = await portal(path, {
+        headers: { cookie: "session=user" },
+        origin: PORTAL,
+      });
       expect(((await old.json()) as { tag?: string }).tag).toBe("vercel");
     }
   });
@@ -835,7 +1129,9 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
         PORTAL_PAGES: {
           fetch: async (request) => {
             forwarded = request;
-            return new Response("page", { headers: { "set-cookie": "page=1; Secure" } });
+            return new Response("page", {
+              headers: { "set-cookie": "page=1; Secure" },
+            });
           },
         },
       },
@@ -844,7 +1140,9 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(await response.text()).toBe("page");
     expect(forwarded?.url).toBe(`${PORTAL}/settings?tab=wallet`);
     expect(forwarded?.headers.get("cookie")).toBe("session=private");
-    expect(forwarded?.headers.get("x-forwarded-host")).toBe(new URL(PORTAL).host);
+    expect(forwarded?.headers.get("x-forwarded-host")).toBe(
+      new URL(PORTAL).host,
+    );
     expect(response.headers.get("set-cookie")).toBe("page=1; Secure");
     expect(seen).toHaveLength(0);
   });
@@ -859,7 +1157,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
           fetch: async (request) => {
             expect(request.method).toBe("POST");
             expect(await request.text()).toBe("payload");
-            return new Response(null, { status: 303, headers: { location: "/home" } });
+            return new Response(null, {
+              status: 303,
+              headers: { location: "/home" },
+            });
           },
         },
       },
@@ -872,7 +1173,14 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   it("keeps API routes at Edge when a page Worker is bound", async () => {
     let pageCalls = 0;
     const response = await portal("/api/thread/models", {
-      env: { PORTAL_PAGES: { fetch: async () => { pageCalls++; return new Response("page"); } } },
+      env: {
+        PORTAL_PAGES: {
+          fetch: async () => {
+            pageCalls++;
+            return new Response("page");
+          },
+        },
+      },
     });
     expect(pageCalls).toBe(0);
     expect(response.status).toBe(200);
@@ -881,7 +1189,13 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
 
   it("does not fall back to HTTP when the bound page Worker fails", async () => {
     const response = await portal("/settings", {
-      env: { PORTAL_PAGES: { fetch: async () => { throw new Error("page unavailable"); } } },
+      env: {
+        PORTAL_PAGES: {
+          fetch: async () => {
+            throw new Error("page unavailable");
+          },
+        },
+      },
     });
     expect(response.status).toBe(502);
     expect(seen).toHaveLength(0);
@@ -906,7 +1220,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
   });
 
   it("mints payment-audience bearers for credits and funding events", async () => {
-    const read = await portal("/v1/account/credits", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const read = await portal("/v1/account/credits", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(read.status).toBe(200);
     expect(seen[0].url).toBe(`${PAYMENT}/v1/account/credits`);
     expect((await upstreamBearer(seen[0])).payload).toMatchObject({
@@ -915,17 +1232,25 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     });
     const fund = await portal("/v1/account/credits/funding-events", {
       method: "POST",
-      headers: { cookie: "session=user", "content-type": "application/json", "payment-signature": "sig" },
+      headers: {
+        cookie: "session=user",
+        "content-type": "application/json",
+        "payment-signature": "sig",
+      },
       origin: PORTAL,
       body: "{}",
     });
     expect(fund.status).toBe(200);
-    expect((await upstreamBearer(seen[1])).payload.scope).toBe("account:credits:fund payments:submit");
+    expect((await upstreamBearer(seen[1])).payload.scope).toBe(
+      "account:credits:fund payments:submit",
+    );
     expect(seen[1].headers["payment-signature"]).toBe("sig");
   });
 
   it("serves discovery and the public catalog credential-free", async () => {
-    const catalog = await portal("/.well-known/api-catalog", { headers: { cookie: "session=user" } });
+    const catalog = await portal("/.well-known/api-catalog", {
+      headers: { cookie: "session=user" },
+    });
     expect(catalog.status).toBe(200);
     expect(seen[0].url).toBe(`${AGENT}/.well-known/api-catalog`);
     expect(seen[0].headers.cookie).toBeUndefined();
@@ -937,7 +1262,9 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(models.headers.get("etag")).toMatch(/^"[0-9a-f]{64}"$/);
     expect(models.headers.get("cdn-cache-control")).toContain("max-age=1800");
     expect(models.headers.get("access-control-allow-origin")).toBe("*");
-    expect(await (await portal("/api/public/catalog/secrets")).json()).toEqual({ error: "not_found" });
+    expect(await (await portal("/api/public/catalog/secrets")).json()).toEqual({
+      error: "not_found",
+    });
 
     // A redirecting backend is unavailable; the edge never follows it, and
     // workerd offers no "error" redirect mode to refuse it with.
@@ -954,14 +1281,21 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     });
     expect(response.status).toBe(204);
     expect(response.headers.get("access-control-allow-origin")).toBe(PARTNER);
-    expect(response.headers.get("access-control-allow-methods")).toBe("GET, POST, PATCH, DELETE, OPTIONS");
-    expect(response.headers.get("access-control-allow-headers")).toContain("Payment-Signature");
+    expect(response.headers.get("access-control-allow-methods")).toBe(
+      "GET, POST, PATCH, DELETE, OPTIONS",
+    );
+    expect(response.headers.get("access-control-allow-headers")).toContain(
+      "Payment-Signature",
+    );
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
   it("fails closed as a server fault when the session store is down", async () => {
     account.sessionFails = true;
-    const response = await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
+    const response = await portal("/v1/agent/sessions", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     expect(response.status).toBe(500);
     expect(seen).toHaveLength(0);
   });
@@ -970,7 +1304,9 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
 describe("portal surface: host selection", () => {
   it("leaves api hosts on the routing core", async () => {
     const response = await handleRequest(
-      new Request("https://api-staging.aomi.dev/api/thread/models", { headers: { cookie: "session=user" } }),
+      new Request("https://api-staging.aomi.dev/api/thread/models", {
+        headers: { cookie: "session=user" },
+      }),
       { ...env, BACKEND_ORIGINS: BACKEND },
       world,
     );
@@ -980,14 +1316,19 @@ describe("portal surface: host selection", () => {
   });
 
   it("decodes nothing it did not mint: the upstream bearer is a fresh edge JWT per request", async () => {
-    await portal("/v1/agent/sessions", { headers: { cookie: "session=user" }, origin: PORTAL });
+    await portal("/v1/agent/sessions", {
+      headers: { cookie: "session=user" },
+      origin: PORTAL,
+    });
     const first = decodeJwt(seen[0].headers.authorization.slice(7));
     expect(first.iss).toBe("aomi-edge");
   });
 });
 
 /** Callers by name: how each one presents itself to the edge. */
-async function caller(name: string): Promise<{ headers: Record<string, string>; origin?: string }> {
+async function caller(
+  name: string,
+): Promise<{ headers: Record<string, string>; origin?: string }> {
   switch (name) {
     case "portal user":
       return { headers: { cookie: "session=user" }, origin: PORTAL };
@@ -996,13 +1337,27 @@ async function caller(name: string): Promise<{ headers: Record<string, string>; 
     case "CLI session":
       return { headers: { authorization: "Bearer user" } };
     case "widget user":
-      return { headers: { authorization: "Bearer aomi_wst_user" }, origin: PARTNER };
+      return {
+        headers: { authorization: "Bearer aomi_wst_user" },
+        origin: PARTNER,
+      };
     case "widget guest":
-      return { headers: { authorization: "Bearer aomi_wst_guest" }, origin: PARTNER };
+      return {
+        headers: { authorization: "Bearer aomi_wst_guest" },
+        origin: PARTNER,
+      };
     case "OAuth user":
-      return { headers: { authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}` } };
+      return {
+        headers: {
+          authorization: `Bearer ${await oauthToken({ sub: "user", scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}`,
+        },
+      };
     case "OAuth guest":
-      return { headers: { authorization: `Bearer ${await oauthToken({ sub: "guest", guest: true, scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}` } };
+      return {
+        headers: {
+          authorization: `Bearer ${await oauthToken({ sub: "guest", guest: true, scope: "agent:read agent:write", aud: `${PORTAL}/v1/agent` })}`,
+        },
+      };
     default:
       throw new Error(name);
   }
@@ -1011,7 +1366,15 @@ async function caller(name: string): Promise<{ headers: Record<string, string>; 
 async function call(name: string, method: string, path: string) {
   const { headers, origin } = await caller(name);
   const body = method === "GET" ? undefined : "{}";
-  return portal(path, { method, origin, headers: { ...headers, ...(body ? { "content-type": "application/json" } : {}) }, body });
+  return portal(path, {
+    method,
+    origin,
+    headers: {
+      ...headers,
+      ...(body ? { "content-type": "application/json" } : {}),
+    },
+    body,
+  });
 }
 
 describe("portal surface: the backend bearer says who is calling", () => {
@@ -1021,13 +1384,20 @@ describe("portal surface: the backend bearer says who is calling", () => {
     ["CLI session", { auth_source: "cli_session", principal_class: "user" }],
     ["widget user", { auth_source: "widget", principal_class: "user" }],
     ["widget guest", { auth_source: "widget", principal_class: "guest" }],
-    ["OAuth user", { auth_source: "oauth", principal_class: "user", client_id: "client-1" }],
+    [
+      "OAuth user",
+      { auth_source: "oauth", principal_class: "user", client_id: "client-1" },
+    ],
   ])("%s", async (name, claims) => {
     const response = await call(name, "GET", "/v1/commits/c-1");
     expect(response.status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}/v1/commits/c-1`);
     const { payload } = await upstreamBearer(seen[0]);
-    expect(payload).toMatchObject({ aud: "aomi-backend", role: "user", ...claims });
+    expect(payload).toMatchObject({
+      aud: "aomi-backend",
+      role: "user",
+      ...claims,
+    });
     // No scope: the backend reads a scope-less aomi-edge bearer as first-party by its auth_source.
     expect(payload.scope).toBeUndefined();
     if (!("client_id" in claims)) expect(payload.client_id).toBeUndefined();
@@ -1035,14 +1405,23 @@ describe("portal surface: the backend bearer says who is calling", () => {
 
   it("names the widget on the agent API too, so its chats are never recorded as portal chats", async () => {
     await call("widget user", "GET", "/v1/agent/sessions");
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ aud: "aomi-api-server", auth_source: "widget" });
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      aud: "aomi-api-server",
+      auth_source: "widget",
+    });
     await call("CLI session", "GET", "/v1/agent/sessions");
-    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ auth_source: "cli_session" });
+    expect((await upstreamBearer(seen[1])).payload).toMatchObject({
+      auth_source: "cli_session",
+    });
   });
 });
 
 describe("portal surface: wallets, agent wallets and connection lanes", () => {
-  const READS = ["/v1/account/wallets", "/v1/account/agent-wallets", "/v1/account/agent-wallets/g-1/balances"];
+  const READS = [
+    "/v1/account/wallets",
+    "/v1/account/agent-wallets",
+    "/v1/account/agent-wallets/g-1/balances",
+  ];
   const WRITES = [
     ["POST", "/v1/account/agent-wallets"],
     ["PATCH", "/v1/account/agent-wallets/g-1"],
@@ -1055,31 +1434,64 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
     ["POST", "/v1/account/link/telegram/cancel"],
   ] as const;
 
-  it.each(READS)("reads %s from the backend for any session and an OAuth agent:read grant", async (path) => {
-    for (const name of ["portal user", "widget user", "CLI session", "OAuth user"]) {
-      expect((await call(name, "GET", path)).status).toBe(200);
-    }
-    expect(seen.map((record) => record.url)).toEqual(Array(4).fill(`${BACKEND}${path}`));
-    expect(seen.every((record) => record.headers.cookie === undefined)).toBe(true);
-    const readOnly = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
-    const refused = await portal(path, { headers: { authorization: `Bearer ${readOnly}` } });
-    expect(refused.status).toBe(403);
-    expect(seen).toHaveLength(4);
-  });
+  it.each(READS)(
+    "reads %s from the backend for any session and an OAuth agent:read grant",
+    async (path) => {
+      for (const name of [
+        "portal user",
+        "widget user",
+        "CLI session",
+        "OAuth user",
+      ]) {
+        expect((await call(name, "GET", path)).status).toBe(200);
+      }
+      expect(seen.map((record) => record.url)).toEqual(
+        Array(4).fill(`${BACKEND}${path}`),
+      );
+      expect(seen.every((record) => record.headers.cookie === undefined)).toBe(
+        true,
+      );
+      const readOnly = await oauthToken({
+        sub: "user",
+        scope: "agent:write",
+        aud: `${PORTAL}/v1/agent`,
+      });
+      const refused = await portal(path, {
+        headers: { authorization: `Bearer ${readOnly}` },
+      });
+      expect(refused.status).toBe(403);
+      expect(seen).toHaveLength(4);
+    },
+  );
 
-  it.each(WRITES)("lets only a signed-in portal session %s %s", async (method, path) => {
-    const ok = await call("portal user", method, path);
-    expect(ok.status).toBe(200);
-    expect(seen[0]).toMatchObject({ url: `${BACKEND}${path}`, method });
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ auth_source: "session", principal_class: "user" });
-    for (const name of ["portal guest", "CLI session", "widget user", "widget guest"]) {
-      const refused = await call(name, method, path);
-      expect([name, refused.status, await refused.json()]).toEqual([name, 403, { error: "portal_session_required" }]);
-    }
-    // An OAuth grant never reaches a portal-only write.
-    expect((await call("OAuth user", method, path)).status).toBe(401);
-    expect(seen).toHaveLength(1);
-  });
+  it.each(WRITES)(
+    "lets only a signed-in portal session %s %s",
+    async (method, path) => {
+      const ok = await call("portal user", method, path);
+      expect(ok.status).toBe(200);
+      expect(seen[0]).toMatchObject({ url: `${BACKEND}${path}`, method });
+      expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+        auth_source: "session",
+        principal_class: "user",
+      });
+      for (const name of [
+        "portal guest",
+        "CLI session",
+        "widget user",
+        "widget guest",
+      ]) {
+        const refused = await call(name, method, path);
+        expect([name, refused.status, await refused.json()]).toEqual([
+          name,
+          403,
+          { error: "portal_session_required" },
+        ]);
+      }
+      // An OAuth grant never reaches a portal-only write.
+      expect((await call("OAuth user", method, path)).status).toBe(401);
+      expect(seen).toHaveLength(1);
+    },
+  );
 
   it("refuses a cross-site cookie write before forwarding", async () => {
     const response = await portal("/v1/account/pause-all", {
@@ -1100,12 +1512,15 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
     ["GET", "/v1/account/connections/portal/wallets"],
     ["GET", "/v1/account/pause-all"],
     ["GET", "/v1/account/link/telegram/confirm"],
-  ] as const)("answers %s %s with 404 before identifying the caller", async (method, path) => {
-    const response = await call("portal user", method, path);
-    expect(response.status).toBe(404);
-    expect(seen).toHaveLength(0);
-    expect(account.lookups).toBe(0);
-  });
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      const response = await call("portal user", method, path);
+      expect(response.status).toBe(404);
+      expect(seen).toHaveLength(0);
+      expect(account.lookups).toBe(0);
+    },
+  );
 
   it("serves the connections list and disconnects itself (the account graph), never the pages upstream", async () => {
     for (const [method, path] of [
@@ -1115,21 +1530,35 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
       ["PATCH", "/v1/account/wallets/w-1"],
     ] as const)
       await call("portal user", method, path);
-    expect(seen.filter((record) => record.url.startsWith(UPSTREAM))).toEqual([]);
+    expect(seen.filter((record) => record.url.startsWith(UPSTREAM))).toEqual(
+      [],
+    );
   });
 
   it("lets a CLI or OAuth login switch its own thread's wallet with agent:write", async () => {
     for (const name of ["portal user", "CLI session", "OAuth user"])
       expect((await call(name, "PUT", "/api/thread/wallet")).status).toBe(200);
-    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
-    const refused = await portal("/api/thread/wallet", { method: "PUT", headers: { authorization: `Bearer ${readOnly}` }, body: "{}" });
+    const readOnly = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
+    const refused = await portal("/api/thread/wallet", {
+      method: "PUT",
+      headers: { authorization: `Bearer ${readOnly}` },
+      body: "{}",
+    });
     expect(refused.status).toBe(403);
     expect(seen).toHaveLength(3);
   });
 });
 
 describe("portal surface: wallet rules", () => {
-  const READS = ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"];
+  const READS = [
+    "/v1/account/agent-wallets/g-1/rules",
+    "/v1/account/rules/catalog",
+    "/v1/account/rule-changes/ch-1",
+  ];
   const WRITES = [
     "/v1/account/agent-wallets/g-1/rules",
     "/v1/account/rule-changes/ch-1/approve",
@@ -1143,49 +1572,90 @@ describe("portal surface: wallet rules", () => {
       body: JSON.stringify(body),
     });
 
-  it.each(READS)("reads %s from the backend for any session and an OAuth agent:read grant", async (path) => {
-    for (const name of ["portal user", "widget user", "CLI session", "OAuth user"])
-      expect((await call(name, "GET", path)).status).toBe(200);
-    expect(seen.map((record) => record.url)).toEqual(Array(4).fill(`${BACKEND}${path}`));
-    const writeOnly = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
-    expect((await portal(path, { headers: { authorization: `Bearer ${writeOnly}` } })).status).toBe(403);
-    expect(seen).toHaveLength(4);
-  });
+  it.each(READS)(
+    "reads %s from the backend for any session and an OAuth agent:read grant",
+    async (path) => {
+      for (const name of [
+        "portal user",
+        "widget user",
+        "CLI session",
+        "OAuth user",
+      ])
+        expect((await call(name, "GET", path)).status).toBe(200);
+      expect(seen.map((record) => record.url)).toEqual(
+        Array(4).fill(`${BACKEND}${path}`),
+      );
+      const writeOnly = await oauthToken({
+        sub: "user",
+        scope: "agent:write",
+        aud: `${PORTAL}/v1/agent`,
+      });
+      expect(
+        (
+          await portal(path, {
+            headers: { authorization: `Bearer ${writeOnly}` },
+          })
+        ).status,
+      ).toBe(403);
+      expect(seen).toHaveLength(4);
+    },
+  );
 
-  it.each(WRITES)("lets the portal session and a CLI session POST %s, and nobody else", async (path) => {
-    for (const [name, source] of [
-      ["portal user", "session"],
-      ["CLI session", "cli_session"],
-    ] as const) {
-      expect((await call(name, "POST", path)).status).toBe(200);
-      const record = seen.at(-1)!;
-      expect(record).toMatchObject({ url: `${BACKEND}${path}`, method: "POST" });
-      expect((await upstreamBearer(record)).payload).toMatchObject({ auth_source: source, principal_class: "user" });
-    }
-    for (const name of ["portal guest", "widget user", "widget guest"]) {
-      const refused = await call(name, "POST", path);
-      expect([name, refused.status, await refused.json()]).toEqual([name, 403, { error: "owner_session_required" }]);
-    }
-    // An OAuth grant never reaches a rule change.
-    expect((await call("OAuth user", "POST", path)).status).toBe(401);
-    expect(seen).toHaveLength(2);
-  });
+  it.each(WRITES)(
+    "lets the portal session and a CLI session POST %s, and nobody else",
+    async (path) => {
+      for (const [name, source] of [
+        ["portal user", "session"],
+        ["CLI session", "cli_session"],
+      ] as const) {
+        expect((await call(name, "POST", path)).status).toBe(200);
+        const record = seen.at(-1)!;
+        expect(record).toMatchObject({
+          url: `${BACKEND}${path}`,
+          method: "POST",
+        });
+        expect((await upstreamBearer(record)).payload).toMatchObject({
+          auth_source: source,
+          principal_class: "user",
+        });
+      }
+      for (const name of ["portal guest", "widget user", "widget guest"]) {
+        const refused = await call(name, "POST", path);
+        expect([name, refused.status, await refused.json()]).toEqual([
+          name,
+          403,
+          { error: "owner_session_required" },
+        ]);
+      }
+      // An OAuth grant never reaches a rule change.
+      expect((await call("OAuth user", "POST", path)).status).toBe(401);
+      expect(seen).toHaveLength(2);
+    },
+  );
 
   it("forwards the approval body and its signature unchanged", async () => {
-    expect((await approve({ cookie: "session=user" }, { signature: "0xsigned" })).status).toBe(200);
+    expect(
+      (await approve({ cookie: "session=user" }, { signature: "0xsigned" }))
+        .status,
+    ).toBe(200);
     expect(seen[0].body).toBe(JSON.stringify({ signature: "0xsigned" }));
   });
 
   it("asks an old portal sign-in to sign in again before a click approves", async () => {
     account.sessionAgeMs = 10 * 60_000 + 1_000;
     const stale = await approve({ cookie: "session=user" }, {});
-    expect([stale.status, await stale.json()]).toEqual([403, { error: "login_stale" }]);
+    expect([stale.status, await stale.json()]).toEqual([
+      403,
+      { error: "login_stale" },
+    ]);
     // No creation time on the session row reads as stale, never as fresh.
     account.sessionAgeMs = null;
     expect((await approve({ cookie: "session=user" }, {})).status).toBe(403);
     // An empty signature is no signature.
     account.sessionAgeMs = 60 * 60_000;
-    expect((await approve({ cookie: "session=user" }, { signature: "" })).status).toBe(403);
+    expect(
+      (await approve({ cookie: "session=user" }, { signature: "" })).status,
+    ).toBe(403);
     expect(seen).toHaveLength(0);
   });
 
@@ -1195,13 +1665,50 @@ describe("portal surface: wallet rules", () => {
     expect(seen).toHaveLength(1);
   });
 
-  it("exempts a wallet signature and a CLI session from the recent sign-in", async () => {
+  it("holds a session sent as a bearer to the same recent sign-in", async () => {
+    // The bearer is the cookie's own token, so an old one gets no way round.
     account.sessionAgeMs = 24 * 60 * 60_000;
-    expect((await approve({ cookie: "session=user" }, { signature: "0xsigned" })).status).toBe(200);
-    expect((await approve({ authorization: "Bearer user" }, {})).status).toBe(200);
+    const stale = await approve({ authorization: "Bearer user" }, {});
+    expect([stale.status, await stale.json()]).toEqual([
+      403,
+      { error: "login_stale" },
+    ]);
+    expect(seen).toHaveLength(0);
+    account.sessionAgeMs = 9 * 60_000;
+    expect((await approve({ authorization: "Bearer user" }, {})).status).toBe(
+      200,
+    );
+    expect(seen).toHaveLength(1);
+  });
+
+  it("exempts a wallet signature from the recent sign-in", async () => {
+    account.sessionAgeMs = 24 * 60 * 60_000;
+    expect(
+      (await approve({ cookie: "session=user" }, { signature: "0xsigned" }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await approve(
+          { authorization: "Bearer user" },
+          { signature: "0xsigned" },
+        )
+      ).status,
+    ).toBe(200);
     // Declining and filing a change take power away or wait for the admin: any age.
-    expect((await call("portal user", "POST", "/v1/account/rule-changes/ch-1/decline")).status).toBe(200);
-    expect((await call("portal user", "POST", "/v1/account/agent-wallets/g-1/rules")).status).toBe(200);
+    expect(
+      (
+        await call(
+          "portal user",
+          "POST",
+          "/v1/account/rule-changes/ch-1/decline",
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await call("portal user", "POST", "/v1/account/agent-wallets/g-1/rules"))
+        .status,
+    ).toBe(200);
     expect(seen).toHaveLength(4);
   });
 
@@ -1210,11 +1717,14 @@ describe("portal surface: wallet rules", () => {
     ["POST", "/v1/account/rules/catalog"],
     ["POST", "/v1/account/rule-changes/ch-1"],
     ["GET", "/v1/account/rule-changes/ch-1/approve"],
-  ] as const)("answers %s %s with 404 before identifying the caller", async (method, path) => {
-    expect((await call("portal user", method, path)).status).toBe(404);
-    expect(seen).toHaveLength(0);
-    expect(account.lookups).toBe(0);
-  });
+  ] as const)(
+    "answers %s %s with 404 before identifying the caller",
+    async (method, path) => {
+      expect((await call("portal user", method, path)).status).toBe(404);
+      expect(seen).toHaveLength(0);
+      expect(account.lookups).toBe(0);
+    },
+  );
 });
 
 describe("portal surface: thread-less commits", () => {
@@ -1227,27 +1737,54 @@ describe("portal surface: thread-less commits", () => {
   ])("forwards POST %s with agent:write", async (path) => {
     expect((await call("widget user", "POST", path)).status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}${path}`);
-    const readOnly = await oauthToken({ sub: "user", scope: "agent:read", aud: `${PORTAL}/v1/agent` });
-    expect((await portal(path, { method: "POST", headers: { authorization: `Bearer ${readOnly}` }, body: "{}" })).status).toBe(403);
+    const readOnly = await oauthToken({
+      sub: "user",
+      scope: "agent:read",
+      aud: `${PORTAL}/v1/agent`,
+    });
+    expect(
+      (
+        await portal(path, {
+          method: "POST",
+          headers: { authorization: `Bearer ${readOnly}` },
+          body: "{}",
+        })
+      ).status,
+    ).toBe(403);
     expect(seen).toHaveLength(1);
   });
 
-  it.each(["portal user", "CLI session", "OAuth user"])("lets a %s approve", async (name) => {
-    expect((await call(name, "POST", "/v1/commits/c-1/approve")).status).toBe(200);
-    expect(seen[0].url).toBe(`${BACKEND}/v1/commits/c-1/approve`);
-  });
+  it.each(["portal user", "CLI session", "OAuth user"])(
+    "lets a %s approve",
+    async (name) => {
+      expect((await call(name, "POST", "/v1/commits/c-1/approve")).status).toBe(
+        200,
+      );
+      expect(seen[0].url).toBe(`${BACKEND}/v1/commits/c-1/approve`);
+    },
+  );
 
-  it.each(["portal guest", "widget user", "widget guest", "OAuth guest"])("never lets a %s approve", async (name) => {
-    const response = await call(name, "POST", "/v1/commits/c-1/approve");
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ code: "commit_approval_forbidden", status: 403 });
-    expect(seen).toHaveLength(0);
-  });
+  it.each(["portal guest", "widget user", "widget guest", "OAuth guest"])(
+    "never lets a %s approve",
+    async (name) => {
+      const response = await call(name, "POST", "/v1/commits/c-1/approve");
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        code: "commit_approval_forbidden",
+        status: 403,
+      });
+      expect(seen).toHaveLength(0);
+    },
+  );
 
   it("requires a principal and knows no other actions", async () => {
     expect((await portal("/v1/commits/c-1")).status).toBe(401);
-    expect((await call("portal user", "POST", "/v1/commits/c-1")).status).toBe(404);
-    expect((await call("portal user", "GET", "/v1/commits/c-1/approve")).status).toBe(404);
+    expect((await call("portal user", "POST", "/v1/commits/c-1")).status).toBe(
+      404,
+    );
+    expect(
+      (await call("portal user", "GET", "/v1/commits/c-1/approve")).status,
+    ).toBe(404);
     expect(seen).toHaveLength(0);
   });
 });
@@ -1261,30 +1798,67 @@ describe("portal surface: the /v1 sign-in and app-locked MCP", () => {
     });
     const headers = { authorization: `Bearer ${token}` };
     expect((await portal("/v1/agent/sessions", { headers })).status).toBe(200);
-    expect((await upstreamBearer(seen[0])).payload).toMatchObject({ scope: "agent:read", resource: `${PORTAL}/v1/agent` });
+    expect((await upstreamBearer(seen[0])).payload).toMatchObject({
+      scope: "agent:read",
+      resource: `${PORTAL}/v1/agent`,
+    });
     expect((await portal("/v1/account/apps", { headers })).status).toBe(200);
-    expect((await upstreamBearer(seen[1])).payload).toMatchObject({ scope: "account:apps:read", resource: `${PORTAL}/v1/account` });
+    expect((await upstreamBearer(seen[1])).payload).toMatchObject({
+      scope: "account:apps:read",
+      resource: `${PORTAL}/v1/account`,
+    });
     expect((await portal("/v1/account/wallets", { headers })).status).toBe(200);
     // A scope the token lacks is still refused.
-    expect((await portal("/v1/agent/chat", { method: "POST", headers, body: "{}" })).status).toBe(403);
-    const mcp = await portal("/v1/agent/mcp", { method: "POST", headers, body: "{}" });
+    expect(
+      (await portal("/v1/agent/chat", { method: "POST", headers, body: "{}" }))
+        .status,
+    ).toBe(403);
+    const mcp = await portal("/v1/agent/mcp", {
+      method: "POST",
+      headers,
+      body: "{}",
+    });
     expect(mcp.status).toBe(401);
     expect(seen).toHaveLength(3);
   });
 
   it("holds a /v1 guest token to the route's own guest ceiling", async () => {
-    const token = await oauthToken({ sub: "guest", guest: true, scope: "agent:read account:apps:read", aud: `${PORTAL}/v1` });
+    const token = await oauthToken({
+      sub: "guest",
+      guest: true,
+      scope: "agent:read account:apps:read",
+      aud: `${PORTAL}/v1`,
+    });
     // On /v1/agent the account scope is dropped, so the guest reads.
-    expect((await portal("/v1/agent/sessions", { headers: { authorization: `Bearer ${token}` } })).status).toBe(200);
+    expect(
+      (
+        await portal("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${token}` },
+        })
+      ).status,
+    ).toBe(200);
     // On /v1/account it is kept, and a guest may not carry it.
-    expect((await portal("/v1/account/apps", { headers: { authorization: `Bearer ${token}` } })).status).toBe(403);
+    expect(
+      (
+        await portal("/v1/account/apps", {
+          headers: { authorization: `Bearer ${token}` },
+        })
+      ).status,
+    ).toBe(403);
   });
 
   it("forwards an app MCP grant for exactly its own path with every scope it holds", async () => {
-    const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud: `${PORTAL}/v1/apps/hoodit/mcp` });
+    const token = await oauthToken({
+      sub: "user",
+      scope: "mcp:agent agent:read",
+      aud: `${PORTAL}/v1/apps/hoodit/mcp`,
+    });
     const response = await portal("/v1/apps/hoodit/mcp", {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
       body: '{"jsonrpc":"2.0","method":"tools/list","id":1}',
     });
     expect(response.status).toBe(200);
@@ -1297,17 +1871,35 @@ describe("portal surface: the /v1 sign-in and app-locked MCP", () => {
   });
 
   it("locks app MCP to its own path: another resource's token and bad names fail", async () => {
-    for (const aud of [`${PORTAL}/v1/agent/mcp`, `${PORTAL}/v1/apps/other/mcp`, `${PORTAL}/v1`]) {
-      const token = await oauthToken({ sub: "user", scope: "mcp:agent agent:read", aud });
-      const response = await portal("/v1/apps/hoodit/mcp", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: "{}" });
+    for (const aud of [
+      `${PORTAL}/v1/agent/mcp`,
+      `${PORTAL}/v1/apps/other/mcp`,
+      `${PORTAL}/v1`,
+    ]) {
+      const token = await oauthToken({
+        sub: "user",
+        scope: "mcp:agent agent:read",
+        aud,
+      });
+      const response = await portal("/v1/apps/hoodit/mcp", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: "{}",
+      });
       expect(response.status).toBe(401);
     }
-    const anonymous = await portal("/v1/apps/hoodit/mcp", { method: "POST", body: "{}" });
+    const anonymous = await portal("/v1/apps/hoodit/mcp", {
+      method: "POST",
+      body: "{}",
+    });
     expect(anonymous.status).toBe(401);
     expect(anonymous.headers.get("www-authenticate")).toBe(
       `Bearer error="invalid_token", resource_metadata="${PORTAL}/.well-known/oauth-protected-resource/v1/apps/hoodit/mcp", scope="mcp:agent agent:read agent:write offline_access"`,
     );
-    const badName = await portal("/v1/apps/Bad.App/mcp", { method: "POST", body: "{}" });
+    const badName = await portal("/v1/apps/Bad.App/mcp", {
+      method: "POST",
+      body: "{}",
+    });
     expect(badName.status).toBe(404);
     expect(await badName.json()).toEqual({ error: "app_not_found" });
     expect(seen).toHaveLength(0);
@@ -1389,9 +1981,13 @@ describe("portal transport aliases retain canonical OAuth identity", () => {
       .setProtectedHeader({ alg: "EdDSA", kid: "portal-1" })
       .setIssuer(`${alias}/api/auth`)
       .sign(portalKey.privateKey);
-    expect((await call("/v1/agent/sessions", {
-      headers: { authorization: `Bearer ${wrongIssuer}` },
-    })).status).toBe(401);
+    expect(
+      (
+        await call("/v1/agent/sessions", {
+          headers: { authorization: `Bearer ${wrongIssuer}` },
+        })
+      ).status,
+    ).toBe(401);
     const wrong = await oauthToken({
       sub: "user",
       scope: "agent:read",

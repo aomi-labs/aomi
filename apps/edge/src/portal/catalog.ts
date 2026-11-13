@@ -36,7 +36,10 @@ function row(value: unknown): Record<string, unknown> | null {
 }
 
 function pick(source: Record<string, unknown>, fields: readonly string[]) {
-  const projected: Record<string, string | number | boolean | Array<string | number>> = {};
+  const projected: Record<
+    string,
+    string | number | boolean | Array<string | number>
+  > = {};
   for (const field of fields) {
     const value = source[field];
     if (
@@ -48,20 +51,29 @@ function pick(source: Record<string, unknown>, fields: readonly string[]) {
     else if (Array.isArray(value))
       projected[field] = value.filter(
         (item): item is string | number =>
-          typeof item === "string" || (typeof item === "number" && Number.isFinite(item)),
+          typeof item === "string" ||
+          (typeof item === "number" && Number.isFinite(item)),
       );
   }
   return projected;
 }
 
 /** Explicit projection. No account enablement, arbitrary metadata, secrets or installed state. */
-export function projectPublicCatalog(kind: PublicCatalogKind, value: unknown): unknown {
+export function projectPublicCatalog(
+  kind: PublicCatalogKind,
+  value: unknown,
+): unknown {
   if (kind === "models")
-    return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+    return Array.isArray(value)
+      ? value.filter((item) => typeof item === "string")
+      : [];
   if (kind === "apps")
     return (Array.isArray(value) ? value : []).flatMap((item) => {
       const app = row(item);
-      return app && app.is_public === true && app.is_active === true && typeof app.name === "string"
+      return app &&
+        app.is_public === true &&
+        app.is_active === true &&
+        typeof app.name === "string"
         ? [pick(app, APP_FIELDS)]
         : [];
     });
@@ -69,7 +81,9 @@ export function projectPublicCatalog(kind: PublicCatalogKind, value: unknown): u
   return {
     skills: (Array.isArray(skills) ? skills : []).flatMap((item) => {
       const skill = row(item);
-      return skill && typeof skill.id === "string" && typeof skill.name === "string"
+      return skill &&
+        typeof skill.id === "string" &&
+        typeof skill.name === "string"
         ? [pick(skill, SKILL_FIELDS)]
         : [];
     }),
@@ -104,20 +118,32 @@ export async function publicCatalog(
   try {
     upstream = await fetchImpl(
       // workerd supports only "follow" and "manual"; a redirecting backend is unavailable.
-      new Request(upstreamUrl, { method: "GET", headers: upstreamHeaders, redirect: "manual" }),
+      new Request(upstreamUrl, {
+        method: "GET",
+        headers: upstreamHeaders,
+        redirect: "manual",
+      }),
       { cache: "no-store" },
     );
   } catch {
-    return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { error: "catalog_unavailable" },
+      { status: 502, headers: { "cache-control": "no-store" } },
+    );
   }
   if (upstream.status >= 300 && upstream.status < 400)
-    return Response.json({ error: "catalog_unavailable" }, { status: 502, headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { error: "catalog_unavailable" },
+      { status: 502, headers: { "cache-control": "no-store" } },
+    );
   if (!upstream.ok)
     return Response.json(
       { error: "catalog_unavailable" },
       { status: upstream.status, headers: { "cache-control": "no-store" } },
     );
-  const body = JSON.stringify(projectPublicCatalog(kind, await upstream.json()));
+  const body = JSON.stringify(
+    projectPublicCatalog(kind, await upstream.json()),
+  );
   const etag = `"${await sha256Hex(body)}"`;
   const headers = {
     "content-type": "application/json",
@@ -127,5 +153,8 @@ export async function publicCatalog(
   };
   if (request.headers.get("if-none-match") === etag)
     return new Response(null, { status: 304, headers });
-  return new Response(request.method === "HEAD" ? null : body, { status: 200, headers });
+  return new Response(request.method === "HEAD" ? null : body, {
+    status: 200,
+    headers,
+  });
 }

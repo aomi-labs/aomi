@@ -12,12 +12,13 @@ import {
 /**
  * A human amount ("0.5") as base units ("500000000"), by string math only:
  * amounts can exceed 2^53. Null when it is not a plain decimal number or has
- * more fraction digits than the token.
+ * more fraction digits than the token. Commas are accepted only as thousands
+ * separators ("1,250"): "1,2" is a typo, never 12.
  */
 export function toBaseUnits(human: string, decimals: number): string | null {
-  const match = /^(\d*)(?:\.(\d*))?$/.exec(human.trim().replace(/,/g, ""));
+  const match = /^(\d{1,3}(?:,\d{3})+|\d*)(?:\.(\d*))?$/.exec(human.trim());
   if (!match) return null;
-  const whole = match[1] ?? "";
+  const whole = (match[1] ?? "").replace(/,/g, "");
   const fraction = match[2] ?? "";
   if (!whole && !fraction) return null;
   if (fraction.length > decimals) return null;

@@ -488,8 +488,9 @@ export type Route = {
   /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
   approve?: true;
   /**
-   * A portal cookie session must have signed in within `FRESH_LOGIN_SECONDS`,
-   * unless the body carries a wallet `signature`; else 403 `login_stale`.
+   * The session, cookie or bearer, must have signed in within
+   * `FRESH_LOGIN_SECONDS`, unless the body carries a wallet `signature`;
+   * else 403 `login_stale`.
    */
   freshLogin?: true;
   /** backend: a /v1 name for a backend /api route, `[the /v1 prefix, the backend's]`. */
@@ -880,7 +881,9 @@ export const ROUTES: readonly Route[] = [
     POST: signedIn,
   }),
   // One guest sign-in; the two older paths stay for published SDKs (client <= 0.11, widget <= 4).
-  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", {
+    POST: "public",
+  }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {
     POST: "public",
   }),

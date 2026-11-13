@@ -10,7 +10,12 @@ import type { AomiRuleSet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { RuleChangePanel } from "./rule-change-card";
-import { fromBaseUnits, toBaseUnits, usedPercent } from "./rules-model";
+import {
+  fromBaseUnits,
+  toBaseUnits,
+  untilDate,
+  usedPercent,
+} from "./rules-model";
 import { WalletRules } from "./wallet-rules";
 
 const ADMIN = "0xAbCd00000000000000000000000000000000Ef12";
@@ -163,6 +168,12 @@ describe("rules amounts", () => {
     expect(toBaseUnits("0.1234567", 6)).toBeNull();
     expect(toBaseUnits("1e3", 6)).toBeNull();
     expect(toBaseUnits("", 6)).toBeNull();
+    // A comma only groups thousands; "1,2" is a typo, not 12.
+    expect(toBaseUnits("1,250.5", 6)).toBe("1250500000");
+    expect(toBaseUnits("1,234,567", 0)).toBe("1234567");
+    expect(toBaseUnits("1,2", 6)).toBeNull();
+    expect(toBaseUnits("12,34", 6)).toBeNull();
+    expect(toBaseUnits(",5", 6)).toBeNull();
     expect(fromBaseUnits("500000000", 9)).toBe("0.5");
     expect(fromBaseUnits("12345678901234567890000000000000000001", 18)).toBe(
       "12345678901234567890.000000000000000001",
@@ -188,7 +199,10 @@ describe("Wallet rules", () => {
     expect(
       within(cap).getByRole("textbox", { name: "USDC daily limit" }),
     ).toHaveValue("200");
-    expect(row("not_after")).toHaveTextContent("Until Nov 21");
+    // The year appears once the fixture's date is in another year.
+    expect(row("not_after")).toHaveTextContent(
+      `Until ${untilDate(1795219200)}`,
+    );
     expect(screen.getByLabelText("End date")).toHaveValue("2026-11-21");
     expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
     expect(
@@ -239,6 +253,146 @@ describe("Wallet rules", () => {
       document.querySelector(`[data-asset="${unknown}"]`),
     ).toHaveTextContent("Up to 5000 0x1111…2222 a day");
     expect(screen.getByText("Ethereum")).toBeTruthy();
+  });
+
+  it("names and scales a limit from the catalog when the limit carries no names", async () => {
+    rules = body({
+      rules: { ...NO_RULES, limits: [{ asset: SOL, amount: "500000000" }] },
+      usage: [],
+    });
+    await renderRules();
+    const cap = document.querySelector(`[data-asset="${SOL}"]`) as HTMLElement;
+    await waitFor(() => expect(cap).toHaveTextContent("Up to 0.5 SOL a day"));
+    const input = within(cap).getByRole("textbox", { name: "SOL daily limit" });
+    respond = (method, _path, sent) => {
+      if (method !== "POST") return undefined;
+      rules = body({
+        rules: (sent as { rules: AomiRuleSet }).rules,
+        usage: [],
+      });
+      return Response.json({ status: "applied", rules });
+    };
+    // "1" is one SOL, not one lamport.
+    fireEvent.change(input, { target: { value: "1" } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(sentRules(0).limits).toEqual([
+        { asset: SOL, amount: "1000000000" },
+      ]),
+    );
+  });
+
+  it("keeps a filed change when an older read answers late", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const slow = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    let gets = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), "https://portal.test");
+        if (url.pathname === "/v1/account/rules/catalog")
+          return Response.json(catalog);
+        gets += 1;
+        return slow;
+      }),
+    );
+    const filed = body({ pending: change() });
+    const view = render(<WalletRules wallet={WALLET} />, {
+      wrapper: AccountOverviewFixture,
+    });
+    await waitFor(() => expect(gets).toBe(1));
+    // The lane control files a change while the first read is in flight.
+    view.rerender(<WalletRules wallet={WALLET} filed={filed as never} />);
+    expect(
+      await screen.findByLabelText("Rule change for Trading wallet"),
+    ).toBeTruthy();
+    await act(async () => {
+      answer(Response.json(body()));
+      await slow;
+    });
+    expect(
+      screen.getByLabelText("Rule change for Trading wallet"),
+    ).toBeTruthy();
+  });
+
+  it("offers Try again in a picker when the catalog cannot be read", async () => {
+    let fail = true;
+    respond = (_method, path) =>
+      path === "/v1/account/rules/catalog" && fail
+        ? refused("unavailable", 503)
+        : undefined;
+    await renderRules();
+    fireEvent.click(screen.getByRole("button", { name: "App" }));
+    const picker = screen.getByRole("group", { name: "Allowed apps" });
+    // The rule's own apps stay removable; nothing claims to be loading.
+    expect(screen.queryByText("Loading apps…")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Limit" }));
+    const limit = screen.getByRole("group", { name: "New limit" });
+    expect(
+      await within(limit).findByText("Couldn’t load the tokens."),
+    ).toBeTruthy();
+    fail = false;
+    fireEvent.click(within(limit).getByRole("button", { name: "Try again" }));
+    expect(await within(limit).findByLabelText("Token")).toBeTruthy();
+    expect(picker).toBeTruthy();
+  });
+
+  it("stops offering a decision the moment the change expires", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const soon = Math.floor(Date.now() / 1000) + 20;
+      rules = body({ pending: change({ expires_at: soon }) });
+      await renderRules();
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      const card = screen.getByLabelText("Rule change for Trading wallet");
+      expect(
+        within(card).getByRole("button", { name: "Approve" }),
+      ).toBeEnabled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(21_000);
+      });
+      expect(within(card).getByText("expired")).toBeTruthy();
+      expect(
+        within(card).getByRole("button", { name: "Approve" }),
+      ).toBeDisabled();
+      expect(
+        within(card).getByRole("button", { name: "Decline" }),
+      ).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says the wallet signed when sending the signature fails", async () => {
+    kit.identity.address = ADMIN;
+    rules = body({
+      admin: { kind: "wallet", family: "evm", address: ADMIN },
+      pending: change({
+        signer: { kind: "wallet", family: "evm", address: ADMIN },
+        sign_message: "Aomi rule change ch-1",
+      }),
+    });
+    await renderRules();
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    respond = (method) => {
+      if (method === "POST") throw new TypeError("network down");
+      return undefined;
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Sign in wallet" }));
+    expect(
+      await screen.findByText(
+        "Your wallet signed, but the change couldn’t be sent. Check the rules before trying again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Nothing was signed. Try again.")).toBeNull();
+    // A prompt the user closes still says nothing was signed.
+    kit.signMessage.mockRejectedValueOnce(new Error("User rejected"));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in wallet" }));
+    expect(
+      await screen.findByText("Nothing was signed. Try again."),
+    ).toBeTruthy();
   });
 
   it("saves a lower limit at once with the full set and no display fields", async () => {

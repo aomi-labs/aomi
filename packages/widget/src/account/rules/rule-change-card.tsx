@@ -115,13 +115,37 @@ export function RuleChangeCard({
   const [busy, setBusy] = useState<"approve" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
+  const [, tick] = useState(0);
   const mounted = useRef(true);
+  // The wallet signed in this attempt; a failure after that is not "nothing
+  // was signed".
+  const signed = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
     };
   }, []);
+  // Keep "expires in" current while the card stays open, and read the change
+  // again the moment it expires.
+  const expiresAt = change.expires_at;
+  useEffect(() => {
+    const remaining = expiresAt * 1000 - Date.now();
+    if (remaining <= 0) return;
+    const minute = setInterval(() => tick((count) => count + 1), 30_000);
+    const end = setTimeout(
+      () => {
+        tick((count) => count + 1);
+        onStale();
+      },
+      Math.min(remaining + 500, 2 ** 31 - 1),
+    );
+    return () => {
+      clearInterval(minute);
+      clearTimeout(end);
+    };
+    // onStale is the caller's reload; a new identity must not restart the timers.
+  }, [expiresAt]);
 
   const left = timeUntil(change.expires_at);
   const signer = change.signer;
@@ -135,6 +159,7 @@ export function RuleChangeCard({
     setBusy(step);
     setError(null);
     setStale(false);
+    signed.current = false;
     try {
       const rules = await send();
       onDecided(rules, step === "approve" ? "approved" : "declined");
@@ -147,8 +172,14 @@ export function RuleChangeCard({
         onStale();
       } else if (code)
         setError(rulesFailure(caught, "Couldn’t do that. Try again."));
+      else if (signed.current)
+        setError(
+          "Your wallet signed, but the change couldn’t be sent. Check the rules before trying again.",
+        );
       // A wallet prompt the user closed is not a failure of the change.
-      else setError("Nothing was signed. Try again.");
+      else if (step === "approve" && signer)
+        setError("Nothing was signed. Try again.");
+      else setError("Couldn’t do that. Try again.");
     } finally {
       if (mounted.current) setBusy(null);
     }
@@ -159,6 +190,7 @@ export function RuleChangeCard({
       if (!signer) return client.account.rules.approveChange(change.id);
       if (!change.sign_message) throw new Error("No message to sign");
       const signature = await signChange(signer, change.sign_message, kit);
+      signed.current = true;
       return client.account.rules.approveChange(change.id, { signature });
     });
 
@@ -214,7 +246,7 @@ export function RuleChangeCard({
         <span className="flex-1" />
         <AomiButton
           size="sm"
-          disabled={busy !== null}
+          disabled={busy !== null || !left}
           onClick={() =>
             void run("decline", () =>
               client.account.rules.declineChange(change.id),
@@ -226,7 +258,7 @@ export function RuleChangeCard({
         <AomiButton
           variant="primary"
           size="sm"
-          disabled={busy !== null || Boolean(problem)}
+          disabled={busy !== null || Boolean(problem) || !left}
           onClick={() => void approve()}
         >
           {signer
@@ -315,6 +347,12 @@ export function RuleChangePanel({
 
   useEffect(() => {
     let stale = false;
+    // Another change's card or outcome must not show under this id.
+    setState((current) =>
+      current.step === "ready" && current.change.id !== changeId
+        ? { step: "loading" }
+        : current,
+    );
     client.account.rules.getChange(changeId).then(
       (change) => {
         if (!stale) setState({ step: "ready", change });
@@ -373,13 +411,19 @@ export function RuleChangePanel({
         client={client}
         className="w-full"
         onDecided={(_, outcome) =>
-          setState({
-            step: "ready",
-            change: {
-              ...change,
-              state: outcome === "approved" ? "applied" : "declined",
-            },
-          })
+          // A decision that lands after the page moved to another change is
+          // that other change's, not this one's.
+          setState((current) =>
+            current.step === "ready" && current.change.id === change.id
+              ? {
+                  step: "ready",
+                  change: {
+                    ...change,
+                    state: outcome === "approved" ? "applied" : "declined",
+                  },
+                }
+              : current,
+          )
         }
         onStale={() => setReload((count) => count + 1)}
       />
