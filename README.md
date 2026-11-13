@@ -25,7 +25,7 @@ export function Assistant() {
 }
 ```
 
-The default API origin is `https://chat.aomi.dev`; pass `apiUrl` for another
+The default API origin is `https://aomi.chat`; pass `apiUrl` for another
 Portal/BFF. Browser wallets are the default authentication mode. Optional
 Privy and Para integrations load when selected and require their SDK packages.
 The widget scopes its styles, overlays and preferences to each instance.

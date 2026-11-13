@@ -3,8 +3,8 @@ import { resolveHeadlessOAuthConfig } from "./oauth";
 
 describe("headless OAuth configuration", () => {
   it("defaults to the exact Agent resource and scopes", () => {
-    expect(resolveHeadlessOAuthConfig("https://chat.aomi.dev")).toEqual({
-      resource: "https://chat.aomi.dev/v1/agent",
+    expect(resolveHeadlessOAuthConfig("https://aomi.chat")).toEqual({
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:read", "agent:write", "agent:actions:resolve"],
     });
   });
@@ -24,21 +24,21 @@ describe("headless OAuth configuration", () => {
 
   it.each([
     "https://other.example/v1/agent",
-    "https://chat.aomi.dev/v1/agent/",
-    "https://chat.aomi.dev/v1/agent/mcp",
-    "https://chat.aomi.dev/v1/agent?extra=1",
-    "https://user:pass@chat.aomi.dev/v1/agent",
+    "https://aomi.chat/v1/agent/",
+    "https://aomi.chat/v1/agent/mcp",
+    "https://aomi.chat/v1/agent?extra=1",
+    "https://user:pass@aomi.chat/v1/agent",
   ])("rejects non-canonical resource %s", (resource) => {
     expect(() =>
-      resolveHeadlessOAuthConfig("https://chat.aomi.dev", resource),
+      resolveHeadlessOAuthConfig("https://aomi.chat", resource),
     ).toThrow("AOMI_OAUTH_RESOURCE must be exactly");
   });
 
   it("rejects scopes belonging to another resource", () => {
     expect(() =>
       resolveHeadlessOAuthConfig(
-        "https://chat.aomi.dev",
-        "https://chat.aomi.dev/v1/agent",
+        "https://aomi.chat",
+        "https://aomi.chat/v1/agent",
         "agent:read pipeline:execute",
       ),
     ).toThrow("AOMI_OAUTH_SCOPES contains");

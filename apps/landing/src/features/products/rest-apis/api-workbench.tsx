@@ -9,7 +9,7 @@ const examples = {
     label: "Agent API",
     version: "v1",
     endpoint: "POST /v1/agent/chat",
-    request: `curl https://chat.aomi.dev/v1/agent/chat \\
+    request: `curl https://aomi.chat/v1/agent/chat \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: 7c1e…" \\
   -H "Content-Type: application/json" \\
@@ -53,7 +53,7 @@ const examples = {
     label: "Pipeline API",
     version: "Build v2",
     endpoint: "POST /v1/pipeline/evm/stage",
-    request: `curl https://chat.aomi.dev/v1/pipeline/evm/stage \\
+    request: `curl https://aomi.chat/v1/pipeline/evm/stage \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: 9a40…" \\
   -H "Content-Type: application/json" \\

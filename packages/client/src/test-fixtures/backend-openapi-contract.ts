@@ -106,6 +106,10 @@ function isAomiAuthClass(value: unknown): value is AomiAuthClass {
     value === "app_gate" ||
     value === "delegated" ||
     value === "service" ||
+    value === "builder:read" ||
+    value === "project:deploy" ||
+    value === "project:activate" ||
+    value === "project:observe" ||
     value === "admin" ||
     value === "activation" ||
     value === "activation-admin" ||

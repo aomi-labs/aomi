@@ -138,7 +138,7 @@ export function WidgetProductPageContent({
                   <ArrowUpRight aria-hidden className="size-4" />
                 </Link>
                 <a
-                  href="https://chat.aomi.dev"
+                  href="https://aomi.chat"
                   target="_blank"
                   rel="noreferrer"
                   className={pageStyles.secondaryButton}
@@ -161,7 +161,7 @@ export function WidgetProductPageContent({
                 <span className={pageStyles.stageStatus}>
                   <span aria-hidden /> Live product surface
                 </span>
-                <span>chat.aomi.dev</span>
+                <span>aomi.chat</span>
               </div>
               <div className={pageStyles.demoClip}>
                 <HumanDemo />

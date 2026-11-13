@@ -30,7 +30,7 @@ const PLANS: Record<Audience, readonly Plan[]> = {
       ],
       cta: {
         label: "Open Aomi",
-        href: "https://chat.aomi.dev",
+        href: "https://aomi.chat",
         external: true,
       },
     },

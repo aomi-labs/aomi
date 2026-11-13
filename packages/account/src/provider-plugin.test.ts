@@ -54,7 +54,7 @@ describe("provider auth plugin", () => {
     await expect(
       endpoint({
         request: new Request(
-          "https://chat.aomi.dev/api/auth/aomi/provider/exchange",
+          "https://aomi.chat/api/auth/aomi/provider/exchange",
         ),
         body: {
           provider: "para",

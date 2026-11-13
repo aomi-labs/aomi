@@ -38,11 +38,11 @@ jobs:
 
       - name: Wait for canonical production and run smoke
         env:
-          PORTAL_PREVIEW_URL: https://chat.aomi.dev
+          PORTAL_PREVIEW_URL: https://aomi.chat
           BUILD_PREVIEW_URL: https://build.aomi.dev
         run: |
           for _ in $(seq 1 20); do
-            if curl -fsS https://chat.aomi.dev/health >/dev/null 2>&1 || curl -fsS https://chat.aomi.dev/ >/dev/null; then
+            if curl -fsS https://aomi.chat/health >/dev/null 2>&1 || curl -fsS https://aomi.chat/ >/dev/null; then
               break
             fi
             sleep 15

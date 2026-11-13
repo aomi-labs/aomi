@@ -6,7 +6,7 @@ import { Aomi, oauth } from "@aomi-labs/client";
 import { createJsonFileGrantStore } from "./grant-stores";
 import { resolveHeadlessOAuthConfig } from "../shared/oauth";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://aomi.chat";
 const { resource } = resolveHeadlessOAuthConfig(baseUrl);
 const target = resource.endsWith("/v1/pipeline") ? "pipeline" : "agent";
 const clientId = process.env.AOMI_OAUTH_CLIENT_ID?.trim();

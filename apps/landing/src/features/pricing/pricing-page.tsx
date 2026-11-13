@@ -155,7 +155,7 @@ export default function PricingPage() {
           </div>
           <div className={styles.ctaActions}>
             <a
-              href="https://chat.aomi.dev"
+              href="https://aomi.chat"
               target="_blank"
               rel="noreferrer"
               className={styles.ctaPrimary}

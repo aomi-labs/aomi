@@ -171,14 +171,14 @@ describe("aomi.wallets", () => {
     const oauth = vi.fn(agentToken);
     const authorized = wrapFetchWithPublicApiAuthorization({
       fetch: upstream as typeof fetch,
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       oauth,
     });
-    await authorized("https://chat.aomi.dev/v1/account/wallets");
-    await authorized("https://chat.aomi.dev/v1/account/agent-wallets");
+    await authorized("https://aomi.chat/v1/account/wallets");
+    await authorized("https://aomi.chat/v1/account/agent-wallets");
     for (const call of oauth.mock.calls)
       expect(call[0]).toEqual({
-        resource: "https://chat.aomi.dev/v1/agent",
+        resource: "https://aomi.chat/v1/agent",
         scopes: ["agent:read"],
         forceRefresh: false,
       });
@@ -191,13 +191,13 @@ describe("aomi.wallets", () => {
     );
     const oauth = vi.fn(agentToken);
     const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
+      baseUrl: "https://aomi.chat",
       fetch: upstream,
       oauth,
     });
     await client.account.wallets.setThreadWallet("thread-1", "w_12");
     expect(oauth).toHaveBeenCalledWith({
-      resource: "https://chat.aomi.dev/v1/agent",
+      resource: "https://aomi.chat/v1/agent",
       scopes: ["agent:write"],
       forceRefresh: false,
     });
