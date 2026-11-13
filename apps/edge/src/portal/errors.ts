@@ -16,9 +16,7 @@ function challenge(error: PrincipalError, shape: ResourceShape): Response {
   if (!headers.has("www-authenticate")) {
     const metadata = `resource_metadata="${protectedResourceMetadataUrl(shape.resource)}"`;
     const scopes = shape.challengeScopes ?? error.requiredScopes;
-    const scope = scopes.length
-      ? `, scope="${[...new Set(scopes)].join(" ")}"`
-      : "";
+    const scope = scopes.length ? `, scope="${[...new Set(scopes)].join(" ")}"` : "";
     headers.set(
       "www-authenticate",
       error.status === 403
@@ -41,9 +39,5 @@ export function portalError(
   fallback?: string,
 ): Response {
   if (shape && error instanceof PrincipalError) return challenge(error, shape);
-  return errorResponse(
-    error,
-    { surface: "portal", operation, request },
-    fallback,
-  );
+  return errorResponse(error, { surface: "portal", operation, request }, fallback);
 }

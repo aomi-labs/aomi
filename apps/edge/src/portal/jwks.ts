@@ -1,8 +1,4 @@
-import {
-  createLocalJWKSet,
-  type JSONWebKeySet,
-  type JWTVerifyGetKey,
-} from "jose";
+import { createLocalJWKSet, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
 
 import type { EdgeCache } from "../env";
 import { TwoTierCache } from "../kernel/cache";
@@ -50,18 +46,11 @@ export async function portalJwks(input: {
     );
     if (!response.ok) throw new Error(`jwks responded ${response.status}`);
     keys = (await response.json()) as JSONWebKeySet;
-    if (!Array.isArray(keys?.keys))
-      throw new Error("jwks document has no keys");
+    if (!Array.isArray(keys?.keys)) throw new Error("jwks document has no keys");
   } catch (error) {
     throw new JwksUnavailableError(error);
   }
-  await cache.put(
-    key,
-    JSON.stringify(keys),
-    JWKS_TTL_SECONDS,
-    input.cache,
-    now(),
-  );
+  await cache.put(key, JSON.stringify(keys), JWKS_TTL_SECONDS, input.cache, now());
   return createLocalJWKSet(keys);
 }
 

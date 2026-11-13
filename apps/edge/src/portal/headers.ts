@@ -1,20 +1,10 @@
 import type { HeaderPolicy } from "../kernel/proxy";
 
-const CACHE_HEADERS = [
-  "cache-control",
-  "etag",
-  "last-modified",
-  "expires",
-  "vary",
-];
+const CACHE_HEADERS = ["cache-control", "etag", "last-modified", "expires", "vary"];
 // CDN directives let an edge cache share one response between callers, so
 // only public, credential-free responses may carry them.
 const CDN_CACHE_HEADERS = ["cdn-cache-control", "vercel-cdn-cache-control"];
-const PAYMENT_HEADERS = [
-  "payment-required",
-  "payment-receipt",
-  "payment-response",
-];
+const PAYMENT_HEADERS = ["payment-required", "payment-receipt", "payment-response"];
 
 /** The Rust backend's /api routes, called with an account bearer. */
 export const BACKEND_API_HEADERS: Required<HeaderPolicy> = {
@@ -57,10 +47,5 @@ export const AGENT_API_HEADERS: Required<HeaderPolicy> = {
 /** Public, credential-free discovery documents. */
 export const PUBLIC_DISCOVERY_HEADERS: Required<HeaderPolicy> = {
   request: new Set(["accept", "x-request-id"]),
-  response: new Set([
-    ...CACHE_HEADERS,
-    ...CDN_CACHE_HEADERS,
-    "content-type",
-    "x-request-id",
-  ]),
+  response: new Set([...CACHE_HEADERS, ...CDN_CACHE_HEADERS, "content-type", "x-request-id"]),
 };

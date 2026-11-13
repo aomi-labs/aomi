@@ -21,10 +21,7 @@ export class DpopError extends Error {
 function base64url(bytes: ArrayBuffer): string {
   let binary = "";
   for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 async function sha256Base64url(value: string): Promise<string> {
@@ -62,8 +59,7 @@ export async function verifyDpopProof(input: {
   } catch {
     throw new DpopError("DPoP proof is not a JWT");
   }
-  if (header.typ !== "dpop+jwt")
-    throw new DpopError("DPoP proof typ must be dpop+jwt");
+  if (header.typ !== "dpop+jwt") throw new DpopError("DPoP proof typ must be dpop+jwt");
   if (!header.alg || !DPOP_SIGNING_ALGORITHMS.includes(header.alg as never))
     throw new DpopError("DPoP proof uses an unsupported algorithm");
   if (!header.jwk || typeof header.jwk !== "object")
@@ -97,7 +93,5 @@ export async function verifyDpopProof(input: {
   if (typeof cnf?.jkt !== "string")
     throw new DpopError("access token is not DPoP-bound");
   if (cnf.jkt !== (await calculateJwkThumbprint(jwk)))
-    throw new DpopError(
-      "DPoP proof key does not match the access token binding",
-    );
+    throw new DpopError("DPoP proof key does not match the access token binding");
 }

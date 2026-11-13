@@ -881,9 +881,7 @@ export const ROUTES: readonly Route[] = [
     POST: signedIn,
   }),
   // One guest sign-in; the two older paths stay for published SDKs (client <= 0.11, widget <= 4).
-  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", {
-    POST: "public",
-  }),
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {
     POST: "public",
   }),
