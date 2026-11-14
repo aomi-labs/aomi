@@ -89,9 +89,14 @@ describe("SettingsModal directory shell", () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog", { name: "Settings" });
-    expect(dialog.style.width).toBe("1000px");
-    expect(dialog.style.height).toBe("620px");
-    expect(dialog.style.maxWidth).toBe("96%");
+    // A full-screen page on phones, the 1000×620 window from md.
+    expect(dialog).toHaveClass(
+      "h-full",
+      "w-full",
+      "md:w-[1000px]",
+      "md:h-[620px]",
+      "md:max-w-[96%]",
+    );
     expect(
       screen.getByRole("navigation", { name: "Settings sections" }),
     ).toBeTruthy();
@@ -108,7 +113,7 @@ describe("SettingsModal directory shell", () => {
     expect(screen.getByRole("heading", { name: "General" })).toHaveClass(
       "type-title",
     );
-    expect(dialog).toHaveClass("rounded-shell", "shadow-modal");
+    expect(dialog).toHaveClass("md:rounded-shell", "md:shadow-modal");
     expect(
       screen.getByText("Appearance, defaults, and account overview"),
     ).toBeTruthy();
@@ -149,7 +154,7 @@ describe("SettingsModal directory shell", () => {
       const column = screen
         .getByText(content)
         .closest("[data-settings-column]");
-      expect(column).toHaveClass("w-full", "px-6");
+      expect(column).toHaveClass("w-full", "px-4", "md:px-6");
       expect(column).not.toHaveClass("mx-auto");
     }
   });
