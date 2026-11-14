@@ -8,9 +8,12 @@ import { useActivityPanel } from "@/sidebar/activity/activity-panel-context";
 import { useShellTransport } from "@/account/transport";
 import { useSettings } from "@/account/use-settings";
 
-/** Every header control stands 32px square so the row reads as one cluster. */
+/**
+ * Every header control stands 32px square so the row reads as one cluster;
+ * on phones each grows to a 36px touch target.
+ */
 const headerButtonClass =
-  "flex h-8 w-8 items-center justify-center rounded-[10px] text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg";
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg max-md:h-9 max-md:w-9";
 
 /** Names each icon on hover; the span keeps the tip working on a disabled button. */
 function HeaderTip({
@@ -64,12 +67,16 @@ export function HeaderControls({
       (themeRoot ?? document.documentElement).classList.contains("dark"));
 
   return (
-    <div className="flex items-center gap-2.5">
+    // On phones the network pill drops its label so every control fits.
+    <div className="flex min-w-0 items-center gap-1 md:gap-2.5">
       {showNetwork ? (
         <>
-          <NetworkSelect className="border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 hover:bg-aomi-raised hover:text-aomi-fg focus-visible:border-aomi-border data-[state=open]:border-aomi-muted/60 h-8 rounded-full border pl-2 pr-2.5 text-[13px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:ring-0" />
+          <NetworkSelect className="border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 hover:bg-aomi-raised hover:text-aomi-fg focus-visible:border-aomi-border data-[state=open]:border-aomi-muted/60 h-8 rounded-full border pl-2 pr-2.5 text-[13px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:ring-0 max-md:mr-1 max-md:[&>span.truncate]:sr-only" />
           {showLibrary || showSettings || showTheme || showActivity ? (
-            <span aria-hidden="true" className="bg-aomi-border h-5 w-px" />
+            <span
+              aria-hidden="true"
+              className="bg-aomi-border h-5 w-px max-md:hidden"
+            />
           ) : null}
         </>
       ) : null}

@@ -66,7 +66,7 @@ const ThreadListNew: FC = () => {
       <Button
         data-testid={testIds.newChat}
         onClick={closeMobileSidebar}
-        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors"
+        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors max-md:py-3 max-md:text-[15px]"
         variant="ghost"
       >
         <PlusIcon className="size-4" />
@@ -275,7 +275,7 @@ const ThreadListItem: FC = () => {
         <>
           <ThreadListItemPrimitive.Trigger
             onClick={closeMobileSidebar}
-            className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start"
+            className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start max-md:py-2.5"
           >
             {/* Sky dot marks the active session; it blinks while Aomi works
                 and turns amber while a wallet request waits on the user. Any
@@ -343,7 +343,7 @@ const ThreadListItemTitle: FC = () => {
   return (
     <span
       data-testid={testIds.threadItemTitle}
-      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block min-w-0 flex-1 truncate text-sm transition-colors"
+      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block min-w-0 flex-1 truncate text-sm transition-colors max-md:text-[15px]"
     >
       <ThreadListItemPrimitive.Title fallback="New Chat" />
     </span>
@@ -383,7 +383,7 @@ const ThreadListItemMenu: FC<{
         <Button
           ref={triggerRef}
           className={cn(
-            "aui-thread-list-item-menu-trigger text-aomi-muted hover:text-aomi-fg h-7 shrink-0 overflow-hidden rounded-md transition-all",
+            "aui-thread-list-item-menu-trigger text-aomi-muted hover:text-aomi-fg h-7 shrink-0 overflow-hidden rounded-md transition-all max-md:h-9",
             revealClass,
           )}
           variant="ghost"

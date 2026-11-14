@@ -1,5 +1,11 @@
 # @aomi-labs/widget
 
+## 5.1.9
+
+### Patch Changes
+
+- Phone layout pass. Settings and Library open as full-screen pages below 768px, with pill tabs that scroll edge to edge. The chat header keeps every control on screen: the network pill drops its label and controls grow to 36px touch targets. The sidebar sheet is wider, opens faster and keeps clear of the notch and home indicator. Hosts that draw under the status bar set `--aomi-safe-top` and `--aomi-safe-bottom`. No change from 768px up.
+
 ## 5.1.8
 
 ### Patch Changes

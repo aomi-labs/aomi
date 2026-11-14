@@ -21,7 +21,27 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // `viewport-fit=cover` gives the home-screen app the whole screen; the
+      // layout then keeps clear of the safe areas itself (globals.css).
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
+      },
+      { name: "apple-mobile-web-app-title", content: "Aomi" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      // First paint follows the system; SettingsInitializer then tracks the
+      // theme the app shows.
+      {
+        name: "theme-color",
+        media: "(prefers-color-scheme: light)",
+        content: "#ffffff",
+      },
+      {
+        name: "theme-color",
+        media: "(prefers-color-scheme: dark)",
+        content: "#09090b",
+      },
       { title: "Execution Portal | Aomi Labs" },
       {
         name: "description",
@@ -31,7 +51,9 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", href: "/assets/images/a.svg" },
-      { rel: "apple-touch-icon", href: "/assets/images/a.svg" },
+      // iOS ignores SVG touch icons and draws the title's first letter.
+      { rel: "apple-touch-icon", href: "/assets/icons/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       // Same URLs as the @font-face sources, so the preloads are reused.
       ...[
         geistLatin,
@@ -76,7 +98,7 @@ function RootLayout() {
       <GoogleAnalytics />
       <WalletProviders>
         <SettingsInitializer>
-          <div className="relative h-screen w-full overflow-hidden">
+          <div className="portal-viewport relative h-dvh w-full overflow-hidden">
             <Outlet />
           </div>
         </SettingsInitializer>

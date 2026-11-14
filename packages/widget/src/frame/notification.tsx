@@ -19,7 +19,7 @@ export function NotificationToaster() {
     <section
       aria-label="Notifications"
       aria-live="polite"
-      className="fixed right-4 top-[72px] z-[100] flex w-[min(352px,calc(100vw-2rem))] flex-col gap-3"
+      className="fixed right-4 top-[calc(var(--aomi-safe-top,0px)+72px)] z-[100] flex w-[min(352px,calc(100vw-2rem))] flex-col gap-3"
     >
       {visible.map((notification) => (
         <NotificationToast

@@ -277,19 +277,22 @@ const Header: FC<HeaderProps> = ({
   return (
     <header
       className={cn(
-        "border-aomi-border text-aomi-fg flex h-14 shrink-0 items-center gap-2 border-b px-4",
+        "border-aomi-border text-aomi-fg flex h-14 shrink-0 items-center gap-2 border-b px-3 md:px-4",
         className,
       )}
     >
       {showSidebarTrigger && (
-        <SidebarTrigger data-testid={testIds.sidebarToggle} />
+        <SidebarTrigger
+          data-testid={testIds.sidebarToggle}
+          className="shrink-0 max-md:size-9 max-md:[&_svg]:size-5"
+        />
       )}
       {currentTitle && (
         <span className="hidden truncate text-sm font-medium md:block">
           {currentTitle}
         </span>
       )}
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex min-w-0 items-center gap-2.5">
         {withControl && <ControlBar {...controlBarProps} />}
         {children}
       </div>

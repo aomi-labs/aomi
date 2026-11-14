@@ -28,7 +28,8 @@ import { testIds } from "@/test-ids";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH_MOBILE = "18rem";
+// Most of a phone, with a strip of the chat left to tap closed.
+const SIDEBAR_WIDTH_MOBILE = "min(86vw, 21rem)";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 const SIDEBAR_MIN_WIDTH = 180;
@@ -223,7 +224,9 @@ function Sidebar({
           data-slot="sidebar"
           data-mobile="true"
           data-testid={testIds.mobileSheet}
-          className="w-(--sidebar-width) bg-sidebar text-sidebar-foreground p-0 [&>button]:hidden"
+          // The sheet is fixed to the screen, so it keeps clear of the notch
+          // and home indicator itself.
+          className="w-(--sidebar-width) bg-sidebar text-sidebar-foreground p-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pt-[env(safe-area-inset-top)] data-[state=closed]:duration-200 data-[state=open]:duration-300 [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
