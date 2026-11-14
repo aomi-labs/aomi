@@ -613,6 +613,7 @@ describe("Agent wallets band", () => {
                 {
                   provider: "swig",
                   name: "Swig",
+                  network: "solana:mainnet-beta",
                   state: "off",
                   covers: { apps: [], limits: [] },
                   left: {},

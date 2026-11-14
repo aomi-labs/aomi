@@ -136,6 +136,11 @@ export type AomiRulesEnforcement = {
   /** The name to show. */
   name: string;
   /**
+   * The chain it holds the rules on, as the rules' asset ids write it
+   * (`solana:mainnet-beta`). A provider on several chains has one entry each.
+   */
+  network: string;
+  /**
    * `behind`: the chain holds something else than the rules ask for.
    * `unverified`: the chain could not be read.
    */
@@ -145,20 +150,27 @@ export type AomiRulesEnforcement = {
   left: Record<string, string>;
   /** Why the rules cannot go on chain, or what is wrong there. */
   note: string | null;
-  /** There is something to sign: the first policy, or an update. */
+  /** There is something to sign: the first time, or an update. */
   ready: boolean;
   /** The owner's wallet that signs; its address once the rules are on chain. */
   signer: { family: AomiWalletFamily; address: string | null };
 };
 
-/** A transaction the owner's wallet signs and sends. */
-export type AomiRulesTransaction = {
+/**
+ * What the owner's wallet does next, tagged by `kind`. The one kind today is
+ * a transaction to sign and send; a kind this client does not know fails to
+ * parse rather than being guessed at.
+ */
+export type AomiRulesAction = {
+  kind: "transaction";
   family: AomiWalletFamily;
   network: string;
   unsigned_base64: string;
 };
 
 export type AomiRulesEnforceRequest = {
+  /** The entry's `network`. */
+  network: string;
   /** The rules' revision as the owner saw them. */
   revision: number;
   /** The owner's wallet that signs; needed the first time only. */
@@ -371,6 +383,7 @@ function parseEnforcement(value: unknown): AomiRulesEnforcement {
   return {
     provider: text(record?.provider, "enforcement.provider"),
     name: text(record?.name, "enforcement.name"),
+    network: text(record?.network, "enforcement.network"),
     state,
     covers: {
       apps: names(covers?.apps, "enforcement.covers.apps"),
@@ -545,15 +558,15 @@ export class AccountRulesTransport {
   }
 
   /**
-   * The transaction the owner's wallet signs to put the rules on chain with
-   * `provider`, to update them there, or to `remove` them. Null when the
-   * chain already holds them: confirm without a signature.
+   * What the owner's wallet does to put the rules on chain with `provider`,
+   * to update them there, or to `remove` them. Null when the chain already
+   * holds them: confirm straight away.
    */
   async prepareEnforcement(
     agentWalletId: string,
     provider: string,
     request: AomiRulesEnforceRequest,
-  ): Promise<AomiRulesTransaction | null> {
+  ): Promise<AomiRulesAction | null> {
     const record = asRecord(
       await this.request(
         "POST",
@@ -561,28 +574,27 @@ export class AccountRulesTransport {
         { body: request },
       ),
     );
-    const transaction = asRecord(record?.transaction);
-    return transaction
-      ? {
-          family: family(transaction.family),
-          network: text(transaction.network, "transaction.network"),
-          unsigned_base64: text(
-            transaction.unsigned_base64,
-            "transaction.unsigned_base64",
-          ),
-        }
-      : null;
+    const action = asRecord(record?.action);
+    if (!action) return null;
+    if (action.kind !== "transaction")
+      throw invalid(`unsupported action: ${String(action.kind)}`);
+    return {
+      kind: "transaction",
+      family: family(action.family),
+      network: text(action.network, "action.network"),
+      unsigned_base64: text(action.unsigned_base64, "action.unsigned_base64"),
+    };
   }
 
   /**
-   * Have the backend read the chain after the owner's wallet sent the
-   * prepared transaction. Answers the rules with the provider's new state;
+   * Have the backend read the chain after the owner's wallet did what
+   * `prepareEnforcement` answered. Answers the rules with the provider's new state;
    * `chain_not_settled` means its node does not show the transaction yet.
    */
   async confirmEnforcement(
     agentWalletId: string,
     provider: string,
-    request: AomiRulesEnforceRequest & { transaction_signature?: string },
+    request: AomiRulesEnforceRequest,
   ): Promise<AomiWalletRules> {
     const record = asRecord(
       await this.request(
