@@ -182,6 +182,7 @@ describe("help", () => {
     [["tx"]],
     [["tx", "approve"]],
     [["wallets"]],
+    [["rules"]],
     [["pipeline", "build"]],
   ])("prints %j --help", async (route) => {
     const { code, stdout } = await cli(...route, "--help");
@@ -369,5 +370,137 @@ describe("sign-in", () => {
     );
   });
 
+});
 
+describe("aomi rules", () => {
+  const WALLET = "6f1c2b8e-0000-4000-8000-000000000001";
+  const CHANGE = "9a000000-0000-4000-8000-000000000009";
+  const change = {
+    id: CHANGE,
+    agent_wallet_id: WALLET,
+    wallet_name: "Trading wallet",
+    lines: [{ text: "USDC on Base: 200 → 400 a day", loosens: true }],
+    state: "awaiting_admin",
+    proposed_by: "agent:telegram:7712345678",
+    expires_at: Math.floor(Date.now() / 1000) + 23 * 3600 + 600,
+    signer: null,
+    sign_message: null,
+  };
+  const body = {
+    agent_wallet_id: WALLET,
+    wallet_name: "Trading wallet",
+    revision: 3,
+    rules: { apps: null, limits: [], not_after: null, owner_only: true },
+    sentences: ["Can use Jupiter, Kamino", "Up to 0.5 SOL a day on Solana"],
+    admin: { kind: "aomi_managed" },
+    stopped_until: null,
+    usage: [
+      {
+        asset: "solana:mainnet-beta/native",
+        used: "200000000",
+        cap: "500000000",
+        symbol: "SOL",
+        decimals: 9,
+      },
+    ],
+    window_ends_at: 1795046400,
+    pending: change,
+    enforced_by: ["aomi"],
+    admin_wallets: [],
+  };
+  const paths = {
+    wallets: "GET /v1/account/agent-wallets",
+    rules: `GET /v1/account/agent-wallets/${WALLET}/rules`,
+    change: `GET /v1/account/rule-changes/${CHANGE}`,
+    approve: `POST /v1/account/rule-changes/${CHANGE}/approve`,
+    decline: `POST /v1/account/rule-changes/${CHANGE}/decline`,
+  };
+  beforeEach(() => {
+    const wallet = (id: string, archived_at: number | null) => ({
+      id,
+      name: "Trading wallet",
+      paused: false,
+      archived_at,
+      app: null,
+      last_used_at: null,
+      created_at: 1,
+      addresses: [],
+      connections: [],
+    });
+    routes[paths.wallets] = {
+      pause_all: false,
+      wallets: [wallet(WALLET, null), wallet("archived", 5)],
+    };
+    routes[paths.rules] = body;
+    routes[paths.change] = change;
+    routes[paths.approve] = { ...body, pending: null, revision: 4 };
+    routes[paths.decline] = { ...body, pending: null };
+  });
+  afterEach(() => {
+    for (const key of Object.values(paths)) delete routes[key];
+  });
+
+  it("lists each agent wallet's sentences, use, admin and waiting change", async () => {
+    const { code, stdout } = await cli("rules", "--private-key", KEY);
+    expect(code).toBe(0);
+    expect(stdout.split("\n")).toEqual([
+      `Trading wallet  ${WALLET}`,
+      "  Can use Jupiter, Kamino",
+      "  Up to 0.5 SOL a day on Solana",
+      "  used 0.2 / 0.5 SOL",
+      "  Admin: Aomi-managed",
+      `  Pending ${CHANGE} · 23 h left`,
+      "    ↑ USDC on Base: 200 → 400 a day",
+      "",
+    ]);
+    // Archived wallets have no rules to show.
+    expect(requests.some((r) => r.key.includes("archived"))).toBe(false);
+  });
+
+  it("approves a change with the session it signed in with", async () => {
+    const { code, stdout } = await cli(
+      "rules",
+      "approve",
+      CHANGE,
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain("Approved\nTrading wallet");
+    expect(stdout).not.toContain("Pending");
+    const sent = requests.find((r) => r.key === paths.approve);
+    expect(sent).toMatchObject({ auth: "Bearer session-token", body: "{}" });
+  });
+
+  it("prints the page to sign on when the admin is a wallet", async () => {
+    routes[paths.change] = {
+      ...change,
+      signer: { kind: "wallet", family: "evm", address: "0xAdmin" },
+      sign_message: "Aomi rule change",
+    };
+    const { code, stdout } = await cli(
+      "rules",
+      "approve",
+      CHANGE,
+      "--private-key",
+      KEY,
+    );
+    expect(code).toBe(3);
+    expect(stdout).toContain(
+      `Needs the signature of 0xAdmin. Sign at ${BASE}/rules/${CHANGE}`,
+    );
+    expect(requests.some((r) => r.key === paths.approve)).toBe(false);
+  });
+
+  it("declines a change, and refuses one that is no longer waiting", async () => {
+    const declined = await cli("rules", "decline", CHANGE, "--private-key", KEY);
+    expect(declined.code).toBe(0);
+    expect(declined.stdout).toContain("Declined");
+    routes[paths.change] = { ...change, state: "applied" };
+    const late = await cli("rules", "approve", CHANGE, "--private-key", KEY);
+    expect(late.code).toBe(1);
+    expect(late.stderr).toContain(
+      "This change isn't waiting for approval (applied)",
+    );
+  });
 });

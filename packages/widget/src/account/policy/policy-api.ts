@@ -2,8 +2,6 @@ import {
   AccountGraphApiError,
   type AccountPoliciesTransport,
   type AomiBindOnchainPolicy,
-  type AomiOnchainAddress,
-  type AomiOnchainPolicy,
   type AomiPreparedOnchainPolicy,
 } from "@aomi-labs/client";
 
@@ -82,35 +80,13 @@ export function confirmPolicyRevoke(
 
 /**
  * Decimal places for the curated mints the backend offers, keyed by the
- * symbol it labels them with. A symbol missing here cannot be capped from the
- * form; the backend still validates the address.
+ * symbol it labels them with. A symbol missing here shows its raw amount.
  */
 export const MINT_DECIMALS: Record<string, number> = {
   wSOL: 9,
   USDC: 6,
   USDT: 6,
 };
-
-export function toAtomic(
-  value: string,
-  decimals: number,
-  unit: string,
-): string {
-  const normalized = value.trim();
-  const pattern = new RegExp(`^\\d+(?:\\.\\d{0,${decimals}})?$`);
-  if (!pattern.test(normalized)) {
-    throw new Error(
-      `Enter a ${unit} amount with at most ${decimals} decimal places.`,
-    );
-  }
-  const [whole, fraction = ""] = normalized.split(".");
-  const atomic = `${whole}${fraction.padEnd(decimals, "0")}`.replace(
-    /^0+(?=\d)/,
-    "",
-  );
-  if (atomic === "0") throw new Error("The spending limit must be above zero.");
-  return atomic;
-}
 
 export function fromAtomic(value: string, decimals: number): string {
   const padded = value.padStart(decimals + 1, "0");
@@ -119,60 +95,8 @@ export function fromAtomic(value: string, decimals: number): string {
   return fraction ? `${whole}.${fraction}` : whole;
 }
 
-export function solToAtomic(value: string): string {
-  return toAtomic(value, 9, "SOL");
-}
-
 export function atomicToSol(value: string): string {
   return fromAtomic(value, 9);
-}
-
-/** Whether a policy's limits last for the role's lifetime or reset each window. */
-export type LimitKind = "lifetime" | "recurring";
-
-/** One per-mint cap from the form, already in atomic units. */
-export interface TokenCapInput {
-  mint: AomiOnchainAddress;
-  amount: string;
-}
-
-export function policyFromForm(
-  targets: AomiOnchainAddress[],
-  amount: string,
-  limitKind: LimitKind,
-  slotWindow: number,
-  tokenCaps: TokenCapInput[] = [],
-): AomiOnchainPolicy {
-  const window = { unit: "slots" as const, value: slotWindow };
-  const limit =
-    limitKind === "lifetime"
-      ? {
-          type: "lifetime_native_asset_limit" as const,
-          amount: solToAtomic(amount),
-        }
-      : {
-          type: "recurring_native_asset_limit" as const,
-          amount: solToAtomic(amount),
-          window,
-        };
-  // Token caps share the native limit's kind and window: the backend rejects
-  // a mix, and the role resets as one unit on-chain.
-  const tokens = tokenCaps.map(({ mint, amount }) =>
-    limitKind === "lifetime"
-      ? { type: "lifetime_token_asset_limit" as const, mint, amount }
-      : { type: "recurring_token_asset_limit" as const, mint, amount, window },
-  );
-  return {
-    version: 1,
-    rules: [
-      ...targets.map((target) => ({
-        type: "allowed_call_target" as const,
-        target,
-      })),
-      limit,
-      ...tokens,
-    ],
-  };
 }
 
 export function explainPolicyError(cause: unknown): string {

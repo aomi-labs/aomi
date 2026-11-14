@@ -13,9 +13,12 @@ import {
   Pencil,
   QrCode,
   ShieldCheck,
-  SlidersHorizontal,
 } from "lucide-react";
-import { shortAddress, type AomiAgentWallet } from "@aomi-labs/client";
+import {
+  shortAddress,
+  type AomiAgentWallet,
+  type AomiWalletRules,
+} from "@aomi-labs/client";
 import { AomiSheet } from "@/ui/aomi/aomi-sheet";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
@@ -33,10 +36,7 @@ import {
 } from "@/account/account-management/wallet-model";
 import { usedLabel } from "@/account/connections/connections-settings";
 import { ConnectionLanes } from "@/account/connections/connection-lanes";
-import {
-  OnchainPolicySettings,
-  useWalletLimits,
-} from "@/account/policy/onchain-policy-settings";
+import { WalletRules } from "@/account/rules/wallet-rules";
 import { explorerUrl } from "@/thread/explorer-links";
 import { AddressQr } from "./address-qr";
 import { FamilyLabel } from "./family-label";
@@ -45,9 +45,10 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its lane on it, then Send, Limits (where Swig is on),
- * Rename and Pause as rows, and Archive alone at the bottom. Changes save at
- * once.
+ * every connection with its lane on it, its rules (and, where Swig is on,
+ * the same rules on chain), then Send, Rename and Pause as rows, and Archive alone at the bottom.
+ * Changes save at once; a rule change that gives the agent power waits for
+ * the wallet's admin.
  */
 export function AgentWalletManage({
   wallet,
@@ -71,7 +72,8 @@ export function AgentWalletManage({
 }) {
   const { renameWallet, dialog: renameDialog } = useRenameWallet(onRename);
   const [receive, setReceive] = useState<WalletFamily | null>(null);
-  const [limitsOpen, setLimitsOpen] = useState(false);
+  // A lane made Instant on a wallet-admin wallet files a rule change instead.
+  const [filed, setFiled] = useState<AomiWalletRules | null>(null);
   const archived = wallet.archived_at !== null;
   const paused = wallet.paused || pausedAll;
   // Deposits go where the funds live: under on-chain limits that is the
@@ -83,7 +85,6 @@ export function AgentWalletManage({
   const svm = archived
     ? undefined
     : wallet.addresses.find((entry) => entry.family === "svm")?.address;
-  const limits = useWalletLimits(svm);
 
   if (receive)
     return (
@@ -92,15 +93,6 @@ export function AgentWalletManage({
         family={receive}
         onFamily={setReceive}
         onBack={() => setReceive(null)}
-        onClose={onClose}
-      />
-    );
-  if (limitsOpen && svm)
-    return (
-      <LimitsStep
-        name={wallet.name}
-        delegate={svm}
-        onBack={() => setLimitsOpen(false)}
         onClose={onClose}
       />
     );
@@ -188,6 +180,7 @@ export function AgentWalletManage({
           brand="Aomi"
           disabled={paused}
           onClose={onClose}
+          onRulesFiled={setFiled}
         />
         {paused ? (
           <p className="type-meta text-aomi-muted -mt-2 flex items-start gap-1.5">
@@ -196,17 +189,12 @@ export function AgentWalletManage({
           </p>
         ) : null}
 
+        {archived ? null : (
+          <WalletRules wallet={wallet} delegate={svm} filed={filed} />
+        )}
+
         <ListGroup>
           <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />
-          {limits.available ? (
-            <ActionRow
-              icon={SlidersHorizontal}
-              label="Limits"
-              description="Enforced on Solana by Swig"
-              step
-              onClick={() => setLimitsOpen(true)}
-            />
-          ) : null}
           {archived ? null : (
             <ActionRow
               icon={Pencil}
@@ -254,33 +242,6 @@ export function AgentWalletManage({
         </ListGroup>
       </div>
       {renameDialog}
-    </AomiSheet>
-  );
-}
-
-/** Limits: the wallet's Swig policy, signed by your connected Solana wallet. */
-function LimitsStep({
-  name,
-  delegate,
-  onBack,
-  onClose,
-}: {
-  name: string;
-  delegate: string;
-  onBack: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <AomiSheet onClose={onClose}>
-      <SheetHeader
-        leading={<BackButton onBack={onBack} />}
-        title="Limits"
-        description={`${name} · enforced on Solana by Swig`}
-        onClose={onClose}
-      />
-      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
-        <OnchainPolicySettings delegate={delegate} />
-      </div>
     </AomiSheet>
   );
 }

@@ -321,6 +321,22 @@ export interface AomiOnchainPolicyProviderCtx {
   remaining_native_amount: string | null;
   /** Remaining token allowance by mint address, read from the chain. */
   remaining_token_amounts: Record<string, string>;
+  /**
+   * The delegate's agent wallet rules as a policy for this provider; null
+   * when the delegate is no agent wallet's key.
+   */
+  from_rules?: AomiRulesPolicy | null;
+}
+
+/** An agent wallet's rules as the on-chain policy that enforces them. */
+export interface AomiRulesPolicy {
+  /** Null when the rules cannot go on chain; `missing` says what they lack. */
+  policy: AomiOnchainPolicy | null;
+  missing: string | null;
+  /** Rules the provider cannot hold, as sentences. */
+  aomi_only: string[];
+  /** The active binding already holds exactly this policy. */
+  in_sync: boolean;
 }
 
 export interface AomiBindOnchainPolicy {
