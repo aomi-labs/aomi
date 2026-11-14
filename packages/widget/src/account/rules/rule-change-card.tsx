@@ -35,6 +35,12 @@ export type RulesClient = { account: Pick<AccountTransport, "rules"> };
 const familyName = (family: AomiRulesAdminWallet["family"]) =>
   family === "evm" ? "EVM" : "Solana";
 
+/** The address connected here for a wallet family, if any. */
+export const connectedAddress = (
+  kit: Pick<AomiWalletKit, "identity">,
+  family: AomiRulesAdminWallet["family"],
+) => (family === "evm" ? kit.identity.address : kit.identity.svmAddress);
+
 /** The signer's name among the account's wallets, else its short address. */
 export function walletName(
   wallet: AomiRulesAdminWallet,
@@ -55,8 +61,7 @@ function signerProblem(
   signer: AomiRulesAdminWallet,
   kit: AomiWalletKit,
 ): string | null {
-  const connected =
-    signer.family === "evm" ? kit.identity.address : kit.identity.svmAddress;
+  const connected = connectedAddress(kit, signer.family);
   const sign =
     signer.family === "evm" ? kit.signMessage : kit.signSolanaMessage;
   const wanted = walletName(signer, kit);

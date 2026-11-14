@@ -305,21 +305,6 @@ export type AccountNonce = {
 };
 
 // @public
-export class AccountPoliciesTransport {
-    constructor(request: AccountRequest, basePath?: string);
-    confirm(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy>;
-    // (undocumented)
-    confirmRevoke(bindingId: number, transactionSignature: string): Promise<AomiPreparedOnchainPolicy>;
-    get(chainRef: string, options?: {
-        signal?: AbortSignal;
-        delegate?: string;
-    }): Promise<AomiOnchainPolicyProviderCtx>;
-    prepare(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy>;
-    // (undocumented)
-    prepareRevoke(bindingId: number): Promise<AomiPreparedOnchainPolicy>;
-}
-
-// @public
 export class AccountRulesTransport {
     constructor(requestResponse: RequestResponse$2);
     approveChange(changeId: string, options?: {
@@ -374,7 +359,6 @@ export class AccountTransport extends AccountGraphTransport {
     readonly credits: AccountCreditsTransport;
     readonly keys: AccountKeysTransport;
     readonly link: AccountLinkTransport;
-    readonly policies: AccountPoliciesTransport;
     readonly rules: AccountRulesTransport;
     readonly wallets: AccountWalletsTransport;
 }
@@ -1008,22 +992,6 @@ export type AomiBearerStrategy = {
 };
 
 // @public (undocumented)
-export interface AomiBindOnchainPolicy {
-    // (undocumented)
-    binding_id: number | null;
-    // (undocumented)
-    chain_ref: string;
-    // (undocumented)
-    delegate: AomiOnchainAddress;
-    // (undocumented)
-    owner: AomiOnchainAddress;
-    // (undocumented)
-    policy: AomiOnchainPolicy;
-    // (undocumented)
-    transaction_signature: string | null;
-}
-
-// @public (undocumented)
 export type AomiBrowserGrantOptions = {
     portalBaseUrl: string;
     clientId: string;
@@ -1514,26 +1482,6 @@ export interface AomiOnchainPolicyBinding {
 }
 
 // @public (undocumented)
-export interface AomiOnchainPolicyProviderCtx {
-    // (undocumented)
-    binding: AomiOnchainPolicyBinding | null;
-    // (undocumented)
-    chain_ref: string;
-    // (undocumented)
-    chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
-    mints: Record<string, AomiOnchainAddress>;
-    // (undocumented)
-    provider: string;
-    // (undocumented)
-    remaining_native_amount: string | null;
-    remaining_token_amounts: Record<string, string>;
-    // (undocumented)
-    slot_windows: number[];
-    // (undocumented)
-    targets: Record<string, AomiOnchainAddress>;
-}
-
-// @public (undocumented)
 export type AomiOnchainPolicyRule = {
     type: "allowed_call_target";
     target: AomiOnchainAddress;
@@ -1659,24 +1607,6 @@ export type AomiPolicyWindow = {
 };
 
 // @public (undocumented)
-export interface AomiPreparedOnchainPolicy {
-    // (undocumented)
-    binding: AomiOnchainPolicyBinding | null;
-    // (undocumented)
-    last_valid_block_height: number | null;
-    // (undocumented)
-    operating_address: AomiOnchainAddress;
-    // (undocumented)
-    operation: "attach" | "update" | "current" | "revoke";
-    // (undocumented)
-    policy_hash: string | null;
-    // (undocumented)
-    provider_account: AomiOnchainAddress;
-    // (undocumented)
-    unsigned_transaction_base64: string | null;
-}
-
-// @public (undocumented)
 export type AomiProviderBinding = {
     provider: "swig";
     binding: {
@@ -1720,7 +1650,7 @@ export type AomiRuleChangeLine = {
 };
 
 // @public (undocumented)
-export type AomiRuleChangeState = "awaiting_admin" | "applied" | "declined" | "expired" | "superseded";
+export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
 
 // @public
 export type AomiRuleLimit = {
@@ -1777,16 +1707,19 @@ export type AomiRulesChangeResult = {
 };
 
 // @public
+export type AomiRulesCovers = {
+    apps: string[];
+    limits: string[];
+    not_after: boolean;
+    owner_only: boolean;
+};
+
+// @public
 export type AomiRulesEnforcement = {
     provider: string;
     name: string;
-    state: "off" | "on" | "behind" | "unverified";
-    covers: {
-        apps: string[];
-        limits: string[];
-        not_after: boolean;
-        owner_only: boolean;
-    };
+    state: (typeof ENFORCEMENT_STATES)[number];
+    covers: AomiRulesCovers;
     left: Record<string, string>;
     note: string | null;
     ready: boolean;
