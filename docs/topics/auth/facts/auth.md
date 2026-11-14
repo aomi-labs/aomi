@@ -28,6 +28,13 @@ resources and scope vocabulary live in `better-auth/oauth-policy.ts`; custom
 Aomi token, refresh, registration, PKCE, or revocation implementations are not
 part of this architecture.
 
+Client ID metadata documents may advertise grants used with other servers.
+The OAuth Provider patch intersects CIMD grants with the server-supported grants
+before validation and persistence. Dynamic registration remains strict, and
+unsupported token grants (including JWT bearer) remain rejected. Claude's
+additional JWT-bearer declaration therefore does not block its PKCE
+authorization-code and refresh-token flows.
+
 ## Source Map
 
 - [packages/account/src/account.ts](../../../../packages/account/src/account.ts)

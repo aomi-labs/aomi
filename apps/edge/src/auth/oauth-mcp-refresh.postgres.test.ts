@@ -14,6 +14,7 @@ import {
 const fetchMetadata = vi.hoisted(() => vi.fn());
 const fetchJwks = vi.hoisted(() => vi.fn());
 const cimdClientId = "https://client.example/mcp-client.json";
+const claudeClientId = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 const jwtClientId = "https://client.example/jwt-mcp-client.json";
 const jwksUri = "https://client.example/jwks.json";
 // The edge fetches client metadata and keys with plain `fetch` (auth.ts).
@@ -23,7 +24,7 @@ vi.stubGlobal(
   "fetch",
   (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = input instanceof Request ? input.url : String(input);
-    if ([cimdClientId, jwtClientId].includes(url))
+    if ([cimdClientId, jwtClientId, claudeClientId].includes(url))
       return fetchMetadata(url, init);
     if (url === jwksUri) return fetchJwks(url, init);
     return realFetch(input, init);
@@ -60,9 +61,16 @@ describePostgres("MCP grants keep a refresh token", () => {
       Response.json({
         client_id: clientId,
         client_name: "MCP interoperability test",
-        client_uri: "https://client.example/",
-        application_type: "native",
-        redirect_uris: ["http://127.0.0.1:43199/callback"],
+        client_uri:
+          clientId === claudeClientId
+            ? "https://claude.ai"
+            : "https://client.example/",
+        ...(clientId === claudeClientId ? {} : { application_type: "native" }),
+        redirect_uris: [
+          clientId === claudeClientId
+            ? "https://claude.ai/api/mcp/auth_callback"
+            : "http://127.0.0.1:43199/callback",
+        ],
         token_endpoint_auth_method:
           clientId === jwtClientId ? "private_key_jwt" : "none",
         ...(clientId === jwtClientId
@@ -75,7 +83,14 @@ describePostgres("MCP grants keep a refresh token", () => {
               jwks_uri: jwksUri,
             }
           : {}),
-        grant_types: ["authorization_code", "refresh_token"],
+        // Claude advertises this additional grant in its shared CIMD document.
+        grant_types: [
+          "authorization_code",
+          "refresh_token",
+          ...(clientId === claudeClientId
+            ? ["urn:ietf:params:oauth:grant-type:jwt-bearer"]
+            : []),
+        ],
         response_types: ["code"],
       }),
     );
@@ -122,6 +137,8 @@ describePostgres("MCP grants keep a refresh token", () => {
   it.each([
     ["DCR Agent MCP", "/v1/agent/mcp", "dcr"],
     ["DCR Pipeline MCP", "/v1/pipeline/mcp", "dcr"],
+    ["Claude CIMD Agent MCP", "/v1/agent/mcp", "claude"],
+    ["Claude CIMD Pipeline MCP", "/v1/pipeline/mcp", "claude"],
     ["CIMD Agent MCP", "/v1/agent/mcp", "cimd"],
     ["CIMD Pipeline MCP", "/v1/pipeline/mcp", "cimd"],
     ["CIMD private_key_jwt Agent MCP", "/v1/agent/mcp", "cimd-jwt"],
@@ -130,13 +147,21 @@ describePostgres("MCP grants keep a refresh token", () => {
     "refreshes an %s grant built from the advertised scopes",
     async (_name, path, strategy) => {
       const resource = `${origin}${path}`;
-      const redirectUri = "http://127.0.0.1:43199/callback";
+      const redirectUri =
+        strategy === "claude"
+          ? "https://claude.ai/api/mcp/auth_callback"
+          : "http://127.0.0.1:43199/callback";
       const advertised = await protectedResourceMetadata(path);
       expect(advertised.resource).toBe(resource);
       const scope = advertised.scopes.join(" ");
       expect(advertised.scopes).toContain("offline_access");
 
-      let clientId = strategy === "cimd-jwt" ? jwtClientId : cimdClientId;
+      let clientId =
+        strategy === "claude"
+          ? claudeClientId
+          : strategy === "cimd-jwt"
+            ? jwtClientId
+            : cimdClientId;
       if (strategy === "dcr") {
         const registration = await jsonRequest("/oauth2/register", {
           client_name: `Aomi MCP client ${randomUUID()}`,
@@ -149,6 +174,17 @@ describePostgres("MCP grants keep a refresh token", () => {
         });
         expect(registration.response.status).toBe(201);
         clientId = requiredString(registration.body, "client_id");
+      }
+
+      if (strategy === "claude") {
+        const unsupported = await formRequest("/oauth2/token", {
+          client_id: clientId,
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: "not-a-valid-assertion",
+          resource,
+        });
+        expect(unsupported.response.status).toBe(400);
+        expect(unsupported.body.error).toBe("unsupported_grant_type");
       }
 
       const signedIn = await jsonRequest("/guest", {});
@@ -173,6 +209,17 @@ describePostgres("MCP grants keep a refresh token", () => {
           origin,
         ).searchParams.get("error"),
       ).toBe("invalid_request");
+
+      if (strategy !== "dcr") {
+        const stored = await pool.query(
+          "select grant_types from ba_oauth_clients where client_id = $1",
+          [clientId],
+        );
+        expect(stored.rows[0].grant_types).toEqual([
+          "authorization_code",
+          "refresh_token",
+        ]);
+      }
 
       if (strategy === "cimd-jwt") {
         // Also recover a client cached by an earlier failed ChatGPT connection.

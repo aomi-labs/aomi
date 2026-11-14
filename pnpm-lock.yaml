@@ -32,7 +32,7 @@ patchedDependencies:
     hash: dbb9f7cbb6c24e0cc4d2c98808ed6ed5eb27f9e5cc59f5d72a8f599da7b079b5
     path: patches/@better-auth__mcp@1.7.1.patch
   '@better-auth/oauth-provider@1.7.1':
-    hash: b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97
+    hash: f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688
     path: patches/@better-auth__oauth-provider@1.7.1.patch
 
 importers:
@@ -379,7 +379,7 @@ importers:
         version: link:../../packages/service-identity
       '@better-auth/oauth-provider':
         specifier: 1.7.1
-        version: 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(17b77a059a6e43c0186d705ed09dba3c)
+        version: 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(17b77a059a6e43c0186d705ed09dba3c)
       '@sentry/cloudflare':
         specifier: 10.69.0
         version: 10.69.0(wrangler@4.152.0(@types/node@25.6.0)(bufferutil@4.1.0)(utf-8-validate@5.0.10))
@@ -938,7 +938,7 @@ importers:
         version: 1.7.1(patch_hash=dbb9f7cbb6c24e0cc4d2c98808ed6ed5eb27f9e5cc59f5d72a8f599da7b079b5)(27bdda07a6f0a2e7d32971c8f7b05247)
       '@better-auth/oauth-provider':
         specifier: 1.7.1
-        version: 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(27bdda07a6f0a2e7d32971c8f7b05247)
+        version: 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(27bdda07a6f0a2e7d32971c8f7b05247)
       better-auth:
         specifier: 1.7.1
         version: 1.7.1(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.168.61(crossws@0.4.17(srvx@1.0.8))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.15)(rollup@4.62.3)(vite@7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(webpack@5.109.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)))(drizzle-orm@0.45.2(@electric-sql/pglite@0.5.4)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.29.2)(pg@8.22.0))(next@16.3.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@25.6.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))
@@ -1049,7 +1049,7 @@ importers:
         version: 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/oauth-provider':
         specifier: 1.7.1
-        version: 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(bbfa5d8d761d56bef1c4ea9228ef9e89)
+        version: 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(bbfa5d8d761d56bef1c4ea9228ef9e89)
       '@solana/web3.js':
         specifier: ^1.98.4
         version: 1.98.4(bufferutil@4.1.0)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)
@@ -1197,7 +1197,7 @@ importers:
         version: 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@3.25.75))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/oauth-provider':
         specifier: 1.7.1
-        version: 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(1d99269e539bc716aa86d36823b5a6db)
+        version: 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(1d99269e539bc716aa86d36823b5a6db)
       '@radix-ui/react-accordion':
         specifier: ^1.2.3
         version: 1.2.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -19645,7 +19645,7 @@ snapshots:
   '@better-auth/cimd@1.7.1(patch_hash=f74e31eedb93e1ae5d55b007fdf168c522072ed6faca0a02e46a24080e4539dd)(0c3a5c105538303f0ecfde32d516c720)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.1.3)(kysely@0.29.2)(nanostores@1.3.0)
-      '@better-auth/oauth-provider': 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(27bdda07a6f0a2e7d32971c8f7b05247)
+      '@better-auth/oauth-provider': 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(27bdda07a6f0a2e7d32971c8f7b05247)
       better-auth: 1.7.1(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.168.61(crossws@0.4.17(srvx@1.0.8))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.15)(rollup@4.62.3)(vite@7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(webpack@5.109.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)))(drizzle-orm@0.45.2(@electric-sql/pglite@0.5.4)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.29.2)(pg@8.22.0))(next@16.3.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@25.6.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))
       better-call: 1.4.0(zod@4.4.3)
 
@@ -19764,7 +19764,7 @@ snapshots:
   '@better-auth/mcp@1.7.1(patch_hash=dbb9f7cbb6c24e0cc4d2c98808ed6ed5eb27f9e5cc59f5d72a8f599da7b079b5)(27bdda07a6f0a2e7d32971c8f7b05247)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.1.3)(kysely@0.29.2)(nanostores@1.3.0)
-      '@better-auth/oauth-provider': 1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(27bdda07a6f0a2e7d32971c8f7b05247)
+      '@better-auth/oauth-provider': 1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(27bdda07a6f0a2e7d32971c8f7b05247)
       better-auth: 1.7.1(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.168.61(crossws@0.4.17(srvx@1.0.8))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.15)(rollup@4.62.3)(vite@7.3.7(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(webpack@5.109.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)))(drizzle-orm@0.45.2(@electric-sql/pglite@0.5.4)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.29.2)(pg@8.22.0))(next@16.3.0(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@25.6.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(jiti@2.7.0)(jsdom@26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.33.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))
       better-call: 1.4.0(zod@4.4.3)
       jose: 6.2.3
@@ -19792,7 +19792,7 @@ snapshots:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.1.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/oauth-provider@1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(17b77a059a6e43c0186d705ed09dba3c)':
+  '@better-auth/oauth-provider@1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(17b77a059a6e43c0186d705ed09dba3c)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.5.0
@@ -19802,7 +19802,7 @@ snapshots:
       jose: 6.2.3
       zod: 4.6.7
 
-  '@better-auth/oauth-provider@1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(1d99269e539bc716aa86d36823b5a6db)':
+  '@better-auth/oauth-provider@1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(1d99269e539bc716aa86d36823b5a6db)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@3.25.75))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.5.0
@@ -19812,7 +19812,7 @@ snapshots:
       jose: 6.2.3
       zod: 4.6.7
 
-  '@better-auth/oauth-provider@1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(27bdda07a6f0a2e7d32971c8f7b05247)':
+  '@better-auth/oauth-provider@1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(27bdda07a6f0a2e7d32971c8f7b05247)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.4.3))(jose@6.1.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.5.0
@@ -19822,7 +19822,7 @@ snapshots:
       jose: 6.2.3
       zod: 4.6.7
 
-  '@better-auth/oauth-provider@1.7.1(patch_hash=b22e94616793e239c0641e9afd179898bbb4e62f16a12f7fac8a0d5fec4e4d97)(bbfa5d8d761d56bef1c4ea9228ef9e89)':
+  '@better-auth/oauth-provider@1.7.1(patch_hash=f12bd25eb8c1f92e5102dbd5eff04f7e67452c87e59b77acfdb7d7c3caea3688)(bbfa5d8d761d56bef1c4ea9228ef9e89)':
     dependencies:
       '@better-auth/core': 1.7.1(@better-auth/utils@0.5.0)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.3)(kysely@0.29.2)(nanostores@1.3.0)
       '@better-auth/utils': 0.5.0
