@@ -327,7 +327,7 @@ export function TransactionCard({
                       : "text-aomi-muted/60",
                 )}
               >
-                {index === 3 && onChain ? onChain.label : name}
+                {name}
               </span>
             </div>
           ))}
