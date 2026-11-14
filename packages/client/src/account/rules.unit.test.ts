@@ -61,6 +61,7 @@ const body = {
     {
       provider: "swig",
       name: "Swig",
+      network: "solana:mainnet-beta",
       state: "behind",
       covers: {
         apps: ["jupiter", "kamino"],
@@ -146,40 +147,45 @@ describe("wallet rules", () => {
 
   it("prepares and confirms putting the rules on chain, by provider id", async () => {
     const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
-    const transaction = {
+    const action = {
+      kind: "transaction",
       family: "svm",
-      network: "solana:mainnet",
+      network: "solana:mainnet-beta",
       unsigned_base64: "dHg=",
     };
     const { rules, calls } = backend({
-      [`POST ${step}/prepare`]: () => Response.json({ transaction }),
+      [`POST ${step}/prepare`]: () => Response.json({ action }),
       [`POST ${step}/confirm`]: () => Response.json({ rules: body }),
     });
-    const request = { revision: 4, owner: "HZpj1111" };
+    const request = {
+      network: "solana:mainnet-beta",
+      revision: 4,
+      owner: "HZpj1111",
+    };
     expect(await rules.prepareEnforcement(WALLET, "swig", request)).toEqual(
-      transaction,
+      action,
     );
-    expect(
-      await rules.confirmEnforcement(WALLET, "swig", {
-        ...request,
-        transaction_signature: "5ig",
-      }),
-    ).toEqual(body);
-    expect(calls.map((call) => call.body)).toEqual([
-      request,
-      { ...request, transaction_signature: "5ig" },
-    ]);
+    expect(await rules.confirmEnforcement(WALLET, "swig", request)).toEqual(
+      body,
+    );
+    expect(calls.map((call) => call.body)).toEqual([request, request]);
     expect(calls[0]!.headers.get("x-aomi-csrf")).toBe("1");
   });
 
-  it("reads no transaction when the chain already holds the rules, and refuses an unknown state", async () => {
+  it("reads no action when the chain already holds the rules, and refuses an unknown state or action", async () => {
     const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
+    const request = { network: "solana:mainnet-beta", revision: 4 };
     const { rules } = backend({
-      [`POST ${step}/prepare`]: () => Response.json({ transaction: null }),
+      [`POST ${step}/prepare`]: () => Response.json({ action: null }),
     });
-    expect(
-      await rules.prepareEnforcement(WALLET, "swig", { revision: 4 }),
-    ).toBeNull();
+    expect(await rules.prepareEnforcement(WALLET, "swig", request)).toBeNull();
+    const later = backend({
+      [`POST ${step}/prepare`]: () =>
+        Response.json({ action: { kind: "typed_data" } }),
+    });
+    await expect(
+      later.rules.prepareEnforcement(WALLET, "swig", request),
+    ).rejects.toThrow(/unsupported action: typed_data/);
     expect(() =>
       parseWalletRules({
         ...body,

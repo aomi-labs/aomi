@@ -5,7 +5,7 @@ import {
   normalizeSolanaCluster,
   shortAddress,
   type AomiRulesEnforcement,
-  type AomiRulesTransaction,
+  type AomiRulesAction,
   type AomiWalletRules,
 } from "@aomi-labs/client";
 import { AomiButton } from "@/ui/aomi/button";
@@ -48,21 +48,20 @@ async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
   }
 }
 
-/** Have the owner's wallet sign and send a provider's transaction. */
-async function send(
+/** Have the owner's wallet do what a provider's step asked. */
+async function act(
   kit: AomiWalletKit,
-  transaction: AomiRulesTransaction,
+  action: AomiRulesAction,
   description: string,
-): Promise<string> {
+): Promise<void> {
   const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
-  if (transaction.family !== "svm" || !execute)
+  if (action.family !== "svm" || !execute)
     throw new Error("This wallet can't sign that transaction.");
-  const { signature } = await execute({
-    unsignedTx: transaction.unsigned_base64,
+  await execute({
+    unsignedTx: action.unsigned_base64,
     description,
-    cluster: normalizeSolanaCluster(transaction.network) ?? "solana:mainnet",
+    cluster: normalizeSolanaCluster(action.network) ?? "solana:mainnet",
   });
-  return signature;
 }
 
 /**
@@ -104,27 +103,32 @@ export function RuleEnforcement({
     if (busy || !owner) return;
     setBusy(true);
     setError(null);
-    const request = { revision, owner, ...(remove ? { remove } : {}) };
+    const request = {
+      network: entry.network,
+      revision,
+      owner,
+      ...(remove ? { remove } : {}),
+    };
     try {
-      const transaction = await client.account.rules.prepareEnforcement(
+      const action = await client.account.rules.prepareEnforcement(
         walletId,
         entry.provider,
         request,
       );
-      const signature = transaction
-        ? await send(
-            kit,
-            transaction,
-            remove ? "Remove rules from chain" : "Enforce rules on chain",
-          )
-        : undefined;
+      if (action)
+        await act(
+          kit,
+          action,
+          remove ? "Remove rules from chain" : "Enforce rules on chain",
+        );
       onRules(
         await settled(
           () =>
-            client.account.rules.confirmEnforcement(walletId, entry.provider, {
-              ...request,
-              ...(signature ? { transaction_signature: signature } : {}),
-            }),
+            client.account.rules.confirmEnforcement(
+              walletId,
+              entry.provider,
+              request,
+            ),
           retryDelayMs,
         ),
       );

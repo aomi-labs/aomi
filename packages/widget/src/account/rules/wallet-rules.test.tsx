@@ -88,6 +88,7 @@ const body = (extra: object = {}) => ({
 const provider = (extra: object = {}) => ({
   provider: "vault",
   name: "Vault",
+  network: "solana:mainnet-beta",
   state: "off",
   covers: { apps: [], limits: [], not_after: false, owner_only: false },
   left: {},
@@ -791,9 +792,10 @@ describe("Wallet rules", () => {
       if (method !== "POST") return undefined;
       if (path === `${STEP}/prepare`)
         return Response.json({
-          transaction: {
+          action: {
+            kind: "transaction",
             family: "svm",
-            network: "solana:mainnet",
+            network: "solana:mainnet-beta",
             unsigned_base64: "dHg=",
           },
         });
@@ -817,8 +819,8 @@ describe("Wallet rules", () => {
       cluster: "solana:mainnet",
     });
     expect(writes().map((call) => call.body)).toEqual([
-      { revision: 3, owner: "RootWa11et" },
-      { revision: 3, owner: "RootWa11et", transaction_signature: "5ig" },
+      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
+      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
     ]);
     expect(
       await within(section).findByText("Enforced by Aomi + Vault"),
@@ -875,9 +877,10 @@ describe("Wallet rules", () => {
       if (method !== "POST") return undefined;
       if (path === `${STEP}/prepare`)
         return Response.json({
-          transaction: {
+          action: {
+            kind: "transaction",
             family: "svm",
-            network: "solana:mainnet",
+            network: "solana:mainnet-beta",
             unsigned_base64: "dHg=",
           },
         });
@@ -902,6 +905,7 @@ describe("Wallet rules", () => {
     await waitFor(() => expect(done).toHaveBeenCalled());
     expect(confirms).toBe(2);
     expect(writes()[0]!.body).toEqual({
+      network: "solana:mainnet-beta",
       revision: 3,
       owner: "RootWa11et",
       remove: true,
@@ -918,9 +922,10 @@ describe("Wallet rules", () => {
     respond = (method, path) =>
       method === "POST" && path === `${STEP}/prepare`
         ? Response.json({
-            transaction: {
+            action: {
+              kind: "transaction",
               family: "svm",
-              network: "solana:mainnet",
+              network: "solana:mainnet-beta",
               unsigned_base64: "dHg=",
             },
           })

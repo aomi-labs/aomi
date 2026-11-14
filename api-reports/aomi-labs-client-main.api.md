@@ -314,9 +314,7 @@ export class AccountRulesTransport {
         signal?: AbortSignal;
     }): Promise<AomiRulesCatalog>;
     change(agentWalletId: string, request: AomiRulesChangeRequest): Promise<AomiRulesChangeResult>;
-    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest & {
-        transaction_signature?: string;
-    }): Promise<AomiWalletRules>;
+    confirmEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiWalletRules>;
     declineChange(changeId: string): Promise<AomiWalletRules>;
     get(agentWalletId: string, options?: {
         signal?: AbortSignal;
@@ -324,7 +322,7 @@ export class AccountRulesTransport {
     getChange(changeId: string, options?: {
         signal?: AbortSignal;
     }): Promise<AomiRuleChange>;
-    prepareEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiRulesTransaction | null>;
+    prepareEnforcement(agentWalletId: string, provider: string, request: AomiRulesEnforceRequest): Promise<AomiRulesAction | null>;
 }
 
 // @public (undocumented)
@@ -1661,6 +1659,14 @@ export type AomiRuleLimit = {
 };
 
 // @public
+export type AomiRulesAction = {
+    kind: "transaction";
+    family: AomiWalletFamily;
+    network: string;
+    unsigned_base64: string;
+};
+
+// @public
 export type AomiRulesAdmin = {
     kind: "aomi_managed";
 } | AomiRulesAdminWallet;
@@ -1718,6 +1724,7 @@ export type AomiRulesCovers = {
 export type AomiRulesEnforcement = {
     provider: string;
     name: string;
+    network: string;
     state: (typeof ENFORCEMENT_STATES)[number];
     covers: AomiRulesCovers;
     left: Record<string, string>;
@@ -1731,6 +1738,7 @@ export type AomiRulesEnforcement = {
 
 // @public (undocumented)
 export type AomiRulesEnforceRequest = {
+    network: string;
     revision: number;
     owner?: string;
     remove?: boolean;
@@ -1742,13 +1750,6 @@ export type AomiRuleSet = {
     limits: AomiRuleLimit[];
     not_after: number | null;
     owner_only: boolean;
-};
-
-// @public
-export type AomiRulesTransaction = {
-    family: AomiWalletFamily;
-    network: string;
-    unsigned_base64: string;
 };
 
 // @public
