@@ -10,6 +10,7 @@ import type { AomiRuleSet } from "@aomi-labs/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountOverviewFixture } from "@/test/account-overview-fixture";
 import { RuleChangePanel } from "./rule-change-card";
+import { RuleEnforcement } from "./rule-enforcement";
 import {
   fromBaseUnits,
   toBaseUnits,
@@ -28,6 +29,9 @@ const kit = vi.hoisted(() => ({
   wallets: [] as { family: string; address: string; label: string }[],
   signMessage: vi.fn(async () => ({ signature: "0xsigned" })),
   signSolanaMessage: vi.fn(async () => ({ signature: "c2lnbmVk" })),
+  signAndSendSolanaTransaction: vi.fn(async (_: object) => ({
+    signature: "5ig",
+  })),
   signOutAccount: vi.fn(async () => undefined),
   disconnect: vi.fn(async () => undefined),
   refreshAccount: vi.fn(async () => undefined),
@@ -76,10 +80,27 @@ const body = (extra: object = {}) => ({
   ],
   window_ends_at: 1795046400,
   pending: null,
-  enforced_by: ["aomi"],
+  enforcement: [],
   admin_wallets: [{ kind: "wallet", family: "evm", address: ADMIN }],
   ...extra,
 });
+/** One on-chain provider. The widget knows it only by what this says. */
+const provider = (extra: object = {}) => ({
+  provider: "vault",
+  name: "Vault",
+  network: "solana:mainnet-beta",
+  state: "off",
+  covers: { apps: [], limits: [], not_after: false, owner_only: false },
+  left: {},
+  note: null,
+  ready: true,
+  signer: { family: "svm", address: null },
+  ...extra,
+});
+const STEP = `/v1/account/agent-wallets/${WALLET.id}/rules/enforcement/vault`;
+const enforcementRow = () =>
+  document.querySelector("[data-rule-enforcement]") as HTMLElement;
+
 const catalog = {
   apps: [
     { id: "jupiter", label: "Jupiter", chains: ["solana:mainnet-beta"] },
@@ -113,6 +134,7 @@ beforeEach(() => {
   for (const mock of [
     kit.signMessage,
     kit.signSolanaMessage,
+    kit.signAndSendSolanaTransaction,
     kit.signOutAccount,
     kit.disconnect,
   ])
@@ -686,10 +708,8 @@ describe("Wallet rules", () => {
     rules = body({
       rules: { ...NO_RULES, apps: ["jupiter"] },
       usage: [],
-      enforced_by: ["aomi", "swig"],
     });
-    const section = await renderRules();
-    expect(within(section).getByText("Enforced by Aomi + Swig")).toBeTruthy();
+    await renderRules();
     expect(row("owner_only")).toHaveTextContent("Sends only to your wallets");
     expect(row("owner_only")).toHaveTextContent("With an app list");
     const toggle = screen.getByRole("switch", {
@@ -697,6 +717,233 @@ describe("Wallet rules", () => {
     });
     expect(toggle).toHaveAttribute("aria-checked", "true");
     expect(toggle).toBeDisabled();
+  });
+
+  it("shows no on-chain row where no provider can hold the rules", async () => {
+    await renderRules();
+    expect(enforcementRow()).toBeNull();
+    expect(document.querySelector("[data-checked-by]")).toBeNull();
+  });
+
+  it("says who checks each rule once a provider is on, and what the chain has left", async () => {
+    rules = body({
+      rules: {
+        apps: ["jupiter", "uniswap"],
+        limits: [
+          { asset: SOL, amount: "500000000", symbol: "SOL", decimals: 9 },
+          { asset: USDC, amount: "200000000", symbol: "USDC", decimals: 6 },
+        ],
+        not_after: 1795219200,
+        owner_only: false,
+      },
+      usage: [],
+      enforcement: [
+        provider({
+          state: "on",
+          ready: false,
+          covers: {
+            apps: ["jupiter"],
+            limits: [SOL],
+            not_after: false,
+            owner_only: false,
+          },
+          left: { [SOL]: "300000000" },
+          signer: { family: "svm", address: "RootWa11et" },
+        }),
+      ],
+    });
+    kit.identity.svmAddress = "RootWa11et";
+    const section = await renderRules();
+    expect(within(section).getByText("Enforced by Aomi + Vault")).toBeTruthy();
+    const checkedBy = (element: Element) =>
+      element.querySelector("[data-checked-by]")?.textContent;
+    expect(checkedBy(row("apps"))).toBe("Aomi + Vault");
+    const sol = document.querySelector(`[data-asset="${SOL}"]`)!;
+    expect(checkedBy(sol)).toBe("Aomi + Vault");
+    expect(sol).toHaveTextContent("0.3 left on Vault");
+    const usdc = document.querySelector(`[data-asset="${USDC}"]`)!;
+    expect(checkedBy(usdc)).toBe("Aomi");
+    expect(usdc).not.toHaveTextContent("left on");
+    expect(checkedBy(row("not_after"))).toBe("Aomi");
+    expect(checkedBy(row("owner_only"))).toBe("Aomi");
+    expect(enforcementRow()).toHaveTextContent("Vault · On");
+    expect(
+      within(enforcementRow()).queryByRole("button", { name: "Update" }),
+    ).toBeNull();
+    expect(
+      within(enforcementRow()).getByRole("button", { name: "Turn off" }),
+    ).toBeEnabled();
+  });
+
+  it("puts the rules on chain with one signature, and never sends a policy", async () => {
+    rules = body({ enforcement: [provider()] });
+    kit.identity.svmAddress = "RootWa11et";
+    const on = body({
+      enforcement: [
+        provider({
+          state: "on",
+          ready: false,
+          signer: { family: "svm", address: "RootWa11et" },
+        }),
+      ],
+    });
+    let confirms = 0;
+    respond = (method, path) => {
+      if (method !== "POST") return undefined;
+      if (path === `${STEP}/prepare`)
+        return Response.json({
+          action: {
+            kind: "transaction",
+            family: "svm",
+            network: "solana:mainnet-beta",
+            unsigned_base64: "dHg=",
+          },
+        });
+      if (path === `${STEP}/confirm`) {
+        confirms += 1;
+        return Response.json({ rules: on });
+      }
+      return undefined;
+    };
+    const section = await renderRules();
+    expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
+    expect(enforcementRow()).toHaveTextContent("Vault · Off");
+    expect(document.querySelector("[data-checked-by]")).toBeNull();
+    fireEvent.click(
+      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
+    );
+    await waitFor(() => expect(confirms).toBe(1));
+    expect(kit.signAndSendSolanaTransaction).toHaveBeenCalledWith({
+      unsignedTx: "dHg=",
+      description: "Enforce rules on chain",
+      cluster: "solana:mainnet",
+    });
+    expect(writes().map((call) => call.body)).toEqual([
+      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
+      { network: "solana:mainnet-beta", revision: 3, owner: "RootWa11et" },
+    ]);
+    expect(
+      await within(section).findByText("Enforced by Aomi + Vault"),
+    ).toBeTruthy();
+    expect(enforcementRow()).toHaveTextContent("Vault · On");
+  });
+
+  it("says why the rules cannot go on chain, and asks for the wallet that signs", async () => {
+    rules = body({
+      enforcement: [
+        provider({ ready: false, note: "Add a daily SOL limit first." }),
+      ],
+    });
+    await renderRules();
+    expect(enforcementRow()).toHaveTextContent(
+      "Add a daily SOL limit first. Connect a Solana wallet to change this.",
+    );
+    expect(within(enforcementRow()).queryByRole("button")).toBeNull();
+  });
+
+  it("offers the update when the chain is behind, only to the wallet that owns it", async () => {
+    rules = body({
+      enforcement: [
+        provider({
+          state: "behind",
+          note: "Your rules changed since you signed.",
+          signer: { family: "svm", address: "RootWa11etRootWa11etRootWa11et" },
+        }),
+      ],
+    });
+    kit.identity.svmAddress = "AnotherWa11et";
+    const section = await renderRules();
+    expect(within(section).getByText("Enforced by Aomi + Vault")).toBeTruthy();
+    expect(enforcementRow()).toHaveTextContent("Vault · Behind your rules");
+    expect(enforcementRow()).toHaveTextContent(
+      "Your rules changed since you signed. Connect RootWa…11et to change this.",
+    );
+    for (const name of ["Update", "Turn off"])
+      expect(
+        within(enforcementRow()).getByRole("button", { name }),
+      ).toBeDisabled();
+  });
+
+  it("takes the rules off the chain, waiting for the backend's node to see it", async () => {
+    const bound = provider({
+      state: "on",
+      ready: false,
+      signer: { family: "svm", address: "RootWa11et" },
+    });
+    kit.identity.svmAddress = "RootWa11et";
+    let confirms = 0;
+    const done = vi.fn();
+    respond = (method, path) => {
+      if (method !== "POST") return undefined;
+      if (path === `${STEP}/prepare`)
+        return Response.json({
+          action: {
+            kind: "transaction",
+            family: "svm",
+            network: "solana:mainnet-beta",
+            unsigned_base64: "dHg=",
+          },
+        });
+      confirms += 1;
+      return confirms === 1
+        ? refused("chain_not_settled", 409)
+        : Response.json({ rules: body({ enforcement: [provider()] }) });
+    };
+    const { Aomi } = await import("@aomi-labs/client");
+    render(
+      <RuleEnforcement
+        client={new Aomi({ baseUrl: "https://portal.test" })}
+        walletId={WALLET.id}
+        revision={3}
+        entry={bound as never}
+        onRules={done}
+        onStale={() => undefined}
+        retryDelayMs={0}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    expect(confirms).toBe(2);
+    expect(writes()[0]!.body).toEqual({
+      network: "solana:mainnet-beta",
+      revision: 3,
+      owner: "RootWa11et",
+      remove: true,
+    });
+    expect(done.mock.calls[0]![0].enforcement[0].state).toBe("off");
+  });
+
+  it("says nothing changed when the wallet declines, and reads the rules again", async () => {
+    rules = body({ enforcement: [provider()] });
+    kit.identity.svmAddress = "RootWa11et";
+    kit.signAndSendSolanaTransaction.mockRejectedValueOnce(
+      new Error("User rejected the request."),
+    );
+    respond = (method, path) =>
+      method === "POST" && path === `${STEP}/prepare`
+        ? Response.json({
+            action: {
+              kind: "transaction",
+              family: "svm",
+              network: "solana:mainnet-beta",
+              unsigned_base64: "dHg=",
+            },
+          })
+        : undefined;
+    await renderRules();
+    const reads = () =>
+      calls.filter(
+        (call) => call.method === "GET" && call.path.endsWith("/rules"),
+      );
+    const before = reads().length;
+    fireEvent.click(
+      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
+    );
+    expect(
+      await screen.findByText("Signature declined. Nothing changed."),
+    ).toBeTruthy();
+    expect(writes()).toHaveLength(1);
+    await waitFor(() => expect(reads().length).toBe(before + 1));
   });
 
   it("sets a wallet's first rules from a template", async () => {

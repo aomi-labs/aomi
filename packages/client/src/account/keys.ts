@@ -1,9 +1,6 @@
 import type {
-  AomiBindOnchainPolicy,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,
-  AomiOnchainPolicyProviderCtx,
-  AomiPreparedOnchainPolicy,
 } from "../types";
 
 /** A JSON account request; a failure throws `AccountGraphApiError`. */
@@ -72,64 +69,6 @@ export class AccountKeysTransport {
         "X-Session-Id": thread,
         "X-Thread-Id": thread,
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  }
-}
-
-/**
- * On-chain spending policies (Swig on Solana): a chain's context, then
- * prepare, sign and confirm a binding or its revoke.
- */
-export class AccountPoliciesTransport {
-  constructor(
-    private readonly request: AccountRequest,
-    private readonly basePath = "/v1/account/policies/swig",
-  ) {}
-
-  /**
-   * Targets, mints, slot windows and the current binding on `chainRef`; with
-   * `delegate`, the binding of that delegated address only.
-   */
-  get(
-    chainRef: string,
-    options: { signal?: AbortSignal; delegate?: string } = {},
-  ): Promise<AomiOnchainPolicyProviderCtx> {
-    const query = new URLSearchParams({ chain_ref: chainRef });
-    if (options.delegate) query.set("delegate", options.delegate);
-    return this.request(`${this.basePath}?${query}`, {
-      method: "GET",
-      signal: options.signal,
-    });
-  }
-
-  /** The transaction to sign for `body`. */
-  prepare(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy> {
-    return this.post("/prepare", body);
-  }
-
-  /** Record `body` once its signed transaction landed. */
-  confirm(body: AomiBindOnchainPolicy): Promise<AomiPreparedOnchainPolicy> {
-    return this.post("/confirm", body);
-  }
-
-  prepareRevoke(bindingId: number): Promise<AomiPreparedOnchainPolicy> {
-    return this.post(`/${bindingId}/revoke/prepare`);
-  }
-
-  confirmRevoke(
-    bindingId: number,
-    transactionSignature: string,
-  ): Promise<AomiPreparedOnchainPolicy> {
-    return this.post(`/${bindingId}/revoke/confirm`, {
-      transaction_signature: transactionSignature,
-    });
-  }
-
-  private post<T>(suffix: string, body?: unknown): Promise<T> {
-    return this.request(`${this.basePath}${suffix}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }

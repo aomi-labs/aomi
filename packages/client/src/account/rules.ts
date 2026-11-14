@@ -83,12 +83,15 @@ export type AomiRuleUsage = {
   decimals: number | null;
 };
 
-export type AomiRuleChangeState =
-  | "awaiting_admin"
-  | "applied"
-  | "declined"
-  | "expired"
-  | "superseded";
+const CHANGE_STATES = [
+  "awaiting_admin",
+  "applied",
+  "declined",
+  "expired",
+  "superseded",
+] as const;
+
+export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
 
 /** One line of a change; `loosens` marks a line that gives the agent power. */
 export type AomiRuleChangeLine = { text: string; loosens: boolean };
@@ -110,6 +113,72 @@ export type AomiRuleChange = {
   sign_message: string | null;
 };
 
+const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
+
+/** The rules a provider holds. The rest stay with Aomi alone. */
+export type AomiRulesCovers = {
+  /** App ids. */
+  apps: string[];
+  /** Asset ids of the limits. */
+  limits: string[];
+  not_after: boolean;
+  owner_only: boolean;
+};
+
+/**
+ * One on-chain provider that can hold a wallet's rules, and whether it does.
+ * A client shows it and signs what its steps hand back; it never needs to
+ * know which provider it is.
+ */
+export type AomiRulesEnforcement = {
+  /** The id the enforcement steps take. */
+  provider: string;
+  /** The name to show. */
+  name: string;
+  /**
+   * The chain it holds the rules on, as the rules' asset ids write it
+   * (`solana:mainnet-beta`). A provider on several chains has one entry each.
+   */
+  network: string;
+  /**
+   * `behind`: the chain holds something else than the rules ask for.
+   * `unverified`: the chain could not be read.
+   */
+  state: (typeof ENFORCEMENT_STATES)[number];
+  covers: AomiRulesCovers;
+  /** What the chain will still let through, in base units by asset id. */
+  left: Record<string, string>;
+  /** Why the rules cannot go on chain, or what is wrong there. */
+  note: string | null;
+  /** There is something to sign: the first time, or an update. */
+  ready: boolean;
+  /** The owner's wallet that signs; its address once the rules are on chain. */
+  signer: { family: AomiWalletFamily; address: string | null };
+};
+
+/**
+ * What the owner's wallet does next, tagged by `kind`. The one kind today is
+ * a transaction to sign and send; a kind this client does not know fails to
+ * parse rather than being guessed at.
+ */
+export type AomiRulesAction = {
+  kind: "transaction";
+  family: AomiWalletFamily;
+  network: string;
+  unsigned_base64: string;
+};
+
+export type AomiRulesEnforceRequest = {
+  /** The entry's `network`. */
+  network: string;
+  /** The rules' revision as the owner saw them. */
+  revision: number;
+  /** The owner's wallet that signs; needed the first time only. */
+  owner?: string;
+  /** Take the rules off the chain. */
+  remove?: boolean;
+};
+
 export type AomiWalletRules = {
   agent_wallet_id: string;
   wallet_name: string;
@@ -125,7 +194,8 @@ export type AomiWalletRules = {
   /** Unix seconds: when the daily windows reset (the next 00:00 UTC). */
   window_ends_at: number | null;
   pending: AomiRuleChange | null;
-  enforced_by: string[];
+  /** The on-chain providers that can hold these rules; Aomi always checks. */
+  enforcement: AomiRulesEnforcement[];
   /** The account's own wallets that may become the admin. */
   admin_wallets: AomiRulesAdminWallet[];
 };
@@ -178,6 +248,8 @@ export const RULES_ERROR_CODES = {
   changeNotOpen: "rules_change_not_open",
   /** The rules moved since they were read: read again and retry. */
   changed: "rules_changed",
+  /** The chain does not show the signed transaction yet: confirm again. */
+  chainNotSettled: "chain_not_settled",
   changePending: "rules_change_pending",
   /** The admin is a wallet: only its signature approves. */
   signatureRequired: "rules_signature_required",
@@ -189,6 +261,8 @@ export const RULES_ERROR_CODES = {
 export const rulesPaths = {
   wallet: (id: string) =>
     `/v1/account/agent-wallets/${encodeURIComponent(id)}/rules`,
+  enforcement: (id: string, provider: string, step: "prepare" | "confirm") =>
+    `/v1/account/agent-wallets/${encodeURIComponent(id)}/rules/enforcement/${encodeURIComponent(provider)}/${step}`,
   catalog: "/v1/account/rules/catalog",
   change: (id: string) => `/v1/account/rule-changes/${encodeURIComponent(id)}`,
   approve: (id: string) =>
@@ -272,19 +346,11 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
   };
 }
 
-const STATES: readonly AomiRuleChangeState[] = [
-  "awaiting_admin",
-  "applied",
-  "declined",
-  "expired",
-  "superseded",
-];
-
 export function parseRuleChange(value: unknown): AomiRuleChange {
   const record = asRecord(value);
   if (!record) throw invalid("change must be an object");
-  const state = record.state as AomiRuleChangeState;
-  if (!STATES.includes(state))
+  const state = CHANGE_STATES.find((known) => known === record.state);
+  if (!state)
     throw invalid(`unsupported change state: ${String(record.state)}`);
   return {
     id: text(record.id, "change.id"),
@@ -302,6 +368,41 @@ export function parseRuleChange(value: unknown): AomiRuleChange {
     expires_at: unixSeconds(record.expires_at, "change.expires_at"),
     signer: asRecord(record.signer) ? parseAdminWallet(record.signer) : null,
     sign_message: stringValue(record.sign_message) ?? null,
+  };
+}
+
+function parseEnforcement(value: unknown): AomiRulesEnforcement {
+  const record = asRecord(value);
+  const covers = asRecord(record?.covers);
+  const signer = asRecord(record?.signer);
+  const state = ENFORCEMENT_STATES.find((known) => known === record?.state);
+  if (!state)
+    throw invalid(`unsupported enforcement state: ${String(record?.state)}`);
+  const names = (entries: unknown, field: string) =>
+    list(entries ?? [], field).map((entry) => text(entry, field));
+  return {
+    provider: text(record?.provider, "enforcement.provider"),
+    name: text(record?.name, "enforcement.name"),
+    network: text(record?.network, "enforcement.network"),
+    state,
+    covers: {
+      apps: names(covers?.apps, "enforcement.covers.apps"),
+      limits: names(covers?.limits, "enforcement.covers.limits"),
+      not_after: covers?.not_after === true,
+      owner_only: covers?.owner_only === true,
+    },
+    left: Object.fromEntries(
+      Object.entries(asRecord(record?.left) ?? {}).map(([asset, left]) => [
+        asset,
+        amount(left, "enforcement.left"),
+      ]),
+    ),
+    note: stringValue(record?.note) ?? null,
+    ready: record?.ready === true,
+    signer: {
+      family: family(signer?.family),
+      address: stringValue(signer?.address) ?? null,
+    },
   };
 }
 
@@ -330,8 +431,9 @@ export function parseWalletRules(value: unknown): AomiWalletRules {
     }),
     window_ends_at: numberOrNull(record.window_ends_at),
     pending: asRecord(record.pending) ? parseRuleChange(record.pending) : null,
-    enforced_by: list(record.enforced_by, "enforced_by").map((name) =>
-      text(name, "enforced_by"),
+    // A backend from before on-chain providers sends none.
+    enforcement: list(record.enforcement ?? [], "enforcement").map(
+      parseEnforcement,
     ),
     admin_wallets: list(record.admin_wallets, "admin_wallets").map(
       parseAdminWallet,
@@ -453,6 +555,55 @@ export class AccountRulesTransport {
     return parseWalletRules(
       await this.request("POST", rulesPaths.decline(changeId), { body: {} }),
     );
+  }
+
+  /**
+   * What the owner's wallet does to put the rules on chain with `provider`,
+   * to update them there, or to `remove` them. Null when the chain already
+   * holds them: confirm straight away.
+   */
+  async prepareEnforcement(
+    agentWalletId: string,
+    provider: string,
+    request: AomiRulesEnforceRequest,
+  ): Promise<AomiRulesAction | null> {
+    const record = asRecord(
+      await this.request(
+        "POST",
+        rulesPaths.enforcement(agentWalletId, provider, "prepare"),
+        { body: request },
+      ),
+    );
+    const action = asRecord(record?.action);
+    if (!action) return null;
+    if (action.kind !== "transaction")
+      throw invalid(`unsupported action: ${String(action.kind)}`);
+    return {
+      kind: "transaction",
+      family: family(action.family),
+      network: text(action.network, "action.network"),
+      unsigned_base64: text(action.unsigned_base64, "action.unsigned_base64"),
+    };
+  }
+
+  /**
+   * Have the backend read the chain after the owner's wallet did what
+   * `prepareEnforcement` answered. Answers the rules with the provider's new state;
+   * `chain_not_settled` means its node does not show the transaction yet.
+   */
+  async confirmEnforcement(
+    agentWalletId: string,
+    provider: string,
+    request: AomiRulesEnforceRequest,
+  ): Promise<AomiWalletRules> {
+    const record = asRecord(
+      await this.request(
+        "POST",
+        rulesPaths.enforcement(agentWalletId, provider, "confirm"),
+        { body: request },
+      ),
+    );
+    return parseWalletRules(record?.rules);
   }
 
   private request(
