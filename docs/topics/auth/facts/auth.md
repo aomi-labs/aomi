@@ -35,7 +35,9 @@ registration narrows in `oauth/request-policy.ts`, then still requires exactly
 one public profile (authorization code or device code, each with refresh
 token). Client ID metadata documents narrow in the OAuth Provider patch. The
 stored and returned grants are the narrowed list, so the token endpoint rejects
-every grant that was not registered.
+grants this server does not offer. One grant is implicit: the provider lets any
+client registered for authorization code use refresh token, even when its
+stored list omits it.
 
 ## Source Map
 
