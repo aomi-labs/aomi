@@ -28,12 +28,14 @@ resources and scope vocabulary live in `better-auth/oauth-policy.ts`; custom
 Aomi token, refresh, registration, PKCE, or revocation implementations are not
 part of this architecture.
 
-Client ID metadata documents may advertise grants used with other servers.
-The OAuth Provider patch intersects CIMD grants with the server-supported grants
-before validation and persistence. Dynamic registration remains strict, and
-unsupported token grants (including JWT bearer) remain rejected. Claude's
-additional JWT-bearer declaration therefore does not block its PKCE
-authorization-code and refresh-token flows.
+A client's declared `grant_types` are a request, not a contract: clients list
+every grant they can use with any authorization server. Both registration
+routes keep the grants this server offers and ignore the rest. Dynamic
+registration narrows in `oauth/request-policy.ts`, then still requires exactly
+one public profile (authorization code or device code, each with refresh
+token). Client ID metadata documents narrow in the OAuth Provider patch. The
+stored and returned grants are the narrowed list, so the token endpoint rejects
+every grant that was not registered.
 
 ## Source Map
 
