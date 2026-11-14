@@ -50,11 +50,12 @@ const match: ToolMatcher = ({ rawLabel, parsedArgs, resultRecord }) => {
       failedFact(resultRecord),
     ]);
   }
-  const id = {
+  const ids: Record<string, string> = {
     swap_quote: "swap.quote",
     stage_swap: "swap.stage",
     bridge_quote: "bridge.quote",
-  }[name] ?? "bridge.stage";
+  };
+  const id = ids[name] ?? "bridge.stage";
   return operation(id, rawLabel, stagedFacts(parsedArgs, resultRecord));
 };
 
