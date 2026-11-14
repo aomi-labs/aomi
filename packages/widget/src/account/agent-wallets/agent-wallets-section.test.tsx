@@ -206,12 +206,6 @@ beforeEach(() => {
         return Response.json({ connections });
       if (url.pathname.endsWith("/balances"))
         return Response.json({ networks: [] });
-      // Swig is off unless a test turns it on.
-      if (url.pathname === "/v1/account/policies/swig")
-        return Response.json(
-          { error: "off", error_code: "swig_disabled" },
-          { status: 404 },
-        );
       if (method === "PATCH") return Response.json(trading);
       return Response.json({ pause_all: false });
     }),

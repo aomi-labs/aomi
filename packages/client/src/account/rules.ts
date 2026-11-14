@@ -83,12 +83,15 @@ export type AomiRuleUsage = {
   decimals: number | null;
 };
 
-export type AomiRuleChangeState =
-  | "awaiting_admin"
-  | "applied"
-  | "declined"
-  | "expired"
-  | "superseded";
+const CHANGE_STATES = [
+  "awaiting_admin",
+  "applied",
+  "declined",
+  "expired",
+  "superseded",
+] as const;
+
+export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
 
 /** One line of a change; `loosens` marks a line that gives the agent power. */
 export type AomiRuleChangeLine = { text: string; loosens: boolean };
@@ -110,6 +113,18 @@ export type AomiRuleChange = {
   sign_message: string | null;
 };
 
+const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
+
+/** The rules a provider holds. The rest stay with Aomi alone. */
+export type AomiRulesCovers = {
+  /** App ids. */
+  apps: string[];
+  /** Asset ids of the limits. */
+  limits: string[];
+  not_after: boolean;
+  owner_only: boolean;
+};
+
 /**
  * One on-chain provider that can hold a wallet's rules, and whether it does.
  * A client shows it and signs what its steps hand back; it never needs to
@@ -124,16 +139,8 @@ export type AomiRulesEnforcement = {
    * `behind`: the chain holds something else than the rules ask for.
    * `unverified`: the chain could not be read.
    */
-  state: "off" | "on" | "behind" | "unverified";
-  /** The rules the provider holds. The rest stay with Aomi alone. */
-  covers: {
-    /** App ids. */
-    apps: string[];
-    /** Asset ids of the limits. */
-    limits: string[];
-    not_after: boolean;
-    owner_only: boolean;
-  };
+  state: (typeof ENFORCEMENT_STATES)[number];
+  covers: AomiRulesCovers;
   /** What the chain will still let through, in base units by asset id. */
   left: Record<string, string>;
   /** Why the rules cannot go on chain, or what is wrong there. */
@@ -327,19 +334,11 @@ export function parseRuleSet(value: unknown): AomiRuleSet {
   };
 }
 
-const STATES: readonly AomiRuleChangeState[] = [
-  "awaiting_admin",
-  "applied",
-  "declined",
-  "expired",
-  "superseded",
-];
-
 export function parseRuleChange(value: unknown): AomiRuleChange {
   const record = asRecord(value);
   if (!record) throw invalid("change must be an object");
-  const state = record.state as AomiRuleChangeState;
-  if (!STATES.includes(state))
+  const state = CHANGE_STATES.find((known) => known === record.state);
+  if (!state)
     throw invalid(`unsupported change state: ${String(record.state)}`);
   return {
     id: text(record.id, "change.id"),
@@ -359,8 +358,6 @@ export function parseRuleChange(value: unknown): AomiRuleChange {
     sign_message: stringValue(record.sign_message) ?? null,
   };
 }
-
-const ENFORCEMENT_STATES = ["off", "on", "behind", "unverified"] as const;
 
 function parseEnforcement(value: unknown): AomiRulesEnforcement {
   const record = asRecord(value);

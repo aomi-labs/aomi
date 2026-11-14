@@ -547,11 +547,6 @@ const renamed =
   });
 /** The secrets vault: BYOK provider keys and values tools use by handle. */
 const keys = renamed("/v1/account/keys", "/api/secrets");
-/** A provider's own on-chain policies: prepare, sign and confirm a binding or its revoke. */
-const policies = renamed(
-  "/v1/account/policies",
-  "/api/account/onchain-policies",
-);
 
 const ID = "[0-9a-f-]+";
 const REF = "[A-Za-z0-9_-]+";
@@ -705,15 +700,6 @@ export const ROUTES: readonly Route[] = [
     DELETE: "account:credentials:write",
   }),
   keys(/^\/v1\/account\/keys\/[^/]+$/, { DELETE: "account:credentials:write" }),
-  policies(/^\/v1\/account\/policies\/[a-z]+$/, {
-    GET: "account:transaction-safety:read",
-  }),
-  policies(
-    /^\/v1\/account\/policies\/[a-z]+\/(?:prepare|confirm|\d+\/revoke\/(?:prepare|confirm))$/,
-    {
-      POST: "account:transaction-safety:write",
-    },
-  ),
   {
     path: /^\/v1\/account\/bearer$/,
     operation: "account.bearer",
@@ -825,18 +811,15 @@ export const ROUTES: readonly Route[] = [
     ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }),
     on: "agentRest",
   },
-  // The backend's account record and its routes; transaction safety and
-  // on-chain policies moved to /v1/account.
-  backend(
-    /^\/api\/account(?:\/(?!(?:transaction-safety|onchain-policies)(?:\/|$)).*)?$/,
-    {
-      GET: settings,
-      POST: settings,
-      PATCH: settings,
-      PUT: settings,
-      DELETE: settings,
-    },
-  ),
+  // The backend's account record and its routes; transaction safety moved
+  // to /v1/account.
+  backend(/^\/api\/account(?:\/(?!transaction-safety(?:\/|$)).*)?$/, {
+    GET: settings,
+    POST: settings,
+    PATCH: settings,
+    PUT: settings,
+    DELETE: settings,
+  }),
   backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
   backend(/^\/api\/thread\/apps$/, { GET: chat }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),

@@ -797,18 +797,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(anonymousSettings.status).toBe(401);
   });
 
-  it("serves the keys vault and on-chain policies under /v1/account from their backend routes", async () => {
+  it("serves the keys vault under /v1/account from its backend route", async () => {
     const keys = await portal("/v1/account/keys?client_id=c1", { headers: { cookie: "session=user" }, origin: PORTAL });
     expect(keys.status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}/api/secrets?client_id=c1`);
-    const prepare = await portal("/v1/account/policies/swig/7/revoke/prepare", {
-      method: "POST",
-      headers: { cookie: "session=user", "content-type": "application/json", "x-aomi-csrf": "1" },
-      origin: PORTAL,
-      body: "{}",
-    });
-    expect(prepare.status).toBe(200);
-    expect(seen[1].url).toBe(`${BACKEND}/api/account/onchain-policies/swig/7/revoke/prepare`);
     const oauth = await portal("/v1/account/keys/BYOK%3Aopenai", {
       method: "DELETE",
       headers: {
@@ -816,11 +808,11 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
       },
     });
     expect(oauth.status).toBe(200);
-    expect(seen[2].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
+    expect(seen[1].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
     const guest = await portal("/v1/account/keys", { headers: { cookie: "session=guest" }, origin: PORTAL });
     expect(guest.status).toBe(403);
     // The /api names are gone; the pages answer them.
-    for (const path of ["/api/secrets", "/api/account/onchain-policies/swig", "/api/account/transaction-safety"]) {
+    for (const path of ["/api/secrets", "/api/account/transaction-safety"]) {
       const old = await portal(path, { headers: { cookie: "session=user" }, origin: PORTAL });
       expect(((await old.json()) as { tag?: string }).tag).toBe("vercel");
     }

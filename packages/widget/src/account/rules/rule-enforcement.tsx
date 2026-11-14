@@ -12,7 +12,9 @@ import { AomiButton } from "@/ui/aomi/button";
 import { ListRow } from "@/ui/aomi/list-group";
 import { SheetAlert } from "@/wallet/picker/sheet-parts";
 import { useAomiWalletKit } from "@/wallet/context";
-import type { RulesClient } from "./rule-change-card";
+import type { AomiWalletKit } from "@/wallet/types";
+import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellation";
+import { connectedAddress, type RulesClient } from "./rule-change-card";
 import { rulesErrorCode, rulesFailure } from "./rules-model";
 
 /** The providers that check a rule on chain now, by name. */
@@ -46,6 +48,23 @@ async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
   }
 }
 
+/** Have the owner's wallet sign and send a provider's transaction. */
+async function send(
+  kit: AomiWalletKit,
+  transaction: AomiRulesTransaction,
+  description: string,
+): Promise<string> {
+  const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
+  if (transaction.family !== "svm" || !execute)
+    throw new Error("This wallet can't sign that transaction.");
+  const { signature } = await execute({
+    unsignedTx: transaction.unsigned_base64,
+    description,
+    cluster: normalizeSolanaCluster(transaction.network) ?? "solana:mainnet",
+  });
+  return signature;
+}
+
 /**
  * Wallet › Manage › Rules: one on-chain provider that can check the same
  * rules a second time. The row is the same for every provider: its name and
@@ -76,24 +95,10 @@ export function RuleEnforcement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { family } = entry.signer;
-  const connected =
-    family === "svm" ? kit.identity.svmAddress : kit.identity.address;
+  const connected = connectedAddress(kit, family);
   // Once the rules are on chain, only the wallet that put them there signs.
   const owner = entry.signer.address ?? connected;
   const canSign = Boolean(connected) && connected === owner;
-
-  const send = async (transaction: AomiRulesTransaction, label: string) => {
-    const execute =
-      kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
-    if (transaction.family !== "svm" || !execute)
-      throw new Error("This wallet can't sign that transaction.");
-    const { signature } = await execute({
-      unsignedTx: transaction.unsigned_base64,
-      description: label,
-      cluster: normalizeSolanaCluster(transaction.network) ?? "solana:mainnet",
-    });
-    return signature;
-  };
 
   const run = async (remove: boolean) => {
     if (busy || !owner) return;
@@ -108,6 +113,7 @@ export function RuleEnforcement({
       );
       const signature = transaction
         ? await send(
+            kit,
             transaction,
             remove ? "Remove rules from chain" : "Enforce rules on chain",
           )
@@ -125,7 +131,7 @@ export function RuleEnforcement({
     } catch (cause) {
       const raw = cause instanceof Error ? cause.message : "";
       setError(
-        /user rejected|user denied|4001/i.test(raw)
+        isExpectedWalletCancellation(cause)
           ? "Signature declined. Nothing changed."
           : rulesFailure(cause, raw || "That didn’t go through. Try again."),
       );
