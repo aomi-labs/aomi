@@ -1,0 +1,30 @@
+name: Staging Deploy
+
+# A merge to main reaches staging by starting product-mono's Staging Edge
+# workflow, which deploys the edge Worker and the Portal pages from main. The
+# deploy and every staging secret stay in product-mono: this repository holds
+# only STAGING_DEPLOY_DISPATCH_TOKEN, a fine-grained token that can start
+# workflows in aomi-labs/product-mono (Actions: read and write) and nothing else.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".changeset/**"
+
+permissions: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Start Staging Edge in product-mono
+        env:
+          GH_TOKEN: ${{ secrets.STAGING_DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "$GH_TOKEN" ] || { echo "::error::STAGING_DEPLOY_DISPATCH_TOKEN is not set, so $GITHUB_SHA will not reach staging until the next product-mono deploy"; exit 1; }
+          gh workflow run staging-edge.yml --repo aomi-labs/product-mono --ref main
+          echo "Started Staging Edge for aomi@$GITHUB_SHA: https://github.com/aomi-labs/product-mono/actions/workflows/staging-edge.yml" >> "$GITHUB_STEP_SUMMARY"
