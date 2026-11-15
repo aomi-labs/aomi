@@ -6,7 +6,7 @@ Rewrite this file in place; never append history. Keep it under 60 lines. Remove
 
 ## In flight
 
-- 2026-11-15 · @CeciliaZ030 · A merge to main publishes the Portal pages to staging from this repo; needs `CLOUDFLARE_DEPLOY_API_TOKEN` in a `staging` Environment here (draft) · #894
+- 2026-11-15 · @CeciliaZ030 · A merge to main starts product-mono's Staging deploy; needs `STAGING_DEPLOY_DISPATCH_TOKEN` set here (draft) · #894
 - 2026-11-12 · @CeciliaZ030 · Builder API keys at the Build edge; deploys after the product-mono#1712 migration · #878
 - 2026-11-12 · @CeciliaZ030 · Default the SDK, CLI and widget to aomi.chat (draft) · #875
 - 2026-11-02 · @arixoneth · Execution-only wallets never sign in (draft) · #824

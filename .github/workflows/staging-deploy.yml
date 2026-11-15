@@ -1,16 +1,9 @@
 name: Staging Deploy
 
-# Every merge to main publishes the Portal pages to staging from this
-# repository: build for Cloudflare, serve the build locally and check it, then
-# upload it to the private page Worker named in apps/portal/pages.json. The
-# edge Worker serves whichever page version is live, so no other deploy is
-# involved. Changes to the edge Worker itself (apps/edge) still deploy with
-# product-mono, which owns its routes, origins and secrets.
-#
-# The `staging` Environment here needs one secret, CLOUDFLARE_DEPLOY_API_TOKEN:
-# a Cloudflare token of its own with Workers Scripts: Edit on the account, not
-# a copy of another repository's token. Set vars.CLOUDFLARE_ACCOUNT_ID if the
-# token can see more than one account.
+# A merge to main starts product-mono's Staging workflow, the one staging
+# deploy: it deploys product-mono main and this repository's main together.
+# STAGING_DEPLOY_DISPATCH_TOKEN can only start workflows in product-mono
+# (fine-grained, Actions: read and write on that repository).
 on:
   push:
     branches: [main]
@@ -18,47 +11,15 @@ on:
       - "docs/**"
       - "**/*.md"
       - ".changeset/**"
-  workflow_dispatch:
 
-permissions:
-  contents: read
-
-# Runs publish in merge order; a newer merge replaces one still waiting.
-concurrency:
-  group: staging-deploy
-  cancel-in-progress: false
+permissions: {}
 
 jobs:
-  portal:
-    name: Publish Portal pages
+  staging:
     runs-on: ubuntu-latest
-    environment: staging
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
-      - name: Checkout the merged source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build, check and publish the Portal pages
+      - name: Start Staging in product-mono
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          REF: ${{ github.ref }}
-        run: |
-          set -euo pipefail
-          [ "$REF" = refs/heads/main ] || { echo "::error::Staging Deploy publishes main only, not $REF"; exit 1; }
-          node scripts/deploy-portal-pages.mjs staging
-          echo "Published aomi@$GITHUB_SHA to staging: https://staging.aomi.chat" >> "$GITHUB_STEP_SUMMARY"
+          GH_TOKEN: ${{ secrets.STAGING_DEPLOY_DISPATCH_TOKEN }}
+        run: gh workflow run staging.yml --repo aomi-labs/product-mono --ref main
