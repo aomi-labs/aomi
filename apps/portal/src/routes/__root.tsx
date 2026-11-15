@@ -30,18 +30,6 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: "Aomi" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
-      // First paint follows the system; SettingsInitializer then tracks the
-      // theme the app shows.
-      {
-        name: "theme-color",
-        media: "(prefers-color-scheme: light)",
-        content: "#ffffff",
-      },
-      {
-        name: "theme-color",
-        media: "(prefers-color-scheme: dark)",
-        content: "#09090b",
-      },
       { title: "Execution Portal | Aomi Labs" },
       {
         name: "description",
@@ -113,6 +101,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* First paint follows the system; SettingsInitializer then tracks the
+            theme the app shows. Written here because route `meta` keeps one
+            tag per name and would drop one of the pair. */}
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: light)"
+          content="#ffffff"
+        />
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: dark)"
+          content="#09090b"
+        />
       </head>
       <body className="aomi-fonts font-sans antialiased">
         {children}

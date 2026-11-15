@@ -226,7 +226,7 @@ function Sidebar({
           data-testid={testIds.mobileSheet}
           // The sheet is fixed to the screen, so it keeps clear of the notch
           // and home indicator itself.
-          className="w-(--sidebar-width) bg-sidebar text-sidebar-foreground p-0 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pt-[env(safe-area-inset-top)] data-[state=closed]:duration-200 data-[state=open]:duration-300 [&>button]:hidden"
+          className="w-(--sidebar-width) bg-sidebar text-sidebar-foreground p-0 pb-[var(--aomi-safe-bottom,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pt-[var(--aomi-safe-top,env(safe-area-inset-top))] data-[state=closed]:duration-200 data-[state=open]:duration-300 [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
