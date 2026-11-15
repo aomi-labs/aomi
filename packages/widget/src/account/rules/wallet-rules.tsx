@@ -587,7 +587,10 @@ export function WalletRules({
             entry={entry}
             onRules={(next) => {
               version.current += 1;
-              setRules(next);
+              // A step that answers late must not undo a newer write.
+              setRules((current) =>
+                current && next.revision < current.revision ? current : next,
+              );
             }}
             onStale={() => void load()}
           />

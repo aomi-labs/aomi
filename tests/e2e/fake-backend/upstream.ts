@@ -237,19 +237,23 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       )?.change;
       const body = () => rulesBody(state, pending ?? null);
       // The backend's check that the caller is the owner's own session.
-      const ownerOnly = () =>
-        principal.principal_class === "guest"
-          ? json(response, 403, { error: "guest_account" })
-          : principal.auth_source === "session" ||
-              principal.auth_source === "cli_session"
-            ? null
-            : json(response, 403, { error: "scope_denied" });
+      // True once it has answered 403: `json` returns nothing to test.
+      const ownerOnly = () => {
+        const error =
+          principal.principal_class === "guest"
+            ? "guest_account"
+            : principal.auth_source === "session" ||
+                principal.auth_source === "cli_session"
+              ? null
+              : "scope_denied";
+        if (error) json(response, 403, { error });
+        return error !== null;
+      };
       if (method === "GET" && !rulesPath && !changePath)
         return json(response, 200, RULES_CATALOG);
       if (method === "GET" && rulesPath) return json(response, 200, body());
       if (method === "POST" && rulesPath) {
-        const refused = ownerOnly();
-        if (refused) return refused;
+        if (ownerOnly()) return;
         const sent = JSON.parse(await readBody(request)) as {
           rules?: Partial<FakeRuleSet>;
           admin?: FakeRules["admin"];
@@ -302,8 +306,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       const { apply, ...view } = entry.change;
       if (method === "GET" && !changePath![2]) return json(response, 200, view);
       if (method === "POST" && changePath![2]) {
-        const refused = ownerOnly();
-        if (refused) return refused;
+        if (ownerOnly()) return;
         if (view.state !== "awaiting_admin")
           return json(response, 409, { error: "rules_change_not_open" });
         if (changePath![2] === "decline") entry.change.state = "declined";
@@ -352,13 +355,14 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
           wallets: [AGENT_GROUP],
         });
       // The backend's require_portal_session for writes.
-      const portalOnly = () =>
-        principal.auth_source === "session"
-          ? null
-          : json(response, 403, { error: "portal_session_required" });
+      // True once it has answered 403: `json` returns nothing to test.
+      const portalOnly = () => {
+        if (principal.auth_source === "session") return false;
+        json(response, 403, { error: "portal_session_required" });
+        return true;
+      };
       if (method === "PUT" && url.pathname === "/v1/account/pause-all") {
-        const refused = portalOnly();
-        if (refused) return refused;
+        if (portalOnly()) return;
         const { paused } = JSON.parse(await readBody(request)) as {
           paused: boolean;
         };
@@ -369,8 +373,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         method === "PUT" &&
         url.pathname.startsWith("/v1/account/connection-settings/")
       ) {
-        const refused = portalOnly();
-        if (refused) return refused;
+        if (portalOnly()) return;
         const key = decodeURIComponent(url.pathname.split("/").pop()!);
         const id = `${principal.sub}\0${key}`;
         const update = JSON.parse(await readBody(request)) as Partial<
@@ -384,8 +387,7 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
         return json(response, 200, next);
       }
       if (method === "PUT" && url.pathname.endsWith("/wallets")) {
-        const refused = portalOnly();
-        if (refused) return refused;
+        if (portalOnly()) return;
         const key = decodeURIComponent(url.pathname.split("/").at(-2)!);
         const update = JSON.parse(await readBody(request)) as {
           wallets: { id: string; lane: string }[];

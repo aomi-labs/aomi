@@ -458,7 +458,7 @@ export function RuleChangePanel({
         data-rule-change-panel={
           state.step === "ready" ? state.change.state : state.step
         }
-        className="flex flex-col items-center gap-4 px-5 pb-5"
+        className="flex min-h-0 flex-col items-center gap-4 overflow-y-auto px-5 pb-5"
       >
         {body}
       </section>
