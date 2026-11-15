@@ -1,0 +1,61 @@
+# A reusable workflow for builder repositories: build each package of the
+# root aomi.toml for wasm32-wasip2 on the runner, upload it with `aomi publish`
+# and make the new releases live. It runs only when a builder repository calls
+# it, for example:
+#
+#   jobs:
+#     publish:
+#       uses: aomi-labs/aomi/.github/workflows/publish-packages.yml@main
+#       secrets:
+#         AOMI_BUILDER_KEY: ${{ secrets.AOMI_BUILDER_KEY }}
+#
+# AOMI_BUILDER_KEY is a builder API key holding `package:publish`,
+# `package:promote`, `agent:publish` and `agent:promote`.
+name: Publish Aomi packages
+
+on:
+  workflow_call:
+    inputs:
+      root:
+        description: Folder with the root aomi.toml
+        type: string
+        default: .
+      promote:
+        description: Make each new release live
+        type: boolean
+        default: true
+      cli-version:
+        description: The @aomi-labs/cli version to run
+        type: string
+        default: latest
+    secrets:
+      AOMI_BUILDER_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: rustup target add wasm32-wasip2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: npm install -g "@aomi-labs/cli@${CLI_VERSION}"
+        env:
+          CLI_VERSION: ${{ inputs.cli-version }}
+      - run: |
+          if [ "${PROMOTE}" = "true" ]; then
+            aomi publish --root "${ROOT}" --promote
+          else
+            aomi publish --root "${ROOT}"
+          fi
+        env:
+          AOMI_BUILDER_KEY: ${{ secrets.AOMI_BUILDER_KEY }}
+          ROOT: ${{ inputs.root }}
+          PROMOTE: ${{ inputs.promote }}
