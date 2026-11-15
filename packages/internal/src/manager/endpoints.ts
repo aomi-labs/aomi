@@ -93,6 +93,8 @@ import {
   maybe,
 } from "@aomi-labs/deploy/schemas";
 
+import { RELEASE_ENDPOINTS } from "./releases";
+
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** A response body: the parsed JSON object, or `{}` for anything else. */
@@ -108,7 +110,7 @@ export type ManagerRequest<O> = {
   path: string;
   /** Query parameters; empty values are left out. */
   query?: Record<string, Scalar>;
-  /** The JSON body; a POST, PUT or PATCH without one sends `{}`. */
+  /** The JSON body, or a tar's bytes; a POST, PUT or PATCH without one sends `{}`. */
   body?: unknown;
   headers?: Record<string, string>;
   read: (raw: Raw) => O;
@@ -301,6 +303,9 @@ function deployRow(input: PreflightInput | DeployInput, op: "preflight" | "deplo
 }
 
 export const ENDPOINTS = {
+  // ── Package releases and agent configs ─────────────────────────────────
+  ...RELEASE_ENDPOINTS,
+
   // ── Deploy and release ───────────────────────────────────────────────────
   preflight: (input: PreflightInput) => deployRow(input, "preflight"),
   deploy: (input: DeployInput) => deployRow(input, "deploy"),
