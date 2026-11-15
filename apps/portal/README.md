@@ -44,6 +44,11 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
    `vite dev` serves pages only: run it behind a local Edge (aomi-dev does
    this) so `/api` and `/v1` resolve. Build for Cloudflare with
    `AOMI_DEPLOY_TARGET=cloudflare pnpm build:app` (default: Vercel).
+   `node scripts/deploy-portal-pages.mjs staging --dry-run` (from the repo
+   root) builds the staging pages and serves them from a local Worker; the
+   Staging Deploy workflow runs the same script without `--dry-run` on every
+   merge to main. `apps/portal/pages.json` holds each environment's page
+   Worker name and public build settings.
 
 3. **Open in browser**:
    ```
