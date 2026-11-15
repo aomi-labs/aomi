@@ -396,7 +396,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/platforms/:name/deployments/:deployment/status",
-    auth: ["activation"],
+    auth: ["activation", "builder:read"],
   },
   {
     method: "GET",
@@ -841,7 +841,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/platforms/:name/deployments/:deployment/rerun",
-    auth: ["activation"],
+    auth: ["activation", "project:deploy"],
   },
   {
     method: "POST",
@@ -856,7 +856,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/projects/:project_id/deploy",
-    auth: ["activation"],
+    auth: ["activation", "project:deploy"],
   },
   {
     method: "POST",

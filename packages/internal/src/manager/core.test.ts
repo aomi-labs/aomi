@@ -698,10 +698,11 @@ describe("manager Builder application", () => {
     const result = await client().getBuilderApplicationDetail({
       githubUserId: "4738254",
       applicationId: 77,
+      window: "7d",
     });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://staging-api.example.com/api/integrations/github-app/builder/applications/77/detail?github_user_id=4738254",
+      "https://staging-api.example.com/api/integrations/github-app/builder/applications/77/detail?github_user_id=4738254&window=7d",
     );
     expect(result).toMatchObject({
       windowSeconds: 86400,

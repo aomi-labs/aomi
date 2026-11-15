@@ -131,13 +131,41 @@ describe("AppDetailPage", () => {
     operateAppDetailFetch.mockResolvedValue(payload);
   });
 
+  it("fetches and caches each selected activity window separately", async () => {
+    operateAppDetailFetch.mockImplementation(async (_id, window) => ({
+      ...payload,
+      detail: {
+        ...payload.detail,
+        windowSeconds: window === "7d" ? 604800 : 86400,
+        funnel: {
+          ...payload.detail.funnel,
+          chats24h: window === "7d" ? 42 : 12,
+        },
+      },
+    }));
+    render(<AppDetailPage applicationId={77} />);
+    await screen.findByRole("heading", { name: "goal-digger" });
+    fireEvent.click(screen.getByRole("button", { name: "7d" }));
+    expect(
+      await screen.findByText("Conversion funnel · 7d"),
+    ).toBeInTheDocument();
+    expect(operateAppDetailFetch).toHaveBeenCalledWith(77, "7d");
+    expect(screen.getByText("42")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "24h" }));
+    expect(
+      await screen.findByText("Conversion funnel · 24h"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("42")).not.toBeInTheDocument();
+    expect(operateAppDetailFetch).toHaveBeenCalledTimes(2);
+  });
+
   it("renders the live detail aggregate under the owned app identity", async () => {
     render(<AppDetailPage applicationId={77} />);
 
     expect(
       await screen.findByRole("heading", { name: "goal-digger" }),
     ).toBeInTheDocument();
-    expect(operateAppDetailFetch).toHaveBeenCalledWith(77);
+    expect(operateAppDetailFetch).toHaveBeenCalledWith(77, "24h");
     expect(screen.queryByText("Partial example data")).not.toBeInTheDocument();
     expect(screen.getByText("Conversion funnel · 24h")).toBeInTheDocument();
     expect(screen.getByText(/20 calls · 1 error/)).toBeInTheDocument();
@@ -167,7 +195,7 @@ describe("AppDetailPage", () => {
     expect(
       await screen.findByRole("heading", { name: "goal-digger" }),
     ).toBeInTheDocument();
-    expect(operateAppDetailFetch).toHaveBeenCalledWith(77);
+    expect(operateAppDetailFetch).toHaveBeenCalledWith(77, "24h");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Back to observability" }),

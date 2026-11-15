@@ -75,7 +75,7 @@ describe("transaction network chip", () => {
     expect(screen.getByTitle("Solana")).toBeInTheDocument();
   });
 
-  it("labels the last phase from the chain receipt until Commit Service settles", () => {
+  it("keeps the last phase labelled Signed and puts the receipt in its title", () => {
     render(
       <TransactionCard
         transaction={{
@@ -92,8 +92,9 @@ describe("transaction network chip", () => {
         current={false}
       />,
     );
-    expect(screen.getByTestId("activity-transaction")).toHaveTextContent(
-      "Confirmed on chain",
-    );
+    const card = screen.getByTestId("activity-transaction");
+    expect(card).toHaveTextContent("Signed");
+    expect(card).not.toHaveTextContent("Confirmed on chain");
+    expect(screen.getByTitle("Confirmed on chain")).toBeInTheDocument();
   });
 });

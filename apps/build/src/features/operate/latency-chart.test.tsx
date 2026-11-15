@@ -21,7 +21,7 @@ describe("LatencyChart", () => {
     expect(root.querySelectorAll("polyline")).toHaveLength(0);
     expect(
       root.querySelector('[role="img"]')?.getAttribute("aria-label"),
-    ).toContain("1 hourly sample");
+    ).toContain("1 sample");
   });
 
   it("keeps gaps and zero-valued measurements distinct", () => {
@@ -32,9 +32,21 @@ describe("LatencyChart", () => {
     expect(root.querySelector('[title="Now: 4.0 s"]')).not.toBeNull();
   });
 
+  it("labels seven-day samples by their actual bucket age", () => {
+    const values = Array<number | null>(24).fill(null);
+    values[0] = 1;
+    const markup = renderToStaticMarkup(
+      <LatencyChart values={values} window="7d" />,
+    );
+    expect(markup).toContain("6.7d ago: 1.0 s");
+    expect(markup).toContain("selected 7d window");
+  });
+
   it("explains when no latency samples exist", () => {
     const root = chart([null, Number.NaN]);
-    expect(root.textContent).toBe("No latency samples in the last 24 hours.");
+    expect(root.textContent).toBe(
+      "No latency samples in the selected 24h window.",
+    );
     expect(root.querySelectorAll("[title]")).toHaveLength(0);
   });
 });

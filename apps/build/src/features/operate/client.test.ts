@@ -29,10 +29,10 @@ describe("operate client Project identity", () => {
   });
 
   it("addresses application detail by its canonical application id", async () => {
-    await operateAppDetailFetch(2938032);
+    await operateAppDetailFetch(2938032, "7d");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/build/operate/observability/detail?applicationId=2938032",
+      "/api/build/operate/observability/detail?applicationId=2938032&window=7d",
       { signal: expect.any(AbortSignal) },
     );
   });

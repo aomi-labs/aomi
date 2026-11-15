@@ -1,5 +1,11 @@
 import { useId, type FC, type SVGProps } from "react";
-import { CoinsIcon, FlaskConicalIcon, LandmarkIcon } from "lucide-react";
+import {
+  ArrowRightLeftIcon,
+  CableIcon,
+  CoinsIcon,
+  FlaskConicalIcon,
+  LandmarkIcon,
+} from "lucide-react";
 
 import {
   AcrossIcon,
@@ -417,6 +423,9 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   across: AcrossSkillIcon,
   aerodrome: AerodromeSkillIcon,
   arbitrum_bridge: ArbitrumBridgeSkillIcon,
+  // The routed swap and bridge skills use the trace's swap and bridge glyphs.
+  aomi_bridge: CableIcon,
+  aomi_swap: ArrowRightLeftIcon,
   base_native: BaseNativeSkillIcon,
   compound: CompoundSkillIcon,
   convex: ConvexSkillIcon,

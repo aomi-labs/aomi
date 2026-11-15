@@ -409,6 +409,8 @@ export function parseSkillCatalog(value: unknown): SkillSummary[] {
 const BRAND_LABELS: Record<string, string> = {
   common_erc20: "ERC20",
   defillama: "DefiLlama",
+  aomi_bridge: "Bridge",
+  aomi_swap: "Swap",
   lifi_swap: "LI.FI",
   rwa: "RWA",
   spl_token: "SPL Token",

@@ -63,7 +63,7 @@ const FEATURED = [
   "skill:aave",
   "skill:across",
   "skill:aerodrome",
-  "skill:lifi_swap",
+  "skill:aomi_swap",
   "app:defillama",
   "app:dune",
   "app:hyperliquid",

@@ -28,6 +28,17 @@ resources and scope vocabulary live in `better-auth/oauth-policy.ts`; custom
 Aomi token, refresh, registration, PKCE, or revocation implementations are not
 part of this architecture.
 
+A client's declared `grant_types` are a request, not a contract: clients list
+every grant they can use with any authorization server. Both registration
+routes keep the grants this server offers and ignore the rest. Dynamic
+registration narrows in `oauth/request-policy.ts`, then still requires exactly
+one public profile (authorization code or device code, each with refresh
+token). Client ID metadata documents narrow in the OAuth Provider patch. The
+stored and returned grants are the narrowed list, so the token endpoint rejects
+grants this server does not offer. One grant is implicit: the provider lets any
+client registered for authorization code use refresh token, even when its
+stored list omits it.
+
 ## Source Map
 
 - [packages/account/src/account.ts](../../../../packages/account/src/account.ts)

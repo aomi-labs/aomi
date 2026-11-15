@@ -70,11 +70,14 @@ export async function operatePaymentsFetch<T>(
   );
 }
 
+export type ObservabilityWindow = "1h" | "24h" | "7d" | "30d";
+
 export async function operateAppDetailFetch<T>(
   applicationId: number,
+  window: ObservabilityWindow = "24h",
 ): Promise<T> {
   return operateJson<T>(
-    API_PATHS.build.operate.observabilityDetail(applicationId),
+    `${API_PATHS.build.operate.observabilityDetail(applicationId)}&window=${window}`,
     "observability detail",
   );
 }

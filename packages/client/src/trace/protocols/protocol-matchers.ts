@@ -8,6 +8,7 @@ import { jupiter } from "./jupiter";
 import { lifi } from "./lifi";
 import { morpho } from "./morpho";
 import type { ProtocolAdapter } from "./protocol-adapter";
+import { swap } from "./swap";
 import { uniswap } from "./uniswap";
 
 /** Add one adapter file and register it here; core routing stays untouched. */
@@ -19,6 +20,7 @@ const adapters: ProtocolAdapter[] = [
   jupiter,
   lifi,
   morpho,
+  swap,
   uniswap,
 ];
 

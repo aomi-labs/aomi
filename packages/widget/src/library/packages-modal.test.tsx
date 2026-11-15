@@ -502,10 +502,15 @@ describe("packages modal wiring", () => {
     await renderModal();
 
     const dialog = screen.getByRole("dialog");
-    expect(dialog.style.width).toBe("1000px");
-    expect(dialog.style.height).toBe("620px");
-    expect(dialog.style.maxWidth).toBe("96%");
-    expect(dialog.style.maxHeight).toBe("92%");
+    // A full-screen page on phones, the 1000×620 window from md.
+    expect(dialog).toHaveClass(
+      "h-full",
+      "w-full",
+      "md:w-[1000px]",
+      "md:h-[620px]",
+      "md:max-w-[96%]",
+      "md:max-h-[92%]",
+    );
     expect(dialog.parentElement?.className).toContain("absolute");
     expect(dialog.parentElement?.className).not.toContain("fixed");
   });

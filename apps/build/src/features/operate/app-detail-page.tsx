@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useGitHubSession } from "@/components/control-plane/github-session-context";
@@ -11,7 +12,7 @@ import {
   LoadingPanel,
 } from "@/features/deploy/components/deployments/ui/state-panels";
 import { AppDetailView } from "./app-detail-view";
-import { operateAppDetailFetch } from "./client";
+import { operateAppDetailFetch, type ObservabilityWindow } from "./client";
 import {
   liveAppDetailView,
   type LiveAppDetailPayload,
@@ -30,14 +31,19 @@ function operateHref(
 
 export function AppDetailPage({ applicationId }: { applicationId: number }) {
   const router = useRouter();
+  const [window, setWindow] = useState<ObservabilityWindow>("24h");
   const { account } = useGitHubSession();
   const accountKey = githubAccountKey(account.githubLogin);
   const detailQuery = useQuery({
-    queryKey: buildQueryKeys.applicationDetail(
-      accountKey ?? "unavailable",
-      applicationId,
-    ),
-    queryFn: () => operateAppDetailFetch<LiveAppDetailPayload>(applicationId),
+    queryKey: [
+      ...buildQueryKeys.applicationDetail(
+        accountKey ?? "unavailable",
+        applicationId,
+      ),
+      window,
+    ],
+    queryFn: () =>
+      operateAppDetailFetch<LiveAppDetailPayload>(applicationId, window),
     enabled: account.signedIn && accountKey !== null,
     staleTime: buildQueryStaleTime.operate,
   });
@@ -69,6 +75,11 @@ export function AppDetailPage({ applicationId }: { applicationId: number }) {
         >
           Retry
         </button>
+        {window !== "24h" ? (
+          <button type="button" onClick={() => setWindow("24h")}>
+            Return to 24 hours
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -87,6 +98,8 @@ export function AppDetailPage({ applicationId }: { applicationId: number }) {
   return (
     <AppDetailView
       app={view.app}
+      window={window}
+      onWindowChange={setWindow}
       onBack={() =>
         router.navigate({
           href: operateHref("/operate/observability", {

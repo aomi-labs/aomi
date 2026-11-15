@@ -98,7 +98,7 @@ export function friendlyTransactionLabel(label: string, kind?: string): string {
   if (normalizedKind.includes("approve") && !/^approve\b/i.test(clean)) {
     return `Approve ${clean}`;
   }
-  // LI.FI bridges also carry the `lifi_swap` kind.
+  // Bridges saved before the swap/bridge split carry the `lifi_swap` kind.
   if (normalizedKind.includes("swap") && !/^(swap|bridge)\b/i.test(clean)) {
     return `Swap ${clean}`;
   }

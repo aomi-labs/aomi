@@ -264,6 +264,39 @@ describe("OAuth request policy", () => {
     });
   });
 
+  it("registers only the offered grants a client declares", async () => {
+    const register = (grant_types: string[]) =>
+      enforceAomiOAuthRequestPolicy(
+        new Request("https://portal.example/api/auth/oauth2/register", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            token_endpoint_auth_method: "none",
+            grant_types,
+            response_types: ["code"],
+            redirect_uris: ["http://127.0.0.1:49152/callback"],
+          }),
+        }),
+      );
+    // A client lists every grant it can use anywhere; the extras are dropped.
+    const registered = await expectContinue(
+      register([
+        "authorization_code",
+        "refresh_token",
+        "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "client_credentials",
+      ]),
+    );
+    await expect(registered.json()).resolves.toMatchObject({
+      grant_types: ["authorization_code", "refresh_token"],
+    });
+    // Nothing offered is left, so there is no flow to register.
+    await expectReject(
+      register(["urn:ietf:params:oauth:grant-type:jwt-bearer"]),
+      401,
+    );
+  });
+
   it("requires an explicit public token endpoint authentication method", async () => {
     await expectReject(
       enforceAomiOAuthRequestPolicy(

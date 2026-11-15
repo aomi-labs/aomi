@@ -996,6 +996,67 @@ describe("tool interpreter", () => {
     ]);
   });
 
+  it("shows a staged swap without its venues or provider", () => {
+    const step = decode({
+      toolName: "stage_swap",
+      argsText: JSON.stringify({
+        chain_id: 8453,
+        from_token: "USDC",
+        to_token: "WETH",
+        amount: "1000",
+      }),
+      result: {
+        chain_id: 8453,
+        source_chain_id: 8453,
+        destination_chain_id: 8453,
+        from_token: { symbol: "USDC", chain_id: 8453 },
+        to_token: { symbol: "WETH", chain_id: 8453 },
+        from_amount: { raw: "1000000000", display: "1000 USDC" },
+        estimate: { to_amount_display: "0.4981234567 WETH" },
+        route: { path: "Uniswap V3 → Aerodrome Slipstreams" },
+        staged: [
+          {
+            pending_tx_id: 0,
+            chain_id: 8453,
+            label: "Approve USDC for swap",
+            current_lifecycle: "queued",
+          },
+          {
+            pending_tx_id: 1,
+            chain_id: 8453,
+            label: "Swap USDC to WETH",
+            current_lifecycle: "queued",
+          },
+        ],
+      },
+    });
+
+    expect(step.title).toBe("Stage swap");
+    expect(step.icon).toBe("swap");
+    expect(labelsFor(step.chips)).toEqual(
+      expect.arrayContaining([
+        "Base",
+        "USDC -> WETH",
+        "1000 USDC",
+        "0.49812 WETH",
+      ]),
+    );
+    expect(labelsFor(step.chips)).not.toContain(
+      "Uniswap V3 → Aerodrome Slipstreams",
+    );
+  });
+
+  it("titles bridge tools without a provider", () => {
+    expect(decode({ toolName: "bridge_quote" }).title).toBe("Quote bridge");
+    expect(decode({ toolName: "stage_bridge" }).title).toBe("Stage bridge");
+    const status = decode({
+      toolName: "bridge_status",
+      result: { source_chain_id: 8453, destination_chain_id: 42161, state: "pending" },
+    });
+    expect(status.title).toBe("Check bridge");
+    expect(status.icon).toBe("bridge");
+  });
+
   it("keeps LI.FI tool titles and failure state on pending or failed calls", () => {
     const cases = [
       ["lifi_get_quote", "Quote LI.FI swap"],

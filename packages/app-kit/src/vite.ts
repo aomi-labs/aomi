@@ -46,17 +46,23 @@ export interface AppConfigOptions {
 }
 
 /**
- * Nitro's Workers preset aliases `buffer` to `node:buffer` for every
- * environment. A browser has no such module, so its bundle takes the polyfill.
+ * Nitro's Workers preset aliases these Node built-ins to `node:*` for every
+ * environment. A browser has no such module and Vite would bundle an empty
+ * object, so its bundle takes the package of the same name instead.
  */
-const browserBuffer: Plugin = {
-  name: "aomi:browser-buffer",
+const browserBuiltins: Plugin = {
+  name: "aomi:browser-builtins",
   enforce: "pre",
   applyToEnvironment: (environment) => environment.config.consumer === "client",
   resolveId(id, importer) {
-    // The trailing slash makes Node skip its built-in and find the package.
-    if (id === "node:buffer" && importer)
-      return createRequire(importer).resolve("buffer/");
+    const name = /^node:(buffer|events)$/.exec(id)?.[1];
+    if (!name || !importer) return;
+    try {
+      // The trailing slash makes Node skip its built-in and find the package.
+      return createRequire(importer).resolve(`${name}/`);
+    } catch {
+      // The importer does not depend on the package; Vite reports the stub.
+    }
   },
 };
 
@@ -76,7 +82,7 @@ export function appConfig(options: AppConfigOptions): UserConfig {
   return {
     plugins: [
       ...(options.plugins ?? []),
-      browserBuffer,
+      browserBuiltins,
       tanstackStart({
         importProtection: {
           behavior: "error",

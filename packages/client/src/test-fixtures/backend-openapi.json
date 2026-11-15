@@ -3334,7 +3334,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": ["activation"]
+        "x-aomi-auth": ["activation", "project:deploy"]
       }
     },
     "/api/platforms/{name}/apps/activate": {
@@ -3367,7 +3367,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": ["activation"]
+        "x-aomi-auth": ["activation", "builder:read"]
       }
     },
     "/api/platforms/{name}/deployments/{deployment}/rerun": {
@@ -3378,7 +3378,7 @@
           }
         },
         "security": [],
-        "x-aomi-auth": ["activation"]
+        "x-aomi-auth": ["activation", "project:deploy"]
       }
     },
     "/api/platforms/{name}/apps/{app}/records": {

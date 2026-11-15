@@ -34,7 +34,7 @@ const roundedAmount = (value: string | undefined): string | undefined => {
   return `${rounded / precision}${decimals ? `.${decimals}` : ""}${suffix}`;
 };
 
-const requestedTokenLabel = (value: unknown): string | undefined => {
+export const requestedTokenLabel = (value: unknown): string | undefined => {
   const token = asString(value);
   return token?.startsWith("0x") ? shortAddress(token) : token;
 };
@@ -42,7 +42,7 @@ const requestedTokenLabel = (value: unknown): string | undefined => {
 const displayAmount = (value: unknown): string | undefined =>
   asString(asRecord(value)?.display);
 
-const amountDisplayFact = (
+export const amountDisplayFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
@@ -50,7 +50,7 @@ const amountDisplayFact = (
   return fact ? { ...fact, role } : null;
 };
 
-const amountTextFact = (
+export const amountTextFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
@@ -58,10 +58,10 @@ const amountTextFact = (
   return fact ? { ...fact, role } : null;
 };
 
-const tokenSymbol = (value: unknown): string | undefined =>
+export const tokenSymbol = (value: unknown): string | undefined =>
   asString(asRecord(value)?.symbol);
 
-const tokenPairFact = (
+export const tokenPairFact = (
   fromToken: unknown,
   toToken: unknown,
 ): ToolFact | null => {
@@ -84,7 +84,7 @@ const routeEnds = (
   destination: result?.destination_chain_id ?? args?.to_chain_id,
 });
 
-const isBridgeRoute = (
+export const isBridgeRoute = (
   result: Record<string, unknown> | null | undefined,
   args?: Record<string, unknown> | null,
 ): boolean => {
@@ -97,7 +97,7 @@ const isBridgeRoute = (
 };
 
 /** A bridge's route, else the one chain the call runs on. */
-const locationFact = (
+export const locationFact = (
   result: Record<string, unknown> | null | undefined,
   args?: Record<string, unknown> | null,
 ): ToolFact | null => {
@@ -231,7 +231,7 @@ export const matchLifiStatus: ToolMatcher = ({
 };
 
 // The amount the status service reports on the receiving leg.
-const deliveredFact = (result: Record<string, unknown>): ToolFact | null => {
+export const deliveredFact = (result: Record<string, unknown>): ToolFact | null => {
   const receipt = asRecord(result.observed_receipt);
   const token = asRecord(receipt?.token);
   const raw = asString(receipt?.amount_raw);

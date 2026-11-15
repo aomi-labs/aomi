@@ -73,6 +73,24 @@
 
   body {
     @apply antialiased;
+    /* A home-screen app should not rubber-band or flash on tap. */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* The page covers the whole screen (viewport-fit=cover). Shared UI reads
+     these to keep clear of the status bar and home indicator. */
+  :root {
+    --aomi-safe-top: env(safe-area-inset-top, 0px);
+    --aomi-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .portal-viewport {
+    padding-top: var(--aomi-safe-top);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    background: var(--background);
   }
 
   /* WebKit (Chrome, Safari, Edge): fully-custom scrollbar with a transparent
@@ -120,6 +138,15 @@
     *:focus-within {
       scrollbar-color: hsl(var(--muted-foreground) / 0.18) transparent;
     }
+  }
+}
+
+/* iOS zooms the page when a focused field is under 16px. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 }
 

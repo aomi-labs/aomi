@@ -2,6 +2,19 @@ diff --git a/dist/authorize-Crqw4_bR.mjs b/dist/authorize-Crqw4_bR.mjs
 index acdca49f49d0db30605560fb39ea6cd78ed79484..c53bc0a1dd79427d6ab35477a21482f4055cd15d 100644
 --- a/dist/authorize-Crqw4_bR.mjs
 +++ b/dist/authorize-Crqw4_bR.mjs
+@@ -1912,6 +1912,12 @@ async function persistOAuthClientRegistration(ctx, opts, input) {
+ 		...input.metadata,
+ 		scope: (opts.clientRegistrationDefaultScopes ?? opts.scopes)?.join(" ")
+ 	} : input.metadata, input.registrationSource === "clientMetadataDocument" ? null : "web");
++	// A metadata document describes a client across authorization servers.
++	// Persist only this server's supported grants; do not enable extra grants.
++	if (input.registrationSource === "clientMetadataDocument") {
++		const supported = new Set(getSupportedGrantTypes(opts));
++		body.grant_types = body.grant_types.filter((grant) => supported.has(grant));
++	}
+ 	const isPublic = body.token_endpoint_auth_method === "none";
+ 	const isPrivateKeyJwt = body.token_endpoint_auth_method === "private_key_jwt";
+ 	const isExtensionAuthMethod = isExtensionTokenEndpointAuthMethod(opts, body.token_endpoint_auth_method);
 @@ -5380,15 +5380,27 @@ function findRegisteredRedirectUri(registered, requested) {
  */
 +function hasDisallowedRawRedirectComponents(value) {

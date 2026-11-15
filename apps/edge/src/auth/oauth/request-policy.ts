@@ -205,6 +205,12 @@ export async function oauthClientId(
 }
 
 const DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+/** The grants unauthenticated registration can hand to a public client. */
+const REGISTRATION_GRANTS = new Set([
+  "authorization_code",
+  "refresh_token",
+  DEVICE_CODE_GRANT,
+]);
 
 async function enforceAomiRegistration(
   request: Request,
@@ -227,7 +233,14 @@ async function enforceAomiRegistration(
       "Unauthenticated registration is limited to public clients",
     );
   }
-  const grants = stringArray(metadata.grant_types);
+  // Declared grants are a request, not a contract: a client lists every grant
+  // it can use with any server. Register the ones this endpoint offers and
+  // ignore the rest (RFC 7591 §2 lets the server replace requested metadata);
+  // the token endpoint still refuses any grant that was not registered.
+  const grants = [...new Set(stringArray(metadata.grant_types))].filter(
+    (grant) => REGISTRATION_GRANTS.has(grant),
+  );
+  if (Array.isArray(metadata.grant_types)) metadata.grant_types = grants;
   const authorizationCodeClient = exactStringSet(grants, [
     "authorization_code",
     "refresh_token",

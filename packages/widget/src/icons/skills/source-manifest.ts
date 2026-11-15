@@ -68,6 +68,8 @@ export const skillIconSources = {
 /** Generic marks reused for skills whose semantics are the asset itself. */
 export const skillIconGenericAliases = {
   dummy: "FlaskConicalIcon",
+  aomi_bridge: "CableIcon",
+  aomi_swap: "ArrowRightLeftIcon",
   common_erc20: "CoinsIcon",
   spl_token: "CoinsIcon",
   rwa: "LandmarkIcon",
