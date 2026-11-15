@@ -1,0 +1,25 @@
+name: Staging Deploy
+
+# A merge to main starts product-mono's Staging workflow, the one staging
+# deploy: it deploys product-mono main and this repository's main together.
+# STAGING_DEPLOY_DISPATCH_TOKEN can only start workflows in product-mono
+# (fine-grained, Actions: read and write on that repository).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".changeset/**"
+
+permissions: {}
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Start Staging in product-mono
+        env:
+          GH_TOKEN: ${{ secrets.STAGING_DEPLOY_DISPATCH_TOKEN }}
+        run: gh workflow run staging.yml --repo aomi-labs/product-mono --ref main
