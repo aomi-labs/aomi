@@ -11,7 +11,7 @@ aomi --help                           # every command
 ```
 
 `aomi <command> --help` lists a command's flags; `--help-all` adds the hidden
-ones (`--backend-url`, `--api-key`, `--rpc-url`).
+ones (`--backend-url`, `--api-key`, `--rpc-url`, `--build-url`).
 
 ## Sign in
 
@@ -66,7 +66,9 @@ sign-in.
 | `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
 | `apps` | `list`, `install`, `uninstall`, `use`, `credentials` |
 | `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
-| `deploy` | Deploy the current commit; `status [--watch]`, `activate` |
+| `publish` | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
+| `promote`, `rollback` | `<package\|agent> <name> [<number>]`: make a release live; rollback defaults to the one before live |
+| `releases` | `<package\|agent> <name>`: every release, newest first |
 | `model`, `chain` | `current`, `list`, `set` |
 | `keys` | Your own provider keys: `list`, `set <provider>`, `remove` |
 | `secret` | `list`, `add NAME=value…`, `clear` |
@@ -75,6 +77,17 @@ sign-in.
 
 Credential and key values come from stdin or a hidden prompt, never argv.
 `--chain` takes a decimal chain id.
+
+## Publish packages
+
+`aomi publish` builds each package folder the root `aomi.toml` lists with
+`cargo build --release --target wasm32-wasip2`, uploads its `aomi.toml`,
+component and listed files, then publishes the root's agents. It needs a
+builder API key in `AOMI_BUILDER_KEY` (or `--key-file`) holding
+`package:publish` and `agent:publish`, plus `package:promote` and
+`agent:promote` for `--promote`, `promote` and `rollback`. A refusal prints
+`code: message` and exits 1. A builder repository can run it from CI with the
+reusable workflow `aomi-labs/aomi/.github/workflows/publish-packages.yml`.
 
 ## The chat screen
 
