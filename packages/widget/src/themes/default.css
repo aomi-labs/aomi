@@ -536,6 +536,23 @@
   .aui-composer-input {
     font-size: 16px;
   }
+
+  /* Phone modal tabs scroll edge to edge; the fade says there is more. */
+  .aomi-modal-nav {
+    scrollbar-width: none;
+    scroll-padding-inline: 1rem;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 1rem,
+      #000 calc(100% - 1.5rem),
+      transparent
+    );
+  }
+
+  .aomi-modal-nav::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Optional two-lane suggestion marquee. Consumers opt in by applying

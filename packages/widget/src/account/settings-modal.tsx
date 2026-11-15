@@ -214,7 +214,7 @@ export function SettingsModal({
       // their own width.
       <div
         data-settings-column
-        className="flex w-full flex-1 flex-col px-6 pb-6 pt-1"
+        className="flex w-full flex-1 flex-col px-4 pb-6 pt-1 md:px-6"
         key={adapter.accountUser?.id ?? "session"}
       >
         {status === "error" && (
