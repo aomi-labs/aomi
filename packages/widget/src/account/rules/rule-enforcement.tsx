@@ -17,13 +17,16 @@ import { isExpectedWalletCancellation } from "@/wallet/picker/wallet-cancellatio
 import { connectedAddress, type RulesClient } from "./rule-change-card";
 import { rulesErrorCode, rulesFailure } from "./rules-model";
 
-/** The providers that check a rule on chain now, by name. */
+/**
+ * The providers that check a rule on chain now, by name. Only one whose
+ * state is `on`: behind or unread, the chain was not seen to hold the rule.
+ */
 export const enforcers = (
   enforcement: readonly AomiRulesEnforcement[],
   covers: (entry: AomiRulesEnforcement["covers"]) => boolean = () => true,
 ): string[] =>
   enforcement
-    .filter((entry) => entry.state !== "off" && covers(entry.covers))
+    .filter((entry) => entry.state === "on" && covers(entry.covers))
     .map((entry) => entry.name);
 
 const STATE = {
@@ -48,20 +51,27 @@ async function settled<T>(confirm: () => Promise<T>, delayMs: number) {
   }
 }
 
-/** Have the owner's wallet do what a provider's step asked. */
+/**
+ * Have the owner's wallet do what the step for `entry` asked. An action for
+ * another network than the entry's, or one this wallet has no name for, is
+ * refused: it is never sent to a default network.
+ */
 async function act(
   kit: AomiWalletKit,
+  entry: AomiRulesEnforcement,
   action: AomiRulesAction,
   description: string,
 ): Promise<void> {
   const execute = kit.signAndSendSolanaTransaction ?? kit.sendSolanaTransaction;
-  if (action.family !== "svm" || !execute)
+  const cluster = normalizeSolanaCluster(action.network);
+  if (
+    entry.signer.family !== "svm" ||
+    action.network !== entry.network ||
+    !cluster ||
+    !execute
+  )
     throw new Error("This wallet can't sign that transaction.");
-  await execute({
-    unsignedTx: action.unsigned_base64,
-    description,
-    cluster: normalizeSolanaCluster(action.network) ?? "solana:mainnet",
-  });
+  await execute({ unsignedTx: action.unsigned_base64, description, cluster });
 }
 
 /**
@@ -118,6 +128,7 @@ export function RuleEnforcement({
       if (action)
         await act(
           kit,
+          entry,
           action,
           remove ? "Remove rules from chain" : "Enforce rules on chain",
         );

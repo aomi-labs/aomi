@@ -1661,7 +1661,6 @@ export type AomiRuleLimit = {
 // @public
 export type AomiRulesAction = {
     kind: "transaction";
-    family: AomiWalletFamily;
     network: string;
     unsigned_base64: string;
 };

@@ -794,7 +794,6 @@ describe("Wallet rules", () => {
         return Response.json({
           action: {
             kind: "transaction",
-            family: "svm",
             network: "solana:mainnet-beta",
             unsigned_base64: "dHg=",
           },
@@ -853,7 +852,8 @@ describe("Wallet rules", () => {
     });
     kit.identity.svmAddress = "AnotherWa11et";
     const section = await renderRules();
-    expect(within(section).getByText("Enforced by Aomi + Vault")).toBeTruthy();
+    // Behind, the chain was not seen to hold the rules: no credit for it.
+    expect(within(section).getByText("Enforced by Aomi")).toBeTruthy();
     expect(enforcementRow()).toHaveTextContent("Vault · Behind your rules");
     expect(enforcementRow()).toHaveTextContent(
       "Your rules changed since you signed. Connect RootWa…11et to change this.",
@@ -879,7 +879,6 @@ describe("Wallet rules", () => {
         return Response.json({
           action: {
             kind: "transaction",
-            family: "svm",
             network: "solana:mainnet-beta",
             unsigned_base64: "dHg=",
           },
@@ -924,7 +923,6 @@ describe("Wallet rules", () => {
         ? Response.json({
             action: {
               kind: "transaction",
-              family: "svm",
               network: "solana:mainnet-beta",
               unsigned_base64: "dHg=",
             },
@@ -944,6 +942,30 @@ describe("Wallet rules", () => {
     ).toBeTruthy();
     expect(writes()).toHaveLength(1);
     await waitFor(() => expect(reads().length).toBe(before + 1));
+  });
+
+  it("refuses an action for another network than the provider's", async () => {
+    rules = body({ enforcement: [provider()] });
+    kit.identity.svmAddress = "RootWa11et";
+    respond = (method, path) =>
+      method === "POST" && path === `${STEP}/prepare`
+        ? Response.json({
+            action: {
+              kind: "transaction",
+              network: "solana:devnet",
+              unsigned_base64: "dHg=",
+            },
+          })
+        : undefined;
+    await renderRules();
+    fireEvent.click(
+      within(enforcementRow()).getByRole("button", { name: "Turn on" }),
+    );
+    expect(
+      await screen.findByText("This wallet can't sign that transaction."),
+    ).toBeTruthy();
+    expect(kit.signAndSendSolanaTransaction).not.toHaveBeenCalled();
+    expect(writes()).toHaveLength(1);
   });
 
   it("sets a wallet's first rules from a template", async () => {

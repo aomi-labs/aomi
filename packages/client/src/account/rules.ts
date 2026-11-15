@@ -163,7 +163,7 @@ export type AomiRulesEnforcement = {
  */
 export type AomiRulesAction = {
   kind: "transaction";
-  family: AomiWalletFamily;
+  /** The entry's `network`; its chain family says how the bytes are encoded. */
   network: string;
   unsigned_base64: string;
 };
@@ -580,7 +580,6 @@ export class AccountRulesTransport {
       throw invalid(`unsupported action: ${String(action.kind)}`);
     return {
       kind: "transaction",
-      family: family(action.family),
       network: text(action.network, "action.network"),
       unsigned_base64: text(action.unsigned_base64, "action.unsigned_base64"),
     };
