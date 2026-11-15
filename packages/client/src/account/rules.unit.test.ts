@@ -149,7 +149,6 @@ describe("wallet rules", () => {
     const step = `/v1/account/agent-wallets/${WALLET}/rules/enforcement/swig`;
     const action = {
       kind: "transaction",
-      family: "svm",
       network: "solana:mainnet-beta",
       unsigned_base64: "dHg=",
     };
