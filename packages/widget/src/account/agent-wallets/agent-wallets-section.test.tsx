@@ -153,6 +153,23 @@ const agentRow = (
   }) as WalletRow;
 const rows = [agentRow(EVM, "12"), agentRow(SVM, "13", true)];
 
+/** `GET /v1/account/agent-wallets/g-trading/rules`. */
+const walletRules = (extra: object = {}) => ({
+  agent_wallet_id: "g-trading",
+  wallet_name: "Trading",
+  revision: 1,
+  rules: { apps: null, limits: [], not_after: null, owner_only: true },
+  sentences: ["Sends only to your wallets"],
+  admin: { kind: "aomi_managed" },
+  stopped_until: null,
+  usage: [],
+  window_ends_at: null,
+  pending: null,
+  enforcement: [],
+  admin_wallets: [],
+  ...extra,
+});
+
 let list: { pause_all: boolean; wallets: object[] };
 let calls: { method: string; path: string; body: unknown }[] = [];
 let respond: (method: string, path: string) => Response | undefined;
@@ -189,12 +206,6 @@ beforeEach(() => {
         return Response.json({ connections });
       if (url.pathname.endsWith("/balances"))
         return Response.json({ networks: [] });
-      // Swig is off unless a test turns it on.
-      if (url.pathname === "/v1/account/policies/swig")
-        return Response.json(
-          { error: "off", error_code: "swig_disabled" },
-          { status: 404 },
-        );
       if (method === "PATCH") return Response.json(trading);
       return Response.json({ pause_all: false });
     }),
@@ -435,6 +446,95 @@ describe("Agent wallets band", () => {
     );
   });
 
+  it("shows a wallet's rules between its lanes and its actions, and hides them once archived", async () => {
+    respond = (_method, path) =>
+      path.endsWith("/rules") ? Response.json(walletRules()) : undefined;
+    await renderSection();
+    const sheet = await manage("Trading");
+    const rules = await within(sheet).findByRole("region", { name: "Rules" });
+    expect(await within(rules).findByText("Aomi-managed")).toBeInTheDocument();
+    const after = (node: Element) =>
+      Boolean(
+        rules.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    expect(after(within(sheet).getByText("Who can use it"))).toBe(false);
+    expect(after(within(sheet).getByRole("button", { name: "Send" }))).toBe(
+      true,
+    );
+    expect(
+      calls.some(
+        (call) => call.path === "/v1/account/agent-wallets/g-trading/rules",
+      ),
+    ).toBe(true);
+    fireEvent.keyDown(sheet, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Archived/ }));
+    const archived = await manage("Old");
+    expect(
+      within(archived).queryByRole("region", { name: "Rules" }),
+    ).toBeNull();
+    expect(calls.some((call) => call.path.includes("g-old/rules"))).toBe(false);
+  });
+
+  it("files Instant as a rule change when the wallet's admin must sign it", async () => {
+    const pending = {
+      id: "ch-9",
+      agent_wallet_id: "g-trading",
+      wallet_name: "Trading",
+      lines: [{ text: "Claude Code: signs without asking", loosens: true }],
+      state: "awaiting_admin",
+      proposed_by: "portal",
+      expires_at: Math.floor(Date.now() / 1000) + 86_000,
+      signer: { kind: "wallet", family: "evm", address: EVM },
+      sign_message: "Aomi rule change ch-9",
+    };
+    respond = (method, path) => {
+      if (path.endsWith("/rules"))
+        return method === "POST"
+          ? Response.json({
+              status: "waiting",
+              rules: walletRules({ pending }),
+            })
+          : Response.json(walletRules());
+      if (method === "PUT" && path.endsWith("/wallets"))
+        return Response.json(
+          { error: "rules_signature_required" },
+          { status: 403 },
+        );
+      return undefined;
+    };
+    await renderSection();
+    const sheet = await manage("Trading");
+    await within(sheet).findByText("Aomi-managed");
+    fireEvent.click(
+      within(sheet).getByRole("combobox", { name: "Trading: Ask on Aomi" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Instant/ }));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: "Turn on" })),
+    );
+    const card = await screen.findByRole("region", {
+      name: "Rule change for Trading",
+    });
+    expect(card).toHaveTextContent("Claude Code: signs without asking");
+    expect(
+      within(card).getByRole("button", { name: "Sign in wallet" }),
+    ).toBeInTheDocument();
+    expect(writes().slice(-2)).toEqual([
+      {
+        method: "PUT",
+        path: "/v1/account/connections/oauth%3Ac1/wallets",
+        body: { wallets: [{ id: "g-trading", lane: "instant" }] },
+      },
+      {
+        method: "POST",
+        path: "/v1/account/agent-wallets/g-trading/rules",
+        body: { instant: ["oauth:c1"] },
+      },
+    ]);
+    expect(screen.queryByText("Couldn’t save that. Try again.")).toBeNull();
+  });
+
   it("manages a wallet: who can use it, actions, and Receive with QR, the address and its networks", async () => {
     await renderSection();
     const sheet = await manage("Trading");
@@ -488,7 +588,7 @@ describe("Agent wallets band", () => {
     expect(within(receive).queryByText("Base")).toBeNull();
   });
 
-  it("receives at the operating address and opens Limits where Swig is on", async () => {
+  it("receives at the operating address and shows the rules on chain where a provider can hold them", async () => {
     const SWIG = "Swig111111111111111111111111111111111Vault";
     list.wallets = [
       {
@@ -506,44 +606,38 @@ describe("Agent wallets band", () => {
       world,
     ];
     respond = (_method, path) =>
-      path === "/v1/account/policies/swig"
-        ? Response.json({
-            provider: "swig",
-            chain_ref: "solana:mainnet",
-            targets: { Jupiter: { chain: "svm", address: "JUP6" } },
-            mints: {},
-            slot_windows: [216_000],
-            binding: null,
-            chain_status: null,
-            remaining_native_amount: null,
-            remaining_token_amounts: {},
-          })
+      path.endsWith("/rules")
+        ? Response.json(
+            walletRules({
+              enforcement: [
+                {
+                  provider: "swig",
+                  name: "Swig",
+                  network: "solana:mainnet-beta",
+                  state: "off",
+                  covers: { apps: [], limits: [] },
+                  left: {},
+                  note: "Add a daily SOL limit first. Swig needs one.",
+                  ready: false,
+                  signer: { family: "svm", address: null },
+                },
+              ],
+            }),
+          )
         : undefined;
-    // A signed-in owner with a linked Solana wallet, as the form needs.
-    seedAccountOverview({
-      user: { user_id: "acct-1" },
-      user_accounts: [{ address: { chain: "svm", address: "RootWa11et" } }],
-    } as never);
     await renderSection();
     const sheet = await manage("Trading");
     // The policy holds the Solana funds, so deposits go there, not the key.
     expect(sheet).toHaveTextContent(shortAddress(SWIG));
     expect(sheet).not.toHaveTextContent(shortAddress(SVM));
-    // Limits sits after Send, for this wallet's Solana key only.
-    fireEvent.click(
-      await within(sheet).findByRole("button", { name: /^Limits/ }),
-    );
+    // The same rules on chain are one row of the rules, with no separate
+    // Limits step and no request that names a provider.
+    expect(await within(sheet).findByText("Swig · Off")).toBeInTheDocument();
     expect(
-      calls.some(
-        (call) =>
-          call.path ===
-          `/v1/account/policies/swig?${new URLSearchParams({ chain_ref: "solana:mainnet", delegate: SVM })}`,
-      ),
-    ).toBe(true);
-    const limits = await screen.findByRole("dialog");
-    expect(within(limits).getByText("Limits")).toBeInTheDocument();
-    expect(await within(limits).findByText("Jupiter")).toBeInTheDocument();
-    fireEvent.click(within(limits).getByRole("button", { name: "Back" }));
+      within(sheet).getByText(/Add a daily SOL limit first\. Swig needs one\./),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
+    expect(calls.some((call) => call.path.includes("/policies/"))).toBe(false);
     fireEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: /Receive/,

@@ -200,16 +200,13 @@ describe("aomi.account", () => {
     expect(calls[0]?.path).toBe("/v1/builder/credits");
   });
 
-  it("keeps BYOK keys and on-chain policies under /v1/account", async () => {
+  it("keeps BYOK keys under /v1/account", async () => {
     const { aomi, calls } = backend({
       "POST /v1/account/keys": () =>
         Response.json({ handles: { "BYOK:openai": "$SECRET:BYOK:openai" } }),
       "GET /v1/account/keys": () => Response.json({ names: ["BYOK:openai"] }),
       "DELETE /v1/account/keys/BYOK%3Aopenai": () =>
         Response.json({ deleted: true }),
-      "GET /v1/account/policies/swig": () => Response.json({ binding: null }),
-      "POST /v1/account/policies/swig/4/revoke/confirm": () =>
-        Response.json({ operation: "revoke" }),
     });
     const scope = { thread: "t1", clientId: "c1" };
     await expect(
@@ -221,8 +218,6 @@ describe("aomi.account", () => {
     await expect(aomi.account.keys.remove("BYOK:openai", scope)).resolves.toBe(
       true,
     );
-    await aomi.account.policies.get("solana:mainnet");
-    await aomi.account.policies.confirmRevoke(4, "sig");
     expect(calls.map(({ method, path, body }) => [method, path, body])).toEqual(
       [
         [
@@ -232,16 +227,6 @@ describe("aomi.account", () => {
         ],
         ["GET", "/v1/account/keys?client_id=c1", undefined],
         ["DELETE", "/v1/account/keys/BYOK%3Aopenai?client_id=c1", undefined],
-        [
-          "GET",
-          "/v1/account/policies/swig?chain_ref=solana%3Amainnet",
-          undefined,
-        ],
-        [
-          "POST",
-          "/v1/account/policies/swig/4/revoke/confirm",
-          { transaction_signature: "sig" },
-        ],
       ],
     );
   });

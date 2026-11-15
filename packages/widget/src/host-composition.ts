@@ -93,6 +93,11 @@ export {
   type TelegramLinkPanelProps,
 } from "./account/telegram-link";
 export {
+  RuleChangeCard,
+  RuleChangePanel,
+  type RuleChangePanelProps,
+} from "./account/rules/rule-change-card";
+export {
   Chip,
   MatrixTable,
   Meter,

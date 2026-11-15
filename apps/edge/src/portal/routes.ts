@@ -7,7 +7,7 @@
  * and device auth) are served in-process (`../auth`); anything else passes
  * through to the portal's pages.
  */
-import { ROUTES, type Method, type Need, type Route } from "@aomi-labs/account/policy";
+import { FRESH_LOGIN_SECONDS, ROUTES, type Method, type Need, type Route } from "@aomi-labs/account/policy";
 
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";
@@ -70,6 +70,19 @@ export function callerClaims(principal: Exclude<Principal, { kind: "none" }>) {
 /** Approving lets Aomi sign with an agent wallet: a first-party session or an OAuth client, never a guest or widget. */
 function mayApprove(principal: Exclude<Principal, { kind: "none" }>): boolean {
   return principal.kind !== "widget" && !principal.guest;
+}
+
+/** Whether a JSON body carries a wallet `signature`; the forwarded request keeps its body. */
+async function carriesSignature(request: Request): Promise<boolean> {
+  const body = (await request.clone().json().catch(() => null)) as { signature?: unknown } | null;
+  return typeof body?.signature === "string" && body.signature.length > 0;
+}
+
+/** A sign-in within `FRESH_LOGIN_SECONDS`; one with no readable creation time is stale. */
+function signedInRecently(principal: Extract<Principal, { kind: "cookie" | "session_bearer" }>, now: number): boolean {
+  const created = principal.session.session?.createdAt;
+  const at = created instanceof Date ? created.getTime() : created ? new Date(created).getTime() : Number.NaN;
+  return Number.isFinite(at) && at <= now && now - at <= FRESH_LOGIN_SECONDS * 1000;
 }
 
 function mintToken(ctx: PortalContext, request: Request, claims: Parameters<ReturnType<typeof edgeService>["mint"]>[0]) {
@@ -180,6 +193,15 @@ async function serve(
   const scopes = authorize(principal, need, ctx);
   if (row.approve && principal.kind !== "none" && !mayApprove(principal))
     return Response.json({ code: "commit_approval_forbidden", status: 403 }, { status: 403 });
+  // Approving with a click is only as strong as the login: an old session signs in again. A session sent as a
+  // bearer is the cookie's own token, so it gets no exemption.
+  if (
+    row.freshLogin &&
+    (principal.kind === "cookie" || principal.kind === "session_bearer") &&
+    !(await carriesSignature(request)) &&
+    !signedInRecently(principal, ctx.now())
+  )
+    return Response.json({ error: "login_stale" }, { status: 403 });
   const authMs = Date.now() - started;
   let response: Response;
   if (row.to === "backend") {
@@ -228,7 +250,9 @@ async function served(rows: readonly Route[], request: Request, ctx: PortalConte
       response = await serve(row, needOf(row, requirement, request, resource), resource, request, ctx);
     } catch (error) {
       // A portal-only refusal is not an OAuth challenge.
-      const plain = error instanceof PrincipalError && error.code === "portal_session_required";
+      const plain =
+        error instanceof PrincipalError &&
+        (error.code === "portal_session_required" || error.code === "owner_session_required");
       const shape = !plain && resource && { resource, challengeScopes: row.challengeScopes, jsonRpc: row.to === "mcp" };
       response = portalError(error, request, row.operation, shape || undefined, row.to === "mcp" ? "mcp_failed" : undefined);
     }

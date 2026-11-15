@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type {
-  AomiAccountConnection,
-  AomiConnectionWalletsUpdate,
-  AomiLane,
+import {
+  AomiApiError,
+  RULES_ERROR_CODES,
+  type AomiAccountConnection,
+  type AomiConnectionWalletsUpdate,
+  type AomiLane,
+  type AomiWalletRules,
 } from "@aomi-labs/client";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { useShellAomi } from "@/account/transport";
@@ -14,8 +17,14 @@ import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
  * Sets a connection's lane on an agent wallet; Instant asks first. While a
  * connection saves, `saving[key]` is the list it will hold, so the picker
  * moves at once and the server catches up behind it. Render `dialog`.
+ *
+ * Instant on a wallet whose rules admin is a wallet is refused with 403
+ * `rules_signature_required`: the change is filed as a rule change instead,
+ * and `onRulesFiled` gets the rules it now waits in.
  */
-export function useAccessWrite() {
+export function useAccessWrite(
+  onRulesFiled?: (rules: AomiWalletRules) => void,
+) {
   const aomi = useShellAomi();
   const refresh = useRefreshWallets();
   const { confirm, dialog } = useConfirmDialog();
@@ -54,8 +63,24 @@ export function useAccessWrite() {
     try {
       await aomi.account.connections.setConnectionWallets(key, { wallets });
       await refresh();
-    } catch {
-      setError("Couldn’t save that. Try again.");
+    } catch (caught) {
+      if (
+        !(caught instanceof AomiApiError) ||
+        caught.code !== RULES_ERROR_CODES.signatureRequired
+      )
+        return setError("Couldn’t save that. Try again.");
+      try {
+        const filed = await aomi.account.rules.change(wallet.id, {
+          instant: [key],
+        });
+        if (onRulesFiled) onRulesFiled(filed.rules);
+        else
+          setError(
+            `Instant on "${wallet.name}" needs its admin wallet to sign. Open the wallet in Settings to approve it.`,
+          );
+      } catch {
+        setError("Couldn’t save that. Try again.");
+      }
     } finally {
       setSaving(({ [key]: _, ...rest }) => rest);
     }

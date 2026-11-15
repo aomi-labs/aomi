@@ -21,7 +21,12 @@ import { portalContext } from "./context";
 
 // The account layer, faked in-process: who a cookie, session bearer or widget
 // session belongs to, which partner widget a client registered, and the keys.
-const account = vi.hoisted(() => ({ lookups: 0, sessionFails: false }));
+const account = vi.hoisted(() => ({
+  lookups: 0,
+  sessionFails: false,
+  /** How long ago every session signed in; `null` leaves the creation time out. */
+  sessionAgeMs: 0 as number | null,
+}));
 vi.mock("../auth/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../auth/server")>()),
   authServer: () => ({
@@ -34,7 +39,9 @@ vi.mock("../auth/server", async (importOriginal) => ({
           ? authorization.slice("Bearer ".length)
           : /session=(\w+)/.exec(headers.get("cookie") ?? "")?.[1];
         const session = name ? SESSIONS[name] : undefined;
-        return session ? { user: { id: `ba-${name}`, isAnonymous: session.guest }, session: { token: `t-${name}` } } : null;
+        if (!session) return null;
+        const createdAt = account.sessionAgeMs === null ? undefined : new Date(Date.now() - account.sessionAgeMs);
+        return { user: { id: `ba-${name}`, isAnonymous: session.guest }, session: { token: `t-${name}`, createdAt } };
       },
     },
     handler: async () => Response.json(portalKey.jwks),
@@ -219,6 +226,7 @@ beforeEach(() => {
   seen = [];
   account.lookups = 0;
   account.sessionFails = false;
+  account.sessionAgeMs = 0;
   resetJwksCache();
   resetEdgeServices();
 });
@@ -789,18 +797,10 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(anonymousSettings.status).toBe(401);
   });
 
-  it("serves the keys vault and on-chain policies under /v1/account from their backend routes", async () => {
+  it("serves the keys vault under /v1/account from its backend route", async () => {
     const keys = await portal("/v1/account/keys?client_id=c1", { headers: { cookie: "session=user" }, origin: PORTAL });
     expect(keys.status).toBe(200);
     expect(seen[0].url).toBe(`${BACKEND}/api/secrets?client_id=c1`);
-    const prepare = await portal("/v1/account/policies/swig/7/revoke/prepare", {
-      method: "POST",
-      headers: { cookie: "session=user", "content-type": "application/json", "x-aomi-csrf": "1" },
-      origin: PORTAL,
-      body: "{}",
-    });
-    expect(prepare.status).toBe(200);
-    expect(seen[1].url).toBe(`${BACKEND}/api/account/onchain-policies/swig/7/revoke/prepare`);
     const oauth = await portal("/v1/account/keys/BYOK%3Aopenai", {
       method: "DELETE",
       headers: {
@@ -808,11 +808,11 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
       },
     });
     expect(oauth.status).toBe(200);
-    expect(seen[2].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
+    expect(seen[1].url).toBe(`${BACKEND}/api/secrets/BYOK%3Aopenai`);
     const guest = await portal("/v1/account/keys", { headers: { cookie: "session=guest" }, origin: PORTAL });
     expect(guest.status).toBe(403);
     // The /api names are gone; the pages answer them.
-    for (const path of ["/api/secrets", "/api/account/onchain-policies/swig", "/api/account/transaction-safety"]) {
+    for (const path of ["/api/secrets", "/api/account/transaction-safety"]) {
       const old = await portal(path, { headers: { cookie: "session=user" }, origin: PORTAL });
       expect(((await old.json()) as { tag?: string }).tag).toBe("vercel");
     }
@@ -1117,6 +1117,108 @@ describe("portal surface: wallets, agent wallets and connection lanes", () => {
     const refused = await portal("/api/thread/wallet", { method: "PUT", headers: { authorization: `Bearer ${readOnly}` }, body: "{}" });
     expect(refused.status).toBe(403);
     expect(seen).toHaveLength(3);
+  });
+});
+
+describe("portal surface: wallet rules", () => {
+  const READS = ["/v1/account/agent-wallets/g-1/rules", "/v1/account/rules/catalog", "/v1/account/rule-changes/ch-1"];
+  const WRITES = [
+    "/v1/account/agent-wallets/g-1/rules",
+    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/prepare",
+    "/v1/account/agent-wallets/g-1/rules/enforcement/swig/confirm",
+    "/v1/account/rule-changes/ch-1/approve",
+    "/v1/account/rule-changes/ch-1/decline",
+  ];
+  const approve = (headers: Record<string, string>, body: unknown) =>
+    portal("/v1/account/rule-changes/ch-1/approve", {
+      method: "POST",
+      origin: "authorization" in headers ? undefined : PORTAL,
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it.each(READS)("reads %s from the backend for any session and an OAuth agent:read grant", async (path) => {
+    for (const name of ["portal user", "widget user", "CLI session", "OAuth user"])
+      expect((await call(name, "GET", path)).status).toBe(200);
+    expect(seen.map((record) => record.url)).toEqual(Array(4).fill(`${BACKEND}${path}`));
+    const writeOnly = await oauthToken({ sub: "user", scope: "agent:write", aud: `${PORTAL}/v1/agent` });
+    expect((await portal(path, { headers: { authorization: `Bearer ${writeOnly}` } })).status).toBe(403);
+    expect(seen).toHaveLength(4);
+  });
+
+  it.each(WRITES)("lets the portal session and a CLI session POST %s, and nobody else", async (path) => {
+    for (const [name, source] of [
+      ["portal user", "session"],
+      ["CLI session", "cli_session"],
+    ] as const) {
+      expect((await call(name, "POST", path)).status).toBe(200);
+      const record = seen.at(-1)!;
+      expect(record).toMatchObject({ url: `${BACKEND}${path}`, method: "POST" });
+      expect((await upstreamBearer(record)).payload).toMatchObject({ auth_source: source, principal_class: "user" });
+    }
+    for (const name of ["portal guest", "widget user", "widget guest"]) {
+      const refused = await call(name, "POST", path);
+      expect([name, refused.status, await refused.json()]).toEqual([name, 403, { error: "owner_session_required" }]);
+    }
+    // An OAuth grant never reaches a rule change.
+    expect((await call("OAuth user", "POST", path)).status).toBe(401);
+    expect(seen).toHaveLength(2);
+  });
+
+  it("forwards the approval body and its signature unchanged", async () => {
+    expect((await approve({ cookie: "session=user" }, { signature: "0xsigned" })).status).toBe(200);
+    expect(seen[0].body).toBe(JSON.stringify({ signature: "0xsigned" }));
+  });
+
+  it("asks an old portal sign-in to sign in again before a click approves", async () => {
+    account.sessionAgeMs = 10 * 60_000 + 1_000;
+    const stale = await approve({ cookie: "session=user" }, {});
+    expect([stale.status, await stale.json()]).toEqual([403, { error: "login_stale" }]);
+    // No creation time on the session row reads as stale, never as fresh.
+    account.sessionAgeMs = null;
+    expect((await approve({ cookie: "session=user" }, {})).status).toBe(403);
+    // An empty signature is no signature.
+    account.sessionAgeMs = 60 * 60_000;
+    expect((await approve({ cookie: "session=user" }, { signature: "" })).status).toBe(403);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("lets a sign-in within ten minutes approve with a click", async () => {
+    account.sessionAgeMs = 9 * 60_000;
+    expect((await approve({ cookie: "session=user" }, {})).status).toBe(200);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("holds a session sent as a bearer to the same recent sign-in", async () => {
+    // The bearer is the cookie's own token, so an old one gets no way round.
+    account.sessionAgeMs = 24 * 60 * 60_000;
+    const stale = await approve({ authorization: "Bearer user" }, {});
+    expect([stale.status, await stale.json()]).toEqual([403, { error: "login_stale" }]);
+    expect(seen).toHaveLength(0);
+    account.sessionAgeMs = 9 * 60_000;
+    expect((await approve({ authorization: "Bearer user" }, {})).status).toBe(200);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("exempts a wallet signature from the recent sign-in", async () => {
+    account.sessionAgeMs = 24 * 60 * 60_000;
+    expect((await approve({ cookie: "session=user" }, { signature: "0xsigned" })).status).toBe(200);
+    expect((await approve({ authorization: "Bearer user" }, { signature: "0xsigned" })).status).toBe(200);
+    // Declining and filing a change take power away or wait for the admin: any age.
+    expect((await call("portal user", "POST", "/v1/account/rule-changes/ch-1/decline")).status).toBe(200);
+    expect((await call("portal user", "POST", "/v1/account/agent-wallets/g-1/rules")).status).toBe(200);
+    expect(seen).toHaveLength(4);
+  });
+
+  it.each([
+    ["PUT", "/v1/account/agent-wallets/g-1/rules"],
+    ["POST", "/v1/account/rules/catalog"],
+    ["POST", "/v1/account/rule-changes/ch-1"],
+    ["GET", "/v1/account/rule-changes/ch-1/approve"],
+  ] as const)("answers %s %s with 404 before identifying the caller", async (method, path) => {
+    expect((await call("portal user", method, path)).status).toBe(404);
+    expect(seen).toHaveLength(0);
+    expect(account.lookups).toBe(0);
   });
 });
 

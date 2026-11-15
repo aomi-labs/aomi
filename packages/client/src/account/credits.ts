@@ -2,9 +2,10 @@ import type { components } from "../generated/agent-v1/types";
 import { AomiApiError } from "../api-error";
 import { AccountGraphTransport } from "./graph";
 import { AccountWalletsTransport } from "./wallets";
+import { AccountRulesTransport } from "./rules";
 import { AccountConnectionsTransport } from "./connections";
 import { AccountLinkTransport } from "./account-link";
-import { AccountKeysTransport, AccountPoliciesTransport } from "./keys";
+import { AccountKeysTransport } from "./keys";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
@@ -176,22 +177,22 @@ export class AccountTransport extends AccountGraphTransport {
   readonly credits: AccountCreditsTransport;
   /** The wallet list, agent wallets, balances and the thread switch. */
   readonly wallets: AccountWalletsTransport;
+  /** An agent wallet's rules, their catalog and rule changes. */
+  readonly rules: AccountRulesTransport;
   /** Connected OAuth clients and Telegram (portal sessions only). */
   readonly connections: AccountConnectionsTransport;
   /** Link a platform account with a one-time code (portal sessions only). */
   readonly link: AccountLinkTransport;
   /** The secrets vault: BYOK provider keys and values tools use by handle. */
   readonly keys: AccountKeysTransport;
-  /** On-chain spending policies. */
-  readonly policies: AccountPoliciesTransport;
   constructor(requestResponse: RequestResponse) {
     super(requestResponse);
     const request = <T>(path: string, init: RequestInit) =>
       this.request<T>(path, init);
     this.keys = new AccountKeysTransport(request);
-    this.policies = new AccountPoliciesTransport(request);
     this.credits = new AccountCreditsTransport(requestResponse);
     this.wallets = new AccountWalletsTransport(requestResponse);
+    this.rules = new AccountRulesTransport(requestResponse);
     this.connections = new AccountConnectionsTransport(requestResponse);
     this.link = new AccountLinkTransport(requestResponse);
   }

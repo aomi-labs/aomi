@@ -261,6 +261,7 @@ export type Capability =
   | "actions" // resolve staged actions and commits
   | "account" // own profile, identities, wallets, provider links, deactivation
   | "portal_session" // signed-in portal cookie session only: agent-wallet writes, platform links, disconnects
+  | "owner_session" // the owner's own sign-in, the portal or a CLI session: wallet rule changes
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
   | "settings" // installed apps, app secrets, BYOK keys
@@ -296,8 +297,11 @@ const GRANTS: Record<
   SessionKind,
   { user: readonly Capability[]; guest: readonly Capability[] }
 > = {
-  cookie: { user: [...SIGNED_IN, "portal_session"], guest: GUEST },
-  session_bearer: { user: SIGNED_IN, guest: GUEST },
+  cookie: {
+    user: [...SIGNED_IN, "portal_session", "owner_session"],
+    guest: GUEST,
+  },
+  session_bearer: { user: [...SIGNED_IN, "owner_session"], guest: GUEST },
   widget: {
     user: SIGNED_IN.filter((capability) => !EMBEDDED.includes(capability)),
     guest: GUEST.filter((capability) => !EMBEDDED.includes(capability)),
@@ -366,7 +370,8 @@ export type Denial = {
     | "unauthenticated"
     | "invalid_token"
     | "insufficient_scope"
-    | "portal_session_required";
+    | "portal_session_required"
+    | "owner_session_required";
   requiredScopes?: readonly string[];
 };
 
@@ -397,7 +402,9 @@ export function authorize(
             code:
               need.capability === "portal_session"
                 ? "portal_session_required"
-                : "insufficient_scope",
+                : need.capability === "owner_session"
+                  ? "owner_session_required"
+                  : "insufficient_scope",
           },
         };
   }
@@ -436,6 +443,7 @@ export type Requirement =
   | string
   | { capability: Capability; anonymous?: true; oauthScope?: string }
   | typeof PORTAL_SESSION
+  | typeof OWNER_SESSION
   | "public";
 
 /**
@@ -444,6 +452,19 @@ export type Requirement =
  * checks the same thing on the bearer's `auth_source`.
  */
 export const PORTAL_SESSION = "portal_session";
+
+/**
+ * The owner's own signed-in session: the portal cookie or a CLI session
+ * bearer, never a guest, a widget or an OAuth client. Wallet rule changes;
+ * the backend checks the same thing on the bearer's `auth_source`.
+ */
+export const OWNER_SESSION = "owner_session";
+
+/**
+ * How recent a portal sign-in must be to approve a rule change with a click.
+ * A wallet signature in the body proves the admin instead.
+ */
+export const FRESH_LOGIN_SECONDS = 10 * 60;
 
 export type Route = {
   path: RegExp;
@@ -466,6 +487,12 @@ export type Route = {
   challengeScopes?: readonly string[];
   /** Approving lets Aomi sign with an agent wallet: never a guest or an embedded widget. */
   approve?: true;
+  /**
+   * The session, cookie or bearer, must have signed in within
+   * `FRESH_LOGIN_SECONDS`, unless the body carries a wallet `signature`;
+   * else 403 `login_stale`.
+   */
+  freshLogin?: true;
   /** backend: a /v1 name for a backend /api route, `[the /v1 prefix, the backend's]`. */
   rewrite?: readonly [string, string];
 };
@@ -520,11 +547,6 @@ const renamed =
   });
 /** The secrets vault: BYOK provider keys and values tools use by handle. */
 const keys = renamed("/v1/account/keys", "/api/secrets");
-/** On-chain spending policies (Swig): prepare, sign and confirm a binding or its revoke. */
-const policies = renamed(
-  "/v1/account/policies",
-  "/api/account/onchain-policies",
-);
 
 const ID = "[0-9a-f-]+";
 const REF = "[A-Za-z0-9_-]+";
@@ -535,7 +557,7 @@ const FUNDING = "\\/v1\\/account\\/credits\\/funding-events";
  * withdraw), pause-all, each connection's label and agent wallets, and linking
  * a platform account with a one-time code. Served by the backend under /v1.
  * Reads take the scope api-server asks of OAuth clients; writes are for a
- * portal session only.
+ * portal session only, except wallet rules, which a CLI session also changes.
  */
 const wallets = (
   path: RegExp,
@@ -678,15 +700,6 @@ export const ROUTES: readonly Route[] = [
     DELETE: "account:credentials:write",
   }),
   keys(/^\/v1\/account\/keys\/[^/]+$/, { DELETE: "account:credentials:write" }),
-  policies(/^\/v1\/account\/policies\/[a-z]+$/, {
-    GET: "account:transaction-safety:read",
-  }),
-  policies(
-    /^\/v1\/account\/policies\/[a-z]+\/(?:prepare|confirm|\d+\/revoke\/(?:prepare|confirm))$/,
-    {
-      POST: "account:transaction-safety:write",
-    },
-  ),
   {
     path: /^\/v1\/account\/bearer$/,
     operation: "account.bearer",
@@ -707,6 +720,39 @@ export const ROUTES: readonly Route[] = [
   wallets(/^\/v1\/account\/agent-wallets\/[^/]+\/withdraw$/, {
     POST: PORTAL_SESSION,
   }),
+  // Wallet rules: anyone with agent:read sees them, only the owner's own
+  // session changes them, and a click-approval needs a recent portal sign-in.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/rules$/,
+    { GET: "agent:read", POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
+  // The same rules on chain: the owner's wallet signs, so the chain decides.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/rules\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rules\/catalog$/,
+    { GET: "agent:read" },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+$/,
+    { GET: "agent:read" },
+    { operation: "account.rules" },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+\/approve$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules", freshLogin: true },
+  ),
+  wallets(
+    /^\/v1\/account\/rule-changes\/[^/]+\/decline$/,
+    { POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
   wallets(/^\/v1\/account\/pause-all$/, { PUT: PORTAL_SESSION }),
   wallets(/^\/v1\/account\/connection-settings\/[^/]+$/, {
     PUT: PORTAL_SESSION,
@@ -765,18 +811,15 @@ export const ROUTES: readonly Route[] = [
     ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }),
     on: "agentRest",
   },
-  // The backend's account record and its routes; transaction safety and
-  // on-chain policies moved to /v1/account.
-  backend(
-    /^\/api\/account(?:\/(?!(?:transaction-safety|onchain-policies)(?:\/|$)).*)?$/,
-    {
-      GET: settings,
-      POST: settings,
-      PATCH: settings,
-      PUT: settings,
-      DELETE: settings,
-    },
-  ),
+  // The backend's account record and its routes; transaction safety moved
+  // to /v1/account.
+  backend(/^\/api\/account(?:\/(?!transaction-safety(?:\/|$)).*)?$/, {
+    GET: settings,
+    POST: settings,
+    PATCH: settings,
+    PUT: settings,
+    DELETE: settings,
+  }),
   backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
   backend(/^\/api\/thread\/apps$/, { GET: chat }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),
@@ -827,7 +870,9 @@ export const ROUTES: readonly Route[] = [
     POST: signedIn,
   }),
   // One guest sign-in; the two older paths stay for published SDKs (client <= 0.11, widget <= 4).
-  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", {
+    POST: "public",
+  }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {
     POST: "public",
   }),

@@ -51,6 +51,7 @@ export function TransactionReview({
   supportedChains,
   approving = false,
   approveDisabled = false,
+  approveHidden = false,
   approveLabel,
   approveHref,
   connect,
@@ -58,6 +59,7 @@ export function TransactionReview({
   rejectDisabled = false,
   status,
   statusIsError = false,
+  statusAction,
   recoveringExistingAttempt = false,
   onApprove,
   onApproveAll,
@@ -71,6 +73,8 @@ export function TransactionReview({
   supportedChains?: readonly SupportedChain[];
   approving?: boolean;
   approveDisabled?: boolean;
+  /** Approving cannot work (a wallet rule refused it): only Reject is offered. */
+  approveHidden?: boolean;
   approveLabel?: string;
   /** Approve happens elsewhere: the primary action opens this URL. */
   approveHref?: string;
@@ -80,6 +84,8 @@ export function TransactionReview({
   rejectDisabled?: boolean;
   status?: string;
   statusIsError?: boolean;
+  /** A text action after the status, e.g. where to change what refused it. */
+  statusAction?: { label: string; onClick: () => void };
   recoveringExistingAttempt?: boolean;
   onApprove: () => void;
   onApproveAll?: () => void;
@@ -271,6 +277,18 @@ export function TransactionReview({
           className="type-meta text-aomi-muted mt-3"
         >
           {status}
+          {statusAction ? (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={statusAction.onClick}
+                className="text-aomi-fg font-medium underline underline-offset-2"
+              >
+                {statusAction.label}
+              </button>
+            </>
+          ) : null}
         </p>
       )}
       {note && !failed ? (
@@ -284,7 +302,7 @@ export function TransactionReview({
       ) : null}
       <footer
         className={
-          failed
+          failed || approveHidden
             ? "mt-3"
             : split
               ? "mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2"
@@ -300,6 +318,7 @@ export function TransactionReview({
           {failed ? "Reject request" : "Reject"}
         </AomiButton>
         {!failed &&
+          !approveHidden &&
           (connect ? (
             <AomiButton
               variant={connect.variant ?? "secondary"}

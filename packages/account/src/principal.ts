@@ -20,6 +20,8 @@ export type BetterAuthSession = {
   session?: {
     token?: string;
     expiresAt?: Date | string | number | null;
+    /** When this sign-in happened; a session refresh never moves it. */
+    createdAt?: Date | string | number | null;
     fresh?: boolean;
   };
 };
@@ -59,6 +61,7 @@ export type PrincipalCode =
   | "invalid_widget_session"
   | "insufficient_scope"
   | "portal_session_required"
+  | "owner_session_required"
   | "csrf_failed"
   | "unauthenticated";
 

@@ -61,6 +61,7 @@ sign-in.
 | `login`, `logout`, `whoami` | Sign in and out |
 | `account` | Profile; `connections`, `unlink`, `credits`, `fund`, `statement` |
 | `wallets` | Agent wallets: `list`, `balance <id>`, `use <id>`; the local `signer` (`show`, `set`, `clear`) |
+| `rules` | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>` |
 | `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
 | `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
 | `apps` | `list`, `install`, `uninstall`, `use`, `credentials` |

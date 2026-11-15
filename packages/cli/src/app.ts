@@ -16,6 +16,7 @@ import { guard } from "./commands/guard";
 import * as pipeline from "./commands/pipeline";
 import * as settings from "./commands/settings";
 import * as threads from "./commands/threads";
+import * as rules from "./commands/rules";
 import * as tx from "./commands/tx";
 import * as wallets from "./commands/wallets";
 import { exitCodeOf, messageOf, parseChain, parseCluster } from "./context";
@@ -156,6 +157,7 @@ const BRIEFS = {
   whoami: "Who you're signed in as",
   account: "Profile, connections, credits",
   wallets: "Agent wallets, local signer",
+  rules: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
   apps: "Install apps, set credentials",
@@ -355,6 +357,30 @@ const root = routes(
         set: signerSet,
       },
       { default: "list", hidden: ["current", "set"] },
+    ),
+    rules: routes(
+      BRIEFS.rules,
+      {
+        list: command(
+          "Each agent wallet's rules, use and waiting change",
+          { ...json, ...conn },
+          [],
+          rules.list,
+        ),
+        approve: command(
+          "Approve a rule change waiting for you",
+          { ...json, ...conn },
+          [arg("Change id", "change-id")],
+          rules.approve,
+        ),
+        decline: command(
+          "Decline a rule change",
+          { ...json, ...conn },
+          [arg("Change id", "change-id")],
+          rules.decline,
+        ),
+      },
+      { default: "list" },
     ),
     tx: routes(
       BRIEFS.tx,
@@ -700,7 +726,7 @@ export const app = buildApplication(root, {
 const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
-  ["WALLETS & TRADES", ["wallets", "tx", "guard"]],
+  ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
   ["APPS", ["apps", "pipeline", "deploy"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [

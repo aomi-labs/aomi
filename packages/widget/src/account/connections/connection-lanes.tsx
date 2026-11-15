@@ -2,7 +2,11 @@
 
 import { useContext } from "react";
 import { ArrowRight } from "lucide-react";
-import type { AomiAccountConnection, AomiLane } from "@aomi-labs/client";
+import type {
+  AomiAccountConnection,
+  AomiLane,
+  AomiWalletRules,
+} from "@aomi-labs/client";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { ListGroup, ListRow } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -40,6 +44,7 @@ export function ConnectionLanes({
   brand,
   disabled = false,
   onClose,
+  onRulesFiled,
 }: {
   /** The agent wallet whose lanes this sets; omitted, the lanes are fixed. */
   agentWallet?: { id: string; name: string };
@@ -48,12 +53,14 @@ export function ConnectionLanes({
   disabled?: boolean;
   /** Close the sheet before "Manage in Connections" moves the page. */
   onClose: () => void;
+  /** Instant needed the admin wallet's signature: the change waits in these rules. */
+  onRulesFiled?: (rules: AomiWalletRules) => void;
 }) {
   const aomi = useShellAomi();
   const connections = useDisplayQuery(connectionsQuery(aomi));
   const agents = useDisplayQuery(agentWalletsQuery(aomi));
   const goTo = useContext(SettingsNavContext);
-  const { write, saving, error, dialog } = useAccessWrite();
+  const { write, saving, error, dialog } = useAccessWrite(onRulesFiled);
   const rows = (connections.data?.connections ?? []).filter(
     (connection) => connection.kind !== "portal",
   );

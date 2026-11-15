@@ -543,6 +543,27 @@ describe("CommitSignPanel · approvals", () => {
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
   });
 
+  it("shows the rule that refused an approval, with no Approve left", async () => {
+    const message =
+      "Over limit: 170 of 200 USDC on Base used today, and this spends 50.";
+    const { handle } = await open(parked(), {
+      code: "commit_rule_over_cap",
+      status: 403,
+      agent_wallet_id: "g-1",
+      wallet_name: "Trading",
+      rule: { message, cap: "200000000", used: "170000000" },
+    });
+    render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Approve transaction" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(
+      screen.queryByRole("button", { name: "Approve transaction" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+  });
+
   it("asks a session that cannot approve to sign in on Aomi", async () => {
     const { handle } = await open(parked({ can_approve: false }));
     render(<CommitSignPanel handle={handle} onClose={vi.fn()} />);

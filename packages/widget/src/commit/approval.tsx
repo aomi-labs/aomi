@@ -16,6 +16,7 @@ import {
   type CommitHandle,
   type CommitView,
 } from "@aomi-labs/client";
+import { requestSettingsOpen } from "@/account/settings-events";
 import { useAomiWalletKit } from "@/wallet/context";
 import { TransactionReview } from "@/sidebar/activity/transaction-review";
 import { useApprovalAuthority } from "./approval-authority";
@@ -36,11 +37,24 @@ const REFUSALS: Record<string, string> = {
     "This connection can't use this wallet. Nothing was signed.",
 };
 
+/** A wallet rule refused the commit; `details.rule.message` says which and why. */
+const isRuleRefusal = (error: unknown): error is AomiApiError =>
+  error instanceof AomiApiError && error.code.startsWith("commit_rule_");
+
+function ruleMessage(error: AomiApiError): string {
+  const rule = (error.details as { rule?: { message?: unknown } } | undefined)
+    ?.rule;
+  return typeof rule?.message === "string" && rule.message
+    ? rule.message
+    : "A wallet rule refused this. Nothing was signed.";
+}
+
 function approvalError(error: unknown): string {
   if (error instanceof CommitStaleError)
     return "This request changed. Review it again.";
   if (error instanceof CommitExpiredError)
     return "Expired · nothing was signed";
+  if (isRuleRefusal(error)) return ruleMessage(error);
   if (error instanceof AomiApiError)
     return REFUSALS[error.code] ?? "Couldn't approve right now. Try again.";
   return error instanceof Error ? error.message : "The request failed";
@@ -50,6 +64,8 @@ function approvalError(error: unknown): string {
 function useApprovalStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // A rule refused it: approving again cannot work until the rules change.
+  const [ruled, setRuled] = useState(false);
   const run = async (
     step: () => Promise<unknown>,
     onError?: (caught: unknown) => boolean | void,
@@ -60,12 +76,14 @@ function useApprovalStep() {
     try {
       await step();
     } catch (caught) {
-      if (!onError?.(caught)) setError(approvalError(caught));
+      if (onError?.(caught)) return;
+      setError(approvalError(caught));
+      setRuled(isRuleRefusal(caught));
     } finally {
       setBusy(false);
     }
   };
-  return { busy, error, run };
+  return { busy, error, ruled, run };
 }
 
 /** The commit's sign page URL, fetched while `enabled`. */
@@ -96,7 +114,7 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
   const { supportedChains } = useAomiWalletKit();
   const authority = useApprovalAuthority();
   const [forbidden, setForbidden] = useState(false);
-  const { busy, error, run } = useApprovalStep();
+  const { busy, error, ruled, run } = useApprovalStep();
   const id = commit.commit_id;
   const linkOnly = !authority || forbidden;
   const signUrl = useSignUrl(id, linkOnly);
@@ -114,9 +132,18 @@ export function ParkedReview({ commit }: { commit: CommitView }) {
       approveLabel={linkOnly ? "Approve on Aomi" : approveLabel(commit)}
       approveHref={linkOnly ? signUrl : undefined}
       approveDisabled={linkOnly}
-      note={APPROVAL_NOTE}
+      approveHidden={ruled}
+      note={ruled ? undefined : APPROVAL_NOTE}
       status={error}
       statusIsError={Boolean(error)}
+      statusAction={
+        ruled
+          ? {
+              label: "Open wallet settings",
+              onClick: () => requestSettingsOpen("account"),
+            }
+          : undefined
+      }
       onApprove={() =>
         void run(
           () =>
@@ -182,7 +209,7 @@ export function CommitApprovePanel({
   signing?: boolean;
 }) {
   const { supportedChains } = useAomiWalletKit();
-  const { busy, error, run } = useApprovalStep();
+  const { busy, error, ruled, run } = useApprovalStep();
   const view = handle.view;
   const review = handle.review;
   if (!view.can_approve && !signing)
@@ -214,7 +241,8 @@ export function CommitApprovePanel({
       supportedChains={supportedChains}
       approving={busy || signing}
       approveLabel={approveLabel(view)}
-      note={APPROVAL_NOTE}
+      approveHidden={ruled}
+      note={ruled ? undefined : APPROVAL_NOTE}
       status={error}
       statusIsError={Boolean(error)}
       onApprove={() => void run(() => handle.approve(view), refresh)}

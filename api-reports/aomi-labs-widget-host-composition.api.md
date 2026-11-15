@@ -16,7 +16,9 @@ import type { AomiConnectionKind } from '@aomi-labs/client';
 import type { AomiConnectionWalletsUpdate } from '@aomi-labs/client';
 import { AomiFeatureCategory } from '@aomi-labs/client';
 import type { AomiLane } from '@aomi-labs/client';
+import { AomiRuleChange } from '@aomi-labs/client';
 import { AomiSecretSlot } from '@aomi-labs/client';
+import { AomiWalletRules } from '@aomi-labs/client';
 import type { ButtonHTMLAttributes } from 'react';
 import type { Chain } from 'viem';
 import { ClassProp } from 'class-variance-authority/types';
@@ -511,6 +513,26 @@ export function requestSettingsOpen(tab: SettingsTab): void;
 
 // @public
 export function requestWalletPickerOpen(): void;
+
+// @public
+export function RuleChangeCard(input: {
+    change: AomiRuleChange;
+    client: RulesClient;
+    onDecided: (rules: AomiWalletRules, outcome: "approved" | "declined") => void;
+    onStale: () => void;
+    onLater?: () => void;
+    className?: string;
+}): JSX.Element;
+
+// @public
+export function RuleChangePanel(input: RuleChangePanelProps): JSX.Element;
+
+// @public (undocumented)
+export type RuleChangePanelProps = {
+    client: RulesClient;
+    changeId: string;
+    onClose: () => void;
+};
 
 // @public @deprecated (undocumented)
 export function sessionScopedFetch<T>(path: string, options?: RequestInit & {

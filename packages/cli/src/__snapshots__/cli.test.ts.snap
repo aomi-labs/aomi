@@ -48,6 +48,25 @@ ARGUMENTS
 "
 `;
 
+exports[`help > prints ["rules"] --help 1`] = `
+"USAGE
+  aomi rules list [--json] [--private-key hex] [--solana-private-key key] [--cluster name]
+  aomi rules approve [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <change-id>
+  aomi rules decline [--json] [--private-key hex] [--solana-private-key key] [--cluster name] <change-id>
+  aomi rules --help
+
+What the agent may sign
+
+FLAGS
+  -h --help  Print help information and exit
+
+COMMANDS
+  list     Each agent wallet's rules, use and waiting change
+  approve  Approve a rule change waiting for you
+  decline  Decline a rule change
+"
+`;
+
 exports[`help > prints ["threads"] --help 1`] = `
 "USAGE
   aomi threads list [--json] [--private-key hex] [--solana-private-key key] [--cluster name] [--limit n]
@@ -160,6 +179,7 @@ ACCOUNT
 
 WALLETS & TRADES
   wallets    Agent wallets, local signer
+  rules      What the agent may sign
   tx         Review, approve, sign, export
   guard      Spending limits for signing
 

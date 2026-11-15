@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { PORTAL_SESSION, ROUTES, resourcesFor } from "../packages/account/src/policy";
+import { OWNER_SESSION, PORTAL_SESSION, ROUTES, resourcesFor } from "../packages/account/src/policy";
 
 const target = resolve(import.meta.dirname, "../packages/client/src/generated/route-scopes.ts");
 const resources = resourcesFor("");
@@ -13,7 +13,7 @@ const rows = ROUTES.flatMap((route) => {
   if (!route.on || route.on === "appMcp" || route.to === "mcp") return [];
   const methods = Object.entries(route.methods).flatMap(([method, need]) => {
     const scope = typeof need === "string" ? need : need.oauthScope;
-    return scope && scope !== "public" && scope !== PORTAL_SESSION ? [`${method}: ${JSON.stringify(scope)}`] : [];
+    return scope && scope !== "public" && scope !== PORTAL_SESSION && scope !== OWNER_SESSION ? [`${method}: ${JSON.stringify(scope)}`] : [];
   });
   if (!methods.length) return [];
   return [
