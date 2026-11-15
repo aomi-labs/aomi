@@ -24,29 +24,43 @@ export function sdkBackendUrl(ctx: BuildContext): string {
 }
 
 /**
- * The bearer a caller's manager calls carry. A session or CLI caller is the
- * edge acting for a signed-in builder: the `aomi-edge` service bearer. A key
- * caller is the builder itself, limited to the key's capabilities, which the
- * manager enforces per route.
+ * A five-minute bearer naming the builder itself, limited to `capabilities`,
+ * which the manager enforces per route. `source` is how the builder signed in.
  */
-function mintBearer(ctx: BuildContext, key: Caller["key"]) {
-  const service = edgeService(ctx.env);
-  const audience = "aomi-backend";
-  const ttlSeconds = SERVICE_BEARER_TTL_SECONDS;
-  if (!key) return service.mint({ role: "service", subject: EDGE_SERVICE_NAME, audience, ttlSeconds });
+export function builderBearer(
+  ctx: BuildContext,
+  builderId: string,
+  capabilities: readonly string[],
+  source: "api_key" | "session" | "cli_session",
+) {
   // The manager reads a scope only with its resource, so a key without
   // capabilities carries neither and reaches the `builder:read` routes alone.
-  const scope = key.capabilities.join(" ");
-  return service.mint({
+  const scope = capabilities.join(" ");
+  return edgeService(ctx.env).mint({
     role: "user",
-    subject: key.builderId,
-    audience,
-    ttlSeconds,
+    subject: builderId,
+    audience: "aomi-backend",
+    ttlSeconds: SERVICE_BEARER_TTL_SECONDS,
     delegated: {
-      auth_source: "api_key",
+      auth_source: source,
       principal_class: "builder",
       ...(scope ? { scope, resource: `${ctx.buildOrigin}/api/build` } : {}),
     },
+  });
+}
+
+/**
+ * The bearer a caller's manager calls carry. A session or CLI caller is the
+ * edge acting for a signed-in builder: the `aomi-edge` service bearer. A key
+ * caller is the builder itself, limited to the key's capabilities.
+ */
+function mintBearer(ctx: BuildContext, key: Caller["key"]) {
+  if (key) return builderBearer(ctx, key.builderId, key.capabilities, "api_key");
+  return edgeService(ctx.env).mint({
+    role: "service",
+    subject: EDGE_SERVICE_NAME,
+    audience: "aomi-backend",
+    ttlSeconds: SERVICE_BEARER_TTL_SECONDS,
   });
 }
 

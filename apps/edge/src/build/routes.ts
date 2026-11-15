@@ -1,13 +1,14 @@
 /**
  * The Build surface at the edge: GitHub sign-in, CLI login, builder credits,
- * the anonymous GitHub App install start and the launch, deployments and
+ * the anonymous GitHub App install start, the launch, deployments and
  * operate control-plane families (over the `@aomi-labs/internal` manager
- * client) and builder API key management. Anything not listed here passes
+ * client), the release API (a raw proxy, see `releases.ts`) and builder API
+ * key management. Anything not listed here passes
  * through to the Vercel Build app unchanged: the build sandbox, integrations
  * and the local-only helpers.
  *
  * A request presenting a builder API key is served only by the `endpoint()`
- * routes, whose manager calls carry the key's builder bearer. Every other
+ * and release routes, whose manager calls carry the key's builder bearer. Every other
  * route, builder credits and the pass-through answer it 403.
  */
 import { EdgeError } from "../kernel/errors";
@@ -21,6 +22,7 @@ import { type BuildRoute, type Handler } from "./endpoint";
 import { failureResponse } from "./failures";
 import { apiOrigin } from "./manager-client";
 import { OPERATE_ROUTES } from "./operate";
+import { RELEASE_ROUTES } from "./releases";
 import {
   callback,
   claim,
@@ -58,6 +60,7 @@ export const BUILD_ROUTES: readonly BuildRoute[] = [
   ...KEY_ROUTES,
   ...DEPLOY_ROUTES,
   ...OPERATE_ROUTES,
+  ...RELEASE_ROUTES,
 ];
 
 function matches(route: BuildRoute, pathname: string): boolean {

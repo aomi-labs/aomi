@@ -45,12 +45,35 @@ and custody boundaries.
 | `GET /api/build/deployments/apps`       | Launch live-app status polling    | Rust backend `GET /api/platforms/:platform/apps/:name` with optional `release_tag`                                                                            | Checks whether an owned app is active and loaded, on the owning project's platform.                                                                         | `apps/build/src/app/api/build/deployments/apps/route.ts`      |
 | `POST /api/build/deployments/redeploy`  | Project page redeploy action      | Rust backend `GET /api/integrations/github-app/user/projects/:id/latest-deployment`, then backend deployment rerun                                            | Proves ownership, hydrates the project's backend-owned CI run, and asks the backend to rerun it. Returns `409` when no run is available.                    | `apps/build/src/app/api/build/deployments/redeploy/route.ts`  |
 
+## Build release endpoints
+
+`apps/edge/src/build/releases.ts` serves the release API on the Build host.
+`/api/build/<path>` is the manager's `/api/<path>`, proxied with the raw body
+(at most 10 MB, else `413 too_large`). The caller is a builder API key
+(`Authorization: Bearer aomi_key_…`), a CLI bearer or the GitHub session
+cookie; the manager receives a five-minute `role: "user"` builder bearer
+(`principal_class: "builder"`), never the key. A key needs the route's
+capability (else `403 insufficient_scope`) and its bearer carries the key's
+capabilities; a session's bearer carries all four.
+
+| Route | Manager | Key capability |
+| --- | --- | --- |
+| `POST /api/build/packages/:name/releases` | `POST /api/packages/:name/releases` (`application/x-tar`) | `package:publish` |
+| `GET /api/build/packages/:name/releases` | `GET /api/packages/:name/releases` | none |
+| `POST /api/build/packages/:name/promote` | `POST /api/packages/:name/promote` | `package:promote` |
+| `POST /api/build/agents/:name/configs` | `POST /api/agents/:name/configs` | `agent:publish` |
+| `GET /api/build/agents/:name/configs` | `GET /api/agents/:name/configs` | none |
+| `POST /api/build/agents/:name/promote` | `POST /api/agents/:name/promote` | `agent:promote` |
+
+The request keeps `content-type`, `x-aomi-source-repo` and
+`x-aomi-source-commit`; cookies and the caller's `Authorization` are dropped.
+
 ## Operational Notes
 
 - `/api/build/deployments/*` is Build's launch flow, served by the Edge Worker (`apps/edge/src/build/routes.ts`). Build also serves `/api/build/deployments/*` (project console) and `/api/build/deployments/{attempts,sdk-status}`.
 - There is no `/sources` route family and no `app_source_id`: the persisted identity is the Project (`projectId`), and project-scoped reads never accept a caller platform — the backend derives each project's bound platform. See `docs/topics/deploy/facts/projects.md`.
 - Onboarding backend calls use Build's service identity: `aomi-edge` mints a short-lived `service` bearer with `EDGE_SERVICE_PRIVATE_KEY`. The committed service-topology TOML is selected automatically from the backend target / Vercel environment.
-- The Build onboarding BFF does not use `AOMI_ADMIN_SECRET` or `APP_DEPLOY_ACTIVATION_TOKEN`. Activation tokens remain the CLI/update-path credential, not the browser onboarding credential.
+- The Build onboarding BFF does not use `AOMI_ADMIN_SECRET` or `APP_DEPLOY_ACTIVATION_TOKEN`. The CLI publishes with a builder API key through the release endpoints above.
 - Launch defaults are env-driven server-side config read in `apps/edge/src/kernel/config.ts`: `BUILD_DEFAULT_PLATFORM` (one platform slug), `BUILD_TEMPLATE_REPO` and `BUILD_CREATED_REPO_PRIVATE`. Aomi Build does not expose platform names as a directory. Its switcher sends one exact platform name through the signed-in user's source read; the manager returns `404` for an unknown name, and the browser changes context only after a successful response. Existing-repository connection signs the exact platform, `owner/repo`, and an allowlisted Build Projects return URL into GitHub OAuth state; the callback proves repo access, claims the source, and returns success or an actionable error to the scoped Projects page.
 - Chat links use `NEXT_PUBLIC_CHAT_URL`, defaulting to `https://aomi.chat`.
 - Redeploy requires a Build-side `GITHUB_TOKEN` because it calls GitHub's workflow-run rerun endpoint directly.
