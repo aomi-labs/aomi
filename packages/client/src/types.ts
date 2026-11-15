@@ -309,55 +309,6 @@ export interface AomiOnchainPolicyBinding {
   revoked_at: number | null;
 }
 
-export interface AomiOnchainPolicyProviderCtx {
-  provider: string;
-  chain_ref: string;
-  targets: Record<string, AomiOnchainAddress>;
-  /** Curated fungible tokens a policy may cap, by display symbol. */
-  mints: Record<string, AomiOnchainAddress>;
-  slot_windows: number[];
-  binding: AomiOnchainPolicyBinding | null;
-  chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
-  remaining_native_amount: string | null;
-  /** Remaining token allowance by mint address, read from the chain. */
-  remaining_token_amounts: Record<string, string>;
-  /**
-   * The delegate's agent wallet rules as a policy for this provider; null
-   * when the delegate is no agent wallet's key.
-   */
-  from_rules?: AomiRulesPolicy | null;
-}
-
-/** An agent wallet's rules as the on-chain policy that enforces them. */
-export interface AomiRulesPolicy {
-  /** Null when the rules cannot go on chain; `missing` says what they lack. */
-  policy: AomiOnchainPolicy | null;
-  missing: string | null;
-  /** Rules the provider cannot hold, as sentences. */
-  aomi_only: string[];
-  /** The active binding already holds exactly this policy. */
-  in_sync: boolean;
-}
-
-export interface AomiBindOnchainPolicy {
-  binding_id: number | null;
-  owner: AomiOnchainAddress;
-  delegate: AomiOnchainAddress;
-  chain_ref: string;
-  policy: AomiOnchainPolicy;
-  transaction_signature: string | null;
-}
-
-export interface AomiPreparedOnchainPolicy {
-  operation: "attach" | "update" | "current" | "revoke";
-  policy_hash: string | null;
-  operating_address: AomiOnchainAddress;
-  provider_account: AomiOnchainAddress;
-  unsigned_transaction_base64: string | null;
-  last_valid_block_height: number | null;
-  binding: AomiOnchainPolicyBinding | null;
-}
-
 export interface AomiAccountProfile {
   user: AomiUser;
   auth_providers: AomiAuthProvider[];

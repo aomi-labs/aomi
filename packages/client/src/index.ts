@@ -16,7 +16,7 @@ export type {
   AomiCreditListOptions,
   CreditBalance,
 } from "./account/credits";
-export { AccountKeysTransport, AccountPoliciesTransport } from "./account/keys";
+export { AccountKeysTransport } from "./account/keys";
 export type { AccountKeyScope } from "./account/keys";
 export { AomiApiError, apiErrorFields } from "./api-error";
 export type { ApiErrorFields } from "./api-error";
@@ -286,17 +286,14 @@ export type {
   AomiAccountProfile,
   AomiAccountRecordStatus,
   AomiAuthProvider,
-  AomiBindOnchainPolicy,
   AomiChainKind,
   AomiDelegatedAccount,
   AomiOnchainAddress,
   AomiOnchainPolicy,
   AomiOnchainPolicyBinding,
-  AomiOnchainPolicyProviderCtx,
   AomiOnchainPolicyRule,
   AomiOperatingAccount,
   AomiPolicyWindow,
-  AomiPreparedOnchainPolicy,
   AomiProviderBinding,
   AomiSigningPolicy,
   AomiUser,
@@ -523,6 +520,7 @@ export type {
   AomiRuleLimit,
   AomiRuleSet,
   AomiRuleUsage,
+  AomiRulesAction,
   AomiRulesAdmin,
   AomiRulesAdminWallet,
   AomiRulesCatalog,
@@ -530,6 +528,9 @@ export type {
   AomiRulesCatalogToken,
   AomiRulesChangeRequest,
   AomiRulesChangeResult,
+  AomiRulesEnforceRequest,
+  AomiRulesCovers,
+  AomiRulesEnforcement,
   AomiWalletRules,
 } from "./account/rules";
 export { AomiWallets } from "./sdk/wallets";

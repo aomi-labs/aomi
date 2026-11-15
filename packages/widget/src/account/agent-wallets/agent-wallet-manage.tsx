@@ -45,8 +45,8 @@ import { useRenameWallet, type AgentWalletActions } from "./agent-wallet-row";
 
 /**
  * Account › agent wallet › Manage: its addresses behind one Receive row,
- * every connection with its lane on it, its rules (and, where Swig is on,
- * the same rules on chain), then Send, Rename and Pause as rows, and Archive alone at the bottom.
+ * every connection with its lane on it, its rules, then Send, Rename and
+ * Pause as rows, and Archive alone at the bottom.
  * Changes save at once; a rule change that gives the agent power waits for
  * the wallet's admin.
  */
@@ -82,9 +82,6 @@ export function AgentWalletManage({
     ...entry,
     address: entry.operating_address ?? entry.address,
   }));
-  const svm = archived
-    ? undefined
-    : wallet.addresses.find((entry) => entry.family === "svm")?.address;
 
   if (receive)
     return (
@@ -189,9 +186,7 @@ export function AgentWalletManage({
           </p>
         ) : null}
 
-        {archived ? null : (
-          <WalletRules wallet={wallet} delegate={svm} filed={filed} />
-        )}
+        {archived ? null : <WalletRules wallet={wallet} filed={filed} />}
 
         <ListGroup>
           <ActionRow icon={ArrowUpRight} label="Send" step onClick={onSend} />

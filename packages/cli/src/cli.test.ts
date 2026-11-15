@@ -405,7 +405,7 @@ describe("aomi rules", () => {
     ],
     window_ends_at: 1795046400,
     pending: change,
-    enforced_by: ["aomi"],
+    enforcement: [],
     admin_wallets: [],
   };
   const paths = {

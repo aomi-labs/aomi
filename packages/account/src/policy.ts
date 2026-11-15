@@ -547,11 +547,6 @@ const renamed =
   });
 /** The secrets vault: BYOK provider keys and values tools use by handle. */
 const keys = renamed("/v1/account/keys", "/api/secrets");
-/** On-chain spending policies (Swig): prepare, sign and confirm a binding or its revoke. */
-const policies = renamed(
-  "/v1/account/policies",
-  "/api/account/onchain-policies",
-);
 
 const ID = "[0-9a-f-]+";
 const REF = "[A-Za-z0-9_-]+";
@@ -705,15 +700,6 @@ export const ROUTES: readonly Route[] = [
     DELETE: "account:credentials:write",
   }),
   keys(/^\/v1\/account\/keys\/[^/]+$/, { DELETE: "account:credentials:write" }),
-  policies(/^\/v1\/account\/policies\/[a-z]+$/, {
-    GET: "account:transaction-safety:read",
-  }),
-  policies(
-    /^\/v1\/account\/policies\/[a-z]+\/(?:prepare|confirm|\d+\/revoke\/(?:prepare|confirm))$/,
-    {
-      POST: "account:transaction-safety:write",
-    },
-  ),
   {
     path: /^\/v1\/account\/bearer$/,
     operation: "account.bearer",
@@ -739,6 +725,12 @@ export const ROUTES: readonly Route[] = [
   wallets(
     /^\/v1\/account\/agent-wallets\/[^/]+\/rules$/,
     { GET: "agent:read", POST: OWNER_SESSION },
+    { operation: "account.rules" },
+  ),
+  // The same rules on chain: the owner's wallet signs, so the chain decides.
+  wallets(
+    /^\/v1\/account\/agent-wallets\/[^/]+\/rules\/enforcement\/[a-z]+\/(?:prepare|confirm)$/,
+    { POST: OWNER_SESSION },
     { operation: "account.rules" },
   ),
   wallets(
@@ -819,18 +811,15 @@ export const ROUTES: readonly Route[] = [
     ...backend(/^\/api\/thread\/wallet$/, { PUT: "agent:write" }),
     on: "agentRest",
   },
-  // The backend's account record and its routes; transaction safety and
-  // on-chain policies moved to /v1/account.
-  backend(
-    /^\/api\/account(?:\/(?!(?:transaction-safety|onchain-policies)(?:\/|$)).*)?$/,
-    {
-      GET: settings,
-      POST: settings,
-      PATCH: settings,
-      PUT: settings,
-      DELETE: settings,
-    },
-  ),
+  // The backend's account record and its routes; transaction safety moved
+  // to /v1/account.
+  backend(/^\/api\/account(?:\/(?!transaction-safety(?:\/|$)).*)?$/, {
+    GET: settings,
+    POST: settings,
+    PATCH: settings,
+    PUT: settings,
+    DELETE: settings,
+  }),
   backend(/^\/api\/integrations\/github-app\/oauth\/start$/, { GET: chat }),
   backend(/^\/api\/thread\/apps$/, { GET: chat }),
   backend(/^\/api\/thread\/models$/, { GET: "public" }),
@@ -881,7 +870,9 @@ export const ROUTES: readonly Route[] = [
     POST: signedIn,
   }),
   // One guest sign-in; the two older paths stay for published SDKs (client <= 0.11, widget <= 4).
-  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", { POST: "public" }),
+  own(/^\/api\/auth\/(?:guest|widget\/guest|sign-in\/anonymous)$/, "guest", {
+    POST: "public",
+  }),
   own(/^\/api\/auth\/widget\/exchange$/, "widget.provider.exchange", {
     POST: "public",
   }),
