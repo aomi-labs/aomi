@@ -841,6 +841,26 @@ describe("portal surface: backend /api allowlist, payment and public routes", ()
     expect(seen).toHaveLength(0);
   });
 
+  it("lets Build frame the chat page and nothing else", async () => {
+    const pages = (headers?: HeadersInit) => ({
+      BUILD_HOSTS: "build-staging.aomi.dev",
+      PORTAL_PAGES: { fetch: async () => new Response("page", { headers }) },
+    });
+    const chat = await portal("/?app=demo&lock_app=1", { env: pages() });
+    expect(chat.headers.get("content-security-policy")).toBe("frame-ancestors 'self' https://build-staging.aomi.dev");
+    expect(chat.headers.get("x-frame-options")).toBeNull();
+
+    const settings = await portal("/settings", { env: pages() });
+    expect(settings.headers.get("content-security-policy")).toBeNull();
+    expect(settings.headers.get("x-frame-options")).toBe("DENY");
+
+    const own = await portal("/", { env: pages({ "content-security-policy": "frame-ancestors 'none'" }) });
+    expect(own.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+
+    const noBuild = await portal("/", { env: { ...pages(), BUILD_HOSTS: undefined } });
+    expect(noBuild.headers.get("x-frame-options")).toBe("DENY");
+  });
+
   it("streams a page request body to the binding and preserves redirects", async () => {
     const response = await portal("/page-action?next=home", {
       method: "POST",

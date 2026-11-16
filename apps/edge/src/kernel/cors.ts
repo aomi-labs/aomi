@@ -131,12 +131,31 @@ export function preflight(policy: CorsPolicy, request: Request, cfg: Config): Re
   return new Response(null, { status: 204, headers });
 }
 
-/** Set on everything the edge answers. */
+const FRAME_ANCESTORS = /(?:^|[;,])\s*frame-ancestors\s/i;
+
+/**
+ * Let these hosts (and the page's own origin) embed a page. A page that names
+ * its own `frame-ancestors` keeps it.
+ */
+export function withFrameAncestors(response: Response, hosts: Iterable<string>): Response {
+  const origins = [...hosts].map((host) => `${LOCAL_HOSTS.has(host.replace(/:\d+$/, "")) ? "http" : "https"}://${host}`);
+  if (!origins.length || FRAME_ANCESTORS.test(response.headers.get("content-security-policy") ?? "")) return response;
+  const headers = new Headers(response.headers);
+  headers.append("content-security-policy", `frame-ancestors 'self' ${origins.join(" ")}`);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+/**
+ * Set on everything the edge answers. Nothing may be framed unless the
+ * response says who may: `frame-ancestors` supersedes X-Frame-Options, which
+ * cannot name another origin.
+ */
 export function withSecurityHeaders(response: Response): Response {
   if (response.status === 101) return response;
   const headers = new Headers(response.headers);
   headers.set("strict-transport-security", "max-age=31536000");
   headers.set("x-content-type-options", "nosniff");
-  headers.set("x-frame-options", "DENY");
+  if (FRAME_ANCESTORS.test(headers.get("content-security-policy") ?? "")) headers.delete("x-frame-options");
+  else headers.set("x-frame-options", "DENY");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

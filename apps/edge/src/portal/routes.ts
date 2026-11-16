@@ -11,7 +11,7 @@ import { FRESH_LOGIN_SECONDS, ROUTES, type Method, type Need, type Route } from 
 
 import { edgeService } from "../identity";
 import { config } from "../kernel/config";
-import { openWidget, preflight, publicRead, withCors } from "../kernel/cors";
+import { openWidget, preflight, publicRead, withCors, withFrameAncestors } from "../kernel/cors";
 import { minted, unreachable } from "../kernel/errors";
 import { apiOrigins } from "../kernel/manager";
 import { rankedPool } from "../kernel/pool";
@@ -304,5 +304,7 @@ export async function handlePortalRequest(request: Request, ctx: PortalContext):
   if (catalogKind) return catalog(request, catalogKind, ctx);
   const rows = ROUTES.filter((row) => row.path.test(pathname));
   if (rows.length) return served(rows, request, ctx);
-  return passThrough(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal", ctx.env.PORTAL_PAGES);
+  const page = await passThrough(request, ctx.upstreamOrigin, ctx.fetchImpl, "portal", ctx.env.PORTAL_PAGES);
+  // Build embeds the chat page in a project's Chat tab; no other page is framed.
+  return pathname === "/" ? withFrameAncestors(page, config(ctx.env).build.hosts) : page;
 }
