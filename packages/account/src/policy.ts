@@ -33,8 +33,8 @@ export const ACCOUNT_SCOPES = [
   "account:usage:read",
   "account:transaction-safety:read",
   "account:transaction-safety:write",
-  "account:apps:read",
-  "account:apps:write",
+  "account:packages:read",
+  "account:packages:write",
   "account:credentials:read",
   "account:credentials:write",
   "payments:submit",
@@ -264,7 +264,7 @@ export type Capability =
   | "owner_session" // the owner's own sign-in, the portal or a CLI session: wallet rule changes
   | "account_read" // credits and usage statement
   | "payments" // top-ups and payment signatures
-  | "settings" // installed apps, app secrets, BYOK keys
+  | "settings" // package choices, package secrets, BYOK keys
   | "safety_policy" // account and thread transaction safety
   | "backend_bearer" // a raw 15-minute backend token
   | "mcp"; // MCP transport, OAuth grants only
@@ -320,8 +320,8 @@ const SCOPE_CAPABILITY: Record<string, Capability> = {
   "account:usage:read": "account_read",
   "account:transaction-safety:read": "safety_policy",
   "account:transaction-safety:write": "safety_policy",
-  "account:apps:read": "settings",
-  "account:apps:write": "settings",
+  "account:packages:read": "settings",
+  "account:packages:write": "settings",
   "account:credentials:read": "settings",
   "account:credentials:write": "settings",
   "mcp:agent": "mcp",
@@ -677,18 +677,14 @@ export const ROUTES: readonly Route[] = [
     true,
   ),
   payment(/^\/v1\/account\/statement$/, { GET: "account:usage:read" }),
-  account(/^\/v1\/account\/apps$/, { GET: "account:apps:read" }),
-  account(/^\/v1\/account\/apps\/[1-9]\d*$/, {
-    POST: "account:apps:write",
-    DELETE: "account:apps:write",
+  account(/^\/v1\/account\/packages$/, { GET: "account:packages:read" }),
+  account(/^\/v1\/account\/packages\/[1-9]\d*\/choice$/, {
+    PUT: "account:packages:write",
+    DELETE: "account:packages:write",
   }),
-  account(/^\/v1\/account\/apps\/[1-9]\d*\/secrets$/, {
-    GET: "account:credentials:read",
-    POST: "account:credentials:write",
-    DELETE: "account:credentials:write",
-  }),
-  account(/^\/v1\/account\/apps\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, {
-    DELETE: "account:credentials:write",
+  account(/^\/v1\/account\/packages\/[1-9]\d*\/secrets\/[A-Za-z_]\w{0,127}$/, {
+    PUT: "account:packages:write",
+    DELETE: "account:packages:write",
   }),
   account(/^\/v1\/account\/transaction-safety(?:\/threads\/[^/]+)?$/, {
     GET: "account:transaction-safety:read",
@@ -707,7 +703,7 @@ export const ROUTES: readonly Route[] = [
     methods: { GET: { capability: "backend_bearer" } },
   },
   // Anything else under these account resources is a 404 in the resource's shape.
-  account(/^\/v1\/account\/(apps|transaction-safety)(\/.*)?$/, {}),
+  account(/^\/v1\/account\/(packages|transaction-safety)(\/.*)?$/, {}),
   wallets(/^\/v1\/account\/wallets$/, { GET: "agent:read" }),
   wallets(/^\/v1\/account\/agent-wallets$/, {
     GET: "agent:read",

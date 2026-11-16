@@ -58,7 +58,7 @@ type CommonOAuthOptions = {
   clientId: string;
   /**
    * More scopes to ask for at the first sign-in, besides Agent and Pipeline,
-   * e.g. `account:apps:write`, so one approval covers them too.
+   * e.g. `account:packages:write`, so one approval covers them too.
    */
   scopes?: readonly string[];
   subject?: string;

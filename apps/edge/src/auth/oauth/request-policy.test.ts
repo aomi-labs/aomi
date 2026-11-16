@@ -71,11 +71,11 @@ describe("OAuth request policy", () => {
       });
     await expectContinue(
       enforceAomiOAuthRequestPolicy(
-        request("account:apps:read account:credentials:write offline_access"),
+        request("account:packages:read account:credentials:write offline_access"),
       ),
     );
     await expectReject(
-      enforceAomiOAuthRequestPolicy(request("agent:write account:apps:read")),
+      enforceAomiOAuthRequestPolicy(request("agent:write account:packages:read")),
     );
   });
 
@@ -90,7 +90,7 @@ describe("OAuth request policy", () => {
     await expectContinue(
       enforceAomiOAuthRequestPolicy(
         device(
-          "agent:read agent:write pipeline:catalog account:apps:read account:apps:write account:credentials:read account:credentials:write offline_access",
+          "agent:read agent:write pipeline:catalog account:packages:read account:packages:write account:credentials:read account:credentials:write offline_access",
         ),
       ),
     );

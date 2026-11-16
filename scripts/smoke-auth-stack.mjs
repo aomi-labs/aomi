@@ -324,22 +324,15 @@ await check("portal proxy lists threads", `${portalUrl}/api/threads?limit=5`, {
   headers: portalHeaders({ "X-Thread-Id": sessionId }),
 });
 
-const appsResponse = await check(
-  "portal proxy lists account apps",
-  `${portalUrl}/api/account/apps`,
+const packagesResponse = await check(
+  "portal proxy lists account packages",
+  `${portalUrl}/api/account/packages`,
   {
     headers: portalHeaders({ "X-Session-Id": sessionId }),
   },
 );
-const apps = await appsResponse.json().catch(() => []);
-const appNames = Array.isArray(apps)
-  ? apps
-      .map((app) => (typeof app === "string" ? app : app?.name))
-      .filter(Boolean)
-  : [];
-console.log(
-  `account apps: ${appNames.length} (${appNames.includes("default") ? "has default" : "no default"})`,
-);
+const packages = (await packagesResponse.json().catch(() => ({}))).packages;
+console.log(`account packages: ${Array.isArray(packages) ? packages.length : 0}`);
 
 const keyResponse = await check(
   "portal proxy creates app key",
