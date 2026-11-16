@@ -22,6 +22,14 @@ import {
   catalog,
 } from "@/test/package-fixtures";
 
+const PRIVATE: AomiPackage = {
+  ...NOT_VERIFIED,
+  package_id: 9100,
+  id: "acme/secret-tool",
+  display_name: "Secret Tool",
+  listed: false,
+};
+
 type Call = { method: string; path: string; body: unknown };
 
 /** The Library backend: rows change as the person switches and connects. */
@@ -43,6 +51,12 @@ function installBackend(initial: AomiPackage[]) {
       calls.push({ method, path: url.pathname, body });
       if (url.pathname === "/api/account/packages")
         return Response.json(catalog(rows));
+      if (url.pathname === "/api/account/packages/activate") {
+        if ((body as { code: string }).code !== "good-code")
+          return Response.json({ error: "code_invalid" }, { status: 404 });
+        rows = [...rows, PRIVATE];
+        return Response.json(PRIVATE);
+      }
       const choice = url.pathname.match(
         /^\/api\/account\/packages\/(\d+)\/choice$/,
       );
@@ -241,5 +255,50 @@ describe("packages modal", () => {
     await renderModal();
     expect(rowSwitch("Jupiter")).toBeDisabled();
     expect(backend.writes()).toEqual([]);
+  });
+
+  it("adds a private package with a code and opens its detail", async () => {
+    const backend = installBackend([VERIFIED]);
+    await renderModal();
+    fireEvent.click(screen.getByRole("button", { name: /Add with code/ }));
+    fireEvent.change(screen.getByLabelText("Package access code"), {
+      target: { value: "good-code" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(
+      await screen.findByRole("button", { name: "Open Secret Tool details" }),
+    ).toBeTruthy();
+    expect(backend.writes()).toEqual([
+      {
+        method: "POST",
+        path: "/api/account/packages/activate",
+        body: { code: "good-code" },
+      },
+    ]);
+    expect(screen.queryByLabelText("Package access code")).toBeNull();
+    expect(JSON.stringify({ ...localStorage })).not.toContain("good-code");
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain("good-code");
+  });
+
+  it("shows an invalid code in place", async () => {
+    installBackend([VERIFIED]);
+    await renderModal();
+    fireEvent.click(screen.getByRole("button", { name: /Add with code/ }));
+    fireEvent.change(screen.getByLabelText("Package access code"), {
+      target: { value: "nope" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That code isn’t valid",
+    );
+    expect(screen.getByLabelText("Package access code")).toBeTruthy();
+  });
+
+  it("asks a guest to sign in instead of offering a code field", async () => {
+    seedAccountOverview(null);
+    installBackend([VERIFIED]);
+    await renderModal();
+    expect(screen.getByText("Sign in to add a private package")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Add with code/ })).toBeNull();
   });
 });

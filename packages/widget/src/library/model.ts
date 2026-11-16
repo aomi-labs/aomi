@@ -231,3 +231,13 @@ export function explainMutationError(cause: unknown, agent: string): string {
     ? raw
     : "Couldn’t update the package. Please try again.";
 }
+
+export function explainActivateError(cause: unknown): string {
+  const status =
+    cause && typeof cause === "object" && "status" in cause
+      ? Number(cause.status)
+      : 0;
+  if (status === 404) return "That code isn’t valid. Check it and try again.";
+  if (status === 401) return "Sign in to add a private package.";
+  return "Couldn’t add the package. Please try again.";
+}

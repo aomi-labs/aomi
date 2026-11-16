@@ -85,6 +85,19 @@ export class AomiAccountPackages {
     });
   }
 
+  /**
+   * Add a private package with its access code. The row comes back off until
+   * switched on; an unknown, revoked or used-up code is a 404 `code_invalid`.
+   * The code is sent once and never kept.
+   */
+  activate(code: string): Promise<AomiPackage> {
+    return this.request("/api/account/packages/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+  }
+
   /** Switch a package on or off; an agent-listed package refuses off (409). */
   setChoice(packageId: number, enabled: boolean): Promise<AomiPackage> {
     return this.request(`${packagePath(packageId)}/choice`, {

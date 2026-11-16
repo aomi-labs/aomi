@@ -120,6 +120,26 @@ describe("aomi.account", () => {
     );
   });
 
+  it("adds a private package with its code and reports an invalid code", async () => {
+    const row = { package_id: 9100, id: "acme/private", enabled: false };
+    const { aomi, calls } = backend({
+      "POST /api/account/packages/activate": (body) =>
+        (body as { code: string }).code === "good"
+          ? Response.json(row)
+          : Response.json({ error: "code_invalid" }, { status: 404 }),
+    });
+    await expect(aomi.account.packages.activate("good")).resolves.toEqual(row);
+    await expect(aomi.account.packages.activate("bad")).rejects.toSatisfy(
+      (error) => error instanceof AccountGraphApiError && error.status === 404,
+    );
+    expect(calls.map(({ method, path, csrf }) => [method, path, csrf])).toEqual(
+      [
+        ["POST", "/api/account/packages/activate", true],
+        ["POST", "/api/account/packages/activate", true],
+      ],
+    );
+  });
+
   it("sets the guard at the current revision", async () => {
     const policy = (mode: string, revision: number) => ({
       mode,

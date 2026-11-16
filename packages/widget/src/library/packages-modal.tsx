@@ -15,6 +15,7 @@ import {
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
 import { SectionHeader } from "@/ui/aomi/section-header";
+import { AddWithCode } from "./add-with-code";
 import { LibraryDetailPanel } from "./library-detail-panel";
 import { PackageNotice } from "./package-notice";
 import { usePackageCatalog } from "./use-package-catalog";
@@ -22,6 +23,7 @@ import {
   FAMILIES,
   GROUP_TITLES,
   NAV_ITEMS,
+  explainActivateError,
   explainMutationError,
   groupPackages,
   inView,
@@ -100,10 +102,24 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     if (enabled && !noticeSeen(row)) setNoticeRow(row);
     else setChoice(row, enabled);
   };
-  const open = (row: AomiPackage) => {
+  /** Redeem a private package code; the row appears and its detail opens. */
+  const activate = async (code: string) => {
+    try {
+      const row = await aomi.account.packages.activate(code);
+      await refetch();
+      setView("all");
+      setFamily(null);
+      setQuery("");
+      open(row);
+      return null;
+    } catch (cause) {
+      return explainActivateError(cause);
+    }
+  };
+  function open(row: AomiPackage) {
     setSelectedId(row.package_id);
     setMobileDetailOpen(true);
-  };
+  }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -197,6 +213,11 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           query={query}
           onQueryChange={(next) => pick(() => setQuery(next))}
           searchRef={searchRef}
+        />
+        <AddWithCode
+          signedIn={signedIn}
+          disabled={busyId !== null}
+          onActivate={activate}
         />
         {actionError ? (
           <p
