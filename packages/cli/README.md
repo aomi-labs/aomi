@@ -64,7 +64,7 @@ sign-in.
 | `rules` | Each agent wallet's rules, today's use and waiting change; `approve <change-id>`, `decline <change-id>` |
 | `tx` | `list`, `review <ref>`, `approve <ref>`, `reject <ref>`, `sign <ref>`, `export <ref>` |
 | `guard [strict\|balanced\|yolo]` | The thread's guard, or `--account`'s default |
-| `apps` | `list`, `install`, `uninstall`, `use`, `credentials` |
+| `packages` | `list [--thread]`, `on <id> [--yes]`, `off <id>`, `reset <id>`, `connect <id> <slot>`, `disconnect <id> <slot>` |
 | `pipeline` | `ops`, `op`, `apps`, `skills`, `skill`, `invoke`, `build [--commit]` |
 | `publish` | Build and upload the root `aomi.toml`'s packages and agents. `--promote`, `--package`, `--agent`, `--no-build`, `--wasm name=path` |
 | `promote`, `rollback` | `<package\|agent> <name> [<number>]`: make a release live; rollback defaults to the one before live |

@@ -184,7 +184,7 @@ WALLETS & TRADES
   guard      Spending limits for signing
 
 APPS
-  apps       Install apps, set credentials
+  packages   Turn packages on or off, connect keys
   pipeline   Call app operations directly
 
 PACKAGES

@@ -9,7 +9,7 @@ import {
 } from "@stricli/core";
 import packageJson from "../package.json";
 import * as account from "./commands/account";
-import * as apps from "./commands/apps";
+import * as packages from "./commands/packages";
 import { chat } from "./commands/chat";
 import { guard } from "./commands/guard";
 import * as pipeline from "./commands/pipeline";
@@ -159,7 +159,7 @@ const BRIEFS = {
   rules: "What the agent may sign",
   tx: "Review, approve, sign, export",
   guard: "Spending limits for signing",
-  apps: "Install apps, set credentials",
+  packages: "Turn packages on or off, connect keys",
   pipeline: "Call app operations directly",
   publish: "Build and upload packages and agents",
   promote: "Make a release live",
@@ -449,45 +449,48 @@ const root = routes(
       [arg("strict, balanced or yolo", "mode", true)],
       guard,
     ),
-    apps: routes(
-      BRIEFS.apps,
+    packages: routes(
+      BRIEFS.packages,
       {
-        list: command("Apps you can use", { ...json, ...conn }, [], apps.list),
-        install: command(
-          "Install an app",
-          { ...json, ...conn },
-          [arg("App name", "name")],
-          apps.install,
-        ),
-        uninstall: command(
-          "Uninstall an app",
-          { ...json, ...conn },
-          [arg("App name", "name")],
-          apps.uninstall,
-        ),
-        credentials: routes(
-          "An app's credentials",
+        list: command(
+          "Packages and whether each is on",
           {
-            list: command(
-              "The app's credential slots",
-              { ...json, ...conn },
-              [arg("App name", "name")],
-              apps.credentials,
-            ),
-            set: command(
-              "Set one (value from stdin or a prompt)",
-              { ...json, ...conn },
-              [arg("App name", "name"), arg("Credential", "key")],
-              apps.setCredential,
-            ),
-            remove: command(
-              "Remove one",
-              conn,
-              [arg("App name", "name"), arg("Credential", "key")],
-              apps.removeCredential,
-            ),
+            ...json,
+            ...conn,
+            thread: text("The thread's agent", { placeholder: "id" }),
           },
-          { default: "list" },
+          [],
+          packages.list,
+        ),
+        on: command(
+          "Turn a package on",
+          { ...json, ...conn, yes: yes("Skip the confirmation") },
+          [arg("Package, publisher/name", "package")],
+          packages.on,
+        ),
+        off: command(
+          "Turn a package off",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package")],
+          packages.off,
+        ),
+        reset: command(
+          "Go back to the package's default",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package")],
+          packages.reset,
+        ),
+        connect: command(
+          "Add your key for a slot (value from stdin or a prompt)",
+          { ...json, ...conn },
+          [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+          packages.connectSlot,
+        ),
+        disconnect: command(
+          "Remove your key for a slot",
+          conn,
+          [arg("Package, publisher/name", "package"), arg("Slot", "slot")],
+          packages.disconnectSlot,
         ),
       },
       { default: "list" },
@@ -733,7 +736,7 @@ const GROUPS: [string, (keyof typeof BRIEFS)[]][] = [
   ["CHAT", ["chat", "threads"]],
   ["ACCOUNT", ["login", "logout", "whoami", "account"]],
   ["WALLETS & TRADES", ["wallets", "rules", "tx", "guard"]],
-  ["APPS", ["apps", "pipeline"]],
+  ["APPS", ["packages", "pipeline"]],
   ["PACKAGES", ["publish", "promote", "rollback", "releases"]],
 ];
 const SETTINGS: (keyof typeof BRIEFS)[] = [

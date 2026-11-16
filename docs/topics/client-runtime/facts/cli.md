@@ -36,6 +36,20 @@ code of its own.
   and the EVM signer (`viemSigner`).
 - Otherwise a guest, whose bearer is kept in `~/.aomi/cli.json`.
 
+## Packages
+
+- `aomi packages` (`src/commands/packages.ts`) drives `aomi.account.packages`
+  on `/api/account/packages`. `list [--thread <id>]` prints each package as
+  `publisher/name`, on or off with the reason, verified, families and missing
+  slots. A package is named by `publisher/name` or its numeric id.
+- `on <id>` prints the live envelope's notice (hosts, transaction families,
+  signatures) and asks to confirm unless `--yes`; outside a terminal it needs
+  `--yes`. `off <id>` on an agent-listed package prints the reason and exits 1
+  without calling the backend. `reset <id>` clears the choice.
+- `connect <id> <slot>` reads the value from stdin or a hidden prompt, never
+  an argument, and never prints it; `disconnect <id> <slot>` clears it.
+- Device sign-in asks for `account:packages:read` and `account:packages:write`.
+
 ## Releases
 
 - `aomi publish` reads the root `aomi.toml` (`[[packages]] path`,
