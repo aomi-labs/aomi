@@ -88,6 +88,21 @@ export const API_PATHS = {
           platform,
         ),
     },
+    publisher: `${BUILD_API}/publishers/me`,
+    agent: (name: string) => `${BUILD_API}/agents/${encodeURIComponent(name)}`,
+    agentConfigs: (name: string) =>
+      `${BUILD_API}/agents/${encodeURIComponent(name)}/configs`,
+    agentPromote: (name: string) =>
+      `${BUILD_API}/agents/${encodeURIComponent(name)}/promote`,
+    package: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}`,
+    packageReleases: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/releases`,
+    packagePromote: (name: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/promote`,
+    packageSecret: (name: string, slot: string) =>
+      `${BUILD_API}/packages/${encodeURIComponent(name)}/secrets/${encodeURIComponent(slot)}`,
+    keys: `${BUILD_API}/keys`,
     operate: {
       bots: `${BUILD_API}/operate/bots`,
       botCommandSecret: (botId: string) =>

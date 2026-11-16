@@ -81,18 +81,30 @@ export type Publisher = {
 /** Where a live release or config came from. */
 export type Source = { source_repo: string; commit: string; created_at: string };
 
-/** The stored agent config, as the repo's `[[agents]]` table resolved it. Every key is optional. */
+/** The stored agent config: the repo's `[[agents]]` table, resolved (registry `AgentConfig`). */
 export type AgentConfig = {
-  name?: string;
-  display_name?: string;
-  description?: string;
-  voice?: string;
-  packages?: string[];
-  chains?: (string | number)[];
-  wallet?: Record<string, unknown>;
-  shortcuts?: { command: string; prompt?: string; description?: string }[];
-  model_cost?: string;
-  [key: string]: unknown;
+  name: string;
+  display_name: string;
+  /** The voice markdown text, or null to speak as Aomi. */
+  voice: string | null;
+  chains: string[];
+  /** `publisher/name` package ids. */
+  packages: string[];
+  model_cost: "builder" | "person";
+  audience: "public" | "signed-in";
+  /** Origins that may embed the agent; empty means any. */
+  allowed_origins: string[];
+  wallet_rules: {
+    default: "ask" | "instant";
+    families: ("evm" | "svm")[];
+    agent: boolean;
+    others?: boolean;
+    create?: boolean;
+    ask_only: boolean;
+  };
+  telegram: { show_tool_calls: boolean; group: { enabled: boolean; tools: string[] } };
+  /** A Telegram command that calls one tool by its full `<package>_<tool>` name. */
+  shortcuts: { command: string; tool: string }[];
 };
 
 export type Channel = { id: number; kind: string; external_bot_id: string; live: boolean };

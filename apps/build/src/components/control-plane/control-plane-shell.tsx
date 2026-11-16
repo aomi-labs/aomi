@@ -6,17 +6,18 @@ import {
   BookOpen,
   CircleUserRound,
   Github,
-  FolderKanban,
+  Bot,
   Gauge,
   Hammer,
   Home,
+  Key,
   KeyRound,
   LogOut,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
-  Rocket,
+  Package,
   ScrollText,
   Search,
   Settings,
@@ -65,10 +66,18 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Overview", href: "/overview", icon: Home, enabled: true },
       {
-        label: "Projects",
-        href: "/projects",
-        icon: FolderKanban,
+        label: "Packages",
+        href: "/packages",
+        icon: Package,
         enabled: true,
+        requiresGitHub: true,
+      },
+      {
+        label: "Agents",
+        href: "/agents",
+        icon: Bot,
+        enabled: true,
+        requiresGitHub: true,
       },
     ],
   },
@@ -79,13 +88,6 @@ const navGroups: NavGroup[] = [
   {
     title: "Operate",
     items: [
-      {
-        label: "Deployments",
-        href: "/operate/deployments",
-        icon: Rocket,
-        enabled: true,
-        requiresGitHub: true,
-      },
       {
         label: "Transactions",
         href: "/operate/transactions",
@@ -119,6 +121,13 @@ const navGroups: NavGroup[] = [
   {
     title: "Account",
     items: [
+      {
+        label: "Keys",
+        href: "/keys",
+        icon: Key,
+        enabled: true,
+        requiresGitHub: true,
+      },
       {
         label: "Providers",
         href: "/providers",
