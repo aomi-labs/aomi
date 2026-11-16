@@ -1,23 +1,25 @@
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-export type AomiAuthClass =
-  | "public"
-  | "thread"
-  | "account"
-  | "agent_adapter"
-  | "app_gate"
-  | "delegated"
-  | "service"
-  | "builder:read"
-  | "project:deploy"
-  | "project:activate"
-  | "project:observe"
-  | "admin"
-  | "activation"
-  | "activation-admin"
-  | "activation-or-wallet"
-  | "wallet"
-  | "wallet-session";
+/** Every `x-aomi-auth` class the backend and manager document. */
+export const AOMI_AUTH_CLASSES = [
+  "public",
+  "thread",
+  "account",
+  "app_gate",
+  "delegated",
+  "service",
+  "admin",
+  "builder",
+  "builder:read",
+  "project:observe",
+  "package:publish",
+  "package:promote",
+  "package:secrets",
+  "agent:publish",
+  "agent:promote",
+] as const;
+
+export type AomiAuthClass = (typeof AOMI_AUTH_CLASSES)[number];
 
 export interface AomiEndpointSpec {
   method: AomiHttpMethod;

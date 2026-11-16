@@ -6,22 +6,20 @@
     "description": "Intent enters the runtime; one ordered stream of concrete Events leaves it. Actions are durable Events whose nested ActionRequest requires a client response."
   },
   "x-aomi-route-manifest": [
-    "DELETE /v1/account/apps/{applicationId}",
-    "DELETE /v1/account/apps/{applicationId}/secrets",
-    "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
+    "DELETE /v1/account/packages/{packageId}/choice",
+    "DELETE /v1/account/packages/{packageId}/secrets/{slot}",
     "DELETE /v1/agent/sessions/{sessionId}",
     "GET /.well-known/api-catalog",
     "GET /.well-known/jwks.json",
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
-    "GET /v1/account/apps",
-    "GET /v1/account/apps/{applicationId}/secrets",
     "GET /v1/account/credits",
     "GET /v1/account/credits/funding-events/current",
     "GET /v1/account/credits/funding-events/{id}",
     "GET /v1/account/credits/ledger",
     "GET /v1/account/credits/methods",
+    "GET /v1/account/packages",
     "GET /v1/account/statement",
     "GET /v1/account/transaction-safety",
     "GET /v1/account/transaction-safety/threads/{threadId}",
@@ -69,10 +67,9 @@
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
     "PATCH /v1/agent/sessions/{sessionId}",
-    "POST /v1/account/apps/{applicationId}",
-    "POST /v1/account/apps/{applicationId}/secrets",
     "POST /v1/account/credits/funding-events",
     "POST /v1/account/credits/funding-events/{id}/cancel",
+    "POST /v1/account/packages/activate",
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
     "POST /v1/agent/chat/{sessionId}/interrupt",
@@ -118,6 +115,8 @@
     "POST /v1/task/build",
     "POST /v1/task/{quoteId}/result",
     "POST /v1/task/{quoteId}/status",
+    "PUT /v1/account/packages/{packageId}/choice",
+    "PUT /v1/account/packages/{packageId}/secrets/{slot}",
     "PUT /v1/account/transaction-safety",
     "PUT /v1/account/transaction-safety/threads/{threadId}"
   ],
@@ -3244,22 +3243,29 @@
         }
       }
     },
-    "/v1/account/apps": {
+    "/v1/account/packages": {
       "get": {
-        "operationId": "listAccountApps",
-        "description": "List available apps and exact installed state",
-        "parameters": [],
+        "operationId": "listAccountPackages",
+        "description": "Every package the chat can run, with its effective state and why",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "description": "Read as this owned thread's agent; aomi/main without it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List available apps and exact installed state",
+            "description": "Every package the chat can run, with its effective state and why",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  }
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -3276,161 +3282,29 @@
         },
         "security": [
           {
-            "aomiOAuth": ["account:apps:read"]
+            "aomiOAuth": ["account:packages:read"]
           }
         ]
       }
     },
-    "/v1/account/apps/{applicationId}": {
+    "/v1/account/packages/activate": {
       "post": {
-        "operationId": "installAccountApp",
-        "description": "Install an app after checking required user credentials",
+        "operationId": "activateAccountPackage",
+        "description": "Activate a private package with its code; the package row",
         "parameters": [
           {
-            "name": "applicationId",
-            "in": "path",
-            "required": true,
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "description": "Read as this owned thread's agent; aomi/main without it.",
             "schema": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Install an app after checking required user credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:apps:write"]
-          }
-        ]
-      },
-      "delete": {
-        "operationId": "uninstallAccountApp",
-        "description": "Remove an app installation",
-        "parameters": [
-          {
-            "name": "applicationId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Remove an app installation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:apps:write"]
-          }
-        ]
-      }
-    },
-    "/v1/account/apps/{applicationId}/secrets": {
-      "get": {
-        "operationId": "listAccountAppSecrets",
-        "description": "Read credential declarations and presence, never values",
-        "parameters": [
-          {
-            "name": "applicationId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Read credential declarations and presence, never values",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "aomiOAuth": ["account:credentials:read"]
-          }
-        ]
-      },
-      "post": {
-        "operationId": "saveAccountAppSecrets",
-        "description": "Save the authenticated account's declared credentials",
-        "parameters": [
-          {
-            "name": "applicationId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64",
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Save the authenticated account's declared credentials",
+            "description": "Activate a private package with its code; the package row",
             "content": {
               "application/json": {
                 "schema": {
@@ -3457,16 +3331,11 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["secrets"],
+                "required": ["code"],
                 "properties": {
-                  "secrets": {
-                    "type": "object",
-                    "minProperties": 1,
-                    "maxProperties": 64,
-                    "additionalProperties": {
-                      "type": "string",
-                      "writeOnly": true
-                    }
+                  "code": {
+                    "type": "string",
+                    "writeOnly": true
                   }
                 }
               }
@@ -3475,16 +3344,18 @@
         },
         "security": [
           {
-            "aomiOAuth": ["account:credentials:write"]
+            "aomiOAuth": ["account:packages:write"]
           }
         ]
-      },
-      "delete": {
-        "operationId": "clearAccountAppSecrets",
-        "description": "Remove all credentials for this account and app",
+      }
+    },
+    "/v1/account/packages/{packageId}/choice": {
+      "put": {
+        "operationId": "chooseAccountPackage",
+        "description": "Switch a package on or off for the account; the updated row",
         "parameters": [
           {
-            "name": "applicationId",
+            "name": "packageId",
             "in": "path",
             "required": true,
             "schema": {
@@ -3492,11 +3363,89 @@
               "format": "int64",
               "minimum": 1
             }
+          },
+          {
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "description": "Read as this owned thread's agent; aomi/main without it.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Remove all credentials for this account and app",
+            "description": "Switch a package on or off for the account; the updated row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["enabled"],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:packages:write"]
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "clearAccountPackageChoice",
+        "description": "Remove the account's choice; the row back at its default",
+        "parameters": [
+          {
+            "name": "packageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "description": "Read as this owned thread's agent; aomi/main without it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remove the account's choice; the row back at its default",
             "content": {
               "application/json": {
                 "schema": {
@@ -3518,18 +3467,18 @@
         },
         "security": [
           {
-            "aomiOAuth": ["account:credentials:write"]
+            "aomiOAuth": ["account:packages:write"]
           }
         ]
       }
     },
-    "/v1/account/apps/{applicationId}/secrets/{name}": {
-      "delete": {
-        "operationId": "deleteAccountAppSecret",
-        "description": "Remove one credential for this account and app",
+    "/v1/account/packages/{packageId}/secrets/{slot}": {
+      "put": {
+        "operationId": "setAccountPackageSecret",
+        "description": "Store the account's value for a person slot, never returned",
         "parameters": [
           {
-            "name": "applicationId",
+            "name": "packageId",
             "in": "path",
             "required": true,
             "schema": {
@@ -3539,7 +3488,7 @@
             }
           },
           {
-            "name": "name",
+            "name": "slot",
             "in": "path",
             "required": true,
             "schema": {
@@ -3551,7 +3500,78 @@
         ],
         "responses": {
           "200": {
-            "description": "Remove one credential for this account and app",
+            "description": "Store the account's value for a person slot, never returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["value"],
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credentials:write"]
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteAccountPackageSecret",
+        "description": "Remove the account's value for a slot",
+        "parameters": [
+          {
+            "name": "packageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remove the account's value for a slot",
             "content": {
               "application/json": {
                 "schema": {
@@ -4405,6 +4425,10 @@
                   "chain": {
                     "type": "string"
                   },
+                  "environment": {
+                    "description": "Selects the Stripe account environment for card funding. Omit to use the deployment default; wallets select their environment by network.",
+                    "enum": ["test", "production"]
+                  },
                   "method": {
                     "enum": ["card", "wallet"]
                   }
@@ -4745,12 +4769,16 @@
                       "additionalProperties": true,
                       "type": ["object", "null"]
                     },
+                    "test_card": {
+                      "additionalProperties": true,
+                      "type": ["object", "null"]
+                    },
                     "wallet": {
                       "additionalProperties": true,
                       "type": "object"
                     }
                   },
-                  "required": ["card", "wallet"],
+                  "required": ["card", "test_card", "wallet"],
                   "type": "object"
                 }
               }
@@ -4933,6 +4961,10 @@
                   },
                   "chain": {
                     "type": "string"
+                  },
+                  "environment": {
+                    "description": "Selects the Stripe account environment for card funding. Omit to use the deployment default; wallets select their environment by network.",
+                    "enum": ["test", "production"]
                   },
                   "method": {
                     "enum": ["card", "wallet"]
@@ -5274,12 +5306,16 @@
                       "additionalProperties": true,
                       "type": ["object", "null"]
                     },
+                    "test_card": {
+                      "additionalProperties": true,
+                      "type": ["object", "null"]
+                    },
                     "wallet": {
                       "additionalProperties": true,
                       "type": "object"
                     }
                   },
-                  "required": ["card", "wallet"],
+                  "required": ["card", "test_card", "wallet"],
                   "type": "object"
                 }
               }
@@ -5374,13 +5410,13 @@
         }
       },
       "IdempotencyKey": {
-        "name": "Idempotency-Key",
         "in": "header",
+        "name": "Idempotency-Key",
         "required": true,
         "schema": {
-          "type": "string",
+          "maxLength": 160,
           "minLength": 1,
-          "maxLength": 160
+          "type": "string"
         }
       },
       "PipelineOperation": {
@@ -5448,14 +5484,14 @@
     },
     "responses": {
       "Error": {
-        "description": "Stable public error",
         "content": {
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
-        }
+        },
+        "description": "Stable public error"
       },
       "PipelineDirectory": {
         "description": "Filesystem-like capability directory",
@@ -5510,10 +5546,15 @@
           "app": {
             "type": ["string", "null"]
           },
+          "agent": {
+            "type": ["string", "null"],
+            "pattern": "^[^/ ]+/[^/ ]+$",
+            "description": "The agent a new session runs as, publisher/name. A session keeps its agent: naming another is refused with thread_agent_mismatch. Unknown is 404 app_not_found; not combinable with applicationId. A browser Origin other than Aomi's portal that the agent's allowed_origins does not list is 403 origin_not_allowed."
+          },
           "mode": {
             "type": ["string", "null"],
             "enum": ["auto", "direct", null],
-            "description": "Execution policy. Omit for Auto unless app or applicationId selects a Direct target."
+            "description": "Execution policy. Omit for Auto unless app, applicationId or agent selects a Direct target."
           },
           "model": {
             "type": ["string", "null"]
@@ -7766,11 +7807,11 @@
         }
       },
       "ErrorEnvelope": {
-        "type": "object",
-        "required": ["error"],
         "properties": {
           "error": {}
-        }
+        },
+        "required": ["error"],
+        "type": "object"
       },
       "PipelineEvmAccountRequest": {
         "type": "object",
@@ -10017,7 +10058,7 @@
           "lane": {
             "type": "string",
             "enum": ["ask_aomi", "ask_client", "instant"],
-            "description": "An agent wallet's lane for the caller's connection: ask_aomi (the user approves its trades on Aomi), ask_client (the caller approves its own trades), instant (they sign at once)."
+            "description": "An agent wallet's lane for the caller's connection: ask_aomi (the user approves its trades on Aomi), ask_client (the caller approves its own trades), instant (they sign at once). Before the rename these were portal, here and instant."
           }
         }
       },
@@ -10236,10 +10277,9 @@
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
               "account:transaction-safety:read": "Read owned transaction safety preferences",
               "account:transaction-safety:write": "Update owned transaction safety preferences",
-              "account:apps:read": "Read available applications and installed state",
-              "account:apps:write": "Install and remove applications",
-              "account:credentials:read": "Read credential declarations and presence without values",
-              "account:credentials:write": "Save and remove owned application credentials",
+              "account:packages:read": "Read the package Library: each package's state and slot status, never values",
+              "account:packages:write": "Switch packages on or off and activate private packages",
+              "account:credentials:write": "Save and remove the account's own package keys",
               "mcp:agent": "Use the Agent MCP protected resource",
               "mcp:pipeline": "Use the Pipeline MCP protected resource",
               "payments:submit": "Attach a client-held payment signature"
