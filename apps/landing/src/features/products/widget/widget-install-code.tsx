@@ -211,8 +211,8 @@ function UiCode({ wallet }: { wallet: Wallet }) {
           &nbsp;&nbsp;&nbsp;&nbsp;&lt;<em>AomiWidget</em>
         </span>
         <span>
-          <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;applicationId</u>=
-          {"{process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}"}
+          <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;agent</u>=
+          {"{process.env.NEXT_PUBLIC_AOMI_AGENT}"}
         </span>
         <span>
           <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;baseUrl</u>=

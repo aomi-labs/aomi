@@ -180,7 +180,6 @@ export function MetaMaskWalletFixture() {
           <div className={styles.metaMaskChatBody}>
             <AomiFrame.Root
               backendUrl="/api/widget-fixture/wallet-compound-borrow"
-              applicationId="wallet-compound-borrow-fixture"
               accountSessionAvailable
               initialThreadId="widget-fixture-wallet-compound-borrow"
               persistThread={false}

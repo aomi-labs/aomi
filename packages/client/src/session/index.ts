@@ -1520,6 +1520,7 @@ function normalizeTarget(
   if (!target) return undefined;
   if (target.mode !== "direct") return { mode: "auto" };
   const app = normalizeOptionalString(target.app);
+  const agent = normalizeOptionalString(target.agent);
   if ("applicationId" in target && target.applicationId !== undefined) {
     if (
       !Number.isSafeInteger(target.applicationId) ||
@@ -1531,9 +1532,14 @@ function normalizeTarget(
       mode: "direct",
       applicationId: target.applicationId,
       ...(app ? { app } : {}),
+      ...(agent ? { agent } : {}),
     };
   }
-  return { mode: "direct", ...(app ? { app } : {}) };
+  return {
+    mode: "direct",
+    ...(app ? { app } : {}),
+    ...(agent ? { agent } : {}),
+  };
 }
 
 function assertTargetCompatibility(options: {
@@ -1567,19 +1573,20 @@ function startTargetFields(options: {
   target?: AgentTarget;
   app?: string;
   applicationId?: number | string | null;
-}): Pick<StartTurnIntent, "mode" | "app" | "applicationId"> {
+}): Pick<StartTurnIntent, "mode" | "app" | "applicationId"> & {
+  agent?: string;
+} {
   if (options.target?.mode === "direct") {
-    return "applicationId" in options.target &&
+    const { app, agent } = options.target;
+    return {
+      mode: "direct",
+      ...("applicationId" in options.target &&
       options.target.applicationId !== undefined
-      ? {
-          mode: "direct",
-          applicationId: options.target.applicationId,
-          ...(options.target.app ? { app: options.target.app } : {}),
-        }
-      : {
-          mode: "direct",
-          ...(options.target.app ? { app: options.target.app } : {}),
-        };
+        ? { applicationId: options.target.applicationId }
+        : {}),
+      ...(app ? { app } : {}),
+      ...(agent ? { agent } : {}),
+    };
   }
   if (options.target) return { mode: "auto" };
 

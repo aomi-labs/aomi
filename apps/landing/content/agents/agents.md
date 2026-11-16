@@ -59,7 +59,7 @@ npm install @aomi-labs/widget
 "use client";
 import { AomiWidget } from "@aomi-labs/widget";
 import "@aomi-labs/widget/styles.css";
-export default function ChatPage() { return <AomiWidget applicationId="123" />; }
+export default function ChatPage() { return <AomiWidget agent="publisher/name" />; }
 ```
 
 **Read this for the full quickstart:** https://aomi.dev/docs/guides/widget-installation.md

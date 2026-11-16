@@ -51,7 +51,6 @@ export function FixtureWidget({
       <div key={shown} className={styles.fixtureEntering}>
         <AomiFrame.Root
           backendUrl={`/api/widget-fixture/${shown}`}
-          applicationId={`widget-${scenario}-fixture`}
           accountSessionAvailable
           initialThreadId={`widget-fixture-${shown}`}
           persistThread={false}

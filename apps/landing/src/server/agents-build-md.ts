@@ -57,7 +57,7 @@ export default function AssistantPage() {
   return (
     <AomiWidget
       baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
-      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
+      agent={process.env.NEXT_PUBLIC_AOMI_AGENT}
       height="100dvh"
     />
   );

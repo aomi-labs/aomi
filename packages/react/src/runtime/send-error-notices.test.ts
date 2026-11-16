@@ -15,6 +15,18 @@ describe("send failure notices", () => {
       duration: Infinity,
     });
   });
+  it("explains a thread that belongs to another agent", () => {
+    const failure = describeSendFailure(
+      apiError(409, "thread_agent_mismatch"),
+      false,
+    );
+    expect(failure.notice).toMatchObject({
+      type: "error",
+      title: "Different agent",
+      message: expect.stringMatching(/different agent.*new conversation/),
+    });
+    expect(failure.forgetThread).toBeFalsy();
+  });
   it.each([
     [404, "app_not_found", "App not found", /doesn't exist/],
     [409, "app_inactive", "App not active", /isn't active yet/],

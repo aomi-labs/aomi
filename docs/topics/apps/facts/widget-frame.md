@@ -36,7 +36,14 @@ React chat widget and for first-party host composition.
   lists (always on, switch disabled), other verified packages, and the rest.
   A switch-on first shows the package's capability envelope once per device,
   keyed by package id and envelope hash. Person keys are entered there;
-  builder keys are only explained.
+  builder keys are only explained. "Add with code" (signed-in accounts;
+  guests see a sign-in prompt) redeems a private package code through
+  `POST /api/account/packages/activate`; the code is never stored.
+- `AomiWidget` embeds one agent: the `agent="publisher/name"` prop (default
+  `aomi/main`) is the Direct target of every new thread, sent as `agent` in the
+  start intent. A thread keeps its agent; `thread_agent_mismatch` shows a
+  notice and is never retried with another agent. There is no agent or app
+  picker and no `routing` prop.
 
 ## Layout Behavior
 
