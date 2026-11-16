@@ -150,6 +150,8 @@ export type AomiRulesEnforcement = {
   left: Record<string, string>;
   /** Why the rules cannot go on chain, or what is wrong there. */
   note: string | null;
+  /** The asset that needs a daily limit before the rules can go on chain. */
+  needs_limit: string | null;
   /** There is something to sign: the first time, or an update. */
   ready: boolean;
   /** The owner's wallet that signs; its address once the rules are on chain. */
@@ -398,6 +400,7 @@ function parseEnforcement(value: unknown): AomiRulesEnforcement {
       ]),
     ),
     note: stringValue(record?.note) ?? null,
+    needs_limit: stringValue(record?.needs_limit) ?? null,
     ready: record?.ready === true,
     signer: {
       family: family(signer?.family),

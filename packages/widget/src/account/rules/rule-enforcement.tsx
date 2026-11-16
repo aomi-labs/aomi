@@ -88,6 +88,7 @@ export function RuleEnforcement({
   entry,
   onRules,
   onStale,
+  onAddLimit,
   retryDelayMs = 2_000,
 }: {
   client: RulesClient;
@@ -98,6 +99,8 @@ export function RuleEnforcement({
   onRules: (rules: AomiWalletRules) => void;
   /** A step failed, so what is shown may be out of date. */
   onStale: () => void;
+  /** Open the limit form on the asset the provider needs a limit for. */
+  onAddLimit: (asset: string) => void;
   retryDelayMs?: number;
 }) {
   const kit = useAomiWalletKit();
@@ -157,6 +160,7 @@ export function RuleEnforcement({
   };
 
   const bound = entry.state !== "off";
+  const { needs_limit: needsLimit } = entry;
   return (
     <>
       <ListRow
@@ -176,7 +180,7 @@ export function RuleEnforcement({
               (bound
                 ? `${entry.name} checks every trade, even if Aomi is wrong. Your wallet is its only admin.`
                 : `Have ${entry.name} check these rules too. Your wallet signs once and stays its only admin.`)}
-            {canSign
+            {canSign || needsLimit
               ? null
               : ` Connect ${
                   owner && owner !== connected
@@ -204,6 +208,10 @@ export function RuleEnforcement({
                 onClick={() => void run(false)}
               >
                 {bound ? "Update" : "Turn on"}
+              </AomiButton>
+            ) : needsLimit ? (
+              <AomiButton size="sm" onClick={() => onAddLimit(needsLimit)}>
+                Add limit
               </AomiButton>
             ) : null}
           </span>

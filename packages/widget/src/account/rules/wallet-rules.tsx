@@ -102,6 +102,8 @@ export function WalletRules({
   const [panel, setPanel] = useState<
     "apps" | "limit" | "admin" | "template" | null
   >(null);
+  // The token the limit form opens on, when a provider asked for its limit.
+  const [limitAsset, setLimitAsset] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped after each answered save, so a draft that had to wait shows the
@@ -109,6 +111,7 @@ export function WalletRules({
   const [epoch, setEpoch] = useState(0);
   const live = useRef(true);
   const card = useRef<HTMLDivElement>(null);
+  const limitsRow = useRef<HTMLDivElement>(null);
   // Bumped by every newer source of rules (a save, a decision, a filed
   // change), so a read that started before it cannot overwrite it.
   const version = useRef(0);
@@ -154,6 +157,10 @@ export function WalletRules({
   useEffect(() => {
     if (reviewing) card.current?.scrollIntoView?.({ block: "nearest" });
   }, [reviewing]);
+
+  useEffect(() => {
+    if (limitAsset) limitsRow.current?.scrollIntoView?.({ block: "nearest" });
+  }, [limitAsset]);
 
   const fail = (caught: unknown, fallback: string) => {
     if (!live.current) return;
@@ -491,7 +498,7 @@ export function WalletRules({
               </span>
             </div>
 
-            <div data-rule="limits">
+            <div data-rule="limits" ref={limitsRow}>
               <div className={ROW}>
                 <p className={cn(SENTENCE, "text-aomi-muted")}>
                   {limits.length
@@ -501,7 +508,10 @@ export function WalletRules({
                 <AomiButton
                   size="sm"
                   aria-expanded={panel === "limit"}
-                  onClick={() => setPanel(panel === "limit" ? null : "limit")}
+                  onClick={() => {
+                    setLimitAsset(null);
+                    setPanel(panel === "limit" ? null : "limit");
+                  }}
                 >
                   <Plus />
                   Limit
@@ -509,6 +519,8 @@ export function WalletRules({
               </div>
               {panel === "limit" ? (
                 <LimitPicker
+                  key={limitAsset}
+                  initial={limitAsset}
                   catalog={catalog}
                   onRetry={catalogFailed ? loadCatalog : undefined}
                   taken={limits.map((limit) => limit.asset)}
@@ -593,6 +605,11 @@ export function WalletRules({
               );
             }}
             onStale={() => void load()}
+            onAddLimit={(asset) => {
+              setEditing(true);
+              setLimitAsset(asset);
+              setPanel("limit");
+            }}
           />
         ))}
       </ListGroup>
@@ -915,6 +932,7 @@ function TemplatePicker({
 
 /** Pick a catalog token and its daily amount in human units. */
 function LimitPicker({
+  initial,
   catalog,
   onRetry,
   taken,
@@ -922,6 +940,8 @@ function LimitPicker({
   onCancel,
   onAdd,
 }: {
+  /** The token to start on; the first one offered when null. */
+  initial: string | null;
   catalog: AomiRulesCatalog | null;
   onRetry?: () => void;
   taken: readonly string[];
@@ -932,7 +952,7 @@ function LimitPicker({
   const tokens = (catalog?.tokens ?? []).filter(
     (token) => !taken.includes(token.asset),
   );
-  const [asset, setAsset] = useState("");
+  const [asset, setAsset] = useState(initial ?? "");
   const [draft, setDraft] = useState("");
   const token = tokens.find((entry) => entry.asset === asset) ?? tokens[0];
   const amount = token ? toBaseUnits(draft, token.decimals) : null;

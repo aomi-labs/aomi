@@ -840,6 +840,26 @@ describe("Wallet rules", () => {
     expect(within(enforcementRow()).queryByRole("button")).toBeNull();
   });
 
+  it("opens the limit form on the token a provider needs a limit for", async () => {
+    rules = body({
+      enforcement: [
+        provider({
+          ready: false,
+          note: "Add a daily SOL limit first.",
+          needs_limit: SOL,
+        }),
+      ],
+    });
+    await renderRules();
+    // Adding a limit needs no wallet, so the row does not ask for one.
+    expect(enforcementRow()).not.toHaveTextContent("Connect");
+    fireEvent.click(
+      within(enforcementRow()).getByRole("button", { name: "Add limit" }),
+    );
+    const picker = screen.getByRole("group", { name: "New limit" });
+    expect(await within(picker).findByLabelText("Token")).toHaveValue(SOL);
+  });
+
   it("offers the update when the chain is behind, only to the wallet that owns it", async () => {
     rules = body({
       enforcement: [
@@ -897,6 +917,7 @@ describe("Wallet rules", () => {
         entry={bound as never}
         onRules={done}
         onStale={() => undefined}
+        onAddLimit={() => undefined}
         retryDelayMs={0}
       />,
     );

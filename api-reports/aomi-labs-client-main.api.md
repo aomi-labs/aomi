@@ -1728,6 +1728,7 @@ export type AomiRulesEnforcement = {
     covers: AomiRulesCovers;
     left: Record<string, string>;
     note: string | null;
+    needs_limit: string | null;
     ready: boolean;
     signer: {
         family: AomiWalletFamily;
