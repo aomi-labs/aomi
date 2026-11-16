@@ -1,6 +1,8 @@
 /**
  * The release API: package releases and agent configs, published and promoted
- * by a builder. A package release is uploaded as one `application/x-tar` body;
+ * by a builder, and the builder's read models over them (its publisher's
+ * agents and packages, one agent, one package) with a package's builder
+ * secrets. A package release is uploaded as one `application/x-tar` body;
  * everything else is JSON. The manager parses and checks every upload; these
  * rows only shape the request and type the answer.
  */
@@ -60,14 +62,90 @@ export function rejectionOf(error: unknown): Rejection | null {
   }
 }
 
+export type AgentStatus = "active" | "inactive" | "needs_rebuild" | "retired";
+
+/** The builder's publisher and everything it owns: agents and packages, listed apart. */
+export type Publisher = {
+  publisher: string;
+  agents: { id: string; display_name: string; status: AgentStatus; live_config: number | null }[];
+  packages: {
+    id: string;
+    display_name: string;
+    live_release: number | null;
+    verified: boolean;
+    listed: boolean;
+    active: boolean;
+  }[];
+};
+
+/** Where a live release or config came from. */
+export type Source = { source_repo: string; commit: string; created_at: string };
+
+/** The stored agent config, as the repo's `[[agents]]` table resolved it. Every key is optional. */
+export type AgentConfig = {
+  name?: string;
+  display_name?: string;
+  description?: string;
+  voice?: string;
+  packages?: string[];
+  chains?: (string | number)[];
+  wallet?: Record<string, unknown>;
+  shortcuts?: { command: string; prompt?: string; description?: string }[];
+  model_cost?: string;
+  [key: string]: unknown;
+};
+
+export type Channel = { id: number; kind: string; external_bot_id: string; live: boolean };
+
+export type Agent = {
+  agent: { id: string; display_name: string; status: AgentStatus };
+  live: (Source & { number: number; digest: string; config: AgentConfig }) | null;
+  channels: Channel[];
+};
+
+export type SlotStatus = "set" | "missing" | "users_add_their_own";
+
+/** A secret a package declares: the builder sets its value, or each person adds their own. */
+export type SecretSlot = {
+  name: string;
+  owner: "builder" | "person";
+  description: string;
+  required: boolean;
+  status: SlotStatus;
+};
+
+export type Package = {
+  package: { id: string; display_name: string; description: string; listed: boolean; active: boolean };
+  live:
+    | (Source & {
+        release: number;
+        digest: string;
+        tools: { name: string; description: string; audience: string }[];
+        skills: { id: string; description: string }[];
+        envelope: { hash: string; hosts: string[]; transactions: unknown; signatures: unknown };
+        guards: boolean;
+        limits: Record<string, unknown>;
+      })
+    | null;
+  verified: boolean;
+  slots: SecretSlot[];
+};
+
 const PATHS = { package: ["packages", "releases"], agent: ["agents", "configs"] } as const;
+
+function named(value: string, field = "name"): string {
+  const clean = value.trim();
+  if (!clean) throw new DeployError("INVALID_REQUEST", `${field} is required`);
+  return encodeURIComponent(clean);
+}
 
 function path(kind: ReleaseKind, name: string, leaf: "list" | "promote"): string {
   const [root, list] = PATHS[kind];
-  const clean = name.trim();
-  if (!clean) throw new DeployError("INVALID_REQUEST", "name is required");
-  return `/api/${root}/${encodeURIComponent(clean)}/${leaf === "list" ? list : "promote"}`;
+  return `/api/${root}/${named(name)}/${leaf === "list" ? list : "promote"}`;
 }
+
+const secretPath = (input: { name: string; slot: string }): string =>
+  `/api/packages/${named(input.name)}/secrets/${named(input.slot, "slot")}`;
 
 /** The answer's `package` or `agent` field is its id. */
 const idOf = (kind: ReleaseKind, raw: Raw): string => String(raw[kind] ?? "");
@@ -97,6 +175,40 @@ export type PromoteReleaseInput = {
 };
 
 export const RELEASE_ENDPOINTS = {
+  getPublisher: (): ManagerRequest<Publisher> => ({
+    op: "get_publisher",
+    path: "/api/publishers/me",
+    read: (raw) => ({ publisher: String(raw.publisher ?? ""), agents: raw.agents ?? [], packages: raw.packages ?? [] }),
+  }),
+
+  getAgent: (input: { name: string }): ManagerRequest<Agent> => ({
+    op: "get_agent",
+    path: `/api/agents/${named(input.name)}`,
+    read: (raw) => ({ agent: raw.agent, live: raw.live ?? null, channels: raw.channels ?? [] }),
+  }),
+
+  getPackage: (input: { name: string }): ManagerRequest<Package> => ({
+    op: "get_package",
+    path: `/api/packages/${named(input.name)}`,
+    read: (raw) => ({ package: raw.package, live: raw.live ?? null, verified: raw.verified === true, slots: raw.slots ?? [] }),
+  }),
+
+  /** Set a builder slot's value. The value is never read back. */
+  setPackageSecret: (input: { name: string; slot: string; value: string }): ManagerRequest<{ slot: string; status: SlotStatus }> => ({
+    op: "set_package_secret",
+    method: "PUT",
+    path: secretPath(input),
+    body: { value: input.value },
+    read: (raw) => ({ slot: String(raw.slot ?? input.slot), status: raw.status }),
+  }),
+
+  clearPackageSecret: (input: { name: string; slot: string }): ManagerRequest<{ status: SlotStatus }> => ({
+    op: "clear_package_secret",
+    method: "DELETE",
+    path: secretPath(input),
+    read: (raw) => ({ status: raw.status }),
+  }),
+
   publishPackage: (input: PublishPackageInput): ManagerRequest<Published> => ({
     op: "publish_package",
     method: "POST",
