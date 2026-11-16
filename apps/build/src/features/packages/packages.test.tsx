@@ -88,6 +88,20 @@ it("tells the builder an agent carried over from an app needs a rebuild", async 
   expect(await screen.findByText(/#3 · 37be02/)).toBeInTheDocument();
 });
 
+it("names no source when the live release was published without one", async () => {
+  routes["GET /api/build/packages/trade"] = {
+    body: {
+      ...packageFixture,
+      live: { ...packageFixture.live, source_repo: null, commit: null },
+    },
+  };
+  renderWithQueries(<PackageDetailView name="trade" />);
+  expect(await screen.findByText(/no source recorded/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Edit in GitHub" }),
+  ).not.toBeInTheDocument();
+});
+
 it("says so when the live release moved before a promote", async () => {
   routes["POST /api/build/packages/trade/promote"] = {
     status: 409,

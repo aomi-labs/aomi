@@ -76,8 +76,18 @@ export const agentFixture: Agent = {
     },
   },
   channels: [
-    { id: 12, kind: "telegram", external_bot_id: "hoodit_bot", live: true },
-    { id: 13, kind: "widget", external_bot_id: "hoodit.xyz", live: false },
+    {
+      id: "4f6c2d1e-8a3b-4c5d-9e7f-0a1b2c3d4e5f",
+      kind: "telegram",
+      external_bot_id: "hoodit_bot",
+      live: true,
+    },
+    {
+      id: "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+      kind: "widget",
+      external_bot_id: "hoodit.xyz",
+      live: false,
+    },
   ],
 };
 

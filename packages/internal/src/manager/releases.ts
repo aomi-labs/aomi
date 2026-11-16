@@ -78,8 +78,8 @@ export type Publisher = {
   }[];
 };
 
-/** Where a live release or config came from. */
-export type Source = { source_repo: string; commit: string; created_at: string };
+/** Where a live release or config came from; a publish without provenance records neither. */
+export type Source = { source_repo: string | null; commit: string | null; created_at: string };
 
 /** The stored agent config: the repo's `[[agents]]` table, resolved (registry `AgentConfig`). */
 export type AgentConfig = {
@@ -107,7 +107,7 @@ export type AgentConfig = {
   shortcuts: { command: string; tool: string }[];
 };
 
-export type Channel = { id: number; kind: string; external_bot_id: string; live: boolean };
+export type Channel = { id: string; kind: string; external_bot_id: string; live: boolean };
 
 export type Agent = {
   agent: { id: string; display_name: string; status: AgentStatus };

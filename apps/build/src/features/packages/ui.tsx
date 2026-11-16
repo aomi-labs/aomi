@@ -88,28 +88,45 @@ export function repoUrl(repo: string): string {
     : `https://github.com/${repo}`;
 }
 
-/** "From aomi.toml at <sha> · Edit in GitHub": where the live release came from. */
+/**
+ * "From aomi.toml at <sha> · Edit in GitHub": where the live release came
+ * from. A publish without provenance records no repo or commit; the strip
+ * then drops the sha, and without a repo says so in place of the link.
+ */
 export function SourceStrip({
   repo,
   commit,
   file = "aomi.toml",
 }: {
-  repo: string;
-  commit: string;
+  repo: string | null;
+  commit: string | null;
   file?: string;
 }) {
   return (
     <p className="text-dim text-[13px]">
-      From <span className="font-mono">{file}</span> at{" "}
-      <span className="text-foreground font-mono">{commit.slice(0, 7)}</span> ·{" "}
-      <a
-        href={`${repoUrl(repo)}/blob/${commit}/${file}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-foreground font-medium hover:underline"
-      >
-        Edit in GitHub
-      </a>
+      From <span className="font-mono">{file}</span>
+      {commit ? (
+        <>
+          {" "}
+          at{" "}
+          <span className="text-foreground font-mono">
+            {commit.slice(0, 7)}
+          </span>
+        </>
+      ) : null}{" "}
+      ·{" "}
+      {repo ? (
+        <a
+          href={`${repoUrl(repo)}/blob/${commit ?? "HEAD"}/${file}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground font-medium hover:underline"
+        >
+          Edit in GitHub
+        </a>
+      ) : (
+        "no source recorded"
+      )}
     </p>
   );
 }
