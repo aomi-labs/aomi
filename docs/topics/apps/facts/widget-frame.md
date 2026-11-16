@@ -31,6 +31,12 @@ React chat widget and for first-party host composition.
 - Portal imports reusable account, settings, usage, and Library UI through
   `@aomi-labs/widget/host-composition`. It must not reach into private
   `packages/widget/src` paths.
+- The Library (`packages/widget/src/library/`) lists package rows from
+  `GET /api/account/packages` in three groups: packages the thread's agent
+  lists (always on, switch disabled), other verified packages, and the rest.
+  A switch-on first shows the package's capability envelope once per device,
+  keyed by package id and envelope hash. Person keys are entered there;
+  builder keys are only explained.
 
 ## Layout Behavior
 

@@ -222,7 +222,7 @@ export type {
 } from "./sdk/thread";
 export {
   AomiAccount,
-  AomiAccountApps,
+  AomiAccountPackages,
   AomiAccountWallets,
   AomiGuard,
 } from "./sdk/account";
@@ -302,10 +302,14 @@ export type {
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
-  AomiClearAppSecretsResponse,
-  AomiUserAppSecretSlot,
-  AomiUserAppSecrets,
-  AomiAccountAppMutationResponse,
+  AomiPackage,
+  AomiPackageCatalog,
+  AomiPackageEnvelope,
+  AomiPackageFamily,
+  AomiPackageReason,
+  AomiPackageSecretStatus,
+  AomiPackageSignature,
+  AomiPackageSlot,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,

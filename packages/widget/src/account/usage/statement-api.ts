@@ -8,7 +8,7 @@
  * month/app view while amounts are still integer micro-USD.
  */
 
-import type { AomiAccount } from "@aomi-labs/client";
+import type { AomiAccount, AomiPackageCatalog } from "@aomi-labs/client";
 import type { AppUsageEntry, MonthlyStatement } from "./types";
 
 type FundingKind = "platform" | "user_key" | "builder_key";
@@ -96,7 +96,7 @@ export async function fetchMonthlyStatement(
 ): Promise<MonthlyStatement> {
   const rows = await fetchStatementCharges(monthKey, account);
   const names = rows.some((row) => row.applicationId !== null)
-    ? await account.apps
+    ? await account.packages
         .list()
         .then(applicationNamesFrom)
         .catch(() => new Map<number, string>())
@@ -104,22 +104,13 @@ export async function fetchMonthlyStatement(
   return buildMonthlyStatement(monthKey, rows, names);
 }
 
-/** Application ids → display names, from the account's app rows. */
+/** Charge ids → display names, from the Library's package rows. */
 export function applicationNamesFrom(
-  apps: readonly { applicationId?: number | string | null; name: string }[],
+  catalog: AomiPackageCatalog,
 ): Map<number, string> {
-  const names = new Map<number, string>();
-  for (const app of apps) {
-    const id = Number(app.applicationId);
-    if (
-      app.applicationId !== null &&
-      app.applicationId !== undefined &&
-      Number.isSafeInteger(id) &&
-      app.name.trim()
-    )
-      names.set(id, app.name.trim());
-  }
-  return names;
+  return new Map(
+    catalog.packages.map((row) => [row.package_id, row.display_name]),
+  );
 }
 
 /** The month/app view of parsed charges. Unnamed apps fall back to their id. */

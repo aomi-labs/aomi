@@ -30,11 +30,6 @@ function backend(routes: Record<string, (body: unknown) => Response>) {
   };
 }
 
-const apps = [
-  { name: "polymarket", application_id: 7, is_installed: false },
-  { name: "lifi", application_id: 9, is_installed: true },
-];
-
 describe("aomi.account", () => {
   it("reads the profile and the wallets, and an agent wallet's balances", async () => {
     const { aomi, calls } = backend({
@@ -81,33 +76,47 @@ describe("aomi.account", () => {
     );
   });
 
-  it("installs an app by name and sets its credential", async () => {
+  it("reads, switches and connects packages on the contract paths", async () => {
+    const row = { package_id: 9003, id: "aomi/jupiter", enabled: true };
     const { aomi, calls } = backend({
-      "GET /v1/account/apps": () => Response.json(apps),
-      "POST /v1/account/apps/7": () =>
-        Response.json({
-          application_id: 7,
-          app: "polymarket",
-          installed: true,
-          apps: ["lifi", "polymarket"],
-        }),
-      "POST /v1/account/apps/7/secrets": () => Response.json({ slots: [] }),
+      "GET /api/account/packages": () =>
+        Response.json({ agent: { id: "aomi/main" }, packages: [row] }),
+      "PUT /api/account/packages/9003/choice": () => Response.json(row),
+      "DELETE /api/account/packages/9003/choice": () => Response.json(row),
+      "PUT /api/account/packages/9003/secrets/JUP_KEY": () =>
+        Response.json({ slot: "JUP_KEY", status: "ready" }),
+      "DELETE /api/account/packages/9003/secrets/JUP_KEY": () =>
+        Response.json({ status: "missing" }),
+      "PUT /api/account/packages/7/choice": () =>
+        Response.json({ error: "agent_listed" }, { status: 409 }),
     });
 
+    const catalog = await aomi.account.packages.list({ threadId: "t 1" });
+    expect(catalog.packages).toEqual([row]);
+    await aomi.account.packages.setChoice(9003, false);
+    await aomi.account.packages.clearChoice(9003);
     await expect(
-      aomi.account.apps.install("polymarket"),
-    ).resolves.toMatchObject({ installed: true });
-    await aomi.account.apps.credentials("polymarket").set("API_KEY", "k");
-    expect(calls.filter((call) => call.method === "POST")).toEqual([
-      expect.objectContaining({ path: "/v1/account/apps/7", csrf: true }),
-      expect.objectContaining({
-        path: "/v1/account/apps/7/secrets",
-        body: { secrets: { API_KEY: "k" } },
-        csrf: true,
-      }),
+      aomi.account.packages.setSecret(9003, "JUP_KEY", "v"),
+    ).resolves.toEqual({ slot: "JUP_KEY", status: "ready" });
+    await expect(
+      aomi.account.packages.clearSecret(9003, "JUP_KEY"),
+    ).resolves.toEqual({ status: "missing" });
+    expect(
+      calls.map(({ method, path, body, csrf }) => [method, path, body, csrf]),
+    ).toEqual([
+      ["GET", "/api/account/packages?thread_id=t%201", undefined, false],
+      ["PUT", "/api/account/packages/9003/choice", { enabled: false }, true],
+      ["DELETE", "/api/account/packages/9003/choice", undefined, true],
+      [
+        "PUT",
+        "/api/account/packages/9003/secrets/JUP_KEY",
+        { value: "v" },
+        true,
+      ],
+      ["DELETE", "/api/account/packages/9003/secrets/JUP_KEY", undefined, true],
     ]);
-    await expect(aomi.account.apps.install("nope")).rejects.toSatisfy((error) =>
-      isAomiError(error, "app_not_found"),
+    await expect(aomi.account.packages.setChoice(7, false)).rejects.toSatisfy(
+      (error) => error instanceof AccountGraphApiError && error.status === 409,
     );
   });
 

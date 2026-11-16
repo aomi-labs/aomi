@@ -363,51 +363,79 @@ export interface AomiListSecretsResponse {
   by_app?: Record<string, string[]>;
 }
 
-/**
- * One declared slot of an app together with the signed-in user's own
- * configuration state. Values never come back from the backend.
- *
- * `GET|POST /api/account/apps/:application_id/secrets`
- */
-export interface AomiUserAppSecretSlot {
+/** Why a package is on or off for the next turn (`GET /api/account/packages`). */
+export type AomiPackageReason =
+  | "agent_listed"
+  | "verified_default"
+  | "chosen_on"
+  | "chosen_off"
+  | "off_by_default";
+
+/** A chain family a package works on. */
+export type AomiPackageFamily = "evm" | "svm";
+
+/** A secret slot of the live release: its owner and whether it holds a value. Never the value. */
+export interface AomiPackageSlot {
   name: string;
+  /** `person`: each account adds its own; `builder`: the publisher sets it. */
+  owner: "person" | "builder";
   description: string;
   required: boolean;
-  /** This slot accepts a value owned by the signed-in user. */
-  user_own: boolean;
-  /** The current account stored its own value for this slot. */
-  configured: boolean;
-  /**
-   * Retained in the response contract; always false for user-owned slots.
-   * A user-owned credential never falls back to a Builder credential.
-   */
-  app_provided: boolean;
+  status: "ready" | "missing";
 }
 
-/** The per-user key set for one application. */
-export interface AomiUserAppSecrets {
-  application_id: number;
-  app: string;
-  slots: AomiUserAppSecretSlot[];
-  /** Every required user-owned slot currently has a saved value. */
-  ready: boolean;
-  /** Required slot names that still need a value. Values are never returned. */
-  missing_required: string[];
+/** A typed-data or message signature the package may ask for. */
+export interface AomiPackageSignature {
+  kind: "evm-typed-data" | "evm-message" | "svm-message";
+  domains: { chain_id: number; verifying_contract: string }[];
+  primary_types: string[];
 }
 
-/** POST|DELETE /api/account/apps/:application_id */
-export interface AomiAccountAppMutationResponse {
-  application_id: number;
-  app: string;
-  installed: boolean;
-  /** Legacy runtime-name projection after the atomic mutation. */
-  apps: string[];
+/** What the live release may reach; `hash` identifies it. */
+export interface AomiPackageEnvelope {
+  hash: string;
+  hosts: string[];
+  /** Families it may ask the person to approve transactions on. */
+  transactions: AomiPackageFamily[];
+  signatures: AomiPackageSignature[];
 }
 
-/** DELETE /api/account/apps/:application_id/secrets */
-export interface AomiClearAppSecretsResponse {
-  cleared: boolean;
-  removed: number;
+/** One Library row: a package with a live release and this account's effective state. */
+export interface AomiPackage {
+  package_id: number;
+  /** `publisher/name`. */
+  id: string;
+  display_name: string;
+  description: string;
+  icon_url: string | null;
+  families: AomiPackageFamily[];
+  tool_count: number;
+  skills: { id: string; description: string }[];
+  live: { release: number; digest: string };
+  /** The live envelope is within the approved one. */
+  verified: boolean;
+  listed: boolean;
+  /** The agent lists it: always on, the switch is disabled. */
+  agent_listed: boolean;
+  /** The person's explicit choice; `null` means none. */
+  choice: boolean | null;
+  /** Effective state used by the runtime at the next turn. */
+  enabled: boolean;
+  reason: AomiPackageReason;
+  envelope: AomiPackageEnvelope;
+  slots: AomiPackageSlot[];
+}
+
+/** `GET /api/account/packages`: the thread's agent and every package row. */
+export interface AomiPackageCatalog {
+  agent: { id: string; display_name: string };
+  packages: AomiPackage[];
+}
+
+/** `PUT|DELETE /api/account/packages/:package_id/secrets/:slot` */
+export interface AomiPackageSecretStatus {
+  slot?: string;
+  status: "ready" | "missing";
 }
 
 /**

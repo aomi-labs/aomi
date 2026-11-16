@@ -1,47 +1,52 @@
 import { readFileSync } from "node:fs";
-import { resolveAppIdentity } from "@aomi-labs/client";
+import type { Aomi } from "@aomi-labs/client";
 import { connect, json, out, usage, type ConnectFlags } from "../context";
-import { loadState } from "../state";
 
 type Flags = ConnectFlags & { json?: boolean };
 
-/** An app by name, or by its numeric id (`aomi apps list --json` shows it). */
-const appRef = (app: string) => (/^\d+$/.test(app) ? Number(app) : app);
+/** A package by `publisher/name`, or by its numeric id (`--json` shows it). */
+async function packageRow(aomi: Aomi, ref: string) {
+  const { packages } = await aomi.account.packages.list();
+  const row = packages.find((entry) =>
+    /^\d+$/.test(ref) ? entry.package_id === Number(ref) : entry.id === ref,
+  );
+  if (!row) throw usage(`No package ${ref}`);
+  return row;
+}
 
-/** `aomi apps`: every app the account can use. */
+/** `aomi apps`: every package in the Library, with whether it is on. */
 export async function list(flags: Flags): Promise<void> {
   const aomi = await connect(flags);
-  const apps = await aomi.account.apps.list();
-  if (flags.json) return apps.forEach(json);
-  // Shown as in the app; the name is what the other commands take.
-  for (const app of apps)
-    out(
-      `${resolveAppIdentity(app).displayName.padEnd(22)} ${app.name}${app.isInstalled ? "  installed" : ""}`,
-    );
+  const { packages } = await aomi.account.packages.list();
+  if (flags.json) return packages.forEach(json);
+  for (const row of packages)
+    out(`${row.display_name.padEnd(22)} ${row.id}${row.enabled ? "  on" : ""}`);
 }
 
 export async function install(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const result = await aomi.account.apps.install(appRef(name));
+  const row = await packageRow(aomi, name);
+  const result = await aomi.account.packages.setChoice(row.package_id, true);
   if (flags.json) return json(result);
-  out(`Installed ${result.app}`);
+  out(`${result.display_name} is on`);
 }
 
 export async function uninstall(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const result = await aomi.account.apps.uninstall(appRef(name));
+  const row = await packageRow(aomi, name);
+  const result = await aomi.account.packages.setChoice(row.package_id, false);
   if (flags.json) return json(result);
-  out(`Uninstalled ${result.app}`);
+  out(`${result.display_name} is off`);
 }
 
-/** The credential slots an app declares (never their values). */
+/** The package's key slots and whether each has a value (never the value). */
 export async function credentials(flags: Flags, name: string): Promise<void> {
   const aomi = await connect(flags);
-  const status = await aomi.account.apps.credentials(appRef(name)).list();
-  if (flags.json) return json(status);
-  for (const slot of status.slots)
+  const row = await packageRow(aomi, name);
+  if (flags.json) return json(row.slots);
+  for (const slot of row.slots)
     out(
-      `${slot.name}  ${slot.configured ? "set" : slot.required ? "missing" : "optional"}  ${slot.description}`,
+      `${slot.name}  ${slot.owner === "builder" ? "set by the builder" : slot.status}  ${slot.description}`,
     );
 }
 
@@ -53,13 +58,14 @@ export async function setCredential(
 ): Promise<void> {
   const value = await readSecret(`${key}: `);
   const aomi = await connect(flags);
-  const status = await aomi.account.apps
-    .credentials(appRef(name))
-    .set(key, value);
-  if (flags.json) return json(status);
-  out(
-    `${key} set${status.ready ? "" : `; still missing ${status.missing_required.join(", ")}`}`,
+  const row = await packageRow(aomi, name);
+  const status = await aomi.account.packages.setSecret(
+    row.package_id,
+    key,
+    value,
   );
+  if (flags.json) return json(status);
+  out(`${key} set`);
 }
 
 export async function removeCredential(
@@ -68,7 +74,8 @@ export async function removeCredential(
   key: string,
 ): Promise<void> {
   const aomi = await connect(flags);
-  await aomi.account.apps.credentials(appRef(name)).remove(key);
+  const row = await packageRow(aomi, name);
+  await aomi.account.packages.clearSecret(row.package_id, key);
   out(`${key} removed`);
 }
 

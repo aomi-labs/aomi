@@ -101,8 +101,6 @@ export function useAccountOverviewStore() {
   const { cache, query, userId } = useProfileQuery();
   return useMemo(() => {
     const key = cache?.key("profile");
-    const read = () =>
-      key ? cache?.client.getQueryData<AccountOverview>(key) : undefined;
     const write = (data: AccountOverview) => {
       if (key && userId && data.user.user_id === userId)
         cache?.client.setQueryData(key, data);
@@ -113,22 +111,6 @@ export function useAccountOverviewStore() {
         if (!key || !userId) return;
         if (data) write(data);
         else void cache?.client.resetQueries({ queryKey: key, exact: true });
-      },
-      updateAccountApps: (
-        accountUserId: string,
-        apps: string[],
-        applicationIds?: number[],
-      ) => {
-        const current = read();
-        if (current?.user.user_id !== accountUserId) return;
-        write({
-          ...current,
-          user: {
-            ...current.user,
-            apps,
-            application_ids: applicationIds ?? current.user.application_ids,
-          },
-        });
       },
       loadOnce: (): Promise<void> =>
         cache && query.enabled

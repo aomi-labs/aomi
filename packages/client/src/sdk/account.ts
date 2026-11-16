@@ -10,20 +10,17 @@ import {
   type AomiAccountWallet,
   type AomiThreadWallet,
 } from "../account/wallets";
-import { normalizeAppDescriptor } from "../app-descriptor";
 import {
   TransactionSafetyTransport,
   type TransactionSafetyMode,
   type TransactionSafetyPolicy,
 } from "../transaction-safety";
 import type {
-  AomiAccountAppMutationResponse,
-  AomiAppDescriptor,
-  AomiClearAppSecretsResponse,
-  AomiDeleteSecretResponse,
   AomiHttpMethod,
+  AomiPackage,
+  AomiPackageCatalog,
+  AomiPackageSecretStatus,
   AomiRequestOptions,
-  AomiUserAppSecrets,
 } from "../types";
 
 type RequestResponse = (
@@ -67,73 +64,68 @@ export class AomiAccountWallets extends AccountWalletsTransport {
 
 type AccountRequest = <T>(path: string, init: RequestInit) => Promise<T>;
 
-/** An app by name, or by its application id. */
-type AppRef = string | number;
-
-/** Installed apps by name, and each app's per-account credentials. */
-export class AomiAccountApps {
+/**
+ * The Library: every listed package with a live release and this account's
+ * effective state for the thread's agent, the person's on/off choice, and the
+ * person's own keys for a package's slots (status only, never values).
+ */
+export class AomiAccountPackages {
   constructor(private readonly request: AccountRequest) {}
 
-  /** Every app the account can see, with `isInstalled`. */
-  async list(
-    options: { signal?: AbortSignal } = {},
-  ): Promise<AomiAppDescriptor[]> {
-    const rows = await this.request<unknown>("/v1/account/apps", {
+  /** The rows for `threadId`'s agent, or for `aomi/main` without a thread. */
+  list(
+    options: { threadId?: string; signal?: AbortSignal } = {},
+  ): Promise<AomiPackageCatalog> {
+    const query = options.threadId
+      ? `?thread_id=${encodeURIComponent(options.threadId)}`
+      : "";
+    return this.request(`/api/account/packages${query}`, {
       method: "GET",
       signal: options.signal,
     });
-    return (Array.isArray(rows) ? rows : []).flatMap(
-      (row) => normalizeAppDescriptor(row) ?? [],
-    );
   }
 
-  async install(app: AppRef): Promise<AomiAccountAppMutationResponse> {
-    return this.request(await this.path(app), { method: "POST" });
+  /** Switch a package on or off; an agent-listed package refuses off (409). */
+  setChoice(packageId: number, enabled: boolean): Promise<AomiPackage> {
+    return this.request(`${packagePath(packageId)}/choice`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
   }
 
-  async uninstall(app: AppRef): Promise<AomiAccountAppMutationResponse> {
-    return this.request(await this.path(app), { method: "DELETE" });
+  /** Drop the person's choice; the row goes back to its default. */
+  clearChoice(packageId: number): Promise<AomiPackage> {
+    return this.request(`${packagePath(packageId)}/choice`, {
+      method: "DELETE",
+    });
   }
 
-  /** The credential slots `app` declares (never their values), and setting them. */
-  credentials(app: AppRef) {
-    const secrets = async () => `${await this.path(app)}/secrets`;
-    const save = async (
-      values: Record<string, string>,
-    ): Promise<AomiUserAppSecrets> =>
-      this.request(await secrets(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secrets: values }),
-      });
-    return {
-      list: async (): Promise<AomiUserAppSecrets> =>
-        this.request(await secrets(), { method: "GET" }),
-      set: (key: string, value: string) => save({ [key]: value }),
-      /** Set several slots at once; the others stay as they are. */
-      save,
-      remove: async (key: string): Promise<AomiDeleteSecretResponse> =>
-        this.request(`${await secrets()}/${encodeURIComponent(key)}`, {
-          method: "DELETE",
-        }),
-      /** Remove every value the account stored for the app. */
-      clear: async (): Promise<AomiClearAppSecretsResponse> =>
-        this.request(await secrets(), { method: "DELETE" }),
-    };
+  /** Store the person's own value for a `person` slot of the live release. */
+  setSecret(
+    packageId: number,
+    slot: string,
+    value: string,
+  ): Promise<AomiPackageSecretStatus> {
+    return this.request(secretPath(packageId, slot), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
   }
 
-  /** `/v1/account/apps/:id` takes the application id, so look a name up. */
-  private async path(app: AppRef): Promise<string> {
-    const id =
-      typeof app === "number"
-        ? app
-        : (await this.list()).find((entry) => entry.name === app)
-            ?.applicationId;
-    if (id == null)
-      throw new AomiError("app_not_found", `No app named ${app}`, 404);
-    return `/v1/account/apps/${encodeURIComponent(String(id))}`;
+  clearSecret(
+    packageId: number,
+    slot: string,
+  ): Promise<AomiPackageSecretStatus> {
+    return this.request(secretPath(packageId, slot), { method: "DELETE" });
   }
 }
+
+const packagePath = (packageId: number) =>
+  `/api/account/packages/${encodeURIComponent(String(packageId))}`;
+const secretPath = (packageId: number, slot: string) =>
+  `${packagePath(packageId)}/secrets/${encodeURIComponent(slot)}`;
 
 /** Transaction safety, for the account or one thread. */
 export class AomiGuard {
@@ -174,7 +166,7 @@ export class AomiGuard {
  */
 export class AomiAccount extends AccountTransport {
   declare readonly wallets: AomiAccountWallets;
-  readonly apps: AomiAccountApps;
+  readonly packages: AomiAccountPackages;
   readonly guard: AomiGuard;
   /** The sign-in methods linked to the account. */
   readonly logins: {
@@ -189,7 +181,9 @@ export class AomiAccount extends AccountTransport {
   constructor(requestResponse: RequestResponse) {
     super(requestResponse);
     this.wallets = new AomiAccountWallets(requestResponse);
-    this.apps = new AomiAccountApps((path, init) => this.request(path, init));
+    this.packages = new AomiAccountPackages((path, init) =>
+      this.request(path, init),
+    );
     this.guard = new AomiGuard(new TransactionSafetyTransport(requestResponse));
     this.logins = {
       list: async () => (await this.getAccount()).linkedAccounts,

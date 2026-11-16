@@ -199,34 +199,6 @@ describe("ControlContextProvider", () => {
     });
   });
 
-
-  it("routes per-user app secrets through the account's app credentials", async () => {
-    const emptySlots = { application_id: 42, app: "okx", slots: [] };
-    const credentials = {
-      list: vi.fn(async () => emptySlots),
-      save: vi.fn(async () => emptySlots),
-      remove: vi.fn(async () => ({ deleted: true })),
-      clear: vi.fn(async () => undefined),
-    };
-    const credentialsFor = vi.fn(() => credentials);
-    const { getControl } = renderControlContext({}, undefined, {
-      apps: { credentials: credentialsFor },
-    });
-
-    await act(async () => {
-      await getControl().listAppSecrets(42);
-      await getControl().saveAppSecrets(42, { OKX_API_KEY: "key" });
-      expect(await getControl().deleteAppSecret(42, "OKX_API_KEY")).toBe(true);
-      await getControl().clearAppSecrets(42);
-    });
-
-    expect(credentialsFor).toHaveBeenCalledWith(42);
-    expect(credentials.list).toHaveBeenCalledOnce();
-    expect(credentials.save).toHaveBeenCalledWith({ OKX_API_KEY: "key" });
-    expect(credentials.remove).toHaveBeenCalledWith("OKX_API_KEY");
-    expect(credentials.clear).toHaveBeenCalledOnce();
-  });
-
   it("remembers a manually selected model for fresh threads", async () => {
     const threadMetadata = createThreadMetadata();
     const setModel = vi.fn(async () => ({}));
@@ -337,7 +309,9 @@ describe("ControlContextProvider", () => {
       modelMode: "manual",
     });
     expect(
-      JSON.parse(createScopedStorage({ backendUrl: "" }).get("modelSelection")!),
+      JSON.parse(
+        createScopedStorage({ backendUrl: "" }).get("modelSelection")!,
+      ),
     ).toEqual({ mode: "manual", model: preferred });
   });
 

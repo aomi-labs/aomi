@@ -1,11 +1,12 @@
 "use client";
 
-import { usePrivateApps } from "@aomi-labs/react";
-import { useShellAomi } from "@/account/transport";
+import type { AomiPackage, AomiPackageFamily } from "@aomi-labs/client";
+import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library } from "lucide-react";
+import { useShellAomi } from "@/account/transport";
+import { useAccountOverview } from "@/account/account-overview";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
-import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
 import {
   ModalNav,
@@ -14,35 +15,23 @@ import {
   ModalSidebar,
 } from "@/ui/aomi/modal-shell";
 import { SectionHeader } from "@/ui/aomi/section-header";
-import { requestCapabilityMention } from "@/composer/capability-composer/model";
-import {
-  useSkillCatalog,
-  type SkillSummary,
-} from "@/composer/capabilities/skill-catalog";
-import {
-  useAccountOverviewStore,
-  useAccountOverview,
-} from "@/account/account-overview";
 import { LibraryDetailPanel } from "./library-detail-panel";
-import {
-  packageIdentityKey,
-  PINNED_APPS,
-  type CatalogPackage,
-} from "./packages-catalog";
+import { PackageNotice } from "./package-notice";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
+  FAMILIES,
+  GROUP_TITLES,
   NAV_ITEMS,
-  CATEGORIES,
-  selectionKey,
-  selectionIsOfficial,
-  useLibraryEntries,
+  explainMutationError,
+  groupPackages,
+  inView,
+  markNoticeSeen,
+  matches,
+  noticeSeen,
   type LibraryView,
 } from "./model";
 import { CatalogRow } from "./catalog-row";
-import { AddPrivateAppDialog } from "./add-private-app-dialog";
 import { SearchField, EmptyList } from "./navigation";
-
-export { inferLibraryCategory } from "./model";
 
 interface PackagesModalProps {
   onClose: () => void;
@@ -50,115 +39,75 @@ interface PackagesModalProps {
 
 export function PackagesModal({ onClose }: PackagesModalProps) {
   const aomi = useShellAomi();
-  const privateApps = usePrivateApps();
-  const { updateAccountApps } = useAccountOverviewStore();
-  const walletKit = useAomiWalletKit();
-  // The networks this host routes to (what the network showcase lists), not
-  // the wallet's current chain: installing needs only the application id.
-  const hostChains =
-    walletKit.supportedNetworks?.evm ?? walletKit.supportedChains;
-  const hostChainIds = useMemo(
-    () => (hostChains ?? []).map((chain) => chain.id),
-    [hostChains],
-  );
-  const account = useAccountOverview();
+  const accountUserId = useAccountOverview()?.user.user_id;
+  const threadId = useOptionalAomiRuntime()?.currentThreadId;
   const {
     catalog,
-    error: catalogError,
-    retry: retryApps,
-  } = usePackageCatalog(account?.user.user_id);
-  const {
-    skills,
-    error: skillsError,
-    retry: retrySkills,
-    loading: skillsLoading,
-  } = useSkillCatalog();
-  const [privateAppOpen, setPrivateAppOpen] = useState(false);
-  const [view, setView] = useState<LibraryView>("discover");
+    error: loadError,
+    refetch,
+  } = usePackageCatalog(accountUserId, threadId);
+  const [view, setView] = useState<LibraryView>("all");
+  const [family, setFamily] = useState<AomiPackageFamily | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const desktop = useDesktopLayout();
-  // Leaving the detail discards its unsaved drafts; selecting never remounts.
-  const [detailVisit, setDetailVisit] = useState(0);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const mutationInFlight = useRef(false);
+  const [noticeRow, setNoticeRow] = useState<AomiPackage | null>(null);
+  const desktop = useDesktopLayout();
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const accountUserId = account?.user.user_id;
-  const installedReady = catalog !== null && accountUserId != null;
-  const installedIds = useMemo(() => {
-    const ids = new Set(
-      (catalog ?? [])
-        .filter((app) => app.installed || app.pinned)
-        .map(packageIdentityKey),
-    );
-    for (const pinned of PINNED_APPS) ids.add(`name:${pinned}`);
-    return ids;
-  }, [catalog]);
+  const signedIn = accountUserId != null;
+  const agent = catalog?.agent.display_name ?? "Your agent";
+  const rows = useMemo(() => catalog?.packages ?? [], [catalog]);
+  const groups = useMemo(
+    () =>
+      groupPackages(
+        rows.filter((row) => matches(row, { view, family, query })),
+      ),
+    [rows, view, family, query],
+  );
+  const visible = groups.flatMap((group) => group.rows);
+  const selected =
+    visible.find((row) => row.package_id === selectedId) ?? visible[0] ?? null;
 
-  const mutateInstalled = useCallback(
-    async (app: CatalogPackage, install: boolean) => {
-      if (!installedReady || !accountUserId || mutationInFlight.current)
-        return false;
-      if (app.applicationId == null) {
-        setActionError("This app does not expose an installable identity.");
-        return false;
-      }
-      const packageId = packageIdentityKey(app);
-      mutationInFlight.current = true;
-      setBusyId(packageId);
+  /** Run one mutation, then read the rows again; errors stay in place. */
+  const mutate = useCallback(
+    async (row: AomiPackage, change: () => Promise<unknown>) => {
+      if (busyId !== null) return false;
+      setBusyId(row.package_id);
       setActionError(null);
       try {
-        const result = install
-          ? await aomi.account.apps.install(Number(app.applicationId))
-          : await aomi.account.apps.uninstall(Number(app.applicationId));
-        const previousIds = account?.user.application_ids ?? [];
-        const applicationId = Number(result.application_id);
-        const applicationIds = install
-          ? [...new Set([...previousIds, applicationId])]
-          : previousIds.filter((id) => id !== applicationId);
-        updateAccountApps(accountUserId, result.apps, applicationIds);
-        if (!install) privateApps.remove(app.applicationId);
-        retryApps();
+        await change();
+        await refetch();
         return true;
       } catch (cause) {
-        setActionError(
-          cause instanceof Error ? cause.message : "Couldn’t update apps",
-        );
+        setActionError(explainMutationError(cause, agent));
         return false;
       } finally {
-        mutationInFlight.current = false;
         setBusyId(null);
       }
     },
-    [
-      account?.user.application_ids,
-      accountUserId,
-      installedReady,
-      retryApps,
-      aomi,
-      updateAccountApps,
-      privateApps.remove,
-    ],
+    [agent, busyId, refetch],
   );
 
-  const install = (app: CatalogPackage) => {
-    return mutateInstalled(app, true);
+  const setChoice = (row: AomiPackage, enabled: boolean) =>
+    void mutate(row, () =>
+      aomi.account.packages.setChoice(row.package_id, enabled),
+    );
+  const toggle = (row: AomiPackage, enabled: boolean) => {
+    if (enabled && !noticeSeen(row)) setNoticeRow(row);
+    else setChoice(row, enabled);
   };
-  const uninstall = (app: CatalogPackage) => {
-    void mutateInstalled(app, false);
-  };
-  const trySkill = (skill: SkillSummary) => {
-    requestCapabilityMention({ kind: "skill", id: skill.id });
-    onClose();
+  const open = (row: AomiPackage) => {
+    setSelectedId(row.package_id);
+    setMobileDetailOpen(true);
   };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (privateAppOpen) return;
+      if (noticeRow) return;
       if (event.key === "Escape") {
         onClose();
         return;
@@ -176,36 +125,19 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, privateAppOpen]);
+  }, [onClose, noticeRow]);
 
-  const {
-    appEntries,
-    skillEntries,
-    allEntries,
-    categoryCounts,
-    visible,
-    listTitle,
-  } = useLibraryEntries({ catalog, skills, installedIds, query, view });
-
-  const activeSelection =
-    visible.find((entry) => selectionKey(entry) === selectedKey) ??
-    visible[0] ??
-    null;
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0;
-  }, [view, query]);
-  const selectedInstalled =
-    activeSelection?.kind === "app" &&
-    installedIds.has(packageIdentityKey(activeSelection.item));
-  // Apps and skills appear together: every count and list waits for both.
-  const loading =
-    (catalog === null && !catalogError) || (skillsLoading && !skillsError);
-  const loadError =
-    view === "apps" || view === "installed"
-      ? catalogError
-      : view === "skills"
-        ? skillsError
-        : (catalogError ?? skillsError);
+  }, [view, family, query]);
+
+  const loading = catalog === null && !loadError;
+  const count = (predicate: (row: AomiPackage) => boolean) =>
+    loading ? ("loading" as const) : rows.filter(predicate).length;
+  const pick = (next: () => void) => {
+    next();
+    setSelectedId(null);
+  };
 
   return (
     <ModalShell
@@ -228,44 +160,30 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               label={item.label}
               icon={item.icon}
               active={view === item.id}
-              onClick={() => {
-                setView(item.id);
-                setSelectedKey(null);
-              }}
-              count={
-                loading
-                  ? "loading"
-                  : item.id === "discover"
-                    ? allEntries.length
-                    : item.id === "installed"
-                      ? appEntries.filter(
-                          (entry) =>
-                            entry.kind === "app" &&
-                            installedIds.has(packageIdentityKey(entry.item)),
-                        ).length
-                      : item.id === "apps"
-                        ? appEntries.length
-                        : skillEntries.length
-              }
+              onClick={() => pick(() => setView(item.id))}
+              count={count((row) => inView(row, item.id))}
             />
           ))}
         </ModalNav>
         <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
           <span className="type-eyebrow text-aomi-muted hidden px-2.5 md:block">
-            Categories
+            Ecosystem
           </span>
-          <ModalNav label="Library categories" className="mt-2">
-            {CATEGORIES.map((category) => (
+          <ModalNav label="Library ecosystems" className="mt-2">
+            {FAMILIES.map((item) => (
               <ModalNavItem
-                key={category.id}
-                label={category.label}
-                icon={category.icon}
-                active={view === category.id}
-                onClick={() => {
-                  setView(category.id);
-                  setSelectedKey(null);
-                }}
-                count={loading ? "loading" : categoryCounts.get(category.id)}
+                key={item.id}
+                label={item.label}
+                icon={item.icon}
+                active={family === item.id}
+                onClick={() =>
+                  pick(() =>
+                    setFamily((current) =>
+                      current === item.id ? null : item.id,
+                    ),
+                  )
+                }
+                count={count((row) => row.families.includes(item.id))}
               />
             ))}
           </ModalNav>
@@ -275,49 +193,24 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       <main
         className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
       >
-        <AddPrivateAppDialog
-          open={privateAppOpen}
-          onOpenChange={setPrivateAppOpen}
-          onAdded={() => {
-            retryApps();
-            setView("installed");
-            setQuery("");
-          }}
-        />
         <SearchField
-          onAddPrivateApp={() => setPrivateAppOpen(true)}
           query={query}
-          onQueryChange={(next) => {
-            setQuery(next);
-            setSelectedKey(null);
-          }}
+          onQueryChange={(next) => pick(() => setQuery(next))}
           searchRef={searchRef}
         />
         {actionError ? (
           <p
             role="alert"
-            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2"
+            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mt-3 px-3 py-2 max-md:hidden"
           >
             {actionError}
           </p>
         ) : null}
-        <SectionHeader
-          as="h2"
-          title={listTitle}
-          count={loading ? undefined : visible.length}
-          className="mt-4 px-1"
-        />
         <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
           {loadError ? (
             <div className="type-meta flex min-h-44 flex-col items-center justify-center gap-3 text-center">
               <p className="text-aomi-muted">{loadError}</p>
-              <AomiButton
-                variant="primary"
-                onClick={() => {
-                  retryApps();
-                  retrySkills();
-                }}
-              >
+              <AomiButton variant="primary" onClick={() => void refetch()}>
                 Retry
               </AomiButton>
             </div>
@@ -326,49 +219,30 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           ) : visible.length === 0 ? (
             <EmptyList />
           ) : (
-            <div className="space-y-0.5">
-              {visible.map((entry, index) => (
-                <div key={selectionKey(entry)}>
-                  {!selectionIsOfficial(entry) &&
-                  (index === 0 || selectionIsOfficial(visible[index - 1])) ? (
-                    <div className="border-aomi-border type-eyebrow text-aomi-muted mt-3 border-t px-2 pt-3">
-                      Community apps
-                    </div>
-                  ) : null}
-                  <CatalogRow
-                    selection={entry}
-                    selected={
-                      activeSelection
-                        ? selectionKey(activeSelection) === selectionKey(entry)
-                        : false
-                    }
-                    installed={
-                      entry.kind === "app" &&
-                      installedIds.has(packageIdentityKey(entry.item))
-                    }
-                    busy={
-                      entry.kind === "app" &&
-                      busyId === packageIdentityKey(entry.item)
-                    }
-                    disabled={!installedReady || busyId !== null}
-                    hostChainIds={hostChainIds}
-                    onSelect={() => {
-                      setSelectedKey(selectionKey(entry));
-                      setMobileDetailOpen(true);
-                    }}
-                    onInstall={() =>
-                      entry.kind === "app" && entry.item.secrets.length > 0
-                        ? (() => {
-                            setSelectedKey(selectionKey(entry));
-                            setMobileDetailOpen(true);
-                          })()
-                        : entry.kind === "app" && void install(entry.item)
-                    }
-                    onTry={() => entry.kind === "skill" && trySkill(entry.item)}
-                  />
+            groups.map(({ group, rows: members }) => (
+              <section key={group} aria-label={GROUP_TITLES[group](agent)}>
+                <SectionHeader
+                  as="h2"
+                  title={GROUP_TITLES[group](agent)}
+                  count={members.length}
+                  className="mt-4 px-1"
+                />
+                <div className="mt-1 space-y-0.5">
+                  {members.map((row) => (
+                    <CatalogRow
+                      key={row.package_id}
+                      row={row}
+                      selected={selected?.package_id === row.package_id}
+                      busy={busyId === row.package_id}
+                      disabled={!signedIn || busyId !== null}
+                      onSelect={() => open(row)}
+                      onToggle={(enabled) => toggle(row, enabled)}
+                      onConnect={() => open(row)}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </section>
+            ))
           )}
         </div>
       </main>
@@ -382,44 +256,48 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
       >
         <button
           type="button"
-          onClick={() => {
-            setMobileDetailOpen(false);
-            setDetailVisit((visit) => visit + 1);
-          }}
+          onClick={() => setMobileDetailOpen(false)}
           className="border-aomi-border type-control flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 md:hidden"
         >
           <ArrowLeft className="size-4" />
           Back to library
         </button>
-        {actionError && mobileDetailOpen ? (
-          <p
-            role="alert"
-            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta mx-4 mt-3 px-3 py-2 md:hidden"
-          >
-            {actionError}
-          </p>
-        ) : null}
-        {/* Below md the panel is a hidden overlay: mount it only once opened,
-            so it reads nothing for an app the user never looked at. */}
         {desktop || mobileDetailOpen ? (
           <LibraryDetailPanel
-            key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${detailVisit}`}
-            selection={loading ? null : activeSelection}
-            loading={loading}
-            installed={selectedInstalled}
-            installedReady={installedReady}
-            busy={
-              activeSelection?.kind === "app" &&
-              busyId === packageIdentityKey(activeSelection.item)
+            row={loading ? null : selected}
+            agent={agent}
+            signedIn={signedIn}
+            busy={selected !== null && busyId === selected.package_id}
+            error={desktop ? null : actionError}
+            onToggle={toggle}
+            onClearChoice={(row) =>
+              void mutate(row, () =>
+                aomi.account.packages.clearChoice(row.package_id),
+              )
             }
-            hostChainIds={hostChainIds}
-            accountUserId={accountUserId}
-            onInstall={install}
-            onUninstall={uninstall}
-            onTrySkill={trySkill}
+            onSaveKey={(row, slot, value) =>
+              mutate(row, () =>
+                aomi.account.packages.setSecret(row.package_id, slot, value),
+              )
+            }
+            onRemoveKey={(row, slot) =>
+              mutate(row, () =>
+                aomi.account.packages.clearSecret(row.package_id, slot),
+              )
+            }
           />
         ) : null}
       </div>
+
+      <PackageNotice
+        row={noticeRow}
+        onCancel={() => setNoticeRow(null)}
+        onConfirm={(row) => {
+          markNoticeSeen(row);
+          setNoticeRow(null);
+          setChoice(row, true);
+        }}
+      />
     </ModalShell>
   );
 }

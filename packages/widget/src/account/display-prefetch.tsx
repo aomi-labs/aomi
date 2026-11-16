@@ -33,7 +33,6 @@ export function DisplayPrefetch() {
       cache.scope.account?.kind === "user" ? cache.scope.account.id : undefined;
     const queries: DisplayQuery<unknown>[] = [
       skillCatalogQuery(api),
-      packageCatalogQuery(api),
       ...(userId
         ? [
             accountProfileQuery(transport, userId),

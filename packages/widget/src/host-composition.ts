@@ -83,7 +83,6 @@ export { HeaderControls } from "./frame/header-controls";
 export { useAccountSnapshot } from "./account/account-snapshot";
 export { useRuntimeAccount } from "./frame/runtime-account";
 export { PackageIcon } from "./library/package-row";
-export { toCatalogPackage } from "./library/packages-catalog";
 export { PackagesModal } from "./library/packages-modal";
 export { usePortalWalletAccountMenu } from "./account/use-portal-wallet-account-menu";
 export { StatementView } from "./account/usage/statement-view";
