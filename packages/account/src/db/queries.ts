@@ -1126,7 +1126,7 @@ export async function listConnectionSettings(
 > {
   const result = await db.query(
     `select c.key, c.label, c.last_used_at, c.ask_only,
-            a.id as app_id, a.name as app_name, a.label as app_label,
+            a.id as app_id, a.name as app_name, a.display_name as app_label,
             coalesce((
               select json_agg(json_build_object(
                        'id', aw.id::text, 'name', aw.name, 'lane', wa.lane,
@@ -1137,7 +1137,7 @@ export async function listConnectionSettings(
                where wa.user_id = c.user_id and wa.connection_key = c.key),
               '[]'::json) as wallets
        from account_connections c
-       left join applications a on a.id = c.application_id
+       left join agents a on a.id = c.agent_id
       where c.user_id = $1`,
     [userId],
   );
@@ -1251,15 +1251,15 @@ export async function findTelegramConnection(
   );
   if (!identity.rows[0]) return null;
   const bots = await db.query(
-    `select b.platform_bot_id,
+    `select b.external_bot_id,
             coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
-                     b.platform_bot_id) as label
-       from bot_registrations b
-      where b.platform = 'telegram' and b.status = 'active'
+                     b.external_bot_id) as label
+       from channels b
+      where b.kind = 'telegram' and b.status = 'active'
         and exists (select 1 from threads t
                      where t.user_id = $1
-                       and starts_with(t.id, 'telegram:bot:' || b.platform_bot_id || ':'))
-      order by b.created_at, b.platform_bot_id`,
+                       and starts_with(t.id, 'telegram:bot:' || b.external_bot_id || ':'))
+      order by b.created_at, b.external_bot_id`,
     [userId],
   );
   // A link code keeps the issuing bot; the confirmed one names this account.
@@ -1268,7 +1268,7 @@ export async function findTelegramConnection(
             coalesce('@' || nullif(b.platform_username, ''), nullif(b.label, ''),
                      c.context->>'bot_id') as label
        from account_link_codes c
-       left join bot_registrations b on b.id = c.context->>'bot_registration_id'
+       left join channels b on b.id = c.context->>'channel_id'
       where c.provider = 'telegram' and c.target_user_id = $1 and c.state = 'linked'
       order by c.consumed_at desc, c.id
       limit 1`,
@@ -1278,7 +1278,7 @@ export async function findTelegramConnection(
   return {
     username: optionalString(identity.rows[0].handle),
     bots: bots.rows.map((row) => ({
-      botId: String(row.platform_bot_id),
+      botId: String(row.external_bot_id),
       label: String(row.label),
     })),
     linkedFrom: linked

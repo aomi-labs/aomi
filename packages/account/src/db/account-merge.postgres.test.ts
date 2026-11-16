@@ -345,13 +345,13 @@ describe.skipIf(!enabled)("merge_accounts", () => {
   it("keeps both agent wallets under their names, and either account's pause", async () => {
     const { target, source } = await accounts("wallets");
     const app = await db.query(
-      "insert into applications (name, label) values ('hoodit', 'Hoodit') returning id",
+      "insert into agents (name, display_name) values ('hoodit', 'Hoodit') returning id",
     );
     const appId = app.rows[0].id;
     const wallet = async (user: string, createdAt: number) => {
       const created = await db.query(
         `insert into agent_wallets
-           (user_id, name, para_subject, created_by_app, created_at, updated_at)
+           (user_id, name, para_subject, created_by_agent_id, created_at, updated_at)
          values ($1, 'Hoodit', $2, $3, $4, $4)
          returning id`,
         [user, `p-${user}`, appId, createdAt],

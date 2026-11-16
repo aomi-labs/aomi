@@ -123,8 +123,8 @@ describe.skipIf(!enabled)("account connections", () => {
        values ('a1', 'a1', 'claude', 'ba-1', null, '["mcp:agent"]', now() + interval '5 minutes', now())`,
     );
     await pool.query(
-      `insert into bot_registrations
-         (id, owner_user_id, platform, status, label, platform_bot_id,
+      `insert into channels
+         (id, owner_user_id, kind, status, label, external_bot_id,
           platform_username, created_at, updated_at)
        values ('b1', null, 'telegram', 'active', 'Hoodit', '7712345678', 'HooditBot', 1, 1),
               ('b2', null, 'telegram', 'active', 'Side bot', '88', null, 2, 2),
@@ -144,11 +144,11 @@ describe.skipIf(!enabled)("account connections", () => {
     // (an archived wallet's pair is kept, marked) and used it last. The side bot
     // is locked to Hoodit, asks before every trade, and may use "Hoodit".
     await pool.query(
-      `insert into applications (id, name, label) values (86, 'hoodit', 'Hoodit')`,
+      `insert into agents (id, name, display_name) values (86, 'hoodit', 'Hoodit')`,
     );
     await pool.query(
       `insert into agent_wallets
-         (id, user_id, name, para_subject, archived_at, created_by_app, created_at, updated_at)
+         (id, user_id, name, para_subject, archived_at, created_by_agent_id, created_at, updated_at)
        values ($1, 'owner', 'Trading', 'p-trading', null, null, 1, 1),
               ($2, 'owner', 'Hoodit', 'p-hoodit', null, 86, 2, 2),
               ($3, 'owner', 'Old', 'p-old', 5, null, 3, 3)`,
@@ -156,7 +156,7 @@ describe.skipIf(!enabled)("account connections", () => {
     );
     await pool.query(
       `insert into account_connections
-         (user_id, key, label, application_id, ask_only, last_used_at, created_at, updated_at)
+         (user_id, key, label, agent_id, ask_only, last_used_at, created_at, updated_at)
        values ('owner', 'oauth:claude', 'Laptop Claude', null, false, 1760409000, 1, 1),
               ('owner', 'telegram:88', null, 86, true, 1760408000, 1, 1)`,
     );
@@ -175,13 +175,13 @@ describe.skipIf(!enabled)("account connections", () => {
          (code_hash, source_user_id, provider, subject, handle, context, state,
           target_user_id, merge_id, created_at, expires_at, consumed_at)
        values (repeat('a', 64), 'no-telegram', 'telegram', '42', 'arixon',
-               '{"bot_id": "7712345678", "bot_registration_id": "b1", "chat_id": 42}',
+               '{"bot_id": "7712345678", "channel_id": "b1", "chat_id": 42}',
                'linked', 'owner', gen_random_uuid(), 1760400000, 1760400600, 1760400500),
               (repeat('b', 64), 'no-telegram', 'telegram', '42', 'arixon',
-               '{"bot_id": "88", "bot_registration_id": "b2", "chat_id": 42}',
+               '{"bot_id": "88", "channel_id": "b2", "chat_id": 42}',
                'issued', null, null, 1760400700, 1760401300, null),
               (repeat('c', 64), 'no-telegram', 'telegram', '7', null,
-               '{"bot_id": "88", "bot_registration_id": "b2", "chat_id": 7}',
+               '{"bot_id": "88", "channel_id": "b2", "chat_id": 7}',
                'linked', 'other', gen_random_uuid(), 1760400000, 1760400600, 1760400100)`,
     );
   }
