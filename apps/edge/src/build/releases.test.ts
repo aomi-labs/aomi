@@ -164,9 +164,45 @@ describe("release routes", () => {
     expect(await claims(seen[0])).toMatchObject({
       sub: ALICE,
       role: "user",
-      scope: "package:publish package:promote agent:publish agent:promote",
+      scope: "package:publish package:promote agent:publish agent:promote package:secrets",
       auth_source: "cli_session",
       principal_class: "builder",
     });
+  });
+
+  it("forwards the builder reads with a builder bearer and no capability", async () => {
+    for (const path of ["/api/build/publishers/me", "/api/build/agents/hoodit", "/api/build/packages/trade"]) {
+      const response = await build(path, { method: "GET", headers: { authorization: `Bearer ${OBSERVE_KEY}` } });
+      expect(response.status).toBe(201);
+    }
+    expect(seen.map((call) => call.url)).toEqual([
+      `${MANAGER}/api/publishers/me`,
+      `${MANAGER}/api/agents/hoodit`,
+      `${MANAGER}/api/packages/trade`,
+    ]);
+    for (const call of seen) {
+      expect(call.headers.get("authorization")).not.toContain(OBSERVE_KEY);
+      expect(await claims(call)).toMatchObject({ sub: ALICE, scope: "project:observe", auth_source: "api_key" });
+    }
+  });
+
+  it("holds a package's builder secret writes to package:secrets", async () => {
+    const put = await build("/api/build/packages/trade/secrets/GMGN_API_KEY", {
+      method: "PUT",
+      headers: { authorization: `Bearer ${PUBLISH_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ value: "secret-value" }),
+    });
+    expect(put.status).toBe(403);
+    expect(seen).toEqual([]);
+    const session = await new GitHubSessionSigner(SECRET).issueSession({ githubUserId: ALICE, githubLogin: "alice" });
+    const set = await build("/api/build/packages/trade/secrets/GMGN_API_KEY", {
+      method: "PUT",
+      headers: { cookie: `aomi_github=${session}`, origin: BUILD, "content-type": "application/json" },
+      body: JSON.stringify({ value: "secret-value" }),
+    });
+    expect(set.status).toBe(201);
+    expect(seen.map((call) => call.url)).toEqual([`${MANAGER}/api/packages/trade/secrets/GMGN_API_KEY`]);
+    expect(new TextDecoder().decode(seen[0].body)).toBe(JSON.stringify({ value: "secret-value" }));
+    expect(await claims(seen[0])).toMatchObject({ auth_source: "session" });
   });
 });

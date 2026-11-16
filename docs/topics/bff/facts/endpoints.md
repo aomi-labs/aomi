@@ -54,7 +54,7 @@ and custody boundaries.
 cookie; the manager receives a five-minute `role: "user"` builder bearer
 (`principal_class: "builder"`), never the key. A key needs the route's
 capability (else `403 insufficient_scope`) and its bearer carries the key's
-capabilities; a session's bearer carries all four.
+capabilities; a session's bearer carries all five.
 
 | Route | Manager | Key capability |
 | --- | --- | --- |
@@ -64,6 +64,11 @@ capabilities; a session's bearer carries all four.
 | `POST /api/build/agents/:name/configs` | `POST /api/agents/:name/configs` | `agent:publish` |
 | `GET /api/build/agents/:name/configs` | `GET /api/agents/:name/configs` | none |
 | `POST /api/build/agents/:name/promote` | `POST /api/agents/:name/promote` | `agent:promote` |
+| `GET /api/build/publishers/me` | `GET /api/publishers/me` | none |
+| `GET /api/build/agents/:name` | `GET /api/agents/:name` | none |
+| `GET /api/build/packages/:name` | `GET /api/packages/:name` | none |
+| `PUT /api/build/packages/:name/secrets/:slot` | `PUT /api/packages/:name/secrets/:slot` | `package:secrets` |
+| `DELETE /api/build/packages/:name/secrets/:slot` | `DELETE /api/packages/:name/secrets/:slot` | `package:secrets` |
 
 The request keeps `content-type`, `x-aomi-source-repo` and
 `x-aomi-source-commit`; cookies and the caller's `Authorization` are dropped.

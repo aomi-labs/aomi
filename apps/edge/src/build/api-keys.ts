@@ -21,8 +21,17 @@ import type { BuildContext } from "./context";
 import type { BuildRoute } from "./endpoint";
 
 export const API_KEY_PREFIX = "aomi_key_";
-/** The release capabilities: publishing and promoting packages and agents (rollback is a promote). */
-export const RELEASE_CAPABILITIES = ["package:publish", "package:promote", "agent:publish", "agent:promote"] as const;
+/**
+ * The release capabilities: publishing and promoting packages and agents
+ * (rollback is a promote) and setting a package's builder secrets.
+ */
+export const RELEASE_CAPABILITIES = [
+  "package:publish",
+  "package:promote",
+  "agent:publish",
+  "agent:promote",
+  "package:secrets",
+] as const;
 /** The capabilities a key can hold; the manager's route labels. */
 export const KEY_CAPABILITIES = [
   "project:deploy",

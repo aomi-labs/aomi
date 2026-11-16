@@ -1,10 +1,11 @@
 /**
  * The release API at the edge: package releases and agent configs, published,
  * listed and promoted by a builder API key, a CLI bearer or the GitHub session
- * cookie. `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
+ * cookie, plus the builder's read models (its publisher's agents and packages,
+ * one agent, one package) and a package's builder secret values. `/api/build/<path>` is the manager's `/api/<path>`, proxied with the
  * raw body (a tar or JSON, at most 10 MB) and a builder bearer in place of the
- * caller's credential. A key needs the route's capability; a session holds all
- * four. The manager parses, checks and stores everything.
+ * caller's credential. A key needs the route's capability; a session holds
+ * them all. The manager parses, checks and stores everything.
  */
 import type { GitHubCliScope } from "@aomi-labs/account/build-session";
 import { RELEASE_MAX_BYTES } from "@aomi-labs/internal";
@@ -79,8 +80,14 @@ function route(
 
 const PACKAGE_RELEASES = /^\/api\/build\/packages\/[^/]+\/releases$/;
 const AGENT_CONFIGS = /^\/api\/build\/agents\/[^/]+\/configs$/;
+const PACKAGE_SECRET = /^\/api\/build\/packages\/[^/]+\/secrets\/[^/]+$/;
 
 export const RELEASE_ROUTES: readonly BuildRoute[] = [
+  route("publisher.me", "GET", /^\/api\/build\/publishers\/me$/, null, "deployment:read"),
+  route("agent.detail", "GET", /^\/api\/build\/agents\/[^/]+$/, null, "deployment:read"),
+  route("package.detail", "GET", /^\/api\/build\/packages\/[^/]+$/, null, "deployment:read"),
+  route("package.secret.set", "PUT", PACKAGE_SECRET, "package:secrets", "deploy"),
+  route("package.secret.delete", "DELETE", PACKAGE_SECRET, "package:secrets", "deploy"),
   route("package.publish", "POST", PACKAGE_RELEASES, "package:publish", "deploy"),
   route("package.releases", "GET", PACKAGE_RELEASES, null, "deployment:read"),
   route("package.promote", "POST", /^\/api\/build\/packages\/[^/]+\/promote$/, "package:promote", "activate"),

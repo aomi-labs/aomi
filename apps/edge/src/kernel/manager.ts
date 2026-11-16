@@ -43,9 +43,11 @@ const MANAGER_ROUTE_PATTERNS: readonly RegExp[] = [
   /^\/api\/platforms\/[^/]+\/projects$/,
   /^\/api\/platforms\/[^/]+\/tokens(\/[^/]+)?$/,
   /^\/api\/projects\/[^/]+\/deploy$/,
-  // Package releases and agent configs.
-  /^\/api\/packages\/[^/]+\/(releases|promote)$/,
-  /^\/api\/agents\/[^/]+\/(configs|promote)$/,
+  // The builder's publisher, packages and agents: reads, releases, agent
+  // configs and package builder secrets.
+  /^\/api\/publishers\/me$/,
+  /^\/api\/packages\/[^/]+(?:\/(?:releases|promote)|\/secrets\/[^/]+)?$/,
+  /^\/api\/agents\/[^/]+(?:\/(?:configs|promote))?$/,
   // Account-owned bots. The rest of `/api/account/*` stays on the backend.
   /^\/api\/account\/bots(?:\/[^/]+)?$/,
 ];
