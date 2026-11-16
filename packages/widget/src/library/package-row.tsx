@@ -14,6 +14,7 @@ export function PackageIcon({ row, size = "row" }: PackageIconProps) {
     <AppIdentityIcon
       brandId={brandId(row)}
       name={row.display_name}
+      imageUrl={row.icon_url}
       size={size}
     />
   );
