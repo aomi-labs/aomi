@@ -2,8 +2,9 @@ import {
   AomiApiError,
   SUPPORTED_CHAINS,
   shortAddress,
-  type AomiRuleLimit,
-  type AomiRuleSet,
+  ruleKey,
+  type AomiRule,
+  type AomiRuleTo,
   type AomiRulesAdmin,
   type AomiRulesAdminWallet,
   type AomiRulesCatalog,
@@ -52,7 +53,7 @@ export function assetChain(asset: string, catalog?: AomiRulesCatalog): string {
   return chain?.name ?? `Chain ${reference ?? ""}`.trim();
 }
 
-type Displayed = Pick<AomiRuleLimit, "asset" | "symbol" | "decimals">;
+type Displayed = Pick<AomiRule, "asset" | "symbol" | "decimals">;
 
 /** `200 USDC`; an unknown token shows its raw amount and short address. */
 export function assetAmount(amount: string, asset: Displayed): string {
@@ -82,99 +83,38 @@ export function timeUntil(
   return `${Math.max(1, Math.floor(seconds / 60))} min`;
 }
 
-/** `Nov 21`, with the year when it is not this one. Dates are UTC, like the limits. */
-export function untilDate(unixSeconds: number, now = Date.now()): string {
-  const date = new Date(unixSeconds * 1000);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-    ...(date.getUTCFullYear() === new Date(now).getUTCFullYear()
-      ? {}
-      : { year: "numeric" }),
-  });
+/** The CAIP-2 chain of an asset id: `eip155:8453`, `solana:mainnet-beta`. */
+export const assetNetwork = (asset: string) => asset.split("/")[0]!;
+
+/** `Jupiter`, `Any protocol`, or `Send to 0x12ab…cdef`. */
+export function toLabel(to: AomiRuleTo, catalog?: AomiRulesCatalog | null) {
+  if (to.kind === "any_protocol") return "Any protocol";
+  if (to.kind === "address") return `Send to ${shortAddress(to.address)}`;
+  return (
+    catalog?.apps.find((app) => app.id === to.id)?.label ??
+    `${to.id.charAt(0).toUpperCase()}${to.id.slice(1)}`
+  );
+}
+
+/** An address as the chain of `asset` writes one. */
+export function validAddress(asset: string, address: string): boolean {
+  return assetNetwork(asset).startsWith("eip155:")
+    ? /^0x[0-9a-fA-F]{40}$/.test(address)
+    : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
 }
 
 /**
- * A `<input type="date">` value for a UTC day, and back. "Until Nov 21"
- * includes the day: the wallet stops at its last second.
+ * The rules with `rule` added, or put in place of the one with its asset
+ * and destination.
  */
-export const dateInputValue = (unixSeconds: number) =>
-  new Date(unixSeconds * 1000).toISOString().slice(0, 10);
-export function dateInputSeconds(value: string): number | null {
-  const ms = Date.parse(`${value}T23:59:59Z`);
-  return Number.isFinite(ms) ? ms / 1000 : null;
-}
-
-/** The limits with one asset's set to `amount`, or removed when null. */
-export function withLimit(
-  limits: readonly AomiRuleLimit[],
-  asset: string,
-  amount: string | null,
-): AomiRuleLimit[] {
-  if (amount === null) return limits.filter((limit) => limit.asset !== asset);
-  if (!limits.some((limit) => limit.asset === asset))
-    return [...limits, { asset, amount }];
-  return limits.map((limit) =>
-    limit.asset === asset ? { ...limit, amount } : limit,
-  );
-}
-
-export type RuleTemplate = {
-  id: string;
-  name: string;
-  summary: string;
-  rules: AomiRuleSet;
-};
-
-/**
- * Ready-made rule sets. The budget one names every USDC the catalog lists,
- * so it has no limits until the catalog has loaded.
- */
-export function ruleTemplates(
-  catalog: AomiRulesCatalog | null,
-  now = Date.now(),
-): RuleTemplate[] {
-  const off: AomiRuleSet = {
-    apps: null,
-    limits: [],
-    not_after: null,
-    owner_only: false,
-  };
-  const usdc = (catalog?.tokens ?? []).filter(
-    (token) => token.symbol === "USDC",
-  );
-  const twoWeeks = dateInputSeconds(
-    dateInputValue(Math.floor(now / 1000) + 14 * 86_400),
-  );
-  return [
-    {
-      id: "own-wallets",
-      name: "Only my wallets",
-      summary: "Trades anywhere. Sends go only to your wallets.",
-      rules: { ...off, owner_only: true },
-    },
-    {
-      id: "usdc-budget",
-      name: "USDC budget",
-      summary:
-        "Up to 100 USDC a day on each chain. No other token can be spent.",
-      rules: {
-        ...off,
-        owner_only: true,
-        limits: usdc.map((token) => ({
-          asset: token.asset,
-          amount: toBaseUnits("100", token.decimals) ?? "0",
-        })),
-      },
-    },
-    {
-      id: "two-weeks",
-      name: "Two-week trial",
-      summary: "Sends go only to your wallets, and it stops after 14 days.",
-      rules: { ...off, owner_only: true, not_after: twoWeeks },
-    },
-  ].filter((template) => template.id !== "usdc-budget" || usdc.length > 0);
+export function withRule(
+  rules: readonly AomiRule[],
+  rule: AomiRule,
+): AomiRule[] {
+  const key = ruleKey(rule);
+  return rules.some((held) => ruleKey(held) === key)
+    ? rules.map((held) => (ruleKey(held) === key ? rule : held))
+    : [...rules, rule];
 }
 
 export const sameWallet = (
@@ -198,10 +138,13 @@ export const rulesErrorCode = (error: unknown): string | undefined =>
   error instanceof AomiApiError ? error.code : undefined;
 
 const FAILURES: Record<string, string> = {
-  rules_app_unknown: "That app isn't available.",
+  rules_app_unknown: "That app isn't available on this chain.",
   rules_asset_invalid: "That token isn't supported.",
-  rules_amount_invalid: "Enter a valid amount.",
+  rules_address_invalid: "That address isn't one for this chain.",
   rules_duplicate: "That rule is already there.",
+  rules_change_rate_limited:
+    "Too many changes were filed in the last hour. Try again later.",
+  rules_not_enforceable: "These rules can't go on chain yet.",
   rules_admin_wallet_not_linked: "Link that wallet to your account first.",
   rules_connection_invalid: "That connection can't use this wallet.",
   agent_wallet_not_found: "This wallet no longer exists.",

@@ -1,27 +1,24 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Hand, Plus, X } from "lucide-react";
 import {
-  hasRules,
-  type AomiRuleLimit,
+  ruleKey,
+  type AomiRule,
   type AomiRuleSet,
+  type AomiRuleTo,
   type AomiRuleUsage,
   type AomiRulesAdmin,
   type AomiRulesCatalog,
   type AomiRulesChangeRequest,
+  type AomiRulesMode,
   type AomiWalletRules,
 } from "@aomi-labs/client";
 import { AomiButton, aomiButton } from "@/ui/aomi/button";
-import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { ListGroup } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
+import { Segmented } from "@/ui/aomi/segmented";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import { Switch } from "@/ui/aomi/switch";
 import { SheetAlert } from "@/wallet/picker/sheet-parts";
@@ -29,57 +26,41 @@ import { useAomiWalletKit } from "@/wallet/context";
 import { useShellAomi } from "@/account/transport";
 import { useRefreshWallets } from "@/account/agent-wallets/use-refresh-wallets";
 import { RuleChangeCard, walletName } from "./rule-change-card";
-import { RuleEnforcement, enforcers } from "./rule-enforcement";
+import { RuleEnforcement } from "./rule-enforcement";
 import {
   assetAmount,
   assetChain,
-  dateInputSeconds,
-  dateInputValue,
+  assetNetwork,
   fromBaseUnits,
-  ruleTemplates,
   rulesErrorCode,
   rulesFailure,
   sameAdmin,
   shortAsset,
   timeUntil,
   toBaseUnits,
-  untilDate,
+  toLabel,
   usedPercent,
-  withLimit,
+  validAddress,
+  withRule,
 } from "./rules-model";
 
 const ROW =
   "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3.5 py-3";
-const SENTENCE = "type-control min-w-0 flex-1";
 const INPUT =
   "border-aomi-border bg-aomi-raised focus-visible:ring-aomi-ring/50 h-8 rounded-[8px] border px-2 text-[13px] outline-none focus-visible:ring-2";
-const Strong = ({ children }: { children: ReactNode }) => (
-  <strong className="font-semibold">{children}</strong>
-);
 
-/** `Jupiter`, `Kamino` in bold, comma separated. */
-function Names({ names }: { names: readonly string[] }) {
-  return (
-    <>
-      {names.map((name, index) => (
-        <span key={name}>
-          {index ? ", " : null}
-          <Strong>{name}</Strong>
-        </span>
-      ))}
-    </>
-  );
-}
-
-const appLabel = (id: string, catalog: AomiRulesCatalog | null) =>
-  catalog?.apps.find((app) => app.id === id)?.label ??
-  `${id.charAt(0).toUpperCase()}${id.slice(1)}`;
+const MODES: Record<AomiRulesMode, string> = {
+  whitelist:
+    "Only what’s listed is allowed. A send needs a rule with its address.",
+  blacklist: "Everything is allowed, except what’s listed.",
+};
 
 /**
- * Wallet › Manage › Rules: what the agent may sign with this wallet, as
- * sentences with their controls. Each edit sends the full new set: one that
- * only takes power away saves at once, one that gives power opens the rule
- * change card and waits for the admin.
+ * Wallet › Manage › Rules: what the agent may sign with this wallet. A
+ * switch for sends, then the mode and its rules, each a token, an amount a
+ * day and where it may go, with who enforces it. Each edit sends the full new
+ * set: one that only takes power away saves at once, one that gives power
+ * opens the rule change card and waits for whoever approves changes.
  */
 export function WalletRules({
   wallet,
@@ -97,15 +78,10 @@ export function WalletRules({
   const [catalogFailed, setCatalogFailed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
-  const [panel, setPanel] = useState<
-    "apps" | "limit" | "admin" | "template" | null
-  >(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Bumped after each answered save, so a draft that had to wait shows the
-  // limit still in force.
+  // Bumped after each answered save, so the rule editor starts empty again.
   const [epoch, setEpoch] = useState(0);
   const live = useRef(true);
   const card = useRef<HTMLDivElement>(null);
@@ -172,7 +148,6 @@ export function WalletRules({
       version.current += 1;
       setRules(result.rules);
       setEpoch((count) => count + 1);
-      setPanel(null);
       if (result.status === "waiting" && result.rules.pending)
         setReviewing(true);
       else if (result.status === "applied") setNotice("Saved");
@@ -211,10 +186,11 @@ export function WalletRules({
     <SectionHeader
       title="Rules"
       action={
-        <StatusPill>
-          Enforced by{" "}
-          {["Aomi", ...enforcers(rules?.enforcement ?? [])].join(" + ")}
-        </StatusPill>
+        notice ? (
+          <span role="status" className="type-meta font-medium">
+            {notice}.
+          </span>
+        ) : undefined
       }
     />
   );
@@ -239,805 +215,695 @@ export function WalletRules({
     );
 
   const pending = rules.pending;
-  const {
-    apps,
-    limits,
-    not_after: notAfter,
-    owner_only: ownerOnly,
-  } = rules.rules;
-  const empty = rules.revision === 0 || !hasRules(rules.rules);
+  const { mode, rules: list, linked_only: linkedOnly } = rules.rules;
   const left = pending ? timeUntil(pending.expires_at) : null;
   const write = (next: Partial<AomiRuleSet>) =>
     void save({ rules: { ...rules.rules, ...next } });
-  // An app list already keeps plain sends to the owner's wallets.
-  const sendsHome = ownerOnly || apps !== null;
-  // Once a provider checks on chain, each rule says who checks it.
-  const onChain = enforcers(rules.enforcement).length > 0;
-  const checkedBy = (covers: Parameters<typeof enforcers>[1]) =>
-    onChain ? (
-      <span data-checked-by>
-        <StatusPill>
-          {["Aomi", ...enforcers(rules.enforcement, covers)].join(" + ")}
-        </StatusPill>
-      </span>
-    ) : null;
-  const templates = (
-    <AomiButton
-      variant="ghost"
-      size="sm"
-      aria-expanded={panel === "template"}
-      onClick={() => setPanel(panel === "template" ? null : "template")}
-    >
-      Use a template
-    </AomiButton>
-  );
-  const templatePanel =
-    panel === "template" ? (
-      <TemplatePicker
-        catalog={catalog}
-        saving={saving}
-        onCancel={() => setPanel(null)}
-        onPick={(next) => {
-          setEditing(true);
-          void save({ rules: next });
-        }}
-      />
-    ) : null;
 
   return (
-    <section
-      aria-label="Rules"
-      data-wallet-rules={wallet.id}
-      className="flex flex-col gap-2"
-    >
-      {header}
-      {rules.stopped_until ? (
-        <p className="type-meta text-aomi-muted flex items-start gap-1.5">
-          <Hand className="mt-px size-3.5 shrink-0" />
-          Stopped by the agent until 00:00 UTC
-        </p>
-      ) : null}
-      {pending && reviewing ? (
-        <div ref={card}>
-          <RuleChangeCard
-            change={pending}
-            client={aomi}
-            onDecided={decided}
-            onLater={() => setReviewing(false)}
-            onStale={() =>
-              void load().then((next) => {
-                if (!next || next.pending) return;
-                setReviewing(false);
-                setNotice("That change was already decided");
-              })
-            }
-          />
-        </div>
-      ) : pending ? (
-        <div
-          role="status"
-          data-pending-change={pending.id}
-          className="rounded-card border-aomi-border bg-aomi-raised flex flex-col gap-2 border p-3"
-        >
-          <p className="type-control">
-            <span className="text-aomi-muted">
-              {pending.proposed_by.startsWith("agent:")
-                ? "Aomi asks:"
-                : "Waiting for approval:"}
-            </span>{" "}
-            {pending.lines[0]?.text ?? "A rule change"}
-            {pending.lines.length > 1
-              ? ` and ${pending.lines.length - 1} more`
-              : null}
+    <>
+      <section
+        aria-label="Rules"
+        data-wallet-rules={wallet.id}
+        className="flex flex-col gap-2"
+      >
+        {header}
+        {rules.stopped_until ? (
+          <p className="type-meta text-aomi-muted flex items-start gap-1.5">
+            <Hand className="mt-px size-3.5 shrink-0" />
+            Stopped by the agent until 00:00 UTC
           </p>
-          <div className="flex items-center gap-2">
-            <span className="type-meta text-aomi-muted flex-1">
-              {left ? `${left} left` : "expired"}
-            </span>
-            <AomiButton
-              size="sm"
-              disabled={saving}
-              onClick={() => void decline(pending.id)}
-            >
-              Decline
-            </AomiButton>
-            <AomiButton
-              variant="primary"
-              size="sm"
-              onClick={() => setReviewing(true)}
-            >
-              Review
-            </AomiButton>
+        ) : null}
+        {pending && reviewing ? (
+          <div ref={card}>
+            <RuleChangeCard
+              change={pending}
+              client={aomi}
+              onDecided={decided}
+              onLater={() => setReviewing(false)}
+              onStale={() =>
+                void load().then((next) => {
+                  if (!next || next.pending) return;
+                  setReviewing(false);
+                  setNotice("That change was already decided");
+                })
+              }
+            />
           </div>
-        </div>
-      ) : null}
-      {error ? <SheetAlert>{error}</SheetAlert> : null}
-
-      {empty && !editing ? (
-        <div className="rounded-card border-aomi-border flex flex-wrap items-center justify-between gap-3 border border-dashed px-3.5 py-3">
-          <p className="type-meta text-aomi-muted min-w-0 flex-1">
-            No rules. This wallet follows only who approves trades.
-          </p>
-          <span className="flex items-center gap-1">
-            {templates}
-            <AomiButton size="sm" onClick={() => setEditing(true)}>
-              Set rules
-            </AomiButton>
-          </span>
-          {templatePanel ? (
-            <div className="border-aomi-border w-full rounded-[10px] border">
-              {templatePanel}
+        ) : pending ? (
+          <div
+            role="status"
+            data-pending-change={pending.id}
+            className="rounded-card border-aomi-border bg-aomi-raised flex flex-col gap-2 border p-3"
+          >
+            <p className="type-control">
+              <span className="text-aomi-muted">
+                {pending.proposed_by.startsWith("agent:")
+                  ? "Aomi asks:"
+                  : "Waiting for approval:"}
+              </span>{" "}
+              {pending.lines[0]?.text ?? "A rule change"}
+              {pending.lines.length > 1
+                ? ` and ${pending.lines.length - 1} more`
+                : null}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="type-meta text-aomi-muted flex-1">
+                {left ? `${left} left` : "expired"}
+              </span>
+              <AomiButton
+                size="sm"
+                disabled={saving}
+                onClick={() => void decline(pending.id)}
+              >
+                Decline
+              </AomiButton>
+              <AomiButton
+                variant="primary"
+                size="sm"
+                onClick={() => setReviewing(true)}
+              >
+                Review
+              </AomiButton>
             </div>
-          ) : null}
-        </div>
-      ) : (
-        <>
-          <ListGroup aria-busy={saving || undefined}>
-            <div data-rule="apps">
-              <div className={ROW}>
-                <p className={cn(SENTENCE, !apps && "text-aomi-muted")}>
-                  {apps?.length ? (
-                    <>
-                      Can use{" "}
-                      <Names names={apps.map((id) => appLabel(id, catalog))} />
-                    </>
-                  ) : apps ? (
-                    "Can use no app"
-                  ) : (
-                    "Can use any app"
-                  )}
-                </p>
-                {checkedBy((covers) => covers.apps.length > 0)}
-                <AomiButton
-                  size="sm"
-                  aria-expanded={panel === "apps"}
-                  onClick={() => setPanel(panel === "apps" ? null : "apps")}
-                >
-                  <Plus />
-                  App
-                </AomiButton>
-              </div>
-              {panel === "apps" ? (
-                <AppPicker
-                  catalog={catalog}
-                  onRetry={catalogFailed ? loadCatalog : undefined}
-                  selected={apps ?? []}
-                  saving={saving}
-                  onCancel={() => setPanel(null)}
-                  onSave={(ids) => write({ apps: ids.length ? ids : null })}
-                />
-              ) : null}
-            </div>
+          </div>
+        ) : null}
+        {error ? <SheetAlert>{error}</SheetAlert> : null}
 
-            {limits.map((cap) => (
-              <CapRow
-                key={`${cap.asset}:${cap.amount}:${epoch}`}
-                cap={cap}
-                token={catalog?.tokens.find(
-                  (entry) => entry.asset === cap.asset,
-                )}
-                usage={rules.usage.find((entry) => entry.asset === cap.asset)}
-                chain={assetChain(cap.asset, catalog ?? undefined)}
-                tag={checkedBy((covers) => covers.limits.includes(cap.asset))}
-                left={rules.enforcement.flatMap((entry) =>
-                  entry.state !== "off" && entry.left[cap.asset] !== undefined
-                    ? [{ name: entry.name, amount: entry.left[cap.asset] }]
-                    : [],
-                )}
+        <ListGroup>
+          <div data-rule="linked_only" className={ROW}>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <p className="type-control">
+                Only allow sending to linked wallets
+              </p>
+              <p className="type-meta text-aomi-muted">
+                Transfers go only to wallets linked to your account. Swaps and
+                protocol calls are not affected.
+              </p>
+            </div>
+            <Switch
+              aria-label="Only allow sending to linked wallets"
+              checked={linkedOnly}
+              disabled={saving}
+              onCheckedChange={(on) => write({ linked_only: on })}
+            />
+          </div>
+        </ListGroup>
+
+        <ListGroup aria-busy={saving || undefined}>
+          <div data-rule="mode" className={ROW}>
+            <Segmented
+              label="Rule mode"
+              size="sm"
+              value={mode}
+              disabled={saving}
+              onChange={(next) => write({ mode: next })}
+              options={[
+                { value: "whitelist", label: "Whitelist" },
+                { value: "blacklist", label: "Blacklist" },
+              ]}
+            />
+            <p className="type-meta text-aomi-muted min-w-40 flex-1 text-right">
+              {MODES[mode]}
+            </p>
+          </div>
+
+          {list.map((rule) => {
+            const key = rule.id ?? ruleKey(rule);
+            return (
+              <RuleRow
+                key={key}
+                rule={rule}
+                catalog={catalog}
+                usage={rules.usage.find((entry) => entry.rule === key)}
+                enforcedBy={rules.enforced_by[key] ?? ["Aomi"]}
                 saving={saving}
-                onAmount={(amount) =>
-                  write({ limits: withLimit(limits, cap.asset, amount) })
+                onRemove={() =>
+                  write({
+                    rules: list.filter((held) => ruleKey(held) !== key),
+                  })
                 }
               />
-            ))}
+            );
+          })}
+          {list.length === 0 ? (
+            <p className={cn(ROW, "type-meta text-aomi-muted")}>
+              {mode === "whitelist"
+                ? "Nothing is listed, so this wallet can’t spend anything."
+                : "No rules. This wallet can spend anything."}
+            </p>
+          ) : null}
 
-            <div data-rule="not_after" className={ROW}>
-              <p
-                className={cn(SENTENCE, notAfter === null && "text-aomi-muted")}
-              >
-                {notAfter !== null ? (
-                  <>
-                    Until <Strong>{untilDate(notAfter)}</Strong>
-                  </>
-                ) : (
-                  "No end date"
-                )}
-              </p>
-              {notAfter !== null
-                ? checkedBy((covers) => covers.not_after)
-                : null}
-              <span className="flex items-center gap-1">
-                <input
-                  type="date"
-                  aria-label="End date"
-                  disabled={saving}
-                  className={INPUT}
-                  value={notAfter !== null ? dateInputValue(notAfter) : ""}
-                  onChange={(event) => {
-                    const seconds = dateInputSeconds(event.target.value);
-                    if (seconds === null || seconds === notAfter) return;
-                    write({ not_after: seconds });
-                  }}
-                />
-                {notAfter !== null ? (
-                  <RemoveButton
-                    label="Remove end date"
-                    disabled={saving}
-                    onClick={() => write({ not_after: null })}
-                  />
-                ) : null}
-              </span>
-            </div>
-
-            <div data-rule="owner_only" className={ROW}>
-              <p className={cn(SENTENCE, !sendsHome && "text-aomi-muted")}>
-                {sendsHome ? (
-                  <>
-                    Sends only to <Strong>your wallets</Strong>
-                  </>
-                ) : (
-                  "Sends to any address"
-                )}
-              </p>
-              {sendsHome ? checkedBy((covers) => covers.owner_only) : null}
-              <span className="type-meta text-aomi-muted flex items-center gap-2">
-                {ownerOnly ? "On" : apps !== null ? "With an app list" : "Off"}
-                <Switch
-                  aria-label="Sends only to your wallets"
-                  checked={sendsHome}
-                  disabled={saving || (!ownerOnly && apps !== null)}
-                  onCheckedChange={(on) => write({ owner_only: on })}
-                />
-              </span>
-            </div>
-
-            <div data-rule="limits">
-              <div className={ROW}>
-                <p className={cn(SENTENCE, "text-aomi-muted")}>
-                  {limits.length
-                    ? "Tokens without a limit can't be spent"
-                    : "No limits. Any token can be spent."}
-                </p>
-                <AomiButton
-                  size="sm"
-                  aria-expanded={panel === "limit"}
-                  onClick={() => setPanel(panel === "limit" ? null : "limit")}
-                >
-                  <Plus />
-                  Limit
-                </AomiButton>
-              </div>
-              {panel === "limit" ? (
-                <LimitPicker
-                  catalog={catalog}
-                  onRetry={catalogFailed ? loadCatalog : undefined}
-                  taken={limits.map((limit) => limit.asset)}
-                  saving={saving}
-                  onCancel={() => setPanel(null)}
-                  onAdd={(asset, amount) =>
-                    write({ limits: withLimit(limits, asset, amount) })
-                  }
-                />
-              ) : null}
-            </div>
-          </ListGroup>
-          <p className="type-meta text-aomi-muted">
-            {notice ? (
-              <span role="status" className="text-aomi-fg font-medium">
-                {notice}.{" "}
-              </span>
-            ) : null}
-            Lower a number and it saves at once. Raise one and it needs
-            approval. Limits reset at 00:00 UTC.
-          </p>
-          <div className="flex justify-end">{templates}</div>
-          {templatePanel ? <ListGroup>{templatePanel}</ListGroup> : null}
-        </>
-      )}
-
-      <ListGroup>
-        <ListRow
-          data-rules-admin={rules.admin.kind}
-          title={
-            <span className="flex flex-col">
-              <span className="type-meta text-aomi-muted font-normal">
-                Who can loosen rules
-              </span>
-              {rules.admin.kind === "wallet"
-                ? walletName(rules.admin, kit)
-                : "Aomi-managed"}
-            </span>
-          }
-          description={
-            <span className="whitespace-normal">
-              {rules.admin.kind === "wallet"
-                ? "Approve by signing. Aomi can't loosen anything."
-                : "You approve with a click or a tap. Aomi holds the admin key."}
-            </span>
-          }
-          trailing={
-            <AomiButton
-              size="sm"
-              aria-expanded={panel === "admin"}
-              onClick={() => setPanel(panel === "admin" ? null : "admin")}
-            >
-              Change
-            </AomiButton>
-          }
-        />
-        {panel === "admin" ? (
-          <AdminPicker
-            admin={rules.admin}
-            options={[{ kind: "aomi_managed" }, ...rules.admin_wallets]}
-            label={(option) =>
-              option.kind === "wallet"
-                ? walletName(option, kit)
-                : "Aomi-managed"
-            }
+          <RuleEditor
+            key={epoch}
+            catalog={catalog}
+            onRetry={catalogFailed ? loadCatalog : undefined}
             saving={saving}
-            onPick={(admin) => void save({ admin })}
+            onAdd={(rule) => write({ rules: withRule(list, rule) })}
           />
-        ) : null}
-        {rules.enforcement.map((entry) => (
-          <RuleEnforcement
-            key={entry.provider}
-            client={aomi}
-            walletId={wallet.id}
-            revision={rules.revision}
-            entry={entry}
-            onRules={(next) => {
-              version.current += 1;
-              // A step that answers late must not undo a newer write.
-              setRules((current) =>
-                current && next.revision < current.revision ? current : next,
-              );
-            }}
-            onStale={() => void load()}
-          />
-        ))}
-      </ListGroup>
-    </section>
-  );
-}
 
-function RemoveButton({
-  label,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={aomiButton({ variant: "ghost", size: "icon-sm" })}
-    >
-      <X />
-    </button>
-  );
-}
-
-/** One limit: "Up to 200 USDC a day", its chain, today's use and the number. */
-function CapRow({
-  cap,
-  token,
-  usage,
-  chain,
-  tag,
-  left,
-  saving,
-  onAmount,
-}: {
-  cap: AomiRuleLimit;
-  /** The catalog's entry for the asset, for a limit stored without its names. */
-  token?: { symbol: string; decimals: number };
-  usage?: AomiRuleUsage;
-  chain: string;
-  /** Who checks this limit, once a provider checks on chain. */
-  tag: ReactNode;
-  /** What each on-chain provider will still let through, in base units. */
-  left: readonly { name: string; amount: string }[];
-  saving: boolean;
-  /** The new base-unit amount; null removes the limit. */
-  onAmount: (amount: string | null) => void;
-}) {
-  // A token neither the limit nor the catalog names is edited in raw units.
-  const known = {
-    asset: cap.asset,
-    symbol: cap.symbol ?? token?.symbol,
-    decimals: typeof cap.decimals === "number" ? cap.decimals : token?.decimals,
-  };
-  const decimals = known.decimals ?? 0;
-  const name = known.symbol ?? shortAsset(cap.asset);
-  const shown = fromBaseUnits(cap.amount, decimals);
-  const [draft, setDraft] = useState(shown);
-  const [invalid, setInvalid] = useState(false);
-  const percent = usage ? usedPercent(usage.used, cap.amount) : 0;
-  const commit = () => {
-    const amount = toBaseUnits(draft, decimals);
-    setInvalid(amount === null);
-    if (amount === null || amount === cap.amount) return;
-    onAmount(amount);
-  };
-  return (
-    <div data-rule="limit" data-asset={cap.asset} className={ROW}>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="type-control flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>
-            Up to <Strong>{assetAmount(cap.amount, known)} a day</Strong>
-          </span>
-          <StatusPill>{chain}</StatusPill>
-          {tag}
+          {rules.enforcement.map((entry) => (
+            <RuleEnforcement
+              key={`${entry.provider}:${entry.network}`}
+              client={aomi}
+              walletId={wallet.id}
+              revision={rules.revision}
+              entry={entry}
+              onRules={(next) => {
+                version.current += 1;
+                // A step that answers late must not undo a newer write.
+                setRules((current) =>
+                  current && next.revision < current.revision ? current : next,
+                );
+              }}
+              onStale={() => void load()}
+            />
+          ))}
+        </ListGroup>
+        <p className="type-meta text-aomi-muted">
+          A change that restricts the agent saves at once. One that gives it
+          more waits for approval. Amounts are per day and reset at 00:00 UTC.
         </p>
-        {usage ? (
-          <div className="flex items-center gap-2">
-            <div
-              role="progressbar"
-              aria-label={`${name} used today`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent}
-              className="bg-aomi-surface-2 h-1 min-w-0 flex-1 overflow-hidden rounded-full"
-            >
-              <div
-                data-usage-tone={percent >= 80 ? "warning" : "neutral"}
-                className={cn(
-                  "h-full rounded-full",
-                  percent >= 80 ? "bg-aomi-warning" : "bg-aomi-fg",
-                )}
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-            <span className="type-meta text-aomi-muted shrink-0 tabular-nums">
-              {fromBaseUnits(usage.used, decimals)} used
+      </section>
+
+      <RuleAuthority
+        key={`${rules.revision}:${rules.admin.kind}`}
+        admin={rules.admin}
+        wallets={rules.admin_wallets}
+        label={(option) => walletName(option, kit)}
+        saving={saving}
+        onSave={(admin) => void save({ admin })}
+      />
+    </>
+  );
+}
+
+/** One rule: its sentence, where it applies, today's use and who enforces it. */
+function RuleRow({
+  rule,
+  catalog,
+  usage,
+  enforcedBy,
+  saving,
+  onRemove,
+}: {
+  rule: AomiRule;
+  catalog: AomiRulesCatalog | null;
+  usage?: AomiRuleUsage;
+  /** `Aomi`, then each on-chain provider that stands behind the rule. */
+  enforcedBy: readonly string[];
+  saving: boolean;
+  onRemove: () => void;
+}) {
+  // A token neither the rule nor the catalog names is shown in raw units.
+  const token = catalog?.tokens.find((entry) => entry.asset === rule.asset);
+  const known = {
+    asset: rule.asset,
+    symbol: rule.symbol ?? token?.symbol,
+    decimals:
+      typeof rule.decimals === "number" ? rule.decimals : token?.decimals,
+  };
+  const name = known.symbol ?? shortAsset(rule.asset);
+  const blocked = /^0+$/.test(rule.amount);
+  const percent = usage ? usedPercent(usage.used, rule.amount) : 0;
+  const onChain = enforcedBy.length > 1;
+  return (
+    <div
+      data-rule="rule"
+      data-rule-key={rule.id ?? ruleKey(rule)}
+      className={ROW}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <p className="type-control">
+          {blocked ? (
+            <>
+              No <strong className="font-semibold">{name}</strong>
+            </>
+          ) : (
+            <>
+              Up to{" "}
+              <strong className="font-semibold">
+                {assetAmount(rule.amount, known)}
+              </strong>{" "}
+              a day
+            </>
+          )}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusPill>
+            {assetChain(rule.asset, catalog ?? undefined)}
+          </StatusPill>
+          <StatusPill>{toLabel(rule.to, catalog)}</StatusPill>
+          {usage && !blocked ? (
+            <span className="type-meta text-aomi-muted flex items-center gap-1.5 tabular-nums">
+              <span
+                role="progressbar"
+                aria-label={`${name} used today`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={percent}
+                className="bg-aomi-surface-2 inline-block h-1 w-12 overflow-hidden rounded-full"
+              >
+                <span
+                  data-usage-tone={percent >= 80 ? "warning" : "neutral"}
+                  className={cn(
+                    "block h-full rounded-full",
+                    percent >= 80 ? "bg-aomi-warning" : "bg-aomi-fg",
+                  )}
+                  style={{ width: `${percent}%` }}
+                />
+              </span>
+              {fromBaseUnits(usage.used, known.decimals ?? 0)} used today
             </span>
-          </div>
-        ) : null}
-        {left.map((entry) => (
-          <span
-            key={entry.name}
-            data-left-on-chain
-            className="type-meta text-aomi-muted tabular-nums"
-          >
-            {fromBaseUnits(entry.amount, decimals)} left on {entry.name}
-          </span>
-        ))}
-        {invalid ? (
-          <span className="type-meta text-aomi-danger">
-            Enter a valid amount.
-          </span>
-        ) : null}
+          ) : null}
+        </div>
       </div>
       <span className="flex items-center gap-1">
-        <input
-          inputMode="decimal"
-          aria-label={`${name} daily limit`}
-          aria-invalid={invalid || undefined}
+        <span data-enforced-by>
+          <StatusPill tone={onChain ? "accent" : "neutral"}>
+            Enforced by {enforcedBy.join(" and ")}
+          </StatusPill>
+        </span>
+        <button
+          type="button"
+          aria-label={`Remove the rule for ${name} · ${toLabel(rule.to, catalog)}`}
           disabled={saving}
-          className={cn(INPUT, "w-24 text-right tabular-nums")}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") commit();
-          }}
-        />
-        <RemoveButton
-          label={`Remove ${name} limit`}
-          disabled={saving}
-          onClick={() => onAmount(null)}
-        />
+          onClick={onRemove}
+          className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+        >
+          <X />
+        </button>
       </span>
     </div>
   );
 }
 
-const PANEL = "border-aomi-border flex flex-col gap-2 border-t px-3.5 py-3";
+type Segment = "token" | "chain" | "to";
 
-function PanelActions({
-  saving,
-  disabled = false,
-  label,
-  onCancel,
-  onSave,
-}: {
-  saving: boolean;
-  disabled?: boolean;
-  label: string;
-  onCancel: () => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="flex justify-end gap-2">
-      <AomiButton variant="ghost" size="sm" onClick={onCancel}>
-        Cancel
-      </AomiButton>
-      <AomiButton
-        variant="primary"
-        size="sm"
-        disabled={saving || disabled}
-        onClick={onSave}
-      >
-        {label}
-      </AomiButton>
-    </div>
-  );
-}
-
-/** A picker with nothing to list: empty, still loading, or failed with a retry. */
-function CatalogState({
-  empty,
-  loading,
-  failed,
-  onRetry,
-}: {
-  empty: string | null;
-  loading: string;
-  failed: string;
-  onRetry?: () => void;
-}) {
-  return (
-    <p className="type-meta text-aomi-muted flex items-center gap-2">
-      {empty ?? (onRetry ? failed : loading)}
-      {!empty && onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="hover:text-aomi-fg underline underline-offset-2"
-        >
-          Try again
-        </button>
-      ) : null}
-    </p>
-  );
-}
-
-/** The catalog's apps as checkboxes; unchecking every one lifts the rule. */
-function AppPicker({
+/**
+ * The new-rule field: `token / amount / chain / to`, filled in that order
+ * like a date. Token, chain and `to` each open a list under the field;
+ * picking one moves on to the next. A rule for an asset and destination that
+ * already has one replaces its amount.
+ */
+function RuleEditor({
   catalog,
   onRetry,
-  selected,
   saving,
-  onCancel,
-  onSave,
+  onAdd,
 }: {
   catalog: AomiRulesCatalog | null;
   /** Set when the catalog could not be read; reads it again. */
   onRetry?: () => void;
-  selected: readonly string[];
   saving: boolean;
-  onCancel: () => void;
-  onSave: (ids: string[]) => void;
+  onAdd: (rule: AomiRule) => void;
 }) {
-  const [picked, setPicked] = useState<readonly string[]>(selected);
-  // An app the rule names but the catalog dropped can still be removed.
-  const options = [
-    ...(catalog?.apps ?? []),
-    ...selected
-      .filter((id) => !catalog?.apps.some((app) => app.id === id))
-      .map((id) => ({ id, label: appLabel(id, catalog) })),
-  ];
-  return (
-    <div role="group" aria-label="Allowed apps" className={PANEL}>
-      {options.length ? (
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {options.map((app) => (
-            <label
-              key={app.id}
-              className="type-control flex cursor-pointer items-center gap-2"
-            >
-              <input
-                type="checkbox"
-                checked={picked.includes(app.id)}
-                onChange={(event) =>
-                  setPicked(
-                    event.target.checked
-                      ? [...picked, app.id]
-                      : picked.filter((id) => id !== app.id),
-                  )
-                }
-              />
-              {app.label}
-            </label>
-          ))}
-        </div>
-      ) : (
-        <CatalogState
-          empty={catalog ? "No apps to pick from yet." : null}
-          loading="Loading apps…"
-          failed="Couldn’t load the apps."
-          onRetry={onRetry}
-        />
-      )}
-      <PanelActions
-        saving={saving}
-        label="Save apps"
-        onCancel={onCancel}
-        onSave={() => onSave([...picked].sort())}
-      />
-    </div>
-  );
-}
-
-/** Ready-made rule sets; picking one sends it like any other edit. */
-function TemplatePicker({
-  catalog,
-  saving,
-  onCancel,
-  onPick,
-}: {
-  catalog: AomiRulesCatalog | null;
-  saving: boolean;
-  onCancel: () => void;
-  onPick: (rules: AomiRuleSet) => void;
-}) {
-  return (
-    <div role="group" aria-label="Rule templates" className={PANEL}>
-      {ruleTemplates(catalog).map((template) => (
-        <div
-          key={template.id}
-          data-rule-template={template.id}
-          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-        >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="type-control">{template.name}</span>
-            <span className="type-meta text-aomi-muted">
-              {template.summary}
-            </span>
-          </span>
-          <AomiButton
-            size="sm"
-            disabled={saving}
-            aria-label={`Use ${template.name}`}
-            onClick={() => onPick(template.rules)}
-          >
-            Use
-          </AomiButton>
-        </div>
-      ))}
-      <p className="type-meta text-aomi-muted">
-        A template replaces this wallet&rsquo;s rules. If it gives the agent
-        more than it has now, it waits for approval.
-      </p>
-      <div className="flex justify-end">
-        <AomiButton variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </AomiButton>
-      </div>
-    </div>
-  );
-}
-
-/** Pick a catalog token and its daily amount in human units. */
-function LimitPicker({
-  catalog,
-  onRetry,
-  taken,
-  saving,
-  onCancel,
-  onAdd,
-}: {
-  catalog: AomiRulesCatalog | null;
-  onRetry?: () => void;
-  taken: readonly string[];
-  saving: boolean;
-  onCancel: () => void;
-  onAdd: (asset: string, amount: string) => void;
-}) {
-  const tokens = (catalog?.tokens ?? []).filter(
-    (token) => !taken.includes(token.asset),
-  );
-  const [asset, setAsset] = useState("");
+  const [symbol, setSymbol] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const token = tokens.find((entry) => entry.asset === asset) ?? tokens[0];
-  const amount = token ? toBaseUnits(draft, token.decimals) : null;
+  const [asset, setAsset] = useState<string | null>(null);
+  const [to, setTo] = useState<AomiRuleTo | null>(null);
+  const [open, setOpen] = useState<Segment | null>(null);
+  const [query, setQuery] = useState("");
+  const [address, setAddress] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const amountInput = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+
+  const tokens = catalog?.tokens ?? [];
+  const symbols = [...new Set(tokens.map((token) => token.symbol))];
+  const onChains = tokens.filter((token) => token.symbol === symbol);
+  const token = tokens.find((entry) => entry.asset === asset);
+  const apps = (catalog?.apps ?? []).filter(
+    (app) => !asset || app.chains.includes(assetNetwork(asset)),
+  );
+  const shown = apps.filter((app) =>
+    app.label.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  const next = (chosen: { asset?: string | null; to?: AomiRuleTo | null }) => {
+    const hasAsset = chosen.asset !== undefined ? chosen.asset : asset;
+    const hasTo = chosen.to !== undefined ? chosen.to : to;
+    if (!hasAsset) setOpen("chain");
+    else if (!hasTo) setOpen("to");
+    else {
+      setOpen(null);
+      addButton.current?.focus();
+    }
+  };
+
+  const pickToken = (picked: string) => {
+    const chains = tokens.filter((entry) => entry.symbol === picked);
+    setSymbol(picked);
+    setError(null);
+    // A token on one chain needs no chain picked; one that moved chains
+    // drops the chain and the destination chosen for the old one.
+    const only = chains.length === 1 ? chains[0]!.asset : null;
+    const kept = chains.find((entry) => entry.asset === asset)?.asset ?? null;
+    const held = only ?? kept;
+    if (held !== asset) {
+      setAsset(held);
+      setTo(null);
+    }
+    setOpen(null);
+    amountInput.current?.focus();
+  };
+
+  const add = () => {
+    if (!symbol || !asset || !token || !to) {
+      setError("Fill in the token, amount, chain and to.");
+      setOpen(!symbol ? "token" : !asset ? "chain" : "to");
+      return;
+    }
+    const amount = toBaseUnits(draft, token.decimals);
+    if (amount === null) {
+      setError("Enter an amount. 0 blocks the token there.");
+      amountInput.current?.focus();
+      return;
+    }
+    setError(null);
+    onAdd({ asset, amount, to });
+  };
+
+  const applyAddress = () => {
+    const value = address.trim();
+    if (!asset || !validAddress(asset, value)) {
+      setError(
+        asset
+          ? `That isn’t an address on ${assetChain(asset, catalog ?? undefined)}.`
+          : "Pick the token and chain first.",
+      );
+      return;
+    }
+    setError(null);
+    setTo({ kind: "address", address: value });
+    next({ to: { kind: "address", address: value } });
+  };
+
+  const segment = (name: Segment, value: string | null) => (
+    <button
+      type="button"
+      aria-label={name === "to" ? "To" : name === "token" ? "Token" : "Chain"}
+      aria-expanded={open === name}
+      disabled={saving}
+      onClick={() => {
+        setError(null);
+        setOpen(open === name ? null : name);
+      }}
+      className={cn(
+        "hover:bg-aomi-hover h-7 shrink-0 truncate rounded-[6px] px-2 text-[13px] outline-none focus-visible:ring-2",
+        open === name && "bg-aomi-hover",
+        !value && "text-aomi-muted",
+      )}
+    >
+      {value ?? name}
+    </button>
+  );
+  const slash = <span className="text-aomi-muted/60 px-0.5">/</span>;
+  const chip = (label: string, selected: boolean, onClick: () => void) => (
+    <button
+      key={label}
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-2.5 py-1 text-[13px] transition-colors",
+        selected
+          ? "bg-aomi-fg text-aomi-bg border-transparent"
+          : "border-aomi-border hover:bg-aomi-hover",
+      )}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div role="group" aria-label="New limit" className={PANEL}>
-      {token ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Token"
-            className={cn(INPUT, "min-w-0 flex-1")}
-            value={token.asset}
-            onChange={(event) => setAsset(event.target.value)}
-          >
-            {tokens.map((entry) => (
-              <option key={entry.asset} value={entry.asset}>
-                {entry.symbol} on {entry.chain}
-              </option>
-            ))}
-          </select>
+    <div data-rule-editor>
+      <div className={ROW}>
+        <div
+          role="group"
+          aria-label="New rule"
+          className="border-aomi-border bg-aomi-raised focus-within:ring-aomi-ring/50 flex h-9 min-w-56 flex-1 items-center rounded-[10px] border px-1 focus-within:ring-2"
+        >
+          {segment("token", symbol)}
+          {slash}
           <input
+            ref={amountInput}
             inputMode="decimal"
-            aria-label="Daily amount"
-            placeholder="0"
-            className={cn(INPUT, "w-24 text-right tabular-nums")}
+            aria-label="Amount a day"
+            placeholder="amount"
+            disabled={saving}
+            className="placeholder:text-aomi-muted h-7 w-20 min-w-0 rounded-[6px] bg-transparent px-2 text-[13px] tabular-nums outline-none"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              next({});
+            }}
           />
-          <span className="type-meta text-aomi-muted">a day</span>
+          {slash}
+          {segment(
+            "chain",
+            asset ? assetChain(asset, catalog ?? undefined) : null,
+          )}
+          {slash}
+          {segment("to", to ? toLabel(to, catalog) : null)}
         </div>
-      ) : (
-        <CatalogState
-          empty={catalog ? "Every token here has a limit." : null}
-          loading="Loading tokens…"
-          failed="Couldn’t load the tokens."
-          onRetry={onRetry}
-        />
-      )}
-      <PanelActions
-        saving={saving}
-        disabled={!token || amount === null}
-        label="Add limit"
-        onCancel={onCancel}
-        onSave={() => token && amount !== null && onAdd(token.asset, amount)}
-      />
+        <AomiButton
+          ref={addButton}
+          variant="primary"
+          size="sm"
+          disabled={saving}
+          onClick={add}
+        >
+          <Plus />
+          Rule
+        </AomiButton>
+        {error ? (
+          <p className="type-meta text-aomi-danger w-full">{error}</p>
+        ) : null}
+      </div>
+
+      {open ? (
+        <div
+          role="group"
+          aria-label={
+            open === "token"
+              ? "Token"
+              : open === "chain"
+                ? "Chain"
+                : "To: a protocol, or an address"
+          }
+          className="border-aomi-border flex flex-col gap-2 border-t px-3.5 py-3"
+        >
+          {!catalog ? (
+            <p className="type-meta text-aomi-muted flex items-center gap-2">
+              {onRetry ? "Couldn’t load the list." : "Loading…"}
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="hover:text-aomi-fg underline underline-offset-2"
+                >
+                  Try again
+                </button>
+              ) : null}
+            </p>
+          ) : open === "token" ? (
+            <div className="flex flex-wrap gap-1.5">
+              {symbols.map((entry) =>
+                chip(entry, entry === symbol, () => pickToken(entry)),
+              )}
+            </div>
+          ) : open === "chain" ? (
+            symbol ? (
+              <div className="flex flex-wrap gap-1.5">
+                {onChains.map((entry) =>
+                  chip(entry.chain, entry.asset === asset, () => {
+                    // Apps differ per chain: a new chain drops the old one's.
+                    const kept = entry.asset === asset ? to : null;
+                    setAsset(entry.asset);
+                    setTo(kept);
+                    setError(null);
+                    next({ asset: entry.asset, to: kept });
+                  }),
+                )}
+              </div>
+            ) : (
+              <p className="type-meta text-aomi-muted">Pick the token first.</p>
+            )
+          ) : (
+            <>
+              {apps.length > 8 ? (
+                <input
+                  aria-label="Search protocols"
+                  placeholder="Search protocols"
+                  className={cn(INPUT, "w-full")}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              ) : null}
+              <div className="flex flex-wrap gap-1.5">
+                {chip("Any protocol", to?.kind === "any_protocol", () => {
+                  setTo({ kind: "any_protocol" });
+                  next({ to: { kind: "any_protocol" } });
+                })}
+                {shown.map((app) =>
+                  chip(
+                    app.label,
+                    to?.kind === "protocol" && to.id === app.id,
+                    () => {
+                      setTo({ kind: "protocol", id: app.id });
+                      next({ to: { kind: "protocol", id: app.id } });
+                    },
+                  ),
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  aria-label="Send to address"
+                  placeholder="Or paste a wallet address, for sends"
+                  className={cn(INPUT, "min-w-0 flex-1")}
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    applyAddress();
+                  }}
+                />
+                <AomiButton size="sm" onClick={applyAddress}>
+                  Use address
+                </AomiButton>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-/** Aomi-managed, or one of the account's own wallets as the admin. */
-function AdminPicker({
+/**
+ * Who approves a change that gives the agent more: the owner, signed in to
+ * Aomi, or one of the account's own wallets by its signature. The wallets
+ * show only once "Selected wallet" is picked, and nothing is sent until Save.
+ */
+function RuleAuthority({
   admin,
-  options,
+  wallets,
   label,
   saving,
-  onPick,
+  onSave,
 }: {
   admin: AomiRulesAdmin;
-  options: readonly AomiRulesAdmin[];
-  label: (option: AomiRulesAdmin) => string;
+  /** The account's own wallets that may be selected. */
+  wallets: readonly Extract<AomiRulesAdmin, { kind: "wallet" }>[];
+  label: (wallet: Extract<AomiRulesAdmin, { kind: "wallet" }>) => string;
   saving: boolean;
-  onPick: (admin: AomiRulesAdmin) => void;
+  onSave: (admin: AomiRulesAdmin) => void;
 }) {
+  const [draft, setDraft] = useState<AomiRulesAdmin>(admin);
+  const dirty = !sameAdmin(draft, admin);
+  const id = (wallet: { family: string; address: string }) =>
+    `${wallet.family}:${wallet.address}`;
+  const option = (
+    kind: AomiRulesAdmin["kind"],
+    title: string,
+    detail: string,
+    onPick: () => void,
+    disabled = false,
+  ) => (
+    <label className="type-control flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+      <input
+        type="radio"
+        name="rule-change-authority"
+        className="mt-1"
+        checked={draft.kind === kind}
+        disabled={saving || disabled}
+        onChange={onPick}
+      />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        {title}
+        <span className="type-meta text-aomi-muted">{detail}</span>
+      </span>
+    </label>
+  );
   return (
-    <div
-      role="radiogroup"
-      aria-label="Who can loosen rules"
-      className="flex flex-col gap-2 px-3.5 py-3"
+    <section
+      aria-label="Rule change authority"
+      data-rules-admin={admin.kind}
+      className="flex flex-col gap-2"
     >
-      {options.map((option) => {
-        const current = sameAdmin(option, admin);
-        return (
-          <label
-            key={
-              option.kind === "wallet"
-                ? `${option.family}:${option.address}`
-                : option.kind
-            }
-            className="type-control flex cursor-pointer items-start gap-2"
-          >
-            <input
-              type="radio"
-              name="rules-admin"
-              className="mt-1"
-              checked={current}
+      <SectionHeader title="Rule change authority" />
+      <ListGroup role="radiogroup" aria-label="Rule change authority">
+        <div className={ROW}>
+          {option(
+            "aomi_managed",
+            "Self-approval",
+            "You approve changes in Aomi while signed in.",
+            () => setDraft({ kind: "aomi_managed" }),
+          )}
+        </div>
+        <div className={ROW}>
+          {option(
+            "wallet",
+            "Selected wallet",
+            draft.kind === "wallet"
+              ? `Only a signature from ${label(draft)} changes this wallet’s rules.`
+              : wallets.length
+                ? "Only a signature from a wallet you pick changes this wallet’s rules."
+                : "Link a wallet to your account to select it.",
+            () => {
+              const first = admin.kind === "wallet" ? admin : wallets[0];
+              if (first) setDraft(first);
+            },
+            wallets.length === 0 && admin.kind !== "wallet",
+          )}
+          {draft.kind === "wallet" ? (
+            <select
+              aria-label="Wallet"
               disabled={saving}
-              onChange={() => {
-                if (!current) onPick(option);
+              className={cn(INPUT, "max-w-full")}
+              value={id(draft)}
+              onChange={(event) => {
+                const picked = wallets.find(
+                  (wallet) => id(wallet) === event.target.value,
+                );
+                if (picked) setDraft(picked);
               }}
-            />
-            <span className="flex min-w-0 flex-col">
-              {label(option)}
-              <span className="type-meta text-aomi-muted">
-                {option.kind === "wallet"
-                  ? "Only this wallet's signature loosens the rules."
-                  : "You approve with a click or a tap."}
-              </span>
-            </span>
-          </label>
-        );
-      })}
-      {options.length === 1 ? (
-        <p className="type-meta text-aomi-muted">
-          Link a wallet to your account to make it the admin.
-        </p>
-      ) : null}
-    </div>
+            >
+              {(wallets.some((wallet) => sameAdmin(wallet, draft))
+                ? wallets
+                : [draft, ...wallets]
+              ).map((wallet) => (
+                <option key={id(wallet)} value={id(wallet)}>
+                  {label(wallet)}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+        {dirty ? (
+          <div className={cn(ROW, "justify-end")}>
+            <AomiButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setDraft(admin)}
+            >
+              Cancel
+            </AomiButton>
+            <AomiButton
+              variant="primary"
+              size="sm"
+              disabled={saving}
+              onClick={() => onSave(draft)}
+            >
+              Save
+            </AomiButton>
+          </div>
+        ) : null}
+      </ListGroup>
+    </section>
   );
 }

@@ -19,13 +19,17 @@ import {
 
 type Flags = ConnectFlags & { json?: boolean };
 
-/** `used 0.2 / 0.5 SOL`; an unknown token shows raw units and its asset id. */
+/**
+ * `used 0.2 / 0.5 SOL · protocol:jupiter`; an unknown token shows raw units
+ * and its asset id.
+ */
 function usageLine(usage: AomiRuleUsage): string {
   const amount = (value: string) =>
     usage.decimals === null
       ? value
       : formatUnits(BigInt(value), usage.decimals);
-  return `used ${amount(usage.used)} / ${amount(usage.cap)} ${usage.symbol ?? usage.asset}`;
+  const to = usage.rule.slice(usage.asset.length + 1);
+  return `used ${amount(usage.used)} / ${amount(usage.cap)} ${usage.symbol ?? usage.asset} · ${to}`;
 }
 
 function timeLeft(expiresAt: number): string {
@@ -47,10 +51,10 @@ export function rulesLines(rules: AomiWalletRules): string[] {
   for (const usage of rules.usage) lines.push(`  ${usageLine(usage)}`);
   if (rules.stopped_until) lines.push("  Stopped by the agent until 00:00 UTC");
   lines.push(
-    `  Admin: ${
+    `  Rule change authority: ${
       rules.admin.kind === "wallet"
         ? `${rules.admin.address} (${rules.admin.family}), approves by signing`
-        : "Aomi-managed"
+        : "self-approval"
     }`,
   );
   const pending = rules.pending;

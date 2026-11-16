@@ -158,13 +158,14 @@ const walletRules = (extra: object = {}) => ({
   agent_wallet_id: "g-trading",
   wallet_name: "Trading",
   revision: 1,
-  rules: { apps: null, limits: [], not_after: null, owner_only: true },
-  sentences: ["Sends only to your wallets"],
+  rules: { mode: "blacklist", rules: [], linked_only: true },
+  sentences: ["Sends only to your linked wallets"],
   admin: { kind: "aomi_managed" },
   stopped_until: null,
   usage: [],
   window_ends_at: null,
   pending: null,
+  enforced_by: {},
   enforcement: [],
   admin_wallets: [],
   ...extra,
@@ -452,7 +453,9 @@ describe("Agent wallets band", () => {
     await renderSection();
     const sheet = await manage("Trading");
     const rules = await within(sheet).findByRole("region", { name: "Rules" });
-    expect(await within(rules).findByText("Aomi-managed")).toBeInTheDocument();
+    expect(
+      await within(rules).findByText("Only allow sending to linked wallets"),
+    ).toBeInTheDocument();
     const after = (node: Element) =>
       Boolean(
         rules.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -505,7 +508,7 @@ describe("Agent wallets band", () => {
     };
     await renderSection();
     const sheet = await manage("Trading");
-    await within(sheet).findByText("Aomi-managed");
+    await within(sheet).findByText("Self-approval");
     fireEvent.click(
       within(sheet).getByRole("combobox", { name: "Trading: Ask on Aomi" }),
     );
@@ -615,10 +618,11 @@ describe("Agent wallets band", () => {
                   name: "Swig",
                   network: "solana:mainnet-beta",
                   state: "off",
-                  covers: { apps: [], limits: [] },
+                  rules: [],
+                  holds: {},
                   left: {},
-                  note: "Add a daily SOL limit first. Swig needs one.",
-                  ready: false,
+                  note: null,
+                  ready: true,
                   signer: { family: "svm", address: null },
                 },
               ],
@@ -632,10 +636,14 @@ describe("Agent wallets band", () => {
     expect(sheet).not.toHaveTextContent(shortAddress(SVM));
     // The same rules on chain are one row of the rules, with no separate
     // Limits step and no request that names a provider.
-    expect(await within(sheet).findByText("Swig · Off")).toBeInTheDocument();
     expect(
-      within(sheet).getByText(/Add a daily SOL limit first\. Swig needs one\./),
+      await within(sheet).findByText(
+        /Swig can also enforce these rules on chain/,
+      ),
     ).toBeInTheDocument();
+    expect(
+      within(sheet).getByRole("button", { name: "+ Swig" }),
+    ).toBeDisabled();
     expect(within(sheet).queryByRole("button", { name: /^Limits/ })).toBeNull();
     expect(calls.some((call) => call.path.includes("/policies/"))).toBe(false);
     fireEvent.click(

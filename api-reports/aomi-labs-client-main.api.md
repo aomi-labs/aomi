@@ -1629,6 +1629,16 @@ export interface AomiRequestOptions {
 export type AomiRequestQueryValue = string | number | boolean | readonly (string | number | boolean)[] | null | undefined;
 
 // @public
+export type AomiRule = {
+    id?: string;
+    asset: string;
+    amount: string;
+    to: AomiRuleTo;
+    symbol?: string | null;
+    decimals?: number | null;
+};
+
+// @public
 export type AomiRuleChange = {
     id: string;
     agent_wallet_id: string;
@@ -1649,14 +1659,6 @@ export type AomiRuleChangeLine = {
 
 // @public (undocumented)
 export type AomiRuleChangeState = (typeof CHANGE_STATES)[number];
-
-// @public
-export type AomiRuleLimit = {
-    asset: string;
-    amount: string;
-    symbol?: string | null;
-    decimals?: number | null;
-};
 
 // @public
 export type AomiRulesAction = {
@@ -1712,20 +1714,13 @@ export type AomiRulesChangeResult = {
 };
 
 // @public
-export type AomiRulesCovers = {
-    apps: string[];
-    limits: string[];
-    not_after: boolean;
-    owner_only: boolean;
-};
-
-// @public
 export type AomiRulesEnforcement = {
     provider: string;
     name: string;
     network: string;
     state: (typeof ENFORCEMENT_STATES)[number];
-    covers: AomiRulesCovers;
+    rules: string[];
+    holds: Record<string, string>;
     left: Record<string, string>;
     note: string | null;
     ready: boolean;
@@ -1745,14 +1740,34 @@ export type AomiRulesEnforceRequest = {
 
 // @public
 export type AomiRuleSet = {
-    apps: string[] | null;
-    limits: AomiRuleLimit[];
-    not_after: number | null;
-    owner_only: boolean;
+    mode: AomiRulesMode;
+    rules: AomiRule[];
+    linked_only: boolean;
+};
+
+// @public
+export type AomiRulesMode = (typeof MODES)[number];
+
+// @public
+export type AomiRuleTo =
+/** Any contract or program, known or not. Never a plain send. */
+    {
+    kind: "any_protocol";
+}
+/** One app, by its catalog id. */
+| {
+    kind: "protocol";
+    id: string;
+}
+/** A plain send to this address. */
+| {
+    kind: "address";
+    address: string;
 };
 
 // @public
 export type AomiRuleUsage = {
+    rule: string;
     asset: string;
     used: string;
     cap: string;
@@ -1904,6 +1919,7 @@ export type AomiWalletRules = {
     usage: AomiRuleUsage[];
     window_ends_at: number | null;
     pending: AomiRuleChange | null;
+    enforced_by: Record<string, string[]>;
     enforcement: AomiRulesEnforcement[];
     admin_wallets: AomiRulesAdminWallet[];
 };
@@ -3884,11 +3900,14 @@ export const robinhood: {
     verifyHash?: ((client: viem.Client, parameters: viem.VerifyHashActionParameters) => Promise<viem.VerifyHashActionReturnType>) | undefined;
 };
 
+// @public
+export function ruleKey(rule: Pick<AomiRule, "asset" | "to">): string;
+
 // @public (undocumented)
 export const RULES_ERROR_CODES: {
     readonly appUnknown: "rules_app_unknown";
     readonly assetInvalid: "rules_asset_invalid";
-    readonly amountInvalid: "rules_amount_invalid";
+    readonly addressInvalid: "rules_address_invalid";
     readonly duplicate: "rules_duplicate";
     readonly adminWalletNotLinked: "rules_admin_wallet_not_linked";
     readonly connectionInvalid: "rules_connection_invalid";
