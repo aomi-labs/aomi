@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  clearSecret,
   fetchAgent,
   fetchPackage,
   fetchPublisher,
@@ -51,12 +50,13 @@ export function usePromote(kind: ReleaseKind, name: string) {
   });
 }
 
-/** Set (with a value) or clear (null) one builder secret of a package. */
+/** Set one builder secret of a package. Its value is never read back. */
 export function useSecret(name: string) {
   const queries = useQueryClient();
   return useMutation({
-    mutationFn: ({ slot, value }: { slot: string; value: string | null }) =>
-      value == null ? clearSecret(name, slot) : setSecret(name, slot, value),
-    onSuccess: () => queries.invalidateQueries({ queryKey: keys.package(name) }),
+    mutationFn: ({ slot, value }: { slot: string; value: string }) =>
+      setSecret(name, slot, value),
+    onSuccess: () =>
+      queries.invalidateQueries({ queryKey: keys.package(name) }),
   });
 }

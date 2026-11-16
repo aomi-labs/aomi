@@ -30,7 +30,11 @@ export type ReleaseList = { live: number | null; releases: Release[] };
 
 const paths = API_PATHS.build;
 
-async function json<T>(url: string, label: string, init?: RequestInit): Promise<T> {
+async function json<T>(
+  url: string,
+  label: string,
+  init?: RequestInit,
+): Promise<T> {
   return readJsonResponse<T>(await buildFetch(url, init), `${label} failed`);
 }
 
@@ -48,13 +52,18 @@ export function shortName(id: string): string {
 }
 
 /** `#14 · a3f9c1`: a release number and the first six hex digits of its digest. */
-export function releaseLabel(release: { number: number; digest: string }): string {
+export function releaseLabel(release: {
+  number: number;
+  digest: string;
+}): string {
   return `#${release.number} · ${release.digest.replace(/^sha256:/, "").slice(0, 6)}`;
 }
 
-export const fetchPublisher = () => json<Publisher>(paths.publisher, "Publisher");
+export const fetchPublisher = () =>
+  json<Publisher>(paths.publisher, "Publisher");
 
-export const fetchAgent = (name: string) => json<Agent>(paths.agent(name), "Agent");
+export const fetchAgent = (name: string) =>
+  json<Agent>(paths.agent(name), "Agent");
 
 export const fetchPackage = (name: string) =>
   json<Package>(paths.package(name), "Package");
@@ -70,7 +79,10 @@ export async function fetchReleases(
     releases?: Release[];
     configs?: Release[];
   }>(url, "Releases");
-  return { live: raw.live ?? null, releases: raw.releases ?? raw.configs ?? [] };
+  return {
+    live: raw.live ?? null,
+    releases: raw.releases ?? raw.configs ?? [],
+  };
 }
 
 /** The manager refused a promote because the live pointer moved; `live` is where it is now. */
@@ -102,11 +114,22 @@ export async function promote(input: {
   } catch (error) {
     const refusal =
       error instanceof HttpRequestError
-        ? (error.body as { code?: string; message?: string; live?: number | null })
+        ? (error.body as {
+            code?: string;
+            message?: string;
+            live?: number | null;
+          })
         : null;
-    if (error instanceof HttpRequestError && error.status === 409 && refusal?.code === "live_changed")
+    if (
+      error instanceof HttpRequestError &&
+      error.status === 409 &&
+      refusal?.code === "live_changed"
+    )
       throw new LiveChanged(refusal.live ?? null);
-    if (refusal?.message) throw new HttpRequestError(refusal.message, { status: (error as HttpRequestError).status });
+    if (refusal?.message)
+      throw new HttpRequestError(refusal.message, {
+        status: (error as HttpRequestError).status,
+      });
     throw error;
   }
 }
@@ -117,9 +140,6 @@ export const setSecret = (name: string, slot: string, value: string) =>
     "Secret",
     send("PUT", { value }),
   );
-
-export const clearSecret = (name: string, slot: string) =>
-  json<{ status: SlotStatus }>(paths.packageSecret(name, slot), "Secret", send("DELETE"));
 
 /** A builder key as the Edge lists it. Times are unix seconds. */
 export type BuilderKey = {
@@ -136,7 +156,11 @@ export const fetchKeys = () => json<{ keys: BuilderKey[] }>(paths.keys, "Keys");
 
 /** The created key, whose `key` is shown once and never again. */
 export const createKey = (input: { label: string; capabilities: string[] }) =>
-  json<BuilderKey & { key: string }>(paths.keys, "Create key", send("POST", input));
+  json<BuilderKey & { key: string }>(
+    paths.keys,
+    "Create key",
+    send("POST", input),
+  );
 
 export const revokeKey = (id: number) =>
   json<{ ok: true }>(paths.keys, "Revoke key", send("DELETE", { id }));

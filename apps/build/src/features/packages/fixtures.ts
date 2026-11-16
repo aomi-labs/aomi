@@ -1,12 +1,28 @@
 // One fixture per builder read, in the wire shape the manager answers
 // (briefs/P8-build-api.md). Tests and previews share them.
-import type { Agent, BuilderKey, Package, Publisher, ReleaseList } from "./client";
+import type {
+  Agent,
+  BuilderKey,
+  Package,
+  Publisher,
+  ReleaseList,
+} from "./client";
 
 export const publisherFixture: Publisher = {
   publisher: "arixoneth",
   agents: [
-    { id: "arixoneth/hoodit", display_name: "Hoodit", status: "active", live_config: 3 },
-    { id: "arixoneth/dottie", display_name: "Dottie", status: "needs_rebuild", live_config: 1 },
+    {
+      id: "arixoneth/hoodit",
+      display_name: "Hoodit",
+      status: "active",
+      live_config: 3,
+    },
+    {
+      id: "arixoneth/dottie",
+      display_name: "Dottie",
+      status: "needs_rebuild",
+      live_config: 1,
+    },
   ],
   packages: [
     {
@@ -39,14 +55,23 @@ export const agentFixture: Agent = {
     config: {
       name: "hoodit",
       display_name: "Hoodit",
-      voice: "You are Hoodit. Sizes are in ETH. Say why a token looks risky before offering to buy.",
+      voice:
+        "You are Hoodit. Sizes are in ETH. Say why a token looks risky before offering to buy.",
       chains: ["robinhood"],
       packages: ["arixoneth/trade", "aomi/swap"],
       model_cost: "person",
       audience: "public",
       allowed_origins: ["hoodit.xyz"],
-      wallet_rules: { default: "ask", families: ["evm"], agent: true, ask_only: true },
-      telegram: { show_tool_calls: false, group: { enabled: false, tools: [] } },
+      wallet_rules: {
+        default: "ask",
+        families: ["evm"],
+        agent: true,
+        ask_only: true,
+      },
+      telegram: {
+        show_tool_calls: false,
+        group: { enabled: false, tools: [] },
+      },
       shortcuts: [{ command: "positions", tool: "trade_get_positions" }],
     },
   },
@@ -58,7 +83,11 @@ export const agentFixture: Agent = {
 
 /** Carried over from an app: its packages have no release yet. */
 export const needsRebuildAgentFixture: Agent = {
-  agent: { id: "arixoneth/dottie", display_name: "Dottie", status: "needs_rebuild" },
+  agent: {
+    id: "arixoneth/dottie",
+    display_name: "Dottie",
+    status: "needs_rebuild",
+  },
   live: null,
   channels: [],
 };
@@ -78,11 +107,22 @@ export const packageFixture: Package = {
     commit: "bf1cb17e2d",
     created_at: "2026-11-13T20:54:00Z",
     tools: [
-      { name: "trade_token_info", description: "Token data", audience: "model" },
-      { name: "trade_stage_buy", description: "Propose a buy", audience: "model" },
+      {
+        name: "trade_token_info",
+        description: "Token data",
+        audience: "model",
+      },
+      {
+        name: "trade_stage_buy",
+        description: "Propose a buy",
+        audience: "model",
+      },
     ],
     skills: [
-      { id: "trade", description: "Buy or sell a token with a size in ETH or USDG" },
+      {
+        id: "trade",
+        description: "Buy or sell a token with a size in ETH or USDG",
+      },
       { id: "positions", description: "Show holdings and profit or loss" },
     ],
     envelope: {
@@ -149,7 +189,12 @@ export const keysFixture: { keys: BuilderKey[] } = {
       id: 7,
       prefix: "aomi_key_Zx19d4",
       label: "CI publish key",
-      capabilities: ["package:publish", "package:promote", "agent:publish", "agent:promote"],
+      capabilities: [
+        "package:publish",
+        "package:promote",
+        "agent:publish",
+        "agent:promote",
+      ],
       createdAt: 1761800000,
       lastUsedAt: 1761850000,
       revokedAt: null,

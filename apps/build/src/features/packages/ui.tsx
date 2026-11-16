@@ -72,7 +72,9 @@ export function Row({
     <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
       <div className="min-w-0">
         <div className="text-foreground truncate">{label}</div>
-        {hint ? <div className="text-dim truncate text-[12px]">{hint}</div> : null}
+        {hint ? (
+          <div className="text-dim truncate text-[12px]">{hint}</div>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
@@ -81,7 +83,9 @@ export function Row({
 
 /** The repository URL a `source_repo` names (`owner/repo` or a full URL). */
 export function repoUrl(repo: string): string {
-  return /^https?:\/\//.test(repo) ? repo.replace(/\/+$/, "") : `https://github.com/${repo}`;
+  return /^https?:\/\//.test(repo)
+    ? repo.replace(/\/+$/, "")
+    : `https://github.com/${repo}`;
 }
 
 /** "From aomi.toml at <sha> · Edit in GitHub": where the live release came from. */
@@ -147,7 +151,8 @@ export function Notice({ children }: { children: ReactNode }) {
 }
 
 export function formatTime(value: string | number): string {
-  const date = typeof value === "number" ? new Date(value * 1000) : new Date(value);
+  const date =
+    typeof value === "number" ? new Date(value * 1000) : new Date(value);
   return Number.isNaN(date.getTime())
     ? String(value)
     : date.toLocaleString("en-GB", {

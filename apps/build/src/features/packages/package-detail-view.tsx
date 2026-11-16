@@ -8,11 +8,23 @@ import {
 import { releaseLabel, type Package } from "./client";
 import { usePackage, useSecret } from "./hooks";
 import { ReleaseHistory } from "./release-history";
-import { BUTTON, Card, Notice, PageHeader, Pill, Row, SourceStrip, formatTime } from "./ui";
+import {
+  BUTTON,
+  Card,
+  Notice,
+  PageHeader,
+  Pill,
+  Row,
+  SourceStrip,
+  formatTime,
+} from "./ui";
 
 type Slot = Package["slots"][number];
 
-const SLOT_STATUS: Record<Slot["status"], { label: string; tone: "good" | "warn" | "muted" }> = {
+const SLOT_STATUS: Record<
+  Slot["status"],
+  { label: string; tone: "good" | "warn" | "muted" }
+> = {
   set: { label: "Set", tone: "good" },
   missing: { label: "Missing", tone: "warn" },
   users_add_their_own: { label: "Users add their own", tone: "muted" },
@@ -26,7 +38,10 @@ function SecretRow({ name, slot }: { name: string; slot: Slot }) {
   const builder = slot.owner === "builder";
   const save = () => {
     if (!value?.trim()) return;
-    secret.mutate({ slot: slot.name, value }, { onSuccess: () => setValue(null) });
+    secret.mutate(
+      { slot: slot.name, value },
+      { onSuccess: () => setValue(null) },
+    );
   };
   return (
     <div>
@@ -57,10 +72,18 @@ function SecretRow({ name, slot }: { name: string; slot: Slot }) {
             value={value}
             onChange={(event) => setValue(event.target.value)}
           />
-          <button type="submit" className={BUTTON} disabled={secret.isPending || !value.trim()}>
+          <button
+            type="submit"
+            className={BUTTON}
+            disabled={secret.isPending || !value.trim()}
+          >
             Save
           </button>
-          <button type="button" className={BUTTON} onClick={() => setValue(null)}>
+          <button
+            type="button"
+            className={BUTTON}
+            onClick={() => setValue(null)}
+          >
             Cancel
           </button>
           {secret.error ? (
@@ -86,7 +109,9 @@ export function PackageDetailView({ name }: { name: string }) {
         title={data.package.id}
         badges={
           <>
-            <Pill tone={live ? "good" : "muted"}>{live ? "Live" : "No release live"}</Pill>
+            <Pill tone={live ? "good" : "muted"}>
+              {live ? "Live" : "No release live"}
+            </Pill>
             <Pill tone={data.verified ? "good" : "muted"}>
               {data.verified ? "Verified" : "Not verified"}
             </Pill>
@@ -97,18 +122,24 @@ export function PackageDetailView({ name }: { name: string }) {
             <p className="text-dim text-[13px]">{data.package.description}</p>
             {live ? (
               <p className="text-dim text-[13px]">
-                Release <span className="text-foreground font-mono">{releaseLabel({ number: live.release, digest: live.digest })}</span>{" "}
+                Release{" "}
+                <span className="text-foreground font-mono">
+                  {releaseLabel({ number: live.release, digest: live.digest })}
+                </span>{" "}
                 · uploaded {formatTime(live.created_at)}
               </p>
             ) : null}
-            {live ? <SourceStrip repo={live.source_repo} commit={live.commit} /> : null}
+            {live ? (
+              <SourceStrip repo={live.source_repo} commit={live.commit} />
+            ) : null}
           </>
         }
       />
       {live ? null : (
         <Notice>
           No release is live. Publish one with{" "}
-          <code className="font-mono">aomi publish --package {name}</code> and promote it below.
+          <code className="font-mono">aomi publish --package {name}</code> and
+          promote it below.
         </Notice>
       )}
       {live ? (
@@ -119,19 +150,32 @@ export function PackageDetailView({ name }: { name: string }) {
             footer="Opening any skill loads this package's tools."
           >
             {live.skills.map((skill) => (
-              <Row key={skill.id} label={<span className="font-mono">{skill.id}</span>} hint={skill.description} />
+              <Row
+                key={skill.id}
+                label={<span className="font-mono">{skill.id}</span>}
+                hint={skill.description}
+              />
             ))}
           </Card>
           <Card title={`Tools · ${live.tools.length}`} origin="repo">
             {live.tools.map((tool) => (
-              <Row key={tool.name} label={<span className="font-mono">{tool.name}</span>} hint={tool.description}>
+              <Row
+                key={tool.name}
+                label={<span className="font-mono">{tool.name}</span>}
+                hint={tool.description}
+              >
                 <span className="text-dim text-[12px]">{tool.audience}</span>
               </Row>
             ))}
           </Card>
           <Card title="Guards" origin="repo">
-            <Row label="Transaction guards">{live.guards ? "Declared" : "None"}</Row>
-            <Row label="Aomi checks" hint="Simulation, balance changes and approvals on every transaction">
+            <Row label="Transaction guards">
+              {live.guards ? "Declared" : "None"}
+            </Row>
+            <Row
+              label="Aomi checks"
+              hint="Simulation, balance changes and approvals on every transaction"
+            >
               Always on
             </Row>
           </Card>
@@ -145,7 +189,9 @@ export function PackageDetailView({ name }: { name: string }) {
         {data.slots.length === 0 ? (
           <Row label="No secrets declared" />
         ) : (
-          data.slots.map((slot) => <SecretRow key={slot.name} name={name} slot={slot} />)
+          data.slots.map((slot) => (
+            <SecretRow key={slot.name} name={name} slot={slot} />
+          ))
         )}
       </Card>
       {live ? (
@@ -157,7 +203,12 @@ export function PackageDetailView({ name }: { name: string }) {
           {live.envelope.hosts.length === 0 ? (
             <Row label="No hosts" />
           ) : (
-            live.envelope.hosts.map((host) => <Row key={host} label={<span className="font-mono">{host}</span>} />)
+            live.envelope.hosts.map((host) => (
+              <Row
+                key={host}
+                label={<span className="font-mono">{host}</span>}
+              />
+            ))
           )}
         </Card>
       ) : null}

@@ -74,7 +74,7 @@ export function PlatformSwitcher({
       }
       writePlatform(platform);
       router.navigate({
-        href: `/projects?platform=${encodeURIComponent(platform)}`,
+        href: `/packages?platform=${encodeURIComponent(platform)}`,
       });
     } catch (cause) {
       setError(
@@ -94,7 +94,7 @@ export function PlatformSwitcher({
     setError(null);
     writePlatform(DEFAULT_DEPLOY_PLATFORM);
     router.navigate({
-      href: `/projects?platform=${encodeURIComponent(DEFAULT_DEPLOY_PLATFORM)}`,
+      href: `/packages?platform=${encodeURIComponent(DEFAULT_DEPLOY_PLATFORM)}`,
     });
   }
 

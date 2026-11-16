@@ -37,14 +37,19 @@ function AgentList({ agents }: { agents: Publisher["agents"] }) {
             <Row
               key={agent.id}
               label={
-                <Link href={`/agents/${shortName(agent.id)}`} className="font-medium hover:underline">
+                <Link
+                  href={`/agents/${shortName(agent.id)}`}
+                  className="font-medium hover:underline"
+                >
                   {agent.display_name}
                 </Link>
               }
               hint={<span className="font-mono">{agent.id}</span>}
             >
               <span className="text-dim text-[12px]">
-                {agent.live_config == null ? "No config live" : `Config #${agent.live_config}`}
+                {agent.live_config == null
+                  ? "No config live"
+                  : `Config #${agent.live_config}`}
               </span>
               <Pill tone={status.tone}>{status.label}</Pill>
             </Row>
@@ -69,14 +74,19 @@ function PackageList({ packages }: { packages: Publisher["packages"] }) {
           <Row
             key={pkg.id}
             label={
-              <Link href={`/packages/${shortName(pkg.id)}`} className="font-medium hover:underline">
+              <Link
+                href={`/packages/${shortName(pkg.id)}`}
+                className="font-medium hover:underline"
+              >
                 {pkg.display_name}
               </Link>
             }
             hint={<span className="font-mono">{pkg.id}</span>}
           >
             <span className="text-dim text-[12px]">
-              {pkg.live_release == null ? "No release live" : `Release #${pkg.live_release}`}
+              {pkg.live_release == null
+                ? "No release live"
+                : `Release #${pkg.live_release}`}
             </span>
             {pkg.verified ? <Pill tone="good">Verified</Pill> : null}
             <Pill>{pkg.listed ? "Listed" : "Private"}</Pill>
@@ -91,7 +101,8 @@ function PackageList({ packages }: { packages: Publisher["packages"] }) {
 /** One of the publisher's two lists: its agents, or its packages. */
 export function InventoryView({ only }: { only: "agents" | "packages" }) {
   const { data, error, isPending } = usePublisher();
-  if (isPending) return <LoadingPanel label="Loading your agents and packages…" />;
+  if (isPending)
+    return <LoadingPanel label="Loading your agents and packages…" />;
   if (error) return <ErrorPanel message={error.message} />;
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-6">
@@ -100,8 +111,8 @@ export function InventoryView({ only }: { only: "agents" | "packages" }) {
           {only === "agents" ? "Agents" : "Packages"}
         </h1>
         <p className="text-dim text-[13px]">
-          Published by <span className="font-mono">{data.publisher}</span>. Configured in your
-          repo&apos;s aomi.toml; Build shows them read-only.
+          Published by <span className="font-mono">{data.publisher}</span>.
+          Configured in your repo&apos;s aomi.toml; Build shows them read-only.
         </p>
       </div>
       {only === "agents" ? (

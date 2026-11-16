@@ -68,7 +68,7 @@ describe("PlatformSwitcher", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch" }));
 
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/projects?platform=somm.finance"),
+      expect(push).toHaveBeenCalledWith("/packages?platform=somm.finance"),
     );
     expect(deploymentProjects).toHaveBeenCalledWith("somm.finance");
     expect(
@@ -103,7 +103,7 @@ describe("PlatformSwitcher", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Use Community" }));
 
-    expect(push).toHaveBeenCalledWith("/projects?platform=community");
+    expect(push).toHaveBeenCalledWith("/packages?platform=community");
     expect(deploymentProjects).not.toHaveBeenCalled();
   });
 

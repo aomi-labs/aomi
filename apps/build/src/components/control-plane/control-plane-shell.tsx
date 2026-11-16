@@ -32,8 +32,6 @@ import { Aomi } from "@aomi-labs/client";
 import { AomiLogo } from "@/components/brand/aomi-logo";
 import { ColorThemeToggle } from "@/components/control-plane/color-theme-toggle";
 import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
-import { platformHref } from "@/features/deploy/platform";
-import { usePlatform } from "@/features/deploy/use-platform";
 import {
   CommandPalette,
   openCommandPalette,
@@ -62,9 +60,8 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Overview",
+    title: "Publisher",
     items: [
-      { label: "Overview", href: "/overview", icon: Home, enabled: true },
       {
         label: "Packages",
         href: "/packages",
@@ -287,7 +284,6 @@ function NavItemLink({
   onNavigate?: () => void;
 }) {
   const Icon = item.icon;
-  const platform = usePlatform();
   const enabled = item.enabled && (!item.requiresGitHub || signedIn);
   const content = (
     <>
@@ -325,7 +321,7 @@ function NavItemLink({
 
   return (
     <ControlPlaneLink
-      href={platformHref(item.href, platform)}
+      href={item.href}
       warmOnIntent={!active}
       onClick={onNavigate}
       data-active={active ? "true" : "false"}

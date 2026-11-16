@@ -32,7 +32,11 @@ beforeEach(() => {
     },
     "GET /api/build/agents/dottie": { body: needsRebuildAgentFixture },
     "GET /api/build/agents/dottie/configs": {
-      body: { agent: "arixoneth/dottie", live: agentConfigsFixture.live, configs: agentConfigsFixture.releases },
+      body: {
+        agent: "arixoneth/dottie",
+        live: agentConfigsFixture.live,
+        configs: agentConfigsFixture.releases,
+      },
     },
   };
   vi.stubGlobal("fetch", fetchMock);
@@ -42,7 +46,11 @@ afterEach(() => vi.unstubAllGlobals());
 
 function renderWithQueries(ui: ReactNode) {
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
       {ui}
     </QueryClientProvider>,
   );
@@ -50,13 +58,19 @@ function renderWithQueries(ui: ReactNode) {
 
 it("lists the publisher's agents and packages apart", async () => {
   const agents = renderWithQueries(<InventoryView only="agents" />);
-  expect(await screen.findByRole("link", { name: "Hoodit" })).toHaveAttribute("href", "/agents/hoodit");
+  expect(await screen.findByRole("link", { name: "Hoodit" })).toHaveAttribute(
+    "href",
+    "/agents/hoodit",
+  );
   expect(screen.getByText("Needs a rebuild")).toBeInTheDocument();
   expect(screen.queryByText("Trade")).not.toBeInTheDocument();
   agents.unmount();
 
   renderWithQueries(<InventoryView only="packages" />);
-  expect(await screen.findByRole("link", { name: "Trade" })).toHaveAttribute("href", "/packages/trade");
+  expect(await screen.findByRole("link", { name: "Trade" })).toHaveAttribute(
+    "href",
+    "/packages/trade",
+  );
   expect(screen.getByText("Release #5")).toBeInTheDocument();
   expect(screen.getByText("No release live")).toBeInTheDocument();
   expect(screen.queryByText("Hoodit")).not.toBeInTheDocument();
@@ -64,9 +78,13 @@ it("lists the publisher's agents and packages apart", async () => {
 
 it("tells the builder an agent carried over from an app needs a rebuild", async () => {
   renderWithQueries(<AgentDetailView name="dottie" />);
-  expect(await screen.findByText(/Needs a rebuild: this agent was carried over/)).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Needs a rebuild: this agent was carried over/),
+  ).toBeInTheDocument();
   expect(screen.getByText("aomi publish --agent dottie")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /save/i }),
+  ).not.toBeInTheDocument();
   expect(await screen.findByText(/#3 · 37be02/)).toBeInTheDocument();
 });
 
@@ -81,8 +99,13 @@ it("says so when the live release moved before a promote", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The live release moved to #6 since this page loaded. Nothing was promoted",
   );
-  const promote = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
-  expect(JSON.parse(String(promote[1]!.body))).toEqual({ release: 6, expected_live: 5 });
+  const promote = fetchMock.mock.calls.find(
+    ([, init]) => init?.method === "POST",
+  )!;
+  expect(JSON.parse(String(promote[1]!.body))).toEqual({
+    release: 6,
+    expected_live: 5,
+  });
   expect(screen.getByRole("button", { name: "Roll back" })).toBeInTheDocument();
 });
 
@@ -100,7 +123,9 @@ it("replaces a builder secret through the package's secret route, never showing 
     target: { value: "new-secret" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  expect(await screen.findByRole("button", { name: "Replace" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("button", { name: "Replace" }),
+  ).toBeInTheDocument();
   const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
   expect(put[0]).toBe("/api/build/packages/trade/secrets/GMGN_API_KEY");
   expect(JSON.parse(String(put[1]!.body))).toEqual({ value: "new-secret" });

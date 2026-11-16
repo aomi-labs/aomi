@@ -28,8 +28,13 @@ function NewKey() {
   });
   if (create.data)
     return (
-      <Row label="Copy this key now. It is not shown again." hint={create.data.label ?? undefined}>
-        <code className="font-mono text-[12px] select-all">{create.data.key}</code>
+      <Row
+        label="Copy this key now. It is not shown again."
+        hint={create.data.label ?? undefined}
+      >
+        <code className="select-all font-mono text-[12px]">
+          {create.data.key}
+        </code>
       </Row>
     );
   return (
@@ -62,7 +67,10 @@ function NewKey() {
 /** Builder keys (CLI and CI) and access keys, which are not available yet. */
 export function KeysView() {
   const queries = useQueryClient();
-  const { data, error, isPending } = useQuery({ queryKey: KEYS, queryFn: fetchKeys });
+  const { data, error, isPending } = useQuery({
+    queryKey: KEYS,
+    queryFn: fetchKeys,
+  });
   const revoke = useMutation({
     mutationFn: revokeKey,
     onSuccess: () => queries.invalidateQueries({ queryKey: KEYS }),
@@ -74,8 +82,8 @@ export function KeysView() {
       <div>
         <h1 className="text-foreground text-xl font-semibold">Keys</h1>
         <p className="text-dim text-[13px]">
-          Builder keys are for the CLI and CI. Secrets a package&apos;s tools need are set on the
-          package.
+          Builder keys are for the CLI and CI. Secrets a package&apos;s tools
+          need are set on the package.
         </p>
       </div>
       <Card
@@ -87,7 +95,9 @@ export function KeysView() {
             key={key.id}
             label={key.label ?? "Unnamed key"}
             hint={`${key.prefix}… · ${
-              key.lastUsedAt ? `last used ${formatTime(key.lastUsedAt)}` : `created ${formatTime(key.createdAt)}`
+              key.lastUsedAt
+                ? `last used ${formatTime(key.lastUsedAt)}`
+                : `created ${formatTime(key.createdAt)}`
             } · ${key.capabilities.join(", ")}`}
           >
             {key.revokedAt ? (

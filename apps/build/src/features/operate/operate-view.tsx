@@ -227,8 +227,8 @@ function Rows({
         <EmptyState
           title="Transactions"
           description="On-chain actions from your apps show up here after chat activity."
-          actionHref="/projects"
-          actionLabel="Open Projects"
+          actionHref="/agents"
+          actionLabel="Open Agents"
         />
       );
     const apps = [...new Set(rows.map((tx) => String(tx.application)))];
@@ -258,8 +258,8 @@ function Rows({
         <EmptyState
           title="Usage"
           description="Credits and tokens appear after your apps run chat turns. This is a meter, not Billing."
-          actionHref="/projects"
-          actionLabel="Open Projects"
+          actionHref="/agents"
+          actionLabel="Open Agents"
         />
       );
     return <UsageRows payload={payload} />;

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  platformHref,
   platformParam,
   readPlatform,
   writePlatform,
@@ -17,54 +16,6 @@ describe("platformParam", () => {
     // Next hands back an array when a param repeats; there is no single
     // platform to honour, so scope falls back to Community.
     expect(platformParam(["a", "b"])).toBe("community");
-  });
-});
-
-describe("platformHref", () => {
-  it("re-attaches the platform to project and deployment navigation", () => {
-    expect(platformHref("/projects", "somm.finance")).toBe(
-      "/projects?platform=somm.finance",
-    );
-    expect(platformHref("/operate/deployments/new", "somm.finance")).toBe(
-      "/operate/deployments/new?platform=somm.finance",
-    );
-    expect(platformHref("/overview", "somm.finance")).toBe(
-      "/overview?platform=somm.finance",
-    );
-    expect(platformHref("/operate/deployments", "somm.finance")).toBe(
-      "/operate/deployments?platform=somm.finance",
-    );
-    expect(platformHref("/projects/3", "somm.finance")).toBe(
-      "/projects/3?platform=somm.finance",
-    );
-    expect(platformHref("/projects/3?tab=environment", "somm.finance")).toBe(
-      "/projects/3?tab=environment&platform=somm.finance",
-    );
-  });
-
-  it("leaves routes that are not platform-scoped alone", () => {
-    for (const href of [
-      "/settings/general",
-      "/build",
-      "/integrations",
-      "/operate/bots",
-    ]) {
-      expect(platformHref(href, "somm.finance")).toBe(href);
-    }
-  });
-
-  it("replaces an existing scope and never invents one", () => {
-    expect(platformHref("/projects?platform=a", "b")).toBe(
-      "/projects?platform=b",
-    );
-    expect(platformHref("/projects", null)).toBe("/projects");
-    expect(platformHref("/projects", undefined)).toBe("/projects");
-  });
-
-  it("encodes a platform name so it cannot open a second parameter", () => {
-    expect(platformHref("/projects", "a&launch=bound")).toBe(
-      "/projects?platform=a%26launch%3Dbound",
-    );
   });
 });
 

@@ -1,15 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import {
-  deploymentFeed,
-  deploymentSdkStatus,
-  deploymentProjects,
-} from "@/features/deploy/client";
-import {
   buildQueryKeys,
   buildQueryStaleTime,
 } from "@/features/deploy/query-keys";
-import { platformParam } from "@/features/deploy/platform";
 import {
   modelKeysFetch,
   operateAppDetailFetch,
@@ -24,38 +18,6 @@ const OPERATE_ROUTES: Record<string, OperateKind> = {
   "/operate/transactions": "transactions",
   "/operate/usage": "usage",
 };
-
-/**
- * Warm everything a project detail page reads: the server-filtered
- * single-source read it renders from, the SDK status behind the "outdated"
- * badge, and the Home tab's usage peek. Called on sidebar/row hover and again
- * on page mount, so the three reads run in parallel instead of waterfalling
- * behind the source read.
- */
-export function prefetchProjectDetail(
-  queryClient: QueryClient,
-  accountKey: string,
-  projectId: number,
-) {
-  void queryClient.prefetchQuery({
-    queryKey: buildQueryKeys.projectSource(accountKey, projectId),
-    queryFn: () => deploymentProjects(undefined, projectId),
-    staleTime: buildQueryStaleTime.projects,
-    retry: false,
-  });
-  void queryClient.prefetchQuery({
-    queryKey: buildQueryKeys.sdkStatus(),
-    queryFn: () => deploymentSdkStatus().catch(() => null),
-    staleTime: buildQueryStaleTime.sdkStatus,
-    retry: false,
-  });
-  void queryClient.prefetchQuery({
-    queryKey: buildQueryKeys.operate(accountKey, "usage", projectId),
-    queryFn: () => operateFetch("usage", { projectId }),
-    staleTime: buildQueryStaleTime.operate,
-    retry: false,
-  });
-}
 
 /**
  * Warm only the route a user shows intent to open. This keeps the persistent
@@ -76,55 +38,6 @@ export function prefetchControlPlaneRoute(
     void queryClient.prefetchQuery({
       queryKey: buildQueryKeys.applicationDetail(accountKey, applicationId),
       queryFn: () => operateAppDetailFetch(applicationId),
-      staleTime: buildQueryStaleTime.operate,
-      retry: false,
-    });
-    return true;
-  }
-
-  const projectMatch = path.match(/^\/projects\/([1-9]\d*)$/);
-  if (projectMatch) {
-    prefetchProjectDetail(queryClient, accountKey, Number(projectMatch[1]));
-    return true;
-  }
-
-  if (path === "/projects") {
-    const platform = platformParam(searchParams.get("platform") ?? undefined);
-    void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.projects(accountKey, platform),
-      queryFn: () => deploymentProjects(platform),
-      staleTime: buildQueryStaleTime.projects,
-      retry: false,
-    });
-    void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.sdkStatus(),
-      queryFn: () => deploymentSdkStatus().catch(() => null),
-      staleTime: buildQueryStaleTime.sdkStatus,
-      retry: false,
-    });
-    return true;
-  }
-
-  if (path === "/overview" || path === "/operate/deployments") {
-    const platform = platformParam(searchParams.get("platform") ?? undefined);
-    void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.projects(accountKey, platform),
-      queryFn: () => deploymentProjects(platform),
-      staleTime: buildQueryStaleTime.projects,
-      retry: false,
-    });
-    void queryClient.prefetchInfiniteQuery({
-      queryKey: buildQueryKeys.deployments(accountKey, platform),
-      queryFn: ({ pageParam }) =>
-        deploymentFeed({ platform, limit: 50, cursor: pageParam }),
-      initialPageParam: null,
-      staleTime: buildQueryStaleTime.deployments,
-      retry: false,
-    });
-    if (path === "/operate/deployments") return true;
-    void queryClient.prefetchQuery({
-      queryKey: buildQueryKeys.operate(accountKey, "usage"),
-      queryFn: () => operateFetch("usage"),
       staleTime: buildQueryStaleTime.operate,
       retry: false,
     });

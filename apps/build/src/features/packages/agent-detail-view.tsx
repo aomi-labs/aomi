@@ -8,7 +8,15 @@ import { releaseLabel, shortName, type Agent } from "./client";
 import { useAgent, usePublisher } from "./hooks";
 import { agentStatus } from "./inventory-view";
 import { ReleaseHistory } from "./release-history";
-import { Card, Notice, PageHeader, Pill, Row, SourceStrip, formatTime } from "./ui";
+import {
+  Card,
+  Notice,
+  PageHeader,
+  Pill,
+  Row,
+  SourceStrip,
+  formatTime,
+} from "./ui";
 
 type Config = NonNullable<Agent["live"]>["config"];
 
@@ -24,26 +32,43 @@ function StatusNotice({ agent, name }: { agent: Agent; name: string }) {
   if (status === "needs_rebuild")
     return (
       <Notice>
-        Needs a rebuild: this agent was carried over from an app and its packages have no live
-        release yet. Publish the packages and the agent from your repo with{" "}
-        <code className="font-mono">aomi publish --agent {name}</code>, then promote them.
+        Needs a rebuild: this agent was carried over from an app and its
+        packages have no live release yet. Publish the packages and the agent
+        from your repo with{" "}
+        <code className="font-mono">aomi publish --agent {name}</code>, then
+        promote them.
       </Notice>
     );
   if (status === "retired")
-    return <Notice>Retired: this agent no longer answers. Its history is kept.</Notice>;
+    return (
+      <Notice>
+        Retired: this agent no longer answers. Its history is kept.
+      </Notice>
+    );
   if (status === "inactive")
-    return <Notice>Inactive: no one can chat with this agent until it is turned on.</Notice>;
+    return (
+      <Notice>
+        Inactive: no one can chat with this agent until it is turned on.
+      </Notice>
+    );
   if (!agent.live)
     return (
       <Notice>
         No config is live yet. Publish it with{" "}
-        <code className="font-mono">aomi publish --agent {name}</code>, then promote it below.
+        <code className="font-mono">aomi publish --agent {name}</code>, then
+        promote it below.
       </Notice>
     );
   return null;
 }
 
-function ConfigCards({ config, owned }: { config: Config; owned: Set<string> }) {
+function ConfigCards({
+  config,
+  owned,
+}: {
+  config: Config;
+  owned: Set<string>;
+}) {
   const rules = config.wallet_rules;
   return (
     <>
@@ -51,8 +76,12 @@ function ConfigCards({ config, owned }: { config: Config; owned: Set<string> }) 
         <Row label="Name" hint={config.name}>
           <span className="text-foreground">{config.display_name}</span>
         </Row>
-        <div className="text-foreground px-4 py-2.5 text-[13px] whitespace-pre-wrap">
-          {config.voice ?? <span className="text-dim">No voice written: it speaks as Aomi.</span>}
+        <div className="text-foreground whitespace-pre-wrap px-4 py-2.5 text-[13px]">
+          {config.voice ?? (
+            <span className="text-dim">
+              No voice written: it speaks as Aomi.
+            </span>
+          )}
         </div>
       </Card>
       <Card title="Packages" origin="repo">
@@ -62,7 +91,10 @@ function ConfigCards({ config, owned }: { config: Config; owned: Set<string> }) 
           config.packages.map((id) => (
             <Row key={id} label={<span className="font-mono">{id}</span>}>
               {owned.has(id) ? (
-                <Link href={`/packages/${shortName(id)}`} className="text-[12px] font-medium hover:underline">
+                <Link
+                  href={`/packages/${shortName(id)}`}
+                  className="text-[12px] font-medium hover:underline"
+                >
                   View package
                 </Link>
               ) : null}
@@ -75,20 +107,30 @@ function ConfigCards({ config, owned }: { config: Config; owned: Set<string> }) 
           {config.chains.join(", ") || "None"}
         </Row>
         <Row label="Wallet" hint="Where people trade from">
-          {rules.agent ? "A wallet made for this agent" : "The person's own wallets"}
+          {rules.agent
+            ? "A wallet made for this agent"
+            : "The person's own wallets"}
         </Row>
         <Row label="Families">{rules.families.join(", ").toUpperCase()}</Row>
         <Row label="Approval" hint="When the agent must ask">
-          {rules.ask_only || rules.default === "ask" ? "Ask every time" : "Instant by default"}
+          {rules.ask_only || rules.default === "ask"
+            ? "Ask every time"
+            : "Instant by default"}
         </Row>
       </Card>
       <Card title="Reach and cost" origin="repo">
-        <Row label="Audience">{config.audience === "public" ? "Anyone" : "Signed-in people"}</Row>
+        <Row label="Audience">
+          {config.audience === "public" ? "Anyone" : "Signed-in people"}
+        </Row>
         <Row label="Allowed origins">
-          {config.allowed_origins.length ? config.allowed_origins.join(", ") : "Any site"}
+          {config.allowed_origins.length
+            ? config.allowed_origins.join(", ")
+            : "Any site"}
         </Row>
         <Row label="Model cost" hint="Chats are counted per agent">
-          {config.model_cost === "builder" ? "You pay" : "Each person, from their own Aomi balance"}
+          {config.model_cost === "builder"
+            ? "You pay"
+            : "Each person, from their own Aomi balance"}
         </Row>
         <Row label="Telegram groups">
           {config.telegram.group.enabled
@@ -99,8 +141,13 @@ function ConfigCards({ config, owned }: { config: Config; owned: Set<string> }) 
       {config.shortcuts.length ? (
         <Card title="Shortcuts" origin="repo">
           {config.shortcuts.map((shortcut) => (
-            <Row key={shortcut.command} label={<span className="font-mono">/{shortcut.command}</span>}>
-              <span className="text-dim font-mono text-[12px]">{shortcut.tool}</span>
+            <Row
+              key={shortcut.command}
+              label={<span className="font-mono">/{shortcut.command}</span>}
+            >
+              <span className="text-dim font-mono text-[12px]">
+                {shortcut.tool}
+              </span>
             </Row>
           ))}
         </Card>
@@ -127,9 +174,10 @@ export function AgentDetailView({ name }: { name: string }) {
           live ? (
             <>
               <p className="text-dim text-[13px]">
-                {live.config.packages.length} packages · {data.channels.length} channels · config{" "}
-                <span className="font-mono">{releaseLabel(live)}</span> live since{" "}
-                {formatTime(live.created_at)}
+                {live.config.packages.length} packages · {data.channels.length}{" "}
+                channels · config{" "}
+                <span className="font-mono">{releaseLabel(live)}</span> live
+                since {formatTime(live.created_at)}
               </p>
               <SourceStrip repo={live.source_repo} commit={live.commit} />
             </>
@@ -152,7 +200,9 @@ export function AgentDetailView({ name }: { name: string }) {
               label={channel.external_bot_id}
               hint={`${CHANNEL_KIND[channel.kind] ?? channel.kind} · talks to ${data.agent.display_name}`}
             >
-              <Pill tone={channel.live ? "good" : "muted"}>{channel.live ? "Active" : "Off"}</Pill>
+              <Pill tone={channel.live ? "good" : "muted"}>
+                {channel.live ? "Active" : "Off"}
+              </Pill>
             </Row>
           ))
         )}

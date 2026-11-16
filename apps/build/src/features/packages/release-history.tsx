@@ -9,14 +9,30 @@ import { BUTTON, Card, Pill, Row, formatTime } from "./ui";
  * newer one live, Roll back an older one; both send the live number this list
  * read, so a pointer moved elsewhere is refused and said so.
  */
-export function ReleaseHistory({ kind, name }: { kind: ReleaseKind; name: string }) {
+export function ReleaseHistory({
+  kind,
+  name,
+}: {
+  kind: ReleaseKind;
+  name: string;
+}) {
   const { data, error, isPending } = useReleases(kind, name);
   const promote = usePromote(kind, name);
   const [refusal, setRefusal] = useState<string | null>(null);
   const title = kind === "package" ? "Releases" : "Previous configs";
 
-  if (isPending) return <Card title={title}><Row label="Loading…" /></Card>;
-  if (error) return <Card title={title}><Row label={error.message} /></Card>;
+  if (isPending)
+    return (
+      <Card title={title}>
+        <Row label="Loading…" />
+      </Card>
+    );
+  if (error)
+    return (
+      <Card title={title}>
+        <Row label={error.message} />
+      </Card>
+    );
 
   const run = (number: number) => {
     setRefusal(null);
@@ -25,7 +41,9 @@ export function ReleaseHistory({ kind, name }: { kind: ReleaseKind; name: string
       {
         onError: (failure) =>
           setRefusal(
-            failure instanceof LiveChanged ? failure.message : `Not promoted: ${failure.message}`,
+            failure instanceof LiveChanged
+              ? failure.message
+              : `Not promoted: ${failure.message}`,
           ),
       },
     );
@@ -48,7 +66,10 @@ export function ReleaseHistory({ kind, name }: { kind: ReleaseKind; name: string
       }
     >
       {data.releases.length === 0 ? (
-        <Row label="Nothing published yet" hint={`Run aomi publish --${kind} ${name}`} />
+        <Row
+          label="Nothing published yet"
+          hint={`Run aomi publish --${kind} ${name}`}
+        />
       ) : (
         data.releases.map((release) => (
           <Row
@@ -65,7 +86,9 @@ export function ReleaseHistory({ kind, name }: { kind: ReleaseKind; name: string
                 disabled={promote.isPending}
                 onClick={() => run(release.number)}
               >
-                {data.live != null && release.number < data.live ? "Roll back" : "Promote"}
+                {data.live != null && release.number < data.live
+                  ? "Roll back"
+                  : "Promote"}
               </button>
             )}
           </Row>
